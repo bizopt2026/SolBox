@@ -120,11 +120,6 @@ svg text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
 .cp .goal{font-family:var(--f-display);font-weight:800;color:var(--q);font-size:16px}
 .pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px}
 .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.na{background:var(--line);color:var(--muted)}
-.pill.part{background:var(--accent-soft);color:var(--accent)}
-.ws.part .dot{background:var(--accent)}
-.coros{margin-top:12px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;background:var(--card)}
-.coros .cr{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.coros .meta{font-family:var(--f-display);font-variant-numeric:tabular-nums;font-weight:700}
 .runlist{display:flex;flex-direction:column;margin-top:8px}
 .runlist div{display:grid;grid-template-columns:44px 1fr auto;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;align-items:center}
 .runlist .r2{font-family:var(--f-display);font-variant-numeric:tabular-nums}
@@ -235,8 +230,7 @@ var LS="sub3-train-v1";
 var S={days:{},weights:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.coros=o.coros||{};S.corosAt=o.corosAt||0;S.corosFrom=o.corosFrom||"";S.corosOn=!!o.corosOn;S.profile=o.profile||{};S.ts=o.ts||0}
-S.coros=S.coros||{};
+function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -268,69 +262,15 @@ function save(){
     } else if(S.ts){save()}
     setSync("계정에 저장됨");
   }catch(e){setSync("이 기기에 저장")}
-  if(S.corosOn)corosSync(false);
 })();
 
-// ---------- COROS ----------
-var C={busy:false,msg:"",err:""};
-function durSec(s){var a=String(s||"").split(":").map(Number);if(a.some(isNaN))return 0;return a.length===3?a[0]*3600+a[1]*60+a[2]:a.length===2?a[0]*60+a[1]:0}
-function fmtPace(sec,km){if(!km)return"";var p=sec/km,m=Math.floor(p/60),s=Math.round(p%60);if(s===60){m++;s=0}return m+":"+String(s).padStart(2,"0")}
-function localDate(ts){var d=new Date(ts*1000);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function ymd(s){return s.replace(/-/g,"")}
-function payloadText(res){if(!res)return"";if(typeof res.payload==="string")return res.payload;var c=res.content||[];for(var i=0;i<c.length;i++){if(c[i].type==="text")return c[i].text}return typeof res.payload==="object"?JSON.stringify(res.payload):""}
-function parseRuns(txt){
-  var out=[];String(txt).split(/\n(?=\d+\.\s)/).forEach(function(b){
-    var id=(b.match(/LabelId:\s*(\d+)/)||[])[1];if(!id)return;
-    var head=b.match(/^\d+\.\s+(.+?)\s+[—-]\s+(\d{4}-\d{2}-\d{2})/m);
-    var ts=+((b.match(/startTimestamp=(\d+)/)||[])[1]||0);
-    var km=parseFloat((b.match(/Distance:\s*([\d.]+)\s*km/)||[])[1]);
-    var dur=durSec((b.match(/Duration:\s*([\d:]+)/)||[])[1]);
-    var hr=+((b.match(/Avg HR:\s*(\d+)/)||[])[1]||0);
-    var pace=(b.match(/Average Pace:\s*([\d:]+)/)||[])[1]||"";
-    var sport=+((b.match(/SportType:\s*(\d+)/)||[])[1]||100);
-    var date=ts?localDate(ts):(head?head[2]:"");if(!date||isNaN(km))return;
-    out.push({id:id,date:date,ts:ts,km:km,dur:dur,hr:hr||null,pace:pace,name:head?head[1]:"Run",sport:sport});
-  });return out;
-}
-var ERRMSG={server_not_connected:"COROS 커넥터가 연결되어 있지 않아요. Claude 설정 → 커넥터에서 COROS를 연결해 주세요.",needs_reauth:"COROS 연결이 만료됐어요. Claude 설정 → 커넥터에서 COROS를 다시 연결해 주세요.",not_in_manifest:"이 페이지의 COROS 사용이 허용되지 않았어요. 페이지 권한 메뉴에서 COROS를 허용해 주세요.",approval_required:"COROS 불러오기 승인이 필요해요. 버튼을 눌러 다시 시도해 주세요.",selection_required:"COROS 커넥터가 여러 개예요. 사용할 커넥터를 선택해 주세요.",blocked_by_policy:"조직 정책으로 COROS 사용이 막혀 있어요.",server_unavailable:"COROS 서버가 응답하지 않아요. 잠시 후 다시 시도해 주세요."};
-async function corosSync(fromClick){
-  if(C.busy)return;C.busy=true;C.err="";C.msg="코로스에서 불러오는 중…";render();
-  try{
-    var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){C.err="이 화면에서는 COROS 연동을 쓸 수 없어요. claude.ai에 로그인한 상태로 열어 주세요.";return}
-    var from=addDays(T<START?T:START,-14);
-    if(S.corosFrom&&S.corosFrom<=from&&S.corosAt){var last=localDate(Math.floor(S.corosAt/1000));var f2=addDays(last,-3);if(f2>from)from=f2}
-    var res=await mcp.callTool("COROS","querySportRecords",{startDate:ymd(from),endDate:ymd(T),sportTypeCodes:[100,101,102,103],limit:200},{cache:fromClick?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
-    var runs=parseRuns(payloadText(res));
-    runs.forEach(function(r){S.coros[r.id]=r});
-    if(!S.corosFrom||from<S.corosFrom)S.corosFrom=from;
-    S.corosAt=Date.now();S.corosOn=true;
-    C.msg=runs.length?runs.length+"개 러닝을 불러왔어요.":"새 러닝 기록이 없어요.";
-    save();
-  }catch(e){var code=e&&e.code;C.err=ERRMSG[code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));C.msg=""}
-  finally{C.busy=false;render()}
-}
-
-var BY={};
-function indexRuns(){BY={};for(var k in S.coros){var r=S.coros[k];(BY[r.date]=BY[r.date]||[]).push(r)}for(var d in BY)BY[d].sort(function(a,b){return a.ts-b.ts})}
-function auto(ds,t){
-  var rs=BY[ds]||[];
-  if(!rs.length){if(S.corosAt&&ds<T&&S.corosFrom&&ds>=S.corosFrom&&t[0]!=="r")return{st:"miss",runs:[]};return null}
-  var km=0,dur=0,hw=0,hd=0;rs.forEach(function(r){km+=r.km;dur+=r.dur;if(r.hr){hw+=r.hr*r.dur;hd+=r.dur}});
-  km=Math.round(km*100)/100;var hr=hd?Math.round(hw/hd):null;
-  var lim=t[0]==="e"?HR(140):t[0]==="c"?HR(130):null;
-  var st=t[0]==="r"?"extra":(t[2]&&km/t[2]>=0.8?"ok":"part");
-  return{st:st,runs:rs,km:km,dur:dur,hr:hr,pace:fmtPace(dur,km),ratio:t[2]?Math.round(km/t[2]*100):null,hrOver:!!(lim&&hr&&hr>=lim),lim:lim};
-}
-function isDone(ds,t){var r=dayRec(ds);if(r.done!==undefined)return !!r.done;var a=auto(ds,t);return !!(a&&a.st==="ok")}
-var STL={ok:["계획 이행","ok"],part:["부분 이행","part"],miss:["기록 없음","bad"],extra:["휴식일 러닝","na"]};
-function autoLine(a){if(!a||!a.runs.length)return"";return a.km+"km · "+a.pace+"/km"+(a.hr?" · ♥"+a.hr:"")+(a.runs.length>1?" · "+a.runs.length+"회":"")}
+function isDone(ds){return !!dayRec(ds).done}
 
 // ---------- Helpers ----------
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function dayRec(ds){return S.days[ds]||{}}
-function weekStats(w){var done=0,km=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds),a=auto(ds,t),dn=isDone(ds,t);if(t[0]!=="r"){n++;if(dn)done++}
-  if(r.km!=null&&r.km!==""&&!isNaN(+r.km))km+=+r.km;else if(a&&a.km)km+=a.km;else if(dn)km+=t[2]}return{done:done,n:n,km:Math.round(km*10)/10}}
+function weekStats(w){var done=0,km=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds),dn=isDone(ds);if(t[0]!=="r"){n++;if(dn)done++}
+  if(dn)km+=(r.km!=null&&r.km!==""&&!isNaN(+r.km))?+r.km:t[2]}return{done:done,n:n,km:Math.round(km*10)/10}}
 function phColor(w){return "var("+PH[W[w].ph][1]+")"}
 function parseTime(s){if(!s)return null;var a=String(s).trim().split(":").map(Number);if(a.some(isNaN))return null;if(a.length===2)return a[0]*60+a[1];if(a.length===3)return a[0]*3600+a[1]*60+a[2];return null}
 function cLim(c){return c.kind==="time"?Math.round(c.lim*K):HR(c.lim)}
@@ -349,88 +289,62 @@ document.getElementById("dday").textContent=dd>0?"D-"+dd:(dd===0?"D-DAY":"완주
 var view=document.getElementById("view");
 function render(){
   document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===tab?"true":"false")});
-  indexRuns();
   refreshEngine();
   if(tab==="today")vToday(); else if(tab==="plan")vPlan(); else if(tab==="pace")vPace(); else if(tab==="log")vLog(); else vGuide();
 }
 
-function ago(t){var m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";var h=Math.round(m/60);if(h<24)return h+"시간 전";return Math.round(h/24)+"일 전"}
-function corosBar(){
-  var sub=C.err?'<span style="color:var(--bad)">'+esc(C.err)+'</span>':(C.busy||C.msg?esc(C.msg):(S.corosAt?'마지막 동기화 '+ago(S.corosAt)+' · 열 때마다 자동으로 불러와요':'러닝 기록을 불러와 계획 이행 여부를 자동으로 체크해요'));
-  return '<div class="card sbar"><div style="min-width:0"><b>COROS 연동</b><div class="small muted">'+sub+'</div></div><button class="btn" id="coros-sync"'+(C.busy?' disabled':'')+'>'+(C.busy?'불러오는 중':(S.corosAt?'새로고침':'불러오기'))+'</button></div>';
-}
-function recentRuns(){
-  var all=Object.keys(S.coros).map(function(k){return S.coros[k]}).sort(function(a,b){return b.ts-a.ts}).slice(0,6);
-  if(!all.length)return"";
-  var h='<div class="card"><div class="row between"><h2>코로스 최근 러닝</h2><span class="small muted">'+Object.keys(S.coros).length+'개 저장됨</span></div><div class="runlist">';
-  all.forEach(function(r){var i=idxOf(r.date),inPlan=i>=0&&i<TOTAL,tag=inPlan?'W'+(Math.floor(i/7)+1)+' '+DOW[i%7]:'계획 전';
-    h+='<div><span class="num muted">'+md(r.date)+'</span><span class="r2"><b>'+r.km+'km</b> · '+esc(r.pace||fmtPace(r.dur,r.km))+'/km'+(r.hr?' · ♥'+r.hr:'')+'</span><span class="small muted">'+tag+'</span></div>'});
-  return h+'</div></div>';
-}
-function bindCoros(){var b=document.getElementById("coros-sync");if(b)b.onclick=function(){corosSync(true)}}
 
 function vToday(){
   var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=W[w].d[d], r=dayRec(sel);
   var tIdx=idxOf(T), before=tIdx<0;
   var st=weekStats(w), pct=Math.min(100,Math.round(st.km/W[w].km*100));
   var food=FOOD[FOOD_BY_DOW[d]];
-  var a=auto(sel,t), dn=isDone(sel,t);
-  var h=corosBar();
+  var dn=isDone(sel);
+  var h="";
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/30 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">W'+(w+1)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]))+'</div>';
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){h+='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>'+(K!==1||HRK?'<div class="small muted" style="margin-top:6px">내 페이스 기준으로 바꿔 보여 주고 있어요.</div>':'')}
   if(t[0]==="r"){h+='<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
-  if(a){var L=STL[a.st];
-    h+='<div class="coros"><div class="cr"><span class="eyebrow">COROS 자동 판정</span><span class="pill '+L[1]+'">'+L[0]+(a.st==="part"&&a.ratio!=null?' '+a.ratio+'%':'')+'</span></div>';
-    if(a.runs.length){h+='<div class="meta" style="margin-top:4px">'+esc(autoLine(a))+'</div>';
-      if(t[2]&&t[0]!=="r")h+='<div class="small muted">계획 '+t[2]+'km 대비 '+a.ratio+'% · 80% 이상이면 이행</div>';
-      if(a.hrOver)h+='<div class="small" style="color:var(--bad);margin-top:2px">평균 심박 '+a.hr+' · 이 날은 '+a.lim+' 미만이 기준이에요. 다음엔 페이스를 늦추세요.</div>'}
-    else h+='<div class="small muted" style="margin-top:4px">이 날짜에 코로스 러닝 기록이 없어요.</div>';
-    h+='</div>'}
-  h+='<button class="done-btn'+(dn?' on':'')+'" id="done">'+(dn?'✓ 완료했어요'+(r.done===undefined&&a&&a.st==="ok"?' (코로스)':''):(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크'))+'</button>';
+  h+='<button class="done-btn'+(dn?' on':'')+'" id="done">'+(dn?'✓ 완료했어요':(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크'))+'</button>';
   if(t[0]!=="r"){
-    h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(a&&a.km?a.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(a&&a.hr?a.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="'+(a&&a.pace?a.pace+'/km':'예: 52:10 · 5:12/km')+'" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
+    h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+t[2]+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="bpm" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
   }
   h+='</div>';
   // week strip
   h+='<div class="card"><div class="row between"><h2>W'+(w+1)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+W[w].km+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
-  for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=W[w].d[k],ak=auto(ds,tk),past=ds<T;
-    var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds,tk)?" done":(ak&&ak.st==="part"?" part":(past&&tk[0]!=="r"?" miss":"")));
+  for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=W[w].d[k],past=ds<T;
+    var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
     h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2])+'</b><div class="dot"></div></button>'}
-  h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · 숫자는 계획 거리(km) · 주황 점은 부분 이행</div></div>';
-  h+=recentRuns();
+  h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · 숫자는 계획 거리(km) · 빨간 점은 놓친 날</div></div>';
   // food
   h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+food.carb+'</dd><dt>총 열량</dt><dd class="num">'+food.kcal+' kcal</dd><dt>단백질</dt><dd>120~140g (끼니마다 30g)</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
-  document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel,t);S.days[sel]=r;save();render()};
-  bindCoros();
+  document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);S.days[sel]=r;save();render()};
   view.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){sel=b.dataset.go;render()}});
   ["km","hr","pace","rpe","note"].forEach(function(k){var el=document.getElementById("f-"+k);if(!el)return;el.addEventListener("input",function(){var r=S.days[sel]||{};r[k]=el.value;S.days[sel]=r;save()})});
 }
 
 function vPlan(){
   var tot=0,dn=0,km=0;for(var w=0;w<16;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
-  var h=corosBar()+'<div class="card"><div class="row between"><h2>16주 전체 진행</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 1,119 km</div></div>';
+  var h='<div class="card"><div class="row between"><h2>16주 전체 진행</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 1,119 km</div></div>';
   for(var w=0;w<16;w++){
     var s=weekStats(w),cur=Math.floor(idxOf(T)/7)===w;
     h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">W'+(w+1)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">/'+W[w].km+'K</span></b></span></summary>';
     if(openWeeks[w]){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds);
-      var a=auto(ds,t),dn=isDone(ds,t);
+      var dn=isDone(ds);
       var extra=[];if(r.km)extra.push(r.km+"km");if(r.hr)extra.push("♥"+r.hr);if(r.pace)extra.push(r.pace);
       var act=extra.length?esc(extra.join(" · ")):"";
-      var ab=a?' <span class="pill '+STL[a.st][1]+'">'+STL[a.st][0]+(a.st==="part"&&a.ratio!=null?' '+a.ratio+'%':'')+'</span>'+(a.runs.length?' <span class="num">COROS '+esc(autoLine(a))+'</span>':''):'';
-      if(a&&a.hrOver)ab+=' <span style="color:var(--bad)">심박 초과</span>';
+      var ab='';
       h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료">✓</button></div>'}}
     h+='</details>';
   }
   h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(10·11·13주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
-  view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds,W[Math.floor(i/7)].d[i%7]);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
-  bindCoros();
+  view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){sel=b.dataset.open;tab="today";render();window.scrollTo(0,0)}});
 }
 
@@ -523,23 +437,6 @@ function zonesFor(t){
   if(/LSD/.test(s))add("lsd");if(/조깅/.test(s)&&t[0]!=="q")add("rec");if(/CD/.test(s))add("cd");
   return z.map(function(k){return ZONES.filter(function(x){return x.k===k})[0]});
 }
-var FIT={msg:"",err:"",busy:false};
-async function corosFitness(){
-  if(FIT.busy)return;FIT.busy=true;FIT.err="";FIT.msg="코로스에서 가져오는 중…";render();
-  try{
-    var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){FIT.err="이 화면에서는 COROS 연동을 쓸 수 없어요.";return}
-    var res=await mcp.callTool("COROS","queryFitnessAssessmentOverview",{},{cache:{refresh:true,staleTime:0,gcTime:600000}});
-    var txt=payloadText(res);
-    function g(re){var m=txt.match(re);return m?m[1]:""}
-    var thr=g(/Threshold Pace:\s*(\d+:\d{2})/);
-    var fit={vo2:g(/VO2max:\s*([\d.]+)/),k5:g(/5 km Prediction:\s*([\d:]+)/),k10:g(/10 km Prediction:\s*([\d:]+)/),half:g(/Half Marathon Prediction:\s*([\d:]+)/),mar:g(/(?:^|\n)Marathon Prediction:\s*([\d:]+)/),at:Date.now()};
-    S.profile=S.profile||{};S.profile.coros=fit;
-    if(thr){S.profile.thr=thr;FIT.msg="역치 페이스 "+thr+"/km를 가져왔어요."}else FIT.msg="코로스에 역치 페이스 값이 없어요.";
-    save();
-  }catch(e){FIT.err=ERRMSG[e&&e.code]||("가져오지 못했어요"+(e&&e.message?": "+e.message:"."));FIT.msg=""}
-  finally{FIT.busy=false;render()}
-}
 function nextKeySessions(){
   var from=Math.max(0,idxOf(T)),out=[];
   for(var i=from;i<TOTAL&&out.length<3;i++){var t=W[Math.floor(i/7)].d[i%7];if(t[0]==="q"||t[0]==="l"||t[0]==="x")out.push([dateOf(Math.floor(i/7),i%7),t,Math.floor(i/7)])}
@@ -549,7 +446,6 @@ function vPace(){
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
   var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 16주 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
   h+='<div class="fields" style="margin-top:0"><label>역치 심박 (bpm)<input id="p-lthr" inputmode="numeric" placeholder="예: 168" value="'+esc(p.lthr)+'"></label><label>역치 페이스 (/km)<input id="p-thr" placeholder="예: 4:02" value="'+esc(p.thr)+'"></label></div>';
-  h+='<div class="sbar" style="margin-top:8px"><span class="small muted" style="min-width:0">'+(FIT.err?'<span style="color:var(--bad)">'+esc(FIT.err)+'</span>':esc(FIT.msg||"코로스 체력 평가의 역치 페이스를 불러올 수 있어요."))+'</span><button class="btn ghost" id="p-coros"'+(FIT.busy?' disabled':'')+'>코로스에서 가져오기</button></div>';
   h+='<div style="margin-top:14px"><div class="small muted" style="margin-bottom:6px">최근 기록</div><div class="seg" role="radiogroup">'+Object.keys(DIST).map(function(k){return '<button role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</div>';
   h+='<div class="fields"><label>기록<input id="p-rec" placeholder="'+(rd==="21"?"예: 1:26:30":rd==="5"?"예: 19:30":"예: 40:10")+'" value="'+esc(p.recTime)+'"></label><label>측정일<input id="p-recdate" type="date" value="'+esc(p.recDate)+'"></label></div></div>';
   h+='<label class="tog"><input type="checkbox" id="p-use"'+(p.use!==false?' checked':'')+'><span>훈련표·가이드에 내 페이스 적용</span></label></div>';
@@ -570,7 +466,6 @@ function vPace(){
   } else {
     h+='<div class="card"><h2>분석 결과</h2><p class="small muted" style="margin:6px 0 0">역치 페이스나 최근 5K·10K·하프 기록 중 하나만 넣어도 페이스를 계산해요. 지금은 원본 서브3 페이스(MP 4:15/km)를 보여 주고 있어요.</p></div>';
   }
-  if(p.coros&&p.coros.at){var c=p.coros;h+='<div class="card"><div class="row between"><h2>코로스 체력 평가</h2><span class="small muted">'+ago(c.at)+'</span></div><dl class="kv" style="margin-top:8px">'+(c.vo2?'<dt>VO2max</dt><dd class="num">'+esc(c.vo2)+'</dd>':'')+(c.k5?'<dt>5K 예측</dt><dd class="num">'+esc(c.k5)+'</dd>':'')+(c.k10?'<dt>10K 예측</dt><dd class="num">'+esc(c.k10)+'</dd>':'')+(c.half?'<dt>하프 예측</dt><dd class="num">'+esc(c.half)+'</dd>':'')+(c.mar?'<dt>마라톤 예측</dt><dd class="num">'+esc(c.mar)+'</dd>':'')+'</dl><p class="small muted" style="margin:8px 0 0">예측값은 참고용이에요. 실제로 뛴 기록을 "최근 기록"에 넣는 게 더 정확해요.</p></div>'}
   // zones
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+(K!==1?'<small class="muted" style="color:var(--muted)">원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi))+'</small>':'')+'</span></div>'}).join("")+'</div>';
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
@@ -584,7 +479,6 @@ function vPace(){
   [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
   document.getElementById("p-use").onchange=function(){setP("use",this.checked)};
   view.querySelectorAll("[data-rd]").forEach(function(b){b.onclick=function(){setP("recDist",b.dataset.rd)}});
-  document.getElementById("p-coros").onclick=corosFitness;
 }
 
 function vGuide(){
