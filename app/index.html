@@ -153,7 +153,12 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .mem:first-child{border-top:0}
 .mem>button{all:unset;cursor:pointer;display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;width:100%}
 .mem>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
-.av{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--line)}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;background:var(--rec)}
+.av.lg{width:48px;height:48px;font-size:20px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatches button{width:34px;height:34px;border-radius:50%;border:3px solid transparent;outline:2px solid transparent}
+.swatches button[aria-checked="true"]{border-color:var(--card);outline-color:var(--ink)}
+.prof{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center}
 .mname{font-weight:700;display:flex;gap:6px;align-items:center;min-width:0}
 .mname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dots{display:flex;gap:4px;margin-top:4px}
@@ -267,7 +272,7 @@ var LS="sub3-train-v1";
 var S={days:{},weights:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -322,7 +327,7 @@ var CREW={db:null,user:null,me:null,members:{},social:{},mine:null,status:"loadi
 function myS(){if(!CREW.mine)CREW.mine={likes:{},cmts:[]};CREW.mine.likes=CREW.mine.likes||{};CREW.mine.cmts=CREW.mine.cmts||[];return CREW.mine}
 function writeSocial(){
   if(!CREW.db||!CREW.me)return;if(CREW.busy){CREW.again=true;return}
-  CREW.busy=true;var body=JSON.parse(JSON.stringify(myS()));
+  CREW.busy=true;var body=JSON.parse(JSON.stringify(myS()));body.nick=S.nick||"";body.color=S.color||0;
   CREW.db.doc("social/"+CREW.me).set(body).catch(function(){}).then(function(){CREW.busy=false;if(CREW.again){CREW.again=false;writeSocial()}});
 }
 function likesOf(k){var n=0;for(var u in CREW.social){var l=CREW.social[u].likes;if(l&&l[k])n++}if(CREW.mine){var mine=!!myS().likes[k],srv=!!(CREW.social[CREW.me]&&CREW.social[CREW.me].likes&&CREW.social[CREW.me].likes[k]);n+=(mine?1:0)-(srv?1:0)}return n}
@@ -330,12 +335,16 @@ function cmtsOf(k){var out=[];for(var u in CREW.social){if(u===CREW.me)continue;
 function inbox(){var l=0,c=0,pre=CREW.me+"_";for(var u in CREW.social){if(u===CREW.me)continue;var so=CREW.social[u];for(var k in (so.likes||{}))if(k.indexOf(pre)===0)l++;(so.cmts||[]).forEach(function(x){if(x.k.indexOf(pre)===0)c++})}return{l:l,c:c}}
 var HEART='<svg class="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
 var BUBBLE='<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+var AVC=["#e8590c","#2563eb","#15803d","#7c3aed","#db2777","#0e7490"];
+function nickOf(u){var m=CREW.members[u],so=CREW.social[u];if(u===CREW.me&&S.nick)return S.nick;return (m&&m.nick)||(so&&so.nick)||"러너"}
+function colorOf(u){var m=CREW.members[u],so=CREW.social[u],c=u===CREW.me?S.color:(m&&m.color!=null?m.color:so&&so.color);return AVC[(+c||0)%AVC.length]}
+function avatar(u,lg){var n=nickOf(u);return '<span class="av'+(lg?' lg':'')+'" style="background:'+colorOf(u)+'" aria-hidden="true">'+esc(Array.from(n)[0]||"?")+'</span>'}
 function keep(){var y=window.scrollY;render();window.scrollTo(0,y)}
-function summary(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);d[k]=isNaN(km)?0:Math.round(km*10)/10}}return{d:d,goal:K!==1?fmtT(REF_GOAL*K):""}}
+function summary(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);d[k]=isNaN(km)?0:Math.round(km*10)/10}}return{d:d,goal:K!==1?fmtT(REF_GOAL*K):"",nick:S.nick,color:S.color||0,bio:S.bio||""}}
 function pushShare(force){
   if(!CREW.db||!CREW.me)return;
   var ref=CREW.db.doc("members/"+CREW.me);
-  if(S.share===false){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
+  if(S.share===false||!S.nick){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
   var sm=summary(),key=JSON.stringify(sm);if(!force&&key===CREW.last)return;CREW.last=key;
   sm.upd=Date.now();ref.set(sm).catch(function(){CREW.last=""});
 }
@@ -570,7 +579,7 @@ function memStats(m,w){
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(15,Math.floor(idxOf(T)/7)));
   var w=CREW.wk,h='<div class="card"><div class="row between"><h2>크루 훈련 현황</h2><span class="small muted">'+(CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
-  h+='<label class="tog"><input type="checkbox" id="share-tog"'+(S.share!==false?' checked':'')+'><span>내 훈련 현황 공유</span></label><p class="small muted" style="margin:6px 0 0">완료한 날짜와 거리만 공유돼요. 메모·심박·체중은 공유되지 않아요.</p></div>';
+  h+='</div>'+profCard();
   if(!CREW.db){
     h+='<div class="card"><p class="small muted" style="margin:0">claude.ai에 로그인한 상태로 이 링크를 열어야 크루 현황을 보고 공유할 수 있어요.</p></div>';
     view.innerHTML=h;bindShare();return;
@@ -585,19 +594,19 @@ function vCrew(){
     h+='<div class="feed">';
     if(!posts.length)h+='<div class="card"><p class="small muted" style="margin:0">아직 완료한 훈련이 없어요. 훈련을 체크하면 크루 피드에 올라가고, 서로 좋아요와 댓글로 응원할 수 있어요.</p></div>';
     posts.forEach(function(x){var k=x.id+"_"+ymd(x.ds),liked=!!myS().likes[k],n=likesOf(k),cs=cmtsOf(k),op=CREW.cOpen===k;
-      h+='<article class="post"><div class="ph"><img class="av" data-av="'+esc(x.id)+'" alt=""><div style="min-width:0"><div class="mname"><span data-nm="'+esc(x.id)+'">러너</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">W'+(x.w+1)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+' 훈련 완료</div></div><div class="pkm">'+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
+      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">W'+(x.w+1)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+' 훈련 완료</div></div><div class="pkm">'+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
       h+='<div class="pb">'+esc(x.t[1].split("\n").slice(0,3).join(" · "))+'</div>';
       h+='<div class="acts"><button class="'+(liked?'on':'')+'" data-like="'+esc(k)+'" aria-pressed="'+liked+'">'+HEART+'좋아요'+(n?' '+n:'')+'</button><button data-cmt="'+esc(k)+'" aria-expanded="'+op+'">'+BUBBLE+'댓글'+(cs.length?' '+cs.length:'')+'</button></div>';
-      if(op||cs.length){h+='<div class="cmts">'+cs.slice(op?0:-2).map(function(c){return '<div class="cm"><b data-nm="'+esc(c.u)+'">러너</b><span>'+esc(c.t)+'</span>'+(c.u===CREW.me?'<button data-del-c="'+c.at+'" aria-label="댓글 삭제">삭제</button>':'')+'</div>'}).join("");
+      if(op||cs.length){h+='<div class="cmts">'+cs.slice(op?0:-2).map(function(c){return '<div class="cm"><b>'+esc(nickOf(c.u))+'</b><span>'+esc(c.t)+'</span>'+(c.u===CREW.me?'<button data-del-c="'+c.at+'" aria-label="댓글 삭제">삭제</button>':'')+'</div>'}).join("");
         if(!op&&cs.length>2)h+='<button class="small muted" data-cmt="'+esc(k)+'" style="border:0;background:none;text-align:left;padding:0">댓글 '+cs.length+'개 모두 보기</button>';
         if(op)h+='<form class="cform" data-cf="'+esc(k)+'"><input class="inp" id="cin-'+esc(k)+'" maxlength="140" placeholder="응원 한마디" aria-label="댓글"><button class="btn" type="submit">등록</button></form>';
         h+='</div>'}
       h+='</article>'});
     h+='</div>';
     view.innerHTML=h;bindShare();bindCrewCommon(ids);
-    view.querySelectorAll("[data-like]").forEach(function(b){b.onclick=function(){var k=b.dataset.like,L=myS().likes;if(L[k])delete L[k];else L[k]=Date.now();writeSocial();keep()}});
+    view.querySelectorAll("[data-like]").forEach(function(b){b.onclick=function(){if(!S.nick){CREW.needNick=true;keep();window.scrollTo(0,0);return}var k=b.dataset.like,L=myS().likes;if(L[k])delete L[k];else L[k]=Date.now();writeSocial();keep()}});
     view.querySelectorAll("[data-cmt]").forEach(function(b){b.onclick=function(){CREW.cOpen=CREW.cOpen===b.dataset.cmt?null:b.dataset.cmt;keep();var el=document.getElementById("cin-"+CREW.cOpen);if(el)el.focus()}});
-    view.querySelectorAll("[data-cf]").forEach(function(f){f.onsubmit=function(e){e.preventDefault();var inp=f.querySelector("input"),t=inp.value.trim().slice(0,140);if(!t)return;var M=myS();M.cmts.push({k:f.dataset.cf,t:t,at:Date.now()});if(M.cmts.length>300)M.cmts=M.cmts.slice(-300);writeSocial();keep()}});
+    view.querySelectorAll("[data-cf]").forEach(function(f){f.onsubmit=function(e){e.preventDefault();if(!S.nick){CREW.needNick=true;keep();window.scrollTo(0,0);return}var inp=f.querySelector("input"),t=inp.value.trim().slice(0,140);if(!t)return;var M=myS();M.cmts.push({k:f.dataset.cf,t:t,at:Date.now()});if(M.cmts.length>300)M.cmts=M.cmts.slice(-300);writeSocial();keep()}});
     view.querySelectorAll("[data-del-c]").forEach(function(b){b.onclick=function(){var at=+b.dataset.delC,M=myS();M.cmts=M.cmts.filter(function(c){return c.at!==at});writeSocial();keep()}});
     return;
   }
@@ -607,7 +616,7 @@ function vCrew(){
   var rows=ids.map(function(id){return{id:id,m:CREW.members[id],s:memStats(CREW.members[id],w)}});
   rows.sort(function(a,b){return (b.s.done-a.s.done)||(b.s.km-a.s.km)||((b.s.rate||0)-(a.s.rate||0))});
   rows.forEach(function(r){var me=r.id===CREW.me,open=CREW.open===r.id;
-    h+='<div class="mem"><button data-mem="'+esc(r.id)+'" aria-expanded="'+open+'"><img class="av" data-av="'+esc(r.id)+'" alt=""><div style="min-width:0"><div class="mname"><span data-nm="'+esc(r.id)+'">러너</span>'+(me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="dots">'+r.s.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")+'</div><div class="small muted">'+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'누적 이행 '+(r.s.rate==null?'-':r.s.rate+'%')+'</div></div><div class="mstat"><b>'+r.s.done+'/'+r.s.n+'</b>'+r.s.km+'/'+W[w].km+'km</div></button>';
+    h+='<div class="mem"><button data-mem="'+esc(r.id)+'" aria-expanded="'+open+'">'+avatar(r.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.id))+'</span>'+(me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="dots">'+r.s.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")+'</div><div class="small muted">'+(r.m.bio?esc(r.m.bio)+' · ':'')+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'누적 이행 '+(r.s.rate==null?'-':r.s.rate+'%')+'</div></div><div class="mstat"><b>'+r.s.done+'/'+r.s.n+'</b>'+r.s.km+'/'+W[w].km+'km</div></button>';
     if(open){h+='<div class="grid16"><span></span>'+DOW.map(function(x){return '<span style="text-align:center">'+x+'</span>'}).join("");
       for(var wi=0;wi<16;wi++){var st=memStats(r.m,wi);h+='<span class="num">W'+(wi+1)+'</span>'+st.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")}
       var all=memStats(r.m,0);h+='</div><div class="small muted" style="margin-top:8px">지금까지 '+all.dn+'/'+all.tot+'회 완료'+(r.m.upd?' · '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' 업데이트':'')+'</div>'}
@@ -620,13 +629,35 @@ function vCrew(){
 }
 function bindCrewCommon(ids){
   view.querySelectorAll("[data-cv]").forEach(function(b){b.onclick=function(){CREW.view=b.dataset.cv;keep()}});
-  var all={};ids.forEach(function(i){all[i]=1});view.querySelectorAll("[data-nm]").forEach(function(el){all[el.dataset.nm]=1});ids=Object.keys(all);
-  if(ids.length&&CREW.user)CREW.user.profiles(ids).then(function(ps){
-    view.querySelectorAll("[data-nm]").forEach(function(el){var p=ps[el.dataset.nm];el.textContent=(p&&p.name)||(el.dataset.nm===CREW.me?"나":"러너")});
-    view.querySelectorAll("[data-av]").forEach(function(el){var p=ps[el.dataset.av];if(p&&p.avatarUrl)el.src=p.avatarUrl});
-  });
 }
-function bindShare(){var t=document.getElementById("share-tog");if(t)t.onchange=function(){S.share=t.checked;save();pushShare(true);keep()}}
+function profCard(){
+  var editing=!S.nick||CREW.editP,h='<div class="card" id="prof">';
+  if(!editing){
+    h+='<div class="prof">'+avatar(CREW.me||"me",true)+'<div style="min-width:0"><b>'+esc(S.nick)+'</b><div class="small muted">'+(S.bio?esc(S.bio):'한마디를 남겨 보세요')+'</div></div><button class="btn ghost" id="p-edit">수정</button></div>';
+    h+='<label class="tog"><input type="checkbox" id="share-tog"'+(S.share!==false?' checked':'')+'><span>내 훈련 현황 공유</span></label><p class="small muted" style="margin:6px 0 0">닉네임과 완료한 날짜·거리만 공유돼요. claude.ai 이름·사진, 메모·심박·체중은 공유되지 않아요.</p></div>';
+    return h;
+  }
+  var dup=false,nn=(CREW.draft&&CREW.draft.nick!=null?CREW.draft.nick:S.nick);for(var u in CREW.members){if(u!==CREW.me&&CREW.members[u].nick&&nn&&CREW.members[u].nick.trim()===nn.trim())dup=true}
+  var col=CREW.draft&&CREW.draft.color!=null?CREW.draft.color:(S.color||0);
+  h+='<h2>'+(S.nick?'프로필 수정':'크루 프로필 만들기')+'</h2><p class="small muted" style="margin:2px 0 12px">크루에는 claude.ai 이름 대신 이 닉네임으로 보여요.'+(S.nick?'':' 닉네임을 정하면 내 훈련 현황이 크루에 공유돼요.')+'</p>';
+  if(CREW.needNick)h+='<div class="warn" style="margin-bottom:10px">좋아요와 댓글을 남기려면 먼저 닉네임을 정해 주세요.</div>';
+  h+='<form id="pf" style="display:flex;flex-direction:column;gap:12px"><div class="fields" style="margin:0"><label class="full">닉네임 (최대 12자)<input id="pf-nick" maxlength="12" placeholder="예: 하남 서브3" value="'+esc(nn)+'" required></label><label class="full">한마디 (선택, 최대 30자)<input id="pf-bio" maxlength="30" placeholder="예: 3월 동아 서브3 도전" value="'+esc(CREW.draft&&CREW.draft.bio!=null?CREW.draft.bio:S.bio)+'"></label></div>';
+  if(dup)h+='<div class="small" style="color:var(--bad)">같은 닉네임을 쓰는 크루가 있어요. 구분되게 바꾸는 걸 추천해요.</div>';
+  h+='<div><div class="small muted" style="margin-bottom:6px">프로필 색</div><div class="swatches" role="radiogroup" aria-label="프로필 색">'+AVC.map(function(c,i){return '<button type="button" role="radio" aria-checked="'+(col===i)+'" aria-label="색 '+(i+1)+'" data-col="'+i+'" style="background:'+c+'"></button>'}).join("")+'</div></div>';
+  h+='<div class="row"><button class="btn" type="submit">저장</button>'+(S.nick?'<button class="btn ghost" type="button" id="pf-cancel">취소</button>':'')+'</div></form>';
+  return h+'</div>';
+}
+function bindShare(){
+  var t=document.getElementById("share-tog");if(t)t.onchange=function(){S.share=t.checked;save();pushShare(true);keep()};
+  var e=document.getElementById("p-edit");if(e)e.onclick=function(){CREW.editP=true;CREW.draft={};keep()};
+  var c=document.getElementById("pf-cancel");if(c)c.onclick=function(){CREW.editP=false;CREW.draft=null;keep()};
+  var f=document.getElementById("pf");if(!f)return;
+  function draft(){CREW.draft=CREW.draft||{};CREW.draft.nick=document.getElementById("pf-nick").value;CREW.draft.bio=document.getElementById("pf-bio").value}
+  f.querySelectorAll("[data-col]").forEach(function(b){b.onclick=function(){draft();CREW.draft.color=+b.dataset.col;keep()}});
+  f.onsubmit=function(ev){ev.preventDefault();draft();var n=CREW.draft.nick.trim().slice(0,12);if(!n){document.getElementById("pf-nick").focus();return}
+    S.nick=n;S.bio=CREW.draft.bio.trim().slice(0,30);if(CREW.draft.color!=null)S.color=CREW.draft.color;
+    CREW.editP=false;CREW.draft=null;CREW.needNick=false;save();pushShare(true);writeSocial();keep()};
+}
 
 function vGuide(){
   var h='<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "내 페이스" 탭에서 바꿀 수 있어요.</p></div>';
