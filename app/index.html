@@ -436,7 +436,7 @@ function weekKm(w){var s=0;for(var d=0;d<7;d++)s+=planDay(w,d)[2];return Math.ro
 function planEdited(){var P=plan();return P.swaps.length+(P.vol!==100?1:0)+Object.keys(P.days).length}
 function pushHist(){var P=plan();P.hist.push(JSON.stringify({swaps:P.swaps,vol:P.vol,days:P.days}));if(P.hist.length>8)P.hist.shift()}
 // ---------- Weight log helpers ----------
-function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,min:mn,max:mx,n:a.length}}
+function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,m:sum/a.length,min:mn,max:mx,n:a.length}}
 function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
 function addWeight(ms,kg,src){var ds=localDate(Math.floor(ms/1000));(S.wlog[ds]=S.wlog[ds]||[]).push({t:ms,kg:Math.round(kg*10)/10,src:src});S.wlog[ds].sort(function(a,b){return a.t-b.t})}
 // cumulative share of planned loss by date (from the plan doc: hold until 11/29, 72% by 1/24, 94% by 2/28, 100% by 3/21)
@@ -524,11 +524,14 @@ function watchBar(){
   if(S.watch==="file")return '<div class="card sbar"><div style="min-width:0"><b>⌚ 워치 파일 가져오기</b><div class="small muted">'+(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 다음 알림 일요일 21:00':'매주 일요일 21:00에 올리기 알림을 드려요')+'</div></div><button class="btn ghost" data-goto="log">파일 올리기</button></div>';
   return '<div class="card sbar"><div style="min-width:0"><b>⌚ '+WATCHES[S.watch].name+' 연동</b><div class="small muted">'+watchStatus()+'</div></div><button class="btn ghost" data-wsync'+(WS.busy?' disabled':'')+'>'+(WS.busy?'불러오는 중':'새로고침')+'</button></div>';
 }
+var WXOPEN=null;
 function watchCard(){
   var n=Object.keys(S.runs).length,autoN=0;for(var d in S.days)if(S.days[d].auto&&S.days[d].done)autoN++;
-  var h='<div class="card" id="watch"><div class="row between"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</div>';
-  h+='<div class="small muted" style="margin:4px 0 10px">사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.</div>';
+  var open=WXOPEN==null?!S.watch:WXOPEN;
+  var h='<div class="card" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+(open?'접기 －':'펼치기 ＋')+'</span></button>';
+  h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">가민·애플워치 등</button></div>';
+  if(!open)return h+'</div>';
   if(S.watch==="coros"){
     h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li><li><span><b>체중</b>도 함께 가져와요. COROS 앱에 체중을 입력하거나 체중계가 동기화해 프로필 체중이 바뀌면, 앱을 열 때 그 시각으로 기록돼요.</span></li></ul>';
     h+='<div class="sbar" style="margin-top:12px"><div class="small muted" style="min-width:0">'+watchStatus()+'</div><button class="btn" data-wsync'+(WS.busy?' disabled':'')+' style="background:var(--accent);color:#fff">'+(WS.busy?'불러오는 중':'지금 불러오기')+'</button></div>';
@@ -697,7 +700,8 @@ async function importFiles(files){
 function bindWatch(){
   view.querySelectorAll("[data-wsync]").forEach(function(b){b.onclick=function(){watchSync(true)}});
   var ca=document.getElementById("cal-add");if(ca)ca.onclick=addCalReminder;
-  view.querySelectorAll("[data-watch]").forEach(function(b){b.onclick=function(){if(b.dataset.watch==="file"&&S.watch!=="file")S.fileOn=Date.now();S.watch=b.dataset.watch;WS.msg="";WS.err="";save();if(S.watch==="coros")watchSync(true);else keepIf()}});
+  var wt=document.getElementById("wx-tog");if(wt)wt.onclick=function(){WXOPEN=!(WXOPEN==null?!S.watch:WXOPEN);keepIf()};
+  view.querySelectorAll("[data-watch]").forEach(function(b){b.onclick=function(){if(b.dataset.watch==="file"&&S.watch!=="file")S.fileOn=Date.now();if(S.watch!==b.dataset.watch)WXOPEN=true;S.watch=b.dataset.watch;WS.msg="";WS.err="";save();if(S.watch==="coros")watchSync(true);else keepIf()}});
   var fi=document.getElementById("w-file");if(fi)fi.onchange=function(){if(fi.files&&fi.files.length)importFiles(Array.from(fi.files))};
   var off=document.getElementById("w-off");if(off)off.onclick=function(){S.watch="";WS.msg="";WS.err="";save();keepIf()};
   var cl=document.getElementById("w-clear");if(cl)cl.onclick=function(){S.runs={};for(var d in S.days){var r=S.days[d];delete r.w;if(r.auto){delete r.auto;delete r.done}}S.watchAt=0;S.fileAt=0;FI.msg="";WS.msg="불러온 기록을 지웠어요.";save();pushShare();keepIf()};
@@ -845,7 +849,7 @@ function vToday(){
   // food
   h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+foodCarb(food)+'</dd><dt>총 열량</dt><dd class="num">'+foodKcal(food)+' kcal</dd><dt>단백질</dt><dd>'+protTxt()+', 끼니마다 30g 안팎</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
-  view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
+  view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
   bindDayEditor(sel);
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
@@ -900,15 +904,16 @@ function chart(){
   else{var lx=-99;WT.forEach(function(m,i){var x=X(p(m[0]));if(x-lx<46&&i!==WT.length-1)return;lx=x;s+='<text x="'+x+'" y="'+(Hd-6)+'" text-anchor="'+(i===0?'start':i===WT.length-1?'end':'middle')+'">'+md(m[0])+'</text>'})}
   var pts=zd;
   if(pts.length){
-    pts.forEach(function(k){var d=wDay(k),x=X(p(k));if(d.max>d.min){var yt=Y(d.max),yb=Y(d.min);s+='<rect x="'+(x-3.5).toFixed(1)+'" y="'+yt.toFixed(1)+'" width="7" height="'+Math.max(2,yb-yt).toFixed(1)+'" rx="3.5" fill="var(--accent)" fill-opacity=".25"/>'}});
-    if(pts.length>1)s+='<path d="'+pts.map(function(k,i){return (i?"L":"M")+X(p(k)).toFixed(1)+" "+Y(wDay(k).avg).toFixed(1)}).join("")+'" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-opacity=".6"/>';
-    pts.forEach(function(k,i){var last=i===pts.length-1;s+='<circle cx="'+X(p(k)).toFixed(1)+'" cy="'+Y(wDay(k).avg).toFixed(1)+'" r="'+(last?4:2.8)+'" fill="var(--accent)" stroke="var(--card)" stroke-width="'+(last?2:1)+'"/>'});
+    var dw=(Wd-L-R)/((x1-x0)/864e5),bw=Math.max(1.6,Math.min(7,dw*0.8)),dr=Math.max(1.3,Math.min(2.8,dw*0.42));
+    pts.forEach(function(k){var d=wDay(k),x=X(p(k));if(d.max>d.min){var yt=Y(d.max),yb=Y(d.min);s+='<rect x="'+(x-bw/2).toFixed(1)+'" y="'+yt.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(2,yb-yt).toFixed(1)+'" rx="'+(bw/2).toFixed(1)+'" fill="var(--accent)" fill-opacity=".25"/>'}});
+    if(pts.length>1)s+='<path d="'+pts.map(function(k,i){return (i?"L":"M")+X(p(k)).toFixed(1)+" "+Y(wDay(k).m).toFixed(1)}).join("")+'" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-opacity=".6"/>';
+    pts.forEach(function(k,i){var last=i===pts.length-1;s+='<circle cx="'+X(p(k)).toFixed(1)+'" cy="'+Y(wDay(k).m).toFixed(1)+'" r="'+(last?Math.max(3,dr+1):dr).toFixed(1)+'" fill="var(--accent)" stroke="var(--card)" stroke-width="'+(last?1.5:0.6)+'"/>'});
   }
   return s+'</svg>';
 }
 
 var WOPEN=null;
-var WZ="4w";
+var WZ="all";
 function vLog(){
   var WT=wtPlan();
   var wc=watchCard();
