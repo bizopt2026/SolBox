@@ -69,8 +69,11 @@ h3{font-size:14px;margin:0;color:var(--muted);font-weight:500}
 .session.t-q{background:var(--q-soft)} .session.t-l,.session.t-x{background:var(--accent-soft)}
 .done-btn{width:100%;margin-top:14px;padding:16px;border-radius:12px;border:2px solid var(--ink);background:transparent;font-weight:700;font-size:17px}
 .done-btn.on{background:var(--ok);border-color:var(--ok);color:#fff}
-.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;min-height:44px;line-height:1.2;text-align:left;box-sizing:border-box;padding-left:8px!important;padding-right:6px!important}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 .fields input,.fields textarea,.inp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);font-size:16px;width:100%;min-width:0}
 .fields .full{grid-column:1/-1}
 textarea{resize:vertical;min-height:64px}
@@ -108,7 +111,7 @@ textarea{resize:vertical;min-height:64px}
 .drow .act{font-size:11.5px;color:var(--ok)}
 
 /* Records */
-.wform{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+.wform{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px}
 .btn{border:0;border-radius:10px;padding:10px 14px;background:var(--ink);color:var(--bg);font-weight:700}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .wlist{display:flex;flex-direction:column;max-height:220px;overflow:auto}
@@ -1061,8 +1064,8 @@ function vLog(){
   h+='<div class="small" style="margin-top:2px">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num">'+ld.avg+'kg</b>'+(ld.n>1?' <span class="muted">('+ld.min+'~'+ld.max+')</span>':''):'<span class="muted">아침 공복 체중을 기록해 보세요</span>')+(S.wgoal&&S.wgoal.target?' <span class="muted">· 목표 '+S.wgoal.target+'kg</span>':'')+'</div>'+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   var nowD=new Date();
-  h+='<form class="wform" id="wf" style="grid-template-columns:1fr 96px auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중" style="padding:8px 10px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="padding:8px 6px"><button class="btn" type="submit" style="padding:8px 14px">기록</button></form>';
-  h+='<label class="small muted" style="display:flex;align-items:center;gap:6px;margin-top:6px">날짜 <input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;padding:4px 8px;font-size:13px"></label>';
+  h+='<form class="wform" id="wf" style="grid-template-columns:minmax(0,1fr) 96px auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중" style="padding:8px 10px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="padding:8px 6px"><button class="btn" type="submit" style="padding:8px 14px">기록</button></form>';
+  h+='<label class="small muted" style="display:flex;align-items:center;gap:6px;margin-top:6px">날짜 <input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:32px;padding:4px 8px;font-size:13px"></label>';
   h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
