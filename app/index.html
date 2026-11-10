@@ -844,8 +844,8 @@ function vToday(){
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+wkm+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
-    h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2])+'</b><div class="dot"></div></button>'}
-  h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · 숫자는 계획 거리(km) · 빨간 점은 놓친 날</div></div>';
+    h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b><div class="dot"></div></button>'}
+  h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · K는 그날 계획 총거리 · 빨간 점은 놓친 날</div></div>';
   // food
   h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+foodCarb(food)+'</dd><dt>총 열량</dt><dd class="num">'+foodKcal(food)+' kcal</dd><dt>단백질</dt><dd>'+protTxt()+', 끼니마다 30g 안팎</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
@@ -1237,7 +1237,7 @@ var WSTEPS=[
  function(){
   var h='<h2>매일 하는 일: 훈련 체크</h2><ul class="steps"><li><span>아래 <b>오늘</b> 탭에서 그날 훈련을 확인해요.</span></li><li><span>달리고 나서 <b>훈련 완료 체크</b>를 눌러요.</span></li><li><span>원하면 실제 거리·심박·메모를 적어요. 비워 두면 계획 거리로 계산해요.</span></li><li><span>계획을 내 일정에 맞추려면 <b>훈련표 → 내 계획 바꾸기</b>에서 요일·주간 거리를 바꾸거나 클로드에게 부탁해요. 날짜별로는 오늘 탭의 <b>이 날 훈련 바꾸기</b>. 바꾼 내용은 나에게만 적용돼요.</span></li><li><span><b>워치 기록</b>을 <b>기록</b> 탭에서 연결해 두세요. 계획 거리의 80% 이상 뛴 날은 자동으로 체크돼요.<br><span class="small muted">COROS: 계정을 연결하면 앱을 열 때마다 자동으로 불러와요.<br>가민: 매주 일요일 21:00 알림이 오면 connect.garmin.com에서 CSV로 한 주 기록을 한 번에 올려요.<br>애플워치 등: 기록 파일(GPX·TCX·FIT)을 올려요.</span></span></li></ul>';
   h+='<div class="demo"><span class="tag">예시</span><div class="eyebrow">수요일 포인트 훈련 · 약 13km</div><div style="font-size:19px;font-weight:700;white-space:pre-line;margin:6px 0">총 13K\nWU 3K · 3K @4:02 ×2 · CD 3K</div><div class="done-btn on" style="text-align:center">✓ 완료했어요</div></div>';
-  h+='<div class="demo"><span class="tag">이번 주 표시</span><div class="week-strip">'+["휴","10","13","10","휴","24","10"].map(function(x,i){var c=i===1||i===2?" done":i===3?" miss":"";return '<div class="ws'+c+'"><span class="muted">'+DOW[i]+'</span><b class="num">'+x+'</b><div class="dot"></div></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">초록 점은 완료, 빨간 점은 지나간 날 중 못 한 날이에요. <b>훈련표</b> 탭에서는 전체 일정을 보고 날짜별로 바로 체크할 수 있어요.</p></div>';
+  h+='<div class="demo"><span class="tag">이번 주 표시</span><div class="week-strip">'+["휴","10K","13K","10K","휴","24K","10K"].map(function(x,i){var c=i===1||i===2?" done":i===3?" miss":"";return '<div class="ws'+c+'"><span class="muted">'+DOW[i]+'</span><b class="num">'+x+'</b><div class="dot"></div></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">초록 점은 완료, 빨간 점은 지나간 날 중 못 한 날이에요. <b>훈련표</b> 탭에서는 전체 일정을 보고 날짜별로 바로 체크할 수 있어요.</p></div>';
   return h;
  },
  function(){
