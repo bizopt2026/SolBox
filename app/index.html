@@ -318,10 +318,10 @@ var TOTAL=W.length*7;
 
 // ---------- State ----------
 var LS="sub3-train-v1";
-var S={days:{},weights:{},checks:{}};
+var S={days:{},wlog:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -403,6 +403,11 @@ function pushShare(force){
 }
 
 function isDone(ds){return !!dayRec(ds).done}
+// ---------- Weight log helpers ----------
+function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,min:mn,max:mx,n:a.length}}
+function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
+function addWeight(ms,kg,src){var ds=localDate(Math.floor(ms/1000));(S.wlog[ds]=S.wlog[ds]||[]).push({t:ms,kg:Math.round(kg*10)/10,src:src});S.wlog[ds].sort(function(a,b){return a.t-b.t})}
+function hhmm(ms){var d=new Date(ms);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 // ---------- Watch sync (COROS via the viewer's own claude.ai connector) ----------
 var WATCHES={coros:{name:"COROS"},file:{name:"파일 가져오기"}};
 var WS={busy:false,msg:"",err:""};
@@ -447,7 +452,9 @@ async function watchSync(manual){
     var runs=parseCoros(payloadText(res)),added=0;
     runs.forEach(function(r){var i=idxOf(r.date);if(i<0||i>=TOTAL)return;if(!S.runs[r.id])added++;S.runs[r.id]=r});
     var auto=applyRuns();S.watchAt=Date.now();S.watchFrom=START;
-    WS.msg=added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")+"."):"새 러닝 기록이 없어요.";
+    var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
+      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){addWeight(Date.now(),kg,"COROS");wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg}}}catch(e2){}
+    WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+".";
     save();pushShare();
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
   finally{WS.busy=false;keepIf()}
@@ -467,7 +474,7 @@ function watchCard(){
   h+='<div class="small muted" style="margin:4px 0 10px">사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">가민·애플워치 등</button></div>';
   if(S.watch==="coros"){
-    h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li></ul>';
+    h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li><li><span><b>체중</b>도 함께 가져와요. COROS 앱에 체중을 입력하거나 체중계가 동기화해 프로필 체중이 바뀌면, 앱을 열 때 그 시각으로 기록돼요.</span></li></ul>';
     h+='<div class="sbar" style="margin-top:12px"><div class="small muted" style="min-width:0">'+watchStatus()+'</div><button class="btn" data-wsync'+(WS.busy?' disabled':'')+' style="background:var(--accent);color:#fff">'+(WS.busy?'불러오는 중':'지금 불러오기')+'</button></div>';
     h+='<p class="small muted" style="margin:10px 0 0">불러온 러닝 <b style="color:var(--ink)">'+n+'</b>개 · 자동 체크 <b style="color:var(--ink)">'+autoN+'</b>일. 계획 거리의 80% 이상 뛴 날은 자동으로 완료 체크돼요. 직접 체크하거나 해제한 날은 바꾸지 않아요.</p>';
     h+='<div class="row" style="margin-top:10px"><button class="btn ghost" id="w-off">연동 끄기</button>'+(n?'<button class="btn ghost" id="w-clear">불러온 기록 지우기</button>':'')+'</div>';
@@ -737,29 +744,46 @@ function vPlan(){
 }
 
 function chart(){
-  var x0=p("2026-11-09"),x1=p("2027-03-21"),y0=66.5,y1=73.5,Wd=340,Hd=170,L=30,R=16,Tp=10,B=22;
+  var days=wDays(),lo=66.5,hi=73.5;days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
+  var x0=p("2026-11-09"),x1=p("2027-03-21");
+  if(WZ==="4w"){var te=Math.min(p(T),x1);x0=Math.max(p(START),te-27*864e5);x1=x0+27*864e5}
+  var zd=days.filter(function(k){var t=p(k);return t>=x0&&t<=x1});lo=66.5;hi=73.5;
+  if(WZ==="4w"&&zd.length){lo=Infinity;hi=-Infinity;zd.forEach(function(k){var d=wDay(k);lo=Math.min(lo,d.min);hi=Math.max(hi,d.max)});lo=Math.floor(lo-0.6);hi=Math.ceil(hi+0.6)}
+  else days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
+  var y0=lo,y1=hi,Wd=340,Hd=180,L=30,R=16,Tp=10,B=22;
   function X(t){return L+(t-x0)/(x1-x0)*(Wd-L-R)} function Y(v){return Tp+(y1-v)/(y1-y0)*(Hd-Tp-B)}
-  var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표">';
-  [67,68,69,70,71,72,73].forEach(function(v){s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"/><text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'});
-  var up="",lo="";WT.forEach(function(m,i){up+=(i?"L":"M")+X(p(m[0]))+" "+Y(m[2]);});for(var i=WT.length-1;i>=0;i--){lo+="L"+X(p(WT[i][0]))+" "+Y(WT[i][1])}
-  s+='<path d="'+up+lo+'Z" fill="var(--q-soft)" stroke="none"/>';
+  var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표: 점은 하루 평균, 음영은 하루 최소~최대"><defs><clipPath id="wclip"><rect x="'+L+'" y="0" width="'+(Wd-L-R)+'" height="'+Hd+'"/></clipPath></defs><g clip-path="url(#wclip)">';
+  var yl="";for(var v=Math.ceil(y0);v<=Math.floor(y1);v++){s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"/>';yl+='<text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'}
+  var up="",dn="";WT.forEach(function(m,i){up+=(i?"L":"M")+X(p(m[0]))+" "+Y(m[2]);});for(var i=WT.length-1;i>=0;i--){dn+="L"+X(p(WT[i][0]))+" "+Y(WT[i][1])}
+  s+='<path d="'+up+dn+'Z" fill="var(--q-soft)" stroke="none"/>';
   s+='<path d="'+WT.map(function(m,i){return (i?"L":"M")+X(p(m[0]))+" "+Y((m[1]+m[2])/2)}).join("")+'" fill="none" stroke="var(--q)" stroke-width="1.5" stroke-dasharray="4 3"/>';
-  WT.forEach(function(m){s+='<text x="'+X(p(m[0]))+'" y="'+(Hd-6)+'" text-anchor="middle">'+md(m[0])+'</text>'});
-  var pts=Object.keys(S.weights).filter(function(k){var t=p(k);return t>=x0-7*864e5&&t<=x1}).sort();
-  if(pts.length){var path=pts.map(function(k,i){return (i?"L":"M")+X(Math.max(x0,p(k))).toFixed(1)+" "+Y(Math.max(y0,Math.min(y1,S.weights[k]))).toFixed(1)}).join("");
-    s+='<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2"/>';
-    var lk=pts[pts.length-1];s+='<circle cx="'+X(Math.max(x0,p(lk)))+'" cy="'+Y(Math.max(y0,Math.min(y1,S.weights[lk])))+'" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>'}
+  s+='</g>'+yl;
+  if(WZ==="4w"){for(var tk=0;tk<=27;tk+=7){var tt=x0+tk*864e5;s+='<text x="'+X(tt)+'" y="'+(Hd-6)+'" text-anchor="'+(tk===0?'start':tk>=27?'end':'middle')+'">'+md(f(tt))+'</text>'}}
+  else WT.forEach(function(m,i){s+='<text x="'+X(p(m[0]))+'" y="'+(Hd-6)+'" text-anchor="'+(i===0?'start':i===WT.length-1?'end':'middle')+'">'+md(m[0])+'</text>'});
+  var pts=zd;
+  if(pts.length){
+    pts.forEach(function(k){var d=wDay(k),x=X(p(k));if(d.max>d.min){var yt=Y(d.max),yb=Y(d.min);s+='<rect x="'+(x-3.5).toFixed(1)+'" y="'+yt.toFixed(1)+'" width="7" height="'+Math.max(2,yb-yt).toFixed(1)+'" rx="3.5" fill="var(--accent)" fill-opacity=".25"/>'}});
+    if(pts.length>1)s+='<path d="'+pts.map(function(k,i){return (i?"L":"M")+X(p(k)).toFixed(1)+" "+Y(wDay(k).avg).toFixed(1)}).join("")+'" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-opacity=".6"/>';
+    pts.forEach(function(k,i){var last=i===pts.length-1;s+='<circle cx="'+X(p(k)).toFixed(1)+'" cy="'+Y(wDay(k).avg).toFixed(1)+'" r="'+(last?4:2.8)+'" fill="var(--accent)" stroke="var(--card)" stroke-width="'+(last?2:1)+'"/>'});
+  }
   return s+'</svg>';
 }
 
+var WOPEN=null;
+var WZ="4w";
 function vLog(){
   var wc=watchCard();
-  var keys=Object.keys(S.weights).sort().reverse();
-  var h=wc+'<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(keys.length?'최근 <b class="num" style="color:var(--ink)">'+S.weights[keys[0]]+'kg</b>':'목표 72~73 → 67.5~68.5kg')+'</span></div>';
-  h+=chart();
-  h+='<div class="small muted" style="display:flex;gap:14px;margin:2px 0 10px"><span><span style="color:var(--q)">┅</span> 목표 범위</span><span><span style="color:var(--accent)">━</span> 내 기록</span></div>';
-  h+='<form class="wform" id="wf"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜"><input class="inp" id="w-val" inputmode="decimal" placeholder="kg" aria-label="체중"><button class="btn" type="submit">기록</button></form>';
-  h+='<div class="wlist" style="margin-top:8px">'+(keys.length?keys.map(function(k){return '<div><span class="num">'+md(k)+'</span><span><b class="num">'+S.weights[k]+'</b> kg <button data-del="'+k+'" aria-label="삭제">✕</button></span></div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
+  var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
+  var h=wc+'<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num" style="color:var(--ink)">'+ld.avg+'kg</b>':'목표 72~73 → 67.5~68.5kg')+'</span></div>';
+  h+='<div class="seg" role="radiogroup" aria-label="그래프 범위" style="grid-template-columns:1fr 1fr;margin:8px 0 4px"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">최근 4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체 (11/9~3/21)</button></div>'+chart();
+  h+='<div class="small muted" style="display:flex;gap:14px;margin:2px 0 10px"><span><span style="color:var(--q)">┅</span> 목표 범위</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:7px;height:12px;border-radius:4px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 하루 최소~최대</span></div>';
+  var nowD=new Date();
+  h+='<form class="wform" id="wf" style="grid-template-columns:1fr 1fr"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중"><button class="btn" type="submit">기록</button></form>';
+  h+='<div class="small muted" style="margin-top:6px">하루에 여러 번 재도 돼요. 날짜별 평균은 점, 최소~최대는 음영으로 보여요.'+(S.watch==="coros"?' COROS 프로필 체중이 바뀌면 자동으로 기록돼요.':'')+'</div>';
+  h+='<div class="wlist" style="margin-top:8px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
+    var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
+    if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
+    return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
   h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl></div>';
   // checkpoints
   var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
@@ -769,8 +793,10 @@ function vLog(){
   h+='</div>';
   view.innerHTML=h;
   bindWatch();
-  document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;S.weights[d]=Math.round(v*10)/10;save();render()};
-  view.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){delete S.weights[b.dataset.del];save();render()}});
+  document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
+  view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
+  view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
+  view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
   view.querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){var c=CHECKS.filter(function(x){return x.id===b.dataset.use})[0];S.profile=S.profile||{};S.profile.recDist=c.dist;S.profile.recTime=S.checks[c.id];S.profile.recDate=c.date;save();tab="pace";render();window.scrollTo(0,0)}});
   view.querySelectorAll("[data-cp]").forEach(function(el){el.addEventListener("change",function(){S.checks[el.dataset.cp]=el.value.trim();save();render()})});
 }
