@@ -160,7 +160,7 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .steps li::before{content:counter(st);width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:700;font-size:13px}
 .demo{border:1px dashed var(--line);border-radius:14px;padding:14px;background:var(--card);position:relative}
 .demo .tag{position:absolute;top:-9px;left:12px;background:var(--bg);padding:0 6px;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em}
-.phase-row{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:12px}
+.phase-row{display:grid;grid-template-columns:repeat(19,1fr);gap:3px;margin-top:12px}
 .phase-row i{height:22px;border-radius:4px}
 .linkbox{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
 .linkbox input{font-size:13px;font-family:var(--f-display)}
@@ -261,40 +261,45 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 <script>
 (function(){
 "use strict";
-// ---------- Plan data (from 16주 주간 훈련표) ----------
+// ---------- Plan data (from 2027 서울 3.21 서브3 훈련계획: 18주 + 레이스 주) ----------
 // type: r 휴식, e 이지/조깅, q 수요일 포인트, l 토요일 롱런/지속주, c 일요일 회복, x 대회
-var START="2026-11-30", RACE="2027-03-21";
+var START="2026-11-09", RACE="2027-03-21";
+function wn(w){return w===W.length-1?"레이스":"W"+(w+1)}
 var PH={base:["베이스","--base"],build:["빌드","--build"],spec:["마라톤 특화","--spec"],rec:["회복·점검","--rec"],taper:["테이퍼","--taper"],race:["레이스","--accent"]};
 var W=[
+ {lab:"인천 테이퍼",ph:"taper",km:56,d:[["r","휴식",0],["e","E 10K",10],["q","총 12K\nWU 2K\nMP 3K ×3\n(200m 조깅)\nCD 1K",12],["e","E 8K",8],["r","휴식",0],["l","총 18K\nE 6K\nMP 8K\nCD 4K",18],["c","회복 LSD 50분\n(테이퍼 유산소 유지)",8]]},
+ {lab:"인천 레이스 주",ph:"race",km:70,d:[["r","휴식",0],["e","E 8K\n스트라이드 4회",8],["q","총 10K\nE 4K\nMP 3K\nE 3K",10],["e","회복 조깅 6K",6],["r","휴식",0],["e","조깅 4K\n스트라이드 4회",4],["x","인천마라톤 풀코스\n5K @4:17\n이후 @4:15",42.2]]},
+ {lab:"대회 후 회복",ph:"rec",km:0,d:[["r","휴식",0],["r","휴식",0],["r","휴식",0],["r","휴식",0],["r","휴식",0],["r","휴식",0],["r","휴식\n(필요하면 30분 걷기)",0]]},
  {lab:"복귀",ph:"base",km:49,d:[["r","휴식",0],["e","E 8K",8],["q","E 10K\n스트라이드 6회",10],["e","E 8K",8],["r","휴식",0],["l","총 12K\nE 9K\n3K @4:40",12],["c","회복 LSD 70분\n(유산소 기반 재건)",11]]},
  {lab:"베이스",ph:"base",km:60,d:[["r","휴식",0],["e","E 10K\n근력",10],["q","총 12K\nWU 3K\n언덕 200m ×10\n(내리막 조깅 복귀)\nCD 3K",12],["e","E 8K\n근력",8],["r","휴식",0],["l","총 20K\nE 4K\n지속주 12K @4:35\nCD 4K",20],["c","회복 LSD 60분\n(지속주 피로 회복)",10]]},
- {lab:"베이스",ph:"base",km:67,d:[["r","휴식",0],["e","E 10K\n스트라이드",10],["q","총 13K\nWU 3K\n3K @4:02 ×2\n(400m 조깅)\nCD 3K",13],["e","E 10K\n근력",10],["r","휴식",0],["l","총 24K\nE 4K\n빌드업 16K 4:35→4:20\n(4K마다 −5초)\nCD 4K",24],["c","회복 LSD 60분\n(빌드업 피로 회복)",10]]},
- {lab:"회복주",ph:"rec",km:59,d:[["r","휴식",0],["e","E 10K",10],["q","총 12K\nWU 3K\n500m @3:50 ×8\n(200m 조깅)\nCD 3K",12],["e","E 8K",8],["r","휴식",0],["l","총 18K\nE 12K\n6K @4:25",18],["c","회복 LSD 70분\n(회복주 유산소 유지)",11]]},
- {lab:"빌드",ph:"build",km:70,d:[["r","휴식",0],["e","E 10K\n스트라이드",10],["q","총 14K\nWU 3K\n2K @4:00 ×4\n(400m 조깅)\nCD 2K",14],["e","E 10K\n근력",10],["r","휴식",0],["l","총 26K\nE 4K\n지속주 18K @4:25\n(마지막 4K 4:15)\nCD 4K",26],["c","회복 LSD 60분\n(지속주 피로 회복)",10]]},
- {lab:"빌드",ph:"build",km:78,d:[["e","조깅 6K",6],["e","E 10K\n근력",10],["q","총 14K\nWU 3K\n1K @3:45 ×6\n(400m 조깅)\nCD 3K",14],["e","E 10K\n근력",10],["r","휴식",0],["l","총 28K\nE 4K\n지속주 20K @4:20\nCD 4K",28],["c","회복 LSD 60분\n(지속주 피로 회복)",10]]},
- {lab:"빌드",ph:"build",km:81,d:[["e","조깅 6K",6],["e","E 12K\n스트라이드",12],["q","총 15K\nWU 3K\n템포 8K @4:00\nCD 4K",15],["e","E 10K\n근력",10],["r","휴식",0],["l","총 30K\n10K @5:10\nMP 16K\nCD 4K",30],["c","회복 LSD 50분\n(MP 롱런 후 회복)",8]]},
+ {lab:"베이스 66K 도전",ph:"base",km:93,d:[["r","휴식",0],["e","E 8K",8],["q","총 13K\nWU 3K\n3K @4:02 ×2\n(400m 조깅)\nCD 3K",13],["e","조깅 6K\n(근력 생략)",6],["r","휴식",0],["l","66K 장거리\n1세트 33K @5:35\n(33K 지점 식사·휴식 45분)\n2세트 33K\n5K @5:40\n18K @5:20\n10K @5:00",66],["r","휴식\n(66K 후 완전 회복)",0]],note:["1세트는 5:35(심박 140 미만)로 아끼고, 33K 지점에서 식사(탄수화물 80~100g, 단백질 20g)와 45분 휴식. 마른 옷으로 갈아입고 실내에서 쉬어요.","2세트는 5K @5:40 → 18K @5:20 → 10K @5:00. 몸이 좋으면 마지막 3K는 4:45. 5:30인데 심박 150을 넘으면 끝까지 이지로.","젤은 30분마다, 물은 시간당 400~600ml. 해가 짧으니 8시 전후 출발.","12/18~20은 감량을 멈춰요. 2세트에서 무릎·정강이·아킬레스건이 아프면 바로 멈춰요."]},
+ {lab:"회복주",ph:"rec",km:52,d:[["r","휴식",0],["e","E 10K",10],["q","E 8K\n스트라이드 4회\n(66K 회복)",8],["e","E 8K",8],["r","휴식",0],["e","이지 14K\n(66K 회복)",14],["c","회복 LSD 70분\n(회복주 유산소 유지)",12]]},
+ {lab:"빌드1",ph:"build",km:66,d:[["r","휴식",0],["e","E 10K\n스트라이드",10],["q","총 14K\nWU 3K\n2K @4:00 ×4\n(400m 조깅)\nCD 2K",14],["e","E 10K\n근력",10],["r","휴식",0],["l","총 22K\nE 4K\n지속주 14K @4:25\nCD 4K",22],["c","회복 LSD 60분\n(지속주 피로 회복)",10]]},
+ {lab:"빌드1",ph:"build",km:78,d:[["e","조깅 6K",6],["e","E 10K\n근력",10],["q","총 14K\nWU 3K\n1K @3:45 ×6\n(400m 조깅)\nCD 3K",14],["e","E 10K\n근력",10],["r","휴식",0],["l","총 28K\nE 4K\n지속주 20K @4:20\nCD 4K",28],["c","회복 LSD 60분\n(지속주 피로 회복)",10]]},
+ {lab:"빌드1",ph:"build",km:81,d:[["e","조깅 6K",6],["e","E 12K\n스트라이드",12],["q","총 15K\nWU 3K\n템포 8K @4:00\nCD 4K",15],["e","E 10K\n근력",10],["r","휴식",0],["l","총 30K\n10K @5:10\nMP 16K\nCD 4K",30],["c","회복 LSD 50분\n(MP 롱런 후 회복)",8]]},
  {lab:"회복·점검",ph:"rec",km:55,d:[["r","휴식",0],["e","E 10K",10],["q","E 8K\n스트라이드",8],["e","E 8K",8],["r","휴식",0],["l","총 16K\nWU 3K\n10K 기록측정\n(39:00 이내)\nCD 3K",16],["c","LSD 80분\n(기록측정 후 유산소 보강)",13]]},
- {lab:"특화",ph:"spec",km:84,d:[["e","조깅 6K",6],["e","E 12K",12],["q","총 16K\nWU 3K\n2K @3:58 ×5\n(200m 조깅)\nCD 2K",16],["e","E 10K\n근력",10],["r","휴식",0],["l","총 32K\nE 5K\nMP 7K ×3\n(사이 1K 플로트)\nCD 4K",32],["c","회복 LSD 50분\n(MP 롱런 후 회복)",8]]},
- {lab:"특화",ph:"spec",km:83,d:[["e","조깅 6K",6],["e","E 12K\n스트라이드",12],["q","총 15K\nWU 3K\n1.2K @3:42 ×5\n(400m 조깅)\nCD 3K",15],["e","E 12K\n근력",12],["r","휴식",0],["l","총 28K\nE 4K\n변속 20K\n1K @4:10 / 1K @4:30 교대\nCD 4K",28],["c","회복 LSD 60분\n(변속주 피로 회복)",10]]},
- {lab:"피크",ph:"spec",km:88,d:[["e","조깅 6K",6],["e","E 12K",12],["q","총 16K\nWU 3K\n5K @3:58 ×2\n(600m 조깅)\nCD 3K",16],["e","E 12K\n근력",12],["r","휴식",0],["l","총 34K\n14K @5:10\nMP 18K\n2K @4:05\n(보급 연습)",34],["c","회복 LSD 50분\n(34K 후 회복)",8]]},
- {lab:"회복·점검",ph:"rec",km:62,d:[["r","휴식",0],["e","E 10K",10],["q","총 10K\nE 4K\n1K @4:00 ×3\nCD 3K",10],["e","E 8K",8],["r","휴식",0],["l","총 26K\nWU 3K\n하프 기록측정\n(1:24:30 이내)\nCD 2K",26],["c","회복 조깅 50분\n(하프 측정 후 회복)",8]]},
+ {lab:"마라톤 특화1",ph:"spec",km:84,d:[["e","조깅 6K",6],["e","E 12K",12],["q","총 16K\nWU 3K\n2K @3:58 ×5\n(200m 조깅)\nCD 2K",16],["e","E 10K\n근력",10],["r","휴식",0],["l","총 32K\nE 5K\nMP 7K ×3\n(사이 1K 플로트)\nCD 4K",32],["c","회복 LSD 50분\n(MP 롱런 후 회복)",8]]},
+ {lab:"마라톤 특화1",ph:"spec",km:83,d:[["e","조깅 6K",6],["e","E 12K\n스트라이드",12],["q","총 15K\nWU 3K\n1.2K @3:42 ×5\n(400m 조깅)\nCD 3K",15],["e","E 12K\n근력",12],["r","휴식",0],["l","총 28K\nE 4K\n변속 20K\n1K @4:10 / 1K @4:30 교대\nCD 4K",28],["c","회복 LSD 60분\n(변속주 피로 회복)",10]]},
+ {lab:"피크1",ph:"spec",km:88,d:[["e","조깅 6K",6],["e","E 12K",12],["q","총 16K\nWU 3K\n5K @3:58 ×2\n(600m 조깅)\nCD 3K",16],["e","E 12K\n근력",12],["r","휴식",0],["l","총 34K\n14K @5:10\nMP 18K\n2K @4:05\n(보급 리허설)",34],["c","회복 LSD 50분\n(34K 후 회복)",8]]},
+ {lab:"회복·하프 점검",ph:"rec",km:62,d:[["r","휴식",0],["e","E 10K",10],["q","총 10K\nE 4K\n1K @4:00 ×3\nCD 3K",10],["e","E 8K",8],["r","휴식",0],["l","총 26K\nWU 3K\n하프 기록측정\n(1:24:30 이내)\nCD 2K",26],["c","회복 조깅 50분\n(하프 측정 후 회복)",8]]},
  {lab:"최종 피크",ph:"spec",km:85,d:[["e","조깅 6K",6],["e","E 12K",12],["q","총 15K\nWU 3K\n3K @3:58 ×3\n(400m 조깅)\nCD 3K",15],["e","E 10K\n근력",10],["r","휴식",0],["l","총 35K 리허설\n8K @5:10\nMP 25K\nCD 2K",35],["c","회복 LSD 45분\n(35K 리허설 후 회복)",7]]},
- {lab:"테이퍼",ph:"taper",km:72,d:[["r","휴식",0],["e","E 12K",12],["q","총 14K\nWU 3K\n2K @4:00 ×4\nCD 3K",14],["e","E 10K\n가벼운 근력",10],["r","휴식",0],["l","총 26K\nE 4K\nMP 16K\nCD 6K",26],["c","회복 LSD 60분\n(테이퍼 유산소 유지)",10]]},
- {lab:"테이퍼",ph:"taper",km:56,d:[["r","휴식",0],["e","E 10K",10],["q","총 12K\nWU 2K\nMP 3K ×3\n(200m 조깅)\nCD 1K",12],["e","E 8K",8],["r","휴식",0],["l","총 18K\nE 6K\nMP 8K\nCD 4K",18],["c","회복 LSD 50분\n(테이퍼 유산소 유지)",8]]},
+ {lab:"테이퍼1",ph:"taper",km:72,d:[["r","휴식",0],["e","E 12K",12],["q","총 14K\nWU 3K\n2K @4:00 ×4\nCD 3K",14],["e","E 10K\n가벼운 근력",10],["r","휴식",0],["l","총 26K\nE 4K\nMP 16K\nCD 6K",26],["c","회복 LSD 60분\n(테이퍼 유산소 유지)",10]]},
+ {lab:"테이퍼2",ph:"taper",km:56,d:[["r","휴식",0],["e","E 10K",10],["q","총 12K\nWU 2K\nMP 3K ×3\n(200m 조깅)\nCD 1K",12],["e","E 8K",8],["r","휴식",0],["l","총 18K\nE 6K\nMP 8K\nCD 4K",18],["c","회복 LSD 50분\n(테이퍼 유산소 유지)",8]]},
  {lab:"레이스 주",ph:"race",km:70,d:[["r","휴식",0],["e","E 8K\n스트라이드 4회",8],["q","총 10K\nE 4K\nMP 3K\nE 3K",10],["e","조깅 6K",6],["r","휴식",0],["e","조깅 4K\n스트라이드 4회",4],["x","풀코스 대회\n목표 2:59:59",42.2]]}
 ];
 var DOW=["월","화","수","목","금","토","일"];
 var FOOD=[ // by dow
- {k:"월·금",carb:"250~290g (3.5~4g/kg)",kcal:"2,100"},
- {k:"화·목",carb:"300~360g (4~5g/kg)",kcal:"2,300"},
- {k:"수·일",carb:"360~430g (5~6g/kg)",kcal:"2,600"},
- {k:"토 롱런",carb:"500~580g (7~8g/kg)",kcal:"3,200"}];
-var FOOD_BY_DOW=[0,1,2,1,0,3,2];
+ {k:"월·금 휴식·조깅",carb:"250~290g (3.5~4g/kg)",kcal:"2,100"},
+ {k:"화·목 이지+근력",carb:"300~360g (4~5g/kg)",kcal:"2,300"},
+ {k:"수 인터벌·템포",carb:"360~430g (5~6g/kg)",kcal:"2,600"},
+ {k:"토 지속주·롱런",carb:"500~580g (7~8g/kg)",kcal:"3,200"},
+ {k:"일 LSD",carb:"360~430g (5~6g/kg)",kcal:"2,600"}];
+var FOOD_BY_DOW=[0,1,2,1,0,3,4];
 var CHECKS=[
- {id:"w8",wk:"W8 · 1/23 (토)",name:"10K 기록측정",goal:"≤ 39:00",lim:39*60,kind:"time",dist:"10",date:"2027-01-23",ph:"예: 38:42"},
- {id:"w12",wk:"W12 · 2/20 (토)",name:"하프 기록측정",goal:"≤ 1:24:30",lim:84*60+30,kind:"time",dist:"21",date:"2027-02-20",ph:"예: 1:24:05"},
- {id:"w13",wk:"W13 · 2/27 (토)",name:"35K 리허설 MP 구간",goal:"심박 ≤ 158",lim:158,kind:"hr",ph:"평균 심박"}];
-var WT=[["2026-11-29",72.5,72.5,"출발 · 유지"],["2027-01-24",69,69.5,"W8 · 하루 −400kcal"],["2027-02-28",68,68.5,"W13 · 하루 −200kcal"],["2027-03-21",67.5,68.5,"레이스 · 유지+로딩"]];
+ {id:"w8",wk:"W11 · 1/23 (토)",name:"10K 기록측정",goal:"≤ 39:00",lim:39*60,kind:"time",dist:"10",date:"2027-01-23",ph:"예: 38:42"},
+ {id:"w12",wk:"W15 · 2/20 (토)",name:"하프 기록측정",goal:"≤ 1:24:30",lim:84*60+30,kind:"time",dist:"21",date:"2027-02-20",ph:"예: 1:24:05"},
+ {id:"w13",wk:"W16 · 2/27 (토)",name:"35K 리허설 중 MP 22km",goal:"심박 ≤ 158",sub:"마지막 5km도 4:15 유지",lim:158,kind:"hr",ph:"평균 심박"}];
+var WT=[["2026-11-09",72,73,"출발 · 인천 대회 후까지 유지"],["2027-01-24",69,69.5,"W11 · 하루 −400kcal"],["2027-02-28",68,68.5,"W16 · 하루 −200kcal"],["2027-03-21",67.5,68.5,"레이스 · 유지+로딩"]];
 
 // ---------- Dates ----------
 function p(s){var a=s.split("-");return Date.UTC(+a[0],a[1]-1,+a[2])}
@@ -408,7 +413,7 @@ function checkState(c){var v=S.checks[c.id];if(v==null||v==="")return null;if(c.
 var T=todayStr();
 var sel=(function(){var i=idxOf(T);if(i<0)return START;if(i>=TOTAL)return RACE;return T})();
 var tab=S.onboarded?"today":"welcome", WSTEP=0, WMANUAL=false; var openWeeks={};
-(function(){var i=idxOf(T);openWeeks[Math.max(0,Math.min(15,Math.floor(i/7)))]=true})();
+(function(){var i=idxOf(T);openWeeks[Math.max(0,Math.min(W.length-1,Math.floor(i/7)))]=true})();
 
 var dd=Math.round((p(RACE)-p(T))/864e5);
 document.getElementById("dday").textContent=dd>0?"D-"+dd:(dd===0?"D-DAY":"완주!");
@@ -428,24 +433,25 @@ function render(){
 function vToday(){
   var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=W[w].d[d], r=dayRec(sel);
   var tIdx=idxOf(T), before=tIdx<0;
-  var st=weekStats(w), pct=Math.min(100,Math.round(st.km/W[w].km*100));
+  var st=weekStats(w), pct=W[w].km?Math.min(100,Math.round(st.km/W[w].km*100)):0;
   var food=FOOD[FOOD_BY_DOW[d]];
   var dn=isDone(sel);
   var h="";
   if(!S.goal)h+='<div class="card sbar"><div style="min-width:0"><b>3.21 목표를 정해 보세요</b><div class="small muted">내 페이스를 넣으면 가능한 기록을 제안하고, 확정하면 앱이 그 목표에 맞춰져요.</div></div><button class="btn" data-goto="pace">목표 정하기</button></div>';
   else h+='<div class="goal-hero"><div><div class="eyebrow">3.21 목표 · D-'+Math.max(0,Math.round((p(RACE)-p(T))/864e5))+'</div><b>'+fmtT(S.goal.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(S.goal.sec/42.195)+'/km</span></div><button class="btn ghost" data-goto="pace" style="color:var(--navy-fg);border-color:currentColor">목표 보기</button></div>';
-  if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/30 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
-  h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">W'+(w+1)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
+  if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
+  h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]))+'</div>';
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){h+='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>'+(K!==1||HRK?'<div class="small muted" style="margin-top:6px">내 페이스 기준으로 바꿔 보여 주고 있어요.</div>':'')}
   if(t[0]==="r"){h+='<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
+  if(W[w].note&&t[0]==="l")h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
   h+='<button class="done-btn'+(dn?' on':'')+'" id="done">'+(dn?'✓ 완료했어요':(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크'))+'</button>';
   if(t[0]!=="r"){
     h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+t[2]+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="bpm" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
   }
   h+='</div>';
   // week strip
-  h+='<div class="card"><div class="row between"><h2>W'+(w+1)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+W[w].km+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
+  h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+W[w].km+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=W[w].d[k],past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
     h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2])+'</b><div class="dot"></div></button>'}
@@ -462,11 +468,11 @@ function vToday(){
 }
 
 function vPlan(){
-  var tot=0,dn=0,km=0;for(var w=0;w<16;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
-  var h='<div class="card"><div class="row between"><h2>16주 전체 진행</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 1,119 km</div></div>';
-  for(var w=0;w<16;w++){
+  var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
+  var h='<div class="card"><div class="row between"><h2>전체 진행 (18주 + 레이스 주)</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 '+W.reduce(function(a,x){return a+x.km},0).toLocaleString()+' km</div></div>';
+  for(var w=0;w<W.length;w++){
     var s=weekStats(w),cur=Math.floor(idxOf(T)/7)===w;
-    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">W'+(w+1)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">/'+W[w].km+'K</span></b></span></summary>';
+    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">/'+W[w].km+'K</span></b></span></summary>';
     if(openWeeks[w]){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds);
       var dn=isDone(ds);
       var extra=[];if(r.km)extra.push(r.km+"km");if(r.hr)extra.push("♥"+r.hr);if(r.pace)extra.push(r.pace);
@@ -475,7 +481,7 @@ function vPlan(){
       h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료">✓</button></div>'}}
     h+='</details>';
   }
-  h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(10·11·13주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
+  h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
@@ -483,7 +489,7 @@ function vPlan(){
 }
 
 function chart(){
-  var x0=p("2026-11-29"),x1=p("2027-03-21"),y0=66.5,y1=73.5,Wd=340,Hd=170,L=30,R=16,Tp=10,B=22;
+  var x0=p("2026-11-09"),x1=p("2027-03-21"),y0=66.5,y1=73.5,Wd=340,Hd=170,L=30,R=16,Tp=10,B=22;
   function X(t){return L+(t-x0)/(x1-x0)*(Wd-L-R)} function Y(v){return Tp+(y1-v)/(y1-y0)*(Hd-Tp-B)}
   var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표">';
   [67,68,69,70,71,72,73].forEach(function(v){s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"/><text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'});
@@ -500,7 +506,7 @@ function chart(){
 
 function vLog(){
   var keys=Object.keys(S.weights).sort().reverse();
-  var h='<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(keys.length?'최근 <b class="num" style="color:var(--ink)">'+S.weights[keys[0]]+'kg</b>':'목표 72.5 → 67.5~68.5kg')+'</span></div>';
+  var h='<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(keys.length?'최근 <b class="num" style="color:var(--ink)">'+S.weights[keys[0]]+'kg</b>':'목표 72~73 → 67.5~68.5kg')+'</span></div>';
   h+=chart();
   h+='<div class="small muted" style="display:flex;gap:14px;margin:2px 0 10px"><span><span style="color:var(--q)">┅</span> 목표 범위</span><span><span style="color:var(--accent)">━</span> 내 기록</span></div>';
   h+='<form class="wform" id="wf"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜"><input class="inp" id="w-val" inputmode="decimal" placeholder="kg" aria-label="체중"><button class="btn" type="submit">기록</button></form>';
@@ -509,7 +515,7 @@ function vLog(){
   // checkpoints
   var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
   CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
-    h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
+    h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
   h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
   h+='</div>';
   view.innerHTML=h;
@@ -562,7 +568,7 @@ function subLabel(G){var m=G%60===59?(G+1)/60:Math.ceil(G/60),h=Math.floor(m/60)
 function niceGoal(t){var m=Math.ceil(t/60);return m%5===0?m*60-1:m*60}
 function goalOptions(){
   if(!EG.curPred)return[];var V0=vdotOf(42195,EG.curPred);
-  return [[1,"안정","훈련을 80% 이상 소화하면 무난한 기록"],[2,"권장","16주 계획을 그대로 소화했을 때 기대 기록"],[3,"도전","훈련·컨디션·날씨가 모두 받쳐 줄 때"]].map(function(x){return{tier:x[1],gain:x[0],desc:x[2],sec:niceGoal(predictT(42195,V0+x[0]))}});
+  return [[1,"안정","훈련을 80% 이상 소화하면 무난한 기록"],[2,"권장","남은 계획을 그대로 소화했을 때 기대 기록"],[3,"도전","훈련·컨디션·날씨가 모두 받쳐 줄 때"]].map(function(x){return{tier:x[1],gain:x[0],desc:x[2],sec:niceGoal(predictT(42195,V0+x[0]))}});
 }
 var GSEL=null,GMSG="";
 function P(sec){return fmtMS(sec*K)}
@@ -599,7 +605,7 @@ function goalCard(){
   if(!opts.length){
     h+='<p class="small muted" style="margin:6px 0 10px">위에 역치 페이스나 최근 기록을 넣으면 3월 21일에 가능한 기록을 제안해 드려요. 원하는 기록을 직접 넣을 수도 있어요.</p>';
   } else {
-    h+='<p class="small muted" style="margin:4px 0 0">현재 예상 기록 <b style="color:var(--ink)">'+fmtT(EG.curPred)+'</b>에서 16주 훈련으로 VDOT가 1~3 오른다고 보고 계산했어요.</p>';
+    h+='<p class="small muted" style="margin:4px 0 0">현재 예상 기록 <b style="color:var(--ink)">'+fmtT(EG.curPred)+'</b>에서 남은 훈련으로 VDOT가 1~3 오른다고 보고 계산했어요.</p>';
     var cur=GSEL||(g&&g.tier)||"권장";
     h+='<div class="gopts" role="radiogroup" aria-label="목표 선택">'+opts.map(function(o){return '<button class="gopt" role="radio" aria-checked="'+(cur===o.tier)+'" data-gopt="'+o.tier+'" data-sec="'+o.sec+'"><span class="gt">'+fmtT(o.sec)+'</span><span class="gn">'+o.tier+(o.tier==="권장"?' 추천':'')+'<br><span class="small muted" style="font-weight:400">'+fmtMS(o.sec/42.195)+'/km</span></span><span class="gd">'+o.desc+'</span></button>'}).join("")+'</div>';
   }
@@ -630,7 +636,7 @@ function bindGoal(){
 
 function vPace(){
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
-  var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 16주 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
+  var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
   h+='<div class="fields" style="margin-top:0"><label>역치 심박 (bpm)<input id="p-lthr" inputmode="numeric" placeholder="예: 168" value="'+esc(p.lthr)+'"></label><label>역치 페이스 (/km)<input id="p-thr" placeholder="예: 4:02" value="'+esc(p.thr)+'"></label></div>';
   h+='<div style="margin-top:14px"><div class="small muted" style="margin-bottom:6px">최근 기록</div><div class="seg" role="radiogroup">'+Object.keys(DIST).map(function(k){return '<button role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</div>';
   h+='<div class="fields"><label>기록<input id="p-rec" placeholder="'+(rd==="21"?"예: 1:26:30":rd==="5"?"예: 19:30":"예: 40:10")+'" value="'+esc(p.recTime)+'"></label><label>측정일<input id="p-recdate" type="date" value="'+esc(p.recDate)+'"></label></div></div>';
@@ -646,7 +652,7 @@ function vPace(){
     if(e.lthr)h+='<div class="mini"><div class="small muted">역치 심박</div><b>'+e.lthr+'<span class="small muted"> bpm</span></b></div>';
     h+='</div><p class="small" style="margin:10px 0 0">'+(Math.abs(pctv)<0.5?'원본 서브3 페이스와 거의 같아요.':'원본 서브3 페이스보다 km당 <b>'+Math.abs(dsec)+'초 '+(dsec>0?'느리게':'빠르게')+'</b> ('+(pctv>0?'+':'')+pctv+'%) 맞췄어요.')+(e.goal?' 확정한 목표 '+fmtT(e.goal)+' 기준이에요.':(e.kRace&&e.kThr?' 현재 실력 기준이고, 기록과 역치 페이스를 반반 반영했어요.':' 현재 실력 기준이에요.'))+'</p>';
     if(e.gap>0.03)h+='<div class="warn" style="margin-top:8px">기록 기준과 역치 페이스 기준이 '+Math.round(e.gap*100)+'% 차이나요. 오래된 기록이거나 역치 페이스가 정확하지 않을 수 있어요. 둘 중 최근 값을 확인해 주세요.</div>';
-    if(e.goal&&e.curPred)h+='<p class="small muted" style="margin:8px 0 0">'+(e.curPred>e.goal?'목표까지 지금보다 <b style="color:var(--ink)">'+fmtT(e.curPred-e.goal)+'</b> 줄이면 돼요.':'현재 예상 기록이 이미 목표 안쪽이에요. 목표를 올려 봐도 좋아요.')+' W8·W12 점검 기록을 넣으면 다시 계산해요.</p>';
+    if(e.goal&&e.curPred)h+='<p class="small muted" style="margin:8px 0 0">'+(e.curPred>e.goal?'목표까지 지금보다 <b style="color:var(--ink)">'+fmtT(e.curPred-e.goal)+'</b> 줄이면 돼요.':'현재 예상 기록이 이미 목표 안쪽이에요. 목표를 올려 봐도 좋아요.')+' W11·W15 점검 기록을 넣으면 다시 계산해요.</p>';
     h+='</div>';
   } else {
     h+='<div class="card"><h2>분석 결과</h2><p class="small muted" style="margin:6px 0 0">역치 페이스나 최근 5K·10K·하프 기록 중 하나만 넣어도 페이스를 계산해요. 지금은 원본 서브3 페이스(MP 4:15/km)를 보여 주고 있어요.</p></div>';
@@ -658,7 +664,7 @@ function vPace(){
   // upcoming
   var ks=nextKeySessions();
   if(ks.length){h+='<div class="card"><h2>다가오는 핵심 훈련</h2><div class="runlist">';
-    ks.forEach(function(x){h+='<div style="grid-template-columns:60px 1fr"><span class="num muted">W'+(x[2]+1)+'<br>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</span><span style="white-space:pre-line">'+esc(ptxt(x[1][1]))+'</span></div>'});
+    ks.forEach(function(x){h+='<div style="grid-template-columns:60px 1fr"><span class="num muted">'+wn(x[2])+'<br>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</span><span style="white-space:pre-line">'+esc(ptxt(x[1][1]))+'</span></div>'});
     h+='</div></div>'}
   view.innerHTML=h;
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
@@ -710,7 +716,7 @@ function bindAdmin(){
 }
 
 function vCrew(){
-  if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(15,Math.floor(idxOf(T)/7)));
+  if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7)));
   var w=CREW.wk,h='<div class="card"><div class="row between"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
   h+='</div>'+profCard()+'<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">관리자가 공유 메뉴에서 초대한 사람만 링크를 열 수 있어요. 초대한 뒤 이 링크를 보내 주세요.</p>'+inviteLink()+'</div>';
   if(!CREW.db){
@@ -731,7 +737,7 @@ function vCrew(){
     h+='<div class="feed">';
     if(!posts.length)h+='<div class="card"><p class="small muted" style="margin:0">아직 완료한 훈련이 없어요. 훈련을 체크하면 크루 피드에 올라가고, 서로 좋아요와 댓글로 응원할 수 있어요.</p></div>';
     posts.forEach(function(x){var k=x.id+"_"+ymd(x.ds),liked=!!myS().likes[k],n=likesOf(k),cs=cmtsOf(k),op=CREW.cOpen===k;
-      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">W'+(x.w+1)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+' 훈련 완료</div></div><div class="pkm">'+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
+      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+' 훈련 완료</div></div><div class="pkm">'+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
       h+='<div class="pb">'+esc(x.t[1].split("\n").slice(0,3).join(" · "))+'</div>';
       h+='<div class="acts"><button class="'+(liked?'on':'')+'" data-like="'+esc(k)+'" aria-pressed="'+liked+'">'+HEART+'좋아요'+(n?' '+n:'')+'</button><button data-cmt="'+esc(k)+'" aria-expanded="'+op+'">'+BUBBLE+'댓글'+(cs.length?' '+cs.length:'')+'</button></div>';
       if(op||cs.length){h+='<div class="cmts">'+cs.slice(op?0:-2).map(function(c){return '<div class="cm"><b>'+esc(nickOf(c.u))+'</b><span>'+esc(c.t)+'</span>'+(c.u===CREW.me?'<button data-del-c="'+c.at+'" aria-label="댓글 삭제">삭제</button>':'')+'</div>'}).join("");
@@ -747,7 +753,7 @@ function vCrew(){
     view.querySelectorAll("[data-del-c]").forEach(function(b){b.onclick=function(){var at=+b.dataset.delC,M=myS();M.cmts=M.cmts.filter(function(c){return c.at!==at});writeSocial();keep()}});
     return;
   }
-  h+='<div class="daynav"><button id="cw-prev" aria-label="이전 주">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+esc(W[w].lab)+'</span><b class="num">W'+(w+1)+' · '+md(dateOf(w,0))+'–'+md(dateOf(w,6))+'</b></div><button id="cw-next" aria-label="다음 주">›</button></div>';
+  h+='<div class="daynav"><button id="cw-prev" aria-label="이전 주">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+esc(W[w].lab)+'</span><b class="num">'+wn(w)+' · '+md(dateOf(w,0))+'–'+md(dateOf(w,6))+'</b></div><button id="cw-next" aria-label="다음 주">›</button></div>';
   h+='<div class="card"><div class="crew">';
   if(!ids.length)h+='<p class="small muted" style="margin:0">아직 공유한 사람이 없어요. 페이지 공유 메뉴에서 크루를 초대하면 각자 체크한 현황이 여기에 모여요.</p>';
   var rows=ids.map(function(id){return{id:id,m:CREW.members[id],s:memStats(CREW.members[id],w)}});
@@ -755,13 +761,13 @@ function vCrew(){
   rows.forEach(function(r){var me=r.id===CREW.me,open=CREW.open===r.id;
     h+='<div class="mem"><button data-mem="'+esc(r.id)+'" aria-expanded="'+open+'">'+avatar(r.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.id))+'</span>'+(me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="dots">'+r.s.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")+'</div><div class="small muted">'+(r.m.bio?esc(r.m.bio)+' · ':'')+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'누적 이행 '+(r.s.rate==null?'-':r.s.rate+'%')+'</div></div><div class="mstat"><b>'+r.s.done+'/'+r.s.n+'</b>'+r.s.km+'/'+W[w].km+'km</div></button>';
     if(open){h+='<div class="grid16"><span></span>'+DOW.map(function(x){return '<span style="text-align:center">'+x+'</span>'}).join("");
-      for(var wi=0;wi<16;wi++){var st=memStats(r.m,wi);h+='<span class="num">W'+(wi+1)+'</span>'+st.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")}
+      for(var wi=0;wi<W.length;wi++){var st=memStats(r.m,wi);h+='<span class="num">'+wn(wi)+'</span>'+st.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")}
       var all=memStats(r.m,0);h+='</div><div class="small muted" style="margin-top:8px">지금까지 '+all.dn+'/'+all.tot+'회 완료'+(r.m.upd?' · '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' 업데이트':'')+'</div>'}
     h+='</div>'});
-  h+='</div></div><p class="small muted">초록은 완료, 빨강은 지난 훈련일 미완료, 점선은 휴식일이에요. 이름을 누르면 16주 전체를 볼 수 있어요.</p>';
+  h+='</div></div><p class="small muted">초록은 완료, 빨강은 지난 훈련일 미완료, 점선은 휴식일이에요. 이름을 누르면 전체 일정을 볼 수 있어요.</p>';
   view.innerHTML=h;bindShare();bindCrewCommon(ids);
   document.getElementById("cw-prev").onclick=function(){if(CREW.wk>0){CREW.wk--;keep()}};
-  document.getElementById("cw-next").onclick=function(){if(CREW.wk<15){CREW.wk++;keep()}};
+  document.getElementById("cw-next").onclick=function(){if(CREW.wk<W.length-1){CREW.wk++;keep()}};
   view.querySelectorAll("[data-mem]").forEach(function(b){b.onclick=function(){CREW.open=CREW.open===b.dataset.mem?null:b.dataset.mem;keep()}});
 }
 function bindCrewCommon(ids){
@@ -799,26 +805,33 @@ function bindShare(){
 
 var WSTEPS=[
  function(){
-  var h='<div class="wel-hero"><div class="eyebrow">처음 오셨나요?</div><h1>'+(S.goal?fmtT(S.goal.sec)+' 목표를 향한 16주,':'서브3를 향한 16주,')+'<br>매일 체크로 완주해요</h1><p>2026.11.30 시작 · 2027.3.21 대회까지 하루 한 번 훈련을 체크하는 앱이에요.</p></div>';
-  h+='<div class="card"><h2>이 앱으로 할 수 있는 것</h2><ul class="steps" style="margin-top:12px"><li><span><b>오늘 훈련 확인·체크</b><br><span class="small muted">그날 할 훈련과 페이스를 보고 완료를 누르면 끝.</span></span></li><li><span><b>내 수준에 맞춘 페이스</b><br><span class="small muted">역치 심박·페이스와 최근 기록으로 모든 페이스를 개인화.</span></span></li><li><span><b>크루와 함께</b><br><span class="small muted">크루를 초대해 닉네임으로 현황을 공유하고 좋아요·댓글로 응원.</span></span></li><li><span><b>체중·점검 기록</b><br><span class="small muted">체중 그래프와 W8·W12·W13 세 번의 점검.</span></span></li></ul></div>';
-  h+='<div class="card"><h3>16주 구성</h3><div class="phase-row" aria-label="16주 단계">'+W.map(function(x){return '<i style="background:var('+PH[x.ph][1]+')" title="'+esc(PH[x.ph][0])+'"></i>'}).join("")+'</div><div class="small muted" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 12px"><span>베이스 W1–3</span><span>빌드 W5–7</span><span>마라톤 특화 W9–13</span><span>테이퍼 W14–15</span><span>레이스 W16</span></div><p class="small muted" style="margin:8px 0 0">핵심 훈련은 수요일(포인트)과 토요일(지속주·롱런) 두 번, 나머지는 천천히 달려요.</p></div>';
+  var h='<div class="wel-hero"><div class="eyebrow">처음 오셨나요?</div><h1>'+(S.goal?fmtT(S.goal.sec)+' 목표를 향한 18주,':'서브3를 향한 18주,')+'<br>매일 체크로 완주해요</h1><p>2026.11.9 시작 · 11/22 인천마라톤을 거쳐 2027.3.21 서울마라톤까지, 하루 한 번 훈련을 체크하는 앱이에요.</p></div>';
+  h+='<div class="card"><h2>이 앱으로 할 수 있는 것</h2><ul class="steps" style="margin-top:12px"><li><span><b>오늘 훈련 확인·체크</b><br><span class="small muted">그날 할 훈련과 페이스를 보고 완료를 누르면 끝.</span></span></li><li><span><b>내 수준에 맞춘 페이스</b><br><span class="small muted">역치 심박·페이스와 최근 기록으로 모든 페이스를 개인화.</span></span></li><li><span><b>3.21 목표 정하기</b><br><span class="small muted">가능한 기록을 제안받고, 확정하면 앱이 그 목표에 맞춰져요.</span></span></li><li><span><b>크루와 함께</b><br><span class="small muted">크루를 초대해 닉네임으로 현황을 공유하고 좋아요·댓글로 응원.</span></span></li><li><span><b>체중·점검 기록</b><br><span class="small muted">체중 그래프와 W11·W15·W16 세 번의 점검.</span></span></li></ul></div>';
+  h+='<div class="card"><h3>18주 + 레이스 주 구성</h3><div class="phase-row" aria-label="주차별 단계">'+W.map(function(x){return '<i style="background:var('+PH[x.ph][1]+')" title="'+esc(PH[x.ph][0])+'"></i>'}).join("")+'</div><div class="small muted" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 12px"><span>인천 대회 W1–3</span><span>베이스 W4–7 (12/19 66K)</span><span>빌드 W8–10</span><span>마라톤 특화 W12–16</span><span>테이퍼 W17–18</span><span>레이스 주</span></div><p class="small muted" style="margin:8px 0 0">핵심 훈련은 수요일(포인트)과 토요일(지속주·롱런) 두 번, 나머지는 천천히 달려요.</p></div>';
   return h;
  },
  function(){
   var h='<h2>매일 하는 일: 훈련 체크</h2><ul class="steps"><li><span>아래 <b>오늘</b> 탭에서 그날 훈련을 확인해요.</span></li><li><span>달리고 나서 <b>훈련 완료 체크</b>를 눌러요.</span></li><li><span>원하면 실제 거리·심박·메모를 적어요. 비워 두면 계획 거리로 계산해요.</span></li></ul>';
   h+='<div class="demo"><span class="tag">예시</span><div class="eyebrow">수요일 포인트 훈련 · 약 13km</div><div style="font-size:19px;font-weight:700;white-space:pre-line;margin:6px 0">총 13K\nWU 3K · 3K @4:02 ×2 · CD 3K</div><div class="done-btn on" style="text-align:center">✓ 완료했어요</div></div>';
-  h+='<div class="demo"><span class="tag">이번 주 표시</span><div class="week-strip">'+["휴","10","13","10","휴","24","10"].map(function(x,i){var c=i===1||i===2?" done":i===3?" miss":"";return '<div class="ws'+c+'"><span class="muted">'+DOW[i]+'</span><b class="num">'+x+'</b><div class="dot"></div></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">초록 점은 완료, 빨간 점은 지나간 날 중 못 한 날이에요. <b>훈련표</b> 탭에서는 16주 전체를 보고 날짜별로 바로 체크할 수 있어요.</p></div>';
+  h+='<div class="demo"><span class="tag">이번 주 표시</span><div class="week-strip">'+["휴","10","13","10","휴","24","10"].map(function(x,i){var c=i===1||i===2?" done":i===3?" miss":"";return '<div class="ws'+c+'"><span class="muted">'+DOW[i]+'</span><b class="num">'+x+'</b><div class="dot"></div></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">초록 점은 완료, 빨간 점은 지나간 날 중 못 한 날이에요. <b>훈련표</b> 탭에서는 전체 일정을 보고 날짜별로 바로 체크할 수 있어요.</p></div>';
   return h;
  },
  function(){
   var h='<h2>내 페이스 맞추기</h2><p class="muted" style="margin:0">훈련표는 서브3(마라톤 4:15/km) 기준으로 쓰였어요. 내 기준을 넣으면 모든 페이스와 심박 기준이 내 수준으로 바뀌어요.</p>';
-  h+='<ul class="steps"><li><span><b>역치 심박</b>과 <b>역치 페이스</b>를 입력해요. 시계(가민·코로스 등)의 체력 평가에서 볼 수 있어요.</span></li><li><span><b>최근 5K·10K·하프 기록</b>을 입력해요. 실제로 뛴 기록일수록 정확해요.</span></li><li><span>둘 중 하나만 넣어도 계산돼요. 그러면 <b>3월 21일에 가능한 목표 기록</b>을 안정·권장·도전 세 가지로 제안해 드려요.</span></li><li><span>목표를 <b>확정</b>하면 앱 상단 제목, 모든 훈련 페이스, 점검 목표가 그 목표에 맞춰져요.</span></li></ul>';
+  h+='<ul class="steps"><li><span><b>역치 심박</b>과 <b>역치 페이스</b>를 입력해요. 시계(가민·코로스 등)의 체력 평가에서 볼 수 있어요.</span></li><li><span><b>최근 5K·10K·하프 기록</b>을 입력해요. 실제로 뛴 기록일수록 정확해요.</span></li><li><span>둘 중 하나만 넣어도 계산돼요. 다음 단계에서 이 값으로 3.21 목표를 정해요.</span></li></ul>';
   h+='<div class="demo"><span class="tag">예시 · 10K 42:00인 경우</span><dl class="kv"><dt>훈련표</dt><dd>3K @4:40 → <b style="color:var(--accent)">3K @4:52</b></dd><dt>마라톤 페이스</dt><dd>4:15 → <b style="color:var(--accent)">4:26</b>/km</dd><dt>이지 심박</dt><dd>140 미만 → <b style="color:var(--accent)">146 미만</b> (역치 175)</dd></dl></div>';
   h+='<button class="btn ghost" data-wgo="pace">지금 내 페이스 설정하기</button>';
   return h;
  },
  function(){
-  var h='<h2>크루와 함께 달리기</h2><ul class="steps"><li><span><b>크루</b> 탭에서 <b>닉네임</b>과 프로필 색을 정해요. claude.ai 이름·사진은 쓰이지 않아요.</span></li><li><span>체크한 훈련이 <b>피드</b>에 올라가요. 서로 <b>좋아요</b>와 <b>댓글</b>로 응원해요.</span></li><li><span><b>주간 현황</b>에서 크루의 이번 주 체크와 16주 이행률을 봐요.</span></li></ul>';
+  var h='<h2>3.21 목표 정하기</h2><p class="muted" style="margin:0">내 페이스를 넣으면 3월 21일에 가능한 기록을 세 가지로 제안해 드려요. 하나를 골라 확정하면 앱 전체가 그 목표에 맞춰져요.</p>';
+  h+='<div class="demo"><span class="tag">예시 · 현재 예상 3:08:41</span><div class="gopts" style="margin-top:0"><div class="gopt"><span class="gt">3:08:41</span><span class="gn">안정</span><span class="gd">훈련을 80% 이상 소화하면 무난한 기록</span></div><div class="gopt" aria-checked="true"><span class="gt">3:03:00</span><span class="gn">권장 추천</span><span class="gd">남은 계획을 그대로 소화했을 때 기대 기록</span></div><div class="gopt"><span class="gt">2:59:59</span><span class="gn">도전</span><span class="gd">훈련·컨디션·날씨가 모두 받쳐 줄 때</span></div></div></div>';
+  h+='<ul class="steps"><li><span><b>내 페이스</b> 탭의 "3.21 목표 제안"에서 안정·권장·도전 중 하나를 고르거나, 원하는 기록을 직접 넣어요.</span></li><li><span><b>이 목표로 확정</b>을 누르면 상단 제목이 "SUB-3:03 · 3:03:00 프로젝트"처럼 바뀌어요.</span></li><li><span>모든 훈련 페이스, 점검 목표, 레이스 페이스가 확정한 목표 기준으로 바뀌어요.</span></li><li><span>W11·W15 점검 결과를 보고 언제든 목표를 바꾸거나 해제할 수 있어요.</span></li></ul>';
+  h+='<button class="btn ghost" data-wgo="goal">지금 목표 정하기</button>';
+  return h;
+ },
+ function(){
+  var h='<h2>크루와 함께 달리기</h2><ul class="steps"><li><span><b>크루</b> 탭에서 <b>닉네임</b>과 프로필 색을 정해요. claude.ai 이름·사진은 쓰이지 않아요.</span></li><li><span>체크한 훈련이 <b>피드</b>에 올라가요. 서로 <b>좋아요</b>와 <b>댓글</b>로 응원해요.</span></li><li><span><b>주간 현황</b>에서 크루의 이번 주 체크와 전체 이행률을 봐요.</span></li></ul>';
   h+='<div class="demo"><span class="tag">예시</span><div class="ph" style="display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center"><span class="av" style="background:'+AVC[3]+'">박</span><div><b>박페이서</b><div class="small muted">W1 수 · 12/2 훈련 완료</div></div><div class="pkm" style="font-family:var(--f-display);font-weight:800;font-size:20px">10<span class="small muted">km</span></div></div><div class="acts"><span class="pill part" style="background:var(--accent-soft);color:var(--accent);padding:6px 12px">♥ 좋아요 3</span><span class="pill na" style="padding:6px 12px">댓글 2</span></div></div>';
   h+='<p class="small muted" style="margin:0">공유되는 건 닉네임, 완료한 날짜와 거리뿐이에요. 메모·심박·체중은 나만 봐요. 크루 탭에서 언제든 공유를 끌 수 있어요.</p>';
   h+='<button class="btn ghost" data-wgo="crew">크루 프로필 만들기</button><p class="small muted" style="margin:0">함께 달릴 사람을 부르는 방법은 다음 단계에서 알려 드려요.</p>';
@@ -833,7 +846,7 @@ var WSTEPS=[
  },
  function(){
   var h='<h2>기록과 가이드</h2>';
-  h+='<div class="card"><h3>기록 탭</h3><ul class="tight" style="margin-top:8px"><li>아침 공복 체중을 적으면 목표 범위(72.5 → 67.5~68.5kg) 위에 그래프로 보여요.</li><li>세 번의 점검 결과를 넣으면 통과·미달이 표시돼요.</li></ul><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W8 · 1/23</span><span>10K 기록측정</span><span class="muted">W12 · 2/20</span><span>하프 기록측정</span><span class="muted">W13 · 2/27</span><span>35K 리허설 MP 구간 심박</span></div></div>';
+  h+='<div class="card"><h3>기록 탭</h3><ul class="tight" style="margin-top:8px"><li>아침 공복 체중을 적으면 목표 범위(72~73 → 67.5~68.5kg) 위에 그래프로 보여요.</li><li>세 번의 점검 결과를 넣으면 통과·미달이 표시돼요.</li></ul><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W11 · 1/23</span><span>10K 기록측정</span><span class="muted">W15 · 2/20</span><span>하프 기록측정</span><span class="muted">W16 · 2/27</span><span>35K 리허설 중 MP 22km 심박</span></div></div>';
   h+='<div class="card"><h3>가이드 탭</h3><ul class="tight" style="margin-top:8px"><li>페이스 존과 약어 (E 이지, WU 워밍업, CD 쿨다운, MP 마라톤 페이스)</li><li>레이스 데이 구간별 페이스</li><li>요일별 탄수화물·열량, 훈련 전후 보급</li></ul></div>';
   return h;
  },
@@ -849,7 +862,7 @@ function inviteLink(){return '<div class="linkbox"><input class="inp" id="inv-ur
 function bindCopy(){view.querySelectorAll("[data-copy-link]").forEach(function(b){b.onclick=function(){var inp=b.parentNode.querySelector("input"),msg=b.parentNode.parentNode.querySelector("[data-copy-msg]");
   function fb(){inp.select();if(msg)msg.textContent="링크를 길게 눌러 복사하세요."}
   try{navigator.clipboard.writeText(APP_URL).then(function(){if(msg)msg.textContent="복사했어요. 초대한 사람에게 보내 주세요."},fb)}catch(e){fb()}}})}
-var INVITE_STEP=4;
+var INVITE_STEP=5;
 function finishWelcome(to){S.onboarded=true;WMANUAL=false;save();tab=to||"today";WSTEP=0;render();window.scrollTo(0,0)}
 function vWelcome(){
   var n=WSTEPS.length,last=WSTEP===n-1;
@@ -860,7 +873,7 @@ function vWelcome(){
   var sk=document.getElementById("w-skip");if(sk)sk.onclick=function(){if(!last)finishWelcome("today")};
   var pv=document.getElementById("w-prev");if(pv)pv.onclick=function(){WSTEP--;render();window.scrollTo(0,0)};
   document.getElementById("w-next").onclick=function(){if(last)finishWelcome("today");else{WSTEP++;render();window.scrollTo(0,0)}};
-  view.querySelectorAll("[data-wgo]").forEach(function(b){b.onclick=function(){finishWelcome(b.dataset.wgo)}});
+  view.querySelectorAll("[data-wgo]").forEach(function(b){b.onclick=function(){var g=b.dataset.wgo;finishWelcome(g==="goal"?"pace":g);if(g==="goal"){var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"})}}});
   bindCopy();
 }
 
@@ -868,9 +881,10 @@ function vGuide(){
   var h='<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "내 페이스" 탭에서 바꿀 수 있어요.</p></div>';
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>MP 롱런 앞부분</dt><dd>'+P(310)+' · '+zh(Zk.mpf)+'</dd><dt>플로트</dt><dd>'+zr(Zk.float)+' (MP 반복 사이 1K)</dd><dt>회복 LSD</dt><dd>'+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd></dl></div>';
-  h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준 · 3/18~20 카보 로딩</p></div>';
+  h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준이에요. 올해 풀코스는 시계에 42.29~42.36km로 찍혔어요. 시계 '+P(255)+'로 달리면 여유 없이 목표 안팎이 돼요. 보급은 시간당 탄수화물 60~90g, W14·W16 롱런에서 쓴 그대로. 3/18~20 탄수화물 로딩.</p></div>';
   h+='<div class="card"><h2>요일별 먹는 양</h2><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+x.kcal+' kcal</b><div class="small">탄수 '+x.carb+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 120~140g: 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
   h+='<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>';
+  h+='<div class="card"><h2>운영 원칙</h2><ul class="tight" style="margin-top:8px"><li>11/22 인천마라톤 후 1주는 완전 휴식. W4에도 통증이 남아 있으면 강도 훈련을 빼고 이지만 뛴다</li><li>아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁜 날은 수·토 훈련을 하루 미룬다</li><li>한파·빙판길에는 트랙이나 트레드밀로 대체하고, 페이스보다 노력도를 지킨다</li><li>통증이 3일 이상 이어지면 주간 거리를 회복주 수준으로 내리고 점검 일정을 늦춘다</li><li>점검 대회(W11·W15)가 일요일이면 그 주만 토·일 순서를 바꾼다. 피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지킨다</li></ul></div>';
   h+='<div class="card"><h2>한 주의 리듬</h2><ul class="tight" style="margin-top:8px"><li>핵심 훈련은 수·토 두 번, 나머지는 천천히</li><li>일요일은 걷기를 섞어도 되고, 다리가 무거우면 조깅 30분이나 휴식으로</li><li>근력은 화·목 이지런 뒤 20~30분</li></ul></div>';
   h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
   view.innerHTML=h;
