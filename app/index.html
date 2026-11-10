@@ -240,6 +240,19 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .rchk .go,.rchk .adj{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:99px;margin-right:4px}
 .rchk .go{background:var(--ok-soft);color:var(--ok)}
 .rchk .adj{background:var(--bad-soft);color:var(--bad)}
+.mbars{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mb{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px}
+.mb .ml{color:var(--muted)}
+.mb .mt{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.mb .mt i{display:block;height:100%;border-radius:99px}
+.mb .mv{font-size:12px;color:var(--muted);white-space:nowrap}.mb .mv b{color:var(--ink);font-size:13px}
+.meals{display:flex;flex-direction:column;margin-top:10px}
+.meal{border-top:1px solid var(--line);padding:8px 0}
+.meal summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13.5px}
+.meal summary::-webkit-details-marker{display:none}
+.meal .mty{font-weight:700;white-space:nowrap}.meal .mnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}.meal .mk{font-weight:700}
+.mi{display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+.madd{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -366,11 +379,11 @@ var W=[
 ];
 var DOW=["월","화","수","목","금","토","일"];
 var FOOD=[ // by dow; carbs in g/kg, kcal written for a 72kg runner and scaled to each user's weight
- {k:"월·금 휴식·조깅",g:[3.5,4],base:2100},
- {k:"화·목 이지+근력",g:[4,5],base:2300},
- {k:"수 인터벌·템포",g:[5,6],base:2600},
- {k:"토 지속주·롱런",g:[7,8],base:3200},
- {k:"일 LSD",g:[5,6],base:2600}];
+ {k:"월·금 휴식·조깅",g:[3.5,4],base:2100,f:[55,60]},
+ {k:"화·목 이지+근력",g:[4,5],base:2300,f:[60,60]},
+ {k:"수 인터벌·템포",g:[5,6],base:2600,f:[60,60]},
+ {k:"토 지속주·롱런",g:[7,8],base:3200,f:[60,65]},
+ {k:"일 LSD",g:[5,6],base:2600,f:[60,60]}];
 var REF_W=72;
 function bodyW(){var ks=Object.keys(S.wlog||{}).filter(function(k){return (S.wlog[k]||[]).length}).sort();if(ks.length){var a=S.wlog[ks[ks.length-1]],t=0;a.forEach(function(x){t+=x.kg});return t/a.length}return (S.wgoal&&S.wgoal.start)||REF_W}
 function r10(x){return Math.round(x/10)*10}
@@ -399,7 +412,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -854,7 +867,7 @@ function enhance(){
   try{
   if(tab==="today"){
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
-    foldCard(findCard("오늘 먹는 양"),"food","탄수 "+foodCarb(f).split(" ")[0]+" · "+foodKcal(f)+"kcal",false);
+    var mt=mealTot(sel);foldCard(findCard("식단 기록"),"meals",Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",true);
     var r=dayRec(sel),fx=view.querySelector(".session .fields");
     if(fx){var has=!!(r.km||r.hr||r.pace||r.rpe||r.note);foldInline(fx,"fields",has?"내가 적은 기록 보기 · 고치기":"거리·심박·메모 직접 적기",has||foldOpen("fields",false))}
   } else if(tab==="pace"){
@@ -903,6 +916,9 @@ function coachCtx(){
   }
   if(ti>=0){var s1=weekStats(w);L.push("이번 주: 완료 "+s1.done+"/"+s1.n+"회, "+s1.km+"/"+weekKm(w)+"km");if(w>0){var s0=weekStats(w-1);L.push("지난주: 완료 "+s0.done+"/"+s0.n+"회, "+s0.km+"/"+weekKm(w-1)+"km")}}
   var wd=wDays().filter(function(k){return k<=T}).slice(-10);if(wd.length)L.push("\n체중(하루 평균): "+wd.map(function(k){var d=wDay(k);return md(k)+" "+d.avg+(d.n>1?"("+d.min+"~"+d.max+")":"")}).join(", ")+(S.wgoal&&S.wgoal.target?" · 목표 "+S.wgoal.start+"→"+S.wgoal.target+"kg (3/21)":""));
+  var mk=[];for(var q=2;q>=0;q--){var dq=addDays(T,-q),mt=mealTot(dq);if(mt.n)mk.push(md(dq)+" "+mt.n+"끼 "+Math.round(mt.kcal)+"kcal 탄"+Math.round(mt.c)+" 단"+Math.round(mt.p)+" 지"+Math.round(mt.f))}
+  var tgT=mealTarget(Math.max(0,idxOf(T))%7);
+  if(mk.length)L.push("식단(AI 추정, 최근 3일): "+mk.join("; ")+" · 오늘 목표 "+tgT.kcal+"kcal 탄"+tgT.c.join("~")+" 단"+tgT.p.join("~")+"g"+((S.meals[T]||[]).length?" · 오늘 먹은 것: "+(S.meals[T]||[]).map(function(m){return m.type+" "+m.items.map(function(x){return x.name}).join("+")}).join(", "):""));
   L.push("점검: "+CHECKS.map(function(c){var v=S.checks[c.id],st=checkState(c);return c.wk+" "+c.name+" 기준 "+cGoal(c)+" → "+(v?v+(st===true?" 통과":st===false?" 미달":""):"미측정")}).join("; "));
   L.push("계획 원칙: 핵심 훈련은 수(인터벌·템포)·토(지속주·롱런), 나머지는 천천히. 이지·LSD는 페이스보다 심박 우선. 아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁘면 수·토 훈련을 하루 미룬다. 통증 3일 이상이면 회복주 수준으로 줄인다. 감량은 주 0.25~0.4kg, 테이퍼부터 중단.");
   return L.join("\n");
@@ -970,6 +986,82 @@ function render(){
 }
 
 
+// ---------- Meal log: photo or text -> Claude estimates foods, kcal and macros -> runner confirms -> saved per day ----------
+var ML={busy:false,err:"",draft:null,file:null,url:"",text:"",fix:"",photo:null};
+function mealTot(ds){var t={kcal:0,c:0,p:0,f:0,n:0};(S.meals[ds]||[]).forEach(function(m){t.kcal+=+m.kcal||0;t.c+=+m.c||0;t.p+=+m.p||0;t.f+=+m.f||0;t.n++});return t}
+function mealTarget(dow){var f=FOOD[FOOD_BY_DOW[dow]],w=bodyW();return{kcal:Math.round(f.base*w/REF_W/50)*50,c:[r10(f.g[0]*w),r10(f.g[1]*w)],p:[Math.round(1.6*w/5)*5,Math.round(2.0*w/5)*5],f:[Math.round(f.f[0]*w/REF_W),Math.round(f.f[1]*w/REF_W)],k:f.k}}
+function mbar(label,v,lo,hi,unit){var top=hi||lo,pct=top?Math.min(100,Math.round(v/top*100)):0,ok=v>=lo&&v<=(hi||lo)*1.1,over=v>(hi||lo)*1.1;
+  return '<div class="mb"><span class="ml">'+label+'</span><span class="mt"><i style="width:'+pct+'%;background:'+(over?'var(--bad)':ok?'var(--ok)':'var(--accent)')+'"></i></span><span class="mv num"><b>'+Math.round(v)+'</b>/'+(hi&&hi!==lo?lo+'~'+hi:lo)+unit+'</span></div>'}
+function mealHint(ds,t,tot,tg){
+  var h=[],now=ds===T?new Date().getHours():24;
+  if(t&&(t[0]==="l"||t[0]==="x"))h.push("롱런·대회 날은 탄수화물이 핵심이에요. 달리는 중 시간당 60~90g도 함께 챙겨요.");
+  var nx=idxOf(ds)+1;if(nx<TOTAL){var tn=planAt(nx);if(tn[0]==="l"||tn[0]==="x")h.push("내일 "+(tn[0]==="x"?"대회":"롱런")+"이 있어요. 오늘 저녁 탄수화물을 넉넉히 먹어 두세요.")}
+  if(tot.n&&now>=18&&tot.p<tg.p[0]-20)h.push("단백질이 "+Math.round(tg.p[0]-tot.p)+"g 정도 부족해요. 계란·두부·그릭요거트로 채워요.");
+  if(tot.n&&now>=18&&tot.c<tg.c[0]*0.7&&t&&t[0]!=="r")h.push("훈련한 날인데 탄수화물이 적어요. 회복을 위해 밥이나 빵을 조금 더 먹어요.");
+  return h;
+}
+function mealCard(ds,d,t){
+  var tg=mealTarget(d),tot=mealTot(ds),ms=S.meals[ds]||[],can=AUTH.st!=="anon";
+  var h='<div class="card" id="meals"><div class="row between"><h2>식단 기록</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+tg.k+'</span></div>';
+  h+='<div class="mbars">'+mbar("열량",tot.kcal,tg.kcal,0,"kcal")+mbar("탄수",tot.c,tg.c[0],tg.c[1],"g")+mbar("단백질",tot.p,tg.p[0],tg.p[1],"g")+mbar("지방",tot.f,tg.f[0],tg.f[1],"g")+'</div>';
+  var hints=mealHint(ds,t,tot,tg);if(hints.length)h+='<ul class="tight small" style="margin:8px 0 0;color:var(--muted)">'+hints.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul>';
+  h+='<div class="meals">'+(ms.length?ms.map(function(m,k){return '<details class="meal"><summary><span class="mty">'+esc(m.type||"식사")+(m.t?' <span class="muted small">'+hhmm(m.t)+'</span>':'')+'</span><span class="mnm">'+esc(m.items.map(function(x){return x.name}).join(", "))+'</span><span class="num mk">'+Math.round(m.kcal)+'kcal</span></summary><div class="small" style="margin-top:6px">'+m.items.map(function(x){return '<div class="mi"><span>'+esc(x.name)+' <span class="muted">'+esc(x.amount||"")+'</span></span><span class="num muted">'+Math.round(x.kcal)+'kcal · 탄'+Math.round(x.carb)+' 단'+Math.round(x.protein)+' 지'+Math.round(x.fat)+'</span></div>'}).join("")+(m.note?'<div class="muted" style="margin-top:4px">'+esc(m.note)+'</div>':'')+'<div class="row" style="margin-top:6px;justify-content:flex-end"><button class="btn ghost" data-mdel="'+k+'" style="padding:4px 10px;font-size:12.5px">삭제</button></div></div></details>'}).join(""):'<p class="small muted" style="margin:8px 0 0">아직 기록한 식사가 없어요. 사진을 올리거나 글로 적으면 칼로리와 영양소를 계산해 드려요.</p>')+'</div>';
+  // add / analyze
+  if(ML.draft&&ML.draft.ds===ds){var D=ML.draft;
+    h+='<div class="demo" style="margin-top:12px"><span class="tag">AI 추정 · 확인 후 저장</span>'+(ML.url?'<img src="'+ML.url+'" alt="올린 식사 사진" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">':'');
+    h+='<div class="row" style="gap:6px;margin-bottom:6px"><select id="md-type" class="inp" style="width:auto;padding:6px 10px">'+["아침","점심","저녁","간식","훈련 중 보급"].map(function(x){return '<option'+(D.type===x?' selected':'')+'>'+x+'</option>'}).join("")+'</select><span class="num" style="margin-left:auto"><b>'+Math.round(D.kcal)+'kcal</b> <span class="small muted">탄'+Math.round(D.c)+' 단'+Math.round(D.p)+' 지'+Math.round(D.f)+'</span></span></div>';
+    h+=D.items.map(function(x){return '<div class="mi small"><span>'+esc(x.name)+' <span class="muted">'+esc(x.amount||"")+'</span></span><span class="num muted">'+Math.round(x.kcal)+'kcal</span></div>'}).join("");
+    if(D.note)h+='<div class="small muted" style="margin-top:4px">'+esc(D.note)+'</div>';
+    h+='<div class="cin" style="margin-top:8px"><input id="md-fix" class="inp" maxlength="200" placeholder="양이 다르면 적어 주세요 (예: 밥은 반 공기)" value="'+esc(ML.fix)+'"><button class="btn ghost" id="md-redo"'+(ML.busy?' disabled':'')+'>다시 계산</button></div>';
+    h+='<div class="row" style="margin-top:8px"><button class="btn" id="md-save" style="background:var(--accent);color:#fff"'+(ML.busy?' disabled':'')+'>저장</button><button class="btn ghost" id="md-cancel">취소</button></div></div>';
+  } else {
+    h+='<div class="madd"><label class="btn'+(ML.photo===false||!can?' ghost':'')+'" for="m-photo" style="text-align:center;cursor:pointer'+(ML.photo===false||!can?';opacity:.5;pointer-events:none':'')+'">사진으로 추가</label><input type="file" id="m-photo" accept="'+(ML.mt||"image/*")+'" style="position:absolute;width:1px;height:1px;opacity:0"'+(ML.photo===false||!can||ML.busy?' disabled':'')+'><button class="btn ghost" id="m-text-open">글로 추가</button></div>';
+    if(ML.textOpen)h+='<div class="cin" style="margin-top:8px"><input id="m-text" class="inp" maxlength="300" placeholder="예: 점심 김밥 1줄, 초코우유 300ml" value="'+esc(ML.text)+'"><button class="btn" id="m-text-go"'+(ML.busy?' disabled':'')+'>계산</button></div>';
+    if(ML.photo===false)h+='<div class="small muted" style="margin-top:6px">이 화면에서는 사진 분석을 쓸 수 없어요. 글로 적어 주세요.</div>';
+  }
+  if(ML.busy)h+='<div class="small muted" style="margin-top:8px">클로드가 음식을 살펴보는 중이에요…</div>';
+  if(ML.err)h+='<div class="small" style="margin-top:8px;color:var(--bad)">'+esc(ML.err)+'</div>';
+  if(!can)h+='<div class="small muted" style="margin-top:6px">claude.ai에 로그인해야 식단 분석을 쓸 수 있어요.</div>';
+  h+='<p class="small muted" style="margin:10px 0 0">목표는 '+tg.k+' 기준, 내 체중 '+(Math.round(bodyW()*10)/10)+'kg으로 계산했어요. AI 추정은 ±20~30% 오차가 있을 수 있어요. 사진은 저장하지 않아요.</p>';
+  return h+'</div>';
+}
+function mealPrompt(hint,prev,fix){
+  var p="한국인 마라토너의 한 끼 식사를 분석해."+(hint?"\n러너가 적은 설명: \""+hint+"\"":"")+(prev?"\n이전 추정: "+JSON.stringify(prev)+"\n러너의 수정: \""+fix+"\" — 이 수정을 반영해 다시 계산해.":"")+
+   "\n음식별로 이름, 대략적인 양, 칼로리, 탄수화물·단백질·지방(g)을 추정해. 한국 음식은 일반적인 1인분을 기준으로 하고, 보이지 않는 기름·소스는 보통 수준으로 가정해. 음식이 아니거나 알아볼 수 없으면 items를 빈 배열로 하고 note에 이유를 적어."+
+   "\n아래 JSON 하나로만 답해: {\"meal\":\"아침|점심|저녁|간식|훈련 중 보급\",\"items\":[{\"name\":\"잡곡밥\",\"amount\":\"2/3공기(140g)\",\"kcal\":220,\"carb\":48,\"protein\":5,\"fat\":1}],\"note\":\"추정 근거나 주의 한 문장\"}";
+  return p;
+}
+function guessType(){var h=new Date().getHours();return h<10?"아침":h<15?"점심":h<17?"간식":h<22?"저녁":"간식"}
+async function mealAnalyze(ds,opt){
+  ML.busy=true;ML.err="";keepIf();
+  try{
+    var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;
+    if(!sm){ML.err="claude.ai에 로그인한 상태로 열어야 식단 분석을 쓸 수 있어요.";return}
+    var o={modelTier:"default",cache:false};if(opt.file)o.images=[opt.file];
+    var out=await sm.json(mealPrompt(opt.hint,opt.prev,opt.fix),o);
+    var items=(out&&Array.isArray(out.items)?out.items:[]).filter(function(x){return x&&x.name}).slice(0,15).map(function(x){function n(v){v=+v;return isNaN(v)||v<0?0:Math.min(5000,v)}return{name:String(x.name).slice(0,40),amount:String(x.amount||"").slice(0,40),kcal:n(x.kcal),carb:n(x.carb),protein:n(x.protein),fat:n(x.fat)}});
+    if(!items.length){ML.err=(out&&out.note)?String(out.note).slice(0,200):"음식을 알아보지 못했어요. 다른 사진을 올리거나 글로 적어 주세요.";return}
+    var D={ds:ds,type:(opt.prev&&ML.draft&&ML.draft.type)||(["아침","점심","저녁","간식","훈련 중 보급"].indexOf(out.meal)>=0?out.meal:guessType()),items:items,note:String(out.note||"").slice(0,160),src:opt.file?"사진":"글",hint:opt.hint||""};
+    D.kcal=0;D.c=0;D.p=0;D.f=0;items.forEach(function(x){D.kcal+=x.kcal;D.c+=x.carb;D.p+=x.protein;D.f+=x.fat});
+    ML.draft=D;ML.fix="";
+  }catch(e){var c=e&&e.code;ML.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 식단 분석을 쓸 수 있어요.":c==="images_unavailable"?(ML.photo=false,"이 화면에서는 사진 분석을 쓸 수 없어요. 글로 적어 주세요."):c==="image_rejected"?"이 사진은 읽을 수 없어요. JPG·PNG 사진으로 다시 올려 주세요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":c==="invalid_json"?"분석 결과를 읽지 못했어요. 다시 시도하거나 글로 적어 주세요.":"분석하지 못했어요"+(e&&e.message?": "+e.message:".")}
+  finally{ML.busy=false;keepIf()}
+}
+function bindMeals(ds){
+  if(ML.photo==null&&window.claude&&window.claude.use){ML.photo=undefined;window.claude.use("sample").then(function(sm){if(!sm)return;return sm.limits().then(function(l){ML.photo=!!(l&&l.images);if(l&&l.images)ML.mt=l.images.mediaTypes.join(",");keepIf()})}).catch(function(){})}
+  var ph=document.getElementById("m-photo");if(ph)ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;if(ML.url)try{URL.revokeObjectURL(ML.url)}catch(e){}ML.file=f;ML.url=URL.createObjectURL(f);mealAnalyze(ds,{file:f,hint:""})};
+  var to=document.getElementById("m-text-open");if(to)to.onclick=function(){ML.textOpen=!ML.textOpen;keepIf();var i=document.getElementById("m-text");if(i)i.focus()};
+  var ti=document.getElementById("m-text");if(ti)ti.oninput=function(){ML.text=ti.value};
+  var tg=document.getElementById("m-text-go");if(tg)tg.onclick=function(){var v=(ML.text||"").trim();if(!v)return;ML.file=null;ML.url="";mealAnalyze(ds,{hint:v})};
+  var fx=document.getElementById("md-fix");if(fx)fx.oninput=function(){ML.fix=fx.value};
+  var ty=document.getElementById("md-type");if(ty)ty.onchange=function(){ML.draft.type=ty.value};
+  var rd=document.getElementById("md-redo");if(rd)rd.onclick=function(){var f=(ML.fix||"").trim();if(!f)return;var D=ML.draft;mealAnalyze(ds,{hint:D.hint,prev:{meal:D.type,items:D.items},fix:f})};
+  var sv=document.getElementById("md-save");if(sv)sv.onclick=function(){var D=ML.draft;(S.meals[D.ds]=S.meals[D.ds]||[]).push({t:Date.now(),type:D.type,items:D.items,kcal:Math.round(D.kcal),c:Math.round(D.c),p:Math.round(D.p),f:Math.round(D.f),note:D.note,src:D.src});
+    var ks=Object.keys(S.meals).sort();while(ks.length>60){delete S.meals[ks.shift()]}
+    ML.draft=null;ML.text="";ML.textOpen=false;if(ML.url)try{URL.revokeObjectURL(ML.url)}catch(e){}ML.url="";ML.file=null;save();keepIf()};
+  var cc=document.getElementById("md-cancel");if(cc)cc.onclick=function(){ML.draft=null;if(ML.url)try{URL.revokeObjectURL(ML.url)}catch(e){}ML.url="";ML.file=null;keepIf()};
+  view.querySelectorAll("[data-mdel]").forEach(function(b){b.onclick=function(e){e.preventDefault();var a=S.meals[ds]||[];a.splice(+b.dataset.mdel,1);if(!a.length)delete S.meals[ds];save();keepIf()}});
+}
 var EDIT=null,AI={busy:false,msg:"",err:"",prev:null,req:""},PLMSG="";
 function dayEditor(ds,w,d,t){
   if(t[0]==="x")return '<p class="small muted" style="margin:10px 0 0">대회 날은 바꿀 수 없어요.</p>';
@@ -1080,11 +1172,11 @@ function vToday(){
     ks.forEach(function(x){var t=x[1];h+='<button class="key t-'+t[0]+'" data-go="'+x[0]+'"><span class="kd"><b>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</b><span>'+(t[0]==="q"?"포인트":t[0]==="l"?"롱런":"대회")+' · '+t[2]+'K</span></span><span class="kt">'+esc(ptxt(t[1]).split("\n").join(" · "))+'</span></button>'});
     h+='</div></div>'}
   // food
-  h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+foodCarb(food)+'</dd><dt>총 열량</dt><dd class="num">'+foodKcal(food)+' kcal</dd><dt>단백질</dt><dd>'+protTxt()+', 끼니마다 30g 안팎</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
+  h+=mealCard(sel,d,t);
   view.innerHTML=h;
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
-  bindDayEditor(sel);
+  bindDayEditor(sel);bindMeals(sel);
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
   document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);delete r.auto;S.days[sel]=r;save();render()};
@@ -1472,7 +1564,7 @@ function bindShare(){
 var WSTEPS=[
  function(){
   var h='<div class="wel-hero"><div class="eyebrow">처음 오셨나요?</div><h1>'+(S.goal?fmtT(S.goal.sec)+' 목표를 향한 18주,':'서브3를 향한 18주,')+'<br>매일 체크로 완주해요</h1><p>2026.11.9 시작 · 11/22 인천마라톤을 거쳐 2027.3.21 서울마라톤까지, 하루 한 번 훈련을 체크하는 앱이에요.</p></div>';
-  h+='<div class="card"><h2>이 앱으로 할 수 있는 것</h2><ul class="steps" style="margin-top:12px"><li><span><b>오늘 훈련 확인·체크</b><br><span class="small muted">그날 할 훈련과 페이스를 보고 완료를 누르면 끝.</span></span></li><li><span><b>내 수준에 맞춘 페이스</b><br><span class="small muted">역치 심박·페이스와 최근 기록으로 모든 페이스를 개인화.</span></span></li><li><span><b>3.21 목표 정하기</b><br><span class="small muted">가능한 기록을 제안받고, 확정하면 앱이 그 목표에 맞춰져요.</span></span></li><li><span><b>AI 코치</b><br><span class="small muted">오른쪽 아래 버튼으로 내 기록·훈련에 대해 물어보면 답해 줘요.</span></span></li><li><span><b>크루와 함께</b><br><span class="small muted">크루를 초대해 닉네임으로 현황을 공유하고 좋아요·댓글로 응원.</span></span></li><li><span><b>체중·점검 기록</b><br><span class="small muted">체중 그래프와 W11·W15·W16 세 번의 점검.</span></span></li></ul></div>';
+  h+='<div class="card"><h2>이 앱으로 할 수 있는 것</h2><ul class="steps" style="margin-top:12px"><li><span><b>오늘 훈련 확인·체크</b><br><span class="small muted">그날 할 훈련과 페이스를 보고 완료를 누르면 끝.</span></span></li><li><span><b>내 수준에 맞춘 페이스</b><br><span class="small muted">역치 심박·페이스와 최근 기록으로 모든 페이스를 개인화.</span></span></li><li><span><b>3.21 목표 정하기</b><br><span class="small muted">가능한 기록을 제안받고, 확정하면 앱이 그 목표에 맞춰져요.</span></span></li><li><span><b>AI 코치</b><br><span class="small muted">오른쪽 아래 버튼으로 내 기록·훈련에 대해 물어보면 답해 줘요.</span></span></li><li><span><b>크루와 함께</b><br><span class="small muted">크루를 초대해 닉네임으로 현황을 공유하고 좋아요·댓글로 응원.</span></span></li><li><span><b>식단 기록</b><br><span class="small muted">음식 사진이나 글로 칼로리·탄수·단백질·지방을 계산하고 오늘 목표와 비교.</span></span></li><li><span><b>체중·점검 기록</b><br><span class="small muted">체중 그래프와 W11·W15·W16 세 번의 점검.</span></span></li></ul></div>';
   h+='<div class="card"><h3>18주 + 레이스 주 구성</h3><div class="phase-row" aria-label="주차별 단계">'+W.map(function(x){return '<i style="background:var('+PH[x.ph][1]+')" title="'+esc(PH[x.ph][0])+'"></i>'}).join("")+'</div><div class="small muted" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 12px"><span>인천 대회 W1–3</span><span>베이스 W4–7 (12/19 66K)</span><span>빌드 W8–10</span><span>마라톤 특화 W12–16</span><span>테이퍼 W17–18</span><span>레이스 주</span></div><p class="small muted" style="margin:8px 0 0">핵심 훈련은 수요일(포인트)과 토요일(지속주·롱런) 두 번, 나머지는 천천히 달려요.</p></div>';
   return h;
  },
