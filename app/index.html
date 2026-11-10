@@ -293,12 +293,18 @@ var W=[
  {lab:"레이스 주",ph:"race",km:70,d:[["r","휴식",0],["e","E 8K\n스트라이드 4회",8],["q","총 10K\nE 4K\nMP 3K\nE 3K",10],["e","조깅 6K",6],["r","휴식",0],["e","조깅 4K\n스트라이드 4회",4],["x","풀코스 대회\n목표 2:59:59",42.2]]}
 ];
 var DOW=["월","화","수","목","금","토","일"];
-var FOOD=[ // by dow
- {k:"월·금 휴식·조깅",carb:"250~290g (3.5~4g/kg)",kcal:"2,100"},
- {k:"화·목 이지+근력",carb:"300~360g (4~5g/kg)",kcal:"2,300"},
- {k:"수 인터벌·템포",carb:"360~430g (5~6g/kg)",kcal:"2,600"},
- {k:"토 지속주·롱런",carb:"500~580g (7~8g/kg)",kcal:"3,200"},
- {k:"일 LSD",carb:"360~430g (5~6g/kg)",kcal:"2,600"}];
+var FOOD=[ // by dow; carbs in g/kg, kcal written for a 72kg runner and scaled to each user's weight
+ {k:"월·금 휴식·조깅",g:[3.5,4],base:2100},
+ {k:"화·목 이지+근력",g:[4,5],base:2300},
+ {k:"수 인터벌·템포",g:[5,6],base:2600},
+ {k:"토 지속주·롱런",g:[7,8],base:3200},
+ {k:"일 LSD",g:[5,6],base:2600}];
+var REF_W=72;
+function bodyW(){var ks=Object.keys(S.wlog||{}).filter(function(k){return (S.wlog[k]||[]).length}).sort();if(ks.length){var a=S.wlog[ks[ks.length-1]],t=0;a.forEach(function(x){t+=x.kg});return t/a.length}return (S.wgoal&&S.wgoal.start)||REF_W}
+function r10(x){return Math.round(x/10)*10}
+function foodCarb(f){var w=bodyW();return r10(f.g[0]*w)+"~"+r10(f.g[1]*w)+"g ("+f.g[0]+"~"+f.g[1]+"g/kg)"}
+function foodKcal(f){return (Math.round(f.base*bodyW()/REF_W/50)*50).toLocaleString()}
+function protTxt(){var w=bodyW();return Math.round(1.6*w/5)*5+"~"+Math.round(2.0*w/5)*5+"g (1.6~2.0g/kg)"}
 var FOOD_BY_DOW=[0,1,2,1,0,3,4];
 var CHECKS=[
  {id:"w8",wk:"W11 · 1/23 (토)",name:"10K 기록측정",goal:"≤ 39:00",lim:39*60,kind:"time",dist:"10",date:"2027-01-23",ph:"예: 38:42"},
@@ -321,7 +327,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -407,6 +413,30 @@ function isDone(ds){return !!dayRec(ds).done}
 function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,min:mn,max:mx,n:a.length}}
 function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
 function addWeight(ms,kg,src){var ds=localDate(Math.floor(ms/1000));(S.wlog[ds]=S.wlog[ds]||[]).push({t:ms,kg:Math.round(kg*10)/10,src:src});S.wlog[ds].sort(function(a,b){return a.t-b.t})}
+// cumulative share of planned loss by date (from the plan doc: hold until 11/29, 72% by 1/24, 94% by 2/28, 100% by 3/21)
+var WSHAPE=[["2026-11-29",0],["2027-01-24",0.72],["2027-02-28",0.94],["2027-03-21",1]];
+function wShare(ds){var t=p(ds);if(t<=p(WSHAPE[0][0]))return 0;for(var i=1;i<WSHAPE.length;i++){var a=WSHAPE[i-1],b=WSHAPE[i];if(t<=p(b[0]))return a[1]+(b[1]-a[1])*(t-p(a[0]))/(p(b[0])-p(a[0]))}return 1}
+function wtPlan(){
+  var g=S.wgoal;if(!(g&&g.start&&g.target))return WT;
+  var d0=g.date&&g.date>START?g.date:START,f0=wShare(d0),D=g.start-g.target,out=[[d0,g.start,g.start,"내 시작 체중"]];
+  var lab={"2026-11-29":"인천 대회 후까지 유지","2027-01-24":"W11 · 본격 감량 구간 끝","2027-02-28":"W16 · 롱런·인터벌 날은 감량 안 함","2027-03-21":"레이스 · 감량 중단, 유지+로딩"};
+  WSHAPE.forEach(function(m){if(m[0]<=d0)return;var f=f0>=1?1:(m[1]-f0)/(1-f0),v=g.start-D*f,band=m[0]==="2027-03-21"?0.5:0.25;if(m[0]==="2026-11-29")band=0;
+    out.push([m[0],Math.round((v-band)*10)/10,Math.round((v+band)*10)/10,lab[m[0]]])});
+  return out;
+}
+function wGoalCard(){
+  var g=S.wgoal||{},cur=Object.keys(S.wlog||{}).length?Math.round(bodyW()*10)/10:"";
+  var wk=Math.max(1,(p(RACE)-p(T>START?T:START))/(7*864e5)),st=+(g.start||cur)||0;
+  var h='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><div class="row between"><b>내 체중 목표</b>'+(g.target?'<span class="small muted">3/21 목표 <b class="num" style="color:var(--ink)">'+g.target+'kg</b></span>':'')+'</div>';
+  h+='<div class="fields" style="margin-top:8px"><label>현재 체중 (kg)<input id="wg-start" inputmode="decimal" placeholder="'+(cur||"예: 72.5")+'" value="'+esc(g.start||"")+'"></label><label>3/21 목표 체중 (kg)<input id="wg-target" inputmode="decimal" placeholder="'+(st?Math.round((st-wk*0.3)*2)/2:"예: 68")+'" value="'+esc(g.target||"")+'"></label></div>';
+  if(st)h+='<p class="small muted" style="margin:6px 0 0">계획 권장 속도는 주 0.25~0.4kg이에요. 3/21까지 약 '+Math.round(wk)+'주라서 권장 목표는 <b style="color:var(--ink)">'+(Math.round((st-wk*0.4)*10)/10)+'~'+(Math.round((st-wk*0.25)*10)/10)+'kg</b>예요.</p>';
+  if(g.start&&g.target){var rate=(g.start-g.target)/wk;
+    if(rate>0.4)h+='<div class="warn" style="margin-top:6px">주 '+(Math.round(rate*100)/100)+'kg씩 빼야 하는 목표예요. 권장(주 0.4kg 이하)보다 빨라서 훈련 회복과 부상 위험이 커져요.</div>';
+    else if(rate<0)h+='<p class="small muted" style="margin:6px 0 0">목표가 현재보다 높아요. 유지·증량 목표로 그래프를 그려요.</p>'}
+  h+='<div class="row" style="margin-top:8px"><button class="btn" id="wg-save">'+(g.target?'목표 바꾸기':'목표 저장')+'</button>'+(g.target?'<button class="btn ghost" id="wg-clear">기본 계획으로</button>':'')+'<span class="small" id="wg-msg" style="color:var(--bad)"></span></div>';
+  h+='<p class="small muted" style="margin:8px 0 0">목표를 저장하면 그래프의 목표 범위와 단계별 체중이 내 숫자로 바뀌어요. 감량은 베이스기에 몰고(1/24까지 72%), 특화기엔 천천히, 테이퍼부터는 멈추는 원래 계획의 흐름을 그대로 따라가요.</p></div>';
+  return h;
+}
 function hhmm(ms){var d=new Date(ms);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 // ---------- Watch sync (COROS via the viewer's own claude.ai connector) ----------
 var WATCHES={coros:{name:"COROS"},file:{name:"파일 가져오기"}};
@@ -710,7 +740,7 @@ function vToday(){
     h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2])+'</b><div class="dot"></div></button>'}
   h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · 숫자는 계획 거리(km) · 빨간 점은 놓친 날</div></div>';
   // food
-  h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+food.carb+'</dd><dt>총 열량</dt><dd class="num">'+food.kcal+' kcal</dd><dt>단백질</dt><dd>120~140g (끼니마다 30g)</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
+  h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+foodCarb(food)+'</dd><dt>총 열량</dt><dd class="num">'+foodKcal(food)+' kcal</dd><dt>단백질</dt><dd>'+protTxt()+', 끼니마다 30g 안팎</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
@@ -744,12 +774,15 @@ function vPlan(){
 }
 
 function chart(){
+  var WT=wtPlan();
   var days=wDays(),lo=66.5,hi=73.5;days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
   var x0=p("2026-11-09"),x1=p("2027-03-21");
   if(WZ==="4w"){var te=Math.min(p(T),x1);x0=Math.max(p(START),te-27*864e5);x1=x0+27*864e5}
   var zd=days.filter(function(k){var t=p(k);return t>=x0&&t<=x1});lo=66.5;hi=73.5;
   if(WZ==="4w"&&zd.length){lo=Infinity;hi=-Infinity;zd.forEach(function(k){var d=wDay(k);lo=Math.min(lo,d.min);hi=Math.max(hi,d.max)});lo=Math.floor(lo-0.6);hi=Math.ceil(hi+0.6)}
   else days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
+  WT.forEach(function(m){var t=p(m[0]);if(t>=x0-30*864e5&&t<=x1+30*864e5){lo=Math.min(lo,Math.floor(m[1]-0.5));hi=Math.max(hi,Math.ceil(m[2]+0.5))}});
+  if(S.wgoal&&WZ!=="4w"){lo=Math.min(lo,Math.floor(S.wgoal.target-0.8));hi=Math.max(hi,Math.ceil(S.wgoal.start+0.5))}
   var y0=lo,y1=hi,Wd=340,Hd=180,L=30,R=16,Tp=10,B=22;
   function X(t){return L+(t-x0)/(x1-x0)*(Wd-L-R)} function Y(v){return Tp+(y1-v)/(y1-y0)*(Hd-Tp-B)}
   var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표: 점은 하루 평균, 음영은 하루 최소~최대"><defs><clipPath id="wclip"><rect x="'+L+'" y="0" width="'+(Wd-L-R)+'" height="'+Hd+'"/></clipPath></defs><g clip-path="url(#wclip)">';
@@ -759,7 +792,7 @@ function chart(){
   s+='<path d="'+WT.map(function(m,i){return (i?"L":"M")+X(p(m[0]))+" "+Y((m[1]+m[2])/2)}).join("")+'" fill="none" stroke="var(--q)" stroke-width="1.5" stroke-dasharray="4 3"/>';
   s+='</g>'+yl;
   if(WZ==="4w"){for(var tk=0;tk<=27;tk+=7){var tt=x0+tk*864e5;s+='<text x="'+X(tt)+'" y="'+(Hd-6)+'" text-anchor="'+(tk===0?'start':tk>=27?'end':'middle')+'">'+md(f(tt))+'</text>'}}
-  else WT.forEach(function(m,i){s+='<text x="'+X(p(m[0]))+'" y="'+(Hd-6)+'" text-anchor="'+(i===0?'start':i===WT.length-1?'end':'middle')+'">'+md(m[0])+'</text>'});
+  else{var lx=-99;WT.forEach(function(m,i){var x=X(p(m[0]));if(x-lx<46&&i!==WT.length-1)return;lx=x;s+='<text x="'+x+'" y="'+(Hd-6)+'" text-anchor="'+(i===0?'start':i===WT.length-1?'end':'middle')+'">'+md(m[0])+'</text>'})}
   var pts=zd;
   if(pts.length){
     pts.forEach(function(k){var d=wDay(k),x=X(p(k));if(d.max>d.min){var yt=Y(d.max),yb=Y(d.min);s+='<rect x="'+(x-3.5).toFixed(1)+'" y="'+yt.toFixed(1)+'" width="7" height="'+Math.max(2,yb-yt).toFixed(1)+'" rx="3.5" fill="var(--accent)" fill-opacity=".25"/>'}});
@@ -772,9 +805,10 @@ function chart(){
 var WOPEN=null;
 var WZ="4w";
 function vLog(){
+  var WT=wtPlan();
   var wc=watchCard();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
-  var h=wc+'<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num" style="color:var(--ink)">'+ld.avg+'kg</b>':'목표 72~73 → 67.5~68.5kg')+'</span></div>';
+  var h=wc+'<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num" style="color:var(--ink)">'+ld.avg+'kg</b>':(S.wgoal&&S.wgoal.target?'목표 '+S.wgoal.start+' → '+S.wgoal.target+'kg':'목표 체중을 정해 주세요'))+'</span></div>';
   h+='<div class="seg" role="radiogroup" aria-label="그래프 범위" style="grid-template-columns:1fr 1fr;margin:8px 0 4px"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">최근 4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체 (11/9~3/21)</button></div>'+chart();
   h+='<div class="small muted" style="display:flex;gap:14px;margin:2px 0 10px"><span><span style="color:var(--q)">┅</span> 목표 범위</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:7px;height:12px;border-radius:4px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 하루 최소~최대</span></div>';
   var nowD=new Date();
@@ -784,7 +818,7 @@ function vLog(){
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
-  h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl></div>';
+  h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</div>';
   // checkpoints
   var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
   CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
@@ -794,6 +828,10 @@ function vLog(){
   view.innerHTML=h;
   bindWatch();
   document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
+  var wgs=document.getElementById("wg-save");if(wgs)wgs.onclick=function(){var a=numv(document.getElementById("wg-start").value)||Math.round(bodyW()*10)/10,b=numv(document.getElementById("wg-target").value),m=document.getElementById("wg-msg");
+    if(!(a>=30&&a<=200)){m.textContent="현재 체중을 넣어 주세요.";return}if(!(b>=30&&b<=200)){m.textContent="목표 체중을 넣어 주세요.";return}
+    S.wgoal={start:Math.round(a*10)/10,target:Math.round(b*10)/10,date:T};save();keepIf()};
+  var wgc=document.getElementById("wg-clear");if(wgc)wgc.onclick=function(){S.wgoal=null;save();keepIf()};
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
@@ -1122,7 +1160,7 @@ var WSTEPS=[
  },
  function(){
   var h='<h2>기록과 가이드</h2>';
-  h+='<div class="card"><h3>기록 탭</h3><ul class="tight" style="margin-top:8px"><li>아침 공복 체중을 적으면 목표 범위(72~73 → 67.5~68.5kg) 위에 그래프로 보여요.</li><li>세 번의 점검 결과를 넣으면 통과·미달이 표시돼요.</li></ul><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W11 · 1/23</span><span>10K 기록측정</span><span class="muted">W15 · 2/20</span><span>하프 기록측정</span><span class="muted">W16 · 2/27</span><span>35K 리허설 중 MP 22km 심박</span></div></div>';
+  h+='<div class="card"><h3>기록 탭</h3><ul class="tight" style="margin-top:8px"><li>현재 체중과 3/21 목표 체중을 정하고, 아침 공복 체중을 적으면 내 목표 범위 위에 그래프로 보여요. 하루에 여러 번 재면 평균과 변동폭도 보여요.</li><li>세 번의 점검 결과를 넣으면 통과·미달이 표시돼요.</li></ul><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W11 · 1/23</span><span>10K 기록측정</span><span class="muted">W15 · 2/20</span><span>하프 기록측정</span><span class="muted">W16 · 2/27</span><span>35K 리허설 중 MP 22km 심박</span></div></div>';
   h+='<div class="card"><h3>가이드 탭</h3><ul class="tight" style="margin-top:8px"><li>페이스 존과 약어 (E 이지, WU 워밍업, CD 쿨다운, MP 마라톤 페이스)</li><li>레이스 데이 구간별 페이스</li><li>요일별 탄수화물·열량, 훈련 전후 보급</li></ul></div>';
   return h;
  },
@@ -1164,7 +1202,7 @@ function vGuide(){
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>MP 롱런 앞부분</dt><dd>'+P(310)+' · '+zh(Zk.mpf)+'</dd><dt>플로트</dt><dd>'+zr(Zk.float)+' (MP 반복 사이 1K)</dd><dt>회복 LSD</dt><dd>'+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd></dl></div>';
   h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준이에요. 올해 풀코스는 시계에 42.29~42.36km로 찍혔어요. 시계 '+P(255)+'로 달리면 여유 없이 목표 안팎이 돼요. 보급은 시간당 탄수화물 60~90g, W14·W16 롱런에서 쓴 그대로. 3/18~20 탄수화물 로딩.</p></div>';
-  h+='<div class="card"><h2>요일별 먹는 양</h2><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+x.kcal+' kcal</b><div class="small">탄수 '+x.carb+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 120~140g: 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
+  h+='<div class="card"><h2>요일별 먹는 양</h2><p class="small muted" style="margin:2px 0 0">'+(Object.keys(S.wlog||{}).length||S.wgoal?'내 체중 '+(Math.round(bodyW()*10)/10)+'kg 기준이에요.':'체중을 기록하면 내 체중에 맞춰 계산돼요. 지금은 72kg 기준.')+'</p><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+foodKcal(x)+' kcal</b><div class="small">탄수 '+foodCarb(x)+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 '+protTxt()+': 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
   h+='<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>';
   h+='<div class="card"><h2>워치 기록 연동</h2><dl class="kv" style="margin-top:8px"><dt>COROS</dt><dd>claude.ai 커넥터로 내 계정 연결 → 앱을 열 때마다 자동으로 불러와요</dd><dt>가민</dt><dd>매주 일요일 21:00 알림 → connect.garmin.com 활동 목록에서 CSV로 내보내기 → 기록 탭에 올리기</dd><dt>애플워치 등</dt><dd>GPX·TCX·FIT 파일을 기록 탭에 올려요</dd></dl><p class="small muted" style="margin:8px 0 0">계획 거리의 80% 이상 뛴 날은 자동으로 체크되고, 직접 체크하거나 해제한 날은 바꾸지 않아요. 휴대폰 알림을 받으려면 기록 탭에서 "휴대폰 알림 받기"로 구글 캘린더에 등록하세요.</p></div>';
   h+='<div class="card"><h2>운영 원칙</h2><ul class="tight" style="margin-top:8px"><li>11/22 인천마라톤 후 1주는 완전 휴식. W4에도 통증이 남아 있으면 강도 훈련을 빼고 이지만 뛴다</li><li>아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁜 날은 수·토 훈련을 하루 미룬다</li><li>한파·빙판길에는 트랙이나 트레드밀로 대체하고, 페이스보다 노력도를 지킨다</li><li>통증이 3일 이상 이어지면 주간 거리를 회복주 수준으로 내리고 점검 일정을 늦춘다</li><li>점검 대회(W11·W15)가 일요일이면 그 주만 토·일 순서를 바꾼다. 피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지킨다</li></ul></div>';
