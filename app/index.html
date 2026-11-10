@@ -214,6 +214,10 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .key .kd b{font-size:14px;color:var(--ink);font-family:var(--f-display)}
 .key .kt{font-size:13.5px;min-width:0}
 .key.t-q .kd span{color:var(--q)} .key.t-l .kd span,.key.t-x .kd span{color:var(--accent)}
+.segm{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.segm button{border:0;background:transparent;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.segm button[aria-checked="true"]{background:var(--ink);color:var(--bg)}
+.wcard .wlist div{padding:5px 0}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -1008,7 +1012,7 @@ function chart(){
   else days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
   WT.forEach(function(m){var t=p(m[0]);if(t>=x0-30*864e5&&t<=x1+30*864e5){lo=Math.min(lo,Math.floor(m[1]-0.5));hi=Math.max(hi,Math.ceil(m[2]+0.5))}});
   if(S.wgoal&&WZ!=="4w"){lo=Math.min(lo,Math.floor(S.wgoal.target-0.8));hi=Math.max(hi,Math.ceil(S.wgoal.start+0.5))}
-  var y0=lo,y1=hi,Wd=340,Hd=180,L=30,R=16,Tp=10,B=22;
+  var y0=lo,y1=hi,Wd=340,Hd=150,L=30,R=16,Tp=10,B=22;
   function X(t){return L+(t-x0)/(x1-x0)*(Wd-L-R)} function Y(v){return Tp+(y1-v)/(y1-y0)*(Hd-Tp-B)}
   var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표: 점은 하루 평균, 음영은 하루 최소~최대"><defs><clipPath id="wclip"><rect x="'+L+'" y="0" width="'+(Wd-L-R)+'" height="'+Hd+'"/></clipPath></defs><g clip-path="url(#wclip)">';
   var yl="";for(var v=Math.ceil(y0);v<=Math.floor(y1);v++){s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"/>';yl+='<text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'}
@@ -1034,23 +1038,25 @@ function vLog(){
   var WT=wtPlan();
   var wc=watchCard();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
-  var h=wc+'<div class="card"><div class="row between"><h2>체중</h2><span class="small muted">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num" style="color:var(--ink)">'+ld.avg+'kg</b>':(S.wgoal&&S.wgoal.target?'목표 '+S.wgoal.start+' → '+S.wgoal.target+'kg':'목표 체중을 정해 주세요'))+'</span></div>';
-  h+='<div class="seg" role="radiogroup" aria-label="그래프 범위" style="grid-template-columns:1fr 1fr;margin:8px 0 4px"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">최근 4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체 (11/9~3/21)</button></div>'+chart();
-  h+='<div class="small muted" style="display:flex;gap:14px;margin:2px 0 10px"><span><span style="color:var(--q)">┅</span> 목표 범위</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:7px;height:12px;border-radius:4px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 하루 최소~최대</span></div>';
+  var h='<div class="card wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
+  h+='<div class="small" style="margin-top:2px">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num">'+ld.avg+'kg</b>'+(ld.n>1?' <span class="muted">('+ld.min+'~'+ld.max+')</span>':''):'<span class="muted">아침 공복 체중을 기록해 보세요</span>')+(S.wgoal&&S.wgoal.target?' <span class="muted">· 목표 '+S.wgoal.target+'kg</span>':'')+'</div>'+chart();
+  h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   var nowD=new Date();
-  h+='<form class="wform" id="wf" style="grid-template-columns:1fr 1fr"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중"><button class="btn" type="submit">기록</button></form>';
-  h+='<div class="small muted" style="margin-top:6px">하루 여러 번 재도 돼요'+(S.watch==="coros"?' · COROS 체중은 자동 기록':'')+'</div>';
-  h+='<div class="wlist" style="margin-top:8px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
+  h+='<form class="wform" id="wf" style="grid-template-columns:1fr 96px auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중" style="padding:8px 10px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="padding:8px 6px"><button class="btn" type="submit" style="padding:8px 14px">기록</button></form>';
+  h+='<label class="small muted" style="display:flex;align-items:center;gap:6px;margin-top:6px">날짜 <input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;padding:4px 8px;font-size:13px"></label>';
+  h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
   h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</div>';
-  // checkpoints
+  // checkpoints (shown right under the watch card)
+  var wh=h;h='';
   var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
   CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
     h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
   h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
   h+='</div>';
+  h=wc+h+wh;
   view.innerHTML=h;
   bindWatch();
   document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
