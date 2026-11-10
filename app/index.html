@@ -1140,7 +1140,7 @@ async function drawStory(){
   else if(D.work.length){ctx.fillStyle="#9cc0ff";ctx.font="700 36px "+FB;ctx.fillText(wrapText(ctx,"본 구간 "+D.work.map(function(x){return fmtMS(x.p)}).join(" · ")+(D.work[0].hr?"   ♥ "+D.work.map(function(x){return x.hr}).join("·"):""),Wd-2*M)[0],M,lapY)}
   ctx.fillStyle="rgba(255,255,255,.14)";rrect(ctx,M,boxY,Wd-2*M,bh,36);ctx.fill();ctx.strokeStyle="rgba(255,255,255,.22)";ctx.lineWidth=2;ctx.stroke();
   ctx.fillStyle="#ff7a33";ctx.font="800 32px "+FB;ctx.fillText("AI 코치",M+40,boxY+58);ctx.fillStyle="#fff";ctx.font="500 42px "+FB;cl.forEach(function(l,k){ctx.fillText(l,M+40,boxY+122+k*60)});
-  ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 30px "+FB;ctx.fillText("Sub-3 훈련 체크"+(S.nick?" · "+S.nick:""),M,Hd-70);
+  
 }
 function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   var Sr=D.series,cx=x+118,cw=w-118-44,top=y+104,bot=y+h-96,ch=bot-top,dmax=Sr.d[Sr.d.length-1]||1;
