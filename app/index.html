@@ -1037,14 +1037,15 @@ function coachBar(){
   var kb=document.getElementById("co-kbmic");if(kb)kb.onclick=function(){VOICE.kb=!VOICE.kb;clearTimeout(VOICE.kbT);var ta=document.getElementById("co-in");if(VOICE.kb&&ta){stopSpeak();ta.focus();VOICE.kbStart=ta.value}coachBar()};
 }
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
-var STORY={ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
+var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
 function openStory(ds){if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment()}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
   var laps=null;runsOn(ds).forEach(function(x){if(x.laps&&x.laps.kind==="manual")laps=x.laps});
   var work=laps?laps.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
-  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note};
+  var all=laps;if(!all)runsOn(ds).forEach(function(x){if(!all&&x.laps&&x.laps.laps&&x.laps.laps.length)all=x.laps});
+  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all};
 }
 async function storyComment(){
   var D=storyData(STORY.ds);STORY.busy=true;STORY.err="";if(tab==="story")render();
@@ -1078,19 +1079,53 @@ async function drawStory(){
   // bottom block, laid out from the bottom up so it always fits
   var cm=String(STORY.comment||"").replace(/\*\*/g,"").replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"").replace(/\s*\n\s*/g," ").trim();
   ctx.font="500 42px "+FB;var cl=wrapText(ctx,cm||"AI 코치 코멘트를 쓰는 중이에요…",Wd-2*M-80);if(cl.length>4){cl=cl.slice(0,4);cl[3]=cl[3].replace(/.{0,2}$/,"…")}
-  var bh=104+cl.length*60,boxY=Hd-140-bh,lapY=boxY-40,statBase=(D.work.length?lapY-70:boxY-60);
+  var showP=!!(D.laps&&STORY.view!=="none"),bh=104+cl.length*60,boxY=Hd-140-bh,lapY=boxY-40,statBase=(D.work.length&&!showP?lapY-70:boxY-60);
   var stats=[["거리",D.km?String(Math.round(D.km*100)/100):"-","km"],["평균 페이스",D.pace?fmtMS(D.pace):"-","/km"],["시간",D.dur?fmtT(D.dur):"-",""],["평균 심박",D.hr?String(D.hr):"-","bpm"]];
+  var statsTop=statBase-170-140;
+  if(D.laps&&STORY.view!=="none")drawLapPanel(ctx,D,M,Math.max(y+10,statsTop-40-(STORY.view==="table"?Math.min(620,150+D.laps.laps.length*52):520)),Wd-2*M,statsTop-40,FD,FB);
   stats.forEach(function(st,k){var x=M+(k%2)*((Wd-2*M)/2),nb=statBase-(k<2?170:0);ctx.fillStyle="rgba(255,255,255,.7)";ctx.font="500 34px "+FB;ctx.fillText(st[0],x,nb-100);ctx.fillStyle="#fff";ctx.font="800 96px "+FD;ctx.fillText(st[1],x,nb);var nw=ctx.measureText(st[1]).width;ctx.font="600 36px "+FD;ctx.fillStyle="rgba(255,255,255,.75)";ctx.fillText(st[2],x+nw+12,nb)});
-  if(D.work.length){ctx.fillStyle="#9cc0ff";ctx.font="700 36px "+FB;ctx.fillText(wrapText(ctx,"본 구간 "+D.work.map(function(x){return fmtMS(x.p)}).join(" · ")+(D.work[0].hr?"   ♥ "+D.work.map(function(x){return x.hr}).join("·"):""),Wd-2*M)[0],M,lapY)}
+  if(D.work.length&&!showP){ctx.fillStyle="#9cc0ff";ctx.font="700 36px "+FB;ctx.fillText(wrapText(ctx,"본 구간 "+D.work.map(function(x){return fmtMS(x.p)}).join(" · ")+(D.work[0].hr?"   ♥ "+D.work.map(function(x){return x.hr}).join("·"):""),Wd-2*M)[0],M,lapY)}
   ctx.fillStyle="rgba(255,255,255,.14)";rrect(ctx,M,boxY,Wd-2*M,bh,36);ctx.fill();ctx.strokeStyle="rgba(255,255,255,.22)";ctx.lineWidth=2;ctx.stroke();
   ctx.fillStyle="#ff7a33";ctx.font="800 32px "+FB;ctx.fillText("AI 코치",M+40,boxY+58);ctx.fillStyle="#fff";ctx.font="500 42px "+FB;cl.forEach(function(l,k){ctx.fillText(l,M+40,boxY+122+k*60)});
   ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 30px "+FB;ctx.fillText("Sub-3 훈련 체크"+(S.nick?" · "+S.nick:""),M,Hd-70);
+}
+function lapRows(L,n){var a=L.laps.map(function(x,i){x.i=i+1;return x});if(a.length<=n)return a;
+  var work=a.filter(function(x){return x.d>=0.4&&x.p<330*K}).slice(0,n),rest=a.filter(function(x){return work.indexOf(x)<0}).sort(function(p,q){return q.d-p.d}).slice(0,n-work.length);
+  return work.concat(rest).sort(function(p,q){return p.i-q.i})}
+function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
+  var L=D.laps,h=yb-y;if(h<220)return;
+  if(STORY.view==="table"){var nr=lapRows(L,Math.max(2,Math.floor((h-150)/52))).length;h=Math.min(h,150+nr*52);y=yb-h}
+  ctx.fillStyle="rgba(8,12,24,.55)";rrect(ctx,x,y,w,h,32);ctx.fill();
+  ctx.fillStyle="#ff7a33";ctx.font="800 30px "+FB;ctx.fillText(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간",x+36,y+56);
+  ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":"페이스 · 심박",x+w-36,y+56);ctx.textAlign="left";
+  if(STORY.view==="table"){
+    var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
+    ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
+    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(hard){ctx.fillStyle="rgba(255,122,51,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
+      ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.font=(hard?"800 ":"600 ")+"34px "+FD;
+      [[String(r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
+    ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
+    return;
+  }
+  // pace chart: bar width = distance, height = speed; HR as a line
+  var cx=x+36,cw=w-72,top=y+96,bot=y+h-70,ch=bot-top,laps=L.laps,tot=0;laps.forEach(function(l){tot+=Math.max(l.d,0.05)});
+  var sp=laps.map(function(l){return 1000/l.p}),smax=Math.max.apply(null,sp),smin=Math.min.apply(null,sp)*0.8,gap=6,avail=cw-gap*(laps.length-1),bx=cx;
+  var hrs=laps.map(function(l){return l.hr||null}).filter(Boolean),hmin=Math.min.apply(null,hrs)-5,hmax=Math.max.apply(null,hrs)+5,pts=[];
+  laps.forEach(function(l,k){var bw=Math.max(10,avail*Math.max(l.d,0.05)/tot),v=(1000/l.p-smin)/(smax-smin||1),bh=Math.max(8,ch*Math.min(1,Math.max(0.04,v))),hard=l.d>=0.4&&l.p<330*K;
+    ctx.fillStyle=hard?"#ff7a33":"rgba(255,255,255,.28)";rrect(ctx,bx,bot-bh,bw,bh,Math.min(10,bw/2));ctx.fill();
+    if(hard&&bw>=84){ctx.fillStyle="#fff";ctx.font="800 32px "+FD;ctx.textAlign="center";ctx.fillText(fmtMS(l.p),bx+bw/2,bot-bh-14);ctx.textAlign="left"}
+    if(l.hr&&hrs.length>1)pts.push([bx+bw/2,top+ch*(1-(l.hr-hmin)/(hmax-hmin||1))]);bx+=bw+gap});
+  if(pts.length>1){ctx.strokeStyle="#9cc0ff";ctx.lineWidth=4;ctx.beginPath();pts.forEach(function(q,k){k?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.stroke();pts.forEach(function(q){ctx.fillStyle="#9cc0ff";ctx.beginPath();ctx.arc(q[0],q[1],6,0,7);ctx.fill()})}
+  ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText("막대 높이 = 빠르기 · 폭 = 거리",cx,y+h-26);
+  if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("● 심박 "+Math.min.apply(null,hrs)+"~"+Math.max.apply(null,hrs),x+w-36,y+h-26);ctx.textAlign="left"}
 }
 function vStory(){
   var D=storyData(STORY.ds);
   var h='<div class="card"><div class="row between"><h2>인스타 스토리 만들기</h2><button class="btn ghost" id="st-back" style="padding:6px 12px;font-size:13px">돌아가기</button></div><p class="small muted" style="margin:4px 0 0">'+md(STORY.ds)+' '+DOW[D.i%7]+' 훈련 기록 위에 AI 코치 코멘트를 얹은 스토리 이미지(1080×1920)를 만들어요. 사진은 이 기기에서만 쓰고 어디에도 올리지 않아요.</p></div>';
   h+='<div class="stwrap"><canvas id="st-cv" width="1080" height="1920" aria-label="스토리 미리보기"></canvas></div>';
   h+='<div class="card"><div class="madd" style="margin-top:0"><label class="btn ghost" for="st-photo" style="text-align:center;cursor:pointer">'+(STORY.img?'사진 바꾸기':'배경 사진 고르기')+'</label><input type="file" id="st-photo" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0">'+(STORY.img?'<button class="btn ghost" id="st-nophoto">사진 빼기</button>':'<span class="small muted" style="align-self:center">사진이 없으면 기본 배경</span>')+'</div>';
+  if(D.laps)h+='<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">기록 표시</div><div class="seg" role="radiogroup" aria-label="기록 표시">'+[["chart","페이스 차트"],["table","랩 표"],["none","숨기기"]].map(function(o){return '<button role="radio" aria-checked="'+(STORY.view===o[0])+'" data-stv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div></div>';
+  else h+='<div class="small muted" style="margin-top:12px">이 날은 랩 기록이 없어서 요약 숫자만 들어가요. 워치에서 랩을 끊거나 COROS·TCX·FIT 기록이 있으면 차트와 표를 넣을 수 있어요.</div>';
   h+='<label class="small muted" style="display:block;margin-top:12px">AI 코치 코멘트 (고쳐도 돼요)<textarea id="st-cm" class="inp" rows="3" maxlength="160" style="margin-top:4px">'+esc(STORY.comment)+'</textarea></label>';
   h+='<div class="row" style="margin-top:8px"><button class="btn ghost" id="st-regen"'+(STORY.busy?' disabled':'')+'>'+(STORY.busy?'코멘트 쓰는 중…':'AI 코멘트 다시 쓰기')+'</button></div>';
   if(STORY.err)h+='<div class="small" style="color:var(--bad);margin-top:6px">'+esc(STORY.err)+'</div>';
@@ -1103,6 +1138,7 @@ function vStory(){
   var ph=document.getElementById("st-photo");ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;var u=URL.createObjectURL(f),im=new Image();im.onload=function(){if(STORY.url)try{URL.revokeObjectURL(STORY.url)}catch(e){}STORY.url=u;STORY.img=im;STORY.out="";render();drawStory()};im.onerror=function(){STORY.err="이 사진은 열 수 없어요. JPG·PNG로 다시 골라 주세요.";render()};im.src=u};
   var np=document.getElementById("st-nophoto");if(np)np.onclick=function(){STORY.img=null;STORY.out="";render();drawStory()};
   var cm=document.getElementById("st-cm");cm.oninput=function(){STORY.comment=cm.value;STORY.out="";clearTimeout(STORY.dt);STORY.dt=setTimeout(drawStory,250)};
+  view.querySelectorAll("[data-stv]").forEach(function(b){b.onclick=function(){STORY.view=b.dataset.stv;STORY.out="";render()}});
   document.getElementById("st-regen").onclick=function(){if(!STORY.busy)storyComment()};
   document.getElementById("st-save").onclick=async function(){var cv=document.getElementById("st-cv");await drawStory();
     var blob=await new Promise(function(res){cv.toBlob(res,"image/png")});if(!blob){STORY.err="이미지를 만들지 못했어요.";render();return}
