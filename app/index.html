@@ -877,6 +877,8 @@ function enhance(){
   try{
   if(tab==="today"){
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
+    var RR=readiness(T),rs=RR.has?["좋음","주의","쉬어가기"][RR.lv]+(RR.r?" · "+RR.r+"bpm"+(RR.diff!=null?"("+(RR.diff>0?"+":"")+RR.diff+")":""):"")+(RR.h?" · HRV "+RR.h.avg:""):"오늘 아침 기록 없음";
+    foldCard(findCard("훈련 전 컨디션"),"ready",rs,false);
     var mt=mealTot(sel);foldCard(findCard("식단 기록"),"meals",Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",true);
     var r=dayRec(sel),fx=view.querySelector(".session .fields");
     if(fx){var has=!!(r.km||r.hr||r.pace||r.rpe||r.note);foldInline(fx,"fields",has?"내가 적은 기록 보기 · 고치기":"거리·심박·메모 직접 적기",has||foldOpen("fields",false))}
