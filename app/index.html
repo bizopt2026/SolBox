@@ -204,6 +204,14 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .srow .sm b{font-family:var(--f-display);font-variant-numeric:tabular-nums}
 .sbtn{flex:none;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:12.5px;font-weight:700}
 .sbtn[disabled]{opacity:.5}
+.keys{display:flex;flex-direction:column;margin-top:6px}
+.key{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:76px 1fr;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.key:first-child{border-top:0}
+.key:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.key .kd{display:flex;flex-direction:column;font-size:12px;color:var(--muted);line-height:1.3}
+.key .kd b{font-size:14px;color:var(--ink);font-family:var(--f-display)}
+.key .kt{font-size:13.5px;min-width:0}
+.key.t-q .kd span{color:var(--q)} .key.t-l .kd span,.key.t-x .kd span{color:var(--accent)}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -936,6 +944,11 @@ function vToday(){
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
     h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b><div class="dot"></div></button>'}
   h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · K는 그날 계획 총거리 · 빨간 점은 놓친 날</div></div>';
+  // upcoming key sessions (tap to open that day)
+  var ks=nextKeySessions();
+  if(ks.length){h+='<div class="card"><h2>다가오는 핵심 훈련</h2><div class="keys">';
+    ks.forEach(function(x){var t=x[1];h+='<button class="key t-'+t[0]+'" data-go="'+x[0]+'"><span class="kd"><b>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</b><span>'+(t[0]==="q"?"포인트":t[0]==="l"?"롱런":"대회")+' · '+t[2]+'K</span></span><span class="kt">'+esc(ptxt(t[1]).split("\n").join(" · "))+'</span></button>'});
+    h+='</div></div>'}
   // food
   h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+foodCarb(food)+'</dd><dt>총 열량</dt><dd class="num">'+foodKcal(food)+' kcal</dd><dt>단백질</dt><dd>'+protTxt()+', 끼니마다 30g 안팎</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
@@ -1176,10 +1189,6 @@ function vPace(){
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+(K!==1?'<small class="muted" style="color:var(--muted)">원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi))+'</small>':'')+'</span></div>'}).join("")+'</div>';
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
   // upcoming
-  var ks=nextKeySessions();
-  if(ks.length){h+='<div class="card"><h2>다가오는 핵심 훈련</h2><div class="runlist">';
-    ks.forEach(function(x){h+='<div style="grid-template-columns:60px 1fr"><span class="num muted">'+wn(x[2])+'<br>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</span><span style="white-space:pre-line">'+esc(ptxt(x[1][1]))+'</span></div>'});
-    h+='</div></div>'}
   view.innerHTML=h;
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
   [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
