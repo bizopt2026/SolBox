@@ -327,7 +327,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -409,6 +409,32 @@ function pushShare(force){
 }
 
 function isDone(ds){return !!dayRec(ds).done}
+// ---------- My plan: per-user changes, stored only in this viewer's private data ----------
+var PL_T={r:"휴식",e:"이지",q:"포인트",l:"롱런·지속주",c:"회복",x:"대회"};
+function plan(){if(!S.plan)S.plan={swaps:[],vol:100,days:{},hist:[]};var P=S.plan;P.swaps=P.swaps||[];P.days=P.days||{};P.hist=P.hist||[];if(!P.vol)P.vol=100;return P}
+function weekLocked(w){return W[w].d.some(function(t){return t[0]==="x"})}
+var PERM=[0,1,2,3,4,5,6];
+function refreshPlan(){var pm=[0,1,2,3,4,5,6];plan().swaps.forEach(function(x){var a=x[0],b=x[1],y=pm[a];pm[a]=pm[b];pm[b]=y});PERM=pm}
+function scaleTxt(t,f){
+  if(f===1||t[0]==="x"||t[0]==="r")return t;var dk=0,dm=0;
+  var lines=t[1].split("\n").map(function(line){
+    var m=line.match(/^(E|조깅|이지|회복 조깅) (\d+(?:\.\d+)?)K(.*)$/);
+    if(m){var v=+m[2],nv=Math.max(1,Math.round(v*f*2)/2);dk+=nv-v;return m[1]+" "+nv+"K"+m[3]}
+    var m2=line.match(/^(회복 LSD|LSD|회복 조깅) (\d+)분(.*)$/);
+    if(m2){var v2=+m2[2],nv2=Math.max(20,Math.round(v2*f/5)*5);dm+=(nv2-v2)/6.2;return m2[1]+" "+nv2+"분"+m2[3]}
+    return line});
+  lines=lines.map(function(line){var m=line.match(/^총 (\d+(?:\.\d+)?)K(.*)$/);return m?"총 "+(Math.round((+m[1]+dk)*2)/2)+"K"+m[2]:line});
+  return [t[0],lines.join("\n"),Math.max(0,Math.round((t[2]+dk+dm)*10)/10)];
+}
+function planDay(w,d){
+  var ds=dateOf(w,d),o=plan().days[ds];if(o)return [o.t,o.x,+o.k||0,1];
+  var lk=weekLocked(w),t=W[w].d[lk?d:PERM[d]],f=plan().vol/100;
+  if(f!==1&&!lk)t=scaleTxt(t,f);return t;
+}
+function planAt(i){return planDay(Math.floor(i/7),i%7)}
+function weekKm(w){var s=0;for(var d=0;d<7;d++)s+=planDay(w,d)[2];return Math.round(s)}
+function planEdited(){var P=plan();return P.swaps.length+(P.vol!==100?1:0)+Object.keys(P.days).length}
+function pushHist(){var P=plan();P.hist.push(JSON.stringify({swaps:P.swaps,vol:P.vol,days:P.days}));if(P.hist.length>8)P.hist.shift()}
 // ---------- Weight log helpers ----------
 function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,min:mn,max:mx,n:a.length}}
 function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
@@ -461,7 +487,7 @@ function applyRuns(){
   var by={};for(var k in S.runs){var r=S.runs[k];(by[r.date]=by[r.date]||[]).push(r)}
   for(var ds in S.days){if(S.days[ds]&&S.days[ds].w&&!by[ds])delete S.days[ds].w}
   var auto=0;
-  for(var d in by){var i=idxOf(d);if(i<0||i>=TOTAL)continue;var t=W[Math.floor(i/7)].d[i%7],rs=by[d],km=0,dur=0,hw=0,hd=0;
+  for(var d in by){var i=idxOf(d);if(i<0||i>=TOTAL)continue;var t=planAt(i),rs=by[d],km=0,dur=0,hw=0,hd=0;
     rs.forEach(function(x){km+=x.km;dur+=x.dur;if(x.hr){hw+=x.hr*x.dur;hd+=x.dur}});
     km=Math.round(km*100)/100;var rec=S.days[d]||{};
     var srcs={};rs.forEach(function(x){srcs[x.src||"COROS"]=1});var sl=Object.keys(srcs);
@@ -681,7 +707,7 @@ function ymd(s){return s.replace(/-/g,"")}
 // ---------- Helpers ----------
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function dayRec(ds){return S.days[ds]||{}}
-function weekStats(w){var done=0,km=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds),dn=isDone(ds);if(t[0]!=="r"){n++;if(dn)done++}
+function weekStats(w){var done=0,km=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d),t=planDay(w,d),r=dayRec(ds),dn=isDone(ds);if(t[0]!=="r"){n++;if(dn)done++}
   if(dn)km+=(r.km!=null&&r.km!==""&&!isNaN(+r.km))?+r.km:(r.w&&r.w.km?r.w.km:t[2])}return{done:done,n:n,km:Math.round(km*10)/10}}
 function phColor(w){return "var("+PH[W[w].ph][1]+")"}
 function parseTime(s){if(!s)return null;var a=String(s).trim().split(":").map(Number);if(a.some(isNaN))return null;if(a.length===2)return a[0]*60+a[1];if(a.length===3)return a[0]*3600+a[1]*60+a[2];return null}
@@ -702,7 +728,7 @@ document.getElementById("dday").textContent=dd>0?"D-"+dd:(dd===0?"D-DAY":"완주
 var view=document.getElementById("view");
 function render(){
   document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===tab?"true":"false")});
-  refreshEngine();
+  refreshEngine();refreshPlan();
   if(tab==="welcome"&&(S.gv||0)>=GUIDE_V&&!WMANUAL)tab="today";
   var nav=document.querySelector("nav.tabs");nav.hidden=tab==="welcome";document.body.classList.toggle("welcome",tab==="welcome");
   if(tab==="welcome"){vWelcome();return}
@@ -710,10 +736,86 @@ function render(){
 }
 
 
+var EDIT=null,AI={busy:false,msg:"",err:"",prev:null,req:""},PLMSG="";
+function dayEditor(ds,w,d,t){
+  if(t[0]==="x")return '<p class="small muted" style="margin:10px 0 0">대회 날은 바꿀 수 없어요.</p>';
+  var o=plan().days[ds];
+  if(EDIT!==ds)return '<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn ghost" id="de-open" style="padding:6px 12px;font-size:13px">'+(o?'✎ 내가 바꾼 훈련 수정':'✎ 이 날 훈련 바꾸기')+'</button></div>';
+  var h='<form id="de" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px"><b>이 날 훈련 바꾸기</b><div class="small muted">나에게만 적용돼요. 페이스는 원래 서브3 기준(예: @4:15)으로 적으면 내 페이스로 바꿔 보여 줘요.</div>';
+  h+='<div class="fields" style="margin:0"><label>종류<select id="de-t" class="inp">'+Object.keys(PL_T).filter(function(k){return k!=="x"}).map(function(k){return '<option value="'+k+'"'+(t[0]===k?' selected':'')+'>'+PL_T[k]+'</option>'}).join("")+'</select></label><label>계획 거리 (km)<input id="de-k" class="inp" inputmode="decimal" value="'+esc(t[2])+'"></label><label class="full">훈련 내용 (줄바꿈으로 구분)<textarea id="de-x" class="inp" rows="4" maxlength="200">'+esc(t[1])+'</textarea></label></div>';
+  h+='<div class="row"><button class="btn" type="submit">저장</button>'+(o?'<button class="btn ghost" type="button" id="de-reset">원래대로</button>':'')+'<button class="btn ghost" type="button" id="de-cancel">취소</button></div></form>';
+  return h;
+}
+function bindDayEditor(ds){
+  var op=document.getElementById("de-open");if(op)op.onclick=function(){EDIT=ds;keepIf()};
+  var cc=document.getElementById("de-cancel");if(cc)cc.onclick=function(){EDIT=null;keepIf()};
+  var rs=document.getElementById("de-reset");if(rs)rs.onclick=function(){pushHist();delete plan().days[ds];EDIT=null;save();keepIf()};
+  var f=document.getElementById("de");if(f)f.onsubmit=function(e){e.preventDefault();var x=document.getElementById("de-x").value.trim().slice(0,200),k=numv(document.getElementById("de-k").value);if(!x)return;
+    pushHist();plan().days[ds]={t:document.getElementById("de-t").value,x:x,k:isNaN(k)?0:Math.max(0,Math.min(80,k))};EDIT=null;save();keepIf()};
+}
+function myPlanCard(){
+  var P=plan(),n=planEdited(),nd=Object.keys(P.days).length;
+  var h='<details class="card" id="myplan"'+(MPOPEN?' open':'')+'><summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px"><span><h2 style="display:inline">내 계획 바꾸기</h2>'+(n?' <span class="pill part" style="background:var(--accent-soft);color:var(--accent)">바꾼 내용 '+n+'개</span>':'')+'</span><span class="muted">'+(MPOPEN?'－':'＋')+'</span></summary>';
+  h+='<p class="small muted" style="margin:6px 0 0">바꾼 내용은 <b style="color:var(--ink)">나에게만</b> 적용돼요. 공용 계획과 다른 크루원의 계획은 그대로예요. 대회가 있는 주(인천·서울)는 요일·거리 설정이 적용되지 않아요.</p>';
+  // 1. weekday swaps
+  var pre=[[5,6,"롱런을 일요일로 (토↔일)"],[2,3,"포인트를 목요일로 (수↔목)"],[2,1,"포인트를 화요일로 (수↔화)"],[4,3,"휴식을 목요일로 (금↔목)"]];
+  h+='<div style="margin-top:14px"><b>1. 요일 바꾸기</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+pre.map(function(x){var on=P.swaps.some(function(s2){return (s2[0]===x[0]&&s2[1]===x[1])||(s2[0]===x[1]&&s2[1]===x[0])});return '<button class="btn ghost" data-sw="'+x[0]+','+x[1]+'" style="padding:6px 10px;font-size:13px'+(on?';border-color:var(--accent);color:var(--accent);background:var(--accent-soft)':'')+'">'+(on?'✓ ':'')+x[2]+'</button>'}).join("")+'</div>';
+  h+='<div class="row" style="margin-top:8px;gap:6px"><select id="sw-a" class="inp" style="flex:1">'+DOW.map(function(x,i){return '<option value="'+i+'">'+x+'</option>'}).join("")+'</select><span>↔</span><select id="sw-b" class="inp" style="flex:1">'+DOW.map(function(x,i){return '<option value="'+i+'"'+(i===6?' selected':'')+'>'+x+'</option>'}).join("")+'</select><button class="btn ghost" id="sw-add">교환</button></div>';
+  if(P.swaps.length)h+='<div class="small" style="margin-top:6px">적용 중: '+P.swaps.map(function(x,i){return DOW[x[0]]+'↔'+DOW[x[1]]+' <button data-swdel="'+i+'" style="border:0;background:none;color:var(--muted)" aria-label="교환 지우기">✕</button>'}).join(" · ")+'</div>';
+  var sw=12;h+='<div class="week-strip" style="margin-top:8px" aria-label="바뀐 한 주 예시">'+DOW.map(function(x,k){var tt=W[sw].d[PERM[k]];return '<div class="ws t-'+tt[0]+'"><span class="muted">'+x+'</span><b style="font-size:11px">'+PL_T[tt[0]]+'</b></div>'}).join("")+'</div><div class="small muted" style="margin-top:4px">예시: W13 한 주</div></div>';
+  // 2. volume
+  h+='<div style="margin-top:16px"><b>2. 주간 거리 <span class="num" style="color:var(--accent)">'+P.vol+'%</span></b><input type="range" id="vol" min="80" max="110" step="5" value="'+P.vol+'" style="width:100%;margin-top:8px;accent-color:var(--accent)" aria-label="주간 거리 비율"><div class="small muted">이지·조깅·LSD 거리만 조절하고, 포인트 훈련·지속주·MP 구간은 그대로 둬요. 피크 주 '+weekKm(13)+'km (원래 '+W[13].km+'km)</div></div>';
+  // 3. ask Claude
+  h+='<div style="margin-top:16px"><b>3. 클로드에게 부탁하기</b><div class="small muted" style="margin-top:4px">예: "회사 때문에 수요일 훈련을 목요일로 옮겨 줘", "12월 셋째 주는 출장이라 주 3회만", "다음 주 토요일 롱런을 일요일로"</div>';
+  h+='<textarea id="ai-req" class="inp" rows="3" maxlength="300" style="margin-top:8px" placeholder="바꾸고 싶은 내용을 적어 주세요">'+esc(AI.req)+'</textarea>';
+  h+='<div class="row" style="margin-top:8px"><button class="btn" id="ai-go" style="background:var(--accent);color:#fff"'+(AI.busy?' disabled':'')+'>'+(AI.busy?'클로드가 계획을 고치는 중…':'클로드에게 요청')+'</button></div>';
+  if(AI.err)h+='<div class="small" style="color:var(--bad);margin-top:6px">'+esc(AI.err)+'</div>';
+  if(AI.prev){h+='<div class="demo" style="margin-top:10px"><span class="tag">클로드 제안 · 아직 적용 안 됨</span><p class="small" style="margin:0 0 8px">'+esc(AI.prev.summary||"")+'</p>'+(AI.prev.changes.length?'<div class="runlist">'+AI.prev.changes.map(function(c){var i=idxOf(c.date),o=planAt(i);return '<div style="grid-template-columns:62px 1fr"><span class="num muted">'+md(c.date)+' '+DOW[i%7]+'</span><span><span class="muted" style="text-decoration:line-through">'+esc(o[1].split("\n")[0])+'</span> → <b>'+esc(c.text.split("\n").join(" · "))+'</b> <span class="muted">'+c.km+'km</span></span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:0">바꿀 날이 없대요.</p>')+(AI.prev.changes.length?'<div class="row" style="margin-top:10px"><button class="btn" id="ai-apply">적용하기</button><button class="btn ghost" id="ai-cancel">취소</button></div>':'')+'</div>'}
+  if(AI.msg)h+='<div class="small" style="color:var(--ok);margin-top:6px">'+esc(AI.msg)+'</div>';
+  h+='</div>';
+  // footer
+  h+='<div class="row" style="margin-top:16px;flex-wrap:wrap">'+(P.hist.length?'<button class="btn ghost" id="pl-undo">되돌리기</button>':'')+(n?'<button class="btn ghost" id="pl-reset">모두 원래 계획으로</button>':'')+'<span class="small muted">'+(nd?'직접 바꾼 날 '+nd+'일':'')+'</span></div>';
+  if(PLMSG)h+='<div class="small" style="color:var(--ok);margin-top:6px">'+esc(PLMSG)+'</div>';
+  return h+'</details>';
+}
+var MPOPEN=false;
+function bindMyPlan(){
+  var P=plan(),el=document.getElementById("myplan");if(!el)return;
+  el.addEventListener("toggle",function(){if(MPOPEN!==el.open){MPOPEN=el.open;keepIf()}});
+  function chg(fn){pushHist();fn();PLMSG="";save();keepIf()}
+  view.querySelectorAll("[data-sw]").forEach(function(b){b.onclick=function(){var ab=b.dataset.sw.split(",").map(Number),ix=-1;P.swaps.forEach(function(x,i){if((x[0]===ab[0]&&x[1]===ab[1])||(x[0]===ab[1]&&x[1]===ab[0]))ix=i});chg(function(){if(ix>=0)P.swaps.splice(ix,1);else P.swaps.push(ab)})}});
+  document.getElementById("sw-add").onclick=function(){var a=+document.getElementById("sw-a").value,b=+document.getElementById("sw-b").value;if(a===b)return;chg(function(){P.swaps.push([a,b])})};
+  view.querySelectorAll("[data-swdel]").forEach(function(b){b.onclick=function(){chg(function(){P.swaps.splice(+b.dataset.swdel,1)})}});
+  var vol=document.getElementById("vol");vol.onchange=function(){chg(function(){P.vol=+vol.value})};
+  var rq=document.getElementById("ai-req");rq.oninput=function(){AI.req=rq.value};
+  document.getElementById("ai-go").onclick=askClaude;
+  var ap=document.getElementById("ai-apply");if(ap)ap.onclick=function(){var c=AI.prev.changes;chg(function(){c.forEach(function(x){P.days[x.date]={t:x.type,x:x.text,k:x.km}})});AI.prev=null;AI.msg=c.length+"일을 바꿨어요. 훈련표에 '내 계획'으로 표시돼요.";AI.req="";keepIf()};
+  var cn=document.getElementById("ai-cancel");if(cn)cn.onclick=function(){AI.prev=null;keepIf()};
+  var un=document.getElementById("pl-undo");if(un)un.onclick=function(){var last=P.hist.pop();if(!last)return;var o=JSON.parse(last);P.swaps=o.swaps||[];P.vol=o.vol||100;P.days=o.days||{};PLMSG="바로 전 상태로 되돌렸어요.";save();keepIf()};
+  var rs=document.getElementById("pl-reset");if(rs)rs.onclick=function(){chg(function(){P.swaps=[];P.vol=100;P.days={}});PLMSG="원래 계획으로 돌렸어요. 되돌리기로 다시 살릴 수 있어요."};
+}
+async function askClaude(){
+  var req=(AI.req||"").trim();if(!req){AI.err="바꾸고 싶은 내용을 적어 주세요.";keepIf();return}
+  AI.busy=true;AI.err="";AI.msg="";AI.prev=null;keepIf();
+  try{
+    var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;
+    if(!sm){AI.err="이 화면에서는 클로드에게 요청할 수 없어요. claude.ai에 로그인한 상태로 열어 주세요.";return}
+    var from=Math.max(0,idxOf(T)),lines=[];
+    for(var i=from;i<TOTAL;i++){var t=planAt(i);lines.push(dateOf(Math.floor(i/7),i%7)+"|"+DOW[i%7]+"|"+wn(Math.floor(i/7))+"|"+t[0]+"|"+t[2]+"|"+t[1].replace(/\n/g," / "))}
+    var prompt="너는 마라톤 코치야. 아래는 한 러너의 2027-03-21 서울마라톤 서브3 훈련계획 중 오늘("+T+") 이후 일정이야.\n"+
+      "각 줄: 날짜|요일|주차|종류|계획거리km|훈련내용(' / '는 줄바꿈). 종류 코드: r=휴식, e=이지·조깅, q=수요일 포인트(인터벌·템포), l=토요일 지속주·롱런, c=일요일 회복 LSD, x=대회.\n\n"+lines.join("\n")+
+      "\n\n러너의 요청: \""+req+"\"\n\n규칙:\n- 요청을 반영하는 데 꼭 필요한 날만 바꿔. 나머지는 그대로 둬.\n- 종류 x(대회)인 날은 절대 바꾸지 마. 점검 기록측정(1/23 10K, 2/20 하프, 2/27 35K 리허설)은 요청에 없으면 날짜만 옮길 수 있고 없애지 마.\n- 포인트 훈련과 롱런 사이에 최소 하루는 쉬거나 이지로 둬. 요청이 따로 없으면 주간 거리는 크게 바꾸지 마.\n- 훈련내용은 기존과 같은 형식(E 8K, 총 14K / WU 3K / 2K @4:00 ×4 / CD 3K, 회복 LSD 60분 등)으로, 페이스는 원래 숫자 기준으로 써. 줄은 ' / '가 아니라 \\n으로 구분하고 최대 6줄.\n- km는 그날 총 거리 숫자(휴식은 0).\n\n아래 JSON 하나로만 답해: {\"summary\":\"무엇을 왜 바꿨는지 한두 문장 한국어\",\"changes\":[{\"date\":\"YYYY-MM-DD\",\"type\":\"r|e|q|l|c\",\"text\":\"...\",\"km\":숫자}]}";
+    var out=await sm.json(prompt,{modelTier:"default"});
+    var ch=(out&&Array.isArray(out.changes)?out.changes:[]).filter(function(c){if(!c||typeof c.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(c.date))return false;var i=idxOf(c.date);if(i<0||i>=TOTAL)return false;if(planAt(i)[0]==="x")return false;return PL_T[c.type]&&c.type!=="x"&&typeof c.text==="string"&&c.text.trim()}).map(function(c){var k=+c.km;return{date:c.date,type:c.type,text:c.text.replace(/ \/ /g,"\n").trim().slice(0,200),km:isNaN(k)?0:Math.max(0,Math.min(80,Math.round(k*10)/10))}}).slice(0,60);
+    ch.sort(function(a,b){return a.date<b.date?-1:1});
+    AI.prev={summary:String(out&&out.summary||"").slice(0,300),changes:ch};
+  }catch(e){var c=e&&e.code;AI.err=c==="not_granted"?"이 앱의 클로드 사용을 허용하지 않았어요. 허용해야 이 기능을 쓸 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":c==="invalid_json"?"클로드의 답을 읽지 못했어요. 요청을 조금 더 구체적으로 적어 주세요.":"요청하지 못했어요"+(e&&e.message?": "+e.message:".")}
+  finally{AI.busy=false;keepIf()}
+}
 function vToday(){
-  var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=W[w].d[d], r=dayRec(sel);
+  var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=planDay(w,d), r=dayRec(sel), wkm=weekKm(w);
   var tIdx=idxOf(T), before=tIdx<0;
-  var st=weekStats(w), pct=W[w].km?Math.min(100,Math.round(st.km/W[w].km*100)):0;
+  var st=weekStats(w), pct=wkm?Math.min(100,Math.round(st.km/wkm*100)):0;
   var food=FOOD[FOOD_BY_DOW[d]];
   var dn=isDone(sel);
   var h="";
@@ -725,17 +827,18 @@ function vToday(){
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]))+'</div>';
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){h+='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>'+(K!==1||HRK?'<div class="small muted" style="margin-top:6px">내 페이스 기준으로 바꿔 보여 주고 있어요.</div>':'')}
   if(t[0]==="r"){h+='<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
-  if(W[w].note&&t[0]==="l")h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
+  if(W[w].note&&t[1].indexOf("66K 장거리")===0)h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
   if(r.w){var wr=t[2]?Math.round(r.w.km/t[2]*100):null,lim=t[0]==="e"?HR(140):t[0]==="c"?HR(130):null;
     h+='<div class="zguide"><div style="flex-direction:column;align-items:stretch;gap:2px"><span class="row between"><b style="font-family:var(--f-body)">⌚ '+esc(r.w.src)+' 기록</b><span class="pill '+(t[0]==="r"?'na':wr>=80?'ok':'part')+'" style="'+(t[0]!=="r"&&wr<80?'background:var(--accent-soft);color:var(--accent)':'')+'">'+(t[0]==="r"?'휴식일 러닝':wr>=80?'계획 이행':'계획의 '+wr+'%')+'</span></span><span><b>'+r.w.km+'km</b> · '+fmtPaceKm(r.w.dur,r.w.km)+'/km'+(r.w.hr?' · ♥'+r.w.hr:'')+(r.w.n>1?' · '+r.w.n+'회':'')+'</span>'+(lim&&r.w.hr&&r.w.hr>=lim?'<small>평균 심박 '+r.w.hr+' · 이 날 기준은 '+lim+' 미만이에요. 다음엔 더 천천히.</small>':'')+'</div></div>'}
   h+='<button class="done-btn'+(dn?' on':'')+'" id="done">'+(dn?'✓ 완료했어요'+(r.auto?' (워치)':''):(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크'))+'</button>';
   if(t[0]!=="r"){
     h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(r.w?r.w.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(r.w&&r.w.hr?r.w.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
   }
+  h+=dayEditor(sel,w,d,t);
   h+='</div>';
   // week strip
-  h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+W[w].km+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
-  for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=W[w].d[k],past=ds<T;
+  h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+' / '+wkm+' km</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
+  for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
     h+='<button class="'+cls+'" data-go="'+ds+'"><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2])+'</b><div class="dot"></div></button>'}
   h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · 숫자는 계획 거리(km) · 빨간 점은 놓친 날</div></div>';
@@ -744,6 +847,7 @@ function vToday(){
   view.innerHTML=h;
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
+  bindDayEditor(sel);
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
   document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);delete r.auto;S.days[sel]=r;save();render()};
@@ -753,22 +857,23 @@ function vToday(){
 
 function vPlan(){
   var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
-  var h='<div class="card"><div class="row between"><h2>전체 진행 (18주 + 레이스 주)</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 '+W.reduce(function(a,x){return a+x.km},0).toLocaleString()+' km</div></div>';
+  var h=myPlanCard()+'<div class="card"><div class="row between"><h2>전체 진행 (18주 + 레이스 주)</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 '+W.reduce(function(a,x,wi){return a+weekKm(wi)},0).toLocaleString()+' km</div></div>';
   for(var w=0;w<W.length;w++){
     var s=weekStats(w),cur=Math.floor(idxOf(T)/7)===w;
-    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">/'+W[w].km+'K</span></b></span></summary>';
-    if(openWeeks[w]){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=W[w].d[d],r=dayRec(ds);
+    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">/'+weekKm(w)+'K</span></b></span></summary>';
+    if(openWeeks[w]){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=planDay(w,d),r=dayRec(ds);
       var dn=isDone(ds);
       var extra=[];if(r.km)extra.push(r.km+"km");if(r.hr)extra.push("♥"+r.hr);if(r.pace)extra.push(r.pace);
       if(!extra.length&&r.w){extra.push("⌚ "+r.w.km+"km");extra.push(fmtPaceKm(r.w.dur,r.w.km)+"/km");if(r.w.hr)extra.push("♥"+r.w.hr)}
       var act=extra.length?esc(extra.join(" · ")):"";
       var ab='';
-      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료">✓</button></div>'}}
+      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료">✓</button></div>'}}
     h+='</details>';
   }
   h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
+  bindMyPlan();
   view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){sel=b.dataset.open;tab="today";render();window.scrollTo(0,0)}});
 }
@@ -904,7 +1009,7 @@ function zonesFor(t){
 }
 function nextKeySessions(){
   var from=Math.max(0,idxOf(T)),out=[];
-  for(var i=from;i<TOTAL&&out.length<3;i++){var t=W[Math.floor(i/7)].d[i%7];if(t[0]==="q"||t[0]==="l"||t[0]==="x")out.push([dateOf(Math.floor(i/7),i%7),t,Math.floor(i/7)])}
+  for(var i=from;i<TOTAL&&out.length<3;i++){var t=planAt(i);if(t[0]==="q"||t[0]==="l"||t[0]==="x")out.push([dateOf(Math.floor(i/7),i%7),t,Math.floor(i/7)])}
   return out;
 }
 function goalCard(){
@@ -1125,7 +1230,7 @@ var WSTEPS=[
   return h;
  },
  function(){
-  var h='<h2>매일 하는 일: 훈련 체크</h2><ul class="steps"><li><span>아래 <b>오늘</b> 탭에서 그날 훈련을 확인해요.</span></li><li><span>달리고 나서 <b>훈련 완료 체크</b>를 눌러요.</span></li><li><span>원하면 실제 거리·심박·메모를 적어요. 비워 두면 계획 거리로 계산해요.</span></li><li><span><b>워치 기록</b>을 <b>기록</b> 탭에서 연결해 두세요. 계획 거리의 80% 이상 뛴 날은 자동으로 체크돼요.<br><span class="small muted">COROS: 계정을 연결하면 앱을 열 때마다 자동으로 불러와요.<br>가민: 매주 일요일 21:00 알림이 오면 connect.garmin.com에서 CSV로 한 주 기록을 한 번에 올려요.<br>애플워치 등: 기록 파일(GPX·TCX·FIT)을 올려요.</span></span></li></ul>';
+  var h='<h2>매일 하는 일: 훈련 체크</h2><ul class="steps"><li><span>아래 <b>오늘</b> 탭에서 그날 훈련을 확인해요.</span></li><li><span>달리고 나서 <b>훈련 완료 체크</b>를 눌러요.</span></li><li><span>원하면 실제 거리·심박·메모를 적어요. 비워 두면 계획 거리로 계산해요.</span></li><li><span>계획을 내 일정에 맞추려면 <b>훈련표 → 내 계획 바꾸기</b>에서 요일·주간 거리를 바꾸거나 클로드에게 부탁해요. 날짜별로는 오늘 탭의 <b>이 날 훈련 바꾸기</b>. 바꾼 내용은 나에게만 적용돼요.</span></li><li><span><b>워치 기록</b>을 <b>기록</b> 탭에서 연결해 두세요. 계획 거리의 80% 이상 뛴 날은 자동으로 체크돼요.<br><span class="small muted">COROS: 계정을 연결하면 앱을 열 때마다 자동으로 불러와요.<br>가민: 매주 일요일 21:00 알림이 오면 connect.garmin.com에서 CSV로 한 주 기록을 한 번에 올려요.<br>애플워치 등: 기록 파일(GPX·TCX·FIT)을 올려요.</span></span></li></ul>';
   h+='<div class="demo"><span class="tag">예시</span><div class="eyebrow">수요일 포인트 훈련 · 약 13km</div><div style="font-size:19px;font-weight:700;white-space:pre-line;margin:6px 0">총 13K\nWU 3K · 3K @4:02 ×2 · CD 3K</div><div class="done-btn on" style="text-align:center">✓ 완료했어요</div></div>';
   h+='<div class="demo"><span class="tag">이번 주 표시</span><div class="week-strip">'+["휴","10","13","10","휴","24","10"].map(function(x,i){var c=i===1||i===2?" done":i===3?" miss":"";return '<div class="ws'+c+'"><span class="muted">'+DOW[i]+'</span><b class="num">'+x+'</b><div class="dot"></div></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">초록 점은 완료, 빨간 점은 지나간 날 중 못 한 날이에요. <b>훈련표</b> 탭에서는 전체 일정을 보고 날짜별로 바로 체크할 수 있어요.</p></div>';
   return h;
@@ -1205,6 +1310,7 @@ function vGuide(){
   h+='<div class="card"><h2>요일별 먹는 양</h2><p class="small muted" style="margin:2px 0 0">'+(Object.keys(S.wlog||{}).length||S.wgoal?'내 체중 '+(Math.round(bodyW()*10)/10)+'kg 기준이에요.':'체중을 기록하면 내 체중에 맞춰 계산돼요. 지금은 72kg 기준.')+'</p><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+foodKcal(x)+' kcal</b><div class="small">탄수 '+foodCarb(x)+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 '+protTxt()+': 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
   h+='<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>';
   h+='<div class="card"><h2>워치 기록 연동</h2><dl class="kv" style="margin-top:8px"><dt>COROS</dt><dd>claude.ai 커넥터로 내 계정 연결 → 앱을 열 때마다 자동으로 불러와요</dd><dt>가민</dt><dd>매주 일요일 21:00 알림 → connect.garmin.com 활동 목록에서 CSV로 내보내기 → 기록 탭에 올리기</dd><dt>애플워치 등</dt><dd>GPX·TCX·FIT 파일을 기록 탭에 올려요</dd></dl><p class="small muted" style="margin:8px 0 0">계획 거리의 80% 이상 뛴 날은 자동으로 체크되고, 직접 체크하거나 해제한 날은 바꾸지 않아요. 휴대폰 알림을 받으려면 기록 탭에서 "휴대폰 알림 받기"로 구글 캘린더에 등록하세요.</p></div>';
+  h+='<div class="card"><h2>내 계획 바꾸기</h2><ul class="tight" style="margin-top:8px"><li><b>요일 바꾸기:</b> 훈련표 → 내 계획 바꾸기에서 롱런을 일요일로, 포인트를 목요일로 같은 요일 교환</li><li><b>주간 거리:</b> 80~110%. 이지·조깅·LSD만 조절하고 포인트 훈련은 그대로</li><li><b>하루씩:</b> 오늘 탭에서 날짜를 골라 "이 날 훈련 바꾸기"</li><li><b>클로드에게 부탁:</b> 바꾸고 싶은 내용을 적으면 제안을 보여 주고, 적용을 눌러야 바뀌어요</li><li>모두 <b>나에게만</b> 적용되고, 되돌리기·원래 계획으로가 있어요. 대회 주는 바뀌지 않아요</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙</h2><ul class="tight" style="margin-top:8px"><li>11/22 인천마라톤 후 1주는 완전 휴식. W4에도 통증이 남아 있으면 강도 훈련을 빼고 이지만 뛴다</li><li>아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁜 날은 수·토 훈련을 하루 미룬다</li><li>한파·빙판길에는 트랙이나 트레드밀로 대체하고, 페이스보다 노력도를 지킨다</li><li>통증이 3일 이상 이어지면 주간 거리를 회복주 수준으로 내리고 점검 일정을 늦춘다</li><li>점검 대회(W11·W15)가 일요일이면 그 주만 토·일 순서를 바꾼다. 피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지킨다</li></ul></div>';
   h+='<div class="card"><h2>한 주의 리듬</h2><ul class="tight" style="margin-top:8px"><li>핵심 훈련은 수·토 두 번, 나머지는 천천히</li><li>일요일은 걷기를 섞어도 되고, 다리가 무거우면 조깅 30분이나 휴식으로</li><li>근력은 화·목 이지런 뒤 20~30분</li></ul></div>';
   h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
