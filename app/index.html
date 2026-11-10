@@ -256,6 +256,14 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .rgrid>div{display:flex;flex-direction:column;gap:1px;padding:8px 10px;border-radius:10px;background:var(--bg)}
 .rgrid b{font-family:var(--f-display);font-size:22px}.rgrid b small{font-size:12px;color:var(--muted);font-weight:500}
+.laps{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--card)}
+.laps summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
+.laps summary::-webkit-details-marker{display:none}
+.laps[open] .chev::before{transform:translateY(2px) rotate(-135deg)}
+.laptb{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+.laptb th{text-align:left;font-weight:500;color:var(--muted);font-size:11.5px;padding:3px 4px;border-bottom:1px solid var(--line)}
+.laptb td{padding:4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.laptb tr.hard td{background:var(--q-soft)}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -573,14 +581,21 @@ function parseCoros(txt){
     var dur=durSec((b.match(/Duration:\s*([\d:]+)/)||[])[1]);
     var hr=+((b.match(/Avg HR:\s*(\d+)/)||[])[1]||0);
     var date=ts?localDate(ts):(head?head[2]:"");if(!date||isNaN(km))return;
-    out.push({id:"coros-"+id,date:date,ts:ts,km:Math.round(km*100)/100,dur:dur,hr:hr||null,src:"COROS"});
+    var sp=+((b.match(/SportType:\s*(\d+)/)||[])[1]||100);out.push({id:"coros-"+id,lid:id,sp:sp,date:date,ts:ts,km:Math.round(km*100)/100,dur:dur,hr:hr||null,src:"COROS"});
   });return out;
+}
+function parseLaps(o){
+  var gs=o&&o.lapGroups||[];if(!gs.length)return null;
+  function pick(t){for(var i=0;i<gs.length;i++)if(gs[i].type===t&&gs[i].laps&&gs[i].laps.length)return gs[i];return null}
+  var g=pick(2);if(g&&g.laps.length<2)g=null;var kind=g?"manual":"km";if(!g)g=pick(10);if(!g)return null;
+  var laps=g.laps.map(function(l){var d=(+l.distance||0)/100000,t=+l.time||0;return{d:Math.round(d*100)/100,t:Math.round(t*10)/10,p:Math.round(+l.avgPace||(d?t/d:0)),hr:+l.avgHr||null,mx:+l.maxHr||null,cad:+l.avgCadence||null,sl:+l.avgStrideLength||null}}).filter(function(x){return x.d>=0.01&&x.t>0});
+  return laps.length?{kind:kind,laps:laps.slice(0,60)}:null;
 }
 function fmtPaceKm(dur,km){return km>0&&dur>0?fmtMS(dur/km):""}
 function applyRuns(){
   var by={};for(var k in S.runs){var r=S.runs[k];(by[r.date]=by[r.date]||[]).push(r)}
   for(var ds in S.days){if(S.days[ds]&&S.days[ds].w&&!by[ds])delete S.days[ds].w}
-  var auto=0;
+  var auto=0,cut=addDays(T,-28);for(var rk in S.runs){if(S.runs[rk].laps&&S.runs[rk].date<cut)delete S.runs[rk].laps}
   for(var d in by){var i=idxOf(d);if(i<0||i>=TOTAL)continue;var t=planAt(i),rs=by[d],km=0,dur=0,hw=0,hd=0;
     rs.forEach(function(x){km+=x.km;dur+=x.dur;if(x.hr){hw+=x.hr*x.dur;hd+=x.dur}});
     km=Math.round(km*100)/100;var rec=S.days[d]||{};
@@ -600,7 +615,14 @@ async function watchSync(manual){
     var to=T<RACE?T:RACE;
     var res=await mcp.callTool("COROS","querySportRecords",{startDate:from.replace(/-/g,""),endDate:to.replace(/-/g,""),sportTypeCodes:[100,101,102,103],limit:200},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
     var runs=parseCoros(payloadText(res)),added=0;
-    runs.forEach(function(r){var i=idxOf(r.date);if(i<0||i>=TOTAL)return;if(!S.runs[r.id])added++;S.runs[r.id]=r});
+    runs.forEach(function(r){var i=idxOf(r.date);if(i<0||i>=TOTAL)return;var old=S.runs[r.id];if(!old)added++;if(old&&old.laps)r.laps=old.laps;S.runs[r.id]=r});
+    // laps for recent runs that don't have them yet (newest first, a few per sync)
+    try{var need=Object.keys(S.runs).map(function(k){return S.runs[k]}).filter(function(r){return r.src==="COROS"&&!r.laps&&r.date>=addDays(T,-21)}).sort(function(a,b){return b.ts-a.ts}).slice(0,6);
+      for(var li=0;li<need.length;li++){var rr=need[li],lid=rr.lid||String(rr.id).replace("coros-","");
+        try{var lr=await mcp.callTool("COROS","queryActivityLapData",{labelId:lid,sportType:rr.sp||100},{cache:{staleTime:86400000,gcTime:604800000}});
+          var lo=lr&&typeof lr.payload==="object"?lr.payload:null;if(!lo){try{lo=JSON.parse(payloadText(lr))}catch(e5){}}
+          var pl=parseLaps(lo);rr.laps=pl||{kind:"none",laps:[]};}catch(e4){}}
+    }catch(e6){}
     var auto=applyRuns();S.watchAt=Date.now();S.watchFrom=START;
     try{var rh=await mcp.callTool("COROS","queryRestingHeartRate",{days:14},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
       payloadText(rh).replace(/(\d{4}-\d{2}-\d{2}):\s*(\d+)\s*bpm/g,function(m,d,v){v=+v;if(v>=25&&v<=120)S.rhr[d]=v;return m});
@@ -722,20 +744,21 @@ function parseTCX(txt){
   var doc=new DOMParser().parseFromString(txt,"application/xml"),out=[];
   kids(doc,"Activity").forEach(function(a){
     var sp=a.getAttribute("Sport")||"";if(sp&&!/run/i.test(sp))return;
-    var laps=kids(a,"Lap"),km=0,dur=0,hw=0,hd=0,st=null,id=kid(a,"Id");
+    var laps=kids(a,"Lap"),km=0,dur=0,hw=0,hd=0,st=null,id=kid(a,"Id"),LP=[];
     if(id)st=Date.parse(id.textContent);
     laps.forEach(function(l){var t=kid(l,"TotalTimeSeconds"),d=kid(l,"DistanceMeters"),avg=kid(l,"AverageHeartRateBpm");
       var ts=t?+t.textContent:0;dur+=ts;var dd=0;for(var c=l.firstElementChild;c;c=c.nextElementSibling)if(c.localName==="DistanceMeters")dd=+c.textContent;km+=dd/1000;
-      if(avg){var v=kid(avg,"Value");if(v&&+v.textContent>0){hw+=+v.textContent*ts;hd+=ts}}
+      var lh=null;if(avg){var v=kid(avg,"Value");if(v&&+v.textContent>0){lh=+v.textContent;hw+=lh*ts;hd+=ts}}
+      var mxe=kid(l,"MaximumHeartRateBpm"),mxv=mxe?kid(mxe,"Value"):null;if(dd>0&&ts>0)LP.push({d:Math.round(dd/10)/100,t:Math.round(ts*10)/10,p:Math.round(ts/(dd/1000)),hr:lh,mx:mxv?+mxv.textContent:null});
       if(st==null||isNaN(st)){var s0=Date.parse(l.getAttribute("StartTime"));if(!isNaN(s0))st=s0}});
-    var r=fileRun(st,km,dur,hd?hw/hd:null,"TCX 파일");if(r)out.push(r);
+    var r=fileRun(st,km,dur,hd?hw/hd:null,"TCX 파일");if(r){if(LP.length>1)r.laps={kind:"manual",laps:LP.slice(0,60)};out.push(r)}
   });return out;
 }
 function parseFIT(buf){
   var dv=new DataView(buf),out=[];if(buf.byteLength<14)throw new Error("FIT 파일이 아니에요");
   var hs=dv.getUint8(0),size=dv.getUint32(4,true);
   if(String.fromCharCode(dv.getUint8(8),dv.getUint8(9),dv.getUint8(10),dv.getUint8(11))!==".FIT")throw new Error("FIT 파일이 아니에요");
-  var pos=hs,end=Math.min(buf.byteLength,hs+size),defs={};
+  var pos=hs,end=Math.min(buf.byteLength,hs+size),defs={},FL=[];
   function rv(at,sz,le){if(sz===1){var a=dv.getUint8(at);return a===255?null:a}if(sz===2){var b=dv.getUint16(at,le);return b===65535?null:b}if(sz===4){var c=dv.getUint32(at,le);return c===4294967295?null:c}return null}
   while(pos<end){
     var h=dv.getUint8(pos++),def,local;
@@ -747,9 +770,10 @@ function parseFIT(buf){
     else{local=h&15;def=defs[local]}
     if(!def)throw new Error("FIT 구조를 읽지 못했어요");
     var o={};def.f.forEach(function(f){if(pos+f.z<=end)o[f.n]=rv(pos,f.z,def.le);pos+=f.z});pos+=def.dz;
+    if(def.g===19){var ld=o[9]!=null?o[9]/100000:0,lt=(o[8]!=null?o[8]:o[7]||0)/1000;if(ld>0.01&&lt>0)FL.push({d:Math.round(ld*100)/100,t:Math.round(lt*10)/10,p:Math.round(lt/ld),hr:o[15]||null,mx:o[16]||null,cad:o[17]?o[17]*2:null})}
     if(def.g===18){var sp=o[5];if(sp!=null&&sp!==1)continue;
       var st=o[2]!=null?(o[2]+631065600)*1000:null,dur=(o[8]!=null?o[8]:o[7])/1000,km=o[9]!=null?o[9]/100000:0;
-      var r=fileRun(st,km,dur,o[16],"FIT 파일");if(r)out.push(r)}
+      var r=fileRun(st,km,dur,o[16],"FIT 파일");if(r){if(FL.length>1)r.laps={kind:"manual",laps:FL.slice(0,60)};FL=[];out.push(r)}}
   }
   return out;
 }
@@ -925,6 +949,7 @@ function coachCtx(){
     if(r.km)a.push("실제 "+r.km+"km");if(r.w)a.push("워치 "+r.w.km+"km "+fmtPaceKm(r.w.dur,r.w.km)+"/km"+(r.w.hr?" 평균심박 "+r.w.hr:""));
     if(r.hr)a.push("심박 "+r.hr);if(r.pace)a.push("시간/페이스 "+r.pace);if(r.rpe)a.push("컨디션 "+r.rpe+"/5");if(r.note)a.push("메모: "+String(r.note).slice(0,80));
     L.push(ds+" "+DOW[j%7]+(ds===T?"(오늘)":"")+" ["+PL_T[t[0]]+" "+t[2]+"K] "+ptxt(t[1]).replace(/\n/g," / ")+" → "+(t[0]==="r"?"휴식":ds>T?"예정":(r.done?"완료":past?"미완료":"아직"))+(a.length?" | "+a.join(", "):""));
+    if(ds<=T&&ds>=addDays(T,-7)){var lc=lapsCtx(ds);if(lc)L.push(lc)}
   }
   if(ti>=0){var s1=weekStats(w);L.push("이번 주: 완료 "+s1.done+"/"+s1.n+"회, "+s1.km+"/"+weekKm(w)+"km");if(w>0){var s0=weekStats(w-1);L.push("지난주: 완료 "+s0.done+"/"+s0.n+"회, "+s0.km+"/"+weekKm(w-1)+"km")}}
   var wd=wDays().filter(function(k){return k<=T}).slice(-10);if(wd.length)L.push("\n체중(하루 평균): "+wd.map(function(k){var d=wDay(k);return md(k)+" "+d.avg+(d.n>1?"("+d.min+"~"+d.max+")":"")}).join(", ")+(S.wgoal&&S.wgoal.target?" · 목표 "+S.wgoal.start+"→"+S.wgoal.target+"kg (3/21)":""));
@@ -936,7 +961,7 @@ function coachCtx(){
   L.push("계획 원칙: 핵심 훈련은 수(인터벌·템포)·토(지속주·롱런), 나머지는 천천히. 이지·LSD는 페이스보다 심박 우선. 아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁘면 수·토 훈련을 하루 미룬다. 통증 3일 이상이면 회복주 수준으로 줄인다. 감량은 주 0.25~0.4kg, 테이퍼부터 중단.");
   return L.join("\n");
 }
-var COACH_SYS="너는 이 러너의 마라톤 코치야. 아래 [러너 데이터]는 이 앱에 저장된 이 사람의 실제 계획·기록이야.\n- 한국어로, 친근하지만 짧고 구체적으로 답해. 보통 3~6문장, 필요하면 '- '로 시작하는 짧은 목록.\n- 데이터에 있는 숫자(날짜·거리·페이스·심박)를 근거로 들어. 데이터에 없는 기록은 지어내지 말고 '앱에 기록이 없다'고 말해.\n- 페이스·심박 기준은 데이터의 '내 기준' 페이스 존을 써.\n- 계획을 바꾸자고 할 땐 앱의 '훈련표 → 내 계획 바꾸기'나 '이 날 훈련 바꾸기'를 안내해.\n- 가슴 통증·어지럼·날카로운 통증 같은 위험 신호는 훈련 얘기보다 먼저 쉬고 진료받으라고 해.\n- 의학적 진단은 하지 마.";
+var COACH_SYS="너는 이 러너의 마라톤 코치야. 아래 [러너 데이터]는 이 앱에 저장된 이 사람의 실제 계획·기록이야.\n- 한국어로, 친근하지만 짧고 구체적으로 답해. 보통 3~6문장, 필요하면 '- '로 시작하는 짧은 목록.\n- 데이터에 있는 숫자(날짜·거리·페이스·심박)를 근거로 들어. 데이터에 없는 기록은 지어내지 말고 '앱에 기록이 없다'고 말해.\n- 페이스·심박 기준은 데이터의 '내 기준' 페이스 존을 써.\n- 계획을 바꾸자고 할 땐 앱의 '훈련표 → 내 계획 바꾸기'나 '이 날 훈련 바꾸기'를 안내해.\n- 가슴 통증·어지럼·날카로운 통증 같은 위험 신호는 훈련 얘기보다 먼저 쉬고 진료받으라고 해.\n- 랩 데이터가 있으면 계획한 반복(예: MP 3K ×3)과 실제 랩을 맞춰 보고, 반복별 페이스·심박 흐름(후반 심박 상승, 페이스 편차)과 회복 구간을 짚어 줘.\n- 의학적 진단은 하지 마.";
 function mdLite(t){
   var e=esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>"),out="",inL=false;
   e.split("\n").forEach(function(l){var m=l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)/);
@@ -1103,6 +1128,36 @@ function bindReady(ds){
   view.querySelectorAll("[data-sq]").forEach(function(b){b.onclick=function(){S.sleepQ[ds]=S.sleepQ[ds]===b.dataset.sq?"":b.dataset.sq;if(!S.sleepQ[ds])delete S.sleepQ[ds];save();keepIf()}});
   var sv=document.getElementById("rd-save");if(sv)sv.onclick=function(){var v=parseInt(document.getElementById("rd-rhr").value,10);if(v>=25&&v<=120){S.rhr[ds]=v}else if(!document.getElementById("rd-rhr").value){delete S.rhr[ds]}save();keepIf()};
 }
+// ---------- Laps: table, zone tag per lap, work-rep summary, coach hand-off ----------
+function lapZone(p){var best=null,bd=1e9,bc=1e9;
+  ["int","tempo","mp","steady","float","mpf","e","lsd","rec"].forEach(function(k){var z=ZONES.filter(function(x){return x.k===k})[0];if(!z)return;var lo=z.lo*K,hi=(z.hi==null?z.lo+90:z.hi)*K,d=p<lo?lo-p:p>hi?p-hi:0,c=Math.abs(p-(lo+hi)/2);if(d<bd||(d===bd&&c<bc)){bd=d;bc=c;best=z}});
+  if(best&&bd<=8)return best.n.replace(/ \(.*\)/,"");return p<222*K?"인터벌보다 빠름":"걷기·조깅"}
+function runsOn(ds){return Object.keys(S.runs).map(function(k){return S.runs[k]}).filter(function(r){return r.date===ds}).sort(function(a,b){return a.ts-b.ts})}
+function lapSummary(L){
+  var work=L.laps.filter(function(x){return x.d>=0.4&&x.p&&x.p<330*K});
+  if(L.kind!=="manual"||work.length<1)return "";
+  var t=0,d=0,hw=0,hd=0;work.forEach(function(x){t+=x.t;d+=x.d;if(x.hr){hw+=x.hr*x.t;hd+=x.t}});
+  var ps=work.map(function(x){return x.p}),spread=Math.max.apply(null,ps)-Math.min.apply(null,ps);
+  return "본 구간 "+work.length+"개 · "+(Math.round(d*100)/100)+"km · 평균 "+fmtMS(t/d)+"/km"+(hd?" · 심박 "+Math.round(hw/hd):"")+" · 페이스 편차 "+spread+"초";
+}
+function lapsHtml(ds){
+  var rs=runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length});if(!rs.length)return "";
+  var h="";rs.forEach(function(r,ri){var L=r.laps,sm=lapSummary(L);
+    h+='<details class="laps"'+(LAPOPEN===ds+ri?' open':'')+' data-lo="'+ds+ri+'"><summary><span><b>'+(L.kind==="manual"?"내가 끊은 랩":"1km 구간")+' '+L.laps.length+'개</b>'+(sm?'<span class="small muted" style="display:block">'+esc(sm)+'</span>':'')+'</span><span class="chev" aria-hidden="true"></span></summary>';
+    h+='<div style="overflow-x:auto"><table class="laptb"><thead><tr><th>#</th><th>거리</th><th>시간</th><th>페이스</th><th>심박</th><th>구간</th></tr></thead><tbody>'+L.laps.map(function(x,i){var z=lapZone(x.p),hard=x.p<330*K&&x.d>=0.4;return '<tr'+(hard?' class="hard"':'')+'><td>'+(i+1)+'</td><td class="num">'+x.d.toFixed(2)+'</td><td class="num">'+fmtT(x.t)+'</td><td class="num"><b>'+fmtMS(x.p)+'</b></td><td class="num">'+(x.hr||"-")+(x.mx?'<span class="muted">/'+x.mx+'</span>':'')+'</td><td class="small">'+esc(z)+'</td></tr>'}).join("")+'</tbody></table></div>';
+    h+='<button class="btn ghost" data-coachrun="'+ds+'" style="width:100%;margin-top:8px">AI 코치에게 이 훈련 랩 분석 받기</button></details>'});
+  return h;
+}
+var LAPOPEN=null;
+function bindLaps(){
+  view.querySelectorAll("details.laps").forEach(function(d){d.addEventListener("toggle",function(){LAPOPEN=d.open?d.dataset.lo:null})});
+  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;tab="coach";render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
+}
+function lapsCtx(ds){
+  return runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length}).map(function(r){var L=r.laps;
+    return "  · "+(L.kind==="manual"?"직접 끊은 랩":"1km 구간")+": "+L.laps.map(function(x,i){return (i+1)+") "+x.d.toFixed(2)+"km "+fmtT(x.t)+" "+fmtMS(x.p)+"/km"+(x.hr?" 심박"+x.hr+(x.mx?"/"+x.mx:""):"")+(x.cad?" 케이던스"+x.cad:"")}).join(", ");
+  }).join("\n");
+}
 var EDIT=null,AI={busy:false,msg:"",err:"",prev:null,req:""},PLMSG="";
 function dayEditor(ds,w,d,t){
   if(t[0]==="x")return '<p class="small muted" style="margin:10px 0 0">대회 날은 바꿀 수 없어요.</p>';
@@ -1195,6 +1250,7 @@ function vToday(){
   if(W[w].note&&t[1].indexOf("66K 장거리")===0)h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
   if(r.w){var wr=t[2]?Math.round(r.w.km/t[2]*100):null,lim=t[0]==="e"?HR(140):t[0]==="c"?HR(130):null;
     h+='<div class="zguide"><div style="flex-direction:column;align-items:stretch;gap:2px"><span class="row between"><b style="font-family:var(--f-body)">⌚ '+esc(r.w.src)+' 기록</b><span class="pill '+(t[0]==="r"?'na':wr>=80?'ok':'part')+'" style="'+(t[0]!=="r"&&wr<80?'background:var(--accent-soft);color:var(--accent)':'')+'">'+(t[0]==="r"?'휴식일 러닝':wr>=80?'계획 이행':'계획의 '+wr+'%')+'</span></span><span><b>'+r.w.km+'km</b> · '+fmtPaceKm(r.w.dur,r.w.km)+'/km'+(r.w.hr?' · ♥'+r.w.hr:'')+(r.w.n>1?' · '+r.w.n+'회':'')+'</span>'+(lim&&r.w.hr&&r.w.hr>=lim?'<small>평균 심박 '+r.w.hr+' · 이 날 기준은 '+lim+' 미만이에요. 다음엔 더 천천히.</small>':'')+'</div></div>'}
+  h+=lapsHtml(sel);
   h+='<button class="done-btn'+(dn?' on':'')+'" id="done">'+(dn?'✓ 완료했어요'+(r.auto?' (워치)':''):(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크'))+'</button>';
   if(t[0]!=="r"){
     h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(r.w?r.w.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(r.w&&r.w.hr?r.w.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
@@ -1217,7 +1273,7 @@ function vToday(){
   view.innerHTML=h;
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
-  bindDayEditor(sel);bindMeals(sel);bindReady(T);
+  bindDayEditor(sel);bindMeals(sel);bindReady(T);bindLaps();
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
   document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);delete r.auto;S.days[sel]=r;save();render()};
