@@ -276,6 +276,10 @@ input[readonly]{opacity:.85}
 @keyframes pulse{50%{box-shadow:0 0 0 6px var(--accent-soft)}}
 @media (prefers-reduced-motion:reduce){#co-mic.on{animation:none}}
 .msg .say{display:inline-block;margin-top:6px;border:0;background:none;color:var(--muted);font-size:12px;padding:0}
+.stact{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.stact .btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 8px;text-decoration:none;text-align:center}
+.btn.ig{background:linear-gradient(45deg,#f09433,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888);color:#fff}
+.btn.ig svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
 .story-btn{width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px}
 .story-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
 .stwrap{display:flex;justify-content:center}
@@ -1090,10 +1094,10 @@ function vStory(){
   h+='<label class="small muted" style="display:block;margin-top:12px">AI 코치 코멘트 (고쳐도 돼요)<textarea id="st-cm" class="inp" rows="3" maxlength="160" style="margin-top:4px">'+esc(STORY.comment)+'</textarea></label>';
   h+='<div class="row" style="margin-top:8px"><button class="btn ghost" id="st-regen"'+(STORY.busy?' disabled':'')+'>'+(STORY.busy?'코멘트 쓰는 중…':'AI 코멘트 다시 쓰기')+'</button></div>';
   if(STORY.err)h+='<div class="small" style="color:var(--bad);margin-top:6px">'+esc(STORY.err)+'</div>';
-  h+='<button class="btn" id="st-save" style="width:100%;margin-top:14px;background:var(--accent);color:#fff;padding:14px">이미지 저장하기</button>';
+  h+='<div class="stact"><button class="btn" id="st-save" style="background:var(--accent);color:#fff">① 이미지 저장</button><a class="btn ig" href="https://www.instagram.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>② 인스타 열기</a></div><div class="small muted" style="margin-top:6px">저장한 뒤 인스타그램을 열어 스토리에서 방금 저장한 사진을 고르세요. 휴대폰에 따라 버튼이 반응하지 않으면 인스타 앱을 직접 열어 주세요.</div>';
   if(STORY.msg)h+='<div class="small" style="color:var(--ok);margin-top:6px">'+esc(STORY.msg)+'</div>';
   if(STORY.out)h+='<div style="margin-top:10px"><div class="small muted">저장이 안 되면 아래 이미지를 길게 눌러 사진에 저장하세요.</div><img src="'+STORY.out+'" alt="완성된 스토리 이미지" style="width:120px;border-radius:10px;margin-top:6px"></div>';
-  h+='<ol class="tight small" style="margin:12px 0 0;padding-left:18px;color:var(--muted)"><li>이미지를 저장해요.</li><li>인스타그램 앱 → 스토리 만들기 → 방금 저장한 이미지를 골라요.</li><li>필요하면 스티커·태그를 더해서 올려요.</li></ol></div>';
+  h+='<ol class="tight small" style="margin:12px 0 0;padding-left:18px;color:var(--muted)"><li>① 이미지를 저장해요.</li><li>② 인스타그램 열기 → 스토리 만들기(＋) → 방금 저장한 이미지를 골라요.</li><li>필요하면 스티커·태그를 더해서 올려요.</li></ol></div>';
   view.innerHTML=h;
   document.getElementById("st-back").onclick=function(){tab="today";sel=STORY.ds;render();window.scrollTo(0,0)};
   var ph=document.getElementById("st-photo");ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;var u=URL.createObjectURL(f),im=new Image();im.onload=function(){if(STORY.url)try{URL.revokeObjectURL(STORY.url)}catch(e){}STORY.url=u;STORY.img=im;STORY.out="";render();drawStory()};im.onerror=function(){STORY.err="이 사진은 열 수 없어요. JPG·PNG로 다시 골라 주세요.";render()};im.src=u};
