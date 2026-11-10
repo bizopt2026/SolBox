@@ -1130,10 +1130,12 @@ async function drawStory(){
   var cm=String(STORY.comment||"").replace(/\*\*/g,"").replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"").replace(/\s*\n\s*/g," ").trim();
   ctx.font="500 42px "+FB;var cl=wrapText(ctx,cm||"AI 코치 코멘트를 쓰는 중이에요…",Wd-2*M-80);if(cl.length>4){cl=cl.slice(0,4);cl[3]=cl[3].replace(/.{0,2}$/,"…")}
   var showP=!!((D.laps||(D.series&&STORY.view==="chart"))&&STORY.view!=="none"),bh=104+cl.length*60,boxY=Hd-140-bh,panelB=boxY-36,panelH=0;
-  if(showP){var want=STORY.view==="table"&&D.laps?150+Math.min(D.laps.laps.length,9)*52:460,room=panelB-40-(y+60+340);panelH=Math.min(want,room);if(panelH<230){showP=false;panelH=0}}
+  if(showP){var want=STORY.view==="table"&&D.laps?150+Math.min(D.laps.laps.length,9)*52:460,room=panelB-40-(y+60+170);panelH=Math.min(want,room);if(panelH<230){showP=false;panelH=0}}
   var lapY=boxY-40,statBase=showP?panelB-panelH-44:(D.work.length?lapY-70:boxY-60);
-  var stats=[["거리",D.km?String(Math.round(D.km*100)/100):"-","km"],["평균 페이스",D.pace?fmtMS(D.pace):"-","/km"],["시간",D.dur?fmtT(D.dur):"-",""],["평균 심박",D.hr?String(D.hr):"-","bpm"]];
-  stats.forEach(function(st,k){var x=M+(k%2)*((Wd-2*M)/2),nb=statBase-(k<2?170:0);ctx.fillStyle="rgba(255,255,255,.7)";ctx.font="500 34px "+FB;ctx.fillText(st[0],x,nb-100);ctx.fillStyle="#fff";ctx.font="800 96px "+FD;ctx.fillText(st[1],x,nb);var nw=ctx.measureText(st[1]).width;ctx.font="600 36px "+FD;ctx.fillStyle="rgba(255,255,255,.75)";ctx.fillText(st[2],x+nw+12,nb)});
+  var stats=[["거리",D.km?String(Math.round(D.km*100)/100):"-","km"],["평균 페이스",D.pace?fmtMS(D.pace):"-","/km"],["평균 심박",D.hr?String(D.hr):"-","bpm"]];
+  var colW=(Wd-2*M)/3,nfs=84;function fitsAll(fz){return stats.every(function(st){ctx.font="800 "+fz+"px "+FD;var a=ctx.measureText(st[1]).width;ctx.font="600 "+Math.round(fz*0.4)+"px "+FD;return a+10+ctx.measureText(st[2]).width<=colW-16})}
+  while(nfs>56&&!fitsAll(nfs))nfs-=4;
+  stats.forEach(function(st,k){var x=M+k*colW,nb=statBase;ctx.fillStyle="rgba(255,255,255,.7)";ctx.font="500 32px "+FB;ctx.fillText(st[0],x,nb-nfs-14);ctx.fillStyle="#fff";ctx.font="800 "+nfs+"px "+FD;ctx.fillText(st[1],x,nb);var nw=ctx.measureText(st[1]).width;ctx.font="600 "+Math.round(nfs*0.4)+"px "+FD;ctx.fillStyle="rgba(255,255,255,.75)";ctx.fillText(st[2],x+nw+10,nb)});
   if(showP)drawLapPanel(ctx,D,M,panelB-panelH,Wd-2*M,panelB,FD,FB);
   else if(D.work.length){ctx.fillStyle="#9cc0ff";ctx.font="700 36px "+FB;ctx.fillText(wrapText(ctx,"본 구간 "+D.work.map(function(x){return fmtMS(x.p)}).join(" · ")+(D.work[0].hr?"   ♥ "+D.work.map(function(x){return x.hr}).join("·"):""),Wd-2*M)[0],M,lapY)}
   ctx.fillStyle="rgba(255,255,255,.14)";rrect(ctx,M,boxY,Wd-2*M,bh,36);ctx.fill();ctx.strokeStyle="rgba(255,255,255,.22)";ctx.lineWidth=2;ctx.stroke();
