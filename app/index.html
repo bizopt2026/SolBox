@@ -129,6 +129,8 @@ svg text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
 .warn{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:13px}
 
 /* Guide */
+.zone .zn{color:var(--accent);font-weight:700;margin-left:1px}
+.znote{font-size:12px;color:var(--muted);margin:2px 0 0;padding:8px 10px;border-radius:8px;background:var(--bg)}
 .zone{display:grid;grid-template-columns:84px 1fr auto;gap:10px;align-items:center;padding:7px 0;font-size:14px}
 .zone .zb{height:10px;border-radius:99px;background:var(--line);position:relative}
 .zone .zb i{position:absolute;inset:0 auto 0 0;border-radius:99px}
@@ -1075,7 +1077,7 @@ var ZONES=[
  {k:"wu",n:"워밍업 (WU)",lo:340,hi:360,bar:28,c:"--base"},
  {k:"cd",n:"쿨다운 (CD)",lo:340,hi:370,bar:28,c:"--base"},
  {k:"mpf",n:"MP 롱런 앞부분",lo:310,hi:310,hr:145,hrMax:true,bar:40,c:"--build"},
- {k:"float",n:"플로트",lo:290,hi:310,bar:45,c:"--build"},
+ {k:"float",n:"플로트",lo:290,hi:310,bar:45,c:"--build",note:"MP 반복 사이 1K 회복 구간이에요. 걷거나 늘어지지 말고 이 페이스로 이어 달려요."},
  {k:"steady",n:"지속주",lo:265,hi:280,bar:55,c:"--build"},
  {k:"mp",n:"마라톤 (MP)",lo:253,hi:255,hr:158,hrMax:true,bar:65,c:"--q"},
  {k:"tempo",n:"템포 (역치)",lo:238,hi:245,thr:true,bar:80,c:"--taper"},
@@ -1197,7 +1199,8 @@ function vPace(){
   }
   h+=goalCard();
   // zones
-  h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+(K!==1?'<small class="muted" style="color:var(--muted)">원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi))+'</small>':'')+'</span></div>'}).join("")+'</div>';
+  h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+(K!==1?'<small class="muted" style="color:var(--muted)">원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi))+'</small>':'')+'</span></div>'}).join("")+'</div>';
+  ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note+'</div>'});
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
   // upcoming
   view.innerHTML=h;
@@ -1419,7 +1422,7 @@ function vWelcome(){
 }
 
 function vGuide(){
-  var h='<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "내 페이스" 탭에서 바꿀 수 있어요.</p></div>';
+  var h='<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "내 페이스" 탭에서 바꿀 수 있어요.</p></div>';
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>MP 롱런 앞부분</dt><dd>'+P(310)+' · '+zh(Zk.mpf)+'</dd><dt>플로트</dt><dd>'+zr(Zk.float)+' (MP 반복 사이 1K)</dd><dt>회복 LSD</dt><dd>'+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd></dl></div>';
   h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준이에요. 올해 풀코스는 시계에 42.29~42.36km로 찍혔어요. 시계 '+P(255)+'로 달리면 여유 없이 목표 안팎이 돼요. 보급은 시간당 탄수화물 60~90g, W14·W16 롱런에서 쓴 그대로. 3/18~20 탄수화물 로딩.</p></div>';
