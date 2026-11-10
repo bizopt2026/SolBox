@@ -1088,7 +1088,7 @@ var ZONES=[
  {k:"lsd",n:"LSD (일)",lo:360,hi:390,hr:130,bar:25,c:"--base"},
  {k:"wu",n:"워밍업 (WU)",lo:340,hi:360,bar:28,c:"--base"},
  {k:"cd",n:"쿨다운 (CD)",lo:340,hi:370,bar:28,c:"--base"},
- {k:"mpf",n:"롱런 앞부분",lo:310,hi:320,hr:145,hrMax:true,bar:40,c:"--build"},
+ {k:"mpf",n:"롱런 앞부분",lo:310,hi:320,hr:145,hrMax:true,bar:40,c:"--build",note:"롱런에서 MP 구간 들어가기 전 부분이에요. 이지보다 약간 빠르게, 심박 {hr} 이하로 몸을 MP에 맞게 데워요."},
  {k:"float",n:"플로트",lo:290,hi:310,bar:45,c:"--build",note:"MP 반복 사이 1K 회복 구간이에요. 걷거나 늘어지지 말고 이 페이스로 이어 달려요."},
  {k:"steady",n:"지속주",lo:265,hi:280,bar:55,c:"--build"},
  {k:"mp",n:"마라톤 (MP)",lo:253,hi:255,hr:158,hrMax:true,bar:65,c:"--q"},
@@ -1137,8 +1137,8 @@ var ZTRK=true;
 function lap400(z){var a=Math.round(z.lo*K*0.4),b=Math.round((z.hi==null?z.lo:z.hi)*K*0.4);return "400m "+(a===b?a:a+"~"+b)+"초"}
 function zoneRow(z,orig){
   var hh=zh(z),og='원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi));
-  var l2='<small class="hr">'+(hh||"&nbsp;")+'</small>';
-  var l3=z.trk?'<small class="lap">'+lap400(z)+'</small>':orig?'<small class="og">'+og+'</small>':(ZTRK?'<small>&nbsp;</small>':'');
+  var l2=z.trk?'<small class="lap">'+lap400(z)+'</small>':'<small class="hr">'+(hh||"&nbsp;")+'</small>';
+  var l3=z.trk?'<small class="hr">'+(hh||"&nbsp;")+'</small>':orig?'<small class="og">'+og+'</small>':(ZTRK?'<small>&nbsp;</small>':'');
   return '<div class="zone'+(orig||ZTRK?' z3':'')+'"'+(z.trk&&orig?' title="'+og+'"':'')+'><span class="zn0">'+z.n+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+l2+l3+'</span></div>';
 }
 function zonesFor(t){
@@ -1220,7 +1220,7 @@ function vPace(){
   h+=goalCard();
   // zones
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){return zoneRow(z,K!==1)}).join("")+'</div>';
-  ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note+'</div>'});
+  ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note.replace("{hr}",z.hr?HR(z.hr):"")+'</div>'});
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
   // upcoming
   view.innerHTML=h;
