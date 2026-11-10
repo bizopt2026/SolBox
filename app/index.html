@@ -264,6 +264,8 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .laptb th{text-align:left;font-weight:500;color:var(--muted);font-size:11.5px;padding:3px 4px;border-bottom:1px solid var(--line)}
 .laptb td{padding:4px;border-bottom:1px solid var(--line);white-space:nowrap}
 .laptb tr.hard td{background:var(--q-soft)}
+.srcb{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:var(--q-soft);color:var(--q);margin-left:4px}
+input[readonly]{opacity:.85}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -423,7 +425,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -631,9 +633,22 @@ async function watchSync(manual){
       ass.replace(/(\d{4}-\d{2}-\d{2}):\s*\n\s*HRV Avg:\s*(\d+)\s*ms\s*[—-]\s*([A-Za-z ]+)\s*\n\s*Normal Range:\s*(\d+)\s*-\s*(\d+)\s*ms(?:\s*\n\s*Baseline:\s*(\d+))?/g,function(m,d,a,ev,lo,hi,base){S.hrv[d]={avg:+a,ev:ev.trim(),lo:+lo,hi:+hi,base:base?+base:null};return m});
       var ks=Object.keys(S.rhr).sort();while(ks.length>40)delete S.rhr[ks.shift()];var kh=Object.keys(S.hrv).sort();while(kh.length>20)delete S.hrv[kh.shift()];
     }catch(e3){}
+    var fmsg="";try{var CC=manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000};
+      var fa=payloadText(await mcp.callTool("COROS","queryFitnessAssessmentOverview",{},{cache:CC}));function gx(re){var m=fa.match(re);return m?m[1]:""}
+      var F={vo2:gx(/VO2max:\s*([\d.]+)/),lvl:gx(/Running Level:\s*([\d.]+)/),thr:gx(/Threshold Pace:\s*(\d+:\d{2})/),k5:gx(/5 km Prediction:\s*([\d:]+)/),k10:gx(/10 km Prediction:\s*([\d:]+)/),half:gx(/Half Marathon Prediction:\s*([\d:]+)/),mar:gx(/(?:^|\n)Marathon Prediction:\s*([\d:]+)/),at:Date.now(),date:T};
+      if(F.thr||F.k10){S.fit=F;S.profile=S.profile||{};if(S.profile.auto!==false){var ch=[];
+        if(F.thr&&S.profile.thr!==F.thr){S.profile.thr=F.thr;ch.push("역치 "+F.thr)}
+        if(F.k10&&(S.profile.recTime!==F.k10||S.profile.recDist!=="10")){S.profile.recDist="10";S.profile.recTime=F.k10;S.profile.recDate=T;ch.push("10K 예측 "+F.k10)}
+        S.profile.src="coros";if(ch.length)fmsg=" · "+ch.join(", ")+" 반영"}}
+      var tl=payloadText(await mcp.callTool("COROS","queryTrainingLoadAssessment",{days:7},{cache:CC}));
+      tl.replace(/(\d{4}-\d{2}-\d{2})\s*\nComment:\s*([^\n]+)\nShort-Term Load:\s*(\d+)\nLong-Term Load:\s*(\d+)\nLoad Ratio:\s*([\d.]+)/g,function(m,d,c,st,lt,r){S.load[d]={c:c.trim(),st:+st,lt:+lt,r:+r};return m});
+      var kl=Object.keys(S.load).sort();while(kl.length>14)delete S.load[kl.shift()];
+      var rc=payloadText(await mcp.callTool("COROS","queryRecoveryStatus",{},{cache:CC}));var rp=rc.match(/Recovery:\s*(\d+)%/),rl=rc.match(/Level:\s*([^\n]+)/),rf=rc.match(/Full Recovery:\s*([^\n]+)/);
+      if(rp)S.recov={pct:+rp[1],lv:rl?rl[1].trim():"",full:rf?rf[1].trim():"",at:Date.now(),date:T};
+    }catch(e7){}
     var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
       if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){addWeight(Date.now(),kg,"COROS");wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg}}}catch(e2){}
-    WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+".";
+    WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+fmsg+".";
     save();pushShare();
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
   finally{WS.busy=false;keepIf()}
@@ -953,6 +968,9 @@ function coachCtx(){
   }
   if(ti>=0){var s1=weekStats(w);L.push("이번 주: 완료 "+s1.done+"/"+s1.n+"회, "+s1.km+"/"+weekKm(w)+"km");if(w>0){var s0=weekStats(w-1);L.push("지난주: 완료 "+s0.done+"/"+s0.n+"회, "+s0.km+"/"+weekKm(w-1)+"km")}}
   var wd=wDays().filter(function(k){return k<=T}).slice(-10);if(wd.length)L.push("\n체중(하루 평균): "+wd.map(function(k){var d=wDay(k);return md(k)+" "+d.avg+(d.n>1?"("+d.min+"~"+d.max+")":"")}).join(", ")+(S.wgoal&&S.wgoal.target?" · 목표 "+S.wgoal.start+"→"+S.wgoal.target+"kg (3/21)":""));
+  if(S.fit)L.push("COROS 체력 평가("+(S.fit.date||"")+"): VO2max "+S.fit.vo2+" · 러닝 레벨 "+S.fit.lvl+" · 역치 페이스 "+S.fit.thr+" · 예측 5K "+S.fit.k5+" / 10K "+S.fit.k10+" / 하프 "+S.fit.half+" / 풀 "+S.fit.mar);
+  var lk=Object.keys(S.load).sort().slice(-3);if(lk.length)L.push("COROS 훈련 부하: "+lk.map(function(k){var x=S.load[k];return md(k)+" 단기 "+x.st+" 장기 "+x.lt+" 비율 "+x.r+" ("+x.c+")"}).join("; "));
+  if(S.recov)L.push("COROS 회복률("+S.recov.date+"): "+S.recov.pct+"% "+S.recov.lv+(S.recov.full?" · 완전 회복까지 "+S.recov.full:""));
   var RR=readiness(T);if(RR.has)L.push("오늘 아침 컨디션: 안정시 심박 "+(RR.r||"미측정")+(RR.b?" (평소 "+RR.b+", "+(RR.diff>0?"+":"")+RR.diff+")":"")+(RR.h?" · 수면 HRV "+RR.h.avg+"ms "+RR.h.ev+" (정상 "+RR.h.lo+"~"+RR.h.hi+")":"")+(RR.sq?" · 잠 "+RR.sq:"")+" → 앱 판정: "+["좋음","주의","쉬어가기"][RR.lv]);
   var mk=[];for(var q=2;q>=0;q--){var dq=addDays(T,-q),mt=mealTot(dq);if(mt.n)mk.push(md(dq)+" "+mt.n+"끼 "+Math.round(mt.kcal)+"kcal 탄"+Math.round(mt.c)+" 단"+Math.round(mt.p)+" 지"+Math.round(mt.f))}
   var tgT=mealTarget(Math.max(0,idxOf(T))%7);
@@ -1107,8 +1125,11 @@ function readiness(ds){
   var r=S.rhr[ds]||null,b=rhrBase(ds),diff=r&&b?Math.round((r-b)*10)/10:null,h=S.hrv[ds]||null,sq=S.sleepQ[ds]||"",lv=0,why=[];
   if(diff!=null){if(diff>=5){lv=2;why.push("안정시 심박이 평소보다 "+diff+" 높아요")}else if(diff>=3){lv=Math.max(lv,1);why.push("안정시 심박이 평소보다 조금 높아요(+"+diff+")")}}
   if(h){var low=/low|poor|unbalanced/i.test(h.ev)||h.avg<h.lo;if(low){lv=2;why.push("수면 HRV가 평소 범위보다 낮아요("+h.avg+"ms, 정상 "+h.lo+"~"+h.hi+")")}}
-  if(sq==="나쁨"){lv=Math.max(lv,2);why.push("잠을 잘 못 잤어요")}else if(sq==="보통"&&lv<1&&why.length===0){}
-  return{r:r,b:b,diff:diff,h:h,sq:sq,lv:lv,why:why,has:!!(r||h||sq)};
+  if(sq==="나쁨"){lv=Math.max(lv,2);why.push("잠을 잘 못 잤어요")}
+  var rc=S.recov&&S.recov.date===ds?S.recov:null,ld=S.load[ds]||null;
+  if(rc&&rc.pct<50){lv=Math.max(lv,2);why.push("COROS 회복률 "+rc.pct+"%")}else if(rc&&rc.pct<70){lv=Math.max(lv,1);why.push("COROS 회복률 "+rc.pct+"%")}
+  if(ld&&ld.r>=1.5){lv=Math.max(lv,1);why.push("최근 훈련 부하가 급하게 늘었어요(부하 비율 "+ld.r+")")}else if(sq==="보통"&&lv<1&&why.length===0){}
+  return{r:r,b:b,diff:diff,h:h,sq:sq,lv:lv,why:why,rc:rc,ld:ld,has:!!(r||h||sq||rc)};
 }
 function readyCard(ds,t){
   if(ds!==T)return "";
@@ -1120,6 +1141,7 @@ function readyCard(ds,t){
   var h='<div class="card ready" style="border-left:4px solid '+col+'"><div class="row between"><h2>훈련 전 컨디션</h2>'+(R.has?'<span class="pill" style="background:'+(R.lv===2?'var(--bad-soft)':R.lv===1?'var(--accent-soft)':'var(--ok-soft)')+';color:'+col+'">'+["좋음","주의","쉬어가기"][R.lv]+'</span>':'')+'</div>';
   h+='<div class="rgrid"><div><span class="small muted">안정시 심박</span><b class="num">'+(R.r?R.r+'<small> bpm</small>':'—')+'</b><span class="small" style="color:'+(R.diff!=null&&R.diff>=3?col:'var(--muted)')+'">'+(R.b?'평소 '+R.b+(R.diff!=null?' ('+(R.diff>0?'+':'')+R.diff+')':''):'7일치가 쌓이면 비교해요')+'</span></div>';
   h+='<div><span class="small muted">수면 HRV</span><b class="num">'+(R.h?R.h.avg+'<small> ms</small>':'—')+'</b><span class="small muted">'+(R.h?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[R.h.ev]||R.h.ev)+' · '+R.h.lo+'~'+R.h.hi:'COROS 연동 시 표시')+'</span></div></div>';
+  if(R.rc||R.ld)h+='<div class="small muted" style="margin-top:6px">'+(R.rc?'COROS 회복률 <b style="color:var(--ink)">'+R.rc.pct+'%</b>'+(R.rc.full?' · 완전 회복까지 '+esc(R.rc.full):''):'')+(R.ld?(R.rc?' · ':'')+'훈련 부하 비율 <b style="color:var(--ink)">'+R.ld.r+'</b> ('+({Optimized:'적정',Maintaining:'유지',Recovery:'회복',Overreaching:'과부하',Detraining:'부족',Excessive:'과다'}[R.ld.c]||esc(R.ld.c))+')':'')+'</div>';
   h+='<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><span class="small muted">잠은?</span>'+["좋음","보통","나쁨"].map(function(x){return '<button class="sbtn" data-sq="'+x+'"'+(R.sq===x?' style="background:var(--ink);color:var(--bg);border-color:var(--ink)"':'')+'>'+x+'</button>'}).join("")+(S.watch!=="coros"||!S.rhr[ds]?'<span style="margin-left:auto;display:flex;gap:4px;align-items:center"><input id="rd-rhr" class="inp" inputmode="numeric" placeholder="안정시 심박" value="'+esc(S.rhr[ds]||"")+'" style="width:96px;padding:5px 8px;font-size:14px"><button class="sbtn" id="rd-save">저장</button></span>':'')+'</div>';
   h+='<p class="small" style="margin:8px 0 0;color:'+(R.has?col:'var(--muted)')+'"><b>'+esc(verdict)+'</b>'+(R.why.length?'<br><span class="muted">'+esc(R.why.join(" · "))+'</span>':'')+'</p>';
   return h+'</div>';
@@ -1494,9 +1516,12 @@ function bindGoal(){
 function vPace(){
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
   var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
-  h+='<div class="fields" style="margin-top:0"><label>역치 심박 (bpm)<input id="p-lthr" inputmode="numeric" placeholder="예: 168" value="'+esc(p.lthr)+'"></label><label>역치 페이스 (/km)<input id="p-thr" placeholder="예: 4:02" value="'+esc(p.thr)+'"></label></div>';
+  var auto=S.watch==="coros"&&p.auto!==false,F=S.fit;
+  if(S.watch==="coros")h+='<label class="tog" style="margin:0 0 10px"><input type="checkbox" id="p-auto"'+(p.auto!==false?' checked':'')+'><span>COROS 값으로 자동 업데이트'+(F&&F.at?' <span class="small muted">· '+agoT(F.at)+'</span>':'')+'</span></label>';
+  h+='<div class="fields" style="margin-top:0"><label>역치 심박 (bpm)<input id="p-lthr" inputmode="numeric" placeholder="예: 168" value="'+esc(p.lthr)+'">'+(S.watch==="coros"?'<span class="small muted">COROS가 제공하지 않아 직접 입력</span>':'')+'</label><label>역치 페이스 (/km)'+(auto&&F&&F.thr?' <span class="srcb">COROS</span>':'')+'<input id="p-thr" placeholder="예: 4:02" value="'+esc(p.thr)+'"'+(auto&&F&&F.thr?' readonly':'')+'></label></div>';
   h+='<div style="margin-top:14px"><div class="small muted" style="margin-bottom:6px">최근 기록</div><div class="seg" role="radiogroup">'+Object.keys(DIST).map(function(k){return '<button role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</div>';
-  h+='<div class="fields"><label>기록<input id="p-rec" placeholder="'+(rd==="21"?"예: 1:26:30":rd==="5"?"예: 19:30":"예: 40:10")+'" value="'+esc(p.recTime)+'"></label><label>측정일<input id="p-recdate" type="date" value="'+esc(p.recDate)+'"></label></div></div>';
+  h+='<div class="fields"><label>기록'+(auto&&F&&F.k10&&rd==="10"?' <span class="srcb">COROS 예측</span>':'')+'<input id="p-rec"'+(auto&&F&&F.k10?' readonly':'')+' placeholder="'+(rd==="21"?"예: 1:26:30":rd==="5"?"예: 19:30":"예: 40:10")+'" value="'+esc(p.recTime)+'"></label><label>측정일<input id="p-recdate" type="date" value="'+esc(p.recDate)+'"></label></div></div>';
+  if(auto&&F)h+='<div class="small muted" style="margin-top:8px">COROS 체력 평가 · VO2max '+esc(F.vo2)+' · 예측 5K '+esc(F.k5)+' / 하프 '+esc(F.half)+' / 풀 '+esc(F.mar)+'. 역치 페이스와 10K 예측을 앱을 열 때마다 반영해요. 직접 넣으려면 자동 업데이트를 꺼 주세요.</div>';
   h+='<label class="tog"><input type="checkbox" id="p-use"'+(p.use!==false?' checked':'')+'><span>훈련표·가이드에 내 페이스 적용</span></label></div>';
   // results
   if(e.k){
@@ -1522,6 +1547,7 @@ function vPace(){
   // upcoming
   view.innerHTML=h;
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
+  var pa=document.getElementById("p-auto");if(pa)pa.onchange=function(){S.profile=S.profile||{};S.profile.auto=pa.checked;if(pa.checked&&S.fit){if(S.fit.thr)S.profile.thr=S.fit.thr;if(S.fit.k10){S.profile.recDist="10";S.profile.recTime=S.fit.k10;S.profile.recDate=S.fit.date||T}}save();var y=window.scrollY;render();window.scrollTo(0,y)};
   [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
   document.getElementById("p-use").onchange=function(){setP("use",this.checked)};
   bindGoal();
