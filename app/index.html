@@ -615,6 +615,7 @@ function fmtPaceKm(dur,km){return km>0&&dur>0?fmtMS(dur/km):""}
 function applyRuns(){
   var by={};for(var k in S.runs){var r=S.runs[k];(by[r.date]=by[r.date]||[]).push(r)}
   for(var ds in S.days){if(S.days[ds]&&S.days[ds].w&&!by[ds])delete S.days[ds].w}
+  var withS=Object.keys(S.runs).filter(function(k){return S.runs[k].series}).sort(function(a,b){return S.runs[b].ts-S.runs[a].ts});withS.slice(4).forEach(function(k){delete S.runs[k].series});
   var auto=0,cut=addDays(T,-28);for(var rk in S.runs){if(S.runs[rk].laps&&S.runs[rk].date<cut)delete S.runs[rk].laps}
   for(var d in by){var i=idxOf(d);if(i<0||i>=TOTAL)continue;var t=planAt(i),rs=by[d],km=0,dur=0,hw=0,hd=0;
     rs.forEach(function(x){km+=x.km;dur+=x.dur;if(x.hr){hw+=x.hr*x.dur;hd+=x.dur}});
@@ -810,6 +811,52 @@ function parseFIT(buf){
   }
   return out;
 }
+function parseFitRecords(buf){
+  var dv=new DataView(buf),hs=dv.getUint8(0),size=dv.getUint32(4,true);
+  var pos=hs,end=Math.min(buf.byteLength,hs+size),defs={},out=[],lastTs=null;
+  function rd(at,sz,base,le){var b=base&0x1f;
+    if(sz===1){var a=dv.getUint8(at);return a===255?null:a}
+    if(sz===2){var c=dv.getUint16(at,le);return c===65535?null:c}
+    if(sz===4){var d=dv.getUint32(at,le);return d===4294967295?null:d}return null}
+  while(pos<end){
+    var h=dv.getUint8(pos++),def,local,tsOff=null;
+    if(h&0x80){local=(h>>5)&3;def=defs[local];tsOff=h&31}
+    else if(h&0x40){local=h&15;var dev=h&0x20;pos++;var le=dv.getUint8(pos++)===0,g=dv.getUint16(pos,le);pos+=2;var nf=dv.getUint8(pos++),fs=[];
+      for(var i=0;i<nf;i++){fs.push({n:dv.getUint8(pos),z:dv.getUint8(pos+1),b:dv.getUint8(pos+2)});pos+=3}
+      var dz=0;if(dev){var nd=dv.getUint8(pos++);for(var j=0;j<nd;j++){dz+=dv.getUint8(pos+1);pos+=3}}
+      defs[local]={g:g,le:le,f:fs,dz:dz};continue}
+    else{local=h&15;def=defs[local]}
+    if(!def)break;
+    var o={};for(var k=0;k<def.f.length;k++){var f=def.f[k];if(pos+f.z<=end)o[f.n]=rd(pos,f.z,f.b,def.le);pos+=f.z}pos+=def.dz;
+    if(o[253]!=null)lastTs=o[253];
+    if(def.g===20){var ts=o[253];if(ts==null&&tsOff!=null&&lastTs!=null){ts=(lastTs&~31)+tsOff;if(ts<lastTs)ts+=32;lastTs=ts}
+      var v=o[73]!=null?o[73]/1000:(o[6]!=null?o[6]/1000:null);
+      out.push({ts:ts,d:o[5]!=null?o[5]/100:null,v:v,hr:o[3]})}
+  }
+  return out;
+}
+// 10 s buckets of distance / pace / heart rate, pace smoothed over ~30 s (what the story chart draws)
+function buildSeries(recs){
+  recs=recs.filter(function(r){return r.ts!=null});if(recs.length<30)return null;var t0=recs[0].ts,B=[];
+  recs.forEach(function(r){var k=Math.floor((r.ts-t0)/10),b=B[k]||(B[k]={vs:0,vn:0,hs:0,hn:0,d:null});if(r.v!=null){b.vs+=r.v;b.vn++}if(r.hr){b.hs+=r.hr;b.hn++}if(r.d!=null)b.d=r.d});
+  var d=[],pc=[],h=[],lastD=0;for(var k=0;k<B.length;k++){var b=B[k];if(!b)continue;var v=b.vn?b.vs/b.vn:0;
+    var nb=[B[k-1],b,B[k+1]].filter(Boolean),sv=0,sn=0;nb.forEach(function(x){if(x.vn){sv+=x.vs/x.vn;sn++}});v=sn?sv/sn:v;
+    lastD=b.d!=null?b.d:lastD;d.push(Math.round(lastD));pc.push(v>0.6?Math.min(1200,Math.round(1000/v)):0);h.push(b.hn?Math.round(b.hs/b.hn):0)}
+  return d.length>5?{d:d,p:pc,h:h}:null;
+}
+function b64buf(b64){var bin=atob(b64),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer}
+var SER={busy:{},err:""};
+async function fetchSeries(r){
+  if(!r||r.src!=="COROS"||r.series||SER.busy[r.id])return false;SER.busy[r.id]=true;
+  try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)return false;
+    var res=await mcp.callTool("COROS","downloadActivityFitFiles",{labelId:r.lid||String(r.id).replace("coros-",""),sportType:r.sp||100},{cache:{staleTime:604800000,gcTime:604800000}});
+    var blob=null;(res&&res.content||[]).forEach(function(c){if(blob)return;var rs=c.resource||c;if(rs&&typeof rs.blob==="string")blob=rs.blob;else if(typeof c.data==="string"&&c.type!=="text")blob=c.data});
+    if(!blob){SER.err="COROS가 초 단위 기록 파일을 주지 않았어요.";return false}
+    var se=buildSeries(parseFitRecords(b64buf(blob)));if(!se){SER.err="초 단위 기록을 읽지 못했어요.";return false}
+    r.series=se;SER.err="";save();return true;
+  }catch(e){SER.err=e&&e.code==="rate_limited"?"오늘 받을 수 있는 원본 파일 수를 넘었어요. 내일 다시 시도해 주세요.":"초 단위 기록을 받지 못했어요.";return false}
+  finally{delete SER.busy[r.id]}
+}
 async function unzip(buf){
   var dv=new DataView(buf),out=[],e=-1;
   for(var i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-65557);i--){if(dv.getUint32(i,true)===0x06054b50){e=i;break}}
@@ -853,7 +900,7 @@ function parseCSV(txt){
 async function parseAny(name,buf){
   var ext=(name.match(/\.([a-z0-9]+)$/i)||[])[1]||"";ext=ext.toLowerCase();
   if(ext==="zip"){var es=await unzip(buf),all=[];for(var i=0;i<es.length;i++){all=all.concat(await parseAny(es[i].name,es[i].buf))}return all}
-  if(ext==="fit")return parseFIT(buf);
+  if(ext==="fit"){var fr=parseFIT(buf);if(fr.length===1){try{var se0=buildSeries(parseFitRecords(buf));if(se0)fr[0].series=se0}catch(e){}}return fr}
   var txt=new TextDecoder().decode(buf);
   if(ext==="gpx"||/<gpx[\s>]/.test(txt.slice(0,2000)))return parseGPX(txt);
   if(ext==="tcx"||/TrainingCenterDatabase/.test(txt.slice(0,2000)))return parseTCX(txt);
@@ -1038,14 +1085,16 @@ function coachBar(){
 }
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
 var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
-function openStory(ds){if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment()}
+function openStory(ds){var D0=storyData(ds);if(!D0.series&&D0.serRun){STORY.serBusy=true;fetchSeries(D0.serRun).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
+if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment()}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
   var laps=null;runsOn(ds).forEach(function(x){if(x.laps&&x.laps.kind==="manual")laps=x.laps});
   var work=laps?laps.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
+  var ser=null,serRun=null;runsOn(ds).forEach(function(x){if(!ser&&x.series){ser=x.series}if(!serRun&&x.src==="COROS")serRun=x});
   var all=laps;if(!all)runsOn(ds).forEach(function(x){if(!all&&x.laps&&x.laps.laps&&x.laps.laps.length)all=x.laps});
-  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all};
+  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:serRun};
 }
 async function storyComment(){
   var D=storyData(STORY.ds);STORY.busy=true;STORY.err="";if(tab==="story")render();
@@ -1080,8 +1129,8 @@ async function drawStory(){
   // bottom block, laid out from the bottom up so it always fits
   var cm=String(STORY.comment||"").replace(/\*\*/g,"").replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"").replace(/\s*\n\s*/g," ").trim();
   ctx.font="500 42px "+FB;var cl=wrapText(ctx,cm||"AI 코치 코멘트를 쓰는 중이에요…",Wd-2*M-80);if(cl.length>4){cl=cl.slice(0,4);cl[3]=cl[3].replace(/.{0,2}$/,"…")}
-  var showP=!!(D.laps&&STORY.view!=="none"),bh=104+cl.length*60,boxY=Hd-140-bh,panelB=boxY-36,panelH=0;
-  if(showP){var want=STORY.view==="table"?150+Math.min(D.laps.laps.length,9)*52:440,room=panelB-40-(y+60+340);panelH=Math.min(want,room);if(panelH<230){showP=false;panelH=0}}
+  var showP=!!((D.laps||(D.series&&STORY.view==="chart"))&&STORY.view!=="none"),bh=104+cl.length*60,boxY=Hd-140-bh,panelB=boxY-36,panelH=0;
+  if(showP){var want=STORY.view==="table"&&D.laps?150+Math.min(D.laps.laps.length,9)*52:460,room=panelB-40-(y+60+340);panelH=Math.min(want,room);if(panelH<230){showP=false;panelH=0}}
   var lapY=boxY-40,statBase=showP?panelB-panelH-44:(D.work.length?lapY-70:boxY-60);
   var stats=[["거리",D.km?String(Math.round(D.km*100)/100):"-","km"],["평균 페이스",D.pace?fmtMS(D.pace):"-","/km"],["시간",D.dur?fmtT(D.dur):"-",""],["평균 심박",D.hr?String(D.hr):"-","bpm"]];
   stats.forEach(function(st,k){var x=M+(k%2)*((Wd-2*M)/2),nb=statBase-(k<2?170:0);ctx.fillStyle="rgba(255,255,255,.7)";ctx.font="500 34px "+FB;ctx.fillText(st[0],x,nb-100);ctx.fillStyle="#fff";ctx.font="800 96px "+FD;ctx.fillText(st[1],x,nb);var nw=ctx.measureText(st[1]).width;ctx.font="600 36px "+FD;ctx.fillStyle="rgba(255,255,255,.75)";ctx.fillText(st[2],x+nw+12,nb)});
@@ -1091,6 +1140,37 @@ async function drawStory(){
   ctx.fillStyle="#ff7a33";ctx.font="800 32px "+FB;ctx.fillText("AI 코치",M+40,boxY+58);ctx.fillStyle="#fff";ctx.font="500 42px "+FB;cl.forEach(function(l,k){ctx.fillText(l,M+40,boxY+122+k*60)});
   ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 30px "+FB;ctx.fillText("Sub-3 훈련 체크"+(S.nick?" · "+S.nick:""),M,Hd-70);
 }
+function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
+  var Sr=D.series,cx=x+118,cw=w-118-44,top=y+104,bot=y+h-96,ch=bot-top,dmax=Sr.d[Sr.d.length-1]||1;
+  var lapsA=L&&L.laps?L.laps:[],vals=Sr.p.filter(function(v){return v>0}).slice().sort(function(a,b){return a-b});if(!vals.length)return;
+  var pmin=Math.min(vals[Math.floor(vals.length*0.02)],lapsA.length?Math.min.apply(null,lapsA.map(function(l){return l.p})):9999),pmax=vals[Math.floor(vals.length*0.95)];
+  pmax=Math.min(pmax,pmin+300);var step=(pmax-pmin)>200?60:30,lo=Math.floor((pmin-8)/step)*step,hi=pmax+15;
+  function X(dm){return cx+Math.min(1,dm/dmax)*cw}function Y(pc){return top+(Math.min(Math.max(pc,lo),hi)-lo)/(hi-lo)*ch}
+  // heart rate: soft shading behind
+  var hs=Sr.h.filter(Boolean),hmin=hs.length?Math.min.apply(null,hs):0,hmax=hs.length?Math.max.apply(null,hs):0;
+  if(hs.length>5){var hg=ctx.createLinearGradient(0,top,0,bot);hg.addColorStop(0,"rgba(122,167,255,.32)");hg.addColorStop(1,"rgba(122,167,255,.03)");ctx.fillStyle=hg;ctx.beginPath();ctx.moveTo(X(Sr.d[0]),bot);
+    Sr.h.forEach(function(v,i){if(v)ctx.lineTo(X(Sr.d[i]),bot-ch*(0.08+0.72*(v-hmin)/((hmax-hmin)||1)))});ctx.lineTo(X(dmax),bot);ctx.closePath();ctx.fill()}
+  // grid
+  ctx.font="500 24px "+FD;ctx.textAlign="right";for(var tk=Math.ceil(lo/step)*step;tk<=hi;tk+=step){var gy=Y(tk);ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(cx,gy);ctx.lineTo(cx+cw,gy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillText(fmtMS(tk),cx-14,gy+8)}ctx.textAlign="left";
+  // lap boundaries by distance + lap average lines
+  var cum=0,segs=lapsA.map(function(l){var a=cum;cum+=l.d*1000;return{l:l,a:a,b:cum}});
+  segs.forEach(function(q,k){if(k){ctx.strokeStyle="rgba(255,255,255,.10)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(q.a),top);ctx.lineTo(X(q.a),bot);ctx.stroke()}});
+  // per-second pace line
+  ctx.strokeStyle="rgba(255,255,255,.92)";ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.beginPath();var pen=false;
+  Sr.p.forEach(function(v,i){if(!v){pen=false;return}var px=X(Sr.d[i]),py=Y(v);if(pen)ctx.lineTo(px,py);else{ctx.moveTo(px,py);pen=true}});ctx.stroke();
+  // lap averages: straight line + value
+  var lastX=-999;segs.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,x0=X(q.a),x1=X(q.b),yy=Y(q.l.p);if(x1-x0<10)return;
+    ctx.strokeStyle=hard?"#ff7a33":"rgba(255,200,150,.7)";ctx.lineWidth=hard?5:3;ctx.setLineDash(hard?[]:[10,8]);ctx.beginPath();ctx.moveTo(x0+3,yy);ctx.lineTo(x1-3,yy);ctx.stroke();ctx.setLineDash([]);
+    var mid=(x0+x1)/2;if((!hard&&x1-x0<70)||mid-lastX<80)return;lastX=mid;
+    var txt=fmtMS(q.l.p);ctx.font=(hard?"800 30px ":"600 24px ")+FD;var tw=ctx.measureText(txt).width+18,ly=Math.max(top+4,yy-46);
+    ctx.fillStyle=hard?"#ff7a33":"rgba(0,0,0,.45)";rrect(ctx,Math.min(Math.max(mid-tw/2,cx),cx+cw-tw),ly,tw,hard?40:34,10);ctx.fill();
+    ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText(txt,Math.min(Math.max(mid,cx+tw/2),cx+cw-tw/2),ly+(hard?30:25));ctx.textAlign="left"});
+  // axes + legend
+  ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(dmax/100)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
+  ctx.fillStyle="rgba(255,255,255,.9)";ctx.fillRect(cx,y+h-30,30,5);ctx.fillText("페이스(초 단위)",cx+40,y+h-20);
+  ctx.fillStyle="#ff9a5c";var lx=cx+40+ctx.measureText("페이스(초 단위)").width+28;ctx.fillRect(lx,y+h-30,30,5);ctx.fillText("랩 평균",lx+40,y+h-20);
+  if(hs.length>5){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);var tw2=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillStyle="rgba(122,167,255,.45)";ctx.fillRect(cx+cw-tw2-44,y+h-36,32,18);ctx.textAlign="left"}
+}
 function lapRows(L,n){var a=L.laps.map(function(x,i){x.i=i+1;return x});if(a.length<=n)return a;
   var work=a.filter(function(x){return x.d>=0.4&&x.p<330*K}).slice(0,n),rest=a.filter(function(x){return work.indexOf(x)<0}).sort(function(p,q){return q.d-p.d}).slice(0,n-work.length);
   return work.concat(rest).sort(function(p,q){return p.i-q.i})}
@@ -1098,8 +1178,8 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var L=D.laps,h=yb-y;if(h<220)return;
   if(STORY.view==="table"){var nr=lapRows(L,Math.max(2,Math.floor((h-150)/52))).length;h=Math.min(h,150+nr*52);y=yb-h}
   ctx.fillStyle="rgba(8,12,24,.55)";rrect(ctx,x,y,w,h,32);ctx.fill();
-  ctx.fillStyle="#ff7a33";ctx.font="800 30px "+FB;ctx.fillText(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간",x+36,y+56);
-  ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":"랩별 평균 페이스",x+w-36,y+56);ctx.textAlign="left";
+  ctx.fillStyle="#ff7a33";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간"):"페이스 흐름",x+36,y+56);
+  ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":(D.series?"초 단위 · 랩 평균":"랩별 평균 페이스"),x+w-36,y+56);ctx.textAlign="left";
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
     ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
@@ -1109,6 +1189,7 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
     ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
     return;
   }
+  if(D.series){drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB);return}
   // pace chart: each lap's average pace as a flat line across its distance (faster = higher), labelled; HR as soft shading behind
   var laps=L.laps,cx=x+118,cw=w-118-44,top=y+104,bot=y+h-96,ch=bot-top,tot=0;laps.forEach(function(l){tot+=Math.max(l.d,0.02)});
   var ps=laps.map(function(l){return l.p}),pmin=Math.min.apply(null,ps),pmax=Math.min(Math.max.apply(null,ps),pmin+240),step=(pmax-pmin+24)>200?60:30,lo=Math.floor((pmin-8)/step)*step,hi=pmax+12;
@@ -1132,8 +1213,9 @@ function vStory(){
   var h='<div class="card"><div class="row between"><h2>인스타 스토리 만들기</h2><button class="btn ghost" id="st-back" style="padding:6px 12px;font-size:13px">돌아가기</button></div><p class="small muted" style="margin:4px 0 0">'+md(STORY.ds)+' '+DOW[D.i%7]+' 훈련 기록 위에 AI 코치 코멘트를 얹은 스토리 이미지(1080×1920)를 만들어요. 사진은 이 기기에서만 쓰고 어디에도 올리지 않아요.</p></div>';
   h+='<div class="stwrap"><canvas id="st-cv" width="1080" height="1920" aria-label="스토리 미리보기"></canvas></div>';
   h+='<div class="card"><div class="madd" style="margin-top:0"><label class="btn ghost" for="st-photo" style="text-align:center;cursor:pointer">'+(STORY.img?'사진 바꾸기':'배경 사진 고르기')+'</label><input type="file" id="st-photo" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0">'+(STORY.img?'<button class="btn ghost" id="st-nophoto">사진 빼기</button>':'<span class="small muted" style="align-self:center">사진이 없으면 기본 배경</span>')+'</div>';
-  if(D.laps)h+='<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">기록 표시</div><div class="seg" role="radiogroup" aria-label="기록 표시">'+[["chart","페이스 차트"],["table","랩 표"],["none","숨기기"]].map(function(o){return '<button role="radio" aria-checked="'+(STORY.view===o[0])+'" data-stv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div></div>';
-  else h+='<div class="small muted" style="margin-top:12px">이 날은 랩 기록이 없어서 요약 숫자만 들어가요. 워치에서 랩을 끊거나 COROS·TCX·FIT 기록이 있으면 차트와 표를 넣을 수 있어요.</div>';
+  if(STORY.serBusy)h+='<div class="small muted" style="margin-top:10px">COROS에서 초 단위 기록을 받는 중이에요…</div>';else if(SER.err&&!D.series)h+='<div class="small" style="margin-top:10px;color:var(--bad)">'+esc(SER.err)+' 랩 평균으로 그려요.</div>';
+  if(D.laps||D.series)h+='<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">기록 표시</div><div class="seg" role="radiogroup" aria-label="기록 표시">'+[["chart","페이스 차트"],["table","랩 표"],["none","숨기기"]].map(function(o){return '<button role="radio" aria-checked="'+(STORY.view===o[0])+'" data-stv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div></div>';
+  if(!D.laps&&!D.series)h+='<div class="small muted" style="margin-top:12px">이 날은 랩 기록이 없어서 요약 숫자만 들어가요. 워치에서 랩을 끊거나 COROS·TCX·FIT 기록이 있으면 차트와 표를 넣을 수 있어요.</div>';
   h+='<label class="small muted" style="display:block;margin-top:12px">AI 코치 코멘트 (고쳐도 돼요)<textarea id="st-cm" class="inp" rows="3" maxlength="160" style="margin-top:4px">'+esc(STORY.comment)+'</textarea></label>';
   h+='<div class="row" style="margin-top:8px"><button class="btn ghost" id="st-regen"'+(STORY.busy?' disabled':'')+'>'+(STORY.busy?'코멘트 쓰는 중…':'AI 코멘트 다시 쓰기')+'</button></div>';
   if(STORY.err)h+='<div class="small" style="color:var(--bad);margin-top:6px">'+esc(STORY.err)+'</div>';
