@@ -129,11 +129,13 @@ svg text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
 .warn{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:13px}
 
 /* Guide */
-.zone .zn{color:var(--accent);font-weight:700;margin-left:1px}
+.zone .zn{color:var(--accent);font-weight:700;margin-left:1px;line-height:0;font-size:12px;vertical-align:4px}
 .znote{font-size:12px;color:var(--muted);margin:2px 0 0;padding:8px 10px;border-radius:8px;background:var(--bg)}
-.zone{display:grid;grid-template-columns:88px 1fr 112px;gap:10px;align-items:center;padding:5px 0;font-size:14px;min-height:44px}
+.zone{display:grid;grid-template-columns:88px 1fr 112px;gap:10px;align-items:start;padding:5px 0;font-size:14px;min-height:44px}
 .zone.z3{min-height:58px}
-.zone .zn0{white-space:nowrap}
+.zone .zn0{white-space:nowrap;line-height:22px}
+.zone .zb{margin-top:6px}
+.zone .zp{line-height:22px}
 .zone .zb{height:10px;border-radius:99px;background:var(--line);position:relative}
 .zone .zb i{position:absolute;inset:0 auto 0 0;border-radius:99px}
 .zone .zp{text-align:right;font-family:var(--f-display);font-weight:700}
@@ -1137,8 +1139,9 @@ var ZTRK=true;
 function lap400(z){var a=Math.round(z.lo*K*0.4),b=Math.round((z.hi==null?z.lo:z.hi)*K*0.4);return "400m "+(a===b?a:a+"~"+b)+"초"}
 function zoneRow(z,orig){
   var hh=zh(z),og='원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi));
-  var l2=z.trk?'<small class="lap">'+lap400(z)+'</small>':'<small class="hr">'+(hh||"&nbsp;")+'</small>';
-  var l3=z.trk?'<small class="hr">'+(hh||"&nbsp;")+'</small>':orig?'<small class="og">'+og+'</small>':(ZTRK?'<small>&nbsp;</small>':'');
+  var ls=[];if(z.trk)ls.push('<small class="lap">'+lap400(z)+'</small>');if(hh)ls.push('<small class="hr">'+hh+'</small>');if(orig&&!z.trk)ls.push('<small class="og">'+og+'</small>');
+  var need=(orig||ZTRK)?2:1;while(ls.length<need)ls.push('<small>&nbsp;</small>');
+  var l2=ls.join(""),l3="";
   return '<div class="zone'+(orig||ZTRK?' z3':'')+'"'+(z.trk&&orig?' title="'+og+'"':'')+'><span class="zn0">'+z.n+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+l2+l3+'</span></div>';
 }
 function zonesFor(t){
@@ -1221,7 +1224,7 @@ function vPace(){
   // zones
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){return zoneRow(z,K!==1)}).join("")+'</div>';
   ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note.replace("{hr}",z.hr?HR(z.hr):"")+'</div>'});
-  h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
+  h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
   // upcoming
   view.innerHTML=h;
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
