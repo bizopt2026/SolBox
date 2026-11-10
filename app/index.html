@@ -165,6 +165,21 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .linkbox{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
 .linkbox input{font-size:13px;font-family:var(--f-display)}
 .who{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--q-soft);color:var(--q);margin-bottom:6px}
+.gopts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.gopt{all:unset;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--card)}
+.gopt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gopt[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.gopt .gt{font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.gopt .gn{font-weight:700;font-size:13px;align-self:center;text-align:right}
+.gopt .gd{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.goal-hero{background:var(--navy);color:var(--navy-fg);border-radius:14px;padding:16px 18px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.goal-hero .eyebrow{color:var(--accent)}
+.goal-hero b{font-family:var(--f-display);font-size:28px;display:block}
+.adm-row{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.adm-row:first-of-type{border-top:0}
+.adm-confirm{grid-column:1/-1;background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:8px}
+.btn.danger{background:var(--bad);color:#fff}
+.notice{background:var(--accent-soft);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:14px;white-space:pre-line}
 .wel-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px;position:sticky;bottom:0;background:var(--bg);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-bottom:-12px}
 .wel-nav .btn{padding:14px;font-size:16px}
 body.welcome{padding-bottom:16px}
@@ -228,7 +243,7 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 </style>
 
 <header class="top"><div class="wrap">
-  <div class="brand">Sub-3 · 2027.3.21<b>2:59:59 프로젝트</b></div>
+  <div class="brand"><span id="brand-eb">Sub-3 · 2027.3.21</span><b>2:59:59 프로젝트</b></div>
   <div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div>
 </div></header>
 
@@ -296,7 +311,7 @@ var LS="sub3-train-v1";
 var S={days:{},weights:{},checks:{}};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.weights=o.weights||{};S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -329,6 +344,8 @@ function save(){
     } else if(S.ts){save()}
     setSync("계정에 저장됨");
     CREW.db=db;CREW.user=user;CREW.me=id;
+    user.isOwner().then(function(v){CREW.owner=!!v;if(tab==="crew")keep()},function(){});
+    db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
     var ct=setTimeout(function(){if(CREW.status==="loading"){CREW.status="slow";if(tab==="crew")keep()}},10000);
     db.collection("members").onSnapshot(function(sn){
       var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.members=m;
@@ -346,16 +363,16 @@ function save(){
 
 // ---------- Crew sharing ----------
 // Shared: members/<viewer id> = {d:{date:km}, goal, upd}. Only done dates and distance; no memo, HR or weight.
-var CREW={db:null,user:null,me:null,members:{},social:{},mine:null,status:"loading",open:null,wk:null,last:"",view:"feed",cOpen:null,busy:false,again:false};
+var CREW={owner:false,settings:{},confirm:null,db:null,user:null,me:null,members:{},social:{},mine:null,status:"loading",open:null,wk:null,last:"",view:"feed",cOpen:null,busy:false,again:false};
 // Social: social/<viewer id> = {likes:{postKey:at}, cmts:[{k,t,at}]}; postKey = <member id>_<yyyymmdd>
 function myS(){if(!CREW.mine)CREW.mine={likes:{},cmts:[]};CREW.mine.likes=CREW.mine.likes||{};CREW.mine.cmts=CREW.mine.cmts||[];return CREW.mine}
 function writeSocial(){
-  if(!CREW.db||!CREW.me)return;if(CREW.busy){CREW.again=true;return}
+  if(!CREW.db||!CREW.me||banned(CREW.me))return;if(CREW.busy){CREW.again=true;return}
   CREW.busy=true;var body=JSON.parse(JSON.stringify(myS()));body.nick=S.nick||"";body.color=S.color||0;
   CREW.db.doc("social/"+CREW.me).set(body).catch(function(){}).then(function(){CREW.busy=false;if(CREW.again){CREW.again=false;writeSocial()}});
 }
-function likesOf(k){var n=0;for(var u in CREW.social){var l=CREW.social[u].likes;if(l&&l[k])n++}if(CREW.mine){var mine=!!myS().likes[k],srv=!!(CREW.social[CREW.me]&&CREW.social[CREW.me].likes&&CREW.social[CREW.me].likes[k]);n+=(mine?1:0)-(srv?1:0)}return n}
-function cmtsOf(k){var out=[];for(var u in CREW.social){if(u===CREW.me)continue;(CREW.social[u].cmts||[]).forEach(function(c){if(c.k===k)out.push({u:u,t:c.t,at:c.at})})}myS().cmts.forEach(function(c){if(c.k===k)out.push({u:CREW.me,t:c.t,at:c.at})});return out.sort(function(a,b){return a.at-b.at})}
+function likesOf(k){var n=0;for(var u in CREW.social){if(banned(u))continue;var l=CREW.social[u].likes;if(l&&l[k])n++}if(CREW.mine){var mine=!!myS().likes[k],srv=!!(CREW.social[CREW.me]&&CREW.social[CREW.me].likes&&CREW.social[CREW.me].likes[k]);n+=(mine?1:0)-(srv?1:0)}return n}
+function cmtsOf(k){var out=[];for(var u in CREW.social){if(u===CREW.me||banned(u))continue;(CREW.social[u].cmts||[]).forEach(function(c){if(c.k===k)out.push({u:u,t:c.t,at:c.at})})}myS().cmts.forEach(function(c){if(c.k===k)out.push({u:CREW.me,t:c.t,at:c.at})});return out.sort(function(a,b){return a.at-b.at})}
 function inbox(){var l=0,c=0,pre=CREW.me+"_";for(var u in CREW.social){if(u===CREW.me)continue;var so=CREW.social[u];for(var k in (so.likes||{}))if(k.indexOf(pre)===0)l++;(so.cmts||[]).forEach(function(x){if(x.k.indexOf(pre)===0)c++})}return{l:l,c:c}}
 var HEART='<svg class="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
 var BUBBLE='<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
@@ -364,11 +381,12 @@ function nickOf(u){var m=CREW.members[u],so=CREW.social[u];if(u===CREW.me&&S.nic
 function colorOf(u){var m=CREW.members[u],so=CREW.social[u],c=u===CREW.me?S.color:(m&&m.color!=null?m.color:so&&so.color);return AVC[(+c||0)%AVC.length]}
 function avatar(u,lg){var n=nickOf(u);return '<span class="av'+(lg?' lg':'')+'" style="background:'+colorOf(u)+'" aria-hidden="true">'+esc(Array.from(n)[0]||"?")+'</span>'}
 function keep(){var y=window.scrollY;render();window.scrollTo(0,y)}
-function summary(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);d[k]=isNaN(km)?0:Math.round(km*10)/10}}return{d:d,goal:K!==1?fmtT(REF_GOAL*K):"",nick:S.nick,color:S.color||0,bio:S.bio||""}}
+function summary(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);d[k]=isNaN(km)?0:Math.round(km*10)/10}}return{d:d,goal:S.goal?fmtT(S.goal.sec):"",nick:S.nick,color:S.color||0,bio:S.bio||""}}
+function banned(u){var b=CREW.settings&&CREW.settings.banned;return !!(b&&u&&b[u])}
 function pushShare(force){
   if(!CREW.db||!CREW.me)return;
   var ref=CREW.db.doc("members/"+CREW.me);
-  if(S.share===false||!S.nick){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
+  if(S.share===false||!S.nick||banned(CREW.me)){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
   var sm=summary(),key=JSON.stringify(sm);if(!force&&key===CREW.last)return;CREW.last=key;
   sm.upd=Date.now();ref.set(sm).catch(function(){CREW.last=""});
 }
@@ -414,6 +432,8 @@ function vToday(){
   var food=FOOD[FOOD_BY_DOW[d]];
   var dn=isDone(sel);
   var h="";
+  if(!S.goal)h+='<div class="card sbar"><div style="min-width:0"><b>3.21 목표를 정해 보세요</b><div class="small muted">내 페이스를 넣으면 가능한 기록을 제안하고, 확정하면 앱이 그 목표에 맞춰져요.</div></div><button class="btn" data-goto="pace">목표 정하기</button></div>';
+  else h+='<div class="goal-hero"><div><div class="eyebrow">3.21 목표 · D-'+Math.max(0,Math.round((p(RACE)-p(T))/864e5))+'</div><b>'+fmtT(S.goal.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(S.goal.sec/42.195)+'/km</span></div><button class="btn ghost" data-goto="pace" style="color:var(--navy-fg);border-color:currentColor">목표 보기</button></div>';
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/30 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">W'+(w+1)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]))+'</div>';
@@ -433,6 +453,7 @@ function vToday(){
   // food
   h+='<div class="card"><div class="row between"><h2>오늘 먹는 양</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+food.k+'</span></div><dl class="kv" style="margin-top:10px"><dt>탄수화물</dt><dd>'+food.carb+'</dd><dt>총 열량</dt><dd class="num">'+food.kcal+' kcal</dd><dt>단백질</dt><dd>120~140g (끼니마다 30g)</dd>'+(t[0]==="q"||t[0]==="l"||t[0]==="x"?'<dt>훈련 전후</dt><dd>3시간 전 · 중 · 1시간 내 탄수 보충</dd>':'')+'</dl></div>';
   view.innerHTML=h;
+  view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;render();var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
   document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);S.days[sel]=r;save();render()};
@@ -489,7 +510,7 @@ function vLog(){
   var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
   CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
     h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
-  h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 3:02~3:03 (4:19/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 3:02~3:03 (4:19/km)으로 조정합니다.</div>';
+  h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
   h+='</div>';
   view.innerHTML=h;
   document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;S.weights[d]=Math.round(v*10)/10;save();render()};
@@ -525,14 +546,25 @@ function engine(){
   if(rt&&dd){var V=vdotOf(dd[0],rt);if(V>25&&V<85){o.vdot=V;o.mar=predictT(42195,V);o.kRace=o.mar/REF_MAR}}
   var th=parseTime(p.thr);if(th&&th>=150&&th<=480){o.thr=th;o.kThr=th/REF_THR}
   var ks=[o.kRace,o.kThr].filter(Boolean);
-  if(ks.length){o.k=Math.min(1.6,Math.max(0.75,ks.reduce(function(a,b){return a+b},0)/ks.length))}
+  if(ks.length){o.kFit=Math.min(1.6,Math.max(0.75,ks.reduce(function(a,b){return a+b},0)/ks.length))}
   if(o.kRace&&o.kThr)o.gap=Math.abs(o.kRace-o.kThr)/Math.min(o.kRace,o.kThr);
   var l=+p.lthr;if(l>=120&&l<=215)o.lthr=l;
+  o.curPred=o.kFit?REF_GOAL*o.kFit:null;
+  if(S.goal&&S.goal.sec){o.goal=S.goal.sec;o.k=o.goal/REF_GOAL}else o.k=o.kFit;
   return o;
 }
 var EG={},K=1,HRK=null;
 function refreshEngine(){EG=engine();K=EG.on&&EG.k?EG.k:1;HRK=EG.on&&EG.lthr?EG.lthr/REF_LTHR:null;
-  var b=document.querySelector(".brand b");if(b)b.textContent=K!==1?"내 목표 "+fmtT(REF_GOAL*K):"2:59:59 프로젝트"}
+  var G=EG.goal,b=document.querySelector(".brand b"),eb=document.getElementById("brand-eb");
+  if(b)b.textContent=G?fmtT(G)+" 프로젝트":"2:59:59 프로젝트";
+  if(eb)eb.textContent=G?"SUB-"+subLabel(G)+" · 2027.3.21":"Sub-3 · 2027.3.21"}
+function subLabel(G){var m=G%60===59?(G+1)/60:Math.ceil(G/60),h=Math.floor(m/60),mm=m%60;return mm?h+":"+String(mm).padStart(2,"0"):String(h)}
+function niceGoal(t){var m=Math.ceil(t/60);return m%5===0?m*60-1:m*60}
+function goalOptions(){
+  if(!EG.curPred)return[];var V0=vdotOf(42195,EG.curPred);
+  return [[1,"안정","훈련을 80% 이상 소화하면 무난한 기록"],[2,"권장","16주 계획을 그대로 소화했을 때 기대 기록"],[3,"도전","훈련·컨디션·날씨가 모두 받쳐 줄 때"]].map(function(x){return{tier:x[1],gain:x[0],desc:x[2],sec:niceGoal(predictT(42195,V0+x[0]))}});
+}
+var GSEL=null,GMSG="";
 function P(sec){return fmtMS(sec*K)}
 function HR(orig){return HRK?Math.round(orig*HRK):orig}
 function zr(z){return z.hi==null?P(z.lo)+"+":(z.lo===z.hi?P(z.lo):P(z.lo)+"~"+P(z.hi))}
@@ -555,6 +587,47 @@ function nextKeySessions(){
   for(var i=from;i<TOTAL&&out.length<3;i++){var t=W[Math.floor(i/7)].d[i%7];if(t[0]==="q"||t[0]==="l"||t[0]==="x")out.push([dateOf(Math.floor(i/7),i%7),t,Math.floor(i/7)])}
   return out;
 }
+function goalCard(){
+  var opts=goalOptions(),g=S.goal,h='<div class="card" id="goal">';
+  if(g&&g.sec){
+    h+='<div class="goal-hero"><div><div class="eyebrow">확정한 3.21 목표'+(g.tier?' · '+esc(g.tier):'')+'</div><b>'+fmtT(g.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(g.sec/42.195)+'/km · SUB-'+subLabel(g.sec)+'</span></div><button class="btn ghost" id="g-change" style="color:var(--navy-fg);border-color:currentColor">변경</button></div>';
+    if(GMSG)h+='<p class="small" style="color:var(--ok);margin:8px 0 0">'+esc(GMSG)+'</p>';
+    h+='<p class="small muted" style="margin:8px 0 0">앱 상단 제목, 모든 훈련 페이스, 점검 목표, 레이스 페이스가 이 목표에 맞춰져 있어요.</p>';
+    if(!GSEL)return h+'</div>';
+  }
+  h+='<h2>'+(g?'목표 다시 정하기':'3.21 목표 제안')+'</h2>';
+  if(!opts.length){
+    h+='<p class="small muted" style="margin:6px 0 10px">위에 역치 페이스나 최근 기록을 넣으면 3월 21일에 가능한 기록을 제안해 드려요. 원하는 기록을 직접 넣을 수도 있어요.</p>';
+  } else {
+    h+='<p class="small muted" style="margin:4px 0 0">현재 예상 기록 <b style="color:var(--ink)">'+fmtT(EG.curPred)+'</b>에서 16주 훈련으로 VDOT가 1~3 오른다고 보고 계산했어요.</p>';
+    var cur=GSEL||(g&&g.tier)||"권장";
+    h+='<div class="gopts" role="radiogroup" aria-label="목표 선택">'+opts.map(function(o){return '<button class="gopt" role="radio" aria-checked="'+(cur===o.tier)+'" data-gopt="'+o.tier+'" data-sec="'+o.sec+'"><span class="gt">'+fmtT(o.sec)+'</span><span class="gn">'+o.tier+(o.tier==="권장"?' 추천':'')+'<br><span class="small muted" style="font-weight:400">'+fmtMS(o.sec/42.195)+'/km</span></span><span class="gd">'+o.desc+'</span></button>'}).join("")+'</div>';
+  }
+  var cv=GSEL==="직접"?(GMSG_CUSTOM||""):"";
+  h+='<div class="fields" style="margin-top:10px"><label class="full">직접 입력 (시:분:초)<input id="g-custom" placeholder="예: 3:05:00" value="'+esc(cv)+'"></label></div>';
+  h+='<div class="row" style="margin-top:12px"><button class="btn" id="g-confirm" style="background:var(--accent);color:#fff">이 목표로 확정</button>'+(g?'<button class="btn ghost" id="g-cancel">취소</button><button class="btn ghost" id="g-clear">목표 해제</button>':'')+'</div>';
+  h+='<div class="small" id="g-err" style="color:var(--bad);margin-top:6px"></div>';
+  return h+'</div>';
+}
+var GMSG_CUSTOM="";
+function bindGoal(){
+  function y(){var v=window.scrollY;render();window.scrollTo(0,v)}
+  var ch=document.getElementById("g-change");if(ch)ch.onclick=function(){GSEL=(S.goal&&S.goal.tier)||"권장";GMSG="";y()};
+  var ca=document.getElementById("g-cancel");if(ca)ca.onclick=function(){GSEL=null;y()};
+  var cl=document.getElementById("g-clear");if(cl)cl.onclick=function(){S.goal=null;GSEL=null;GMSG="";save();pushShare(true);y()};
+  view.querySelectorAll("[data-gopt]").forEach(function(b){b.onclick=function(){GSEL=b.dataset.gopt;GMSG_CUSTOM="";y()}});
+  var cu=document.getElementById("g-custom");if(cu)cu.addEventListener("input",function(){GMSG_CUSTOM=cu.value;if(GSEL!=="직접"){GSEL="직접";view.querySelectorAll("[data-gopt]").forEach(function(b){b.setAttribute("aria-checked","false")})}});
+  var cf=document.getElementById("g-confirm");if(cf)cf.onclick=function(){
+    var sec=null,tier=null,err=document.getElementById("g-err");
+    if(GSEL==="직접"||(!goalOptions().length)){sec=parseTime((cu&&cu.value)||"");tier="직접 입력";
+      if(!sec||sec<7200||sec>23400){err.textContent="2:00:00~6:30:00 사이 기록을 시:분:초로 넣어 주세요.";return}}
+    else{var sel=GSEL||(S.goal&&S.goal.tier)||"권장",o=goalOptions().filter(function(x){return x.tier===sel})[0];if(!o){err.textContent="목표를 골라 주세요.";return}sec=o.sec;tier=o.tier}
+    S.goal={sec:sec,tier:tier,at:Date.now()};GSEL=null;GMSG="목표를 "+fmtT(sec)+"로 확정했어요.";GMSG_CUSTOM="";
+    if(S.profile&&S.profile.use===false)S.profile.use=true;
+    save();pushShare(true);render();var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"});
+  };
+}
+
 function vPace(){
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
   var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 16주 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
@@ -568,17 +641,17 @@ function vPace(){
     h+='<div class="card"><div class="row between"><h2>분석 결과</h2>'+(e.on?'<span class="pill ok">적용 중</span>':'<span class="pill na">원본 표시 중</span>')+'</div><div class="grid2" style="margin-top:10px">';
     if(e.vdot)h+='<div class="mini"><div class="small muted">VDOT ('+DIST[rd][1]+' 기록)</div><b>'+e.vdot.toFixed(1)+'</b></div><div class="mini"><div class="small muted">예상 마라톤</div><b>'+fmtT(e.mar)+'</b></div>';
     if(e.thr)h+='<div class="mini"><div class="small muted">역치 페이스</div><b>'+fmtMS(e.thr)+'<span class="small muted">/km</span></b></div>';
-    h+='<div class="mini"><div class="small muted">내 마라톤 페이스</div><b>'+fmtMS(255*e.k)+'<span class="small muted">/km</span></b></div>';
-    h+='<div class="mini"><div class="small muted">내 목표 기록</div><b>'+fmtT(REF_GOAL*e.k)+'</b></div>';
+    h+='<div class="mini"><div class="small muted">훈련 마라톤 페이스</div><b>'+fmtMS(255*e.k)+'<span class="small muted">/km</span></b></div>';
+    if(e.curPred)h+='<div class="mini"><div class="small muted">현재 예상 기록</div><b>'+fmtT(e.curPred)+'</b></div>';
     if(e.lthr)h+='<div class="mini"><div class="small muted">역치 심박</div><b>'+e.lthr+'<span class="small muted"> bpm</span></b></div>';
-    h+='</div><p class="small" style="margin:10px 0 0">'+(Math.abs(pctv)<0.5?'원본 서브3 페이스와 거의 같아요.':'원본 서브3 페이스보다 km당 <b>'+Math.abs(dsec)+'초 '+(dsec>0?'느리게':'빠르게')+'</b> ('+(pctv>0?'+':'')+pctv+'%) 맞췄어요.')+(e.kRace&&e.kThr?' 기록과 역치 페이스를 반반 반영했어요.':'')+'</p>';
+    h+='</div><p class="small" style="margin:10px 0 0">'+(Math.abs(pctv)<0.5?'원본 서브3 페이스와 거의 같아요.':'원본 서브3 페이스보다 km당 <b>'+Math.abs(dsec)+'초 '+(dsec>0?'느리게':'빠르게')+'</b> ('+(pctv>0?'+':'')+pctv+'%) 맞췄어요.')+(e.goal?' 확정한 목표 '+fmtT(e.goal)+' 기준이에요.':(e.kRace&&e.kThr?' 현재 실력 기준이고, 기록과 역치 페이스를 반반 반영했어요.':' 현재 실력 기준이에요.'))+'</p>';
     if(e.gap>0.03)h+='<div class="warn" style="margin-top:8px">기록 기준과 역치 페이스 기준이 '+Math.round(e.gap*100)+'% 차이나요. 오래된 기록이거나 역치 페이스가 정확하지 않을 수 있어요. 둘 중 최근 값을 확인해 주세요.</div>';
-    if(e.mar&&e.mar>REF_GOAL)h+='<p class="small muted" style="margin:8px 0 0">현재 예상 기록으로는 서브3까지 '+fmtT(e.mar-REF_GOAL)+' 남았어요. W8·W12 점검 기록을 넣으면 다시 계산해요.</p>';
-    else if(e.mar)h+='<p class="small muted" style="margin:8px 0 0">현재 예상 기록이 이미 서브3 안쪽이에요.</p>';
+    if(e.goal&&e.curPred)h+='<p class="small muted" style="margin:8px 0 0">'+(e.curPred>e.goal?'목표까지 지금보다 <b style="color:var(--ink)">'+fmtT(e.curPred-e.goal)+'</b> 줄이면 돼요.':'현재 예상 기록이 이미 목표 안쪽이에요. 목표를 올려 봐도 좋아요.')+' W8·W12 점검 기록을 넣으면 다시 계산해요.</p>';
     h+='</div>';
   } else {
     h+='<div class="card"><h2>분석 결과</h2><p class="small muted" style="margin:6px 0 0">역치 페이스나 최근 5K·10K·하프 기록 중 하나만 넣어도 페이스를 계산해요. 지금은 원본 서브3 페이스(MP 4:15/km)를 보여 주고 있어요.</p></div>';
   }
+  h+=goalCard();
   // zones
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){var hh=zh(z);return '<div class="zone"><span>'+z.n+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+(hh?'<small>'+hh+'</small>':'')+(K!==1?'<small class="muted" style="color:var(--muted)">원본 '+(z.hi==null?fmtMS(z.lo)+"+":z.lo===z.hi?fmtMS(z.lo):fmtMS(z.lo)+"~"+fmtMS(z.hi))+'</small>':'')+'</span></div>'}).join("")+'</div>';
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, MP 롱런 앞부분 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
@@ -591,6 +664,7 @@ function vPace(){
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
   [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
   document.getElementById("p-use").onchange=function(){setP("use",this.checked)};
+  bindGoal();
   view.querySelectorAll("[data-rd]").forEach(function(b){b.onclick=function(){setP("recDist",b.dataset.rd)}});
 }
 
@@ -603,17 +677,53 @@ function memStats(m,w){
   for(var i=0;i<last;i++){var ds2=dateOf(Math.floor(i/7),i%7),t2=W[Math.floor(i/7)].d[i%7];if(t2[0]!=="r"){tot++;if(d[ds2]!==undefined)dn++}}
   return{done:done,n:n,km:Math.round(km*10)/10,dots:dots,rate:tot?Math.round(dn/tot*100):null,dn:dn,tot:tot};
 }
+function saveSettings(patch){
+  var cur=JSON.parse(JSON.stringify(CREW.settings||{}));for(var k in patch)cur[k]=patch[k];cur.banned=cur.banned||{};
+  CREW.settings=cur;return CREW.db.doc("crew/settings").set(cur);
+}
+function adminView(ids){
+  var st=CREW.settings||{},b=st.banned||{};
+  var h='<div class="card"><h2>크루 정보</h2><div class="fields"><label class="full">크루 이름 (최대 20자)<input id="a-name" maxlength="20" placeholder="예: 하남 서브3 크루" value="'+esc(st.name)+'"></label><label class="full">공지 (최대 200자, 크루 탭 위에 보여요)<textarea id="a-notice" maxlength="200" placeholder="예: 이번 주 토요일 한강 롱런 7시 출발">'+esc(st.notice)+'</textarea></label></div><div class="row" style="margin-top:10px"><button class="btn" id="a-save">저장</button><span class="small" id="a-msg" style="color:var(--ok)"></span></div></div>';
+  var rows=ids.map(function(u){return{u:u,m:CREW.members[u],s:memStats(CREW.members[u],0)}}).sort(function(a,b2){return (b2.m.upd||0)-(a.m.upd||0)});
+  h+='<div class="card"><div class="row between"><h2>크루원 '+rows.length+'명</h2><span class="small muted">최근 활동 순</span></div><div style="margin-top:6px">';
+  if(!rows.length)h+='<p class="small muted" style="margin:0">아직 크루원이 없어요.</p>';
+  rows.forEach(function(r){var tk=0,km=0,d=r.m.d||{};for(var k in d){var i=idxOf(k);if(i<0||i>=TOTAL)continue;var t=W[Math.floor(i/7)].d[i%7];if(t[0]!=="r"){tk++;km+=d[k]>0?d[k]:t[2]}}
+    h+='<div class="adm-row">'+avatar(r.u)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.u))+'</span>'+(r.u===CREW.me?'<em class="me-tag" style="font-style:normal">관리자</em>':'')+'</div><div class="small muted">'+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'완료 '+tk+'회 · '+Math.round(km)+'km'+(r.s.rate!=null?' · 이행 '+r.s.rate+'%':'')+'</div><div class="small muted">'+(r.m.upd?'최근 '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):'')+'</div></div>'+(r.u===CREW.me?'<span></span>':'<button class="btn ghost" data-ban="'+esc(r.u)+'" style="padding:8px 12px">제외</button>');
+    if(CREW.confirm===r.u)h+='<div class="adm-confirm"><span><b>'+esc(nickOf(r.u))+'</b>님을 크루에서 제외할까요? 크루 목록·피드·좋아요·댓글에서 사라지고, 다시 허용하기 전까지 공유할 수 없어요.</span><div class="row"><button class="btn danger" data-ban-go="'+esc(r.u)+'">제외하기</button><button class="btn ghost" data-ban-no>취소</button></div></div>';
+    h+='</div>'});
+  h+='</div></div>';
+  var bk=Object.keys(b);
+  h+='<div class="card"><h2>제외한 크루원 '+bk.length+'명</h2><div style="margin-top:6px">';
+  if(!bk.length)h+='<p class="small muted" style="margin:0">제외한 사람이 없어요.</p>';
+  bk.forEach(function(u){h+='<div class="adm-row"><span class="av" style="background:var(--rec)" aria-hidden="true">'+esc(Array.from(b[u].nick||"?")[0])+'</span><div style="min-width:0"><b>'+esc(b[u].nick||"러너")+'</b><div class="small muted">'+(b[u].at?new Date(b[u].at).toLocaleDateString("ko-KR")+' 제외':'')+'</div></div><button class="btn ghost" data-unban="'+esc(u)+'" style="padding:8px 12px">다시 허용</button></div>'});
+  h+='</div></div>';
+  h+='<p class="small muted">여기서 제외하면 크루 화면에서만 빠져요. 앱 링크 자체를 못 열게 하려면 claude.ai 공유 메뉴에서 그 사람의 접근을 지워 주세요. 공유를 꺼 둔 사람은 목록에 나오지 않아요.</p>';
+  return h;
+}
+function bindAdmin(){
+  document.getElementById("a-save").onclick=function(){var m=document.getElementById("a-msg");saveSettings({name:document.getElementById("a-name").value.trim().slice(0,20),notice:document.getElementById("a-notice").value.trim().slice(0,200)}).then(function(){m.textContent="저장했어요.";m.style.color="var(--ok)"},function(){m.textContent="저장하지 못했어요. 다시 시도해 주세요.";m.style.color="var(--bad)"})};
+  view.querySelectorAll("[data-ban]").forEach(function(x){x.onclick=function(){CREW.confirm=x.dataset.ban;keep()}});
+  view.querySelectorAll("[data-ban-no]").forEach(function(x){x.onclick=function(){CREW.confirm=null;keep()}});
+  view.querySelectorAll("[data-ban-go]").forEach(function(x){x.onclick=function(){var u=x.dataset.banGo,bb=JSON.parse(JSON.stringify((CREW.settings&&CREW.settings.banned)||{}));bb[u]={nick:nickOf(u),at:Date.now()};CREW.confirm=null;
+    saveSettings({banned:bb}).then(function(){CREW.db.doc("members/"+u).delete().catch(function(){});CREW.db.doc("social/"+u).delete().catch(function(){})},function(){});keep()}});
+  view.querySelectorAll("[data-unban]").forEach(function(x){x.onclick=function(){var bb=JSON.parse(JSON.stringify((CREW.settings&&CREW.settings.banned)||{}));delete bb[x.dataset.unban];saveSettings({banned:bb});keep()}});
+}
+
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(15,Math.floor(idxOf(T)/7)));
-  var w=CREW.wk,h='<div class="card"><div class="row between"><h2>크루 훈련 현황</h2><span class="small muted">'+(CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
+  var w=CREW.wk,h='<div class="card"><div class="row between"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
   h+='</div>'+profCard()+'<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">관리자가 공유 메뉴에서 초대한 사람만 링크를 열 수 있어요. 초대한 뒤 이 링크를 보내 주세요.</p>'+inviteLink()+'</div>';
   if(!CREW.db){
     h+='<div class="card"><p class="small muted" style="margin:0">claude.ai에 로그인한 상태로 이 링크를 열어야 크루 현황을 보고 공유할 수 있어요.</p></div>';
     view.innerHTML=h;bindShare();return;
   }
-  var ids=Object.keys(CREW.members);
+  if(banned(CREW.me)){h+='<div class="card"><h2>크루에서 제외됐어요</h2><p class="small muted" style="margin:6px 0 0">관리자가 크루 목록에서 제외했어요. 개인 훈련 체크·내 페이스·기록은 그대로 쓸 수 있어요. 다시 참여하려면 관리자에게 요청해 주세요.</p></div>';view.innerHTML=h;bindShare();return}
+  var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)});
   var ib=inbox();
-  h+='<div class="seg" role="tablist" style="grid-template-columns:1fr 1fr"><button role="tab" aria-checked="'+(CREW.view==="feed")+'" data-cv="feed">피드</button><button role="tab" aria-checked="'+(CREW.view==="week")+'" data-cv="week">주간 현황</button></div>';
+  if(CREW.settings.notice)h+='<div class="notice"><span class="pill part" style="background:var(--accent);color:#fff;margin-right:6px">공지</span>'+esc(CREW.settings.notice)+'</div>';
+  if(CREW.view==="admin"&&!CREW.owner)CREW.view="feed";
+  h+='<div class="seg" role="tablist" style="grid-template-columns:repeat('+(CREW.owner?3:2)+',1fr)"><button role="tab" aria-checked="'+(CREW.view==="feed")+'" data-cv="feed">피드</button><button role="tab" aria-checked="'+(CREW.view==="week")+'" data-cv="week">주간 현황</button>'+(CREW.owner?'<button role="tab" aria-checked="'+(CREW.view==="admin")+'" data-cv="admin">관리</button>':'')+'</div>';
+  if(CREW.view==="admin"){view.innerHTML=h+adminView(ids);bindShare();bindCrewCommon(ids);bindAdmin();return}
   if(CREW.view==="feed"){
     h+='<div class="card inbox"><span>내 훈련에 받은 좋아요 <b>'+ib.l+'</b></span><span>댓글 <b>'+ib.c+'</b></span></div>';
     var posts=[];ids.forEach(function(id){var d=(CREW.members[id]||{}).d||{};Object.keys(d).forEach(function(ds){var i=idxOf(ds);if(i<0||i>=TOTAL||W[Math.floor(i/7)].d[i%7][0]==="r")return;posts.push({id:id,ds:ds,km:d[ds],t:W[Math.floor(i/7)].d[i%7],w:Math.floor(i/7)})})});
@@ -689,7 +799,7 @@ function bindShare(){
 
 var WSTEPS=[
  function(){
-  var h='<div class="wel-hero"><div class="eyebrow">처음 오셨나요?</div><h1>서브3를 향한 16주,<br>매일 체크로 완주해요</h1><p>2026.11.30 시작 · 2027.3.21 대회까지 하루 한 번 훈련을 체크하는 앱이에요.</p></div>';
+  var h='<div class="wel-hero"><div class="eyebrow">처음 오셨나요?</div><h1>'+(S.goal?fmtT(S.goal.sec)+' 목표를 향한 16주,':'서브3를 향한 16주,')+'<br>매일 체크로 완주해요</h1><p>2026.11.30 시작 · 2027.3.21 대회까지 하루 한 번 훈련을 체크하는 앱이에요.</p></div>';
   h+='<div class="card"><h2>이 앱으로 할 수 있는 것</h2><ul class="steps" style="margin-top:12px"><li><span><b>오늘 훈련 확인·체크</b><br><span class="small muted">그날 할 훈련과 페이스를 보고 완료를 누르면 끝.</span></span></li><li><span><b>내 수준에 맞춘 페이스</b><br><span class="small muted">역치 심박·페이스와 최근 기록으로 모든 페이스를 개인화.</span></span></li><li><span><b>크루와 함께</b><br><span class="small muted">크루를 초대해 닉네임으로 현황을 공유하고 좋아요·댓글로 응원.</span></span></li><li><span><b>체중·점검 기록</b><br><span class="small muted">체중 그래프와 W8·W12·W13 세 번의 점검.</span></span></li></ul></div>';
   h+='<div class="card"><h3>16주 구성</h3><div class="phase-row" aria-label="16주 단계">'+W.map(function(x){return '<i style="background:var('+PH[x.ph][1]+')" title="'+esc(PH[x.ph][0])+'"></i>'}).join("")+'</div><div class="small muted" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 12px"><span>베이스 W1–3</span><span>빌드 W5–7</span><span>마라톤 특화 W9–13</span><span>테이퍼 W14–15</span><span>레이스 W16</span></div><p class="small muted" style="margin:8px 0 0">핵심 훈련은 수요일(포인트)과 토요일(지속주·롱런) 두 번, 나머지는 천천히 달려요.</p></div>';
   return h;
@@ -702,7 +812,7 @@ var WSTEPS=[
  },
  function(){
   var h='<h2>내 페이스 맞추기</h2><p class="muted" style="margin:0">훈련표는 서브3(마라톤 4:15/km) 기준으로 쓰였어요. 내 기준을 넣으면 모든 페이스와 심박 기준이 내 수준으로 바뀌어요.</p>';
-  h+='<ul class="steps"><li><span><b>역치 심박</b>과 <b>역치 페이스</b>를 입력해요. 시계(가민·코로스 등)의 체력 평가에서 볼 수 있어요.</span></li><li><span><b>최근 5K·10K·하프 기록</b>을 입력해요. 실제로 뛴 기록일수록 정확해요.</span></li><li><span>둘 중 하나만 넣어도 계산돼요. W8 10K·W12 하프 점검 결과로 다시 갱신할 수 있어요.</span></li></ul>';
+  h+='<ul class="steps"><li><span><b>역치 심박</b>과 <b>역치 페이스</b>를 입력해요. 시계(가민·코로스 등)의 체력 평가에서 볼 수 있어요.</span></li><li><span><b>최근 5K·10K·하프 기록</b>을 입력해요. 실제로 뛴 기록일수록 정확해요.</span></li><li><span>둘 중 하나만 넣어도 계산돼요. 그러면 <b>3월 21일에 가능한 목표 기록</b>을 안정·권장·도전 세 가지로 제안해 드려요.</span></li><li><span>목표를 <b>확정</b>하면 앱 상단 제목, 모든 훈련 페이스, 점검 목표가 그 목표에 맞춰져요.</span></li></ul>';
   h+='<div class="demo"><span class="tag">예시 · 10K 42:00인 경우</span><dl class="kv"><dt>훈련표</dt><dd>3K @4:40 → <b style="color:var(--accent)">3K @4:52</b></dd><dt>마라톤 페이스</dt><dd>4:15 → <b style="color:var(--accent)">4:26</b>/km</dd><dt>이지 심박</dt><dd>140 미만 → <b style="color:var(--accent)">146 미만</b> (역치 175)</dd></dl></div>';
   h+='<button class="btn ghost" data-wgo="pace">지금 내 페이스 설정하기</button>';
   return h;
