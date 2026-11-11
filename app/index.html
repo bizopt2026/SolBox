@@ -867,9 +867,22 @@ function authBar(){
   if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>보기 전용으로 들어왔어요</b><div class="small" style="margin-top:4px">관리자와 다른 claude.ai 조직의 계정이라 체크·체중은 <b>이 기기에만</b> 저장되고, 크루 공유·좋아요·댓글은 쓸 수 없어요. 크루로 함께하려면 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</div></div>';
   return "";
 }
+function wxRowS(){
+  var set=!!(S.wx&&S.wx.key),c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),tp=(c||nx.length)?wxTips():[],open=foldOpen("wxo",false)||(!set&&WX.edit);
+  var t=set?'날씨 · '+esc(String(S.wx.name).split(",")[0])+(c?' <span class="num">'+(Math.round(c.temperatureValue*10)/10)+'°</span>':''):'날씨';
+  var sub=!set?'동네를 정하면 3시간 기온·바람·강수를 알려 줘요':WX.err&&!c?WX.err:tp.length?tp[0]:(WX.busy?'불러오는 중…':'↻를 눌러 불러와 주세요');
+  return '<div class="srow wrow"><span class="sl" aria-hidden="true">🌤</span><button class="wlink" data-wxp aria-expanded="'+open+'"><b>'+t+'</b><span'+(WX.err&&!c?' style="color:var(--bad)"':'')+'>'+esc(sub)+'</span></button><button class="sbtn wset'+(open?' on':'')+'" data-wxp aria-expanded="'+open+'">'+(open?'닫기':set?'자세히':'설정')+'</button></div>';
+}
+function readyRowS(){
+  var R=readiness(T),open=foldOpen("ready",false),col=["var(--ok)","var(--accent)","var(--bad)"][R.lv],lb=["좋음","주의","쉬어가기"][R.lv];
+  var sub=R.has?[R.r?'안정시 심박 '+R.r+'bpm'+(R.diff!=null?'('+(R.diff>0?'+':'')+R.diff+')':''):'',R.h?'HRV '+R.h.avg+'ms':'',R.sq?'잠 '+R.sq:'',R.rc?'회복률 '+R.rc.pct+'%':''].filter(Boolean).join(' · '):'아침 심박·수면을 넣으면 오늘 훈련 강도를 알려 줘요';
+  return '<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><button class="wlink" data-rdp aria-expanded="'+open+'"><b>훈련 전 컨디션'+(R.has?' · <span style="color:'+col+'">'+lb+'</span>':'')+'</b><span>'+esc(sub)+'</span></button><button class="sbtn wset'+(open?' on':'')+'" data-rdp aria-expanded="'+open+'">'+(open?'닫기':R.has?'자세히':'기록')+'</button></div>';
+}
 function statusStrip(){
-  if(uploadDue())return watchBar()+(WPANEL?watchCard():'')+goalRow(true);
-  return '<div class="strip">'+goalRow(false)+watchRow()+'</div>'+(WPANEL?watchCard():'');
+  var today=tab==="today"&&sel===T,ext=today?wxRowS()+readyRowS():'';
+  var panels=(WPANEL?watchCard():'')+(today&&(foldOpen("wxo",false)||!(S.wx&&S.wx.key)&&WX.edit)?wxCard():'')+(today&&foldOpen("ready",false)?readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})()):'');
+  if(uploadDue())return watchBar()+'<div class="strip">'+goalRow(false)+ext+'</div>'+panels;
+  return '<div class="strip">'+goalRow(false)+watchRow()+ext+'</div>'+panels;
 }
 function goalRow(alone){
   var r=S.goal?'<span class="sl" aria-hidden="true">🎯</span><span class="sm">3.21 목표 <b>'+fmtT(S.goal.sec)+'</b> · MP <b>'+fmtMS(S.goal.sec/42.195)+'</b>/km</span><button class="sbtn" data-goto="pace">목표</button>'
@@ -1181,8 +1194,6 @@ function enhance(){
     view.querySelectorAll(".session .what").forEach(function(el){var fs=20;while(fs>13&&el.scrollWidth>el.clientWidth+1){fs--;el.style.fontSize=fs+"px"}if(el.scrollWidth>el.clientWidth+1)el.classList.add("wrap")});
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
     var RR=readiness(T),rs=RR.has?["좋음","주의","쉬어가기"][RR.lv]+(RR.r?" · "+RR.r+"bpm"+(RR.diff!=null?"("+(RR.diff>0?"+":"")+RR.diff+")":""):"")+(RR.h?" · HRV "+RR.h.avg:""):"오늘 아침 기록 없음";
-    foldCard(findCard("훈련 전 컨디션"),"ready",rs,false);
-    wxFold();
     var mt=mealTot(sel),msc=mealScore(sel,i%7);foldCard(findCard("식단 기록"),"meals",(msc?msc.s+"점 · ":"")+Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",true);
     var r=dayRec(sel),fx=view.querySelector(".session .fields");
     if(fx){var has=!!(r.km||r.hr||r.pace||r.rpe||r.note);foldInline(fx,"fields",has?"내가 적은 기록 보기 · 고치기":"거리·심박·메모 직접 적기",has||foldOpen("fields",false))}
@@ -1795,8 +1806,8 @@ async function wxCall(tool,qp,fresh){var mcp=window.claude&&window.claude.use?aw
   throw last||{code:"server_not_connected"}}
 var WXERR={server_not_connected:"AccuWeather가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 AccuWeather를 연결해 주세요.",not_in_manifest:"이 앱의 AccuWeather 사용을 허용해 주세요.",approval_required:"날씨 불러오기를 허용해 주세요.",no_mcp:"claude.ai에 로그인한 상태로 열어야 날씨를 볼 수 있어요.",rate_limited:"요청이 많아요. 잠시 후 다시 눌러 주세요."};
 async function wxLoad(fresh){
-  if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-WX.at<300000)return;
-  WX.busy=true;WX.err="";wxPaint();
+  if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-Math.max(WX.at,WX.tried||0)<300000)return;
+  WX.busy=true;WX.tried=Date.now();WX.key=S.wx.key;WX.err="";wxPaint();
   try{var k=S.wx.key,qp={locationKey:k,unit:"metric",lang:"ko"};
     var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
     if(!S.wx||S.wx.key!==k)return;
@@ -1827,7 +1838,7 @@ function wxCard(){
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
     return h+'</div>'}
   var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),tp=(c||nx.length)?wxTips():[],good=!tp.length||/^👍/.test(tp[0]);
-  h='<div class="card wxcard" id="wx" data-sum="'+esc(tp[0]||(WX.busy?'불러오는 중…':''))+'" style="border-left:4px solid '+(good?'var(--ok)':'var(--accent)')+'"><div class="row between"><h2>날씨</h2></div>';
+  h='<div class="card wxcard" id="wx" style="border-left:4px solid '+(good?'var(--ok)':'var(--accent)')+'"><div class="row between"><h2>날씨</h2></div>';
   h+='<div class="wxtop"><button class="linkbtn wxloc" id="wx-loc" aria-label="동네 바꾸기">📍 '+esc(String(S.wx.name).split(",")[0])+'</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button></div>';
   if(!c&&!nx.length){h+='<p class="small'+(WX.err?'" style="color:var(--bad);margin:4px 0 0"':' muted" style="margin:4px 0 0"')+'>'+esc(WX.err||(WX.busy?'날씨를 불러오는 중…':'↻를 눌러 날씨를 불러와 주세요.'))+'</p>';return h+'</div>'}
   function rp(x){return parseInt((x.extended&&x.extended.rainProbability)||x.precip)||0}
@@ -1838,7 +1849,7 @@ function wxCard(){
   if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';
   return h+'</div>'}
 function wxFold(){var el=document.getElementById("wx");if(el&&el.dataset.sum!==undefined&&S.wx&&S.wx.key&&!WX.edit)foldCard(el,"wxo",el.dataset.sum,false)}
-function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx();wxFold()}
+function wxPaint(){if(tab!=="today")return;var a=document.activeElement,q=a&&a.id==="wx-q";var y=window.scrollY;render();window.scrollTo(0,y);if(q){var n=document.getElementById("wx-q");if(n)n.focus()}}
 function bindWx(){function $(i){return document.getElementById(i)}
   var lc=$("wx-loc");if(lc)lc.onclick=function(){WX.edit=true;WX.res=null;wxPaint()};
   var cn=$("wx-cancel");if(cn)cn.onclick=function(){WX.edit=false;wxPaint()};
@@ -1868,7 +1879,7 @@ function vToday(){
   var food=FOOD[FOOD_BY_DOW[d]];
   var dn=isDone(sel);
   var h="";
-  h+=authBar()+newsCard()+statusStrip()+(sel===T?wxCard():'')+readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})());
+  h+=authBar()+newsCard()+statusStrip();
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
@@ -1909,6 +1920,8 @@ function vToday(){
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;if(tab==="pace")PACEV="base";render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
   if(sel===T){bindWx();wxLoad(false)}
+  view.querySelectorAll("[data-wxp]").forEach(function(b){b.onclick=function(){if(!(S.wx&&S.wx.key)){WX.edit=!WX.edit;foldSet("wxo",false)}else foldSet("wxo",!foldOpen("wxo",false));var y=window.scrollY;render();window.scrollTo(0,y)}});
+  view.querySelectorAll("[data-rdp]").forEach(function(b){b.onclick=function(){foldSet("ready",!foldOpen("ready",false));var y=window.scrollY;render();window.scrollTo(0,y)}});
   if(!window.__wxVis){window.__wxVis=1;document.addEventListener("visibilitychange",function(){if(!document.hidden&&tab==="today"&&sel===T)wxLoad(false)})}
   var no=document.getElementById("news-ok");if(no)no.onclick=function(){S.seenV=APPV;save();render()};
   bindDayEditor(sel);bindMeals(sel);bindReady(T);bindLaps();
