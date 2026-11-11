@@ -76,6 +76,25 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 .fields input,.fields textarea,.inp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);font-size:16px;width:100%;min-width:0}
 .fields .full{grid-column:1/-1}
+.fields select{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);font-size:16px;width:100%;min-width:0;color:var(--ink);-webkit-appearance:none;appearance:none}
+.rlist{display:grid;gap:6px;margin-top:12px}
+.rli{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;color:var(--ink)}
+.rli>span:first-child{display:flex;flex-direction:column;gap:2px}
+.rli.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.rh{margin:16px 0 6px;color:var(--ink);font-size:15px}
+.rsvg{width:100%;height:auto;display:block}
+.rsvg .ax{font-size:9px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.rleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+.rleg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.rseg{display:grid;gap:8px}
+.rseg>div{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
+.rscore{display:flex;gap:14px;align-items:flex-start}
+.rscore>div:first-child{flex:none;width:86px;height:86px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;align-content:center;color:var(--accent)}
+.rscore>div:first-child b{font-family:var(--f-display);font-size:34px;line-height:1}
+.rscore>div:first-child span{font-size:12px}
+.rbar{margin-bottom:8px}
+.rbar i{display:block;height:6px;border-radius:3px;background:var(--line);margin:3px 0 2px;overflow:hidden}
+.rbar u{display:block;height:100%;background:var(--accent)}
 textarea{resize:vertical;min-height:64px}
 .week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .ws{border:1px solid var(--line);border-radius:10px;padding:6px 2px;text-align:center;background:var(--card);font-size:12px}
@@ -440,10 +459,10 @@ var TOTAL=W.length*7;
 
 // ---------- State ----------
 var LS="sub3-train-v1";
-var S={days:{},wlog:{},checks:{}};
+var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -991,6 +1010,7 @@ function enhance(){
     foldCard(findCard("내 기준 입력"),"p-input",[pf.lthr?"역치 "+pf.lthr+"bpm":"",pf.thr?pf.thr+"/km":"",pf.recTime?DIST[pf.recDist||"10"][1]+" "+pf.recTime:""].filter(Boolean).join(" · "),!has2);
     foldCard(findCard("분석 결과"),"p-result",EG.curPred?"예상 "+fmtT(EG.curPred)+(EG.vdot?" · VDOT "+EG.vdot.toFixed(1):""):"",false);
     var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
+    var rl=(S.races||[]).length;foldCard(findCard("레이스 전략"),"p-races",rl?"대회 "+rl+"개":"코스 GPX로 전략 짜기",true);
     foldCard(findCard("내 훈련 존"),"p-zones","이지 "+zr(Zk.e)+" · MP "+zr(Zk.mp),false);
   } else if(tab==="crew"){
     foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
@@ -1009,7 +1029,7 @@ function enhance(){
     var nx=CHECKS.filter(function(c){return c.date?c.date>=T:true})[0],near=CHECKS.some(function(c){var dd=c.date||"2027-02-27";var k=(p(dd)-p(T))/864e5;return k>=-2&&k<=7});
     foldCard(findCard("세 번의 점검"),"w-check",nx?"다음 "+nx.wk.split(" · ")[0]+" "+nx.name.split(" ")[0]+" "+cGoal(nx):"",near||foldOpen("w-check",false));
   } else if(tab==="guide"){
-    var titles=[["페이스 존",true],["약어",false],["레이스 데이 페이스",false],["요일별 먹는 양",false],["AI 코치",false],["워치 기록 연동",false],["내 계획 바꾸기",false],["운영 원칙",false],["한 주의 리듬",false],["백업",false]];
+    var titles=[["페이스 존",true],["약어",false],["레이스 데이 페이스",false],["요일별 먹는 양",false],["AI 코치",false],["레이스 전략",false],["워치 기록 연동",false],["내 계획 바꾸기",false],["운영 원칙",false],["한 주의 리듬",false],["백업",false]];
     titles.forEach(function(x){foldCard(findCard(x[0]),"g-"+x[0],"",x[1])});
   }
   }catch(e){if(window.console)console.error(e)}
@@ -1042,6 +1062,7 @@ function coachCtx(){
   if(mk.length)L.push("식단(AI 추정, 최근 3일): "+mk.join("; ")+" · 오늘 목표 "+tgT.kcal+"kcal 탄"+tgT.c.join("~")+" 단"+tgT.p.join("~")+"g"+((S.meals[T]||[]).length?" · 오늘 먹은 것: "+(S.meals[T]||[]).map(function(m){return m.type+" "+m.items.map(function(x){return x.name}).join("+")}).join(", "):""));
   L.push("점검: "+CHECKS.map(function(c){var v=S.checks[c.id],st=checkState(c);return c.wk+" "+c.name+" 기준 "+cGoal(c)+" → "+(v?v+(st===true?" 통과":st===false?" 미달":""):"미측정")}).join("; "));
   L.push("계획 원칙: 핵심 훈련은 수(인터벌·템포)·토(지속주·롱런), 나머지는 천천히. 이지·LSD는 페이스보다 심박 우선. 아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁘면 수·토 훈련을 하루 미룬다. 통증 3일 이상이면 회복주 수준으로 줄인다. 감량은 주 0.25~0.4kg, 테이퍼부터 중단.");
+  var rcx=racesCtx();if(rcx)L.push(rcx);
   return L.join("\n");
 }
 // ---------- Voice: dictation (speech -> text) and reading answers aloud (Claude voice, else the browser's own) ----------
@@ -1783,6 +1804,233 @@ function bindGoal(){
   };
 }
 
+// ---------- Race strategy: course GPX -> per-km target paces, AI plan, history, post-race review & score ----------
+var RS={sel:null,newOpen:false,draft:null,busy:"",err:"",msg:"",del:null,full:false};
+var RDIST={"42.195":"풀","21.0975":"하프","10":"10K"};
+function raceById(id){return (S.races||[]).filter(function(r){return r.id===id})[0]||null}
+function racesSorted(){return (S.races||[]).slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:(b.at||0)-(a.at||0)})}
+function riegel(t,d1,d2){return Math.round(t*Math.pow(d2/d1,1.06))}
+function defaultGoal(dist){var base=S.goal&&S.goal.sec?S.goal.sec:(EG&&EG.curPred)||REF_GOAL*K;return dist===42.195?base:riegel(base,42.195,dist)}
+function havM(a,b,c,d){var R=6371000,r=Math.PI/180,x=Math.sin((c-a)*r/2),y=Math.sin((d-b)*r/2),q=x*x+Math.cos(a*r)*Math.cos(c*r)*y*y;return 2*R*Math.asin(Math.min(1,Math.sqrt(q)))}
+function parseCourse(text){
+  var doc=new DOMParser().parseFromString(text,"application/xml");if(doc.getElementsByTagName("parsererror").length)throw new Error("GPX 파일을 읽지 못했어요.");
+  function all(n){var a=doc.getElementsByTagNameNS("*",n);return a.length?a:doc.getElementsByTagName(n)}
+  var pts=all("trkpt");if(pts.length<20)pts=all("rtept");if(pts.length<20)throw new Error("코스 좌표가 너무 적어요. 대회 코스 GPX(트랙)를 올려 주세요.");
+  var D=[],E=[],cum=0,pl=null,pn=null,ne=0;
+  for(var i=0;i<pts.length;i++){var la=+pts[i].getAttribute("lat"),lo=+pts[i].getAttribute("lon");if(isNaN(la)||isNaN(lo))continue;
+    if(pl!=null)cum+=havM(pl,pn,la,lo);pl=la;pn=lo;var ee=null;for(var c=pts[i].firstChild;c;c=c.nextSibling){if(c.localName==="ele"){var v=parseFloat(c.textContent);if(!isNaN(v)){ee=v;ne++}break}}
+    D.push(cum);E.push(ee)}
+  if(cum<1000)throw new Error("코스 길이가 1km보다 짧아요.");
+  var hasEle=ne>=D.length*0.5,last=null;for(var j=0;j<E.length;j++){if(E[j]==null)E[j]=last;else last=E[j]}var first=null;for(j=0;j<E.length;j++){if(E[j]!=null){first=E[j];break}}for(j=0;j<E.length&&E[j]==null;j++)E[j]=first==null?0:first;
+  var step=100,n=Math.floor(cum/step)+1,g=[],k=0;
+  for(var s=0;s<n;s++){var x=s*step;while(k<D.length-2&&D[k+1]<x)k++;var d0=D[k],d1=D[k+1],f=d1>d0?Math.min(1,Math.max(0,(x-d0)/(d1-d0))):0;g.push(E[k]+(E[k+1]-E[k])*f)}
+  g.push(E[E.length-1]);
+  var sm=g.map(function(_,q){var a=0,m=0;for(var z=Math.max(0,q-2);z<=Math.min(g.length-1,q+2);z++){a+=g[z];m++}return Math.round(a/m*10)/10});
+  var nm="";var na=all("name");if(na.length)nm=String(na[0].textContent||"").trim().slice(0,40);
+  return{name:nm,len:Math.round(cum),e:hasEle?sm:null,last:Math.round(cum-(g.length-2)*step)};
+}
+// elevation at official-distance metre x (course scaled to the official distance)
+function eleAt(c,x,dist){if(!c||!c.e)return 0;var pos=x*c.len/(dist*1000)/100,i=Math.floor(pos),n=c.e.length;if(i>=n-1)return c.e[n-1];if(i<0)return c.e[0];var f=pos-i;return c.e[i]+(c.e[i+1]-c.e[i])*f}
+function racePlan(rc){
+  var D=rc.dist*1000,n=Math.ceil(D/1000-1e-9),segs=[],c=rc.course,firstN=rc.dist>=21?5:rc.dist>=10?2:1;
+  for(var i=0;i<n;i++){var a=i*1000,b=Math.min(D,a+1000),len=b-a,up=0,dn=0,prev=eleAt(c,a,rc.dist);
+    for(var x=a+50;x<=b+1e-6;x+=50){var e=eleAt(c,Math.min(x,b),rc.dist),dd=e-prev;if(dd>0)up+=dd;else dn-=dd;prev=e}
+    var ug=up/len*100,dg=dn/len*100,adj=3.3*ug-1.8*Math.min(dg,4)+(i<firstN?1.2:0);
+    segs.push({i:i,len:len,up:up,dn:dn,e0:eleAt(c,a,rc.dist),e1:eleAt(c,b,rc.dist),f:1+adj/100})}
+  var target=rc.goal-(rc.buf!=null?rc.buf:Math.round(rc.goal*0.006)),w=0;segs.forEach(function(s){w+=s.f*s.len/1000});
+  var base=target/w,cum=0;segs.forEach(function(s){s.p=base*s.f;cum+=s.p*s.len/1000;s.cum=cum});
+  var up=0,dn=0,hi=-1e9,lo=1e9;segs.forEach(function(s){up+=s.up;dn+=s.dn});if(c&&c.e)c.e.forEach(function(v){if(v>hi)hi=v;if(v<lo)lo=v});
+  return{segs:segs,finish:cum,base:base,up:Math.round(up),dn:Math.round(dn),hi:c&&c.e?Math.round(hi):null,lo:c&&c.e?Math.round(lo):null,firstN:firstN}
+}
+function blocks(pl,dist){var size=dist>=21?5:dist>=10?2:1,out=[];for(var a=0;a<pl.segs.length;a+=size){var g=pl.segs.slice(a,a+size),len=0,t=0,up=0,dn=0;g.forEach(function(s){len+=s.len;t+=s.p*s.len/1000;up+=s.up;dn+=s.dn});
+  out.push({from:a,to:a+len/1000,p:t/(len/1000),cum:g[g.length-1].cum,up:Math.round(up),dn:Math.round(dn)})}return out}
+function kmLbl(x){return (Math.round(x*10)/10).toString().replace(/\.0$/,"")}
+// ---- SVG: elevation area + target pace steps (+ actual pace dots after the race) ----
+function raceSvg(rc,pl,act){
+  var W0=340,H0=170,L=34,R=34,Tp=14,B=24,w=W0-L-R,h=H0-Tp-B,D=rc.dist,o='<svg viewBox="0 0 '+W0+' '+H0+'" class="rsvg" role="img" aria-label="코스 고도와 km별 목표 페이스">';
+  function X(km){return L+km/D*w}
+  if(rc.course&&rc.course.e){var lo=pl.lo,hi=Math.max(pl.hi,pl.lo+20),pts=[];for(var x=0;x<=D*1000;x+=Math.max(100,D*10))pts.push([X(x/1000),Tp+h-(eleAt(rc.course,x,D)-lo)/(hi-lo)*h*0.75]);
+    o+='<path d="M'+L+','+(Tp+h)+' L'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1)}).join(' L')+' L'+(L+w)+','+(Tp+h)+'Z" fill="var(--line)" opacity=".9"/>';
+    o+='<text x="'+(L-4)+'" y="'+(Tp+h)+'" class="ax" text-anchor="end">'+lo+'m</text><text x="'+(L-4)+'" y="'+(Tp+h-h*0.75+8)+'" class="ax" text-anchor="end">'+hi+'m</text>'}
+  if(act)act=act.slice(0,Math.floor(D+1e-6));
+  var ps=pl.segs.map(function(s){return s.p});if(act)act.forEach(function(v){if(v)ps.push(v)});var pmin=Math.min.apply(null,ps)-4,pmax=Math.min(Math.max.apply(null,ps)+4,pmin+120);
+  function Y(p){return Tp+(Math.min(Math.max(p,pmin),pmax)-pmin)/(pmax-pmin)*h}
+  var d="";pl.segs.forEach(function(s,k){var x0=X(s.i),x1=X(s.i+s.len/1000),y=Y(s.p);d+=(k?" L":"M")+x0.toFixed(1)+","+y.toFixed(1)+" L"+x1.toFixed(1)+","+y.toFixed(1)});
+  o+='<path d="'+d+'" fill="none" stroke="var(--accent)" stroke-width="2.4"/>';
+  if(act){var ad="";act.forEach(function(v,k){if(!v)return;var x=X(Math.min(D,k+0.5)),y=Y(v);ad+=(ad?" L":"M")+x.toFixed(1)+","+y.toFixed(1)});o+='<path d="'+ad+'" fill="none" stroke="var(--ink)" stroke-width="1.6"/>';
+    act.forEach(function(v,k){if(v&&k<Math.ceil(D))o+='<circle cx="'+X(Math.min(D,k+0.5)).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="2" fill="var(--ink)"/>'})}
+  o+='<text x="'+(L+w+4)+'" y="'+(Tp+8)+'" class="ax">'+fmtMS(pmin)+'</text><text x="'+(L+w+4)+'" y="'+(Tp+h)+'" class="ax">'+fmtMS(pmax)+'</text>';
+  var stp=D>=30?10:D>=15?5:D>=8?2:1;for(var t=0;t<=D+0.01;t+=stp)o+='<text x="'+X(t).toFixed(1)+'" y="'+(H0-6)+'" class="ax" text-anchor="middle">'+t+'</text>';
+  o+='</svg>';
+  o+='<div class="rleg small muted"><span>가로축 km</span><span><i style="background:var(--accent)"></i>목표 페이스(위가 빠름)</span>'+(act?'<span><i style="background:var(--ink)"></i>실제 페이스</span>':'')+(rc.course&&rc.course.e?'<span><i style="background:var(--line);height:8px"></i>고도</span>':'')+'</div>';
+  return o;
+}
+// ---- actual per-km from a synced run ----
+function runTrack(r){
+  var pts=null;
+  if(r.series&&r.series.d&&r.series.d.length>20){var se=r.series,t=0;pts=[[0,0,0]];for(var i=0;i<se.d.length;i++){t+=10;pts.push([se.d[i],t,se.h[i]||0])}
+    var sc=r.dur&&t?r.dur/t:1;pts.forEach(function(q){q[1]*=sc})}
+  else if(r.laps&&r.laps.laps&&r.laps.laps.length>1){var cd=0,ct=0;pts=[[0,0,0]];r.laps.laps.forEach(function(l){cd+=l.d*1000;ct+=l.t;pts.push([cd,ct,l.hr||0])})}
+  return pts}
+function perKm(pts,distKm){
+  var out=[],hr=[],k=1,prevT=0,hs=0,hn=0,end=pts[pts.length-1][0];
+  for(var i=1;i<pts.length;i++){var a=pts[i-1],b=pts[i];if(b[2]){hs+=b[2];hn++}
+    while(k*1000<=b[0]&&k<=Math.ceil(distKm)+1){var f=b[0]>a[0]?(k*1000-a[0])/(b[0]-a[0]):1,tt=a[1]+(b[1]-a[1])*f;out.push(Math.round(tt-prevT));hr.push(hn?Math.round(hs/hn):0);hs=0;hn=0;prevT=tt;k++}}
+  var rem=end-(k-1)*1000;if(rem>150&&out.length<Math.ceil(distKm)+1){out.push(Math.round((pts[pts.length-1][1]-prevT)/(rem/1000)));hr.push(hn?Math.round(hs/hn):0)}
+  return{km:out,hr:hr,watch:Math.round(end)/1000}}
+function raceRuns(rc){return runsOn(rc.date).filter(function(r){return r.km>=rc.dist*0.6}).sort(function(a,b){return b.km-a.km})}
+function scoreRace(rc,res){
+  var pl=racePlan(rc),parts=[],pct=(res.dur-rc.goal)/rc.goal*100,g=res.dur<=rc.goal?40:Math.max(0,40-pct*8);
+  parts.push({k:"목표 달성",v:g,m:40,d:res.dur<=rc.goal?"목표보다 "+fmtT(rc.goal-res.dur)+" 빨리":"목표보다 "+fmtT(res.dur-rc.goal)+" 늦게 ("+pct.toFixed(1)+"%)"});
+  var km=res.km;
+  if(km&&km.length>=Math.max(3,Math.floor(rc.dist*0.8))){
+    var full=Math.min(km.length,Math.floor(rc.dist)),half=Math.floor(full/2),t1=0,t2=0;for(var i=0;i<full;i++){if(i<half)t1+=km[i];else if(i<half*2)t2+=km[i]}
+    var sp=(t2/t1-1)*100,sv=sp>1?Math.max(0,25-(sp-1)*5):sp<-3?Math.max(0,25-(-3-sp)*3):25;
+    parts.push({k:"페이스 분배",v:sv,m:25,d:"후반이 전반보다 "+(sp>=0?Math.abs(sp).toFixed(1)+"% 느림":Math.abs(sp).toFixed(1)+"% 빠름")+(sp<=1&&sp>=-3?" · 이븐·네거티브":"")});
+    var dev=0,n=0;for(i=0;i<full&&i<pl.segs.length;i++){dev+=Math.abs(km[i]/pl.segs[i].p-1)*100;n++}var mad=n?dev/n:0,pv=Math.max(0,20-Math.max(0,mad-1.5)*4);
+    parts.push({k:"구간 계획 준수",v:pv,m:20,d:"km별 목표와 평균 "+mad.toFixed(1)+"% 차이"});
+    var from=Math.max(0,full-Math.max(2,Math.round(rc.dist/6))),ta=0,tp=0;for(i=from;i<full&&i<pl.segs.length;i++){ta+=km[i];tp+=pl.segs[i].p}var sl=tp?(ta/tp-1)*100:0,fv=sl<=0?15:Math.max(0,15-sl*3);
+    parts.push({k:"후반 유지",v:fv,m:15,d:"마지막 "+(full-from)+"km 목표 대비 "+(sl<=0?Math.abs(sl).toFixed(1)+"% 빠름":sl.toFixed(1)+"% 느림")});
+    var total=0;parts.forEach(function(p){total+=p.v});return{score:Math.round(total),parts:parts.map(function(p){p.v=Math.round(p.v);return p}),split:Math.round(sp*10)/10,mad:Math.round(mad*10)/10,late:Math.round(sl*10)/10}}
+  return{score:Math.round(g*2.5),parts:[{k:parts[0].k,v:Math.round(g),m:40,d:parts[0].d}],onlyGoal:true}
+}
+function raceCtx(rc){
+  var pl=racePlan(rc),pf=S.profile||{},L=[];
+  L.push("대회: "+rc.name+" · "+rc.date+" · "+(RDIST[String(rc.dist)]||rc.dist+"km")+" ("+rc.dist+"km)");
+  L.push("목표 기록 "+fmtT(rc.goal)+" · 계획 골인 "+fmtT(pl.finish)+" (여유 "+fmtT(rc.goal-pl.finish)+") · 평균 목표 페이스 "+fmtMS(pl.finish/rc.dist)+"/km");
+  if(rc.course&&rc.course.e)L.push("코스: GPX 길이 "+(rc.course.len/1000).toFixed(2)+"km · 누적 상승 "+pl.up+"m · 하강 "+pl.dn+"m · 고도 "+pl.lo+"~"+pl.hi+"m");else L.push("코스: 고도 정보 없음(평지로 계산)");
+  L.push("km별(번호|오르막m|내리막m|목표페이스): "+pl.segs.map(function(s){return (s.i+1)+"|"+Math.round(s.up)+"|"+Math.round(s.dn)+"|"+fmtMS(s.p)}).join(", "));
+  L.push("러너: 역치 심박 "+(pf.lthr||"미입력")+" · 역치 페이스 "+(pf.thr||"미입력")+(EG.curPred?" · 현재 마라톤 예상 "+fmtT(EG.curPred):"")+(EG.vdot?" · VDOT "+EG.vdot.toFixed(1):"")+" · 레이스 심박 상한 참고 "+HR(158)+"(하프 이후) / "+HR(162)+"(35km 이후)");
+  return L.join("\n");
+}
+async function raceAI(rc){
+  RS.busy="ai";RS.err="";keepRace();
+  try{var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;if(!sm){RS.err=AUTH.st==="anon"?"claude.ai에 로그인하면 AI 전략을 받을 수 있어요. 구간 페이스는 그대로 쓸 수 있어요.":"이 화면에서는 AI 전략을 만들 수 없어요.";return}
+    var prompt="너는 마라톤 코치야. 아래 대회 코스와 러너 정보로 목표 기록을 달성하기 위한 레이스 전략을 한국어로 짜 줘. km별 목표 페이스는 오르막·내리막을 반영해 같은 힘으로 달리도록 이미 계산돼 있어. 그 숫자를 바탕으로 구간을 4~7개로 나눠 운영법을 설명해.\n\n"+raceCtx(rc)+
+      "\n\n규칙: 초반 과속 금지, 오르막은 페이스 대신 노력(심박·호흡)을 유지, 내리막은 보폭을 짧게 하고 과하게 당기지 않기, 시계 거리는 길게 찍히니 공식 km 표지판 기준. 보급은 시간당 탄수화물 60~90g. 짧고 구체적으로, 존댓말 '~해요'체.\n"+
+      "JSON만 답해: {\"summary\":\"전체 전략 2~3문장\",\"segments\":[{\"range\":\"0~5km\",\"pace\":\"4:17~4:19\",\"tip\":\"이 구간 운영법 1~2문장\"}],\"keys\":[\"꼭 지킬 것 3~5개\"],\"fuel\":[\"보급 계획 2~4개\"],\"warn\":[\"이 코스에서 조심할 점 2~3개\"]}";
+    var out=await sm.json(prompt,{modelTier:"default"});
+    function arr(a,n,m){return (Array.isArray(a)?a:[]).filter(function(x){return typeof x==="string"&&x.trim()}).slice(0,n).map(function(x){return x.trim().slice(0,m)})}
+    var segs=(Array.isArray(out&&out.segments)?out.segments:[]).filter(function(s){return s&&s.range&&s.tip}).slice(0,8).map(function(s){return{range:String(s.range).slice(0,20),pace:String(s.pace||"").slice(0,20),tip:String(s.tip).slice(0,220)}});
+    if(!segs.length&&!out.summary)throw{code:"invalid_json"};
+    rc.ai={summary:String(out.summary||"").slice(0,400),segments:segs,keys:arr(out.keys,5,160),fuel:arr(out.fuel,4,160),warn:arr(out.warn,3,160),at:Date.now(),goal:rc.goal};save();
+  }catch(e){var c=e&&e.code;RS.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 전략을 받을 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 눌러 주세요.":c==="invalid_json"?"AI 답을 읽지 못했어요. 다시 만들어 주세요.":"AI 전략을 만들지 못했어요"+(e&&e.message?": "+e.message:".")}
+  finally{RS.busy="";keepRace()}
+}
+async function raceReview(rc,manualDur){
+  RS.busy="review";RS.err="";keepRace();
+  try{
+    var res={at:Date.now()};
+    if(manualDur){res.dur=manualDur;res.src="직접 입력"}
+    else{var runs=raceRuns(rc),r=runs[0];if(!r){RS.err="그날 연동된 기록이 없어요. 워치 기록 연동에서 동기화하거나 기록을 직접 넣어 주세요.";return}
+      res.dur=r.dur;res.src=r.src||"기록";res.hr=r.hr||null;res.km0=r.km;res.run=r.id;
+      var pts=runTrack(r);if((!pts||!(r.laps&&r.laps.kind==="km"))&&r.src==="COROS"&&!r.series){RS.msg="COROS에서 초 단위 기록을 받는 중…";keepRace();await fetchSeries(r);pts=runTrack(r);RS.msg=""}
+      if(pts&&pts.length>2){var pk=perKm(pts,rc.dist);res.km=pk.km;res.kmhr=pk.hr;res.watch=pk.watch}}
+    var sc=scoreRace(rc,res);res.score=sc.score;res.parts=sc.parts;res.split=sc.split;res.mad=sc.mad;res.late=sc.late;res.onlyGoal=!!sc.onlyGoal;
+    rc.result=res;save();keepRace();
+    var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;if(!sm){RS.err="점수는 계산했어요. AI 분석은 claude.ai에 로그인한 상태에서 받을 수 있어요.";return}
+    var pl=racePlan(rc),lines=[raceCtx(rc),"\n[레이스 결과]","기록 "+fmtT(res.dur)+" ("+res.src+(res.watch?", 시계 거리 "+res.watch+"km":"")+(res.hr?", 평균 심박 "+res.hr:"")+")",
+      "점수 "+res.score+"/100: "+res.parts.map(function(p){return p.k+" "+p.v+"/"+p.m+" ("+p.d+")"}).join("; ")];
+    if(res.km)lines.push("km별 실제(번호|실제|목표|심박): "+res.km.map(function(v,k){var s=pl.segs[k];return (k+1)+"|"+fmtMS(v)+"|"+(s?fmtMS(s.p):"-")+"|"+((res.kmhr&&res.kmhr[k])||"-")}).join(", "));
+    if(rc.ai&&rc.ai.summary)lines.push("레이스 전 세운 전략: "+rc.ai.summary);
+    var dday=Math.round((p(RACE)-p(rc.date))/864e5);if(rc.date<RACE)lines.push("다음 목표 대회: 2027-03-21 서울마라톤 (이 대회 후 "+dday+"일 뒤), 목표 "+(S.goal?fmtT(S.goal.sec):"2:59:59"));
+    var prompt="너는 마라톤 코치야. 아래 대회 전략과 실제 기록을 비교해서 레이스를 평가해 줘. 점수는 앱이 계산했으니 바꾸지 말고, 왜 그 점수인지 근거와 함께 설명해. 숫자를 인용해 구체적으로, 존댓말 '~해요'체.\n\n"+lines.join("\n")+
+      "\n\nJSON만 답해: {\"summary\":\"레이스 총평 2~3문장\",\"good\":[\"잘한 점 2~3개\"],\"bad\":[\"아쉬운 점 2~3개(어느 구간에서 왜)\"],\"next\":[\"다음 레이스에서 유의할 점 3~5개, 훈련·페이스·보급 포함\"]}";
+    var out=await sm.json(prompt,{modelTier:"default"});
+    function arr(a,n){return (Array.isArray(a)?a:[]).filter(function(x){return typeof x==="string"&&x.trim()}).slice(0,n).map(function(x){return x.trim().slice(0,220)})}
+    res.ai={summary:String(out&&out.summary||"").slice(0,500),good:arr(out&&out.good,3),bad:arr(out&&out.bad,3),next:arr(out&&out.next,5)};save();
+  }catch(e){var c=e&&e.code;RS.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 분석을 받을 수 있어요. 점수는 계산해 뒀어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 눌러 주세요.":"AI 분석을 받지 못했어요. 다시 눌러 주세요."}
+  finally{RS.busy="";RS.msg="";keepRace()}
+}
+function keepRace(){if(tab!=="pace")return;var y=window.scrollY;render();window.scrollTo(0,y)}
+function raceStatus(rc){if(rc.result)return '<span class="pill ok">'+rc.result.score+'점</span>';if(rc.date<T)return '<span class="pill bad">분석 전</span>';if(rc.date===T)return '<span class="pill ok">오늘</span>';return '<span class="pill na">D-'+Math.round((p(rc.date)-p(T))/864e5)+'</span>'}
+function raceCards(){
+  var list=racesSorted(),h='<div class="card" id="races"><div class="row between"><h2>레이스 전략</h2><button class="btn ghost" id="rs-new" style="padding:7px 12px">'+(RS.newOpen?'닫기':'+ 새 대회')+'</button></div>';
+  h+='<p class="small muted" style="margin:6px 0 0">대회 코스 GPX를 올리면 오르막·내리막을 반영해 목표 기록에 맞는 km별 페이스와 AI 전략을 짜 줘요. 대회가 끝나면 워치 기록으로 분석하고 100점 만점으로 평가해요.</p>';
+  if(RS.newOpen){var dr=RS.draft||(RS.draft={name:"",date:"",dist:"42.195",goal:"",course:null});
+    h+='<div class="fields"><label class="full">대회 이름<input id="rs-name" maxlength="30" placeholder="예: 2027 서울마라톤" value="'+esc(dr.name)+'"></label><label>대회 날짜<input id="rs-date" type="date" value="'+esc(dr.date)+'"></label><label>종목<select id="rs-dist" class="inp">'+[["42.195","풀코스"],["21.0975","하프"],["10","10K"],["c","직접 입력"]].map(function(o){return '<option value="'+o[0]+'"'+((RDIST[dr.dist]?dr.dist:"c")===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select></label>'+
+      (RDIST[dr.dist]?'':'<label>거리 (km)<input id="rs-km" inputmode="decimal" placeholder="예: 32" value="'+esc(dr.dist==="c"?"":dr.dist)+'"></label>')+
+      '<label>목표 기록<input id="rs-goal" placeholder="'+fmtT(defaultGoal(+dr.dist||42.195))+'" value="'+esc(dr.goal)+'"></label></div>';
+    h+='<label class="btn ghost" for="rs-gpx" style="display:block;text-align:center;margin-top:10px;cursor:pointer">'+(dr.course?'✓ '+esc(dr.course.name||"코스")+' · '+(dr.course.len/1000).toFixed(2)+'km'+(dr.course.e?'':' (고도 없음)')+' — 다른 파일':'코스 GPX 파일 선택')+'</label><input type="file" id="rs-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0">';
+    h+='<p class="small muted" style="margin:6px 0 0">GPX는 대회 홈페이지·가민 커넥트·스트라바 코스·지난 참가자 기록에서 받을 수 있어요. 없으면 평지로 계산해요. 목표를 비우면 '+(S.goal?'확정한 목표('+fmtT(S.goal.sec)+')':'현재 예상 기록')+' 기준으로 넣어요.</p>';
+    h+='<button class="btn" id="rs-make" style="width:100%;margin-top:10px;background:var(--accent);color:#fff"'+(RS.busy?' disabled':'')+'>전략 만들기</button>';
+  }
+  if(RS.err&&!RS.sel)h+='<div class="warn" style="margin-top:10px">'+esc(RS.err)+'</div>';
+  if(list.length){h+='<div class="rlist">';list.forEach(function(rc){h+='<button class="rli'+(RS.sel===rc.id?' on':'')+'" data-race="'+esc(rc.id)+'"><span style="min-width:0"><b>'+esc(rc.name)+'</b><span class="small muted">'+rc.date.replace(/-/g,".")+' · '+(RDIST[String(rc.dist)]||rc.dist+"km")+' · 목표 '+fmtT(rc.goal)+(rc.result?' → '+fmtT(rc.result.dur):'')+'</span></span>'+raceStatus(rc)+'</button>'});h+='</div>'}
+  else if(!RS.newOpen)h+='<p class="small muted" style="margin:10px 0 0">아직 만든 전략이 없어요. "+ 새 대회"로 시작해 보세요.</p>';
+  h+='</div>';
+  var rc=RS.sel&&raceById(RS.sel);if(rc)h+=raceDetail(rc);
+  return h;
+}
+function raceDetail(rc){
+  var pl=racePlan(rc),done=rc.date<=T,h='<div class="card" id="race-d"><div class="row between"><div style="min-width:0"><div class="eyebrow" style="color:var(--accent)">'+rc.date.replace(/-/g,".")+' · '+(RDIST[String(rc.dist)]||rc.dist+"km")+'</div><h2 style="margin:2px 0 0">'+esc(rc.name)+'</h2></div>'+raceStatus(rc)+'</div>';
+  h+='<div class="grid2" style="margin-top:10px"><div class="mini"><div class="small muted">목표 기록</div><b>'+fmtT(rc.goal)+'</b></div><div class="mini"><div class="small muted">계획 골인 · 여유 '+fmtT(rc.goal-pl.finish)+'</div><b>'+fmtT(pl.finish)+'</b></div>';
+  h+='<div class="mini"><div class="small muted">평지 기준 페이스</div><b>'+fmtMS(pl.base)+'<span class="small muted">/km</span></b></div><div class="mini"><div class="small muted">코스 고도</div><b>'+(rc.course&&rc.course.e?'↑'+pl.up+' ↓'+pl.dn+'<span class="small muted">m</span>':'<span class="small muted">정보 없음</span>')+'</b></div></div>';
+  h+='<div style="margin-top:12px">'+raceSvg(rc,pl,rc.result&&rc.result.km)+'</div>';
+  var bl=blocks(pl,rc.dist);
+  h+='<h3 class="rh">구간별 목표</h3><div style="overflow-x:auto"><table class="splits"><thead><tr><th>구간</th><th>고도</th><th>목표 페이스</th><th>통과</th>'+(rc.result&&rc.result.km?'<th>실제</th>':'')+'</tr></thead><tbody>';
+  bl.forEach(function(b){var act="";if(rc.result&&rc.result.km){var t=0,n=0;for(var k=b.from;k<Math.min(Math.ceil(b.to),rc.result.km.length);k++){t+=rc.result.km[k];n++}act='<td class="num">'+(n?fmtMS(t/n)+(t/n>b.p*1.015?' <span style="color:var(--bad)">▼</span>':t/n<b.p*0.985?' <span style="color:var(--ok)">▲</span>':''):'-')+'</td>'}
+    h+='<tr'+(b.up>=15?' class="krow"':'')+'><td>'+kmLbl(b.from)+'~'+kmLbl(b.to)+'</td><td class="num small">'+(rc.course&&rc.course.e?'↑'+b.up+' ↓'+b.dn:'-')+'</td><td class="num">'+fmtMS(b.p)+'</td><td class="num">'+fmtT(b.cum)+'</td>'+act+'</tr>'});
+  h+='</tbody></table></div>';
+  h+='<button type="button" class="ifold-h" id="rs-full" aria-expanded="'+RS.full+'" style="margin-top:8px"><span>'+(RS.full?'1km 표 접기':'1km마다 목표 보기')+'</span><span class="chev" aria-hidden="true"></span></button>';
+  if(RS.full){h+='<div style="overflow-x:auto"><table class="splits"><thead><tr><th>km</th><th>고도</th><th>목표</th><th>통과</th>'+(rc.result&&rc.result.km?'<th>실제</th>':'')+'</tr></thead><tbody>';
+    pl.segs.forEach(function(s){var a=rc.result&&rc.result.km?rc.result.km[s.i]:null;h+='<tr><td>'+kmLbl(s.i+s.len/1000)+'</td><td class="num small">'+(rc.course&&rc.course.e?(s.e1-s.e0>=0?'+':'')+Math.round(s.e1-s.e0)+'m':'-')+'</td><td class="num">'+fmtMS(s.p)+'</td><td class="num">'+fmtT(s.cum)+'</td>'+(rc.result&&rc.result.km?'<td class="num">'+(a?fmtMS(a):'-')+'</td>':'')+'</tr>'});h+='</tbody></table></div>'}
+  h+='<p class="small muted" style="margin:8px 0 0">오르막 1%마다 약 3% 느리게, 내리막은 1.8% 빠르게 잡고 처음 '+pl.firstN+'km는 1% 정도 아껴서 같은 힘으로 달리게 했어요. 통과 시간은 공식 km 표지판 기준이에요. 시계 거리는 보통 0.3~0.5km 길게 찍혀요.</p>';
+  // AI strategy
+  h+='<h3 class="rh">AI 레이스 전략</h3>';
+  if(rc.ai){var a=rc.ai;if(a.goal&&a.goal!==rc.goal)h+='<div class="small" style="color:var(--bad);margin-bottom:6px">목표를 바꿨어요. 전략을 다시 만들면 새 목표에 맞춰요.</div>';
+    if(a.summary)h+='<p class="small" style="margin:0 0 8px">'+esc(a.summary)+'</p>';
+    if(a.segments.length)h+='<div class="rseg">'+a.segments.map(function(s){return '<div><div class="row between"><b>'+esc(s.range)+'</b><span class="num small" style="color:var(--accent);font-weight:700">'+esc(s.pace)+'</span></div><div class="small">'+esc(s.tip)+'</div></div>'}).join("")+'</div>';
+    [["keys","꼭 지킬 것"],["warn","이 코스에서 조심할 점"],["fuel","보급"]].forEach(function(x){if(a[x[0]]&&a[x[0]].length)h+='<div class="small muted" style="margin:10px 0 2px;font-weight:700">'+x[1]+'</div><ul class="tight small">'+a[x[0]].map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul>'});
+  } else if(RS.busy!=="ai")h+='<p class="small muted" style="margin:0">아직 AI 전략이 없어요.</p>';
+  h+='<button class="btn ghost" id="rs-ai" style="width:100%;margin-top:8px"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="ai"?'전략 짜는 중…':rc.ai?'AI 전략 다시 만들기':'AI 전략 만들기')+'</button>';
+  // post race
+  if(done){h+='<h3 class="rh">레이스 분석</h3>';var r=rc.result;
+    if(r){h+='<div class="rscore"><div><b>'+r.score+'</b><span>/100</span></div><div style="min-width:0;flex:1">'+r.parts.map(function(p){return '<div class="rbar"><div class="row between small"><span>'+p.k+'</span><span class="num">'+p.v+'/'+p.m+'</span></div><i><u style="width:'+Math.round(p.v/p.m*100)+'%"></u></i><div class="small muted">'+esc(p.d)+'</div></div>'}).join("")+'</div></div>';
+      h+='<p class="small muted" style="margin:6px 0 0">기록 '+fmtT(r.dur)+' · '+esc(r.src)+(r.watch?' · 시계 '+r.watch+'km':'')+(r.hr?' · 평균 심박 '+r.hr:'')+(r.onlyGoal?' · 구간 기록이 없어 목표 달성만으로 평가했어요':'')+'</p>';
+      if(r.ai){if(r.ai.summary)h+='<p class="small" style="margin:10px 0 0">'+esc(r.ai.summary)+'</p>';
+        [["good","잘한 점"],["bad","아쉬운 점"],["next","다음 레이스 유의사항"]].forEach(function(x){if(r.ai[x[0]]&&r.ai[x[0]].length)h+='<div class="small" style="margin:10px 0 2px;font-weight:700;color:'+(x[0]==="next"?'var(--accent)':'var(--muted)')+'">'+x[1]+'</div><ul class="tight small">'+r.ai[x[0]].map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul>'})}}
+    else{var runs=raceRuns(rc);h+=runs.length?'<p class="small" style="margin:0">'+rc.date.replace(/-/g,".")+' 기록을 찾았어요: '+runs[0].km+'km · '+fmtT(runs[0].dur)+' ('+esc(runs[0].src||"기록")+')</p>':'<p class="small muted" style="margin:0">'+rc.date.replace(/-/g,".")+'에 연동된 기록이 아직 없어요. 기록 탭의 워치 기록 연동에서 동기화하거나, 공식 기록을 직접 넣어 주세요.</p>'}
+    h+='<div class="row" style="margin-top:8px;gap:8px">'+(raceRuns(rc).length?'<button class="btn" id="rs-review" style="flex:1;background:var(--accent);color:#fff"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="review"?'분석 중…':r&&r.src!=="직접 입력"?'다시 분석':'기록으로 분석하기')+'</button>':'')+'</div>';
+    if(!raceRuns(rc).length||(r&&r.src==="직접 입력"))h+='<div class="row" style="margin-top:8px;gap:8px"><input id="rs-fin" class="inp" placeholder="공식 기록 예: 3:02:15" style="flex:1" value="'+(r&&r.src==="직접 입력"?fmtT(r.dur):'')+'"><button class="btn" id="rs-manual"'+(RS.busy?' disabled':'')+'>평가</button></div>';
+  }
+  if(RS.msg)h+='<p class="small muted" style="margin:8px 0 0">'+esc(RS.msg)+'</p>';
+  if(RS.err)h+='<div class="warn" style="margin-top:8px">'+esc(RS.err)+'</div>';
+  // edit / delete
+  h+='<div class="row" style="margin-top:14px;gap:8px;border-top:1px solid var(--line);padding-top:12px"><input id="rs-goal2" class="inp" style="flex:1" placeholder="목표 바꾸기 예: 2:58:00" aria-label="목표 기록 바꾸기"><button class="btn ghost" id="rs-goal-save">목표 저장</button></div>';
+  h+='<div class="row" style="margin-top:8px;gap:8px"><label class="btn ghost" for="rs-gpx2" style="flex:1;text-align:center;cursor:pointer">코스 GPX '+(rc.course?'바꾸기':'올리기')+'</label><input type="file" id="rs-gpx2" accept=".gpx,application/gpx+xml,application/xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0">'+(RS.del===rc.id?'<button class="btn danger" id="rs-del-go">정말 삭제</button><button class="btn ghost" id="rs-del-no">취소</button>':'<button class="btn ghost" id="rs-del" style="color:var(--bad)">삭제</button>')+'</div>';
+  return h+'</div>';
+}
+function readGpx(file,cb){var fr=new FileReader();fr.onload=function(){try{cb(null,parseCourse(String(fr.result)))}catch(e){cb(e)}};fr.onerror=function(){cb(new Error("파일을 읽지 못했어요."))};fr.readAsText(file)}
+function bindRace(){
+  function $(id){return document.getElementById(id)}
+  var nb=$("rs-new");if(nb)nb.onclick=function(){RS.newOpen=!RS.newOpen;RS.err="";keepRace()};
+  var dr=RS.draft;
+  if(RS.newOpen&&dr){[["rs-name","name"],["rs-date","date"],["rs-goal","goal"],["rs-km","dist"]].forEach(function(a){var el=$(a[0]);if(el)el.addEventListener("input",function(){dr[a[1]]=el.value})});
+    var ds=$("rs-dist");if(ds)ds.onchange=function(){dr.dist=ds.value;dr.goal="";keepRace()};
+    var gf=$("rs-gpx");if(gf)gf.onchange=function(){if(!gf.files||!gf.files[0])return;readGpx(gf.files[0],function(e,c){if(e){RS.err=e.message;keepRace();return}dr.course=c;RS.err="";if(!dr.name&&c.name)dr.name=c.name;
+      if(RDIST[dr.dist]){var L=c.len/1000;if(Math.abs(L-21.0975)/21.0975<0.06)dr.dist="21.0975";else if(Math.abs(L-10)/10<0.08)dr.dist="10";else if(Math.abs(L-42.195)/42.195<0.06)dr.dist="42.195"}keepRace()})};
+    var mk=$("rs-make");if(mk)mk.onclick=function(){
+      var name=(dr.name||"").trim(),date=dr.date,dist=+dr.dist,goal=dr.goal?parseTime(dr.goal):null;
+      if(!name){RS.err="대회 이름을 넣어 주세요.";keepRace();return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date||"")){RS.err="대회 날짜를 골라 주세요.";keepRace();return}
+      if(!dist||dist<1||dist>100){RS.err="거리를 km로 넣어 주세요.";keepRace();return}
+      if(!goal)goal=defaultGoal(dist);if(goal<dist*150||goal>dist*600){RS.err="목표 기록을 시:분:초로 다시 넣어 주세요.";keepRace();return}
+      var rc={id:"r"+Date.now().toString(36),name:name.slice(0,30),date:date,dist:dist,goal:goal,course:dr.course||null,at:Date.now()};
+      S.races=(S.races||[]).concat([rc]).slice(-20);RS.sel=rc.id;RS.newOpen=false;RS.draft=null;RS.err="";RS.full=false;save();keepRace();
+      var el=$("race-d");if(el)el.scrollIntoView({block:"start"});raceAI(rc)}}
+  view.querySelectorAll("[data-race]").forEach(function(b){b.onclick=function(){RS.sel=RS.sel===b.dataset.race?null:b.dataset.race;RS.err="";RS.msg="";RS.del=null;RS.full=false;keepRace();var el=$("race-d");if(el&&RS.sel)el.scrollIntoView({block:"start",behavior:"smooth"})}});
+  var rc=RS.sel&&raceById(RS.sel);if(!rc)return;
+  var fb=$("rs-full");if(fb)fb.onclick=function(){RS.full=!RS.full;keepRace()};
+  var ai=$("rs-ai");if(ai)ai.onclick=function(){raceAI(rc)};
+  var rv=$("rs-review");if(rv)rv.onclick=function(){raceReview(rc)};
+  var mn=$("rs-manual");if(mn)mn.onclick=function(){var t=parseTime($("rs-fin").value);if(!t||t<rc.dist*150||t>rc.dist*600){RS.err="기록을 시:분:초로 넣어 주세요.";keepRace();return}raceReview(rc,t)};
+  var gs=$("rs-goal-save");if(gs)gs.onclick=function(){var t=parseTime($("rs-goal2").value);if(!t||t<rc.dist*150||t>rc.dist*600){RS.err="목표를 시:분:초로 넣어 주세요.";keepRace();return}rc.goal=t;RS.err="";RS.msg="목표를 "+fmtT(t)+"로 바꾸고 구간 페이스를 다시 계산했어요.";if(rc.result){var sc=scoreRace(rc,rc.result);rc.result.score=sc.score;rc.result.parts=sc.parts}save();keepRace()};
+  var g2=$("rs-gpx2");if(g2)g2.onchange=function(){if(!g2.files||!g2.files[0])return;readGpx(g2.files[0],function(e,c){if(e){RS.err=e.message;keepRace();return}rc.course=c;RS.err="";RS.msg="코스를 바꾸고 구간 페이스를 다시 계산했어요. AI 전략도 다시 만들어 보세요.";save();keepRace()})};
+  var dl=$("rs-del");if(dl)dl.onclick=function(){RS.del=rc.id;keepRace()};
+  var dn=$("rs-del-no");if(dn)dn.onclick=function(){RS.del=null;keepRace()};
+  var dg=$("rs-del-go");if(dg)dg.onclick=function(){S.races=(S.races||[]).filter(function(x){return x.id!==rc.id});RS.sel=null;RS.del=null;RS.msg="";save();keepRace()};
+}
+function racesCtx(){var a=racesSorted().slice(0,4);if(!a.length)return "";return "\n[레이스 전략·결과]\n"+a.map(function(rc){var r=rc.result;return rc.date+" "+rc.name+" "+rc.dist+"km 목표 "+fmtT(rc.goal)+(r?" → 기록 "+fmtT(r.dur)+" · "+r.score+"점"+(r.split!=null?" · 후반 "+(r.split>0?"+":"")+r.split+"%":"")+(r.ai&&r.ai.next&&r.ai.next.length?" · 다음 유의: "+r.ai.next.slice(0,3).join(" / "):""):rc.ai&&rc.ai.summary?" · 전략: "+rc.ai.summary.slice(0,140):"")}).join("\n")}
 function vPace(){
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
   var h='<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
@@ -1810,6 +2058,7 @@ function vPace(){
     h+='<div class="card"><h2>분석 결과</h2><p class="small muted" style="margin:6px 0 0">역치 페이스나 최근 5K·10K·하프 기록 중 하나만 넣어도 페이스를 계산해요. 지금은 원본 서브3 페이스(MP 4:15/km)를 보여 주고 있어요.</p></div>';
   }
   h+=goalCard();
+  h+=raceCards();
   // zones
   h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){return zoneRow(z,K!==1)}).join("")+'</div>';
   ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note.replace("{hr}",z.hr?HR(z.hr):"")+'</div>'});
@@ -1820,7 +2069,7 @@ function vPace(){
   var pa=document.getElementById("p-auto");if(pa)pa.onchange=function(){S.profile=S.profile||{};S.profile.auto=pa.checked;if(pa.checked&&S.fit){if(S.fit.thr)S.profile.thr=S.fit.thr;if(S.fit.k10){S.profile.recDist="10";S.profile.recTime=S.fit.k10;S.profile.recDate=S.fit.date||T}}save();var y=window.scrollY;render();window.scrollTo(0,y)};
   [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
   document.getElementById("p-use").onchange=function(){setP("use",this.checked)};
-  bindGoal();
+  bindGoal();bindRace();
   view.querySelectorAll("[data-rd]").forEach(function(b){b.onclick=function(){setP("recDist",b.dataset.rd)}});
 }
 
@@ -2061,6 +2310,7 @@ function vGuide(){
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>롱런 앞부분</dt><dd>MP 구간 전 '+zr(Zk.mpf)+' · '+zh(Zk.mpf)+'</dd><dt>플로트</dt><dd>'+zr(Zk.float)+' (MP 반복 사이 1K)</dd><dt>회복 LSD</dt><dd>'+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd></dl></div>';
   h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준이에요. 올해 풀코스는 시계에 42.29~42.36km로 찍혔어요. 시계 '+P(255)+'로 달리면 여유 없이 목표 안팎이 돼요. 3/18~20 탄수화물 로딩.</p>'+raceGuide()+'</div>';
+  h+='<div class="card"><h2>레이스 전략 · 대회 평가</h2><ul class="tight small" style="margin-top:8px"><li><b>전략 만들기:</b> 내 페이스 → 레이스 전략 → "+ 새 대회". 이름·날짜·종목·목표를 넣고 코스 GPX를 올리면 오르막·내리막을 반영한 km별 목표 페이스, 통과 시간, AI 구간 운영법·보급·주의점을 만들어요.</li><li><b>이력:</b> 대회마다 저장돼요. 눌러서 다시 보고, 목표나 코스를 바꾸면 페이스를 다시 계산해요.</li><li><b>대회 후:</b> 워치 기록을 동기화하면 "기록으로 분석하기"로 km별 실제 페이스를 계획과 비교해 100점 만점(목표 달성 40 · 페이스 분배 25 · 구간 계획 준수 20 · 후반 유지 15)으로 평가하고, 잘한 점·아쉬운 점·다음 레이스 유의사항을 알려줘요. 기록이 없으면 공식 기록만 넣어 평가할 수 있어요.</li><li>대회 결과는 AI 코치도 참고해요.</li></ul></div>';
   h+='<div class="card"><h2>요일별 먹는 양</h2><p class="small muted" style="margin:2px 0 0">'+(Object.keys(S.wlog||{}).length||S.wgoal?'내 체중 '+(Math.round(bodyW()*10)/10)+'kg 기준이에요.':'체중을 기록하면 내 체중에 맞춰 계산돼요. 지금은 72kg 기준.')+'</p><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+foodKcal(x)+' kcal</b><div class="small">탄수 '+foodCarb(x)+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 '+protTxt()+': 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
   h+='<div class="card"><h2>워치 기록 연동</h2><dl class="kv" style="margin-top:8px"><dt>COROS</dt><dd>claude.ai 커넥터로 내 계정 연결 → 앱을 열 때마다 러닝·체중·안정시 심박·수면 HRV를 자동으로 불러와요</dd><dt>가민</dt><dd>매주 일요일 21:00 알림 → connect.garmin.com 활동 목록에서 CSV로 내보내기 → 기록 탭에 올리기</dd><dt>애플워치 등</dt><dd>GPX·TCX·FIT 파일을 기록 탭에 올려요</dd></dl><p class="small muted" style="margin:8px 0 0">계획 거리의 80% 이상 뛴 날은 자동으로 체크되고, 직접 체크하거나 해제한 날은 바꾸지 않아요. 휴대폰 알림을 받으려면 기록 탭에서 "휴대폰 알림 받기"로 구글 캘린더에 등록하세요.</p></div>';
   h+='<div class="card"><h2>AI 코치</h2><ul class="tight" style="margin-top:8px"><li>화면 오른쪽 아래 <b>AI 코치</b> 버튼을 눌러 물어봐요.</li><li>내 훈련 계획(최근 2주~다음 1주), 달린 기록(워치·직접 입력·메모), 체중, 목표와 페이스 존, 점검 결과를 보고 답해요.</li><li>추천 질문: "어제 달린 기록 어땠어?", "몸이 무거운데 쉬어야 할까?", "지금 목표가 현실적이야?"</li><li><b>음성:</b> "말로 묻기"를 누르고 말한 뒤 한 번 더 누르면 보내요. "답변 읽어주기"를 켜면 답을 소리로 읽어 줘요. PC 크롬·Claude 데스크톱 앱에서는 앱이 바로 받아쓰고, 휴대폰에서는 "말로 입력"을 누른 뒤 키보드의 🎤로 말하면 말을 멈추고 2.5초 뒤 자동으로 보내요.</li><li>대화는 내 계정에만 저장되고 크루에는 공유되지 않아요. 처음 한 번 클로드 사용을 허용해야 해요.</li><li>답은 참고용이에요. 통증·어지럼 같은 위험 신호는 바로 쉬고 진료받아요.</li></ul></div>';
