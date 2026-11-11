@@ -1763,8 +1763,15 @@ async function askClaude(){
 // ---------- Weather (AccuWeather connector): now + next 3 hours at the runner's chosen neighbourhood ----------
 var WX={busy:false,err:"",cur:null,hr:null,mc:null,at:0,key:"",q:"",res:null,edit:false};
 function wxObj(res){if(!res)return null;if(res.structuredContent&&typeof res.structuredContent==="object")return res.structuredContent;if(res.payload&&typeof res.payload==="object")return res.payload;try{return JSON.parse(payloadText(res))}catch(e){return null}}
+var WXSRV=null;
+async function wxServer(mcp){if(WXSRV)return WXSRV;var names=[];
+  try{var lt=await mcp.listTools();(lt&&lt.servers||[]).forEach(function(sv){if(/accu\s*weather/i.test(sv.server||""))names.push(sv.server)})}catch(e){}
+  ["AccuWeather®","AccuWeather"].forEach(function(n){if(names.indexOf(n)<0)names.push(n)});return names}
 async function wxCall(tool,qp,fresh){var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)throw{code:"no_mcp"};
-  return wxObj(await mcp.callTool("AccuWeather",tool,{queryParams:qp},{cache:fresh?{refresh:true,staleTime:0,gcTime:1800000}:{staleTime:900000,gcTime:1800000}}))}
+  var opt={cache:fresh?{refresh:true,staleTime:0,gcTime:1800000}:{staleTime:900000,gcTime:1800000}},cands=WXSRV?[WXSRV]:await wxServer(mcp),last=null;
+  for(var i=0;i<cands.length;i++){try{var r=await mcp.callTool(cands[i],tool,{queryParams:qp},opt);WXSRV=cands[i];return wxObj(r)}
+    catch(e){last=e;if(!(e&&(e.code==="server_not_connected"||e.code==="not_in_manifest"||e.code==="server_not_found")))throw e}}
+  throw last||{code:"server_not_connected"}}
 var WXERR={server_not_connected:"AccuWeather가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 AccuWeather를 연결해 주세요.",not_in_manifest:"이 앱의 AccuWeather 사용을 허용해 주세요.",approval_required:"날씨 불러오기를 허용해 주세요.",no_mcp:"claude.ai에 로그인한 상태로 열어야 날씨를 볼 수 있어요.",rate_limited:"요청이 많아요. 잠시 후 다시 눌러 주세요."};
 async function wxLoad(fresh){
   if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-WX.at<900000)return;
@@ -1818,9 +1825,10 @@ function bindWx(){function $(i){return document.getElementById(i)}
   var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
   async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
     try{var qs=[v].concat(v.split(/[\s,]+/).filter(function(x){return x.length>=2&&x!==v})),out=[],seen={};
-      var rs=await Promise.all(qs.slice(0,4).map(function(q2){return wxCall("widgets-search-claude",{query:q2},true).then(function(o){return{q:q2,o:o}},function(){return{q:q2,o:null}})}));
+      var rs=await Promise.all(qs.slice(0,4).map(function(q2){return wxCall("widgets-search-claude",{query:q2},true).then(function(o){return{q:q2,o:o}},function(e){return{q:q2,o:null,e:e}})}));
       rs.forEach(function(x){((x.o&&x.o.results)||[]).forEach(function(r){var k=String(r.locationKey||""),nm=String(r.name||"");if(!k||seen[k]||/Hwanghae|Pyong|Hamgyong|Ryanggang|Chagang|Rason|Kaesong|Nampo/i.test(nm))return;seen[k]=1;out.push({name:nm.slice(0,40),key:k,by:x.q})})});
-      WX.res=out.slice(0,6);WX.err=""}
+      WX.res=out.slice(0,6);WX.err="";
+      if(!out.length){var fe=rs.filter(function(x){return x.e})[0];if(fe){WX.res=null;var e2=fe.e;WX.err=WXERR[e2&&e2.code]||("AccuWeather 검색 오류"+(e2&&(e2.code||e2.message)?" ("+(e2.code||e2.message)+")":""))}}}
     catch(e){WX.res=null;WX.err=WXERR[e&&e.code]||("동네를 찾지 못했어요"+(e&&e.code?" ("+e.code+")":"."))}finally{WX.busy=false;wxPaint()}}
   var fd=$("wx-find");if(fd)fd.onclick=find;if(q)q.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();find()}});
   view.querySelectorAll("[data-wxpick]").forEach(function(b){b.onclick=function(){var r=WX.res[+b.dataset.wxpick];S.wx={key:r.key,name:r.name.replace(/,\s*(Seoul|서울시?)$/,"")};WX.edit=false;WX.res=null;WX.q="";WX.cur=null;WX.hr=null;WX.mc=null;WX.at=0;WX.err="";save();wxPaint();wxLoad(true)}});
