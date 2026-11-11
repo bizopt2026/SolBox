@@ -88,9 +88,8 @@ details.more[open]{padding-bottom:10px}
 .wxm b{font-size:17px}
 .wxm small{font-size:11px;color:var(--muted);white-space:nowrap}
 .wxm.now b{color:var(--accent)}
-.wxcard{padding-top:10px;padding-bottom:10px}
 .wxtop{display:flex;align-items:center;gap:8px}
-.wxloc{padding:2px 0;min-height:0;font-weight:700;color:var(--ink);text-decoration:none}
+.wxloc{padding:2px 0;min-height:0;font-weight:600;color:var(--ink);text-decoration:none}
 .wxtop .small{margin-left:auto}
 .wxre{border:1px solid var(--line);background:var(--card);border-radius:50%;width:30px;height:30px;font-size:14px;line-height:1;flex:none}
 .wxrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:6px}
@@ -1183,6 +1182,7 @@ function enhance(){
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
     var RR=readiness(T),rs=RR.has?["좋음","주의","쉬어가기"][RR.lv]+(RR.r?" · "+RR.r+"bpm"+(RR.diff!=null?"("+(RR.diff>0?"+":"")+RR.diff+")":""):"")+(RR.h?" · HRV "+RR.h.avg:""):"오늘 아침 기록 없음";
     foldCard(findCard("훈련 전 컨디션"),"ready",rs,false);
+    wxFold();
     var mt=mealTot(sel),msc=mealScore(sel,i%7);foldCard(findCard("식단 기록"),"meals",(msc?msc.s+"점 · ":"")+Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",true);
     var r=dayRec(sel),fx=view.querySelector(".session .fields");
     if(fx){var has=!!(r.km||r.hr||r.pace||r.rpe||r.note);foldInline(fx,"fields",has?"내가 적은 기록 보기 · 고치기":"거리·심박·메모 직접 적기",has||foldOpen("fields",false))}
@@ -1826,24 +1826,24 @@ function wxCard(){
     if(WX.err)h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p>';
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
     return h+'</div>'}
-  var c=WX.cur&&WX.cur.currentConditions,nx=wxNext();
-  h+='<div class="wxtop"><button class="linkbtn wxloc" id="wx-loc" aria-label="동네 바꾸기">📍 '+esc(String(S.wx.name).split(",")[0])+'</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button><button class="wxre wxtg" id="wx-tg" aria-expanded="'+foldOpen("wxo",false)+'" aria-label="기온·바람·강수 '+(foldOpen("wxo",false)?'접기':'펼치기')+'"><span class="chev" aria-hidden="true"></span></button></div>';
+  var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),tp=(c||nx.length)?wxTips():[],good=!tp.length||/^👍/.test(tp[0]);
+  h='<div class="card wxcard" id="wx" data-sum="'+esc(tp[0]||(WX.busy?'불러오는 중…':''))+'" style="border-left:4px solid '+(good?'var(--ok)':'var(--accent)')+'"><div class="row between"><h2>날씨</h2></div>';
+  h+='<div class="wxtop"><button class="linkbtn wxloc" id="wx-loc" aria-label="동네 바꾸기">📍 '+esc(String(S.wx.name).split(",")[0])+'</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button></div>';
   if(!c&&!nx.length){h+='<p class="small'+(WX.err?'" style="color:var(--bad);margin:4px 0 0"':' muted" style="margin:4px 0 0"')+'>'+esc(WX.err||(WX.busy?'날씨를 불러오는 중…':'↻를 눌러 날씨를 불러와 주세요.'))+'</p>';return h+'</div>'}
   function rp(x){return parseInt((x.extended&&x.extended.rainProbability)||x.precip)||0}
-  var tp=wxTips();h+='<button class="small wxtip" id="wx-tip">'+esc(tp[0])+(tp.length>1?' <span class="muted">+'+(tp.length-1)+'</span>':'')+'</button>';
-  if(foldOpen("wxo",false)){
-    h+='<div class="wxrow"><span class="wxm now"><small>지금</small><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><small>💨'+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</small><small>'+esc(c?c.phrase:'')+'</small></span>'+nx.map(function(x){var p=rp(x),e=x.extended||{};return '<span class="wxm"><small>'+new Date(x.epoch*1000).getHours()+'시</small><b class="num">'+Math.round(x.temperatureValue)+'°</b><small'+(e.windValue>=20||e.gustsValue>=35?' class="wet"':'')+'>💨'+wxMs(e.windValue)+'</small><small'+(p>=50?' class="wet"':'')+'>☔'+p+'%</small></span>'}).join("")+'</div>';
-    if(tp.length>1)h+='<ul class="tight small" style="margin:6px 0 0">'+tp.slice(1).map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
-    h+='<div class="small muted" style="margin-top:4px">바람 m/s · AccuWeather</div>';
-  }
+  h+='<div class="small" style="margin-top:6px">'+esc(tp[0])+'</div>';
+  h+='<div class="wxrow"><span class="wxm now"><small>지금</small><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><small>💨'+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</small><small>'+esc(c?c.phrase:'')+'</small></span>'+nx.map(function(x){var p=rp(x),e=x.extended||{};return '<span class="wxm"><small>'+new Date(x.epoch*1000).getHours()+'시</small><b class="num">'+Math.round(x.temperatureValue)+'°</b><small'+(e.windValue>=20||e.gustsValue>=35?' class="wet"':'')+'>💨'+wxMs(e.windValue)+'</small><small'+(p>=50?' class="wet"':'')+'>☔'+p+'%</small></span>'}).join("")+'</div>';
+  if(tp.length>1)h+='<ul class="tight small" style="margin:6px 0 0">'+tp.slice(1).map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
+  h+='<div class="small muted" style="margin-top:4px">바람 m/s · AccuWeather</div>';
   if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';
   return h+'</div>'}
-function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx()}
+function wxFold(){var el=document.getElementById("wx");if(el&&el.dataset.sum!==undefined&&S.wx&&S.wx.key&&!WX.edit)foldCard(el,"wxo",el.dataset.sum,false)}
+function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx();wxFold()}
 function bindWx(){function $(i){return document.getElementById(i)}
   var lc=$("wx-loc");if(lc)lc.onclick=function(){WX.edit=true;WX.res=null;wxPaint()};
   var cn=$("wx-cancel");if(cn)cn.onclick=function(){WX.edit=false;wxPaint()};
   var re=$("wx-re");if(re)re.onclick=function(){wxLoad(true)};
-  function tg(){foldSet("wxo",!foldOpen("wxo",false));wxPaint()}var t1=$("wx-tg");if(t1)t1.onclick=tg;var t2=$("wx-tip");if(t2)t2.onclick=tg;
+
 
   var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
   async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
