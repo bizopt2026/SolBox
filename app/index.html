@@ -65,7 +65,8 @@ h3{font-size:14px;margin:0;color:var(--muted);font-weight:500}
 .chip{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--q-soft);color:var(--q)}
 .session{border-radius:14px;padding:18px;border:1px solid var(--line);background:var(--card);position:relative;overflow:hidden}
 .session::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--stripe,var(--rec))}
-.session .what{font-size:22px;font-weight:700;line-height:1.35;white-space:pre-line;margin:6px 0 4px}
+.session .what{font-size:20px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;margin:6px 0 4px}
+.session .what.wrap{white-space:normal}
 .session.t-q{background:var(--q-soft)} .session.t-l,.session.t-x{background:var(--accent-soft)}
 .done-btn{width:100%;margin-top:14px;padding:16px;border-radius:12px;border:2px solid var(--ink);background:transparent;font-weight:700;font-size:17px}
 .done-btn.on{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -999,6 +1000,7 @@ function foldInline(el,id,label,def){
 function enhance(){
   try{
   if(tab==="today"){
+    view.querySelectorAll(".session .what").forEach(function(el){var fs=20;while(fs>13&&el.scrollWidth>el.clientWidth+1){fs--;el.style.fontSize=fs+"px"}if(el.scrollWidth>el.clientWidth+1)el.classList.add("wrap")});
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
     var RR=readiness(T),rs=RR.has?["좋음","주의","쉬어가기"][RR.lv]+(RR.r?" · "+RR.r+"bpm"+(RR.diff!=null?"("+(RR.diff>0?"+":"")+RR.diff+")":""):"")+(RR.h?" · HRV "+RR.h.avg:""):"오늘 아침 기록 없음";
     foldCard(findCard("훈련 전 컨디션"),"ready",rs,false);
@@ -1555,7 +1557,7 @@ function vToday(){
   h+=authBar()+statusStrip()+readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})());
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
-  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]))+'</div>';
+  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){h+='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(z.trk?' <small style="color:var(--q);font-weight:700">'+lap400(z)+'</small>':'')+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>'}
   if(t[0]==="r"){h+='<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
   if(W[w].note&&t[1].indexOf("66K 장거리")===0)h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
