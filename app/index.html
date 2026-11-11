@@ -1812,7 +1812,7 @@ function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.
   if(mc&&mc.summary120&&!/없음/.test(mc.summary120))t.push("☔ "+mc.summary120+" · 일찍 끝내거나 트레드밀");
   else if(rain)t.push("☔ "+new Date(rain.epoch*1000).getHours()+"시 비 가능성 "+(rain.extended&&rain.extended.rainProbability||rain.precip)+" · 일찍 출발하거나 방수 재킷");
   var w=Math.max.apply(null,[c&&c.extended&&c.extended.windValue||0].concat(nx.map(function(x){return x.extended&&x.extended.windValue||0}))),g=Math.max.apply(null,[0].concat(nx.map(function(x){return x.extended&&x.extended.gustsValue||0})));
-  if(w>=20||g>=35)t.push("💨 바람 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+) · 맞바람엔 5~10초 느려도 OK");
+  if(w>=20||g>=35)t.push("💨 바람 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+") · 맞바람엔 5~10초 느려도 OK");
   var rf=c?c.realFeelValue:(nx[0]&&nx[0].realFeelValue);
   if(rf!=null){if(rf<=-5)t.push("🥶 체감 "+Math.round(rf)+"° · 장갑·넥워머, 워밍업 길게");else if(rf<=3)t.push("🧤 체감 "+Math.round(rf)+"° · 장갑·얇은 긴팔 추천");else if(rf>=27)t.push("🥵 체감 "+Math.round(rf)+"° · km당 10~20초 늦추고 수분 자주");else if(rf>=22)t.push("☀️ 체감 "+Math.round(rf)+"° · 물 챙기고 MP는 심박 기준");}
   if(!t.length)t.push("👍 달리기 좋은 날씨예요");
