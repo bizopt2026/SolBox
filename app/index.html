@@ -1794,7 +1794,6 @@ function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.
   if(w>=20||g>=35)t.push("💨 바람 최대 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+"m/s). 맞바람 구간은 페이스보다 노력·심박을 지키고 5~10초 느려도 괜찮아요");
   var rf=c?c.realFeelValue:(nx[0]&&nx[0].realFeelValue);
   if(rf!=null){if(rf<=-5)t.push("🥶 체감 "+Math.round(rf)+"°. 장갑·넥워머·긴 레이어, 워밍업은 실내에서 길게");else if(rf<=3)t.push("🧤 체감 "+Math.round(rf)+"°. 장갑과 얇은 긴팔 레이어 추천");else if(rf>=27)t.push("🥵 체감 "+Math.round(rf)+"°. 페이스를 km당 10~20초 늦추고 15~20분마다 수분 보충");else if(rf>=22)t.push("☀️ 체감 "+Math.round(rf)+"°. 물을 챙기고 MP 구간은 심박 기준으로");}
-  var aq=WX.cur&&WX.cur.currentAirQuality;if(aq&&aq.overallPlumeLabsIndex>=100)t.push("😷 대기질 "+aq.category+"("+aq.overallPlumeLabsIndex+"). 강도 높은 훈련은 실내나 공기 좋은 시간대로 옮기는 걸 권해요");
   if(!t.length)t.push("👍 달리기 좋은 날씨예요");
   return t}
 function wxCard(){
@@ -1807,12 +1806,12 @@ function wxCard(){
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
   } else if(WX.err&&!WX.cur){h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p><button class="sbtn" id="wx-re" style="margin-top:8px">다시 불러오기</button>'}
   else if(!WX.cur&&!WX.hr){h+='<p class="small muted" style="margin:6px 0 0">'+(WX.busy?'날씨를 불러오는 중…':'날씨를 불러오려면 눌러 주세요.')+'</p>'+(WX.busy?'':'<button class="sbtn" id="wx-re" style="margin-top:8px">불러오기</button>')}
-  else{var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),aq=WX.cur&&WX.cur.currentAirQuality,mc=WX.mc&&WX.mc.minuteCastForecast;
+  else{var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.mc&&WX.mc.minuteCastForecast;
     h+='<div class="wxgrid"><div class="wxc now"><span class="small muted">지금</span><b class="num">'+(c?Math.round(c.temperatureValue)+'°':'-')+'</b><span class="small">'+esc(c?c.phrase:'')+'</span><span class="small muted">체감 '+(c?Math.round(c.realFeelValue)+'°':'-')+'</span><span class="small muted">💨 '+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</span></div>';
     nx.forEach(function(x){var e=x.extended||{},rp=e.rainProbability||x.precip;h+='<div class="wxc"><span class="small muted">'+new Date(x.epoch*1000).getHours()+'시'+'</span><b class="num">'+Math.round(x.temperatureValue)+'°</b><span class="small">'+esc(x.phrase)+'</span><span class="small'+(parseInt(rp)>=50?'" style="color:var(--s5);font-weight:700':' muted')+'">☔ '+esc(rp)+(e.rainValue?' '+e.rainValue+'mm':'')+'</span><span class="small muted">💨 '+wxMs(e.windValue)+(e.gustsValue>=30?'~'+wxMs(e.gustsValue):'')+'</span></div>'});
     h+='</div>';
     if(mc&&mc.summary120)h+='<div class="small" style="margin-top:8px">🌧 앞으로 2시간: '+esc(mc.summary120)+'</div>';
-    if(aq)h+='<div class="small" style="margin-top:4px">대기질 <b style="color:'+esc(aq.categoryColor||'inherit')+'">'+esc(aq.category)+'</b>'+(aq.overallPlumeLabsIndex!=null?' ('+aq.overallPlumeLabsIndex+')':'')+'</div>';
+    h+='<div class="small muted" style="margin-top:4px">😷 미세먼지는 국내 측정소 기준으로 확인하세요 · <a href="https://search.naver.com/search.naver?query='+encodeURIComponent((S.wx&&S.wx.name?S.wx.name.split(",")[0]+" ":"")+"미세먼지")+'" target="_blank" rel="noopener">네이버</a> · <a href="https://www.airkorea.or.kr/" target="_blank" rel="noopener">에어코리아</a></div>';
     h+='<ul class="tight small" style="margin:8px 0 0">'+wxTips().map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
     h+='<div class="row between" style="margin-top:8px"><span class="small muted">바람 m/s · AccuWeather · '+(WX.busy?'갱신 중…':agoT(WX.at)+' 갱신')+'</span><button class="sbtn" id="wx-re"'+(WX.busy?' disabled':'')+'>↻</button></div>';
     if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';}
@@ -1834,7 +1833,7 @@ function bindWx(){function $(i){return document.getElementById(i)}
   view.querySelectorAll("[data-wxpick]").forEach(function(b){b.onclick=function(){var r=WX.res[+b.dataset.wxpick];S.wx={key:r.key,name:r.name.replace(/,\s*(Seoul|서울시?)$/,"")};WX.edit=false;WX.res=null;WX.q="";WX.cur=null;WX.hr=null;WX.mc=null;WX.at=0;WX.err="";save();wxPaint();wxLoad(true)}});
 }
 function wxCtx(){if(!WX.cur&&!WX.hr)return "";var c=WX.cur&&WX.cur.currentConditions,nx=wxNext();
-  return "날씨("+(S.wx&&S.wx.name||"")+", "+agoT(WX.at)+"): 지금 "+(c?Math.round(c.temperatureValue)+"° 체감 "+Math.round(c.realFeelValue)+"° "+c.phrase+" 바람 "+wxMs(c.extended&&c.extended.windValue)+"m/s":"-")+"; "+nx.map(function(x){var e=x.extended||{};return x.dateTime+" "+Math.round(x.temperatureValue)+"° 비 "+(e.rainProbability||x.precip)+" 바람 "+wxMs(e.windValue)+"m/s"}).join("; ")+(WX.cur&&WX.cur.currentAirQuality?"; 대기질 "+WX.cur.currentAirQuality.category:"")}
+  return "날씨("+(S.wx&&S.wx.name||"")+", "+agoT(WX.at)+"): 지금 "+(c?Math.round(c.temperatureValue)+"° 체감 "+Math.round(c.realFeelValue)+"° "+c.phrase+" 바람 "+wxMs(c.extended&&c.extended.windValue)+"m/s":"-")+"; "+nx.map(function(x){var e=x.extended||{};return x.dateTime+" "+Math.round(x.temperatureValue)+"° 비 "+(e.rainProbability||x.precip)+" 바람 "+wxMs(e.windValue)+"m/s"}).join("; ")}
 var APPV="beta-2";
 function newsCard(){if(S.seenV===APPV||!S.onboarded)return "";
   return '<div class="card news"><div class="row between"><h2>🎉 클로즈베타 업데이트</h2><button class="linkbtn" id="news-ok">확인</button></div><ul class="tight small" style="margin-top:8px"><li><b>훈련 점수(100점)</b>: 양보다 질 — 거리 30 + 페이스·편차·심박 70. 색으로 한눈에 봐요</li><li><b>식단 점수</b>와 <b>휴식일 추가 러닝</b> 평가</li><li><b>레이스 전략</b>: 내 페이스 → 레이스 전략 탭. 코스 GPX로 구간 페이스·AI 전략·워치 등록·대회 후 평가</li><li><b>가민·애플 건강</b>: 오늘 화면 위 ⌚ 줄을 눌러 freddy로 자동 연동</li><li><b>날씨</b>: 오늘 화면에서 내 동네의 지금부터 3시간 기온·강수·바람과 러닝 팁(AccuWeather 연결 필요)</li><li>가이드와 <b>의견 보내기</b>는 오른쪽 위 <b>?</b> 버튼으로 옮겼어요</li></ul></div>'}
