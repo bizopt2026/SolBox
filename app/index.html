@@ -1768,13 +1768,13 @@ async function wxServer(mcp){if(WXSRV)return WXSRV;var names=[];
   try{var lt=await mcp.listTools();(lt&&lt.servers||[]).forEach(function(sv){if(/accu\s*weather/i.test(sv.server||""))names.push(sv.server)})}catch(e){}
   ["AccuWeather®","AccuWeather"].forEach(function(n){if(names.indexOf(n)<0)names.push(n)});return names}
 async function wxCall(tool,qp,fresh){var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)throw{code:"no_mcp"};
-  var opt={cache:fresh?{refresh:true,staleTime:0,gcTime:1800000}:{staleTime:900000,gcTime:1800000}},cands=WXSRV?[WXSRV]:await wxServer(mcp),last=null;
+  var opt={cache:fresh?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:300000,gcTime:600000}},cands=WXSRV?[WXSRV]:await wxServer(mcp),last=null;
   for(var i=0;i<cands.length;i++){try{var r=await mcp.callTool(cands[i],tool,{queryParams:qp},opt);WXSRV=cands[i];return wxObj(r)}
     catch(e){last=e;if(!(e&&(e.code==="server_not_connected"||e.code==="not_in_manifest"||e.code==="server_not_found")))throw e}}
   throw last||{code:"server_not_connected"}}
 var WXERR={server_not_connected:"AccuWeather가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 AccuWeather를 연결해 주세요.",not_in_manifest:"이 앱의 AccuWeather 사용을 허용해 주세요.",approval_required:"날씨 불러오기를 허용해 주세요.",no_mcp:"claude.ai에 로그인한 상태로 열어야 날씨를 볼 수 있어요.",rate_limited:"요청이 많아요. 잠시 후 다시 눌러 주세요."};
 async function wxLoad(fresh){
-  if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-WX.at<900000)return;
+  if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-WX.at<300000)return;
   WX.busy=true;WX.err="";wxPaint();
   try{var k=S.wx.key,qp={locationKey:k,unit:"metric",lang:"ko"};
     var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
@@ -1807,13 +1807,13 @@ function wxCard(){
   } else if(WX.err&&!WX.cur){h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p><button class="sbtn" id="wx-re" style="margin-top:8px">다시 불러오기</button>'}
   else if(!WX.cur&&!WX.hr){h+='<p class="small muted" style="margin:6px 0 0">'+(WX.busy?'날씨를 불러오는 중…':'날씨를 불러오려면 눌러 주세요.')+'</p>'+(WX.busy?'':'<button class="sbtn" id="wx-re" style="margin-top:8px">불러오기</button>')}
   else{var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.mc&&WX.mc.minuteCastForecast;
-    h+='<div class="wxgrid"><div class="wxc now"><span class="small muted">지금</span><b class="num">'+(c?Math.round(c.temperatureValue)+'°':'-')+'</b><span class="small">'+esc(c?c.phrase:'')+'</span><span class="small muted">체감 '+(c?Math.round(c.realFeelValue)+'°':'-')+'</span><span class="small muted">💨 '+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</span></div>';
+    h+='<div class="wxgrid"><div class="wxc now"><span class="small muted">지금</span><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><span class="small">'+esc(c?c.phrase:'')+'</span><span class="small muted">체감 '+(c?Math.round(c.realFeelValue)+'°':'-')+'</span><span class="small muted">💨 '+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</span></div>';
     nx.forEach(function(x){var e=x.extended||{},rp=e.rainProbability||x.precip;h+='<div class="wxc"><span class="small muted">'+new Date(x.epoch*1000).getHours()+'시'+'</span><b class="num">'+Math.round(x.temperatureValue)+'°</b><span class="small">'+esc(x.phrase)+'</span><span class="small'+(parseInt(rp)>=50?'" style="color:var(--s5);font-weight:700':' muted')+'">☔ '+esc(rp)+(e.rainValue?' '+e.rainValue+'mm':'')+'</span><span class="small muted">💨 '+wxMs(e.windValue)+(e.gustsValue>=30?'~'+wxMs(e.gustsValue):'')+'</span></div>'});
     h+='</div>';
     if(mc&&mc.summary120)h+='<div class="small" style="margin-top:8px">🌧 앞으로 2시간: '+esc(mc.summary120)+'</div>';
     h+='<div class="small muted" style="margin-top:4px">😷 미세먼지는 국내 측정소 기준으로 확인하세요 · <a href="https://search.naver.com/search.naver?query='+encodeURIComponent((S.wx&&S.wx.name?S.wx.name.split(",")[0]+" ":"")+"미세먼지")+'" target="_blank" rel="noopener">네이버</a> · <a href="https://www.airkorea.or.kr/" target="_blank" rel="noopener">에어코리아</a></div>';
     h+='<ul class="tight small" style="margin:8px 0 0">'+wxTips().map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
-    h+='<div class="row between" style="margin-top:8px"><span class="small muted">바람 m/s · AccuWeather · '+(WX.busy?'갱신 중…':agoT(WX.at)+' 갱신')+'</span><button class="sbtn" id="wx-re"'+(WX.busy?' disabled':'')+'>↻</button></div>';
+    h+='<div class="row between" style="margin-top:8px"><span class="small muted">바람 m/s · AccuWeather '+(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':'')+' · '+(WX.busy?'갱신 중…':agoT(WX.at)+' 확인')+'</span><button class="sbtn" id="wx-re"'+(WX.busy?' disabled':'')+'>↻</button></div>';
     if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';}
   return h+'</div>'}
 function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx()}
@@ -1885,6 +1885,7 @@ function vToday(){
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;if(tab==="pace")PACEV="base";render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
   if(sel===T){bindWx();wxLoad(false)}
+  if(!window.__wxVis){window.__wxVis=1;document.addEventListener("visibilitychange",function(){if(!document.hidden&&tab==="today"&&sel===T)wxLoad(false)})}
   var no=document.getElementById("news-ok");if(no)no.onclick=function(){S.seenV=APPV;save();render()};
   bindDayEditor(sel);bindMeals(sel);bindReady(T);bindLaps();
   view.querySelectorAll("[data-story]").forEach(function(b){b.onclick=function(){openStory(b.dataset.story)}});
