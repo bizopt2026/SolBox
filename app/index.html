@@ -1908,7 +1908,7 @@ function vToday(){
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
     var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--s1)">✕</span>':'<div class="dot"></div>'))+'</button>'}
-  h+='</div><div class="small muted" style="margin-top:8px">완료 '+st.done+'/'+st.n+'회 · K는 그날 계획 총거리</div>'+scoreLegend()+'</div>';
+  h+='</div>'+scoreLegend()+'</div>';
   // upcoming key sessions (tap to open that day)
   var ks=nextKeySessions();
   if(ks.length){h+='<div class="card"><h2>다가오는 핵심 훈련</h2><div class="keys">';
