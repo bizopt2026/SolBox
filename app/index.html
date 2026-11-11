@@ -1881,6 +1881,7 @@ function HR(orig){return HRK?Math.round(orig*HRK):orig}
 function zr(z){return z.hi==null?P(z.lo)+"+":(z.lo===z.hi?P(z.lo):P(z.lo)+"~"+P(z.hi))}
 function zh(z){if(z.hr)return "♥ "+HR(z.hr)+(z.hrMax?" 이하":" 미만");if(EG.on&&EG.lthr){if(z.thr)return "♥ "+Math.round(EG.lthr*0.95)+"~"+EG.lthr;if(z.above)return "♥ "+EG.lthr+"+"}return ""}
 function ptxt(s){
+  s=String(s).replace(/\n\s*(?=\()/g," ");
   if(K===1)return s;
   s=s.replace(/\((\d{1,2}:\d{2}(?::\d{2})?) 이내\)/g,function(m,a){return "("+fmtT(parseTime(a)*K)+" 이내)"});
   s=s.replace(/목표 2:59:59/,"목표 "+fmtT(REF_GOAL*K));
