@@ -117,6 +117,16 @@ details.more[open]{padding-bottom:10px}
 .wxres{display:grid;gap:6px;margin-top:8px}
 .wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
+.bkgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.bk{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:1px;padding:10px 8px;border:1px solid var(--line);border-radius:12px;background:var(--card);min-width:0}
+.bk>span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk b{font-size:19px;line-height:1.2}
+.bk b small{font-size:11px;color:var(--muted);font-weight:600;margin-left:1px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.tgrid .tsvg{margin-top:2px}
+.wwhen{margin-top:6px}
+.wwhen>summary{cursor:pointer;list-style:none}
+.wwhen>summary::-webkit-details-marker{display:none}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -2001,34 +2011,38 @@ function chart(){
 
 var WOPEN=null;
 var WZ="all";
-function trendSvg(series,unit,col,lo,hi){var ks=Object.keys(series).sort().slice(-28);if(ks.length<2)return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
+function trendSvg(series,unit,col,lo,hi,mini){var ks=Object.keys(series).sort().slice(-28);if(ks.length<2)return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
   var vs=ks.map(function(k){return series[k]}),mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);if(lo!=null)mn=Math.min(mn,lo);if(hi!=null)mx=Math.max(mx,hi);var pad=Math.max(1,(mx-mn)*0.15);mn-=pad;mx+=pad;
-  var W0=320,H0=90,x0=p(ks[0]),x1=Math.max(p(ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
+  var W0=mini?160:320,H0=mini?64:90,x0=p(ks[0]),x1=Math.max(p(ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
   var o='<svg viewBox="0 0 '+W0+' '+H0+'" class="tsvg" role="img" aria-label="추이">';
   if(lo!=null&&hi!=null)o+='<rect x="8" y="'+Y(hi).toFixed(1)+'" width="'+(W0-16)+'" height="'+Math.max(1,Y(lo)-Y(hi)).toFixed(1)+'" fill="'+col+'" opacity=".12"/>';
   o+='<path d="'+ks.map(function(k,i){return (i?'L':'M')+X(k).toFixed(1)+','+Y(series[k]).toFixed(1)}).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2"/>';
   ks.forEach(function(k){o+='<circle cx="'+X(k).toFixed(1)+'" cy="'+Y(series[k]).toFixed(1)+'" r="2.5" fill="'+col+'"/>'});
   o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(ks[ks.length-1])+'</text></svg>';
-  var last=series[ks[ks.length-1]];return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
+  var last=series[ks[ks.length-1]];if(mini)return o+'<div class="small muted">4주 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>';return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
+function lastOf(o){var ks=Object.keys(o||{}).sort();return ks.length?o[ks[ks.length-1]]:null}
+function dietWeeks(){var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d);if(ds>T)break;var ms=mealScore(ds,d);if(ms&&!ms.live){a+=ms.s;n++}}if(n)rows.push([w,Math.round(a/n),n])}return rows.slice(-4)}
+function bodyKpis(ld){
+  var g=S.wgoal&&S.wgoal.target,r=lastOf(S.rhr),hv=lastOf(S.hrv),dw=dietWeeks(),dl=dw.length?dw[dw.length-1]:null;
+  function t(id,lb,v,u,sub,col){return '<button class="bk" data-bk="'+id+'"><span>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span>'+sub+'</span></button>'}
+  return '<div class="bkgrid">'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미정'))+t("tr","안정시 심박",r||"—","bpm",r?'최근 아침':'기록 없음')+t("tr","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'기록 없음')+t("tr","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'기록 없음',dl?SCOL[band(dl[1])]:null)+'</div>'}
 function bodyTrends(){
-  var h='<div class="card"><h2>몸 상태 추이</h2><p class="small muted" style="margin:2px 0 6px">'+(S.watch==="coros"?'COROS에서 아침마다 불러와요.':'워치를 COROS로 연동하면 자동으로 쌓여요. 오늘 화면의 훈련 전 컨디션에서 직접 적은 값도 들어가요.')+'</p>';
-  h+='<h3 class="rh" style="margin-top:8px">안정시 심박</h3>'+trendSvg(S.rhr||{},'bpm','var(--accent)');
+  var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
-  h+='<h3 class="rh">수면 HRV</h3>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi);
-  // weekly diet score
-  var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d);if(ds>T)break;var ms=mealScore(ds,d);if(ms&&!ms.live){a+=ms.s;n++}}if(n)rows.push([w,Math.round(a/n),n])}
-  rows=rows.slice(-4);
-  h+='<h3 class="rh">주간 식단 점수</h3>'+(rows.length?'<div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">오늘 화면의 식단 기록을 남기면 주간 평균을 보여 줘요.</p>');
+  h+='<div class="tgrid"><div><div class="small" style="font-weight:700">안정시 심박</div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,true)+'</div><div><div class="small" style="font-weight:700">수면 HRV</div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,true)+'</div></div>';
+  var rows=dietWeeks();
+  h+='<div class="small" style="font-weight:700;margin-top:10px">주간 식단 점수</div>'+(rows.length?'<div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:4px 0 0">오늘 화면에서 식단을 기록하면 주간 평균을 보여 줘요.</p>');
+  if(S.watch!=="coros")h+='<p class="small muted" style="margin:8px 0 0">안정시 심박·HRV는 COROS 연동 시 자동으로, 아니면 오늘 화면의 훈련 전 컨디션에서 적은 값으로 쌓여요.</p>';
   return h+'</div>'}
 function vLog(){
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
-  var h='<div class="card wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
-  h+='<div class="small" style="margin-top:2px">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num">'+ld.avg+'kg</b>'+(ld.n>1?' <span class="muted">('+ld.min+'~'+ld.max+')</span>':''):'<span class="muted">아침 공복 체중을 기록해 보세요</span>')+(S.wgoal&&S.wgoal.target?' <span class="muted">· 목표 '+S.wgoal.target+'kg</span>':'')+'</div>'+chart();
+  var h=bodyKpis(ld)+'<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
+  h+=(ld?'':'<div class="small muted" style="margin-top:2px">아침 공복 체중을 기록해 보세요</div>')+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   var nowD=new Date();
-  h+='<form class="wform" id="wf" style="grid-template-columns:minmax(0,1fr) 96px auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="체중 kg" aria-label="체중" style="padding:8px 10px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="padding:8px 6px"><button class="btn" type="submit" style="padding:8px 14px">기록</button></form>';
-  h+='<label class="small muted" style="display:flex;align-items:center;gap:6px;margin-top:6px">날짜 <input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:32px;padding:4px 8px;font-size:13px"></label>';
+  h+='<form class="wform" id="wf" style="grid-template-columns:minmax(0,1fr) auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="오늘 체중 kg" aria-label="체중" style="padding:8px 10px"><button class="btn" type="submit" style="padding:8px 18px">기록</button></form>';
+  h+='<details class="wwhen"><summary class="small muted">📅 '+md(T)+' '+hhmm(nowD.getTime())+' 기록 · 날짜·시간 바꾸기</summary><div class="row" style="gap:6px;margin-top:6px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"></div></details>';
   h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
@@ -2041,6 +2055,7 @@ function vLog(){
     if(!(a>=30&&a<=200)){m.textContent="현재 체중을 넣어 주세요.";return}if(!(b>=30&&b<=200)){m.textContent="목표 체중을 넣어 주세요.";return}
     S.wgoal={start:Math.round(a*10)/10,target:Math.round(b*10)/10,date:T};save();keepIf()};
   var wgc=document.getElementById("wg-clear");if(wgc)wgc.onclick=function(){S.wgoal=null;save();keepIf()};
+  view.querySelectorAll("[data-bk]").forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.bk==="wt"?"wcard":"bt");if(el)el.scrollIntoView({block:"start",behavior:"smooth"})}});
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
