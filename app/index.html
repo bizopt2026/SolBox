@@ -83,7 +83,8 @@ details.more[open]{padding-bottom:10px}
 .wxc b{font-size:20px}
 .wxc span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wxc.now{background:var(--accent-soft);border-color:transparent}
-.wxres{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wxres{display:grid;gap:6px;margin-top:8px}
+.wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -1770,9 +1771,11 @@ async function wxLoad(fresh){
   WX.busy=true;WX.err="";wxPaint();
   try{var k=S.wx.key,qp={locationKey:k,unit:"metric",lang:"ko"};
     var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
+    if(!S.wx||S.wx.key!==k)return;
     WX.cur=r[0];WX.hr=r[1];WX.mc=r[2];WX.at=Date.now();WX.key=k;
+    var loc=(WX.cur&&WX.cur.location)||(WX.hr&&WX.hr.location);if(loc&&loc.info&&loc.info.name&&S.wx.name!==loc.info.name){S.wx.name=String(loc.info.name).slice(0,30);save()}
     if(!(WX.cur&&WX.cur.currentConditions)&&!(WX.hr&&WX.hr.hourlyForecast))WX.err="날씨 정보를 읽지 못했어요.";}
-  catch(e){WX.err=WXERR[e&&e.code]||"날씨를 불러오지 못했어요.";}
+  catch(e){WX.err=WXERR[e&&e.code]||("날씨를 불러오지 못했어요"+(e&&(e.code||e.message)?" ("+(e.code||e.message)+")":"."));}
   finally{WX.busy=false;wxPaint()}}
 function wxMs(kmh){return Math.round((kmh||0)/3.6*10)/10}
 function wxNext(){var h=(WX.hr&&WX.hr.hourlyForecast)||[],now=Date.now()/1000;return h.filter(function(x){return x.epoch>now-1800}).slice(0,3)}
@@ -1790,9 +1793,10 @@ function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.
 function wxCard(){
   var h='<div class="card" id="wx"><div class="row between"><h2>날씨 · 지금부터 3시간</h2>'+(S.wx&&S.wx.key&&!WX.edit?'<button class="linkbtn" id="wx-loc">📍 '+esc(S.wx.name)+'</button>':'')+'</div>';
   if(!S.wx||!S.wx.key||WX.edit){
-    h+='<p class="small muted" style="margin:4px 0 8px">주로 뛰는 동네를 한 번 정해 두면 그곳의 기온·강수·바람을 보여 줘요. (휴대폰 위치 권한은 이 앱에서 쓸 수 없어요)</p>';
+    h+='<p class="small muted" style="margin:4px 0 8px">시·구 이름(예: 하남, 송파)으로 찾으면 가장 정확해요. 주로 뛰는 동네를 한 번 정해 두면 그곳의 기온·강수·바람을 보여 줘요. (휴대폰 위치 권한은 이 앱에서 쓸 수 없어요)</p>';
     h+='<div class="cin"><input id="wx-q" class="inp" maxlength="30" placeholder="예: 잠실, 하남 미사, 여의도" value="'+esc(WX.q)+'"><button class="btn" id="wx-find"'+(WX.busy?' disabled':'')+'>찾기</button></div>';
-    if(WX.res)h+=WX.res.length?'<div class="wxres">'+WX.res.map(function(r,i){return '<button class="sbtn" data-wxpick="'+i+'">'+esc(r.name)+'</button>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">찾지 못했어요. 구·동 이름이나 영문으로 다시 찾아 주세요.</p>';
+    if(WX.res)h+=WX.res.length?'<div class="wxres">'+WX.res.map(function(r,i){return '<button class="wxpick" data-wxpick="'+i+'"><b>'+esc(r.name)+'</b><span class="small muted">\''+esc(r.by)+'\' 검색 결과</span></button>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">찾지 못했어요. 구·동 이름이나 영문으로 다시 찾아 주세요.</p>';
+    if(WX.err)h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p>';
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
   } else if(WX.err&&!WX.cur){h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p><button class="sbtn" id="wx-re" style="margin-top:8px">다시 불러오기</button>'}
   else if(!WX.cur&&!WX.hr){h+='<p class="small muted" style="margin:6px 0 0">'+(WX.busy?'날씨를 불러오는 중…':'날씨를 불러오려면 눌러 주세요.')+'</p>'+(WX.busy?'':'<button class="sbtn" id="wx-re" style="margin-top:8px">불러오기</button>')}
@@ -1813,8 +1817,11 @@ function bindWx(){function $(i){return document.getElementById(i)}
   var re=$("wx-re");if(re)re.onclick=function(){wxLoad(true)};
   var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
   async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
-    try{var o=await wxCall("widgets-search-claude",{query:v},true);WX.res=((o&&o.results)||[]).slice(0,6).map(function(r){return{name:String(r.name||"").slice(0,40),key:String(r.locationKey||"")}}).filter(function(r){return r.key})}
-    catch(e){WX.res=null;WX.err=WXERR[e&&e.code]||"동네를 찾지 못했어요."}finally{WX.busy=false;wxPaint()}}
+    try{var qs=[v].concat(v.split(/[\s,]+/).filter(function(x){return x.length>=2&&x!==v})),out=[],seen={};
+      var rs=await Promise.all(qs.slice(0,4).map(function(q2){return wxCall("widgets-search-claude",{query:q2},true).then(function(o){return{q:q2,o:o}},function(){return{q:q2,o:null}})}));
+      rs.forEach(function(x){((x.o&&x.o.results)||[]).forEach(function(r){var k=String(r.locationKey||""),nm=String(r.name||"");if(!k||seen[k]||/Hwanghae|Pyong|Hamgyong|Ryanggang|Chagang|Rason|Kaesong|Nampo/i.test(nm))return;seen[k]=1;out.push({name:nm.slice(0,40),key:k,by:x.q})})});
+      WX.res=out.slice(0,6);WX.err=""}
+    catch(e){WX.res=null;WX.err=WXERR[e&&e.code]||("동네를 찾지 못했어요"+(e&&e.code?" ("+e.code+")":"."))}finally{WX.busy=false;wxPaint()}}
   var fd=$("wx-find");if(fd)fd.onclick=find;if(q)q.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();find()}});
   view.querySelectorAll("[data-wxpick]").forEach(function(b){b.onclick=function(){var r=WX.res[+b.dataset.wxpick];S.wx={key:r.key,name:r.name.replace(/,\s*(Seoul|서울시?)$/,"")};WX.edit=false;WX.res=null;WX.q="";WX.cur=null;WX.hr=null;WX.mc=null;WX.at=0;WX.err="";save();wxPaint();wxLoad(true)}});
 }
