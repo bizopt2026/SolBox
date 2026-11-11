@@ -67,7 +67,12 @@ details.more[open]{padding-bottom:10px}
 .linkbtn{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:8px 4px;min-height:36px}
 .wsn{display:block;font-size:11px;font-weight:800;line-height:12px;margin-top:2px;font-variant-numeric:tabular-nums}
 .news{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.wlink{all:unset;cursor:pointer;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wlink{all:unset;cursor:pointer;flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.wlink b{font-size:13.5px}
+.wlink span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbtn.wset{border-color:var(--accent);color:var(--accent)}
+.sbtn.wset.on{background:var(--accent);color:#fff}
+.wpanel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .wcar{font-size:10px;opacity:.7}
 .tsvg{width:100%;height:auto;display:block;margin-top:4px}
 .tsvg .ax{font-size:9px;fill:var(--muted)}
@@ -845,9 +850,14 @@ function goalRow(alone){
   return alone?'<div class="strip"><div class="srow">'+r+'</div></div>':'<div class="srow">'+r+'</div>';
 }
 function watchRow(){
-  if(!S.watch)return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm muted wlink" data-wpanel>워치 기록 연동 안 됨</button><button class="sbtn" data-wpanel>연결</button></div>';
-  if(S.watch==="file")return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm muted wlink" data-wpanel><span class="wcar">'+(WPANEL?'▴':'▾')+'</span> '+(S.fileAt?'파일 가져오기 · 마지막 '+agoT(S.fileAt):'파일 가져오기 · 아직 없음')+'</button><button class="sbtn" data-wpanel>올리기</button></div>';
-  return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm wlink'+(WS.err?'':' muted')+'" data-wpanel aria-expanded="'+WPANEL+'"'+(WS.err?' style="color:var(--bad)"':'')+'><span class="wcar">'+(WPANEL?'▴':'▾')+'</span> '+(S.watch==="freddy"?"freddy":"COROS")+' · '+(WS.err?esc(WS.err):WS.busy?'불러오는 중…':esc(WS.msg||(S.watchAt?'마지막 동기화 '+agoT(S.watchAt):'아직 불러오지 않음')))+'</button><button class="sbtn" data-wsync'+(WS.busy?' disabled':'')+'>'+(WS.busy?'…':'새로고침')+'</button></div>';
+  var name=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일 올리기":"",st;
+  if(!S.watch)st='아직 연결 안 됨 · 연결하면 훈련이 자동 체크돼요';
+  else if(S.watch==="file")st=S.fileAt?'마지막 올림 '+agoT(S.fileAt):'아직 올린 기록 없음';
+  else st=WS.err?WS.err:WS.busy?'불러오는 중…':(WS.msg||(S.watchAt?'마지막 동기화 '+agoT(S.watchAt):'아직 불러오지 않음'));
+  var h='<div class="srow wrow"><span class="sl" aria-hidden="true">⌚</span><button class="wlink" data-wpanel aria-expanded="'+WPANEL+'"><b>워치 연동'+(name?' · '+name:'')+'</b><span'+(WS.err?' style="color:var(--bad)"':'')+'>'+esc(st)+'</span></button>';
+  h+='<button class="sbtn wset'+(WPANEL?' on':'')+'" data-wpanel aria-expanded="'+WPANEL+'">'+(S.watch?(WPANEL?'닫기':'설정'):'연결')+'</button>';
+  if(S.watch==="coros"||S.watch==="freddy")h+='<button class="sbtn" data-wsync aria-label="지금 불러오기"'+(WS.busy?' disabled':'')+'>'+(WS.busy?'…':'↻')+'</button>';
+  return h+'</div>';
 }
 function watchBar(){
   if(!S.watch)return '<div class="card sbar"><div style="min-width:0"><b>워치 기록 연동</b><div class="small muted">COROS·가민·애플워치 기록으로 훈련을 자동 체크해요.</div></div><button class="btn ghost" data-wpanel>연결하기</button></div>';
@@ -859,7 +869,7 @@ var WXOPEN=null,WPANEL=false;
 function watchCard(){
   var n=Object.keys(S.runs).length,autoN=0;for(var d in S.days)if(S.days[d].auto&&S.days[d].done)autoN++;
   var open=true;
-  var h='<div class="card" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
+  var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:11px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
   if(!open)return h+'</div>';
@@ -1157,7 +1167,7 @@ function enhance(){
     foldCard(findCard("내 훈련 존"),"p-zones","이지 "+zr(Zk.e)+" · MP "+zr(Zk.mp),false);
   } else if(tab==="crew"){
     foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
-    foldCard(findCard("크루 초대하기"),"c-invite","링크 복사 · 방법",false);
+    foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
     foldCard(findCard("크루 정보"),"c-info",(CREW.settings&&CREW.settings.name)||"이름·공지",false);
     foldCard(findCard("제외한 크루원"),"c-banned","",false);
   } else if(tab==="log"){
@@ -2532,8 +2542,15 @@ var WSTEPS=[
  }
 ];
 var APP_URL="https://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ";
-function inviteLink(){return '<div class="linkbox"><input class="inp" id="inv-url" readonly value="'+APP_URL+'" aria-label="앱 링크"><button class="btn" type="button" data-copy-link>링크 복사</button></div><div class="small muted" data-copy-msg style="margin-top:6px"></div>'}
-function bindCopy(){view.querySelectorAll("[data-copy-link]").forEach(function(b){b.onclick=function(){var inp=b.parentNode.querySelector("input"),msg=b.parentNode.parentNode.querySelector("[data-copy-msg]");
+function inviteMsg(){
+  var cn=(CREW.settings&&CREW.settings.name)||"서브3 훈련 크루";
+  return ["🏃 "+cn+"에 초대해요!","","2027.3.21 서울마라톤까지 같은 18주 훈련표로 매일 체크하고, 서로 기록을 보며 응원해요.","","👉 앱 열기: "+APP_URL,"",
+    "[시작하는 법 · 3분]","1. 링크를 열고 claude.ai에 로그인해요 (휴대폰은 Claude 앱으로 열면 편해요)","2. 처음 안내를 따라 닉네임과 3.21 목표 기록을 정해요","3. 오늘 화면 위 ⌚ '워치 연동 → 연결'에서 COROS, 가민·애플(freddy) 중 하나를 연결해요 (없으면 파일 올리기)","4. 크루 탭 → 내 프로필에서 '내 훈련 현황 공유'가 켜져 있는지 확인해요","",
+    "[이런 걸 할 수 있어요]","• 내 실력에 맞춰 페이스가 바뀌는 훈련표","• 워치 기록으로 자동 체크 + 100점 훈련 점수","• AI 코치 · 식단 사진 분석 · 대회 레이스 전략","• 크루 피드에서 좋아요·댓글로 응원","",
+    "※ 기록 저장과 크루 공유는 저와 같은 claude.ai 팀(조직) 계정이어야 돼요. 안 되면 알려 주세요!"].join("\n")}
+function inviteLink(){return '<div class="linkbox"><input class="inp" id="inv-url" readonly value="'+APP_URL+'" aria-label="앱 링크"><button class="btn" type="button" data-copy-link>링크 복사</button></div><button class="btn" type="button" data-copy-inv style="width:100%;margin-top:8px;background:var(--accent);color:#fff">초대 메시지 복사 (카톡에 붙여 넣기)</button><details class="invprev"><summary class="small muted">보낼 메시지 미리 보기</summary><textarea class="inp" readonly rows="12" style="font-size:13px;margin-top:6px">'+esc(inviteMsg())+'</textarea></details><div class="small muted" data-copy-msg style="margin-top:6px"></div>'}
+function bindCopy(){view.querySelectorAll("[data-copy-inv]").forEach(function(b){b.onclick=function(){var msg=b.parentNode.querySelector("[data-copy-msg]");copyText(inviteMsg(),function(){if(msg)msg.textContent="초대 메시지를 복사했어요. 카톡·문자에 붙여 넣어 보내세요."},function(){var d=b.parentNode.querySelector("details.invprev");if(d){d.open=true;var ta=d.querySelector("textarea");ta.focus();ta.select()}if(msg)msg.textContent="자동 복사가 막혔어요. 미리 보기 글을 길게 눌러 복사하세요."})}});
+view.querySelectorAll("[data-copy-link]").forEach(function(b){b.onclick=function(){var inp=b.parentNode.querySelector("input"),msg=b.parentNode.parentNode.querySelector("[data-copy-msg]");
   function fb(){inp.select();if(msg)msg.textContent="링크를 길게 눌러 복사하세요."}
   try{navigator.clipboard.writeText(APP_URL).then(function(){if(msg)msg.textContent="복사했어요. 초대한 사람에게 보내 주세요."},fb)}catch(e){fb()}}})}
 var INVITE_STEP=5;
