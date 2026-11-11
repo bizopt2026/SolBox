@@ -84,6 +84,7 @@ details.more[open]{padding-bottom:10px}
 .wxc span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wxc.now{background:var(--accent-soft);border-color:transparent}
 .wxres{display:grid;gap:6px;margin-top:8px}
+.wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
@@ -1780,7 +1781,7 @@ async function wxLoad(fresh){
     var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
     if(!S.wx||S.wx.key!==k)return;
     WX.cur=r[0];WX.hr=r[1];WX.mc=r[2];WX.at=Date.now();WX.key=k;
-    var loc=(WX.cur&&WX.cur.location)||(WX.hr&&WX.hr.location);if(loc&&loc.info&&loc.info.name&&S.wx.name!==loc.info.name){S.wx.name=String(loc.info.name).slice(0,30);save()}
+    var loc=(WX.cur&&WX.cur.location)||(WX.hr&&WX.hr.location);if(loc&&loc.info&&loc.info.name&&(S.wx.name!==loc.info.name||S.wx.lat==null)){S.wx.name=String(loc.info.name).slice(0,30);S.wx.lat=+loc.info.latitude;S.wx.lon=+loc.info.longitude;save()}
     if(!(WX.cur&&WX.cur.currentConditions)&&!(WX.hr&&WX.hr.hourlyForecast))WX.err="날씨 정보를 읽지 못했어요.";}
   catch(e){WX.err=WXERR[e&&e.code]||("날씨를 불러오지 못했어요"+(e&&(e.code||e.message)?" ("+(e.code||e.message)+")":"."));}
   finally{WX.busy=false;wxPaint()}}
@@ -1801,7 +1802,7 @@ function wxCard(){
   if(!S.wx||!S.wx.key||WX.edit){
     h+='<p class="small muted" style="margin:4px 0 8px">시·구 이름(예: 하남, 송파)으로 찾으면 가장 정확해요. 주로 뛰는 동네를 한 번 정해 두면 그곳의 기온·강수·바람을 보여 줘요. (휴대폰 위치 권한은 이 앱에서 쓸 수 없어요)</p>';
     h+='<div class="cin"><input id="wx-q" class="inp" maxlength="30" placeholder="예: 잠실, 하남 미사, 여의도" value="'+esc(WX.q)+'"><button class="btn" id="wx-find"'+(WX.busy?' disabled':'')+'>찾기</button></div>';
-    if(WX.res)h+=WX.res.length?'<div class="wxres">'+WX.res.map(function(r,i){return '<button class="wxpick" data-wxpick="'+i+'"><b>'+esc(r.name)+'</b><span class="small muted">\''+esc(r.by)+'\' 검색 결과</span></button>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">찾지 못했어요. 구·동 이름이나 영문으로 다시 찾아 주세요.</p>';
+    if(WX.res)h+=WX.res.length?'<div class="wxres">'+WX.res.map(function(r,i){return '<button class="wxpick'+(i===0&&WX.res.length>1?' rec':'')+'" data-wxpick="'+i+'"><b>'+(i===0&&WX.res.length>1?'<span class="pill ok" style="margin-right:6px">추천</span>':'')+esc(r.name)+'</b><span class="small muted">\''+esc(r.by)+'\' 검색 결과'+(i===0&&WX.res.length>1?' · 시·구 이름으로 찾은 곳이라 가장 정확해요':'')+'</span></button>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">찾지 못했어요. 구·동 이름이나 영문으로 다시 찾아 주세요.</p>';
     if(WX.err)h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p>';
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
   } else if(WX.err&&!WX.cur){h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p><button class="sbtn" id="wx-re" style="margin-top:8px">다시 불러오기</button>'}
@@ -1811,6 +1812,7 @@ function wxCard(){
     nx.forEach(function(x){var e=x.extended||{},rp=e.rainProbability||x.precip;h+='<div class="wxc"><span class="small muted">'+new Date(x.epoch*1000).getHours()+'시'+'</span><b class="num">'+Math.round(x.temperatureValue)+'°</b><span class="small">'+esc(x.phrase)+'</span><span class="small'+(parseInt(rp)>=50?'" style="color:var(--s5);font-weight:700':' muted')+'">☔ '+esc(rp)+(e.rainValue?' '+e.rainValue+'mm':'')+'</span><span class="small muted">💨 '+wxMs(e.windValue)+(e.gustsValue>=30?'~'+wxMs(e.gustsValue):'')+'</span></div>'});
     h+='</div>';
     if(mc&&mc.summary120)h+='<div class="small" style="margin-top:8px">🌧 앞으로 2시간: '+esc(mc.summary120)+'</div>';
+    if(S.wx&&S.wx.lat!=null)h+='<div class="small muted" style="margin-top:4px">📍 예보 지점 '+esc(S.wx.name)+' · <a href="https://map.naver.com/p/search/'+S.wx.lat+','+S.wx.lon+'" target="_blank" rel="noopener">지도에서 확인</a> · 다르면 📍를 눌러 다시 고르세요</div>';
     h+='<div class="small muted" style="margin-top:4px">😷 미세먼지는 국내 측정소 기준으로 확인하세요 · <a href="https://search.naver.com/search.naver?query='+encodeURIComponent((S.wx&&S.wx.name?S.wx.name.split(",")[0]+" ":"")+"미세먼지")+'" target="_blank" rel="noopener">네이버</a> · <a href="https://www.airkorea.or.kr/" target="_blank" rel="noopener">에어코리아</a></div>';
     h+='<ul class="tight small" style="margin:8px 0 0">'+wxTips().map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
     h+='<div class="row between" style="margin-top:8px"><span class="small muted">바람 m/s · AccuWeather '+(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':'')+' · '+(WX.busy?'갱신 중…':agoT(WX.at)+' 확인')+'</span><button class="sbtn" id="wx-re"'+(WX.busy?' disabled':'')+'>↻</button></div>';
@@ -1823,7 +1825,7 @@ function bindWx(){function $(i){return document.getElementById(i)}
   var re=$("wx-re");if(re)re.onclick=function(){wxLoad(true)};
   var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
   async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
-    try{var qs=[v].concat(v.split(/[\s,]+/).filter(function(x){return x.length>=2&&x!==v})),out=[],seen={};
+    try{var toks=v.split(/[\s,]+/).filter(function(x){return x.length>=2}),qs=toks.length>1?toks.concat([v]):[v],out=[],seen={};
       var rs=await Promise.all(qs.slice(0,4).map(function(q2){return wxCall("widgets-search-claude",{query:q2},true).then(function(o){return{q:q2,o:o}},function(e){return{q:q2,o:null,e:e}})}));
       rs.forEach(function(x){((x.o&&x.o.results)||[]).forEach(function(r){var k=String(r.locationKey||""),nm=String(r.name||"");if(!k||seen[k]||/Hwanghae|Pyong|Hamgyong|Ryanggang|Chagang|Rason|Kaesong|Nampo/i.test(nm))return;seen[k]=1;out.push({name:nm.slice(0,40),key:k,by:x.q})})});
       WX.res=out.slice(0,6);WX.err="";
