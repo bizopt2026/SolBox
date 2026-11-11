@@ -67,6 +67,12 @@ details.more[open]{padding-bottom:10px}
 .linkbtn{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:8px 4px;min-height:36px}
 .wsn{display:block;font-size:11px;font-weight:800;line-height:12px;margin-top:2px;font-variant-numeric:tabular-nums}
 .news{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.wlink{all:unset;cursor:pointer;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wcar{font-size:10px;opacity:.7}
+.tsvg{width:100%;height:auto;display:block;margin-top:4px}
+.tsvg .ax{font-size:9px;fill:var(--muted)}
+.wdiet>div{display:grid;grid-template-columns:34px 1fr 30px 28px;gap:8px;align-items:center;padding:3px 0}
+.wdiet .sbar100{margin:0}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -435,7 +441,7 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
   <button role="tab" data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>훈련표</button>
   <button role="tab" data-tab="pace"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg>내 페이스</button>
   <button role="tab" data-tab="crew"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg>크루</button>
-  <button role="tab" data-tab="log"><svg viewBox="0 0 24 24"><path d="M4 19h16M6 16l4-5 3 3 5-7"/></svg>기록</button>
+  <button role="tab" data-tab="log"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a4 4 0 0 1 7 0"/><path d="M12 10l1.6-2.2"/></svg>바디</button>
 </div></nav>
 <button id="fab" type="button" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span>AI 코치</span></button>
 
@@ -830,8 +836,8 @@ function authBar(){
   return "";
 }
 function statusStrip(){
-  if(uploadDue())return watchBar()+goalRow(true);
-  return '<div class="strip">'+goalRow(false)+watchRow()+'</div>';
+  if(uploadDue())return watchBar()+(WPANEL?watchCard():'')+goalRow(true);
+  return '<div class="strip">'+goalRow(false)+watchRow()+'</div>'+(WPANEL?watchCard():'');
 }
 function goalRow(alone){
   var r=S.goal?'<span class="sl" aria-hidden="true">🎯</span><span class="sm">3.21 목표 <b>'+fmtT(S.goal.sec)+'</b> · MP <b>'+fmtMS(S.goal.sec/42.195)+'</b>/km</span><button class="sbtn" data-goto="pace">목표</button>'
@@ -839,21 +845,21 @@ function goalRow(alone){
   return alone?'<div class="strip"><div class="srow">'+r+'</div></div>':'<div class="srow">'+r+'</div>';
 }
 function watchRow(){
-  if(!S.watch)return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><span class="sm muted">워치 기록 연동 안 됨</span><button class="sbtn" data-goto="log">연결</button></div>';
-  if(S.watch==="file")return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><span class="sm muted">'+(S.fileAt?'파일 가져오기 · 마지막 '+agoT(S.fileAt):'파일 가져오기 · 아직 없음')+'</span><button class="sbtn" data-goto="log">올리기</button></div>';
-  return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><span class="sm'+(WS.err?'':' muted')+'"'+(WS.err?' style="color:var(--bad)"':'')+'>'+(S.watch==="freddy"?"freddy":"COROS")+' · '+(WS.err?esc(WS.err):WS.busy?'불러오는 중…':esc(WS.msg||(S.watchAt?'마지막 동기화 '+agoT(S.watchAt):'아직 불러오지 않음')))+'</span><button class="sbtn" data-wsync'+(WS.busy?' disabled':'')+'>'+(WS.busy?'…':'새로고침')+'</button></div>';
+  if(!S.watch)return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm muted wlink" data-wpanel>워치 기록 연동 안 됨</button><button class="sbtn" data-wpanel>연결</button></div>';
+  if(S.watch==="file")return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm muted wlink" data-wpanel><span class="wcar">'+(WPANEL?'▴':'▾')+'</span> '+(S.fileAt?'파일 가져오기 · 마지막 '+agoT(S.fileAt):'파일 가져오기 · 아직 없음')+'</button><button class="sbtn" data-wpanel>올리기</button></div>';
+  return '<div class="srow"><span class="sl" aria-hidden="true">⌚</span><button class="sm wlink'+(WS.err?'':' muted')+'" data-wpanel aria-expanded="'+WPANEL+'"'+(WS.err?' style="color:var(--bad)"':'')+'><span class="wcar">'+(WPANEL?'▴':'▾')+'</span> '+(S.watch==="freddy"?"freddy":"COROS")+' · '+(WS.err?esc(WS.err):WS.busy?'불러오는 중…':esc(WS.msg||(S.watchAt?'마지막 동기화 '+agoT(S.watchAt):'아직 불러오지 않음')))+'</button><button class="sbtn" data-wsync'+(WS.busy?' disabled':'')+'>'+(WS.busy?'…':'새로고침')+'</button></div>';
 }
 function watchBar(){
-  if(!S.watch)return '<div class="card sbar"><div style="min-width:0"><b>워치 기록 연동</b><div class="small muted">COROS·가민·애플워치 기록으로 훈련을 자동 체크해요.</div></div><button class="btn ghost" data-goto="log">연결하기</button></div>';
-  if(uploadDue())return '<div class="card sbar" style="background:var(--accent);border-color:var(--accent);color:#fff"><div style="min-width:0"><b>⏰ 이번 주 워치 기록 올릴 시간이에요</b><div class="small" style="opacity:.9">지난주 달린 기록을 CSV로 한 번에 올려 주세요 · 마지막 '+lastUp()+'</div></div><button class="btn" data-goto="log" style="background:#fff;color:var(--accent)">올리기</button></div>';
-  if(S.watch==="file")return '<div class="card sbar"><div style="min-width:0"><b>⌚ 워치 파일 가져오기</b><div class="small muted">'+(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 다음 알림 일요일 21:00':'매주 일요일 21:00에 올리기 알림을 드려요')+'</div></div><button class="btn ghost" data-goto="log">파일 올리기</button></div>';
+  if(!S.watch)return '<div class="card sbar"><div style="min-width:0"><b>워치 기록 연동</b><div class="small muted">COROS·가민·애플워치 기록으로 훈련을 자동 체크해요.</div></div><button class="btn ghost" data-wpanel>연결하기</button></div>';
+  if(uploadDue())return '<div class="card sbar" style="background:var(--accent);border-color:var(--accent);color:#fff"><div style="min-width:0"><b>⏰ 이번 주 워치 기록 올릴 시간이에요</b><div class="small" style="opacity:.9">지난주 달린 기록을 CSV로 한 번에 올려 주세요 · 마지막 '+lastUp()+'</div></div><button class="btn" data-wpanel style="background:#fff;color:var(--accent)">올리기</button></div>';
+  if(S.watch==="file")return '<div class="card sbar"><div style="min-width:0"><b>⌚ 워치 파일 가져오기</b><div class="small muted">'+(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 다음 알림 일요일 21:00':'매주 일요일 21:00에 올리기 알림을 드려요')+'</div></div><button class="btn ghost" data-wpanel>파일 올리기</button></div>';
   return '<div class="card sbar"><div style="min-width:0"><b>⌚ '+WATCHES[S.watch].name+' 연동</b><div class="small muted">'+watchStatus()+'</div></div><button class="btn ghost" data-wsync'+(WS.busy?' disabled':'')+'>'+(WS.busy?'불러오는 중':'새로고침')+'</button></div>';
 }
-var WXOPEN=null;
+var WXOPEN=null,WPANEL=false;
 function watchCard(){
   var n=Object.keys(S.runs).length,autoN=0;for(var d in S.days)if(S.days[d].auto&&S.days[d].done)autoN++;
-  var open=WXOPEN==null?!S.watch:WXOPEN;
-  var h='<div class="card" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+(open?'접기 －':'펼치기 ＋')+'</span></button>';
+  var open=true;
+  var h='<div class="card" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:11px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
   if(!open)return h+'</div>';
@@ -1078,7 +1084,8 @@ async function importFiles(files){
 function bindWatch(){
   view.querySelectorAll("[data-wsync]").forEach(function(b){b.onclick=function(){watchSync(true)}});
   var ca=document.getElementById("cal-add");if(ca)ca.onclick=addCalReminder;
-  var wt=document.getElementById("wx-tog");if(wt)wt.onclick=function(){WXOPEN=!(WXOPEN==null?!S.watch:WXOPEN);keepIf()};
+  var wt=document.getElementById("wx-tog");if(wt)wt.onclick=function(){WPANEL=false;keepIf()};
+  view.querySelectorAll("[data-wpanel]").forEach(function(b){b.onclick=function(){WPANEL=!WPANEL;WXOPEN=true;if(tab!=="today"){tab="today";render();window.scrollTo(0,0)}else keepIf()}});
   view.querySelectorAll("[data-watch]").forEach(function(b){b.onclick=function(){if(b.dataset.watch==="file"&&S.watch!=="file")S.fileOn=Date.now();if(S.watch!==b.dataset.watch){WXOPEN=true;S.watchAt=0}S.watch=b.dataset.watch;WS.msg="";WS.err="";save();if(S.watch==="coros"||S.watch==="freddy")watchSync(true);else keepIf()}});
   var fi=document.getElementById("w-file");if(fi)fi.onchange=function(){if(fi.files&&fi.files.length)importFiles(Array.from(fi.files))};
   var off=document.getElementById("w-off");if(off)off.onclick=function(){S.watch="";WS.msg="";WS.err="";save();keepIf()};
@@ -1162,8 +1169,6 @@ function enhance(){
       var rows=wc.querySelectorAll(".wlist>div");if(rows.length>3){var more=Array.prototype.slice.call(rows,3),mb=document.createElement("button");mb.type="button";mb.className="ifold-h";mb.style.marginTop="6px";
         var showAll=foldOpen("w-all",false);function setM(o){more.forEach(function(x){x.hidden=!o});mb.firstChild.textContent=o?"최근 3일만 보기":"지난 기록 "+more.length+"일 더 보기";mb.setAttribute("aria-expanded",o?"true":"false")}
         mb.appendChild(document.createElement("span"));var c2=document.createElement("span");c2.className="chev";mb.appendChild(c2);rows[0].parentNode.parentNode.insertBefore(mb,rows[0].parentNode.nextSibling);setM(showAll);mb.onclick=function(){showAll=!showAll;setM(showAll);foldSet("w-all",showAll)}}}
-    var nx=CHECKS.filter(function(c){return c.date?c.date>=T:true})[0],near=CHECKS.some(function(c){var dd=c.date||"2027-02-27";var k=(p(dd)-p(T))/864e5;return k>=-2&&k<=7});
-    foldCard(findCard("세 번의 점검"),"w-check",nx?"다음 "+nx.wk.split(" · ")[0]+" "+nx.name.split(" ")[0]+" "+cGoal(nx):"",near||foldOpen("w-check",false));
   } else if(tab==="guide"){
     var titles=[["페이스 존",true],["약어",false],["레이스 데이 페이스",false],["요일별 먹는 양",false],["훈련 점수",false],["AI 코치",false],["레이스 전략",false],["워치 기록 연동",false],["내 계획 바꾸기",false],["운영 원칙",false],["한 주의 리듬",false],["백업",false]];
     titles.forEach(function(x){foldCard(findCard(x[0]),"g-"+x[0],"",x[1])});
@@ -1739,7 +1744,7 @@ async function askClaude(){
 }
 var APPV="beta-1";
 function newsCard(){if(S.seenV===APPV||!S.onboarded)return "";
-  return '<div class="card news"><div class="row between"><h2>🎉 클로즈베타 업데이트</h2><button class="linkbtn" id="news-ok">확인</button></div><ul class="tight small" style="margin-top:8px"><li><b>훈련 점수(100점)</b>: 양보다 질 — 거리 30 + 페이스·편차·심박 70. 색으로 한눈에 봐요</li><li><b>식단 점수</b>와 <b>휴식일 추가 러닝</b> 평가</li><li><b>레이스 전략</b>: 내 페이스 → 레이스 전략 탭. 코스 GPX로 구간 페이스·AI 전략·워치 등록·대회 후 평가</li><li><b>가민·애플 건강</b>: 기록 탭에서 freddy로 자동 연동</li><li>가이드와 <b>의견 보내기</b>는 오른쪽 위 <b>?</b> 버튼으로 옮겼어요</li></ul></div>'}
+  return '<div class="card news"><div class="row between"><h2>🎉 클로즈베타 업데이트</h2><button class="linkbtn" id="news-ok">확인</button></div><ul class="tight small" style="margin-top:8px"><li><b>훈련 점수(100점)</b>: 양보다 질 — 거리 30 + 페이스·편차·심박 70. 색으로 한눈에 봐요</li><li><b>식단 점수</b>와 <b>휴식일 추가 러닝</b> 평가</li><li><b>레이스 전략</b>: 내 페이스 → 레이스 전략 탭. 코스 GPX로 구간 페이스·AI 전략·워치 등록·대회 후 평가</li><li><b>가민·애플 건강</b>: 오늘 화면 위 ⌚ 줄을 눌러 freddy로 자동 연동</li><li>가이드와 <b>의견 보내기</b>는 오른쪽 위 <b>?</b> 버튼으로 옮겼어요</li></ul></div>'}
 function vToday(){
   var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=planDay(w,d), r=dayRec(sel), wkm=weekKm(w);
   var tIdx=idxOf(T), before=tIdx<0;
@@ -1852,9 +1857,27 @@ function chart(){
 
 var WOPEN=null;
 var WZ="all";
+function trendSvg(series,unit,col,lo,hi){var ks=Object.keys(series).sort().slice(-28);if(ks.length<2)return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
+  var vs=ks.map(function(k){return series[k]}),mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);if(lo!=null)mn=Math.min(mn,lo);if(hi!=null)mx=Math.max(mx,hi);var pad=Math.max(1,(mx-mn)*0.15);mn-=pad;mx+=pad;
+  var W0=320,H0=90,x0=p(ks[0]),x1=Math.max(p(ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
+  var o='<svg viewBox="0 0 '+W0+' '+H0+'" class="tsvg" role="img" aria-label="추이">';
+  if(lo!=null&&hi!=null)o+='<rect x="8" y="'+Y(hi).toFixed(1)+'" width="'+(W0-16)+'" height="'+Math.max(1,Y(lo)-Y(hi)).toFixed(1)+'" fill="'+col+'" opacity=".12"/>';
+  o+='<path d="'+ks.map(function(k,i){return (i?'L':'M')+X(k).toFixed(1)+','+Y(series[k]).toFixed(1)}).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2"/>';
+  ks.forEach(function(k){o+='<circle cx="'+X(k).toFixed(1)+'" cy="'+Y(series[k]).toFixed(1)+'" r="2.5" fill="'+col+'"/>'});
+  o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(ks[ks.length-1])+'</text></svg>';
+  var last=series[ks[ks.length-1]];return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
+function bodyTrends(){
+  var h='<div class="card"><h2>몸 상태 추이</h2><p class="small muted" style="margin:2px 0 6px">'+(S.watch==="coros"?'COROS에서 아침마다 불러와요.':'워치를 COROS로 연동하면 자동으로 쌓여요. 오늘 화면의 훈련 전 컨디션에서 직접 적은 값도 들어가요.')+'</p>';
+  h+='<h3 class="rh" style="margin-top:8px">안정시 심박</h3>'+trendSvg(S.rhr||{},'bpm','var(--accent)');
+  var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
+  h+='<h3 class="rh">수면 HRV</h3>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi);
+  // weekly diet score
+  var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d);if(ds>T)break;var ms=mealScore(ds,d);if(ms&&!ms.live){a+=ms.s;n++}}if(n)rows.push([w,Math.round(a/n),n])}
+  rows=rows.slice(-4);
+  h+='<h3 class="rh">주간 식단 점수</h3>'+(rows.length?'<div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">오늘 화면의 식단 기록을 남기면 주간 평균을 보여 줘요.</p>');
+  return h+'</div>'}
 function vLog(){
   var WT=wtPlan();
-  var wc=watchCard();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var h='<div class="card wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
   h+='<div class="small" style="margin-top:2px">'+(ld?'최근 '+md(keys[0])+' 평균 <b class="num">'+ld.avg+'kg</b>'+(ld.n>1?' <span class="muted">('+ld.min+'~'+ld.max+')</span>':''):'<span class="muted">아침 공복 체중을 기록해 보세요</span>')+(S.wgoal&&S.wgoal.target?' <span class="muted">· 목표 '+S.wgoal.target+'kg</span>':'')+'</div>'+chart();
@@ -1867,16 +1890,8 @@ function vLog(){
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
   h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</div>';
-  // checkpoints (shown right under the watch card)
-  var wh=h;h='';
-  var miss=0;h+='<div class="card"><h2>세 번의 점검</h2>';
-  CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
-    h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
-  h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
-  h+='</div>';
-  h=wc+h+wh;
+  h+=bodyTrends();
   view.innerHTML=h;
-  bindWatch();
   document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
   var wgs=document.getElementById("wg-save");if(wgs)wgs.onclick=function(){var a=numv(document.getElementById("wg-start").value)||Math.round(bodyW()*10)/10,b=numv(document.getElementById("wg-target").value),m=document.getElementById("wg-msg");
     if(!(a>=30&&a<=200)){m.textContent="현재 체중을 넣어 주세요.";return}if(!(b>=30&&b<=200)){m.textContent="목표 체중을 넣어 주세요.";return}
@@ -1885,8 +1900,6 @@ function vLog(){
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
-  view.querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){var c=CHECKS.filter(function(x){return x.id===b.dataset.use})[0];S.profile=S.profile||{};S.profile.recDist=c.dist;S.profile.recTime=S.checks[c.id];S.profile.recDate=c.date;save();tab="pace";render();window.scrollTo(0,0)}});
-  view.querySelectorAll("[data-cp]").forEach(function(el){el.addEventListener("change",function(){S.checks[el.dataset.cp]=el.value.trim();save();render()})});
 }
 
 // ---------- Personal pace engine ----------
@@ -2231,7 +2244,7 @@ function raceDetail(rc){
       h+='<p class="small muted" style="margin:6px 0 0">기록 '+fmtT(r.dur)+' · '+esc(r.src)+(r.watch?' · 시계 '+r.watch+'km':'')+(r.hr?' · 평균 심박 '+r.hr:'')+(r.onlyGoal?' · 구간 기록이 없어 목표 달성만으로 평가했어요':'')+'</p>';
       if(r.ai){if(r.ai.summary)h+='<p class="small" style="margin:10px 0 0">'+esc(r.ai.summary)+'</p>';
         [["good","잘한 점"],["bad","아쉬운 점"],["next","다음 레이스 유의사항"]].forEach(function(x){if(r.ai[x[0]]&&r.ai[x[0]].length)h+='<div class="small" style="margin:10px 0 2px;font-weight:700;color:'+(x[0]==="next"?'var(--accent)':'var(--muted)')+'">'+x[1]+'</div><ul class="tight small">'+r.ai[x[0]].map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul>'})}}
-    else{var runs=raceRuns(rc);h+=runs.length?'<p class="small" style="margin:0">'+rc.date.replace(/-/g,".")+' 기록을 찾았어요: '+runs[0].km+'km · '+fmtT(runs[0].dur)+' ('+esc(runs[0].src||"기록")+')</p>':'<p class="small muted" style="margin:0">'+rc.date.replace(/-/g,".")+'에 연동된 기록이 아직 없어요. 기록 탭의 워치 기록 연동에서 동기화하거나, 공식 기록을 직접 넣어 주세요.</p>'}
+    else{var runs=raceRuns(rc);h+=runs.length?'<p class="small" style="margin:0">'+rc.date.replace(/-/g,".")+' 기록을 찾았어요: '+runs[0].km+'km · '+fmtT(runs[0].dur)+' ('+esc(runs[0].src||"기록")+')</p>':'<p class="small muted" style="margin:0">'+rc.date.replace(/-/g,".")+'에 연동된 기록이 아직 없어요. 오늘 화면 위 ⌚ 줄(워치 기록 연동)에서 동기화하거나, 공식 기록을 직접 넣어 주세요.</p>'}
     h+='<div class="row" style="margin-top:8px;gap:8px">'+(raceRuns(rc).length?'<button class="btn" id="rs-review" style="flex:1;background:var(--accent);color:#fff"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="review"?'분석 중…':r&&r.src!=="직접 입력"?'다시 분석':'기록으로 분석하기')+'</button>':'')+'</div>';
     if(!raceRuns(rc).length||(r&&r.src==="직접 입력"))h+='<div class="row" style="margin-top:8px;gap:8px"><input id="rs-fin" class="inp" placeholder="공식 기록 예: 3:02:15" style="flex:1" value="'+(r&&r.src==="직접 입력"?fmtT(r.dur):'')+'"><button class="btn" id="rs-manual"'+(RS.busy?' disabled':'')+'>평가</button></div>';
   }
@@ -2274,11 +2287,24 @@ function bindRace(){
   var dg=$("rs-del-go");if(dg)dg.onclick=function(){S.races=(S.races||[]).filter(function(x){return x.id!==rc.id});RS.sel=null;RS.del=null;RS.msg="";save();keepRace()};
 }
 function racesCtx(){var a=racesSorted().slice(0,4);if(!a.length)return "";return "\n[레이스 전략·결과]\n"+a.map(function(rc){var r=rc.result;return rc.date+" "+rc.name+" "+rc.dist+"km 목표 "+fmtT(rc.goal)+(r?" → 기록 "+fmtT(r.dur)+" · "+r.score+"점"+(r.split!=null?" · 후반 "+(r.split>0?"+":"")+r.split+"%":"")+(r.ai&&r.ai.next&&r.ai.next.length?" · 다음 유의: "+r.ai.next.slice(0,3).join(" / "):""):rc.ai&&rc.ai.summary?" · 전략: "+rc.ai.summary.slice(0,140):"")}).join("\n")}
+function checksCard(){var h='';
+  var miss=0;h+='<div class="card"><h2>세 번의 점검</h2><p class="small muted" style="margin:2px 0 8px">10K·하프 기록을 넣으면 목표·존의 페이스가 다시 계산돼요.</p>';
+  CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
+    h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:12.5px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미측정':stt?'통과':'미달')+'</span></div></div>'});
+  h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
+  h+='</div>';
+  return h;
+}
+function bindChecks(){
+  view.querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){var c=CHECKS.filter(function(x){return x.id===b.dataset.use})[0];S.profile=S.profile||{};S.profile.recDist=c.dist;S.profile.recTime=S.checks[c.id];S.profile.recDate=c.date;save();PACEV="base";tab="pace";render();window.scrollTo(0,0)}});
+  view.querySelectorAll("[data-cp]").forEach(function(el){el.addEventListener("change",function(){S.checks[el.dataset.cp]=el.value.trim();save();render()})});
+}
 var PACEV=(function(){try{return localStorage.getItem("sub3-pacev")||"base"}catch(e){return"base"}})();
-function paceSeg(){return '<div class="seg" role="tablist" style="grid-template-columns:1fr 1fr"><button role="tab" aria-checked="'+(PACEV==="base")+'" data-pv="base">내 기준 · 존</button><button role="tab" aria-checked="'+(PACEV==="race")+'" data-pv="race">레이스 전략</button></div>'}
+function paceSeg(){return '<div class="seg" role="tablist" style="grid-template-columns:1fr 1fr 1fr">'+[["base","목표·존"],["check","중간 점검"],["race","레이스 전략"]].map(function(o){return '<button role="tab" aria-checked="'+(PACEV===o[0])+'" data-pv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div>'}
 function bindPaceSeg(){view.querySelectorAll("[data-pv]").forEach(function(b){b.onclick=function(){PACEV=b.dataset.pv;try{localStorage.setItem("sub3-pacev",PACEV)}catch(e){}render();window.scrollTo(0,0)}})}
 function vPace(){
   if(PACEV==="race"){view.innerHTML=paceSeg()+raceCards();bindPaceSeg();bindRace();return}
+  if(PACEV==="check"){view.innerHTML=paceSeg()+checksCard();bindPaceSeg();bindChecks();return}
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
   var h=paceSeg()+'<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
   var auto=S.watch==="coros"&&p.auto!==false,F=S.fit;
@@ -2494,7 +2520,7 @@ var WSTEPS=[
  },
  function(){
   var h='<h2>기록과 가이드</h2>';
-  h+='<div class="card"><h3>기록 탭</h3><ul class="tight" style="margin-top:8px"><li>현재 체중과 3/21 목표 체중을 정하고, 아침 공복 체중을 적으면 내 목표 범위 위에 그래프로 보여요. 하루에 여러 번 재면 평균과 변동폭도 보여요.</li><li>세 번의 점검 결과를 넣으면 통과·미달이 표시돼요.</li></ul><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W11 · 1/23</span><span>10K 기록측정</span><span class="muted">W15 · 2/20</span><span>하프 기록측정</span><span class="muted">W16 · 2/27</span><span>35K 리허설 중 MP 22km 심박</span></div></div>';
+  h+='<div class="card"><h3>바디 탭</h3><ul class="tight" style="margin-top:8px"><li>안정시 심박·수면 HRV 4주 추이와 주간 식단 점수를 봐요.</li><li>현재 체중과 3/21 목표 체중을 정하고, 아침 공복 체중을 적으면 내 목표 범위 위에 그래프로 보여요. 하루에 여러 번 재면 평균과 변동폭도 보여요.</li></ul><p class="small" style="margin:8px 0 0">세 번의 점검은 <b>내 페이스 → 중간 점검</b>에서 기록해요. 워치 연동은 <b>오늘 화면 위 ⌚ 줄</b>을 눌러 설정해요.</p><div class="kv small" style="margin-top:10px;display:grid"><span class="muted">W11 · 1/23</span><span>10K 기록측정</span><span class="muted">W15 · 2/20</span><span>하프 기록측정</span><span class="muted">W16 · 2/27</span><span>35K 리허설 중 MP 22km 심박</span></div></div>';
   h+='<div class="card"><h3>가이드 (오른쪽 위 ? 버튼)</h3><ul class="tight" style="margin-top:8px"><li>페이스 존과 약어 (E 이지, WU 워밍업, CD 쿨다운, MP 마라톤 페이스)</li><li>레이스 데이 구간별 페이스</li><li>요일별 탄수화물·열량, 훈련 전후 보급</li></ul></div>';
   return h;
  },
@@ -2576,7 +2602,7 @@ function vGuide(){
   h+='<div class="card"><h2>레이스 전략 · 대회 평가</h2><ul class="tight small" style="margin-top:8px"><li><b>전략 만들기:</b> 내 페이스 → 레이스 전략 → "+ 새 대회". 이름·날짜·종목·목표를 넣고 코스 GPX를 올리면 오르막·내리막을 반영한 km별 목표 페이스, 통과 시간, AI 구간 운영법·보급·주의점을 만들어요.</li><li><b>이력:</b> 대회마다 저장돼요. 눌러서 다시 보고, 목표나 코스를 바꾸면 페이스를 다시 계산해요.</li><li><b>대회 후:</b> 워치 기록을 동기화하면 "기록으로 분석하기"로 km별 실제 페이스를 계획과 비교해 100점 만점(목표 달성 40 · 페이스 분배 25 · 구간 계획 준수 20 · 후반 유지 15)으로 평가하고, 잘한 점·아쉬운 점·다음 레이스 유의사항을 알려줘요. 기록이 없으면 공식 기록만 넣어 평가할 수 있어요.</li><li><b>공유:</b> "전략 텍스트 복사"로 구간 페이스·운영법·보급을 글로 복사해 카톡·메모에 붙여 넣을 수 있어요.</li><li><b>워치 등록(COROS):</b> 구간별 목표 페이스(±3초)가 든 워크아웃을 만들어요. 대회가 90일 안이면 그날 일정에, 더 멀면 운동 라이브러리에 저장돼요. 워치를 COROS 앱과 동기화하면 받아져요.</li><li>대회 결과는 AI 코치도 참고해요.</li></ul></div>';
   h+='<div class="card"><h2>요일별 먹는 양</h2><p class="small muted" style="margin:2px 0 0">'+(Object.keys(S.wlog||{}).length||S.wgoal?'내 체중 '+(Math.round(bodyW()*10)/10)+'kg 기준이에요.':'체중을 기록하면 내 체중에 맞춰 계산돼요. 지금은 72kg 기준.')+'</p><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+foodKcal(x)+' kcal</b><div class="small">탄수 '+foodCarb(x)+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 '+protTxt()+': 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li></ul></div>';
   h+='<div class="card"><h2>훈련 점수</h2><p class="small" style="margin:8px 0 6px">완료한 날은 100점 만점으로 매겨 색으로 보여 줘요: <b style="color:var(--s5)">90점 이상 파랑</b> · <b style="color:var(--s4)">80점대 초록</b> · <b style="color:var(--s3)">70점대 노랑</b> · <b style="color:var(--s2)">60점대 주황</b> · <b style="color:var(--s1)">60점 미만 빨강</b>. 놓친 날은 빨간 테두리 빈 점이에요.</p><ul class="tight small"><li><b>양보다 질:</b> 거리 30점 + 질 70점</li><li><b>거리 30점:</b> 계획 거리를 다 뛰면 30점, 모자랄수록 더 깎여요. 이지·회복 날 35% 넘게 많이 뛰면 −5점</li><li><b>포인트·롱런 날 질 70점:</b> 직접 끊은 랩의 본 구간 평균 페이스가 목표 범위 안인지 40점(벗어난 1초마다 −4점), 반복 간 페이스 편차 15점(5초 넘는 1초마다 −1.5점), 본 구간 심박 15점(MP는 상한을 넘은 1bpm마다 −3점, 그 외는 심박 상승폭). 랩이 없으면 기본 42점</li><li><b>이지·회복 날 질 70점:</b> 이지 기준보다 빠르지 않게 35점(빠른 1초마다 −2점), 심박 상한 35점(넘은 1bpm마다 −3점)</li><li>거리 기록 없이 체크만 한 날은 점수 없이 ✓로 표시해요</li><li><b>휴식일 추가 러닝:</b> 계획이 없는 날 뛰면 "추가 러닝"으로 표시하고 이번 주 거리에 더해요(체크 안 해도). 점수는 정말 편하게 뛰었는지만 봐요: 이지 기준보다 빠르지 않게 50점(빠른 1초마다 −2.5점) + 심박 상한 50점(넘은 1bpm마다 −4점), 10km 넘게 뛰면 −10점. 크루에도 추가 러닝으로 공유돼요</li><li><b>크루원 점:</b> 크루에는 거리만 공유돼서 거리 달성률(100점 환산)로 같은 색을 써요</li><li><b>식단 점수:</b> 그날 식사의 열량·탄수화물·단백질·지방을 목표와 비교해 100점 만점(열량 30·탄수 30·단백질 25·지방 15). 오늘은 21시 전까지 "지금까지" 점수예요</li></ul></div>';
-  h+='<div class="card"><h2>워치 기록 연동</h2><dl class="kv" style="margin-top:8px"><dt>COROS</dt><dd>claude.ai 커넥터로 내 계정 연결 → 앱을 열 때마다 러닝·체중·안정시 심박·수면 HRV를 자동으로 불러와요</dd><dt>가민·애플 (freddy)</dt><dd>claude.ai 커넥터에서 freddy를 연결하고, freddy에 가민 커넥트나 애플 건강을 연결 → 앱을 열 때마다 러닝을 자동으로 불러와요(가민은 랩·초 단위 기록 포함). 같은 러닝이 양쪽에 있으면 한 번만 넣어요. freddy 무료 플랜은 최근 7일만 조회돼요</dd><dt>가민 (파일)</dt><dd>매주 일요일 21:00 알림 → connect.garmin.com 활동 목록에서 CSV로 내보내기 → 기록 탭에 올리기</dd><dt>애플워치 등</dt><dd>GPX·TCX·FIT 파일을 기록 탭에 올려요</dd></dl><p class="small muted" style="margin:8px 0 0">계획 거리의 80% 이상 뛴 날은 자동으로 체크되고, 직접 체크하거나 해제한 날은 바꾸지 않아요. 휴대폰 알림을 받으려면 기록 탭에서 "휴대폰 알림 받기"로 구글 캘린더에 등록하세요.</p></div>';
+  h+='<div class="card"><h2>워치 기록 연동</h2><dl class="kv" style="margin-top:8px"><dt>COROS</dt><dd>claude.ai 커넥터로 내 계정 연결 → 앱을 열 때마다 러닝·체중·안정시 심박·수면 HRV를 자동으로 불러와요</dd><dt>가민·애플 (freddy)</dt><dd>claude.ai 커넥터에서 freddy를 연결하고, freddy에 가민 커넥트나 애플 건강을 연결 → 앱을 열 때마다 러닝을 자동으로 불러와요(가민은 랩·초 단위 기록 포함). 같은 러닝이 양쪽에 있으면 한 번만 넣어요. freddy 무료 플랜은 최근 7일만 조회돼요</dd><dt>가민 (파일)</dt><dd>매주 일요일 21:00 알림 → connect.garmin.com 활동 목록에서 CSV로 내보내기 → 오늘 화면 위 ⌚ 줄 → 파일 올리기</dd><dt>애플워치 등</dt><dd>GPX·TCX·FIT 파일을 오늘 화면 위 ⌚ 줄에서 올려요</dd></dl><p class="small muted" style="margin:8px 0 0">계획 거리의 80% 이상 뛴 날은 자동으로 체크되고, 직접 체크하거나 해제한 날은 바꾸지 않아요. 휴대폰 알림을 받으려면 오늘 화면 위 ⌚ 줄을 눌러 "휴대폰 알림 받기"로 구글 캘린더에 등록하세요.</p></div>';
   h+='<div class="card"><h2>AI 코치</h2><ul class="tight" style="margin-top:8px"><li>화면 오른쪽 아래 <b>AI 코치</b> 버튼을 눌러 물어봐요.</li><li>내 훈련 계획(최근 2주~다음 1주), 달린 기록(워치·직접 입력·메모), 체중, 목표와 페이스 존, 점검 결과를 보고 답해요.</li><li>추천 질문: "어제 달린 기록 어땠어?", "몸이 무거운데 쉬어야 할까?", "지금 목표가 현실적이야?"</li><li><b>음성:</b> "말로 묻기"를 누르고 말한 뒤 한 번 더 누르면 보내요. "답변 읽어주기"를 켜면 답을 소리로 읽어 줘요. PC 크롬·Claude 데스크톱 앱에서는 앱이 바로 받아쓰고, 휴대폰에서는 "말로 입력"을 누른 뒤 키보드의 🎤로 말하면 말을 멈추고 2.5초 뒤 자동으로 보내요.</li><li>대화는 내 계정에만 저장되고 크루에는 공유되지 않아요. 처음 한 번 클로드 사용을 허용해야 해요.</li><li>답은 참고용이에요. 통증·어지럼 같은 위험 신호는 바로 쉬고 진료받아요.</li></ul></div>';
   h+='<div class="card"><h2>내 계획 바꾸기</h2><ul class="tight" style="margin-top:8px"><li><b>요일 바꾸기:</b> 훈련표 → 내 계획 바꾸기에서 롱런을 일요일로, 포인트를 목요일로 같은 요일 교환</li><li><b>주간 거리:</b> 80~110%. 이지·조깅·LSD만 조절하고 포인트 훈련은 그대로</li><li><b>하루씩:</b> 오늘 탭에서 날짜를 골라 "이 날 훈련 바꾸기"</li><li><b>클로드에게 부탁:</b> 바꾸고 싶은 내용을 적으면 제안을 보여 주고, 적용을 눌러야 바뀌어요</li><li>모두 <b>나에게만</b> 적용되고, 되돌리기·원래 계획으로가 있어요. 대회 주는 바뀌지 않아요</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙</h2><ul class="tight" style="margin-top:8px"><li>11/22 인천마라톤 후 1주는 완전 휴식. W4에도 통증이 남아 있으면 강도 훈련을 빼고 이지만 뛴다</li><li>아침 안정시 심박이 평소보다 5 이상 높거나 수면이 나쁜 날은 수·토 훈련을 하루 미룬다</li><li>한파·빙판길에는 트랙이나 트레드밀로 대체하고, 페이스보다 노력도를 지킨다</li><li>통증이 3일 이상 이어지면 주간 거리를 회복주 수준으로 내리고 점검 일정을 늦춘다</li><li>점검 대회(W11·W15)가 일요일이면 그 주만 토·일 순서를 바꾼다. 피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지킨다</li></ul></div>';
