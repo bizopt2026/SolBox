@@ -99,7 +99,10 @@ details.more[open]{padding-bottom:10px}
 .wxm small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .wxm small.wet{color:var(--s5);font-weight:700}
 .wxm.now b{color:var(--accent)}
-.wxtip{margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wxtip{all:unset;cursor:pointer;display:block;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:13px}
+.wxtg{display:grid;place-items:center}
+.wxtg .chev{margin:0;background:none;width:auto;height:auto}
+.wxtg[aria-expanded="true"] .chev::before{transform:translateY(2px) rotate(-135deg)}
 .wxres{display:grid;gap:6px;margin-top:8px}
 .wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
@@ -1809,7 +1812,7 @@ function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.
   if(mc&&mc.summary120&&!/없음/.test(mc.summary120))t.push("☔ "+mc.summary120+" · 일찍 끝내거나 트레드밀");
   else if(rain)t.push("☔ "+new Date(rain.epoch*1000).getHours()+"시 비 가능성 "+(rain.extended&&rain.extended.rainProbability||rain.precip)+" · 일찍 출발하거나 방수 재킷");
   var w=Math.max.apply(null,[c&&c.extended&&c.extended.windValue||0].concat(nx.map(function(x){return x.extended&&x.extended.windValue||0}))),g=Math.max.apply(null,[0].concat(nx.map(function(x){return x.extended&&x.extended.gustsValue||0})));
-  if(w>=20||g>=35)t.push("💨 바람 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+"). 맞바람 구간은 페이스보다 노력·심박을 지키고 5~10초 느려도 괜찮아요");
+  if(w>=20||g>=35)t.push("💨 바람 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+) · 맞바람엔 5~10초 느려도 OK");
   var rf=c?c.realFeelValue:(nx[0]&&nx[0].realFeelValue);
   if(rf!=null){if(rf<=-5)t.push("🥶 체감 "+Math.round(rf)+"° · 장갑·넥워머, 워밍업 길게");else if(rf<=3)t.push("🧤 체감 "+Math.round(rf)+"° · 장갑·얇은 긴팔 추천");else if(rf>=27)t.push("🥵 체감 "+Math.round(rf)+"° · km당 10~20초 늦추고 수분 자주");else if(rf>=22)t.push("☀️ 체감 "+Math.round(rf)+"° · 물 챙기고 MP는 심박 기준");}
   if(!t.length)t.push("👍 달리기 좋은 날씨예요");
@@ -1824,11 +1827,15 @@ function wxCard(){
     if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
     return h+'</div>'}
   var c=WX.cur&&WX.cur.currentConditions,nx=wxNext();
-  h+='<div class="wxtop"><button class="linkbtn wxloc" id="wx-loc" aria-label="동네 바꾸기">📍 '+esc(String(S.wx.name).split(",")[0])+'</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button></div>';
+  h+='<div class="wxtop"><button class="linkbtn wxloc" id="wx-loc" aria-label="동네 바꾸기">📍 '+esc(String(S.wx.name).split(",")[0])+'</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button><button class="wxre wxtg" id="wx-tg" aria-expanded="'+foldOpen("wxo",false)+'" aria-label="기온·바람·강수 '+(foldOpen("wxo",false)?'접기':'펼치기')+'"><span class="chev" aria-hidden="true"></span></button></div>';
   if(!c&&!nx.length){h+='<p class="small'+(WX.err?'" style="color:var(--bad);margin:4px 0 0"':' muted" style="margin:4px 0 0"')+'>'+esc(WX.err||(WX.busy?'날씨를 불러오는 중…':'↻를 눌러 날씨를 불러와 주세요.'))+'</p>';return h+'</div>'}
   function rp(x){return parseInt((x.extended&&x.extended.rainProbability)||x.precip)||0}
-  h+='<div class="wxrow"><span class="wxm now"><small>지금</small><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><small>'+esc(c?c.phrase:'')+'</small></span>'+nx.map(function(x){var p=rp(x),mm=x.extended&&x.extended.rainValue;return '<span class="wxm"><small>'+new Date(x.epoch*1000).getHours()+'시</small><b class="num">'+Math.round(x.temperatureValue)+'°</b><small'+(p>=50?' class="wet"':'')+'>☔'+p+'%</small></span>'}).join("")+'</div>';
-  var tp=wxTips();h+='<div class="small wxtip">'+esc(tp[0])+'</div>';
+  var tp=wxTips();h+='<button class="small wxtip" id="wx-tip">'+esc(tp[0])+(tp.length>1?' <span class="muted">+'+(tp.length-1)+'</span>':'')+'</button>';
+  if(foldOpen("wxo",false)){
+    h+='<div class="wxrow"><span class="wxm now"><small>지금</small><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><small>💨'+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</small><small>'+esc(c?c.phrase:'')+'</small></span>'+nx.map(function(x){var p=rp(x),e=x.extended||{};return '<span class="wxm"><small>'+new Date(x.epoch*1000).getHours()+'시</small><b class="num">'+Math.round(x.temperatureValue)+'°</b><small'+(e.windValue>=20||e.gustsValue>=35?' class="wet"':'')+'>💨'+wxMs(e.windValue)+'</small><small'+(p>=50?' class="wet"':'')+'>☔'+p+'%</small></span>'}).join("")+'</div>';
+    if(tp.length>1)h+='<ul class="tight small" style="margin:6px 0 0">'+tp.slice(1).map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
+    h+='<div class="small muted" style="margin-top:4px">바람 m/s · AccuWeather</div>';
+  }
   if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';
   return h+'</div>'}
 function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx()}
@@ -1836,6 +1843,7 @@ function bindWx(){function $(i){return document.getElementById(i)}
   var lc=$("wx-loc");if(lc)lc.onclick=function(){WX.edit=true;WX.res=null;wxPaint()};
   var cn=$("wx-cancel");if(cn)cn.onclick=function(){WX.edit=false;wxPaint()};
   var re=$("wx-re");if(re)re.onclick=function(){wxLoad(true)};
+  function tg(){foldSet("wxo",!foldOpen("wxo",false));wxPaint()}var t1=$("wx-tg");if(t1)t1.onclick=tg;var t2=$("wx-tip");if(t2)t2.onclick=tg;
 
   var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
   async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
