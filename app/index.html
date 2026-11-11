@@ -112,8 +112,9 @@ textarea{resize:vertical;min-height:64px}
 .sreason b{font-size:13px}
 .sbar100{display:block;height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:2px 0 2px}
 .sbar100 i{display:block;height:100%}
-.ck .ckn{font-size:15px;line-height:1;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:center}
-.ck .ckn small{font-size:9px;font-weight:600;opacity:.9}
+.ck:has(.ckn){padding:0}
+.ck .ckn{display:block;width:100%;text-align:center;font-size:15px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ck .ckn.n3{font-size:13px;letter-spacing:-.05em}
 .ws.sel{border-color:var(--ink);border-width:2px}
 .ws.t-q b{color:var(--q)} .ws.t-l b,.ws.t-x b{color:var(--accent)}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
@@ -1749,7 +1750,7 @@ function vPlan(){
       if(!extra.length&&r.w){extra.push("⌚ "+r.w.km+"km");extra.push(fmtPaceKm(r.w.dur,r.w.km)+"/km");if(r.w.hr)extra.push("♥"+r.w.hr)}
       var act=extra.length?esc(extra.join(" · ")):"";
       var ab='';
-      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':'')+'"':'')+'>'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn">'+dayScore(ds).s+'<small>점</small></span>':'✓')+'</button></div>'}}
+      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(ptxt(t[1]))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':'')+'"':'')+'>'+(dn&&dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn'+(dayScore(ds).s>=100?' n3':'')+'">'+dayScore(ds).s+'</span>':'✓')+'</button></div>'}}
     h+='</details>';
   }
   h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
