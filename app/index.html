@@ -64,6 +64,8 @@ details.more>summary::-webkit-details-marker{display:none}
 details.more[open]>summary .chev::before{transform:translateY(2px) rotate(-135deg)}
 details.more[open]{padding-bottom:10px}
 .donechip{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:800}
+.donechip.todo{font-weight:500;border-style:dashed;padding:8px 10px 8px 14px}
+.donechip.todo .sbtn{padding:7px 14px;font-size:13.5px}
 .linkbtn{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:8px 4px;min-height:36px}
 .wsn{display:block;font-size:11px;font-weight:800;line-height:12px;margin-top:2px;font-variant-numeric:tabular-nums}
 .news{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -1897,7 +1899,7 @@ function vToday(){
   if(folded){det+=h;h=h0}else h=h0+h;
   if(folded&&det)h+='<details class="more"><summary>훈련 상세 · 존 · 워치 · 랩<span class="chev" aria-hidden="true"></span></summary>'+det+'</details>';
   if(dn)h+='<div class="donechip"><span style="color:'+(DS&&DS.s!=null?SCOL[DS.b]:'var(--ok)')+'">✓ 완료'+(r.auto?' · 워치 자동 체크':'')+'</span><button class="linkbtn" id="done">체크 해제</button></div>';
-  else h+='<button class="done-btn" id="done">'+(t[0]==="r"?'휴식 완료 체크':'훈련 완료 체크')+'</button>';
+  else h+='<div class="donechip todo"><span class="small muted">'+(t[0]==="r"?'오늘은 쉬는 날이에요':(S.watch&&S.watch!=="file"?'워치 기록이 들어오면 자동 체크돼요':'달린 뒤 체크해 주세요'))+'</span><button class="sbtn wset" id="done">✓ '+(t[0]==="r"?'휴식 완료':'완료 체크')+'</button></div>';
   if(DS&&!folded)h+='<div class="sreason"><span>'+esc(DS.why.join(" · "))+'</span></div>';
   if(t[0]!=="r"){
     h+='<div class="fields"><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(r.w?r.w.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(r.w&&r.w.hr?r.w.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label>컨디션 (1~5)<input id="f-rpe" inputmode="numeric" placeholder="3" value="'+esc(r.rpe)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
