@@ -78,6 +78,12 @@ details.more[open]{padding-bottom:10px}
 .tsvg .ax{font-size:9px;fill:var(--muted)}
 .wdiet>div{display:grid;grid-template-columns:34px 1fr 30px 28px;gap:8px;align-items:center;padding:3px 0}
 .wdiet .sbar100{margin:0}
+.wxgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+.wxc{display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;padding:8px 2px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.wxc b{font-size:20px}
+.wxc span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wxc.now{background:var(--accent-soft);border-color:transparent}
+.wxres{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -514,7 +520,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.calSet=o.calSet||0;S.ts=o.ts||0}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -1207,6 +1213,7 @@ function coachCtx(){
   if(S.fit)L.push("COROS 체력 평가("+(S.fit.date||"")+"): VO2max "+S.fit.vo2+" · 러닝 레벨 "+S.fit.lvl+" · 역치 페이스 "+S.fit.thr+" · 예측 5K "+S.fit.k5+" / 10K "+S.fit.k10+" / 하프 "+S.fit.half+" / 풀 "+S.fit.mar);
   var lk=Object.keys(S.load).sort().slice(-3);if(lk.length)L.push("COROS 훈련 부하: "+lk.map(function(k){var x=S.load[k];return md(k)+" 단기 "+x.st+" 장기 "+x.lt+" 비율 "+x.r+" ("+x.c+")"}).join("; "));
   if(S.recov)L.push("COROS 회복률("+S.recov.date+"): "+S.recov.pct+"% "+S.recov.lv+(S.recov.full?" · 완전 회복까지 "+S.recov.full:""));
+  var wxc=wxCtx();if(wxc)L.push(wxc);
   var RR=readiness(T);if(RR.has)L.push("오늘 아침 컨디션: 안정시 심박 "+(RR.r||"미측정")+(RR.b?" (평소 "+RR.b+", "+(RR.diff>0?"+":"")+RR.diff+")":"")+(RR.h?" · 수면 HRV "+RR.h.avg+"ms "+RR.h.ev+" (정상 "+RR.h.lo+"~"+RR.h.hi+")":"")+(RR.sq?" · 잠 "+RR.sq:"")+" → 앱 판정: "+["좋음","주의","쉬어가기"][RR.lv]);
   var mk=[];for(var q=2;q>=0;q--){var dq=addDays(T,-q),mt=mealTot(dq);if(mt.n)mk.push(md(dq)+" "+mt.n+"끼 "+Math.round(mt.kcal)+"kcal 탄"+Math.round(mt.c)+" 단"+Math.round(mt.p)+" 지"+Math.round(mt.f))}
   var tgT=mealTarget(Math.max(0,idxOf(T))%7);
@@ -1752,9 +1759,70 @@ async function askClaude(){
   }catch(e){var c=e&&e.code;AI.err=c==="not_granted"?"이 앱의 클로드 사용을 허용하지 않았어요. 허용해야 이 기능을 쓸 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":c==="invalid_json"?"클로드의 답을 읽지 못했어요. 요청을 조금 더 구체적으로 적어 주세요.":"요청하지 못했어요"+(e&&e.message?": "+e.message:".")}
   finally{AI.busy=false;keepIf()}
 }
-var APPV="beta-1";
+// ---------- Weather (AccuWeather connector): now + next 3 hours at the runner's chosen neighbourhood ----------
+var WX={busy:false,err:"",cur:null,hr:null,mc:null,at:0,key:"",q:"",res:null,edit:false};
+function wxObj(res){if(!res)return null;if(res.structuredContent&&typeof res.structuredContent==="object")return res.structuredContent;if(res.payload&&typeof res.payload==="object")return res.payload;try{return JSON.parse(payloadText(res))}catch(e){return null}}
+async function wxCall(tool,qp,fresh){var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)throw{code:"no_mcp"};
+  return wxObj(await mcp.callTool("AccuWeather",tool,{queryParams:qp},{cache:fresh?{refresh:true,staleTime:0,gcTime:1800000}:{staleTime:900000,gcTime:1800000}}))}
+var WXERR={server_not_connected:"AccuWeather가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 AccuWeather를 연결해 주세요.",not_in_manifest:"이 앱의 AccuWeather 사용을 허용해 주세요.",approval_required:"날씨 불러오기를 허용해 주세요.",no_mcp:"claude.ai에 로그인한 상태로 열어야 날씨를 볼 수 있어요.",rate_limited:"요청이 많아요. 잠시 후 다시 눌러 주세요."};
+async function wxLoad(fresh){
+  if(!S.wx||!S.wx.key||WX.busy)return;if(!fresh&&WX.key===S.wx.key&&Date.now()-WX.at<900000)return;
+  WX.busy=true;WX.err="";wxPaint();
+  try{var k=S.wx.key,qp={locationKey:k,unit:"metric",lang:"ko"};
+    var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
+    WX.cur=r[0];WX.hr=r[1];WX.mc=r[2];WX.at=Date.now();WX.key=k;
+    if(!(WX.cur&&WX.cur.currentConditions)&&!(WX.hr&&WX.hr.hourlyForecast))WX.err="날씨 정보를 읽지 못했어요.";}
+  catch(e){WX.err=WXERR[e&&e.code]||"날씨를 불러오지 못했어요.";}
+  finally{WX.busy=false;wxPaint()}}
+function wxMs(kmh){return Math.round((kmh||0)/3.6*10)/10}
+function wxNext(){var h=(WX.hr&&WX.hr.hourlyForecast)||[],now=Date.now()/1000;return h.filter(function(x){return x.epoch>now-1800}).slice(0,3)}
+function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.mc&&WX.mc.minuteCastForecast;
+  var rain=nx.filter(function(x){return parseInt(x.extended&&x.extended.rainProbability||x.precip)>=50||x.hasPrecip})[0];
+  if(mc&&mc.summary120&&!/없음/.test(mc.summary120))t.push("☔ "+mc.summary120+". 비 오기 전에 짧게 끝내거나 트레드밀도 좋아요");
+  else if(rain)t.push("☔ "+new Date(rain.epoch*1000).getHours()+"시 비 가능성 "+(rain.extended&&rain.extended.rainProbability||rain.precip)+". 일찍 출발하거나 모자·방수 재킷을 챙겨요");
+  var w=Math.max.apply(null,[c&&c.extended&&c.extended.windValue||0].concat(nx.map(function(x){return x.extended&&x.extended.windValue||0}))),g=Math.max.apply(null,[0].concat(nx.map(function(x){return x.extended&&x.extended.gustsValue||0})));
+  if(w>=20||g>=35)t.push("💨 바람 최대 "+wxMs(w)+"m/s(돌풍 "+wxMs(g)+"m/s). 맞바람 구간은 페이스보다 노력·심박을 지키고 5~10초 느려도 괜찮아요");
+  var rf=c?c.realFeelValue:(nx[0]&&nx[0].realFeelValue);
+  if(rf!=null){if(rf<=-5)t.push("🥶 체감 "+Math.round(rf)+"°. 장갑·넥워머·긴 레이어, 워밍업은 실내에서 길게");else if(rf<=3)t.push("🧤 체감 "+Math.round(rf)+"°. 장갑과 얇은 긴팔 레이어 추천");else if(rf>=27)t.push("🥵 체감 "+Math.round(rf)+"°. 페이스를 km당 10~20초 늦추고 15~20분마다 수분 보충");else if(rf>=22)t.push("☀️ 체감 "+Math.round(rf)+"°. 물을 챙기고 MP 구간은 심박 기준으로");}
+  var aq=WX.cur&&WX.cur.currentAirQuality;if(aq&&aq.overallPlumeLabsIndex>=100)t.push("😷 대기질 "+aq.category+"("+aq.overallPlumeLabsIndex+"). 강도 높은 훈련은 실내나 공기 좋은 시간대로 옮기는 걸 권해요");
+  if(!t.length)t.push("👍 달리기 좋은 날씨예요");
+  return t}
+function wxCard(){
+  var h='<div class="card" id="wx"><div class="row between"><h2>날씨 · 지금부터 3시간</h2>'+(S.wx&&S.wx.key&&!WX.edit?'<button class="linkbtn" id="wx-loc">📍 '+esc(S.wx.name)+'</button>':'')+'</div>';
+  if(!S.wx||!S.wx.key||WX.edit){
+    h+='<p class="small muted" style="margin:4px 0 8px">주로 뛰는 동네를 한 번 정해 두면 그곳의 기온·강수·바람을 보여 줘요. (휴대폰 위치 권한은 이 앱에서 쓸 수 없어요)</p>';
+    h+='<div class="cin"><input id="wx-q" class="inp" maxlength="30" placeholder="예: 잠실, 하남 미사, 여의도" value="'+esc(WX.q)+'"><button class="btn" id="wx-find"'+(WX.busy?' disabled':'')+'>찾기</button></div>';
+    if(WX.res)h+=WX.res.length?'<div class="wxres">'+WX.res.map(function(r,i){return '<button class="sbtn" data-wxpick="'+i+'">'+esc(r.name)+'</button>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">찾지 못했어요. 구·동 이름이나 영문으로 다시 찾아 주세요.</p>';
+    if(WX.edit&&S.wx&&S.wx.key)h+='<button class="linkbtn" id="wx-cancel">취소</button>';
+  } else if(WX.err&&!WX.cur){h+='<p class="small" style="color:var(--bad);margin:6px 0 0">'+esc(WX.err)+'</p><button class="sbtn" id="wx-re" style="margin-top:8px">다시 불러오기</button>'}
+  else if(!WX.cur&&!WX.hr){h+='<p class="small muted" style="margin:6px 0 0">'+(WX.busy?'날씨를 불러오는 중…':'날씨를 불러오려면 눌러 주세요.')+'</p>'+(WX.busy?'':'<button class="sbtn" id="wx-re" style="margin-top:8px">불러오기</button>')}
+  else{var c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),aq=WX.cur&&WX.cur.currentAirQuality,mc=WX.mc&&WX.mc.minuteCastForecast;
+    h+='<div class="wxgrid"><div class="wxc now"><span class="small muted">지금</span><b class="num">'+(c?Math.round(c.temperatureValue)+'°':'-')+'</b><span class="small">'+esc(c?c.phrase:'')+'</span><span class="small muted">체감 '+(c?Math.round(c.realFeelValue)+'°':'-')+'</span><span class="small muted">💨 '+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</span></div>';
+    nx.forEach(function(x){var e=x.extended||{},rp=e.rainProbability||x.precip;h+='<div class="wxc"><span class="small muted">'+new Date(x.epoch*1000).getHours()+'시'+'</span><b class="num">'+Math.round(x.temperatureValue)+'°</b><span class="small">'+esc(x.phrase)+'</span><span class="small'+(parseInt(rp)>=50?'" style="color:var(--s5);font-weight:700':' muted')+'">☔ '+esc(rp)+(e.rainValue?' '+e.rainValue+'mm':'')+'</span><span class="small muted">💨 '+wxMs(e.windValue)+(e.gustsValue>=30?'~'+wxMs(e.gustsValue):'')+'</span></div>'});
+    h+='</div>';
+    if(mc&&mc.summary120)h+='<div class="small" style="margin-top:8px">🌧 앞으로 2시간: '+esc(mc.summary120)+'</div>';
+    if(aq)h+='<div class="small" style="margin-top:4px">대기질 <b style="color:'+esc(aq.categoryColor||'inherit')+'">'+esc(aq.category)+'</b>'+(aq.overallPlumeLabsIndex!=null?' ('+aq.overallPlumeLabsIndex+')':'')+'</div>';
+    h+='<ul class="tight small" style="margin:8px 0 0">'+wxTips().map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
+    h+='<div class="row between" style="margin-top:8px"><span class="small muted">바람 m/s · AccuWeather · '+(WX.busy?'갱신 중…':agoT(WX.at)+' 갱신')+'</span><button class="sbtn" id="wx-re"'+(WX.busy?' disabled':'')+'>↻</button></div>';
+    if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';}
+  return h+'</div>'}
+function wxPaint(){var el=document.getElementById("wx");if(!el||tab!=="today")return;var tmp=document.createElement("div");tmp.innerHTML=wxCard();el.replaceWith(tmp.firstChild);bindWx()}
+function bindWx(){function $(i){return document.getElementById(i)}
+  var lc=$("wx-loc");if(lc)lc.onclick=function(){WX.edit=true;WX.res=null;wxPaint()};
+  var cn=$("wx-cancel");if(cn)cn.onclick=function(){WX.edit=false;wxPaint()};
+  var re=$("wx-re");if(re)re.onclick=function(){wxLoad(true)};
+  var q=$("wx-q");if(q)q.addEventListener("input",function(){WX.q=q.value});
+  async function find(){var v=(WX.q||"").trim();if(!v)return;WX.busy=true;WX.res=null;wxPaint();
+    try{var o=await wxCall("widgets-search-claude",{query:v},true);WX.res=((o&&o.results)||[]).slice(0,6).map(function(r){return{name:String(r.name||"").slice(0,40),key:String(r.locationKey||"")}}).filter(function(r){return r.key})}
+    catch(e){WX.res=null;WX.err=WXERR[e&&e.code]||"동네를 찾지 못했어요."}finally{WX.busy=false;wxPaint()}}
+  var fd=$("wx-find");if(fd)fd.onclick=find;if(q)q.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();find()}});
+  view.querySelectorAll("[data-wxpick]").forEach(function(b){b.onclick=function(){var r=WX.res[+b.dataset.wxpick];S.wx={key:r.key,name:r.name.replace(/,\s*(Seoul|서울시?)$/,"")};WX.edit=false;WX.res=null;WX.q="";WX.cur=null;WX.hr=null;WX.mc=null;WX.at=0;WX.err="";save();wxPaint();wxLoad(true)}});
+}
+function wxCtx(){if(!WX.cur&&!WX.hr)return "";var c=WX.cur&&WX.cur.currentConditions,nx=wxNext();
+  return "날씨("+(S.wx&&S.wx.name||"")+", "+agoT(WX.at)+"): 지금 "+(c?Math.round(c.temperatureValue)+"° 체감 "+Math.round(c.realFeelValue)+"° "+c.phrase+" 바람 "+wxMs(c.extended&&c.extended.windValue)+"m/s":"-")+"; "+nx.map(function(x){var e=x.extended||{};return x.dateTime+" "+Math.round(x.temperatureValue)+"° 비 "+(e.rainProbability||x.precip)+" 바람 "+wxMs(e.windValue)+"m/s"}).join("; ")+(WX.cur&&WX.cur.currentAirQuality?"; 대기질 "+WX.cur.currentAirQuality.category:"")}
+var APPV="beta-2";
 function newsCard(){if(S.seenV===APPV||!S.onboarded)return "";
-  return '<div class="card news"><div class="row between"><h2>🎉 클로즈베타 업데이트</h2><button class="linkbtn" id="news-ok">확인</button></div><ul class="tight small" style="margin-top:8px"><li><b>훈련 점수(100점)</b>: 양보다 질 — 거리 30 + 페이스·편차·심박 70. 색으로 한눈에 봐요</li><li><b>식단 점수</b>와 <b>휴식일 추가 러닝</b> 평가</li><li><b>레이스 전략</b>: 내 페이스 → 레이스 전략 탭. 코스 GPX로 구간 페이스·AI 전략·워치 등록·대회 후 평가</li><li><b>가민·애플 건강</b>: 오늘 화면 위 ⌚ 줄을 눌러 freddy로 자동 연동</li><li>가이드와 <b>의견 보내기</b>는 오른쪽 위 <b>?</b> 버튼으로 옮겼어요</li></ul></div>'}
+  return '<div class="card news"><div class="row between"><h2>🎉 클로즈베타 업데이트</h2><button class="linkbtn" id="news-ok">확인</button></div><ul class="tight small" style="margin-top:8px"><li><b>훈련 점수(100점)</b>: 양보다 질 — 거리 30 + 페이스·편차·심박 70. 색으로 한눈에 봐요</li><li><b>식단 점수</b>와 <b>휴식일 추가 러닝</b> 평가</li><li><b>레이스 전략</b>: 내 페이스 → 레이스 전략 탭. 코스 GPX로 구간 페이스·AI 전략·워치 등록·대회 후 평가</li><li><b>가민·애플 건강</b>: 오늘 화면 위 ⌚ 줄을 눌러 freddy로 자동 연동</li><li><b>날씨</b>: 오늘 화면에서 내 동네의 지금부터 3시간 기온·강수·바람과 러닝 팁(AccuWeather 연결 필요)</li><li>가이드와 <b>의견 보내기</b>는 오른쪽 위 <b>?</b> 버튼으로 옮겼어요</li></ul></div>'}
 function vToday(){
   var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=planDay(w,d), r=dayRec(sel), wkm=weekKm(w);
   var tIdx=idxOf(T), before=tIdx<0;
@@ -1762,7 +1830,7 @@ function vToday(){
   var food=FOOD[FOOD_BY_DOW[d]];
   var dn=isDone(sel);
   var h="";
-  h+=authBar()+newsCard()+statusStrip()+readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})());
+  h+=authBar()+newsCard()+statusStrip()+(sel===T?wxCard():'')+readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})());
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:var(--accent)">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:24px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날">‹</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날">›</button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
@@ -1802,6 +1870,7 @@ function vToday(){
   view.innerHTML=h;
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;if(tab==="pace")PACEV="base";render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
+  if(sel===T){bindWx();wxLoad(false)}
   var no=document.getElementById("news-ok");if(no)no.onclick=function(){S.seenV=APPV;save();render()};
   bindDayEditor(sel);bindMeals(sel);bindReady(T);bindLaps();
   view.querySelectorAll("[data-story]").forEach(function(b){b.onclick=function(){openStory(b.dataset.story)}});
