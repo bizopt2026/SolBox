@@ -868,13 +868,32 @@ function fitAll(){
   var ch={};Object.keys(S.runs).forEach(function(k){var r=S.runs[k],m="runs-"+String(r.date||"0000-00").slice(0,7);(ch[m]=ch[m]||[]).push(r)});
   Object.keys(ch).forEach(function(m){slimRuns(ch[m],DOC_LIM)});
   return{main:j,chunks:ch}}
+// ---- conflict-safe sync: another open view (phone/desktop/tab) may have saved meanwhile.
+// BASE = the account copy this view last saw; a 3-way merge keeps both sides' changes instead of overwriting.
+var BASE=null,BASE_TS=0;
+function snapMain(o){var m=JSON.parse(JSON.stringify(o||{}));delete m.runs;delete m.ts;delete m.split;return m}
+function sameJ(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function ukeys(a,b){var o={};Object.keys(a||{}).forEach(function(k){o[k]=1});Object.keys(b||{}).forEach(function(k){o[k]=1});return Object.keys(o)}
+function unionByT(l,r){var out=(l||[]).slice(),seen={};out.forEach(function(x){if(x&&x.t!=null)seen[x.t]=1});(r||[]).forEach(function(x){if(x&&x.t!=null&&!seen[x.t])out.push(x)});out.sort(function(a,b){return (a&&a.t||0)-(b&&b.t||0)});return out}
+function merge3(remote){var Rm=snapMain(remote),Lm=snapMain(S),B=BASE||{},changed=false;
+  ukeys(Rm,Lm).forEach(function(k){var l=Lm[k],b=B[k],r=Rm[k];
+    if(sameJ(l,b)){if(!sameJ(l,r)){changed=true;if(r===undefined)delete S[k];else S[k]=r}return}
+    if(r===undefined||sameJ(r,b))return;
+    if(l&&r&&typeof l==="object"&&typeof r==="object"&&!Array.isArray(l)&&!Array.isArray(r)){var o={},bb=b&&typeof b==="object"?b:{};
+      ukeys(l,r).forEach(function(sk){var lv=l[sk],bv=bb[sk],rv=r[sk];
+        if(sameJ(lv,bv)){if(rv!==undefined)o[sk]=rv}else if(rv===undefined||sameJ(rv,bv)){if(lv!==undefined)o[sk]=lv}
+        else if(Array.isArray(lv)&&Array.isArray(rv))o[sk]=unionByT(lv,rv);else o[sk]=lv});
+      if(!sameJ(o,l)){changed=true;S[k]=o}}});
+  return changed}
 function save(){
   S.ts=Date.now(); lsSet();
   if(!docRef){setSync("이 기기에 저장");return}
   setSync("저장 중…");
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(function(){
-    var F=fitAll(),jobs=[docRef.set({json:F.main,ts:S.ts})];
+  saveTimer=setTimeout(async function(){
+    var got=false;try{var sn=await docRef.get();if(sn.exists){var dd=sn.data();if((dd.ts||0)>BASE_TS){var rem=JSON.parse(dd.json);got=merge3(rem)}}}catch(eG){}
+    S.ts=Date.now();
+    var F=fitAll(),jobs=[docRef.set({json:F.main,ts:S.ts})];BASE=snapMain(JSON.parse(F.main));BASE_TS=S.ts;lsSet();if(got)keepIf();
     if(USERCOL){Object.keys(F.chunks).forEach(function(m){var jj=JSON.stringify(F.chunks[m]);if(CHUNKJ[m]===jj)return;CHUNKJ[m]=jj;jobs.push(USERCOL.doc(m).set({json:jj,ts:S.ts}).catch(function(e){CHUNKJ[m]="";throw e}))});
       Object.keys(CHUNKJ).forEach(function(m){if(!F.chunks[m]&&CHUNKJ[m]!==null){CHUNKJ[m]=null;jobs.push(USERCOL.doc(m).delete())}})}
     Promise.all(jobs).then(function(){setSync("계정에 저장됨")},function(e){setSync(e&&e.code==="quota_exceeded"?"저장 공간이 가득 찼어요":"이 기기에만 저장")});
@@ -900,10 +919,13 @@ function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이
     if(snap.exists){
       var d=snap.data(); var remote=null; try{remote=JSON.parse(d.json)}catch(e){}
       if(remote&&remote.split){try{var qs=await USERCOL.get();var rr={};qs.docs.forEach(function(x){if(!/^runs-/.test(x.id)||!x.exists)return;var v=x.data();CHUNKJ[x.id]=v.json;try{JSON.parse(v.json).forEach(function(r){if(r&&r.id)rr[r.id]=r})}catch(e2){}});remote.runs=rr}catch(e3){remote.runs=S.runs||{}}}
+      if(remote){BASE=snapMain(remote);BASE_TS=remote.ts||0}
       if(remote&&(remote.ts||0)>=(S.ts||0)){merge(remote);lsSet();render()}
       else if(S.ts){save()}
     } else if(S.ts){save()}
     setSync("계정에 저장됨");AUTH.st="ok";setTimeout(bootDone,0);
+    try{ref.onSnapshot(function(sn){if(!sn.exists)return;var dd=sn.data();if((dd.ts||0)<=BASE_TS)return;var rem;try{rem=JSON.parse(dd.json)}catch(eJ){return}
+      var ch=merge3(rem);BASE=snapMain(rem);BASE_TS=dd.ts||0;lsSet();if(ch&&tab!=="coach"&&tab!=="story"){var y=window.scrollY;render();window.scrollTo(0,y)}},function(){})}catch(eS){}
     CREW.db=db;CREW.user=user;CREW.me=id;
     try{user.canEdit().then(function(v){CREW.editor=!!v;if(tab==='crew')keep()},function(){})}catch(eE){}user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
     db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
