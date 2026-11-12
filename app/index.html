@@ -505,7 +505,10 @@ details.mpfold[open]>summary{margin-bottom:4px}
 .mbars{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .mb{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px}
 .mb .ml{color:var(--muted)}
-.mb .mt{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.mb .mt{height:8px;border-radius:99px;background:var(--line);overflow:hidden;position:relative}
+.mb .mt .tk{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--card);opacity:.95}
+.mtk-leg{font-size:12px;color:var(--muted);margin-top:4px}
+.msc{font-family:var(--f-display);font-size:13px;margin-left:4px}
 .mb .mt i{display:block;height:100%;border-radius:99px}
 .mb .mv{font-size:12px;color:var(--muted);white-space:nowrap}.mb .mv b{color:var(--ink);font-size:13px}
 .meals{display:flex;flex-direction:column;margin-top:10px}
@@ -1957,9 +1960,10 @@ function mealTot(ds){var t={kcal:0,c:0,p:0,f:0,n:0};(S.meals[ds]||[]).forEach(fu
 function mealTarget(dow){var f=FOOD[FOOD_BY_DOW[dow]],w=bodyW();return{kcal:Math.round(f.base*w/REF_W/50)*50,c:[r10(f.g[0]*w),r10(f.g[1]*w)],p:[Math.round(1.6*w/5)*5,Math.round(2.0*w/5)*5],f:[Math.round(f.f[0]*w/REF_W),Math.round(f.f[1]*w/REF_W)],k:f.k}}
 // one nutrient's share of the diet score (0..1): same rule mealScore uses
 function nutPart(v,lo,hi,overOk){var dev=v<lo?(lo-v)/lo:v>hi*(overOk||1.1)?(v-hi*(overOk||1.1))/hi:0;return Math.max(0,1-dev*2)}
-function mbar(label,v,lo,hi,unit,slo,over){var top=hi||lo,pct=top?Math.min(100,Math.round(v/top*100)):0,
-  nsc=top?Math.round(nutPart(v,slo!=null?slo:lo,top,over)*100):100;
-  return '<div class="mb"><span class="ml">'+label+'</span><span class="mt"><i style="width:'+pct+'%;background:'+SCOL[band(nsc)]+'"></i></span><span class="mv num"><b>'+Math.round(v)+'</b>/'+(hi&&slo!=null&&slo<lo?Math.round(slo)+'~'+hi:hi&&hi!==lo?lo+'~'+hi:lo)+unit+'</span></div>'}
+function mbar(label,v,lo,hi,unit,slo,over,f){var top=hi||lo,pct=top?Math.min(100,Math.round(v/top*100)):0,ff=f||1,
+  nsc=top?Math.round(nutPart(v,(slo!=null?slo:lo)*ff,top*ff,over)*100):100;
+  var mid=hi&&hi!==lo?(lo+hi)/2:lo,tk=top?[0.3,0.65].map(function(c,ix){return '<b class="tk" style="left:'+Math.min(100,c*mid/top*100).toFixed(1)+'%" title="'+(ix?'점심':'아침')+'까지 권장 '+Math.round(c*mid)+unit+'"></b>'}).join(''):'';
+  return '<div class="mb"><span class="ml">'+label+'</span><span class="mt"><i style="width:'+pct+'%;background:'+SCOL[band(nsc)]+'"></i>'+tk+'</span><span class="mv num"><b>'+Math.round(v)+'</b>/'+(hi&&slo!=null&&slo<lo?Math.round(slo)+'~'+hi:hi&&hi!==lo?lo+'~'+hi:lo)+unit+'</span></div>'}
 function mealHint(ds,t,tot,tg){
   var h=[],now=ds===T?new Date().getHours():24;
   if(t&&(t[0]==="l"||t[0]==="x"))h.push("롱런·대회 날은 탄수화물이 핵심이에요. 달리는 중 시간당 60~90g도 함께 챙겨요.");
@@ -1969,26 +1973,36 @@ function mealHint(ds,t,tot,tg){
   return h;
 }
 // diet score (1~5): calories, carbs, protein, fat vs the day's targets (carbs & calories weigh most for a runner)
+// main meals and their share of the day's target (snacks/fuel count toward the day total only)
+var MSPLIT=[["아침",0.3],["점심",0.35],["저녁",0.35]];
+function mealTotType(ds,ty){var t={kcal:0,c:0,p:0,f:0,n:0};(S.meals[ds]||[]).forEach(function(m){if((m.type||"")!==ty)return;t.kcal+=+m.kcal||0;t.c+=+m.c||0;t.p+=+m.p||0;t.f+=+m.f||0;t.n++});return t}
+// score a total against the day target scaled by f (1 = whole day)
+function nutScore(tot,tg,f){var why=[],sum=0;
+  var P=[["열량",tot.kcal,tg.kcal*0.9*f,tg.kcal*f,1.1,0.3,"kcal"],["탄수화물",tot.c,tg.c[0]*f,tg.c[1]*f,1.1,0.3,"g"],["단백질",tot.p,tg.p[0]*f,tg.p[1]*f,1.3,0.25,"g"],["지방",tot.f,tg.f[0]*0.8*f,tg.f[1]*f,1.15,0.15,"g"]];
+  P.forEach(function(x){var v=nutPart(x[1],x[2],x[3],x[4]);sum+=v*x[5];if(v<1)why.push(x[0]+" "+(x[1]<x[2]?"부족":"많음")+" ("+Math.round(x[1])+"/"+(x[0]==="열량"?Math.round(x[3]):Math.round(x[2])+"~"+Math.round(x[3]))+x[6]+")")});
+  return{s:Math.round(sum*100),why:why}}
+function mealTypeScore(ds,d,ty){var sp=MSPLIT.filter(function(x){return x[0]===ty})[0];if(!sp)return null;var t=mealTotType(ds,ty);if(!t.n)return null;var r=nutScore(t,mealTarget(d),sp[1]);r.b=band(r.s);return r}
+// today: average of the main meals eaten so far (each against its own share); a finished day: whole-day total
 function mealScore(ds,d){
-  var tot=mealTot(ds);if(!tot.n)return null;var tg=mealTarget(d),why=[];
-  var part=nutPart;
-  var P=[["열량",tot.kcal,tg.kcal*0.9,tg.kcal,1.1,0.3,"kcal"],["탄수화물",tot.c,tg.c[0],tg.c[1],1.1,0.3,"g"],["단백질",tot.p,tg.p[0],tg.p[1],1.3,0.25,"g"],["지방",tot.f,tg.f[0]*0.8,tg.f[1],1.15,0.15,"g"]],sum=0;
-  P.forEach(function(x){var v=part(x[1],x[2],x[3],x[4]);sum+=v*x[5];if(v<1)why.push(x[0]+" "+(x[1]<x[2]?"부족":"많음")+" ("+Math.round(x[1])+"/"+(x[0]==="열량"?Math.round(x[3]):Math.round(x[2])+"~"+Math.round(x[3]))+x[6]+")")});
-  var sc=Math.round(sum*100),live=ds===T&&new Date().getHours()<21;
-  if(!why.length)why.push("열량·탄수·단백질·지방 모두 목표 범위 안");
-  return{s:sc,b:band(sc),why:why,live:live};
+  var tot=mealTot(ds);if(!tot.n)return null;var tg=mealTarget(d);
+  if(ds===T){var per=[];MSPLIT.forEach(function(x){var r=mealTypeScore(ds,d,x[0]);if(r)per.push([x[0],r])});
+    if(per.length){var avg=Math.round(per.reduce(function(a2,x){return a2+x[1].s},0)/per.length);
+      return{s:avg,b:band(avg),why:per.map(function(x){return x[0]+" "+x[1].s+"점"+(x[1].why.length?" ("+x[1].why[0]+")":"")}),live:true,per:per}}}
+  var r=nutScore(tot,tg,1);if(!r.why.length)r.why.push("열량·탄수·단백질·지방 모두 목표 범위 안");
+  return{s:r.s,b:band(r.s),why:r.why,live:ds===T}
 }
-function mealTip(ds,d,MS){var tot=mealTot(ds),tg=mealTarget(d),P=[["열량",tot.kcal,tg.kcal*0.9,tg.kcal,1.1],["탄수",tot.c,tg.c[0],tg.c[1],1.1],["단백질",tot.p,tg.p[0],tg.p[1],1.3],["지방",tot.f,tg.f[0]*0.8,tg.f[1],1.15]];
+function mealTip(ds,d,MS){if(MS.per)return '<b>'+md(ds)+' 끼니 평균 '+MS.s+'점</b>'+MS.per.map(function(x){return '<span><i style="background:'+SCOL[x[1].b]+'"></i>'+x[0]+' '+x[1].s+'점</span>'}).join('')+'<span class="muted">하루가 지나면 하루 합계로 다시 평가해요</span>';var tot=mealTot(ds),tg=mealTarget(d),P=[["열량",tot.kcal,tg.kcal*0.9,tg.kcal,1.1],["탄수",tot.c,tg.c[0],tg.c[1],1.1],["단백질",tot.p,tg.p[0],tg.p[1],1.3],["지방",tot.f,tg.f[0]*0.8,tg.f[1],1.15]];
   return '<b>'+md(ds)+' 식단 '+MS.s+'점</b>'+P.map(function(x){var v=Math.round(nutPart(x[1],x[2],x[3],x[4])*100);return '<span><i style="background:'+SCOL[band(v)]+'"></i>'+x[0]+' '+v+'점 <small>('+Math.round(x[1])+')</small></span>'}).join('')}
 function mealCard(ds,d,t){
   var tg=mealTarget(d),tot=mealTot(ds),ms=S.meals[ds]||[],can=AUTH.st!=="anon";
   var MS=mealScore(ds,d);
   var h='<div class="card" id="meals"><div class="row between"><h2>식단 기록</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+tg.k+'</span></div>';
-  if(MS)h+='<div class="sreason" style="margin:8px 0 2px"><b style="color:'+SCOL[MS.b]+'">식단 점수 '+MS.s+'점 / 100 · '+SNAME[MS.b]+(MS.live?' <span class="muted" style="font-weight:500">(오늘 지금까지)</span>':'')+'</b><span data-tip="'+esc(mealTip(ds,d,MS))+'" style="display:block;padding:8px 0;margin:-8px 0">'+sbar(MS.s)+'</span>'+'<span>'+esc(MS.why.join(" · "))+'</span></div>';
-  h+='<div class="mbars">'+mbar("열량",tot.kcal,tg.kcal,0,"kcal",tg.kcal*0.9,1.1)+mbar("탄수",tot.c,tg.c[0],tg.c[1],"g",tg.c[0],1.1)+mbar("단백질",tot.p,tg.p[0],tg.p[1],"g",tg.p[0],1.3)+mbar("지방",tot.f,tg.f[0],tg.f[1],"g",tg.f[0]*0.8,1.15)+'</div>';
+  if(MS)h+='<div class="sreason" style="margin:8px 0 2px"><b style="color:'+SCOL[MS.b]+'">식단 점수 '+MS.s+'점 / 100 · '+SNAME[MS.b]+(MS.live?' <span class="muted" style="font-weight:500">(끼니별 평균 · 내일 하루 합계로 확정)</span>':'')+'</b><span data-tip="'+esc(mealTip(ds,d,MS))+'" style="display:block;padding:8px 0;margin:-8px 0">'+sbar(MS.s)+'</span>'+'<span>'+esc(MS.why.join(" · "))+'</span></div>';
+  var ff=MS&&MS.per?MS.per.reduce(function(a2,x){return a2+MSPLIT.filter(function(y){return y[0]===x[0]})[0][1]},0):1;
+  h+='<div class="mbars">'+mbar("열량",tot.kcal,tg.kcal,0,"kcal",tg.kcal*0.9,1.1,ff)+mbar("탄수",tot.c,tg.c[0],tg.c[1],"g",tg.c[0],1.1,ff)+mbar("단백질",tot.p,tg.p[0],tg.p[1],"g",tg.p[0],1.3,ff)+mbar("지방",tot.f,tg.f[0],tg.f[1],"g",tg.f[0]*0.8,1.15,ff)+'</div><div class="mtk-leg">막대의 눈금 ▏= 아침(30%) · 점심(65%)까지 먹으면 좋은 양 · 저녁까지 100%</div>';
   var hints=mealHint(ds,t,tot,tg);if(hints.length)h+='<ul class="tight small" style="margin:8px 0 0;color:var(--muted)">'+hints.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul>';
   if(!ms.length)h+='<p class="small muted" style="margin:10px 0 0">아직 기록한 식사가 없어요. 사진 한 장이면 칼로리·탄단지를 AI가 계산해요.</p>';
-  h+='<div class="meals">'+(ms.length?ms.map(function(m,k){return '<details class="meal"><summary><span class="mty">'+esc(m.type||"식사")+(m.t?' <span class="muted small">'+hhmm(m.t)+'</span>':'')+'</span><span class="mnm">'+esc(m.items.map(function(x){return x.name}).join(", "))+'</span><span class="num mk">'+Math.round(m.kcal)+'kcal</span></summary><div class="small" style="margin-top:6px">'+m.items.map(function(x){return '<div class="mi"><span>'+esc(x.name)+' <span class="muted">'+esc(x.amount||"")+'</span></span><span class="num muted">'+Math.round(x.kcal)+'kcal · 탄'+Math.round(x.carb)+' 단'+Math.round(x.protein)+' 지'+Math.round(x.fat)+'</span></div>'}).join("")+(m.note?'<div class="muted" style="margin-top:4px">'+esc(m.note)+'</div>':'')+'<div class="row" style="margin-top:6px;justify-content:flex-end"><button class="btn ghost" data-mdel="'+k+'" style="padding:4px 10px;font-size:13px">삭제</button></div></div></details>'}).join(""):'<p class="small muted" style="margin:8px 0 0">아직 기록한 식사가 없어요. 사진을 올리거나 글로 적으면 칼로리와 영양소를 계산해 드려요.</p>')+'</div>';
+  h+='<div class="meals">'+(ms.length?ms.map(function(m,k){return '<details class="meal"><summary><span class="mty">'+esc(m.type||"식사")+(function(){var r=mealTypeScore(ds,d,m.type);return r?' <b class="msc" style="color:'+SCOL[r.b]+'">'+r.s+'</b>':''})()+(m.t?' <span class="muted small">'+hhmm(m.t)+'</span>':'')+'</span><span class="mnm">'+esc(m.items.map(function(x){return x.name}).join(", "))+'</span><span class="num mk">'+Math.round(m.kcal)+'kcal</span></summary><div class="small" style="margin-top:6px">'+m.items.map(function(x){return '<div class="mi"><span>'+esc(x.name)+' <span class="muted">'+esc(x.amount||"")+'</span></span><span class="num muted">'+Math.round(x.kcal)+'kcal · 탄'+Math.round(x.carb)+' 단'+Math.round(x.protein)+' 지'+Math.round(x.fat)+'</span></div>'}).join("")+(m.note?'<div class="muted" style="margin-top:4px">'+esc(m.note)+'</div>':'')+'<div class="row" style="margin-top:6px;justify-content:flex-end"><button class="btn ghost" data-mdel="'+k+'" style="padding:4px 10px;font-size:13px">삭제</button></div></div></details>'}).join(""):'<p class="small muted" style="margin:8px 0 0">아직 기록한 식사가 없어요. 사진을 올리거나 글로 적으면 칼로리와 영양소를 계산해 드려요.</p>')+'</div>';
   // add / analyze
   if(ML.draft&&ML.draft.ds===ds){var D=ML.draft;
     h+='<div class="demo" style="margin-top:12px"><span class="tag">AI 추정 · 확인 후 저장</span>'+(ML.url?'<img src="'+ML.url+'" alt="올린 식사 사진" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">':'');
