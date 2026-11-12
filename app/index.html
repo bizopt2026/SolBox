@@ -2512,7 +2512,7 @@ function goalCard(){
     return '<div class="card" id="goal"><div class="goal-hero"><div><div class="eyebrow">나만의 계획 목표 · '+esc(m.name)+'</div><b>'+fmtT(m.goal)+'</b><span class="small" style="opacity:.8">'+dn+' · '+dotDate(m.race)+(m.dist!==42.195?' · 풀코스 환산 '+fmtT(mg):'')+' · 마라톤 페이스 '+fmtMS(mg/42.195)+'/km</span></div></div><p class="small muted" style="margin:8px 0 0">나만의 계획을 쓰는 동안 모든 훈련 페이스와 존은 이 목표로 계산돼요. 목표를 바꾸려면 훈련표 → 나만의 계획 → 새로 만들기, 크루 계획으로 돌아가면 3.21 목표로 다시 계산돼요.</p></div>'}
   var opts=goalOptions(),g=S.goal,h='<div class="card" id="goal">';
   if(g&&g.sec){
-    h+='<div class="goal-hero"><div><div class="eyebrow">확정한 3.21 목표'+(g.tier?' · '+esc(g.tier):'')+'</div><b>'+fmtT(g.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(g.sec/42.195)+'/km · SUB-'+subLabel(g.sec)+'</span></div><button class="btn ghost" id="g-change" style="color:var(--navy-fg);border-color:currentColor">변경</button></div>';
+    h+='<div class="goal-hero"><div><div class="eyebrow">2027.3.21 마라톤 목표'+(g.tier&&g.tier!=="직접 입력"?' · '+esc(g.tier):'')+'</div><b>'+fmtT(g.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(g.sec/42.195)+'/km · SUB-'+subLabel(g.sec)+'</span></div><button class="btn ghost" id="g-change" style="color:var(--navy-fg);border-color:currentColor">변경</button></div>';
     if(GMSG)h+='<p class="small" style="color:var(--ok);margin:8px 0 0">'+esc(GMSG)+'</p>';
     h+='<p class="small muted" style="margin:8px 0 0">앱 상단 제목, 모든 훈련 페이스, 점검 목표, 레이스 페이스가 이 목표에 맞춰져 있어요.</p>';
     if(!GSEL)return h+'</div>';
