@@ -855,14 +855,21 @@ function allText(res){if(!res)return"";var out=[];(res.content||[]).forEach(func
 function fdiag(x){FRED.diag.push(String(x).slice(0,700))}
 var FMX=/samples?$|steps|sleep|stress|body|weight|pulse|respir|spo2|intensity_minutes|daily|epoch|calendar|hydration|nutrition|glucose|_raw$/i;
 function freddyMetrics(t){var cur="",out=[],seen={};
-  String(t||"").split("\n").forEach(function(l){var sm=l.match(/Source:\s*([^|\n]+)/i);if(sm){cur=sm[1].replace(/[*`#]/g,"").trim();return}
+  String(t||"").split("\n").forEach(function(l){
+    // a header only when the line STARTS with "Source:" (item lines can end with "source: Garmin")
+    var hm=l.match(/^[\s#*>|\-]*Source:\s*([^|\n(]+)/i);if(hm){cur=hm[1].replace(/[*`#]/g,"").trim();return}
+    var lm2=l.match(/source:\s*([A-Za-z][\w .-]*)/i),src=lm2?lm2[1].trim():cur;
     var re=/`?([A-Za-z][A-Za-z0-9]*(?:[_.][A-Za-z0-9]+)+)`?/g,m;while((m=re.exec(l))){var n=m[1];if(seen[n])continue;
-      if(/activ|workout|exercise|run|sport|session|training/i.test(n)&&!FMX.test(n)&&!/^(https?|www)\b/i.test(n)){seen[n]=1;out.push({n:n,src:cur})}}});
+      if(/activ|workout|exercise|run|sport|session|training/i.test(n)&&!FMX.test(n)&&!/^(https?|www)\b/i.test(n)){seen[n]=1;out.push({n:n,src:src})}}});
+  // most useful first: type/summary, then distance/time, then HR/start
+  function pr(n){return (/activitytype|summary|sporttype|workouttype/i.test(n)?4:0)+(/distance|duration|elapsed|moving/i.test(n)?3:0)+(/heart|(^|_)hr|avghr|start/i.test(n)?1:0)}
+  out.forEach(function(o,i){o.pr=pr(o.n);o.ix=i});out.sort(function(a,b){return b.pr-a.pr||a.ix-b.ix});
   return out}
 // scalar fallback: rows like "2026-11-12 ... activity_distance: 10234 m (id: 123)"
 function freddyScalar(text,hint){var groups={},cur=null;
   String(text||"").split("\n").forEach(function(l){var dm=l.match(/(\d{4}-\d{2}-\d{2})/);if(dm)cur=dm[1];if(!cur)return;
     var idm=l.match(/\bid:\s*([\w.:-]+)/),key=cur+"|"+(idm?idm[1]:"");
+    var tm=l.match(/([A-Za-z][\w.]*type)\s*[:=]\s*["']?([A-Za-z_ ]{3,40})/i);if(tm){var gt=groups[key]=groups[key]||{date:cur,id:idm?idm[1]:"",type:null};gt.type=tm[2].trim()}
     var re=/([A-Za-z][\w.]*)\s*[:=]\s*(-?\d[\d,]*\.?\d*)\s*([A-Za-z/%°]*)/g,m;while((m=re.exec(l))){var n=m[1],v=parseFloat(m[2].replace(/,/g,"")),u=(m[3]||"").toLowerCase();if(isNaN(v)||/^id$/i.test(n))continue;
       var g=groups[key]=groups[key]||{date:cur,id:idm?idm[1]:"",type:/run/i.test(n)?"running":null};
       if(/distance/i.test(n)){g.km=u==="m"||/meter|inmeters/i.test(n)?v/1000:u==="mi"?v*1.609:u==="km"?v:v>=200?v/1000:v}
@@ -889,7 +896,7 @@ async function freddySync(manual){
     if(from<addDays(T,-364))from=addDays(T,-364);var to=T<RACE?T:RACE;
     var runs=[],bySrc={},qerr=0;ms.forEach(function(m){(bySrc[m.src]=bySrc[m.src]||[]).push(m.n)});
     step="query_metrics";
-    for(var sk in bySrc){var names=bySrc[sk].slice(0,30);try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:from,end:to,include_raw:true},{cache:CC});
+    for(var sk in bySrc){var names=bySrc[sk].slice(0,48);try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:from,end:to,include_raw:true},{cache:CC});
       var qt=allText(q),blobs=jsonBlobs(qt).length,r1=parseFreddy(qt,sk),r2=r1.length?[]:freddyScalar(qt,sk);
       fdiag("query_metrics["+(sk||"소스 미표시")+"] "+from+"~"+to+" · 항목 "+names.join(",")+" · 응답 "+qt.length+"자 · JSON "+blobs+"개 · 러닝(원본) "+r1.length+"개 · 러닝(숫자행) "+r2.length+"개 · 앞부분: "+qt.replace(/\s+/g," ").slice(0,400));
       runs=runs.concat(r1,r2)}catch(e1){qerr++;fdiag("query_metrics 실패: "+(e1&&(e1.code||""))+" "+(e1&&e1.message||""))}}
