@@ -11,7 +11,7 @@
   --accent:#e8590c; --accent-soft:#fdeee4;
   --base:#7fb6f2; --build:#3b82f6; --spec:#1e3a8a; --rec:#c3cbd9; --taper:#f97316;
   --ok:#15803d; --ok-soft:#e3f4e8; --bad:#c2410c; --bad-soft:#fdebe2;
-  --s5:#2563eb; --s4:#16a34a; --s3:#ca8a04; --s2:#ea580c; --s1:#dc2626;
+  --s5:#6b9ee8;--p5:#8fb8f2;--p4:#93d3a9;--p3:#f3d37c;--p2:#f4b182;--p1:#ef9a9a; --s4:#5cb882; --s3:#d9aa36; --s2:#e88f55; --s1:#e07272;
   --q:#2563eb; --q-soft:#e8f0fe;
   --f-display:"Archivo","IBM Plex Sans KR",system-ui,sans-serif;
   --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
@@ -22,7 +22,7 @@
   --accent:#ff7a33; --accent-soft:#3a2115;
   --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#fb8a3c;
   --ok:#4ade80; --ok-soft:#14301f; --bad:#ff8a5c; --bad-soft:#3a1d12;
-  --s5:#5b8cff; --s4:#34c46a; --s3:#e0b028; --s2:#f2843a; --s1:#f05252;
+  --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
   --q:#7aa7ff; --q-soft:#18264a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0b1020; --card:#151c2f; --ink:#e8ecf5; --muted:#98a3ba; --line:#263049;
@@ -30,7 +30,7 @@
   --accent:#ff7a33; --accent-soft:#3a2115;
   --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#fb8a3c;
   --ok:#4ade80; --ok-soft:#14301f; --bad:#ff8a5c; --bad-soft:#3a1d12;
-  --s5:#5b8cff; --s4:#34c46a; --s3:#e0b028; --s2:#f2843a; --s1:#f05252;
+  --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
   --q:#7aa7ff; --q-soft:#18264a; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
@@ -496,7 +496,7 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .dots i.ok{background:var(--ok)} .dots i.no,.grid16 i.no{background:transparent;box-shadow:none;position:relative}
 .dots i.no::after,.grid16 i.no::after{content:"✕";position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-weight:900;font-style:normal;color:var(--s1);line-height:1}
 .dots i.extra,.grid16 i.extra{background:transparent;box-shadow:inset 0 0 0 3px var(--accent)}
-.dots i.s5,.grid16 i.s5{background:var(--s5)} .dots i.s4,.grid16 i.s4{background:var(--s4)} .dots i.s3,.grid16 i.s3{background:var(--s3)} .dots i.s2,.grid16 i.s2{background:var(--s2)} .dots i.s1,.grid16 i.s1{background:var(--s1)} .dots i.rest{background:transparent;border:1px dashed var(--line)}
+.dots i.s5,.grid16 i.s5{background:var(--p5)} .dots i.s4,.grid16 i.s4{background:var(--p4)} .dots i.s3,.grid16 i.s3{background:var(--p3)} .dots i.s2,.grid16 i.s2{background:var(--p2)} .dots i.s1,.grid16 i.s1{background:var(--p1)} .dots i.rest{background:transparent;border:1px dashed var(--line)}
 .mstat{text-align:right;font-size:12px;color:var(--muted)}
 .mstat b{display:block;font-family:var(--f-display);font-size:16px;color:var(--ink)}
 .grid16{display:grid;grid-template-columns:30px repeat(7,1fr);gap:4px 6px;margin-top:10px;font-size:11px;color:var(--muted);align-items:center}
@@ -1889,7 +1889,7 @@ function dayScore(ds){
     else{q=42;qn.push("직접 끊은 랩이 없어 질 평가는 기본 42/70 · 본 구간마다 랩을 끊으면 정확해져요")}}
   why=why.concat(qn);var sc=Math.max(0,Math.min(100,dp+q));return{s:sc,b:band(sc),why:why};
 }
-function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:'+SCOL[n]+'"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>'+[1,2,3,4,5].map(function(v){return rpeFace(v,"xs")}).join("")+' RPE</span></div>'}
+function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:var(--p'+n+')"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>'+[1,2,3,4,5].map(function(v){return rpeFace(v,"xs")}).join("")+' RPE</span></div>'}
 function lapsHtml(ds){
   var rs=runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length});if(!rs.length)return "";
   var h="";rs.forEach(function(r,ri){var L=r.laps,sm=lapSummary(L);
