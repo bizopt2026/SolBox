@@ -69,7 +69,9 @@ header.top .wrap{padding-block:8px}
 .brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dday{white-space:nowrap}
 .sync{font-size:11px;max-width:84px;overflow:hidden;text-overflow:ellipsis}
-.hr-r{gap:8px;flex:none}
+.hr-r{gap:6px;flex:none}
+.hq{width:30px!important;height:30px!important}
+.sync{max-width:64px}
 .hr-r{display:flex;align-items:center;gap:10px}
 .hq{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:transparent;color:var(--navy-fg);font-weight:800;font-size:15px;flex:none}
 #fab span{transition:opacity .15s}
@@ -641,6 +643,11 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 .resdet{border-top:0}
 .recgrp,.rpeask,.zguide div,.ws,.wstep,.acts button,details.more{border-color:transparent!important;background:var(--bg)!important}
 .ws.sel{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.jrlist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.jr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:13px}
+.jr>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jr .rg{display:flex;gap:6px;align-items:center;flex:none}
+.jr.done{opacity:.6}
 .gchips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:0;border-radius:99px;padding:7px 13px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
@@ -679,7 +686,7 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 
 <header class="top"><div class="wrap">
   <div class="brand"><span id="brand-eb">Sub-3 · 2027.3.21</span><b>2:59:59 프로젝트</b></div>
-  <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div><button type="button" class="hq hco" id="h-coach" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button type="button" class="hq" id="h-guide" aria-label="가이드와 의견 보내기">?</button></div>
+  <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hq hco" id="h-coach" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button type="button" class="hq" id="h-guide" aria-label="가이드와 의견 보내기">?</button></div>
 </div></header>
 
 <main class="wrap" id="view"></main>
@@ -764,7 +771,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -831,7 +838,7 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
     } else if(S.ts){save()}
     setSync("계정에 저장됨");AUTH.st="ok";
     CREW.db=db;CREW.user=user;CREW.me=id;
-    user.isOwner().then(function(v){CREW.owner=!!v;if(tab==="crew")keep()},function(){});
+    user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
     db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
     var ct=setTimeout(function(){if(CREW.status==="loading"){CREW.status="slow";if(tab==="crew")keep()}},10000);
     db.collection("members").onSnapshot(function(sn){
@@ -1786,8 +1793,8 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(tot*10)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
   ctx.font="500 24px "+FB;ctx.fillStyle="#ff9a5c";ctx.fillRect(cx,y+h-30,34,6);ctx.fillText("랩 평균 페이스",cx+44,y+h-20);if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);ctx.fillStyle="rgba(122,167,255,.45)";var tw=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillRect(cx+cw-tw-44,y+h-36,32,18);ctx.textAlign="left"}
 }
-var BACK=null,TABN={today:"오늘",plan:"훈련표",pace:"내 페이스",crew:"크루",log:"바디",guide:"가이드",coach:"AI 코치",story:"인스타 스토리"};
-function enterSub(t){if(tab!=="coach"&&tab!=="story"){BACK={tab:tab,sel:sel,y:window.scrollY,pushed:false}}if(BACK&&!BACK.pushed){try{history.pushState({sub:1},"");BACK.pushed=true}catch(e){}}tab=t}
+var BACK=null,TABN={today:"오늘",plan:"훈련표",pace:"내 페이스",crew:"크루",log:"바디",guide:"가이드",coach:"AI 코치",story:"인스타 스토리",admin:"관리자"};
+function enterSub(t){if(tab!=="coach"&&tab!=="story"&&tab!=="admin"){BACK={tab:tab,sel:sel,y:window.scrollY,pushed:false}}if(BACK&&!BACK.pushed){try{history.pushState({sub:1},"");BACK.pushed=true}catch(e){}}tab=t}
 var DETO=null;
 function coachBottom(){var go=function(){var c=document.getElementById("chat"),m=c&&c.lastElementChild;window.scrollTo(0,document.documentElement.scrollHeight);if(m&&m.getBoundingClientRect().bottom>innerHeight)m.scrollIntoView({block:"end"})};go();requestAnimationFrame(go);setTimeout(go,120)}
 function goBack(){var b=BACK||{tab:"today",sel:sel,y:0};BACK=null;tab=b.tab;sel=b.sel;render();window.scrollTo(0,b.y||0)}
@@ -1891,6 +1898,7 @@ function render(){
   if(tab!=="coach"&&VOICE.speaking)stopSpeak();
   if(tab==="coach"){vCoach();return}
   if(tab==="story"){vStory();return}
+  if(tab==="admin"){vAdmin();return}
   if(tab==="today")vToday(); else if(tab==="plan")vPlan(); else if(tab==="pace")vPace(); else if(tab==="crew")vCrew(); else if(tab==="log")vLog(); else vGuide();
   enhance();
   if(keepY!=null)window.scrollTo(0,keepY);
@@ -3172,6 +3180,42 @@ function bindAdmin(){
   view.querySelectorAll("[data-unban]").forEach(function(x){x.onclick=function(){var bb=JSON.parse(JSON.stringify((CREW.settings&&CREW.settings.banned)||{}));delete bb[x.dataset.unban];saveSettings({banned:bb});keep()}});
 }
 
+// ---------- Admin (owner only, PIN-locked per session) ----------
+var ADMIN_OK=false,ADM={msg:"",err:""};
+function pinHash(x){var h=5381,t="sub3-pin:"+x;for(var i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))>>>0;return h.toString(36)}
+function pinOk(x){return (S.pinH||pinHash("1234"))===pinHash(x)}
+function vAdmin(){
+  if(!CREW.owner){tab="today";render();return}
+  var h=backBar();
+  if(!ADMIN_OK){
+    h+='<div class="card pinbox"><h2>관리자 메뉴</h2><p class="small muted" style="margin:4px 0 12px">PIN 번호를 입력해 주세요.'+(S.pinH?'':' 처음 PIN은 <b>1234</b>예요. 들어가서 바꿔 주세요.')+'</p><form id="pin-f" class="row" style="gap:8px"><input id="pin-in" class="inp" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" aria-label="PIN 번호" style="flex:1;font-size:20px;letter-spacing:.3em;text-align:center"><button class="btn" type="submit" style="background:var(--accent);color:#fff">열기</button></form>'+(ADM.err?'<p class="small" style="color:var(--bad);margin:8px 0 0">'+esc(ADM.err)+'</p>':'')+'</div>';
+    view.innerHTML=h;bindBack();var pi=document.getElementById("pin-in");if(pi)pi.focus();
+    document.getElementById("pin-f").onsubmit=function(e){e.preventDefault();var v=document.getElementById("pin-in").value.trim();if(pinOk(v)){ADMIN_OK=true;ADM.err="";render()}else{ADM.err="PIN이 맞지 않아요.";render()}};
+    return}
+  h+='<div class="row between" style="padding:2px 4px 8px"><h2>관리자 메뉴</h2><button class="linkbtn" id="adm-lock" type="button">잠그기</button></div>';
+  h+=joinCard();
+  if(CREW.db){var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)});h+=adminView(ids)}
+  else h+='<div class="card"><p class="small muted" style="margin:0">크루 정보를 불러오는 중이에요…</p></div>';
+  h+='<div class="card"><h2>PIN 번호 바꾸기</h2><form id="pin-c" class="fields"><label>지금 PIN<input id="pc-old" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label>새 PIN (4~8자리 숫자)<input id="pc-new" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label class="full"><button class="btn" type="submit">PIN 바꾸기</button></label></form>'+(ADM.msg?'<p class="small" style="margin:6px 0 0;color:'+(ADM.ok?'var(--ok)':'var(--bad)')+'">'+esc(ADM.msg)+'</p>':'')+'<p class="small muted" style="margin:6px 0 0">관리자 메뉴는 앱을 만든 계정에만 보여요. PIN은 그 위에 한 번 더 거는 잠금이에요.</p></div>';
+  view.innerHTML=h;bindBack();
+  document.getElementById("adm-lock").onclick=function(){ADMIN_OK=false;render()};
+  document.getElementById("pin-c").onsubmit=function(e){e.preventDefault();var o=document.getElementById("pc-old").value.trim(),n=document.getElementById("pc-new").value.trim();ADM.ok=false;
+    if(!pinOk(o))ADM.msg="지금 PIN이 맞지 않아요.";else if(!/^\d{4,8}$/.test(n))ADM.msg="새 PIN은 숫자 4~8자리로 정해 주세요.";else{S.pinH=pinHash(n);save();ADM.ok=true;ADM.msg="PIN을 바꿨어요."}keep()};
+  bindJoin();if(CREW.db){bindAdmin();bindCrewCommon(Object.keys(CREW.members))}
+}
+// join requests: emails the owner collects (kept in the owner's private data only)
+function joinCard(){var L=S.joinReq||[];
+  var h='<div class="card"><h2>새 크루원 추가 <span class="small muted">'+L.filter(function(x){return !x.done}).length+'명 대기</span></h2>';
+  h+='<ol class="tight small" style="padding-left:18px;margin:8px 0"><li>새 크루원에게 <b>claude.ai 로그인 이메일</b>을 받아 아래에 적어 두세요.</li><li>이 화면 오른쪽 위 claude.ai <b>공유(Share)</b> → 이메일 입력 → 권한 <b>편집자(Editor)</b>로 초대해요.</li><li><b>"링크가 있는 모든 사람" 공유는 꺼 두세요.</b> 켜져 있으면 초대한 사람도 보기 전용이 돼요.</li><li>초대했으면 <b>완료</b>를 눌러요. 그 사람은 초대 메일로 앱을 열고 크루 탭에서 닉네임을 정하면 가입 끝이에요.</li></ol>';
+  h+='<form id="jr-f" class="row" style="gap:6px"><input id="jr-mail" class="inp" type="email" placeholder="이메일" aria-label="새 크루원 이메일" style="flex:1"><input id="jr-memo" class="inp" maxlength="12" placeholder="이름(메모)" aria-label="메모" style="width:96px"><button class="btn" type="submit">추가</button></form>';
+  if(L.length)h+='<div class="jrlist">'+L.map(function(x,i){return '<div class="jr'+(x.done?' done':'')+'"><span><b>'+esc(x.memo||'')+'</b> '+esc(x.email)+'</span><span class="rg"><button class="sbtn" data-jr-copy="'+i+'" type="button">복사</button>'+(x.done?'<span class="small" style="color:var(--ok)">초대함</span>':'<button class="sbtn wset" data-jr-done="'+i+'" type="button">완료</button>')+'<button class="linkbtn" data-jr-del="'+i+'" type="button" aria-label="삭제">✕</button></span></div>'}).join('')+'</div>';
+  return h+'<p class="small muted" style="margin:8px 0 0">이 명단은 관리자 계정에만 저장돼요. 크루원에게는 보이지 않아요.</p></div>'}
+function bindJoin(){var f=document.getElementById("jr-f");if(!f)return;
+  f.onsubmit=function(e){e.preventDefault();var m=document.getElementById("jr-mail").value.trim(),n=document.getElementById("jr-memo").value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)){document.getElementById("jr-mail").focus();return}
+    S.joinReq=S.joinReq||[];if(!S.joinReq.some(function(x){return x.email.toLowerCase()===m.toLowerCase()}))S.joinReq.unshift({email:m.slice(0,80),memo:n.slice(0,12),at:Date.now(),done:false});save();keep()};
+  view.querySelectorAll("[data-jr-copy]").forEach(function(b){b.onclick=function(){var x=S.joinReq[+b.dataset.jrCopy];copyText(x.email,function(){b.textContent="복사됨"},function(){})}});
+  view.querySelectorAll("[data-jr-done]").forEach(function(b){b.onclick=function(){S.joinReq[+b.dataset.jrDone].done=true;save();keep()}});
+  view.querySelectorAll("[data-jr-del]").forEach(function(b){b.onclick=function(){S.joinReq.splice(+b.dataset.jrDel,1);save();keep()}})}
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7)));
   var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"보기 전용":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
@@ -3186,7 +3230,7 @@ function vCrew(){
   var ib=inbox();
   if(CREW.settings.notice)h+='<div class="notice"><span class="pill part" style="background:var(--accent);color:#fff;margin-right:6px">공지</span>'+esc(CREW.settings.notice)+'</div>';
   if(CREW.view==="admin"&&!CREW.owner)CREW.view="feed";
-  h+='<div class="seg" role="tablist" style="grid-template-columns:repeat('+(CREW.owner?3:2)+',1fr)"><button role="tab" aria-checked="'+(CREW.view==="feed")+'" data-cv="feed">피드</button><button role="tab" aria-checked="'+(CREW.view==="week")+'" data-cv="week">주간 현황</button>'+(CREW.owner?'<button role="tab" aria-checked="'+(CREW.view==="admin")+'" data-cv="admin">관리</button>':'')+'</div>';
+  if(CREW.view==="admin")CREW.view="feed";h+='<div class="seg" role="tablist" style="grid-template-columns:repeat(2,1fr)"><button role="tab" aria-checked="'+(CREW.view==="feed")+'" data-cv="feed">피드</button><button role="tab" aria-checked="'+(CREW.view==="week")+'" data-cv="week">주간 현황</button>'+'</div>';
   if(CREW.view==="admin"){view.innerHTML=h+adminView(ids);bindShare();bindCrewCommon(ids);bindAdmin();return}
   if(CREW.view==="feed"){
     h+='<div class="card inbox"><span>내 훈련에 받은 좋아요 <b>'+ib.l+'</b></span><span>댓글 <b>'+ib.c+'</b></span></div>';
@@ -3414,6 +3458,7 @@ function vGuide(){
   go.onclick=function(){try{var o=JSON.parse(ta.value);if(!o||typeof o!=="object"||!o.days)throw 0;merge(o);save();msg.textContent="복원했어요."}catch(e){msg.textContent="코드를 읽지 못했어요. 전체를 빠짐없이 붙여 넣었는지 확인하세요."}};
 }
 
+(function(){var a=document.getElementById("h-admin");if(a)a.onclick=function(){if(!CREW.owner)return;if(tab==="admin"){goBack();return}enterSub("admin");render();window.scrollTo(0,0)}})();
 (function(){var f=document.getElementById("h-coach");if(f)f.onclick=function(){if(tab==="coach"){goBack();return}enterSub("coach");render();coachBottom()}})();
 (function(){var ft=document.createElement("div");ft.className="rtip ftip";ft.hidden=true;document.body.appendChild(ft);var cur=null;
   function hide(){ft.hidden=true;cur=null}
@@ -3454,7 +3499,7 @@ function vGuide(){
   document.addEventListener("pointerdown",function(e){if(!(e.target.closest&&e.target.closest(".rchart")))view.querySelectorAll(".rchart").forEach(hide)});
 })();
 document.addEventListener("toggle",function(e){var d=e.target;if(d&&d.tagName==="DETAILS"&&d.open)Array.prototype.forEach.call(d.children,function(c){if(c.tagName!=="SUMMARY")popIn(c)})},true);
-window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story")goBack()});
+window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story"||tab==="admin")goBack()});
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
 (function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
 var hq=document.getElementById("h-guide");if(hq)hq.onclick=function(){tab="guide";render();window.scrollTo(0,0)};
