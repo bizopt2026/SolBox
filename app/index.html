@@ -359,6 +359,9 @@ ul.tight{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 .chev::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg)}
 .fold-h[aria-expanded="true"] .chev::before{transform:translateY(2px) rotate(-135deg)}
 .card.folded{padding-block:12px}
+details.mpfold>summary{list-style:none}
+details.mpfold>summary::-webkit-details-marker{display:none}
+details.mpfold[open]>summary{margin-bottom:4px}
 [hidden]{display:none!important}
 .ifold-h{all:unset;box-sizing:border-box;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;margin-top:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;font-size:13.5px;font-weight:500;color:var(--muted);background:var(--card)}
 .ifold-h:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -1909,7 +1912,7 @@ function bindDayEditor(ds){
 }
 function myPlanCard(){
   var P=plan(),n=planEdited(),nd=Object.keys(P.days).length;
-  var h='<details class="card" id="myplan"'+(MPOPEN?' open':'')+'><summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px"><span><h2 style="display:inline">'+(myPlanOn()?'나만의 계획 조정':'크루 계획 조정')+'</h2>'+(n?' <span class="pill part" style="background:var(--accent-soft);color:var(--accent)">바꾼 내용 '+n+'개</span>':'')+'</span><span class="muted">'+(MPOPEN?'－':'＋')+'</span></summary>';
+  var h='<details class="card mpfold'+(MPOPEN?'':' folded')+'" id="myplan"'+(MPOPEN?' open':'')+'><summary class="fold-h" aria-expanded="'+MPOPEN+'"><h2>'+(myPlanOn()?'나만의 계획 조정':'크루 계획 조정')+'</h2><span class="fold-s"'+(MPOPEN?' hidden':'')+'>'+(n?'바꾼 내용 '+n+'개':'요일·거리 그대로')+'</span><span class="chev" aria-hidden="true"></span></summary>';
   h+='<p class="small muted" style="margin:6px 0 0">요일·거리를 바꾼 내용은 <b style="color:var(--ink)">나에게만</b> 적용돼요. '+(myPlanOn()?'나만의 계획에만 적용되고, 크루 계획으로 돌아가면 크루 계획 조정 내용이 따로 적용돼요.':'크루장이 배포한 계획과 다른 크루원의 계획은 그대로예요.')+' 대회가 있는 주(인천·서울)는 요일·거리 설정이 적용되지 않아요.</p>';
   // 1. weekday swaps
   var pre=[[5,6,"롱런을 일요일로 (토↔일)"],[2,3,"포인트를 목요일로 (수↔목)"],[2,1,"포인트를 화요일로 (수↔화)"],[4,3,"휴식을 목요일로 (금↔목)"]];
