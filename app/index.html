@@ -118,6 +118,17 @@ details.more[open]{padding-bottom:10px}
 .wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
 .bk.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.went{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.went-top{display:flex;justify-content:space-between;align-items:center}
+.went-l{font-size:13px;font-weight:700}
+.went-row{display:flex;gap:8px;margin-top:8px;align-items:stretch}
+.wstep{flex:1;display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;min-width:0}
+.wstep button{border:0;background:none;width:44px;height:46px;font-size:22px;font-weight:600;color:var(--muted);flex:none}
+.wstep button:active{background:var(--accent-soft);color:var(--accent)}
+.wstep input{flex:1;min-width:0;border:0;background:none;text-align:right;font-family:var(--f-display);font-weight:800;font-size:24px;color:var(--ink);padding:0;outline:none}
+.wstep em{font-style:normal;color:var(--muted);font-size:14px;margin:0 6px 0 4px;font-weight:600}
+.btn.went-go{background:var(--accent);color:#fff;padding:0 20px;border-radius:12px;font-size:15px}
+.went .wwhen{margin-top:6px}
 .blist{display:grid;gap:0;margin-top:8px}
 .blist>div{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
 .blist b small{font-size:11px;color:var(--muted);font-weight:500}
@@ -1388,7 +1399,9 @@ function enhance(){
     foldCard(findCard("제외한 크루원"),"c-banned","",false);
   } else if(tab==="log"){
     var gsc=document.getElementById("wgoal"),g=S.wgoal,lw=wDays().slice(-1)[0],lv=lw?wDay(lw).avg:null;
-    foldCard(gsc,"w-goal",g&&g.target?(lv?lv+" → "+g.target+"kg"+(lv>g.target?" · −"+(Math.round((lv-g.target)*10)/10):" · 달성"):g.start+" → "+g.target+"kg"):"목표 체중 정하기",!(g&&g.target));
+    var wtp=wtPlan(),wl=wtp[wtp.length-1],gd=md(RACE);
+    var gsum=g&&g.target?gd+"까지 "+g.target+"kg"+(lv?(lv>g.target?" (−"+(Math.round((lv-g.target)*10)/10)+")":" (달성)"):""):(wl?md(wl[0])+"까지 "+(wl[1]===wl[2]?wl[1]:wl[1]+"~"+wl[2])+"kg (권장)":"목표 체중 정하기");
+    foldCard(gsc,"w-goal",gsum,false);
     var wc=document.getElementById("wcard");
     if(wc){var rows=wc.querySelectorAll(".wlist>div");if(rows.length>3){var more=Array.prototype.slice.call(rows,3),mb=document.createElement("button");mb.type="button";mb.className="ifold-h";mb.style.marginTop="6px";
         var showAll=foldOpen("w-all",false);function setM(o){more.forEach(function(x){x.hidden=!o});mb.firstChild.textContent=o?"최근 3일만 보기":"지난 기록 "+more.length+"일 더 보기";mb.setAttribute("aria-expanded",o?"true":"false")}
@@ -2384,16 +2397,16 @@ function vLog(){
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var h='<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
+  var tdn=(S.wlog[T]||[]).length,nowD=new Date();
+  h+='<div class="went"><form id="wf" class="went-f"><div class="went-top"><span class="went-l">⚖️ 오늘 체중'+(tdn?' <span class="small muted">· 오늘 '+tdn+'회 기록</span>':'')+'</span></div><div class="went-row"><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></div></form>';
+  h+='<details class="wwhen"><summary class="small muted">📅 '+md(T)+' '+hhmm(nowD.getTime())+' 기록 · 날짜·시간 바꾸기</summary><div class="row" style="gap:6px;margin-top:6px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"></div></details>';h+='</div>';
   h+=(ld?'':'<div class="small muted" style="margin-top:2px">아침 공복 체중을 기록해 보세요</div>')+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
-  var nowD=new Date();
-  h+='<form class="wform" id="wf" style="grid-template-columns:minmax(0,1fr) auto;gap:6px"><input class="inp" id="w-val" inputmode="decimal" placeholder="오늘 체중 kg" aria-label="체중" style="padding:8px 10px"><button class="btn" type="submit" style="padding:8px 18px">기록</button></form>';
-  h+='<details class="wwhen"><summary class="small muted">📅 '+md(T)+' '+hhmm(nowD.getTime())+' 기록 · 날짜·시간 바꾸기</summary><div class="row" style="gap:6px;margin-top:6px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"></div></details>';
   h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
-  var gsec='<section class="card" id="wgoal"><h2>체중 목표 · 단계별 체중</h2><dl class="kv small" style="margin-top:10px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</section>';h+='</div>';
+  var gsec='<section class="card" id="wgoal"><h2>체중 목표</h2><dl class="kv small" style="margin-top:10px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</section>';h+='</div>';
   var wch=h;h=gsec+bodyKpis(ld)+(BODYV==="wt"?wch:bodyPanel(BODYV));
   view.innerHTML=h;
   var wfm=document.getElementById("wf");if(wfm)wfm.onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
@@ -2402,6 +2415,7 @@ function vLog(){
     S.wgoal={start:Math.round(a*10)/10,target:Math.round(b*10)/10,date:T};save();keepIf()};
   var wgc=document.getElementById("wg-clear");if(wgc)wgc.onclick=function(){S.wgoal=null;save();keepIf()};
   view.querySelectorAll("[data-bk]").forEach(function(b){b.onclick=function(){BODYV=b.dataset.bk;var y=window.scrollY;render();window.scrollTo(0,y)}});
+  view.querySelectorAll("[data-ws]").forEach(function(b){b.onclick=function(){var el=document.getElementById("w-val"),v=parseFloat(String(el.value).replace(",","."));if(isNaN(v))v=bodyW();el.value=(Math.round((v+0.1*b.dataset.ws)*10)/10).toFixed(1)}});
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
