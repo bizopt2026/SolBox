@@ -1138,7 +1138,13 @@ function authBar(){
   if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>보기 전용으로 들어왔어요</b><div class="small" style="margin-top:4px">관리자와 다른 claude.ai 조직의 계정이라 체크·체중은 <b>이 기기에만</b> 저장되고, 크루 공유·좋아요·댓글은 쓸 수 없어요. 크루로 함께하려면 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</div></div>';
   return "";
 }
-function wxRowS(){
+// weather at the time of the run on a completed day (from the hourly log), else null
+function runWx(ds){if(!(isDone(ds)||dayRec(ds).w))return null;var hr=runHour(ds);if(hr==null)return {hr:null,w:null};return {hr:hr,w:wxAt(ds,Math.floor(hr))}}
+function hhmmH(hr){var h=Math.floor(hr),m=Math.round((hr-h)*60);if(m===60){h++;m=0}return (h<10?"0":"")+h+":"+(m<10?"0":"")+m}
+function runWxRow(ds,rw){var w=rw.w,loc=S.wx&&S.wx.key?' · '+esc(String(S.wx.name).split(",")[0]):'';
+  if(w)return '<div class="srow wrow"><span class="sl" aria-hidden="true">'+(wxEmoji(skyKind(w.i),w.dl===false)||'🌤')+'</span><div class="wlink" style="cursor:default"><b>훈련 때 날씨'+loc+' <span class="num">'+(Math.round(w.t*10)/10)+'°</span></b><span>'+hhmmH(rw.hr)+' 달린 시각 · '+esc(w.p||'')+'</span></div></div>';
+  return '<div class="srow wrow"><span class="sl" aria-hidden="true">🌤</span><div class="wlink" style="cursor:default"><b>훈련 때 날씨'+loc+' · <span class="muted">기록 없음</span></b><span>'+(rw.hr!=null?hhmmH(rw.hr)+'에 달렸지만 그 시각 날씨를 저장해 두지 못했어요':'워치 기록에 달린 시각이 없어 날씨를 찾지 못했어요')+'</span></div></div>'}
+function wxRowS(){var rw0=runWx(T);if(rw0)return runWxRow(T,rw0);
   var set=!!(S.wx&&S.wx.key),c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),tp=(c||nx.length)?wxTips():[],open=foldOpen("wxo",false)||(!set&&WX.edit);
   var t=set?'날씨 · '+esc(String(S.wx.name).split(",")[0])+(c?' <span class="num">'+(Math.round(c.temperatureValue*10)/10)+'°</span>':''):'날씨';
   var sub=!set?'동네를 정하면 3시간 기온·바람·강수를 알려 줘요':WX.err&&!c?WX.err:tp.length?tp[0]:(WX.busy?'불러오는 중…':'↻를 눌러 불러와 주세요');
@@ -1152,8 +1158,8 @@ function readyRowS(){
 function waitPill(){return '<span class="sbtn" style="opacity:.55;cursor:default;pointer-events:none">대기</span>'}
 function otherDayRows(ds){
   var fut=ds>T,lb=md(ds)+' ('+DOW[idxOf(ds)>=0?idxOf(ds)%7:(new Date(ds).getDay()+6)%7]+')';
-  var wxSub=fut?'예보 대기 · '+lb+' 당일에 3시간 기온·바람·강수를 불러와요':'지난 날짜라 날씨 기록이 없어요';
-  var h='<div class="srow wrow"><span class="sl" aria-hidden="true">🌤</span><div class="wlink" style="cursor:default"><b>날씨'+(S.wx&&S.wx.key?' · '+esc(String(S.wx.name).split(",")[0]):'')+' · <span class="muted">'+(fut?'대기':'없음')+'</span></b><span>'+esc(wxSub)+'</span></div>'+waitPill()+'</div>';
+  var wxSub=fut?'예보 대기 · '+lb+' 당일에 3시간 기온·바람·강수를 불러와요':'지난 날짜라 날씨 기록이 없어요',rw=fut?null:runWx(ds);
+  var h=rw?runWxRow(ds,rw):'<div class="srow wrow"><span class="sl" aria-hidden="true">🌤</span><div class="wlink" style="cursor:default"><b>날씨'+(S.wx&&S.wx.key?' · '+esc(String(S.wx.name).split(",")[0]):'')+' · <span class="muted">'+(fut?'대기':'없음')+'</span></b><span>'+esc(wxSub)+'</span></div>'+waitPill()+'</div>';
   var R=readiness(ds);
   if(!fut&&R.has){var col=["var(--ok)","var(--s3)","var(--bad)"][R.lv],lv=["좋음","주의","쉬어가기"][R.lv];
     var sub=[R.r?'안정시 심박 '+R.r+'bpm'+(R.diff!=null?'('+(R.diff>0?'+':'')+R.diff+')':''):'',R.h?'HRV '+R.h.avg+'ms':'',R.sq?'잠 '+R.sq:'',R.rc?'회복률 '+R.rc.pct+'%':''].filter(Boolean).join(' · ');
@@ -1176,7 +1182,9 @@ function stripSum(today){
   var wn2=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일":"";
   c.push('<span>⌚ '+(wn2?(WS.err?'<span style="color:var(--bad)">'+wn2+' 오류</span>':'<span style="color:var(--ok)">'+wn2+'</span>'+(WS.busy?' …':'')):'<span class="muted">연결 안 됨</span>')+'</span>');
   var cur=WX.cur&&WX.cur.currentConditions;
-  c.push('<span>🌤 '+(!today?'<span class="muted">대기</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
+  var rwd=runWx(today?T:sel);
+  if(rwd)c.push('<span title="훈련 때 날씨">'+(rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'🌤')+' <b class="num">'+Math.round(rwd.w.t)+'°</b>':'🌤 <span class="muted">기록 없음</span>')+'</span>');
+  else c.push('<span>🌤 '+(!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
   var R=readiness(today?T:sel);
   c.push('<span>❤️ '+(R.has?'<b style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</b>':'<span class="muted">기록</span>')+'</span>');
   return '<button class="ssum" data-strip aria-expanded="false" aria-label="목표·워치·날씨·컨디션 자세히 보기">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
