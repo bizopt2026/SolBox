@@ -706,7 +706,7 @@ body.coach .hcoach{background:#fff;color:var(--accent)}
 .keypace span{font-size:13px;font-weight:700;color:var(--muted)}
 .keypace b{font-family:var(--f-display);font-size:28px;line-height:1.1}.keypace b small{font-size:13px;color:var(--muted);font-weight:600;margin-left:2px}
 .keypace em{font-style:normal;font-size:13px;color:var(--bad)}
-.aiq{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:-4px}
+.aiq1{margin-left:auto;align-self:center;border:0;border-radius:99px;padding:4px 10px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700}
 .aiq>span{font-size:12px;font-weight:700;color:var(--muted)}
 .aiq button{border:0;border-radius:99px;padding:6px 12px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:700}
 #dsheet .sh-bg{position:fixed;inset:0;background:rgba(10,14,28,.4);z-index:50;animation:fdin .15s}
@@ -2493,7 +2493,7 @@ function vToday(){
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var DS=dn||(t[0]==="r"&&r.w)?dayScore(sel):null,folded=!!(DS&&DS.s!=null),det="";
-  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0];if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'</div>'}}
+  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0];if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'<button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button></div>'}}
   var rv=rpeOf(sel),rpeOn=dn||!!r.w;
   if(rpeOn)h+='<button class="rpeb" id="rpe-open" aria-label="RPE '+(rv?RPE[rv].n:'입력')+'">'+rpeFace(rv,"lg")+'<small>'+(rv?RPE[rv].n:'RPE')+'</small></button>';
   var askR=rpeOn&&(RPEASK===sel||(dn&&!rv&&!RPESKIP[sel]));
@@ -2511,7 +2511,7 @@ function vToday(){
   var IGSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',canStory=t[0]!=="r"?!!(r.w||r.done||r.km):!!(r.w||isDone(sel));
   if(canStory&&!folded&&t[0]!=="r")h+='<button class="btn ghost story-btn" data-story="'+sel+'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>인스타 스토리 만들기</button>';
   var hasStory=h.indexOf('story-btn')>=0;det+=h;h=h0;
-  if(folded){var dop=DETO===sel;det=withDayK(sel,function(){return detHtml(t,r,lh,sel)});h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
+  if(folded){var dop=DETO===sel;det=withDayK(sel,function(){return detHtml(t,r,lh,sel)});h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+'<button type="button" class="sbtn" data-aiq="'+esc(md(sel)+' 훈련을 분석해 줘. 잘한 점과 다음에 고칠 점을 알려 줘.')+'">💬 AI 분석</button>'+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
   if(det)h+='<details class="more"'+(foldOpen("t-det",false)?' open':'')+' data-fold="t-det"><summary><span>훈련 상세'+(hasStory?' · <b style="color:var(--accent)">스토리 만들기</b>':'')+'</span><span class="small muted" style="margin-left:auto;margin-right:8px">'+[folded&&zs.length?'존':'',r.w?'워치':'',lh?'랩':''].filter(Boolean).join(' · ')+'</span><span class="chev" aria-hidden="true"></span></summary>'+det+'</details>';
   if(canStory&&!folded&&t[0]==="r")h+='<div class="resact" style="justify-content:flex-start;margin-top:10px"><button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button></div>';
   var hasF=!!(r.km||r.hr||r.pace||r.note),fOpen=foldOpen("fields",false),fTog=t[0]!=="r"?'<button class="sbtn ftog'+(fOpen?' on':'')+'" id="f-tog" aria-expanded="'+fOpen+'" aria-label="거리·심박·메모 직접 적기">✎'+(hasF?' 메모':' 직접')+'</button>':'';
@@ -2526,8 +2526,6 @@ function vToday(){
   h+='</div>';
   if(!dn)h+=dayEditor(sel,w,d,t);
   h+='</div>';
-  var aq=dn||r.w?[[md(sel)+" 훈련을 분석해 줘. 잘한 점과 다음에 고칠 점을 알려 줘.","이 날 훈련 분석"],["오늘 컨디션과 이번 주 남은 훈련을 보고 회복은 어떻게 하면 좋을지 알려 줘.","회복 방법"]]:[[md(sel)+" 계획 \""+ptxt(t[1]).replace(/\n/g," / ")+"\"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.","이 훈련 팁"],[md(addDays(sel,-1))+" 훈련 기록을 분석해 줘.","전날 기록 분석"]];
-  h+='<div class="aiq"><span>💬 AI 코치</span>'+aq.map(function(q){return '<button type="button" data-aiq="'+esc(q[0])+'">'+q[1]+'</button>'}).join('')+'</div>';
   // week strip
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
