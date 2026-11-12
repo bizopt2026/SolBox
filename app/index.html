@@ -2560,8 +2560,9 @@ function trendSvg(series,unit,col,lo,hi,mini){var ks=Object.keys(series).sort().
   var W0=mini?160:320,H0=mini?64:90,x0=p(ks[0]),x1=Math.max(p(ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
   var o='<svg viewBox="0 0 '+W0+' '+H0+'" class="tsvg" role="img" aria-label="추이">';
   if(lo!=null&&hi!=null)o+='<rect x="8" y="'+Y(hi).toFixed(1)+'" width="'+(W0-16)+'" height="'+Math.max(1,Y(lo)-Y(hi)).toFixed(1)+'" fill="'+col+'" opacity=".12"/>';
-  o+='<path d="'+ks.map(function(k,i){return (i?'L':'M')+X(k).toFixed(1)+','+Y(series[k]).toFixed(1)}).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2"/>';
-  ks.forEach(function(k){o+='<circle cx="'+X(k).toFixed(1)+'" cy="'+Y(series[k]).toFixed(1)+'" r="2.5" fill="'+col+'"/>'});
+  var P=ks.map(function(k){return [X(k),Y(series[k])]}),d='M'+P[0][0].toFixed(1)+','+P[0][1].toFixed(1);
+  for(var i=0;i<P.length-1;i++){var a=P[i-1]||P[i],b=P[i],c=P[i+1],e=P[i+2]||c;d+=' C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+','+(b[1]+(c[1]-a[1])/6).toFixed(1)+' '+(c[0]-(e[0]-b[0])/6).toFixed(1)+','+(c[1]-(e[1]-b[1])/6).toFixed(1)+' '+c[0].toFixed(1)+','+c[1].toFixed(1)}
+  o+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
   o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(ks[ks.length-1])+'</text></svg>';
   var last=series[ks[ks.length-1]];if(mini)return o+'<div class="small muted">4주 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>';return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
 function lastOf(o){var ks=Object.keys(o||{}).sort();return ks.length?o[ks[ks.length-1]]:null}
