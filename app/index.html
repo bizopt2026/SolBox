@@ -578,20 +578,40 @@ merge(lsGet());
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
 var syncT=null;function setSync(t){syncEl.textContent=t;syncEl.classList.remove('gone');clearTimeout(syncT);if(t==="계정에 저장됨")syncT=setTimeout(function(){syncEl.classList.add('gone')},2500)}
 setSync("이 기기에 저장");
-function fitDoc(){var lim=240000,j=JSON.stringify(S);if(j.length<=lim)return j;
-  var rs=Object.keys(S.runs).map(function(k){return S.runs[k]}).sort(function(a,b){return (a.ts||0)-(b.ts||0)});
-  rs.slice(0,-2).forEach(function(r){delete r.series});j=JSON.stringify(S);if(j.length<=lim)return j;
-  if(S.coach&&S.coach.length>10){S.coach=S.coach.slice(-10);j=JSON.stringify(S);if(j.length<=lim)return j}
-  Object.keys(S.meals||{}).forEach(function(d){(S.meals[d]||[]).forEach(function(m){(m.items||[]).forEach(function(x){delete x.amount})})});j=JSON.stringify(S);
-  for(var i=0;i<rs.length&&j.length>lim;i++){if(rs[i].laps){delete rs[i].laps;j=JSON.stringify(S)}}
-  return j}
+// Storage: one account doc "plan" (everything but runs) + one doc per month "runs-YYYY-MM".
+// Each doc is capped by the platform at 256KB; the whole person is kept under ~1MB.
+var USERCOL=null,CHUNKJ={},DOC_LIM=240000,USER_LIM=1000000;
+function slimRuns(list,lim){var j=JSON.stringify(list);if(j.length<=lim)return;
+  var rs=list.slice().sort(function(a,b){return (a.ts||0)-(b.ts||0)});
+  rs.forEach(function(r){if(JSON.stringify(list).length>lim&&r.series)delete r.series});
+  rs.forEach(function(r){if(JSON.stringify(list).length>lim&&r.laps&&r.laps.laps)r.laps.laps.forEach(function(l){delete l.mx;delete l.cad;delete l.sl})});
+  rs.forEach(function(r){if(JSON.stringify(list).length>lim&&r.laps)delete r.laps})}
+function userSize(){return JSON.stringify(S).length}
+function fitAll(){
+  // whole person ≤ ~1MB: oldest second-by-second series first, then old lap details
+  if(userSize()>USER_LIM){var all=Object.keys(S.runs).map(function(k){return S.runs[k]}).sort(function(a,b){return (a.ts||0)-(b.ts||0)});
+    all.slice(0,-2).forEach(function(r){if(userSize()>USER_LIM)delete r.series});
+    all.forEach(function(r){if(userSize()>USER_LIM&&r.laps&&r.laps.laps)r.laps.laps.forEach(function(l){delete l.mx;delete l.cad;delete l.sl})});
+    all.forEach(function(r){if(userSize()>USER_LIM&&r.laps)delete r.laps})}
+  // main doc (no runs) ≤ 256KB
+  var main=JSON.parse(JSON.stringify(S));main.runs={};main.split=1;var j=JSON.stringify(main);
+  if(j.length>DOC_LIM&&S.coach&&S.coach.length>10){S.coach=S.coach.slice(-10);main.coach=S.coach;j=JSON.stringify(main)}
+  if(j.length>DOC_LIM){Object.keys(S.meals||{}).forEach(function(d){(S.meals[d]||[]).forEach(function(m){(m.items||[]).forEach(function(x){delete x.amount})})});main.meals=S.meals;j=JSON.stringify(main)}
+  if(j.length>DOC_LIM){var wk=Object.keys(S.wxlog||{}).sort();while(j.length>DOC_LIM&&wk.length){delete S.wxlog[wk.shift()];main.wxlog=S.wxlog;j=JSON.stringify(main)}}
+  // runs by month, each ≤ 256KB
+  var ch={};Object.keys(S.runs).forEach(function(k){var r=S.runs[k],m="runs-"+String(r.date||"0000-00").slice(0,7);(ch[m]=ch[m]||[]).push(r)});
+  Object.keys(ch).forEach(function(m){slimRuns(ch[m],DOC_LIM)});
+  return{main:j,chunks:ch}}
 function save(){
   S.ts=Date.now(); lsSet();
   if(!docRef){setSync("이 기기에 저장");return}
   setSync("저장 중…");
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    docRef.set({json:fitDoc(),ts:S.ts}).then(function(){setSync("계정에 저장됨")},function(){setSync("이 기기에만 저장")});
+    var F=fitAll(),jobs=[docRef.set({json:F.main,ts:S.ts})];
+    if(USERCOL){Object.keys(F.chunks).forEach(function(m){var jj=JSON.stringify(F.chunks[m]);if(CHUNKJ[m]===jj)return;CHUNKJ[m]=jj;jobs.push(USERCOL.doc(m).set({json:jj,ts:S.ts}).catch(function(e){CHUNKJ[m]="";throw e}))});
+      Object.keys(CHUNKJ).forEach(function(m){if(!F.chunks[m]&&CHUNKJ[m]!==null){CHUNKJ[m]=null;jobs.push(USERCOL.doc(m).delete())}})}
+    Promise.all(jobs).then(function(){setSync("계정에 저장됨")},function(e){setSync(e&&e.code==="quota_exceeded"?"저장 공간이 가득 찼어요":"이 기기에만 저장")});
     pushShare();
   },700);
 }
@@ -610,9 +630,10 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
     var ref=db.collection("data/users/"+id).doc("plan");
     var timer=setTimeout(function(){setSync("이 기기에 저장")},10000);
     var snap;try{snap=await ref.get()}catch(e){clearTimeout(timer);setAuth("view");return}clearTimeout(timer);
-    docRef=ref;
+    docRef=ref;USERCOL=db.collection("data/users/"+id);
     if(snap.exists){
       var d=snap.data(); var remote=null; try{remote=JSON.parse(d.json)}catch(e){}
+      if(remote&&remote.split){try{var qs=await USERCOL.get();var rr={};qs.docs.forEach(function(x){if(!/^runs-/.test(x.id)||!x.exists)return;var v=x.data();CHUNKJ[x.id]=v.json;try{JSON.parse(v.json).forEach(function(r){if(r&&r.id)rr[r.id]=r})}catch(e2){}});remote.runs=rr}catch(e3){remote.runs=S.runs||{}}}
       if(remote&&(remote.ts||0)>=(S.ts||0)){merge(remote);lsSet();render()}
       else if(S.ts){save()}
     } else if(S.ts){save()}
@@ -623,7 +644,9 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
     var ct=setTimeout(function(){if(CREW.status==="loading"){CREW.status="slow";if(tab==="crew")keep()}},10000);
     db.collection("members").onSnapshot(function(sn){
       var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.members=m;
+      var first=CREW.status==="loading"||CREW.status==="slow";
       if(!sn.metadata.fromCache){clearTimeout(ct);CREW.status="ok"}else if(CREW.status==="loading")CREW.status="cache";
+      if(first&&CREW.status!=="loading")pushShare(true);
       if(tab==="crew")keep();
     },function(e){clearTimeout(ct);CREW.status="err";if(tab==="crew")keep()});
     db.collection("social").onSnapshot(function(sn){
@@ -658,10 +681,14 @@ function avatar(u,lg){var n=nickOf(u);return '<span class="av'+(lg?' lg':'')+'" 
 function keep(){var y=window.scrollY;render();window.scrollTo(0,y)}
 function summary(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);if(isNaN(km)&&r.w)km=r.w.km;d[k]=isNaN(km)?0:Math.round(km*10)/10}else if(r&&r.w&&r.w.km){var ix=idxOf(k);if(ix>=0&&ix<TOTAL&&planAt(ix)[0]==="r")d[k]=Math.round(r.w.km*10)/10}}return{d:d,goal:S.goal?fmtT(S.goal.sec):"",nick:S.nick,color:S.color||0,bio:S.bio||""}}
 function banned(u){var b=CREW.settings&&CREW.settings.banned;return !!(b&&u&&b[u])}
+var CREW_MAX=100;
 function pushShare(force){
   if(!CREW.db||!CREW.me)return;
   var ref=CREW.db.doc("members/"+CREW.me);
   if(S.share===false||!S.nick||banned(CREW.me)){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
+  if(CREW.status==="loading"||CREW.status==="slow")return;
+  var others=Object.keys(CREW.members||{}).filter(function(u){return u!==CREW.me&&!banned(u)}).length;
+  CREW.full=!CREW.members[CREW.me]&&others>=CREW_MAX;if(CREW.full)return;
   var sm=summary(),key=JSON.stringify(sm);if(!force&&key===CREW.last)return;CREW.last=key;
   sm.upd=Date.now();ref.set(sm).catch(function(){CREW.last=""});
 }
@@ -2652,7 +2679,7 @@ function adminView(ids){
   var st=CREW.settings||{},b=st.banned||{};
   var h='<div class="card"><h2>크루 정보</h2><div class="fields"><label class="full">크루 이름 (최대 20자)<input id="a-name" maxlength="20" placeholder="예: 하남 서브3 크루" value="'+esc(st.name)+'"></label><label class="full">공지 (최대 200자, 크루 탭 위에 보여요)<textarea id="a-notice" maxlength="200" placeholder="예: 이번 주 토요일 한강 롱런 7시 출발">'+esc(st.notice)+'</textarea></label></div><div class="row" style="margin-top:10px"><button class="btn" id="a-save">저장</button><span class="small" id="a-msg" style="color:var(--ok)"></span></div></div>';
   var rows=ids.map(function(u){return{u:u,m:CREW.members[u],s:memStats(CREW.members[u],0)}}).sort(function(a,b2){return (b2.m.upd||0)-(a.m.upd||0)});
-  h+='<div class="card"><div class="row between"><h2>크루원 '+rows.length+'명</h2><span class="small muted">최근 활동 순</span></div><div style="margin-top:6px">';
+  h+='<div class="card"><div class="row between"><h2>크루원 '+rows.length+'명 <span class="small muted">/ '+CREW_MAX+'</span></h2><span class="small muted">최근 활동 순</span></div><div style="margin-top:6px">';
   if(!rows.length)h+='<p class="small muted" style="margin:0">아직 크루원이 없어요.</p>';
   rows.forEach(function(r){var tk=0,km=0,d=r.m.d||{};for(var k in d){var i=idxOf(k);if(i<0||i>=TOTAL)continue;var t=W[Math.floor(i/7)].d[i%7];if(t[0]!=="r"){tk++;km+=d[k]>0?d[k]:t[2]}}
     h+='<div class="adm-row">'+avatar(r.u)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.u))+'</span>'+(r.u===CREW.me?'<em class="me-tag" style="font-style:normal">관리자</em>':'')+'</div><div class="small muted">'+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'완료 '+tk+'회 · '+Math.round(km)+'km'+(r.s.rate!=null?' · 이행 '+r.s.rate+'%':'')+'</div><div class="small muted">'+(r.m.upd?'최근 '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):'')+'</div></div>'+(r.u===CREW.me?'<span></span>':'<button class="btn ghost" data-ban="'+esc(r.u)+'" style="padding:8px 12px">제외</button>');
@@ -2680,6 +2707,7 @@ function bindAdmin(){
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7)));
   var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"보기 전용":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
+  if(CREW.full)h+='<div class="warn">크루 정원(<b>'+CREW_MAX+'명</b>)이 가득 차서 내 훈련 현황을 공유할 수 없어요. 개인 훈련 기록은 그대로 쓸 수 있어요. 자리가 나면 자동으로 공유돼요.</div>';
   h+=profCard()+'<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크를 보내면 받은 사람이 자기 claude.ai 계정으로 로그인해 바로 참여해요. 기록 저장·크루 공유는 관리자와 같은 claude.ai 조직(팀) 계정만 돼요.</p>'+inviteLink()+'</div>';
   if(!CREW.db){
     if(AUTH.st==="checking")h+='<div class="card"><p class="small muted" style="margin:0">크루 정보를 불러오는 중이에요…</p></div>';
