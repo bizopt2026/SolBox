@@ -154,7 +154,7 @@ details.more[open]{padding-bottom:10px}
 .rpeopts button .rf.lg{width:30px;height:30px}.rpeopts button small{font-size:10.5px;color:var(--muted);white-space:nowrap}
 .rpeopts button[aria-pressed="true"]{border-color:var(--rc);box-shadow:0 0 0 1.5px var(--rc);background:color-mix(in srgb,var(--rc) 12%,transparent)}
 .ws .rf.sm{display:block;margin:3px auto 0}
-.ws .rdot{margin:7px auto 4px}
+.rf.ph{opacity:.35}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -733,11 +733,11 @@ function pushShare(force){
 
 function isDone(ds){return !!dayRec(ds).done}
 // RPE (perceived effort) in 5 levels: 1 아주 쉬움 … 5 매우 힘듦
-var RPE=[null,{e:"😄",n:"아주 쉬움",c:"#2563eb"},{e:"🙂",n:"쉬움",c:"#16a34a"},{e:"😐",n:"적당",c:"#ca8a04"},{e:"😣",n:"힘듦",c:"#ea580c"},{e:"🥵",n:"매우 힘듦",c:"#dc2626"}];
+var RPE=[null,{e:"😄",n:"아주 쉬움",c:"#8fb8f2"},{e:"🙂",n:"쉬움",c:"#93d3a9"},{e:"😐",n:"적당",c:"#f3d37c"},{e:"😣",n:"힘듦",c:"#f4b182"},{e:"🥵",n:"매우 힘듦",c:"#ef9a9a"}];
 function rpeOf(ds){var v=+dayRec(ds).rpe;return v>=1&&v<=5?Math.round(v):null}
 var RPEM=["M8 15h8","M7 13.5q5 5 10 0","M7.5 14q4.5 3.2 9 0","M8 15h8","M7.5 16.5q4.5-3.2 9 0","M7 17q5-5.5 10 0"];
-function rpeSvg(v){var o=RPE[v],col=o?o.c:"#b8bfcc",m=RPEM[v||0],eyes=v===5?'<path d="M7 8.5l3 1.5M17 8.5l-3 1.5" stroke="#1b1b1b" stroke-width="1.6" stroke-linecap="round"/><circle cx="8.6" cy="11" r="1.2" fill="#1b1b1b"/><circle cx="15.4" cy="11" r="1.2" fill="#1b1b1b"/>':v===4?'<path d="M7.3 9.4l2.6 1.3-2.6 1.3M16.7 9.4l-2.6 1.3 2.6 1.3" stroke="#1b1b1b" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>':'<circle cx="8.6" cy="10" r="1.3" fill="#1b1b1b"/><circle cx="15.4" cy="10" r="1.3" fill="#1b1b1b"/>';
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="'+col+'"/>'+eyes+'<path d="'+m+'" stroke="#1b1b1b" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>'}
+function rpeSvg(v){var o=RPE[v],col=o?o.c:"#d5d9e0",m=RPEM[v||0],eyes=v===5?'<path d="M7 8.5l3 1.5M17 8.5l-3 1.5" stroke="#3d4350" stroke-width="1.6" stroke-linecap="round"/><circle cx="8.6" cy="11" r="1.2" fill="#3d4350"/><circle cx="15.4" cy="11" r="1.2" fill="#3d4350"/>':v===4?'<path d="M7.3 9.4l2.6 1.3-2.6 1.3M16.7 9.4l-2.6 1.3 2.6 1.3" stroke="#3d4350" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>':'<circle cx="8.6" cy="10" r="1.3" fill="#3d4350"/><circle cx="15.4" cy="10" r="1.3" fill="#3d4350"/>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="'+col+'"/>'+eyes+'<path d="'+m+'" stroke="#3d4350" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>'}
 function rpeFace(v,cls){var o=RPE[v];return '<span class="rf '+(o?'':'none ')+(cls||'')+'" title="RPE '+(o?o.n:'미입력')+'">'+rpeSvg(o?v:0)+'</span>'}
 function rpeFrom10(v){v=+v;if(!(v>0))return null;if(v>10)v=v/10;return Math.min(5,Math.max(1,Math.ceil(v/2)))}
 var RPEASK=null,RPESKIP={};
@@ -2139,7 +2139,7 @@ function vToday(){
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
-    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--s1)">✕</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):'<div class="dot rdot"></div>')+'</button>'}
+    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--s1)">✕</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):rpeFace(null,"sm ph"))+'</button>'}
   h+='</div>'+scoreLegend();
   var ks=nextKeySessions(),ko=foldOpen("keys",false);
   if(ks.length){h+='<button type="button" class="ifold-h" id="keys-tog" aria-expanded="'+ko+'" style="margin-top:8px"><span><b style="color:var(--accent)">★</b> 다가오는 핵심 훈련 '+ks.length+'개'+(ko?'':' · 다음 '+md(ks[0][0])+' '+DOW[idxOf(ks[0][0])%7])+'</span><span class="chev" aria-hidden="true"></span></button>';
