@@ -522,6 +522,9 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card)
   padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
+.backbar{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:6px 12px 6px 8px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:13px;font-weight:600;color:var(--ink)}
+.backbar span{font-size:18px;line-height:1;color:var(--accent)}
+.backbar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .crew{display:flex;flex-direction:column}
 .mem{border-top:1px solid var(--line);padding:12px 0}
 .mem:first-child{border-top:0}
@@ -1549,7 +1552,7 @@ function coachBar(){
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
 var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
 function openStory(ds){var D0=storyData(ds);if(!D0.series&&D0.serRun){STORY.serBusy=true;fetchSeries(D0.serRun).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
-if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
+if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;enterSub("story");render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
@@ -1676,9 +1679,14 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(tot*10)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
   ctx.font="500 24px "+FB;ctx.fillStyle="#ff9a5c";ctx.fillRect(cx,y+h-30,34,6);ctx.fillText("랩 평균 페이스",cx+44,y+h-20);if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);ctx.fillStyle="rgba(122,167,255,.45)";var tw=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillRect(cx+cw-tw-44,y+h-36,32,18);ctx.textAlign="left"}
 }
+var BACK=null,TABN={today:"오늘",plan:"훈련표",pace:"내 페이스",crew:"크루",log:"바디",guide:"가이드",coach:"AI 코치",story:"인스타 스토리"};
+function enterSub(t){if(tab!=="coach"&&tab!=="story"){BACK={tab:tab,sel:sel,y:window.scrollY,pushed:false}}if(BACK&&!BACK.pushed){try{history.pushState({sub:1},"");BACK.pushed=true}catch(e){}}tab=t}
+function goBack(){var b=BACK||{tab:"today",sel:sel,y:0};BACK=null;tab=b.tab;sel=b.sel;render();window.scrollTo(0,b.y||0)}
+function backBar(){var n=TABN[(BACK&&BACK.tab)||"today"];return '<button type="button" class="backbar" data-back><span aria-hidden="true">‹</span> '+n+(/[가-힣]$/.test(n)&&((n.charCodeAt(n.length-1)-44032)%28)?'으로':'로')+' 돌아가기</button>'}
+function bindBack(){view.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){if(BACK&&BACK.pushed){try{history.back();return}catch(e){}}goBack()}})}
 function vStory(){
   var D=storyData(STORY.ds);
-  var h='<div class="card"><div class="row between"><h2>인스타 스토리 만들기</h2><button class="btn ghost" id="st-back" style="padding:6px 12px;font-size:13px">돌아가기</button></div><p class="small muted" style="margin:4px 0 0">'+md(STORY.ds)+' '+DOW[D.i%7]+' 훈련 기록 위에 AI 코치 코멘트를 얹은 스토리 이미지(1080×1920)를 만들어요. 사진은 이 기기에서만 쓰고 어디에도 올리지 않아요.</p></div>';
+  var h=backBar()+'<div class="card"><div class="row between"><h2>인스타 스토리 만들기</h2></div><p class="small muted" style="margin:4px 0 0">'+md(STORY.ds)+' '+DOW[D.i%7]+' 훈련 기록 위에 AI 코치 코멘트를 얹은 스토리 이미지(1080×1920)를 만들어요. 사진은 이 기기에서만 쓰고 어디에도 올리지 않아요.</p></div>';
   h+='<div class="stwrap"><canvas id="st-cv" width="1080" height="1920" aria-label="스토리 미리보기"></canvas></div>';
   h+='<div class="card"><div class="madd" style="margin-top:0"><label class="btn ghost" for="st-photo" style="text-align:center;cursor:pointer">'+(STORY.img?'사진 바꾸기':'배경 사진 고르기')+'</label><input type="file" id="st-photo" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0">'+(STORY.img?'<button class="btn ghost" id="st-nophoto">사진 빼기</button>':'<span class="small muted" style="align-self:center">사진이 없으면 기본 배경</span>')+'</div>';
   if(STORY.serBusy)h+='<div class="small muted" style="margin-top:10px">COROS에서 초 단위 기록을 받는 중이에요…</div>';else if(SER.err&&!D.series)h+='<div class="small" style="margin-top:10px;color:var(--bad)">'+esc(SER.err)+' 랩 평균으로 그려요.</div>';
@@ -1692,7 +1700,7 @@ function vStory(){
   if(STORY.out)h+='<div style="margin-top:10px"><div class="small muted">저장이 안 되면 아래 이미지를 길게 눌러 사진에 저장하세요.</div><img src="'+STORY.out+'" alt="완성된 스토리 이미지" style="width:120px;border-radius:10px;margin-top:6px"></div>';
   h+='<ol class="tight small" style="margin:12px 0 0;padding-left:18px;color:var(--muted)"><li>① 이미지를 저장해요.</li><li>② 인스타그램 열기 → 스토리 만들기(＋) → 방금 저장한 이미지를 골라요.</li><li>필요하면 스티커·태그를 더해서 올려요.</li></ol></div>';
   view.innerHTML=h;
-  document.getElementById("st-back").onclick=function(){tab="today";sel=STORY.ds;render();window.scrollTo(0,0)};
+  bindBack();
   var ph=document.getElementById("st-photo");ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;var u=URL.createObjectURL(f),im=new Image();im.onload=function(){if(STORY.url)try{URL.revokeObjectURL(STORY.url)}catch(e){}STORY.url=u;STORY.img=im;STORY.out="";render();drawStory()};im.onerror=function(){STORY.err="이 사진은 열 수 없어요. JPG·PNG로 다시 골라 주세요.";render()};im.src=u};
   var np=document.getElementById("st-nophoto");if(np)np.onclick=function(){STORY.img=null;STORY.out="";render();drawStory()};
   var cm=document.getElementById("st-cm");cm.oninput=function(){STORY.comment=cm.value;STORY.out="";clearTimeout(STORY.dt);STORY.dt=setTimeout(drawStory,250)};
@@ -1723,7 +1731,7 @@ function coachChips(){
 }
 function vCoach(){
   var M=S.coach||[],can=AUTH.st==="ok";
-  var h='<div class="card"><div class="row between"><h2>AI 코치</h2>'+(M.length?'<button class="btn ghost" id="co-clear" style="padding:6px 12px;font-size:13px">대화 지우기</button>':'')+'</div><p class="small muted" style="margin:4px 0 0">내 훈련 계획, 달린 기록(워치·직접 입력), 체중, 목표와 페이스 존을 보고 답해요. 답은 참고용이에요.</p></div>';
+  var h=backBar()+'<div class="card"><div class="row between"><h2>AI 코치</h2>'+(M.length?'<button class="btn ghost" id="co-clear" style="padding:6px 12px;font-size:13px">대화 지우기</button>':'')+'</div><p class="small muted" style="margin:4px 0 0">내 훈련 계획, 달린 기록(워치·직접 입력), 체중, 목표와 페이스 존을 보고 답해요. 답은 참고용이에요.</p></div>';
   h+='<div class="chat" id="chat">';
   if(!M.length)h+='<div class="msg ai"><span class="mwho">코치</span><p>안녕하세요! 달린 기록이나 훈련, 페이스, 보급, 컨디션처럼 궁금한 걸 물어보세요. 앱에 저장된 내 기록을 보고 답할게요.</p></div>';
   M.forEach(function(m,k){h+=m.role==="user"?'<div class="msg me">'+esc(m.text)+'</div>':'<div class="msg ai'+(m.err?' err':'')+'"'+(k===M.length-1?' id="cb-last"':'')+'><span class="mwho">코치</span>'+(m.text?mdLite(m.text):'<p class="muted">생각하는 중…</p>')+(m.text&&!m.err&&canSpeak()?'<button type="button" class="say" data-say="'+k+'" aria-label="이 답변 읽어주기">🔊 듣기</button>':'')+'</div>'});
@@ -1733,7 +1741,7 @@ function vCoach(){
   h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
   h+='<div class="vrow" id="co-voice"></div>';
   h+='<form class="cin" id="co-form"><textarea id="co-in" class="inp" rows="1" maxlength="600" placeholder="코치에게 물어보기" aria-label="질문">'+esc(COACH.draft)+'</textarea>'+(COACH.busy?'<button class="btn" type="button" id="co-stop">멈춤</button>':'<button class="btn" type="submit" style="background:var(--accent);color:#fff">보내기</button>')+'</form></div>';
-  view.innerHTML=h;
+  view.innerHTML=h;bindBack();
   var ta=document.getElementById("co-in");ta.oninput=function(){COACH.draft=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";
     if(VOICE.kb){clearTimeout(VOICE.kbT);VOICE.kbT=setTimeout(function(){var q=ta.value.trim();if(VOICE.kb&&q&&q!==(VOICE.kbStart||"").trim()&&!COACH.busy){VOICE.kb=false;ta.blur();coachAsk(q)}},2500)}};
   ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById("co-form").requestSubmit()}};
@@ -1978,7 +1986,7 @@ function lapsHtml(ds){
 var LAPOPEN=null;
 function bindLaps(){
   view.querySelectorAll("details.laps").forEach(function(d){d.addEventListener("toggle",function(){LAPOPEN=d.open?d.dataset.lo:null})});
-  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;tab="coach";render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
+  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;enterSub("coach");render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
 }
 function lapsCtx(ds){
   return runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length}).map(function(r){var L=r.laps;
@@ -3257,7 +3265,8 @@ function vGuide(){
   go.onclick=function(){try{var o=JSON.parse(ta.value);if(!o||typeof o!=="object"||!o.days)throw 0;merge(o);save();msg.textContent="복원했어요."}catch(e){msg.textContent="코드를 읽지 못했어요. 전체를 빠짐없이 붙여 넣었는지 확인하세요."}};
 }
 
-(function(){var f=document.getElementById("fab");if(f)f.onclick=function(){tab="coach";render()}})();
+(function(){var f=document.getElementById("fab");if(f)f.onclick=function(){enterSub("coach");render();window.scrollTo(0,0)}})();
+window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story")goBack()});
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
 (function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
 var hq=document.getElementById("h-guide");if(hq)hq.onclick=function(){tab="guide";render();window.scrollTo(0,0)};
