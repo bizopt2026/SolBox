@@ -584,6 +584,31 @@ nav.tabs button{border:0;background:none;padding:10px 0 12px;font-size:12px;colo
 nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
 nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 @media (prefers-reduced-motion:no-preference){.done-btn,.ck{transition:background .15s,border-color .15s}}
+
+/* ---------- Flat surfaces: fewer borders, color fills + soft shadow ---------- */
+:root{--sh:0 1px 2px rgba(17,26,46,.04),0 4px 14px rgba(17,26,46,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sh:none}}
+:root[data-theme="dark"]{--sh:none}
+.card,.session,.strip,.ssum{border-color:transparent!important;box-shadow:var(--sh)}
+.bk{border-color:transparent;box-shadow:var(--sh)}
+.bk.on{border-color:transparent;box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-soft)}
+.resbox{border-color:transparent;background:var(--bg)}
+.resdet{border-top:0}
+.recgrp,.rpeask,.zguide div,.ws,.wstep,.acts button,details.more{border-color:transparent!important;background:var(--bg)!important}
+.ws.sel{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.sbtn,.btn.ghost{border-color:transparent!important;background:var(--bg)}
+.sbtn.wset,.recgrp .ftog.on,.acts button.on,.seg button[aria-checked="true"]{background:var(--accent-soft)!important;color:var(--accent)}
+.seg button[aria-checked="true"]{background:var(--ink)!important;color:var(--bg)}
+.daynav button{border-color:transparent;background:transparent}
+.srow+.srow,.ssum>span:not(.fold-c)+span:not(.fold-c){border-color:transparent}
+.drw{border-bottom:0;padding:4px 0}
+.segm{border:0;background:var(--bg)}
+.ifold-h{border:0;background:var(--bg)}
+.fields input,.fields textarea,.inp{border-color:transparent}
+.fields input:focus,.fields textarea:focus,.inp:focus,.wstep:focus-within{outline:none;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.session .recgrp .donechip{background:none}
+.seg button{border-color:transparent!important;background:var(--card)!important;box-shadow:var(--sh)}
+.post,.notice{border-color:transparent!important;box-shadow:var(--sh)}
 </style>
 
 <header class="top"><div class="wrap">
