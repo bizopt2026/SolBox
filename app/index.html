@@ -668,6 +668,9 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 .rpemini button:active{transform:scale(.92)}
 .crewsum{flex-direction:column;gap:4px;font-size:14px;color:var(--ink)}
 .empty{margin-top:8px;padding:12px;border-radius:12px;background:var(--bg)}
+.wpend{margin:8px 0 4px;padding:10px 12px;border-radius:12px;background:var(--accent-soft)}
+.wtime{border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer}
+.wedit{display:inline-flex;gap:4px;align-items:center}.wedit .inp{min-height:30px;padding:2px 6px;font-size:12px;width:auto}
 .gchips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:0;border-radius:99px;padding:7px 13px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
@@ -791,7 +794,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.wPend=o.wPend||null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet()||{});
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -970,6 +973,9 @@ function pushHist(){var P=plan();P.hist.push(JSON.stringify({swaps:P.swaps,vol:P
 // ---------- Weight log helpers ----------
 function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,m:sum/a.length,min:mn,max:mx,n:a.length}}
 function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
+function moveWeight(ds,t,nt){var a=S.wlog[ds]||[],x=null;S.wlog[ds]=a.filter(function(y){if(y.t===t&&!x){x=y;return false}return true});if(!S.wlog[ds].length)delete S.wlog[ds];if(!x)return;
+  var nd=localDate(Math.floor(nt/1000));x.t=nt;(S.wlog[nd]=S.wlog[nd]||[]).push(x);S.wlog[nd].sort(function(a2,b2){return a2.t-b2.t});if(S.wPend&&S.wPend.t===t)S.wPend=null}
+function dtLocal(ms){var d=new Date(ms);function z(n){return (n<10?"0":"")+n}return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+"T"+z(d.getHours())+":"+z(d.getMinutes())}
 function addWeight(ms,kg,src){var ds=localDate(Math.floor(ms/1000));(S.wlog[ds]=S.wlog[ds]||[]).push({t:ms,kg:Math.round(kg*10)/10,src:src});S.wlog[ds].sort(function(a,b){return a.t-b.t})}
 // cumulative share of planned loss by date (from the plan doc: hold until 11/29, 72% by 1/24, 94% by 2/28, 100% by 3/21)
 var WSHAPE=[["2026-11-29",0],["2027-01-24",0.72],["2027-02-28",0.94],["2027-03-21",1]];
@@ -1164,6 +1170,11 @@ async function freddySync(manual){
   finally{WS.busy=false;keepIf()}
 }
 var ERRWF={server_not_connected:"freddy가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 freddy를 연결한 뒤 다시 불러와 주세요.",needs_reauth:"freddy 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 다시 연결해 주세요.",not_in_manifest:"이 앱의 freddy 사용을 허용하지 않았어요. 앱 권한에서 freddy를 허용해 주세요.",approval_required:"freddy 불러오기 승인이 필요해요. 버튼을 눌러 허용해 주세요.",rate_limited:"요청이 많아요. 잠시 후 다시 불러와 주세요."};
+var CW_AT=0;
+async function corosWeightCheck(){if(S.watch!=="coros"||WS.busy||Date.now()-CW_AT<300000)return;CW_AT=Date.now();
+  try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)return;var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
+    if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");S.wPend={ds:localDate(Math.floor(nt/1000)),t:nt};S.corosW=kg;save();toast("COROS 체중 "+kg+"kg · 바디 탭에서 잰 시각을 알려 주세요");if(tab==="log")keep()}}}catch(e){}}
+document.addEventListener("visibilitychange",function(){if(!document.hidden)corosWeightCheck()});
 async function watchSync(manual){
   if(S.watch==="freddy")return freddySync(manual);
   if(WS.busy||S.watch!=="coros")return;WS.busy=true;WS.err="";WS.msg="COROS에서 불러오는 중…";keepIf();
@@ -1209,7 +1220,7 @@ async function watchSync(manual){
       if(rp)S.recov={pct:+rp[1],lv:rl?rl[1].trim():"",full:rf?rf[1].trim():"",at:Date.now(),date:T};
     }catch(e7){}
     var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
-      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){addWeight(Date.now(),kg,"COROS");wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg}}}catch(e2){}
+      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");S.wPend={ds:localDate(Math.floor(nt/1000)),t:nt};wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg;toast("COROS 체중 "+kg+"kg · 바디 탭에서 잰 시각을 알려 주세요")}}}catch(e2){}
     WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+fmsg+".";
     save();pushShare();if(added)wxForRuns();if(auto)toast("⌚ 워치 기록으로 "+auto+"일 자동 완료");
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
@@ -2697,18 +2708,21 @@ function bodyPanel(k){
   var days=[];for(var i=0;i<14;i++){var ds=addDays(T,-i),ix=idxOf(ds);var ms=ix>=0?mealScore(ds,ix%7):null;if(ms)days.push([ds,ms])}
   h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
   return h3+'</div>'}
+var WEDIT=null;
 function vLog(){
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var h='<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
   var tdn=(S.wlog[T]||[]).length,nowD=new Date();
+  var wp=S.wPend,wpx=wp&&(S.wlog[wp.ds]||[]).filter(function(x){return x.t===wp.t})[0];
+  if(wpx)h+='<div class="wpend"><div class="small"><b>⌚ COROS에서 '+wpx.kg+'kg을 가져왔어요.</b> COROS는 잰 시각을 알려 주지 않아서 지금 시각으로 들어갔어요. 언제 쟀나요?</div><div class="row" style="gap:6px;margin-top:6px"><input id="wp-dt" class="inp" type="datetime-local" value="'+dtLocal(wpx.t)+'" style="flex:1;min-height:34px;padding:4px 8px;font-size:13px"><button class="btn" id="wp-ok" type="button" style="padding:6px 12px;font-size:13px">저장</button><button class="linkbtn" id="wp-skip" type="button">그대로</button></div></div>';
   h+='<div class="went"><form id="wf" class="went-row"><span class="went-l">오늘'+(tdn?'<small>'+tdn+'회</small>':'')+'</span><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></form>';
   h+='<details class="wwhen"><summary class="small muted">'+md(T)+' '+hhmm(nowD.getTime())+' · 변경</summary><div class="row" style="gap:6px;margin-top:4px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"></div></details>';h+='</div>';
   h+=(ld?'':'<div class="small muted" style="margin-top:2px">아침 공복 체중을 기록해 보세요</div>')+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:12px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
-    if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
+    if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px">'+(WEDIT===k+'|'+x.t?'<span class="wedit"><input class="inp" type="datetime-local" data-wedit-in value="'+dtLocal(x.t)+'"><button class="sbtn wset" type="button" data-wedit-ok="'+k+'|'+x.t+'">저장</button></span>':'<span class="muted num"><button class="wtime" type="button" data-wedit="'+k+'|'+x.t+'" aria-label="잰 시각 바꾸기">'+hhmm(x.t)+' ✎</button> · '+esc(x.src||"직접")+'</span>')+'<span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
   var gsec='<section class="card" id="wgoal"><h2>체중 목표</h2><dl class="kv small" style="margin-top:10px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</section>';h+='</div>';
   var wch=h;h=gsec+bodyKpis(ld)+(BODYV==="wt"?wch:bodyPanel(BODYV));
@@ -2723,6 +2737,10 @@ function vLog(){
   view.querySelectorAll("[data-ws]").forEach(function(b){b.onclick=function(){var el=document.getElementById("w-val"),v=parseFloat(String(el.value).replace(",","."));if(isNaN(v))v=bodyW();el.value=(Math.round((v+0.1*b.dataset.ws)*10)/10).toFixed(1)}});
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
+  view.querySelectorAll("[data-wedit]").forEach(function(b){b.onclick=function(){WEDIT=b.dataset.wedit;keepIf()}});
+  view.querySelectorAll("[data-wedit-ok]").forEach(function(b){b.onclick=function(){var pr=b.dataset.weditOk.split("|"),inp=b.parentNode.querySelector("[data-wedit-in]"),nt=new Date(inp.value).getTime();WEDIT=null;if(isFinite(nt)){moveWeight(pr[0],+pr[1],nt);save();toast("잰 시각을 바꿨어요")}keepIf()}});
+  var wpo=document.getElementById("wp-ok");if(wpo)wpo.onclick=function(){var nt=new Date(document.getElementById("wp-dt").value).getTime();if(isFinite(nt)&&S.wPend){moveWeight(S.wPend.ds,S.wPend.t,nt);S.wPend=null;save();toast("잰 시각을 저장했어요")}keepIf()};
+  var wps=document.getElementById("wp-skip");if(wps)wps.onclick=function(){S.wPend=null;save();keepIf()};
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
 }
 
