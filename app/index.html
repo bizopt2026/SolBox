@@ -2542,10 +2542,10 @@ function chart(){
   else days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
   WT.forEach(function(m){var t=p(m[0]);if(t>=x0-30*864e5&&t<=x1+30*864e5){lo=Math.min(lo,Math.floor(m[1]-0.5));hi=Math.max(hi,Math.ceil(m[2]+0.5))}});
   if(S.wgoal&&WZ!=="4w"){lo=Math.min(lo,Math.floor(S.wgoal.target-0.8));hi=Math.max(hi,Math.ceil(S.wgoal.start+0.5))}
-  var y0=lo,y1=hi,Wd=340,Hd=150,L=30,R=16,Tp=10,B=22;
+  var y0=Math.min(65,Math.floor(lo/5)*5),y1=Math.max(75,Math.ceil(hi/5)*5),Wd=340,Hd=150,L=30,R=16,Tp=10,B=22;
   function X(t){return L+(t-x0)/(x1-x0)*(Wd-L-R)} function Y(v){return Tp+(y1-v)/(y1-y0)*(Hd-Tp-B)}
   var s='<svg viewBox="0 0 '+Wd+' '+Hd+'" width="100%" role="img" aria-label="체중 추이와 목표: 점은 하루 평균, 음영은 하루 최소~최대"><defs><clipPath id="wclip"><rect x="'+L+'" y="0" width="'+(Wd-L-R)+'" height="'+Hd+'"/></clipPath></defs><g clip-path="url(#wclip)">';
-  var yl="";for(var v=Math.ceil(y0);v<=Math.floor(y1);v++){s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"/>';yl+='<text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'}
+  var yl="";for(var v=Math.ceil(y0);v<=Math.floor(y1);v++){var five=v%5===0;s+='<line x1="'+L+'" x2="'+(Wd-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)" stroke-width="1"'+(five?'':' stroke-opacity=".4"')+'/>';if(five)yl+='<text x="'+(L-4)+'" y="'+(Y(v)+3)+'" text-anchor="end">'+v+'</text>'}
   var up="",dn="";WT.forEach(function(m,i){up+=(i?"L":"M")+X(p(m[0]))+" "+Y(m[2]);});for(var i=WT.length-1;i>=0;i--){dn+="L"+X(p(WT[i][0]))+" "+Y(WT[i][1])}
   s+='<path d="'+up+dn+'Z" fill="var(--q-soft)" stroke="none"/>';
   s+='<path d="'+WT.map(function(m,i){return (i?"L":"M")+X(p(m[0]))+" "+Y((m[1]+m[2])/2)}).join("")+'" fill="none" stroke="var(--q)" stroke-width="1.5" stroke-dasharray="4 3"/>';
@@ -2569,15 +2569,17 @@ function chart(){
 
 var WOPEN=null;
 var WZ="all";
-function trendSvg(series,unit,col,lo,hi,mini){var ks=Object.keys(series).sort().slice(-28);if(ks.length<2)return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
+// shared date window for the resting-HR and HRV charts so their x axes line up
+function bodyRange(){var a=Object.keys(S.rhr||{}).sort().slice(-28),hv=Object.keys(S.hrv||{}).filter(function(k){return S.hrv[k]&&S.hrv[k].avg}).sort().slice(-28),all=a.concat(hv).sort();return all.length?[all[0],all[all.length-1]]:null}
+function trendSvg(series,unit,col,lo,hi,mini,xr){var ks=Object.keys(series).sort().slice(-28);if(xr)ks=ks.filter(function(k){return k>=xr[0]&&k<=xr[1]});if(ks.length<1||(!xr&&ks.length<2))return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
   var vs=ks.map(function(k){return series[k]}),mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);if(lo!=null)mn=Math.min(mn,lo);if(hi!=null)mx=Math.max(mx,hi);var pad=Math.max(1,(mx-mn)*0.15);mn-=pad;mx+=pad;
-  var W0=mini?160:320,H0=mini?64:90,x0=p(ks[0]),x1=Math.max(p(ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
+  var W0=mini?160:320,H0=mini?64:90,x0=p(xr?xr[0]:ks[0]),x1=Math.max(p(xr?xr[1]:ks[ks.length-1]),x0+864e5);function X(k){return 8+(p(k)-x0)/(x1-x0)*(W0-16)}function Y(v){return 6+(1-(v-mn)/(mx-mn))*(H0-22)}
   var o='<svg viewBox="0 0 '+W0+' '+H0+'" class="tsvg" role="img" aria-label="추이">';
   if(lo!=null&&hi!=null)o+='<rect x="8" y="'+Y(hi).toFixed(1)+'" width="'+(W0-16)+'" height="'+Math.max(1,Y(lo)-Y(hi)).toFixed(1)+'" fill="'+col+'" opacity=".12"/>';
   var P=ks.map(function(k){return [X(k),Y(series[k])]}),d='M'+P[0][0].toFixed(1)+','+P[0][1].toFixed(1);
   for(var i=0;i<P.length-1;i++){var a=P[i-1]||P[i],b=P[i],c=P[i+1],e=P[i+2]||c;d+=' C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+','+(b[1]+(c[1]-a[1])/6).toFixed(1)+' '+(c[0]-(e[0]-b[0])/6).toFixed(1)+','+(c[1]-(e[1]-b[1])/6).toFixed(1)+' '+c[0].toFixed(1)+','+c[1].toFixed(1)}
-  o+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
-  o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(ks[ks.length-1])+'</text></svg>';
+  o+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';if(P.length===1)o+='<circle cx="'+P[0][0].toFixed(1)+'" cy="'+P[0][1].toFixed(1)+'" r="2.5" fill="'+col+'"/>';
+  o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(xr?xr[0]:ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(xr?xr[1]:ks[ks.length-1])+'</text></svg>';
   o=hoverWrap(o,W0,H0,6,H0-16,ks.map(function(k){var v=series[k];return {x:+X(k).toFixed(1),ys:[[+Y(v).toFixed(1),col]],t:'<b>'+md(k)+'</b><span><i style="background:'+col+'"></i>'+v+unit+'</span>'+(lo!=null&&hi!=null?'<span class="muted">정상 '+lo+'~'+hi+unit+'</span>':'')}}));
   var last=series[ks[ks.length-1]];if(mini)return o+'<div class="small muted">4주 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>';return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
 function lastOf(o){var ks=Object.keys(o||{}).sort();return ks.length?o[ks[ks.length-1]]:null}
@@ -2595,7 +2597,7 @@ function bodyKpis(ld){
 function bodyTrends(){
   var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
-  h+='<div class="tgrid"><div><div class="small" style="font-weight:700">안정시 심박</div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,true)+'</div><div><div class="small" style="font-weight:700">수면 HRV</div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,true)+'</div></div>';
+  h+='<div class="tgrid"><div><div class="small" style="font-weight:700">안정시 심박</div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,true,bodyRange())+'</div><div><div class="small" style="font-weight:700">수면 HRV</div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,true,bodyRange())+'</div></div>';
   var rows=dietWeeks();
   h+='<div class="small" style="font-weight:700;margin-top:10px">주간 식단 점수</div>'+(rows.length?'<div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:4px 0 0">오늘 화면에서 식단을 기록하면 주간 평균을 보여 줘요.</p>');
   if(S.watch!=="coros")h+='<p class="small muted" style="margin:8px 0 0">안정시 심박·HRV는 COROS 연동 시 자동으로, 아니면 오늘 화면의 훈련 전 컨디션에서 적은 값으로 쌓여요.</p>';
@@ -2603,13 +2605,13 @@ function bodyTrends(){
 var BODYV="wt";
 function bodyPanel(k){
   if(k==="rhr"){var ks=Object.keys(S.rhr||{}).sort(),last=ks.slice(-7).reverse(),avg=0;ks.slice(-14).forEach(function(d){avg+=S.rhr[d]});avg=ks.length?Math.round(avg/Math.min(14,ks.length)):0;
-    var h='<div class="card"><div class="row between"><h2>안정시 심박</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>'+trendSvg(S.rhr||{},'bpm','var(--accent)');
+    var h='<div class="card"><div class="row between"><h2>안정시 심박</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,false,bodyRange());
     if(last.length)h+='<div class="blist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0;return '<div><span class="num">'+md(d)+'</span><b class="num">'+v+'<small> bpm</small></b><span class="small" style="color:'+(df>=3?'var(--bad)':df<=-2?'var(--ok)':'var(--muted)')+'">'+(df>0?'+':'')+df+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.</p>';
     else h+='<p class="small muted" style="margin:6px 0 0">아직 기록이 없어요. COROS를 연동하거나 오늘 화면의 훈련 전 컨디션에서 아침 심박을 적어 주세요.</p>';
     return h+'</div>'}
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
     var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
-    var h2='<div class="card"><div class="row between"><h2>수면 HRV</h2><span class="small muted">'+(hb&&hb.lo?'정상 범위 '+hb.lo+'~'+hb.hi+'ms':'')+'</span></div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi);
+    var h2='<div class="card"><div class="row between"><h2>수면 HRV</h2><span class="small muted">'+(hb&&hb.lo?'정상 범위 '+hb.lo+'~'+hb.hi+'ms':'')+'</span></div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange());
     if(ks2.length)h2+='<div class="blist">'+ks2.map(function(d){var x=S.hrv[d];return '<div><span class="num">'+md(d)+'</span><b class="num">'+x.avg+'<small> ms</small></b><span class="small" style="color:'+(/Low|Poor|Unbalanced/.test(x.ev)?'var(--bad)':'var(--muted)')+'">'+esc(EV[x.ev]||x.ev||"")+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.</p>';
     else h2+='<p class="small muted" style="margin:6px 0 0">아직 기록이 없어요. COROS를 연동하면 매일 아침 불러와요.</p>';
     return h2+'</div>'}
