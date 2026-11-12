@@ -127,6 +127,8 @@ details.more[open]{padding-bottom:10px}
 .wwhen{margin-top:6px}
 .wwhen>summary{cursor:pointer;list-style:none}
 .wwhen>summary::-webkit-details-marker{display:none}
+.fdiag{margin-top:10px}
+.fdiag pre{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:240px;overflow:auto;margin:6px 0}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -812,35 +814,62 @@ function dedupRuns(out){
   var res=[];out.sort(function(a,b){return a.ts-b.ts}).forEach(function(r){var d=res.filter(function(x){return Math.abs(x.ts-r.ts)<300&&Math.abs(x.km-r.km)<=Math.max(0.3,x.km*0.06)})[0];
     if(!d){res.push(r);return}if(!d.series&&r.series)d.series=r.series;if(!d.laps&&r.laps)d.laps=r.laps;if(!d.hr&&r.hr)d.hr=r.hr;if(/^Garmin/.test(r.src)&&!/^Garmin/.test(d.src)){d.src=r.src;d.id=r.id}});
   return res}
-var FRED={metrics:null};
-function freddyMetrics(t){var cur="",out=[];String(t||"").split("\n").forEach(function(l){var s=l.match(/Source:\s*(.+)/i);if(s){cur=s[1].trim();return}
-  var m=l.match(/^\s*(?:[-*•]\s*)?`?([A-Za-z][A-Za-z0-9_.]{2,63})`?\s*(?:[:(—\-|,]|\s{2}|$)/);if(!m)return;var n=m[1];
-  if(/^(source|device|devices|unit|records?|range|metrics?|date|note|raw)$/i.test(n))return;
-  if(/activit|workout|exercise|running|^run/i.test(n)&&!/samples?$|steps|sleep|stress|body|weight|pulse|respir|spo2|intensity_minutes|daily|epoch/i.test(n))out.push({n:n,src:cur})});
+var FRED={metrics:null,diag:[]};
+function allText(res){if(!res)return"";var out=[];(res.content||[]).forEach(function(c){if(c&&typeof c.text==="string")out.push(c.text);else if(c&&c.resource&&typeof c.resource.text==="string")out.push(c.resource.text)});
+  if(typeof res.payload==="string")out.push(res.payload);else if(res.payload&&typeof res.payload==="object")out.push(JSON.stringify(res.payload));
+  if(res.structuredContent)out.push(JSON.stringify(res.structuredContent));return out.join("\n")}
+function fdiag(x){FRED.diag.push(String(x).slice(0,700))}
+var FMX=/samples?$|steps|sleep|stress|body|weight|pulse|respir|spo2|intensity_minutes|daily|epoch|calendar|hydration|nutrition|glucose|_raw$/i;
+function freddyMetrics(t){var cur="",out=[],seen={};
+  String(t||"").split("\n").forEach(function(l){var sm=l.match(/Source:\s*([^|\n]+)/i);if(sm){cur=sm[1].replace(/[*`#]/g,"").trim();return}
+    var re=/`?([A-Za-z][A-Za-z0-9]*(?:[_.][A-Za-z0-9]+)+)`?/g,m;while((m=re.exec(l))){var n=m[1];if(seen[n])continue;
+      if(/activ|workout|exercise|run|sport|session|training/i.test(n)&&!FMX.test(n)&&!/^(https?|www)\b/i.test(n)){seen[n]=1;out.push({n:n,src:cur})}}});
+  return out}
+// scalar fallback: rows like "2026-11-12 ... activity_distance: 10234 m (id: 123)"
+function freddyScalar(text,hint){var groups={},cur=null;
+  String(text||"").split("\n").forEach(function(l){var dm=l.match(/(\d{4}-\d{2}-\d{2})/);if(dm)cur=dm[1];if(!cur)return;
+    var idm=l.match(/\bid:\s*([\w.:-]+)/),key=cur+"|"+(idm?idm[1]:"");
+    var re=/([A-Za-z][\w.]*)\s*[:=]\s*(-?\d[\d,]*\.?\d*)\s*([A-Za-z/%°]*)/g,m;while((m=re.exec(l))){var n=m[1],v=parseFloat(m[2].replace(/,/g,"")),u=(m[3]||"").toLowerCase();if(isNaN(v)||/^id$/i.test(n))continue;
+      var g=groups[key]=groups[key]||{date:cur,id:idm?idm[1]:"",type:/run/i.test(n)?"running":null};
+      if(/distance/i.test(n)){g.km=u==="m"||/meter|inmeters/i.test(n)?v/1000:u==="mi"?v*1.609:u==="km"?v:v>=200?v/1000:v}
+      else if(/duration|elapsed|moving_?time|movingtime|totaltime/i.test(n)){g.dur=u==="min"?v*60:u==="h"||u==="hr"?v*3600:u==="ms"?v/1000:v}
+      else if(/heart|(^|_)hr|bpm/i.test(n)&&/avg|average|mean/i.test(n+u)||(/heart|(^|_)hr/i.test(n)&&!g.hr))g.hr=v}});
+  var out=[];Object.keys(groups).forEach(function(k){var g=groups[k];if(!g.km||!g.dur)return;var st=Math.floor(Date.UTC(+g.date.slice(0,4),+g.date.slice(5,7)-1,+g.date.slice(8,10),3)/1000);
+    var r=freddyRun({distanceInMeters:g.km*1000,durationInSeconds:g.dur,startTimeInSeconds:st,averageHeartRateInBeatsPerMinute:g.hr,activityType:g.type||undefined,summaryId:g.id||undefined},hint);if(r){r.date=g.date;out.push(r)}});
   return out}
 async function freddySync(manual){
-  if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";keepIf();
+  if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
+  var step="연결";
   try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){WS.err="claude.ai에 로그인한 상태로 열어야 freddy 기록을 불러올 수 있어요.";return}
+    if(!mcp){WS.err="claude.ai에 로그인한 상태로 열어야 freddy 기록을 불러올 수 있어요.";fdiag("mcp 사용 불가(로그인·권한)");return}
     var CC=manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000};
-    var provs=[];try{var pf=payloadText(await mcp.callTool("freddy","get_profile",{},{cache:CC}));jsonBlobs(pf).forEach(function(o){(o&&o.sources||[]).forEach(function(s){if(s&&s.provider&&s.status==="connected")provs.push(s.provider)})})}catch(e0){}
-    if(manual)provs.forEach(function(p){mcp.callTool("freddy","sync_source",{provider:p},{cache:false}).catch(function(){})});
-    var lm=payloadText(await mcp.callTool("freddy","list_metrics",{},{cache:CC}));
-    if(/hydrating|still syncing|No health data/i.test(lm)&&!freddyMetrics(lm).length){WS.msg=/hydrating/i.test(lm)?"freddy가 아직 처음 동기화 중이에요. 잠시 뒤 다시 불러와 주세요.":"freddy에 아직 운동 기록이 없어요. 연결한 앱(가민·애플 건강)에서 동기화된 뒤 다시 불러와 주세요.";S.watchAt=Date.now();save();return}
-    var ms=freddyMetrics(lm);if(!ms.length){WS.msg="freddy에서 러닝·운동 기록 항목을 찾지 못했어요.";S.watchAt=Date.now();save();return}
+    step="get_profile";var provs=[];try{var pft=allText(await mcp.callTool("freddy","get_profile",{},{cache:CC}));jsonBlobs(pft).forEach(function(o){(o&&o.sources||[]).forEach(function(x){if(x&&x.provider){fdiag("소스 "+x.provider+" · 상태 "+x.status+" · 데이터 "+(x.dataFrom||"?")+"~"+(x.dataTo||"?")+" · 마지막 동기화 "+(x.lastSyncAt||"?"));if(x.status==="connected")provs.push(x.provider)}})});if(!provs.length)fdiag("get_profile: 연결된 소스 없음 · 응답 앞부분: "+pft.slice(0,300))}catch(e0){fdiag("get_profile 실패: "+(e0&&(e0.code||e0.message)))}
+    if(manual)provs.forEach(function(pv){mcp.callTool("freddy","sync_source",{provider:pv},{cache:false}).catch(function(e){fdiag("sync_source "+pv+" 실패: "+(e&&(e.code||e.message)))})});
+    step="list_metrics";var lm=allText(await mcp.callTool("freddy","list_metrics",{},{cache:CC}));
+    for(var pi=0;pi<provs.length;pi++){var slug=provs[pi].toLowerCase().replace(/_/g,"-");try{lm+="\nSource: "+provs[pi]+"\n"+allText(await mcp.callTool("freddy","list_metrics",{provider:slug},{cache:CC}))}catch(e5){fdiag("list_metrics("+slug+") 실패: "+(e5&&(e5.code||e5.message)))}}
+    fdiag("list_metrics 응답 "+lm.length+"자 · 앞부분: "+lm.replace(/\s+/g," ").slice(0,500));
+    var ms=freddyMetrics(lm);fdiag("찾은 운동 항목 "+ms.length+"개: "+ms.map(function(m){return m.n}).slice(0,30).join(", "));
+    if(!ms.length){if(/hydrating|still syncing|No health data/i.test(lm)){WS.msg=/hydrating/i.test(lm)?"freddy가 아직 처음 동기화 중이에요. 잠시 뒤 다시 불러와 주세요.":"freddy에 아직 운동 기록이 없어요. 연결한 앱(가민·애플 건강)에서 동기화된 뒤 다시 불러와 주세요."}
+      else WS.err="freddy 항목 목록에서 러닝·운동 항목 이름을 알아보지 못했어요. 아래 '진단 정보'를 복사해 관리자에게 보내 주세요.";S.watchAt=Date.now();save();return}
     var from=START;if(S.watchAt&&S.watchFrom===START&&S.watch==="freddy"){var f2=addDays(localDate(Math.floor(S.watchAt/1000)),-3);if(f2>from)from=f2}
     if(from<addDays(T,-364))from=addDays(T,-364);var to=T<RACE?T:RACE;
-    var runs=[],bySrc={};ms.forEach(function(m){(bySrc[m.src]=bySrc[m.src]||[]).push(m.n)});
-    for(var sk in bySrc){var names=bySrc[sk].slice(0,12);try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:from,end:to,include_raw:true},{cache:CC});
-      var qt=payloadText(q);if(q&&q.structuredContent)qt+="\n"+JSON.stringify(q.structuredContent);runs=runs.concat(parseFreddy(qt,sk))}catch(e1){}}
+    var runs=[],bySrc={},qerr=0;ms.forEach(function(m){(bySrc[m.src]=bySrc[m.src]||[]).push(m.n)});
+    step="query_metrics";
+    for(var sk in bySrc){var names=bySrc[sk].slice(0,30);try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:from,end:to,include_raw:true},{cache:CC});
+      var qt=allText(q),blobs=jsonBlobs(qt).length,r1=parseFreddy(qt,sk),r2=r1.length?[]:freddyScalar(qt,sk);
+      fdiag("query_metrics["+(sk||"소스 미표시")+"] "+from+"~"+to+" · 항목 "+names.join(",")+" · 응답 "+qt.length+"자 · JSON "+blobs+"개 · 러닝(원본) "+r1.length+"개 · 러닝(숫자행) "+r2.length+"개 · 앞부분: "+qt.replace(/\s+/g," ").slice(0,400));
+      runs=runs.concat(r1,r2)}catch(e1){qerr++;fdiag("query_metrics 실패: "+(e1&&(e1.code||""))+" "+(e1&&e1.message||""))}}
     runs=dedupRuns(runs);
-    var added=0;runs.forEach(function(r){var i=idxOf(r.date);if(i<0||i>=TOTAL)return;
-      var dup=Object.keys(S.runs).map(function(k){return S.runs[k]}).filter(function(x){return x.id!==r.id&&Math.abs((x.ts||0)-r.ts)<300&&Math.abs(x.km-r.km)<=Math.max(0.3,x.km*0.06)})[0];if(dup)return;
+    var added=0,skipped=0;runs.forEach(function(r){var i=idxOf(r.date);if(i<0||i>=TOTAL){skipped++;return}
+      var dup=Object.keys(S.runs).map(function(k){return S.runs[k]}).filter(function(x){return x.id!==r.id&&Math.abs((x.ts||0)-r.ts)<300&&Math.abs(x.km-r.km)<=Math.max(0.3,x.km*0.06)})[0];if(dup){skipped++;return}
       var old=S.runs[r.id];if(!old)added++;if(old){if(old.laps&&!r.laps)r.laps=old.laps;if(old.series&&!r.series)r.series=old.series}S.runs[r.id]=r});
+    fdiag("결과: 찾은 러닝 "+runs.length+"개 · 새로 추가 "+added+" · 제외(기간 밖·중복) "+skipped);
     var auto=applyRuns();S.watchAt=Date.now();S.watchFrom=START;
-    WS.msg=(added?"러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":""):"새 러닝 기록이 없어요")+(provs.length?" ("+provs.map(function(p){return p==="GARMIN"?"Garmin":p==="APPLE_HEALTH"?"애플 건강":p}).join("·")+")":"")+".";
+    if(!runs.length&&qerr)WS.err="freddy에서 기록을 조회하지 못했어요("+qerr+"건 실패). 아래 '진단 정보'를 확인해 주세요.";
+    else if(!runs.length)WS.msg="freddy 응답에서 러닝 기록을 찾지 못했어요("+from.slice(5)+"~"+to.slice(5)+"). 기록이 있는데 안 보이면 '진단 정보'를 복사해 보내 주세요.";
+    else WS.msg=(added?"러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":""):"새 러닝 기록이 없어요")+(provs.length?" ("+provs.map(function(pv){return pv==="GARMIN"?"Garmin":pv==="APPLE_HEALTH"?"애플 건강":pv}).join("·")+")":"")+".";
     save();pushShare();
-  }catch(e){WS.err=ERRWF[e&&e.code]||("freddy에서 불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
+  }catch(e){var cd=e&&e.code;fdiag("실패 단계 "+step+" · 코드 "+(cd||"-")+" · "+(e&&e.message||""));WS.err=ERRWF[cd]||("freddy "+step+" 단계에서 실패했어요"+(cd?" ("+cd+")":"")+(e&&e.message?": "+e.message:"")+". '진단 정보'를 복사해 보내 주세요.");WS.msg=""}
   finally{WS.busy=false;keepIf()}
 }
 var ERRWF={server_not_connected:"freddy가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 freddy를 연결한 뒤 다시 불러와 주세요.",needs_reauth:"freddy 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 다시 연결해 주세요.",not_in_manifest:"이 앱의 freddy 사용을 허용하지 않았어요. 앱 권한에서 freddy를 허용해 주세요.",approval_required:"freddy 불러오기 승인이 필요해요. 버튼을 눌러 허용해 주세요.",rate_limited:"요청이 많아요. 잠시 후 다시 불러와 주세요."};
@@ -964,6 +993,7 @@ function watchCard(){
     h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>freddy</b>를 내 계정으로 연결해요.</span></li><li><span>freddy에서 <b>가민 커넥트</b>나 <b>애플 건강</b>을 데이터 소스로 연결해요(freddy 앱·대시보드). 가민 워치가 없어도 애플워치·아이폰 러닝 기록은 애플 건강으로 들어와요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고 이 앱의 freddy 사용을 <b>허용</b>해요. 그다음부터는 앱을 열 때마다 자동으로 불러와요.</span></li></ul>';
     h+='<div class="sbar" style="margin-top:12px"><div class="small muted" style="min-width:0">'+watchStatus()+'</div><button class="btn" data-wsync'+(WS.busy?' disabled':'')+' style="background:var(--accent);color:#fff">'+(WS.busy?'불러오는 중':'지금 불러오기')+'</button></div>';
     h+='<p class="small muted" style="margin:10px 0 0">불러온 러닝 <b style="color:var(--ink)">'+n+'</b>개 · 자동 체크 <b style="color:var(--ink)">'+autoN+'</b>일. 같은 러닝이 가민과 애플 건강에 함께 있으면 한 번만 넣어요. freddy 무료 플랜은 최근 7일 기록만 볼 수 있어서 자주 열어 두는 게 좋아요. "지금 불러오기"는 freddy에 새로 동기화도 요청해요.</p>';
+    if(FRED.diag.length)h+='<details class="fdiag"><summary class="small muted">🔧 진단 정보 · 문제가 있으면 복사해서 보내 주세요</summary><pre>'+esc(FRED.diag.join("\n"))+'</pre><button class="sbtn" id="fdiag-copy">진단 정보 복사</button> <span class="small muted" id="fdiag-msg"></span></details>';
     h+='<div class="row" style="margin-top:10px"><button class="btn ghost" id="w-off">연동 끄기</button>'+(n?'<button class="btn ghost" id="w-clear">불러온 기록 지우기</button>':'')+'</div>';
   } else if(S.watch==="file"){
     h+=fileGuide();
@@ -1180,6 +1210,7 @@ function bindWatch(){
   view.querySelectorAll("[data-wpanel]").forEach(function(b){b.onclick=function(){WPANEL=!WPANEL;WXOPEN=true;if(tab!=="today"){tab="today";render();window.scrollTo(0,0)}else keepIf()}});
   view.querySelectorAll("[data-watch]").forEach(function(b){b.onclick=function(){if(b.dataset.watch==="file"&&S.watch!=="file")S.fileOn=Date.now();if(S.watch!==b.dataset.watch){WXOPEN=true;S.watchAt=0}S.watch=b.dataset.watch;WS.msg="";WS.err="";save();if(S.watch==="coros"||S.watch==="freddy")watchSync(true);else keepIf()}});
   var fi=document.getElementById("w-file");if(fi)fi.onchange=function(){if(fi.files&&fi.files.length)importFiles(Array.from(fi.files))};
+  var fdc=document.getElementById("fdiag-copy");if(fdc)fdc.onclick=function(){var m=document.getElementById("fdiag-msg");copyText("[freddy 진단]\n"+FRED.diag.join("\n"),function(){if(m)m.textContent="복사했어요"},function(){if(m)m.textContent="위 글을 길게 눌러 복사하세요"})};
   var off=document.getElementById("w-off");if(off)off.onclick=function(){S.watch="";WS.msg="";WS.err="";save();keepIf()};
   var cl=document.getElementById("w-clear");if(cl)cl.onclick=function(){S.runs={};for(var d in S.days){var r=S.days[d];delete r.w;if(r.auto){delete r.auto;delete r.done}}S.watchAt=0;S.fileAt=0;FI.msg="";WS.msg="불러온 기록을 지웠어요.";save();pushShare();keepIf()};
 }
