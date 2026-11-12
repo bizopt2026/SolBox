@@ -844,7 +844,7 @@ function save(){
 // Who is viewing: "ok" saves to their account and joins the crew; "view" (signed in from outside the owner's
 // claude.ai organization via the public link) and "anon" (signed out) keep records on this device only.
 var AUTH={st:"checking"};
-function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");if(typeof render==="function"&&tab!=="welcome"){var y=window.scrollY;render();window.scrollTo(0,y)}}
+function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이 기기에만 저장");if(typeof render==="function"&&tab!=="welcome"){var y=window.scrollY;render();window.scrollTo(0,y)}}
 (async function(){
   try{
     if(!window.claude||!window.claude.use){setAuth("anon");return}
@@ -863,7 +863,7 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
       if(remote&&(remote.ts||0)>=(S.ts||0)){merge(remote);lsSet();render()}
       else if(S.ts){save()}
     } else if(S.ts){save()}
-    setSync("계정에 저장됨");AUTH.st="ok";
+    setSync("계정에 저장됨");AUTH.st="ok";setTimeout(bootDone,0);
     CREW.db=db;CREW.user=user;CREW.me=id;
     try{user.canEdit().then(function(v){CREW.editor=!!v;if(tab==='crew')keep()},function(){})}catch(eE){}user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
     db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
@@ -1567,6 +1567,10 @@ applyPlanSrc();
 var sel=(function(){var i=idxOf(T);if(i<0)return START;if(i>=TOTAL)return RACE;return T})();
 var GUIDE_V=2;
 var tab=(S.gv||0)>=GUIDE_V?"today":"welcome", WSTEP=0, WMANUAL=false; var openWeeks={};
+// the welcome guide waits for the account data: a returning user on a fresh device should not see it flash
+var BOOTW=tab==="welcome";
+function bootDone(){if(!BOOTW)return;BOOTW=false;if(tab==="welcome"&&!WMANUAL&&(S.gv||0)>=GUIDE_V)tab="today";if(typeof render==="function")render()}
+setTimeout(bootDone,6000);
 (function(){var i=idxOf(T);openWeeks[Math.max(0,Math.min(W.length-1,Math.floor(i/7)))]=true})();
 
 var dd=Math.round((p(RACE)-p(T))/864e5);
@@ -3464,6 +3468,7 @@ function whatsNew(){
 }
 function finishWelcome(to){S.onboarded=true;S.gv=GUIDE_V;WMANUAL=false;save();tab=to||"today";WSTEP=0;render();window.scrollTo(0,0)}
 function vWelcome(){
+  if(BOOTW&&!WMANUAL){view.innerHTML='<div class="card" aria-busy="true" aria-label="불러오는 중" style="margin-top:8px"><div class="skel" style="height:16px;width:50%"></div><div class="skel" style="height:12px;width:85%;margin-top:12px"></div><div class="skel" style="height:12px;width:70%;margin-top:8px"></div></div>';return}
   var steps=WMANUAL==="invite"?WINVITE:(S.onboarded&&!WMANUAL)?[whatsNew].concat(WSTEPS):WSTEPS;
   var n=steps.length,last=WSTEP===n-1;
   var h='<div class="wel"><div class="wel-top"><div class="wel-dots" aria-label="'+(WSTEP+1)+' / '+n+' 단계">'+steps.map(function(_,i){return '<i class="'+(i<=WSTEP?'on':'')+'"></i>'}).join("")+'</div><button class="skip" id="w-skip">'+(last?'':'건너뛰기')+'</button></div>';
