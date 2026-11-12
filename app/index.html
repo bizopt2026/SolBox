@@ -570,7 +570,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.calSet=o.calSet||0;S.ts=o.ts||0}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -752,7 +752,9 @@ function applyRuns(){
     km=Math.round(km*100)/100;var rec=S.days[d]||{};
     var srcs={};rs.forEach(function(x){srcs[x.src||"COROS"]=1});var sl=Object.keys(srcs);
     rec.w={km:km,dur:dur,hr:hd?Math.round(hw/hd):null,n:rs.length,src:sl.length===1?sl[0]:"워치"};
-    if(rec.done===undefined&&t[0]!=="r"&&t[2]&&km>=0.8*t[2]){rec.done=true;rec.auto=true;auto++}
+    var lastTs=0;rs.forEach(function(x){if(x.ts&&x.ts>lastTs)lastTs=x.ts});
+    // auto-check unless the user unchecked this day AFTER the latest run came in
+    if(rec.done!==true&&t[0]!=="r"&&t[2]&&km>=0.8*t[2]&&!(rec.unck&&(!lastTs||rec.unck>=lastTs))){rec.done=true;rec.auto=true;delete rec.unck;auto++}
     S.days[d]=rec}
   return auto;
 }
@@ -907,8 +909,19 @@ function readyRowS(){
   var sub=R.has?[R.r?'안정시 심박 '+R.r+'bpm'+(R.diff!=null?'('+(R.diff>0?'+':'')+R.diff+')':''):'',R.h?'HRV '+R.h.avg+'ms':'',R.sq?'잠 '+R.sq:'',R.rc?'회복률 '+R.rc.pct+'%':''].filter(Boolean).join(' · '):'아침 심박·수면을 넣으면 오늘 훈련 강도를 알려 줘요';
   return '<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><button class="wlink" data-rdp aria-expanded="'+open+'"><b>훈련 전 컨디션'+(R.has?' · <span style="color:'+col+'">'+lb+'</span>':'')+'</b><span>'+esc(sub)+'</span></button><button class="sbtn wset'+(open?' on':'')+'" data-rdp aria-expanded="'+open+'">'+(open?'닫기':R.has?'자세히':'기록')+'</button></div>';
 }
+function waitPill(){return '<span class="sbtn" style="opacity:.55;cursor:default;pointer-events:none">대기</span>'}
+function otherDayRows(ds){
+  var fut=ds>T,lb=md(ds)+' ('+DOW[idxOf(ds)>=0?idxOf(ds)%7:(new Date(ds).getDay()+6)%7]+')';
+  var wxSub=fut?'예보 대기 · '+lb+' 당일에 3시간 기온·바람·강수를 불러와요':'지난 날짜라 날씨 기록이 없어요';
+  var h='<div class="srow wrow"><span class="sl" aria-hidden="true">🌤</span><div class="wlink" style="cursor:default"><b>날씨'+(S.wx&&S.wx.key?' · '+esc(String(S.wx.name).split(",")[0]):'')+' · <span class="muted">'+(fut?'대기':'없음')+'</span></b><span>'+esc(wxSub)+'</span></div>'+waitPill()+'</div>';
+  var R=readiness(ds);
+  if(!fut&&R.has){var col=["var(--ok)","var(--accent)","var(--bad)"][R.lv],lv=["좋음","주의","쉬어가기"][R.lv];
+    var sub=[R.r?'안정시 심박 '+R.r+'bpm'+(R.diff!=null?'('+(R.diff>0?'+':'')+R.diff+')':''):'',R.h?'HRV '+R.h.avg+'ms':'',R.sq?'잠 '+R.sq:'',R.rc?'회복률 '+R.rc.pct+'%':''].filter(Boolean).join(' · ');
+    h+='<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><div class="wlink" style="cursor:default"><b>훈련 전 컨디션 · <span style="color:'+col+'">'+lv+'</span></b><span>'+esc(sub)+'</span></div></div>'}
+  else h+='<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><div class="wlink" style="cursor:default"><b>훈련 전 컨디션 · <span class="muted">'+(fut?'대기':'기록 없음')+'</span></b><span>'+esc(fut?lb+' 아침 안정시 심박·HRV·수면이 들어오면 판정해요':'이 날 아침 심박·수면 기록이 없어요')+'</span></div>'+(fut?waitPill():'')+'</div>';
+  return h}
 function statusStrip(){
-  var today=tab==="today"&&sel===T,ext=today?wxRowS()+readyRowS():'';
+  var today=tab==="today"&&sel===T,ext=today?wxRowS()+readyRowS():(tab==="today"?otherDayRows(sel):'');
   var panels=(WPANEL?watchCard():'')+(today&&(foldOpen("wxo",false)||!(S.wx&&S.wx.key)&&WX.edit)?wxCard():'')+(today&&foldOpen("ready",false)?readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})()):'');
   if(uploadDue())return watchBar()+'<div class="strip">'+goalRow(false)+ext+'</div>'+panels;
   return '<div class="strip">'+goalRow(false)+watchRow()+ext+'</div>'+panels;
@@ -1183,7 +1196,7 @@ function cLim(c){return c.kind==="time"?Math.round(c.lim*K):HR(c.lim)}
 function cGoal(c){return c.kind==="time"?"≤ "+fmtT(cLim(c)):"심박 ≤ "+cLim(c)}
 function checkState(c){var v=S.checks[c.id];if(v==null||v==="")return null;if(c.kind==="time"){var t=parseTime(v);if(t==null)return null;return t<=cLim(c)}var n=parseFloat(v);if(isNaN(n))return null;return n<=cLim(c)}
 
-var T=todayStr();
+var T=todayStr();try{applyRuns()}catch(e){}
 var sel=(function(){var i=idxOf(T);if(i<0)return START;if(i>=TOTAL)return RACE;return T})();
 var GUIDE_V=2;
 var tab=(S.gv||0)>=GUIDE_V?"today":"welcome", WSTEP=0, WMANUAL=false; var openWeeks={};
@@ -1327,7 +1340,7 @@ function coachBar(){
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
 var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
 function openStory(ds){var D0=storyData(ds);if(!D0.series&&D0.serRun){STORY.serBusy=true;fetchSeries(D0.serRun).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
-if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment()}
+if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;tab="story";render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
@@ -1359,12 +1372,15 @@ async function drawStory(){
   ctx.clearRect(0,0,Wd,Hd);
   if(STORY.img){var im=STORY.img,sc=Math.max(Wd/im.width,Hd/im.height),iw=im.width*sc,ih=im.height*sc;ctx.drawImage(im,(Wd-iw)/2,(Hd-ih)/2,iw,ih);
     var g=ctx.createLinearGradient(0,0,0,Hd);g.addColorStop(0,"rgba(8,12,24,.72)");g.addColorStop(.32,"rgba(8,12,24,.15)");g.addColorStop(.52,"rgba(8,12,24,.35)");g.addColorStop(1,"rgba(8,12,24,.92)");ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Hd)}
-  else{var g2=ctx.createLinearGradient(0,0,Wd,Hd);g2.addColorStop(0,"#111a2e");g2.addColorStop(1,"#1e3a8a");ctx.fillStyle=g2;ctx.fillRect(0,0,Wd,Hd);
-    ctx.fillStyle="rgba(232,89,12,.18)";ctx.beginPath();ctx.arc(Wd*0.85,Hd*0.2,320,0,Math.PI*2);ctx.fill()}
+  var SK=storySky(D.ds);
+  if(!STORY.img){try{drawSky(ctx,Wd,Hd,SK)}catch(eS){var g2=ctx.createLinearGradient(0,0,Wd,Hd);g2.addColorStop(0,"#111a2e");g2.addColorStop(1,"#1e3a8a");ctx.fillStyle=g2;ctx.fillRect(0,0,Wd,Hd)}}
   var M=80,y=150,goal=S.goal?S.goal.sec:REF_GOAL,dd=Math.round((p(RACE)-p(D.ds))/864e5);
   ctx.textBaseline="alphabetic";ctx.fillStyle="#ff7a33";ctx.font="800 34px "+FD;ctx.fillText(("SUB-"+subLabel(goal)+" · 2027.3.21 SEOUL").toUpperCase(),M,y);
   ctx.textAlign="right";ctx.fillStyle="#fff";ctx.font="800 56px "+FD;ctx.fillText("D-"+dd,Wd-M,y+8);ctx.textAlign="left";
   y+=86;var dt=new Date(p(D.ds));ctx.fillStyle="rgba(255,255,255,.85)";ctx.font="500 40px "+FB;ctx.fillText(wn(D.w)+" · "+(dt.getUTCMonth()+1)+"/"+dt.getUTCDate()+" "+DOW[D.i%7]+"요일 · "+W[D.w].lab,M,y);
+  if(!SK.guess){var hh=Math.floor(SK.hr),mm=Math.round((SK.hr-hh)*60);if(mm===60){hh++;mm=0}var night2=SK.tod==="night"||SK.tod==="dusk"||(SK.w&&SK.w.dl===false);
+    var wl=(SK.w?wxEmoji(SK.kind,night2)+" "+(SK.w.t!=null?Math.round(SK.w.t)+"° ":""):"")+String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0");
+    ctx.textAlign="right";ctx.font="600 34px "+FB;ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillText(wl,Wd-M,y);ctx.textAlign="left"}
   var ttx=ptxt(D.t[1]).split("\n").slice(0,5).join(" · "),fs=48;ctx.font="700 "+fs+"px "+FB;while(fs>34&&ctx.measureText(ttx).width>Wd-2*M){fs-=2;ctx.font="700 "+fs+"px "+FB}
   y+=fs+30;ctx.fillStyle="#fff";wrapText(ctx,ttx,Wd-2*M).slice(0,2).forEach(function(l){ctx.fillText(l,M,y);y+=fs+14});
   // bottom block, laid out from the bottom up so it always fits
@@ -1840,12 +1856,56 @@ async function wxLoad(fresh){
   try{var k=S.wx.key,qp={locationKey:k,unit:"metric",lang:"ko"};
     var r=await Promise.all([wxCall("widgets-current-claude",qp,fresh),wxCall("widgets-hourly-claude",qp,fresh),wxCall("widgets-minutecast-claude",qp,fresh).catch(function(){return null})]);
     if(!S.wx||S.wx.key!==k)return;
-    WX.cur=r[0];WX.hr=r[1];WX.mc=r[2];WX.at=Date.now();WX.key=k;
+    WX.cur=r[0];WX.hr=r[1];WX.mc=r[2];WX.at=Date.now();WX.key=k;try{wxRecord()}catch(eR){}
     var loc=(WX.cur&&WX.cur.location)||(WX.hr&&WX.hr.location);if(loc&&loc.info&&loc.info.name&&(S.wx.name!==loc.info.name||S.wx.lat==null)){S.wx.name=String(loc.info.name).slice(0,30);S.wx.lat=+loc.info.latitude;S.wx.lon=+loc.info.longitude;save()}
     if(!(WX.cur&&WX.cur.currentConditions)&&!(WX.hr&&WX.hr.hourlyForecast))WX.err="날씨 정보를 읽지 못했어요.";}
   catch(e){WX.err=WXERR[e&&e.code]||("날씨를 불러오지 못했어요"+(e&&(e.code||e.message)?" ("+(e.code||e.message)+")":"."));}
   finally{WX.busy=false;wxPaint()}}
 function wxMs(kmh){return Math.round((kmh||0)/3.6*10)/10}
+// hourly weather log per date (actual "now" beats forecast), used for story backgrounds
+function wxRecord(){S.wxlog=S.wxlog||{};var ch=false;
+  function put(ts,o,actual){var d=localDate(ts),h=new Date(ts*1000).getHours(),L=S.wxlog[d]=S.wxlog[d]||{},old=L[h];if(old&&old.a&&!actual)return;L[h]={i:o.i,t:o.t,p:String(o.p||"").slice(0,16),dl:o.dl,a:actual?1:0};ch=true}
+  ((WX.hr&&WX.hr.hourlyForecast)||[]).forEach(function(x){if(x.epoch)put(x.epoch,{i:+x.icon||0,t:x.temperatureValue,p:x.phrase,dl:x.isDayLight!==false},false)});
+  var c=WX.cur&&WX.cur.currentConditions;if(c)put(Math.floor(Date.now()/1000),{i:+c.iconCode||+c.icon||0,t:c.temperatureValue,p:c.phrase,dl:c.isDayTime!==false},true);
+  var cut=addDays(T,-21);Object.keys(S.wxlog).forEach(function(d){if(d<cut)delete S.wxlog[d]});
+  if(ch)save()}
+function wxAt(ds,hour){var L=(S.wxlog||{})[ds];if(!L)return null;var best=null,bd=9;for(var h in L){var dd=Math.abs(+h-hour);if(dd<bd||(dd===bd&&L[h].a)){bd=dd;best=L[h]}}return bd<=2?best:null}
+// when (local hour, fractional) the run on ds happened: middle of the first run; null if unknown
+function runHour(ds){var rs=runsOn(ds).filter(function(x){return x.ts});if(!rs.length)return null;var x=rs[0],m=new Date((x.ts+(x.dur||0)/2)*1000);return m.getHours()+m.getMinutes()/60}
+function skyKind(icon){if(!icon)return"clear";if(icon===11)return"fog";if((icon>=15&&icon<=17)||icon===41||icon===42)return"storm";if((icon>=12&&icon<=14)||icon===18||icon===26||icon===39||icon===40)return"rain";if((icon>=19&&icon<=25)||icon===29||icon===43||icon===44)return"snow";if(icon===7||icon===8||icon===38)return"cloud";if(icon===6||icon===4||icon===36||icon===35)return"part";return"clear"}
+function wxEmoji(k,night){return{clear:night?"🌙":"☀️",part:night?"☁️":"⛅",cloud:"☁️",rain:"🌧",storm:"⛈",snow:"🌨",fog:"🌫"}[k]||""}
+function storySky(ds){var hr=runHour(ds),guess=false;if(hr==null){if(ds===T){var n=new Date();hr=n.getHours()+n.getMinutes()/60}else{hr=7;guess=true}}
+  var w=wxAt(ds,Math.floor(hr));if(!w&&ds===T&&WX.cur&&WX.cur.currentConditions&&Math.abs(new Date().getHours()-hr)<=3){var c=WX.cur.currentConditions;w={i:+c.iconCode||0,t:c.temperatureValue,p:c.phrase,dl:c.isDayTime!==false}}
+  var tod=hr<5||hr>=19.5?"night":hr<6.6?"dawn":hr<9?"morning":hr<15.5?"day":hr<17.4?"golden":"dusk";
+  if(w&&w.dl===false&&(tod==="morning"||tod==="day"))tod="dawn";
+  return{hr:hr,guess:guess,tod:tod,kind:w?skyKind(w.i):"clear",w:w}}
+function drawSky(ctx,Wd,Hd,K2){
+  var P={night:["#050816","#0d1b3d","#1a2a55"],dawn:["#1f2a5c","#6b4e8a","#f09a6b"],morning:["#4f8fd6","#8ec1ee","#f6d9b0"],day:["#1f6fd1","#4ea3ec","#bfe1fb"],golden:["#3a4f8f","#e3895a","#ffcf7a"],dusk:["#120f33","#5b2a6e","#e0674d"]}[K2.tod];
+  var gray={cloud:.55,rain:.62,storm:.75,snow:.45,fog:.6,part:.18,clear:0}[K2.kind]||0;
+  function mix(hex,a){var n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255,gv=K2.tod==="night"||K2.tod==="dusk"?40:K2.kind==="storm"?70:140;return"rgb("+Math.round(r+(gv-r)*a)+","+Math.round(g+(gv-g)*a)+","+Math.round(b+(gv-b)*a)+")"}
+  var g=ctx.createLinearGradient(0,0,0,Hd);g.addColorStop(0,mix(P[0],gray));g.addColorStop(.55,mix(P[1],gray));g.addColorStop(1,mix(P[2],gray*.9));ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Hd);
+  var night=K2.tod==="night"||K2.tod==="dusk",seed=7;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647}
+  if(night&&(K2.kind==="clear"||K2.kind==="part")){for(var i=0;i<140;i++){ctx.fillStyle="rgba(255,255,255,"+(.25+rnd()*.6)+")";var sx=rnd()*Wd,sy=rnd()*Hd*.55,sr=rnd()*2.4+.6;ctx.beginPath();ctx.arc(sx,sy,sr,0,7);ctx.fill()}}
+  // sun / moon: height follows the hour
+  if(K2.kind==="clear"||K2.kind==="part"||(gray<.6&&!night)){var cx=Wd*.78,cy,rad=night?95:130;
+    if(night)cy=Hd*.17;else{var f=Math.max(0,Math.min(1,(K2.hr-6.5)/(17.4-6.5))),arc=Math.sin(f*Math.PI);cy=Hd*(.5-.38*arc);cx=Wd*(.15+.7*f)}
+    var a=K2.kind==="clear"?1:K2.kind==="part"?.8:.4;
+    var glow=ctx.createRadialGradient(cx,cy,rad*.3,cx,cy,rad*3.2);glow.addColorStop(0,night?"rgba(220,230,255,"+.35*a+")":K2.tod==="day"?"rgba(255,250,220,"+.55*a+")":"rgba(255,190,120,"+.6*a+")");glow.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=glow;ctx.fillRect(0,0,Wd,Hd);
+    ctx.fillStyle=night?"rgba(236,240,255,"+.95*a+")":K2.tod==="day"?"rgba(255,252,235,"+a+")":"rgba(255,214,150,"+a+")";ctx.beginPath();ctx.arc(cx,cy,rad,0,7);if(night){ctx.save();ctx.clip();ctx.beginPath();ctx.arc(cx,cy,rad,0,7);ctx.moveTo(cx+38+rad*.86,cy-22);ctx.arc(cx+38,cy-22,rad*.86,0,7);ctx.fill("evenodd");ctx.restore()}else ctx.fill()}
+  // clouds
+  var nc={part:5,cloud:9,rain:10,storm:11,snow:8,fog:4,clear:0}[K2.kind]||0;
+  for(var c=0;c<nc;c++){var x=rnd()*Wd*1.2-Wd*.1,y=Hd*(.04+rnd()*.42),s=150+rnd()*170,al=night?.10+rnd()*.12:.22+rnd()*.25;
+    ctx.fillStyle=(K2.kind==="storm"||K2.kind==="rain")?"rgba(70,78,96,"+(al+.15)+")":"rgba(255,255,255,"+al+")";
+    for(var b=0;b<5;b++){ctx.beginPath();ctx.ellipse(x+(b-2)*s*.42,y+Math.sin(b*1.7)*s*.12,s*.48,s*.3,0,0,7);ctx.fill()}}
+  if(K2.kind==="fog"){for(var f2=0;f2<6;f2++){var fy=Hd*(.2+f2*.13),fg=ctx.createLinearGradient(0,fy-80,0,fy+80);fg.addColorStop(0,"rgba(230,232,238,0)");fg.addColorStop(.5,"rgba(230,232,238,.22)");fg.addColorStop(1,"rgba(230,232,238,0)");ctx.fillStyle=fg;ctx.fillRect(0,fy-80,Wd,160)}}
+  if(K2.kind==="rain"||K2.kind==="storm"){ctx.strokeStyle="rgba(200,220,255,.35)";ctx.lineWidth=3;ctx.lineCap="round";for(var r2=0;r2<220;r2++){var rx=rnd()*Wd,ry=rnd()*Hd;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-14,ry+46);ctx.stroke()}}
+  if(K2.kind==="storm"){ctx.strokeStyle="rgba(255,240,170,.8)";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(Wd*.7,Hd*.18);ctx.lineTo(Wd*.64,Hd*.3);ctx.lineTo(Wd*.7,Hd*.31);ctx.lineTo(Wd*.62,Hd*.45);ctx.stroke()}
+  if(K2.kind==="snow"){for(var s2=0;s2<240;s2++){ctx.fillStyle="rgba(255,255,255,"+(.4+rnd()*.5)+")";ctx.beginPath();ctx.arc(rnd()*Wd,rnd()*Hd,rnd()*5+2,0,7);ctx.fill()}}
+  // ground silhouette (city/river line) so it reads as a running scene
+  ctx.fillStyle=night?"rgba(3,6,15,.75)":"rgba(10,18,40,.35)";ctx.beginPath();ctx.moveTo(0,Hd*.62);for(var bx=0;bx<=Wd;bx+=60){var bh=Hd*.62-(30+((bx*37)%140))*(1+(bx%180===0?.8:0));ctx.lineTo(bx,bh);ctx.lineTo(bx+60,bh)}ctx.lineTo(Wd,Hd);ctx.lineTo(0,Hd);ctx.fill();
+  if(night){for(var wi=0;wi<70;wi++){ctx.fillStyle="rgba(255,214,140,"+(.25+rnd()*.5)+")";ctx.fillRect(rnd()*Wd,Hd*(.6+rnd()*.06),5,7)}}
+  // readability scrim for the text blocks
+  var sc=ctx.createLinearGradient(0,0,0,Hd);sc.addColorStop(0,"rgba(8,12,24,.55)");sc.addColorStop(.3,"rgba(8,12,24,.08)");sc.addColorStop(.5,"rgba(8,12,24,.3)");sc.addColorStop(1,"rgba(8,12,24,.9)");ctx.fillStyle=sc;ctx.fillRect(0,0,Wd,Hd)}
 function wxNext(){var h=(WX.hr&&WX.hr.hourlyForecast)||[],now=Date.now()/1000;return h.filter(function(x){return x.epoch>now-1800}).slice(0,3)}
 function wxTips(){var t=[],c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),mc=WX.mc&&WX.mc.minuteCastForecast;
   var rain=nx.filter(function(x){return parseInt(x.extended&&x.extended.rainProbability||x.precip)>=50||x.hasPrecip})[0];
@@ -1957,7 +2017,7 @@ function vToday(){
   view.querySelectorAll("[data-story]").forEach(function(b){b.onclick=function(){openStory(b.dataset.story)}});
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
   document.getElementById("next").onclick=function(){if(idxOf(sel)<TOTAL-1){sel=addDays(sel,1);render()}};
-  document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);delete r.auto;S.days[sel]=r;save();render()};
+  document.getElementById("done").onclick=function(){var r=S.days[sel]||{};r.done=!isDone(sel);delete r.auto;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[sel]=r;save();render()};
   view.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){sel=b.dataset.go;render()}});
   ["km","hr","pace","rpe","note"].forEach(function(k){var el=document.getElementById("f-"+k);if(!el)return;el.addEventListener("input",function(){var r=S.days[sel]||{};r[k]=el.value;S.days[sel]=r;save()})});
 }
@@ -1981,7 +2041,7 @@ function vPlan(){
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   bindMyPlan();
-  view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
+  view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){sel=b.dataset.open;tab="today";render();window.scrollTo(0,0)}});
 }
 
@@ -2809,3 +2869,4 @@ var hq=document.getElementById("h-guide");if(hq)hq.onclick=function(){tab="guide
 render();
 })();
 </script>
+
