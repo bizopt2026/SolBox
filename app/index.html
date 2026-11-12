@@ -1370,6 +1370,10 @@ function enhance(){
     var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
     var rl=(S.races||[]).length;foldCard(findCard("레이스 전략"),"p-races",rl?"대회 "+rl+"개":"코스 GPX로 전략 짜기",true);
     foldCard(findCard("내 훈련 존"),"p-zones","이지 "+zr(Zk.e)+" · MP "+zr(Zk.mp),false);
+  } else if(tab==="plan"){
+    var mineP=S.planMode==="mine",busy=!!(MPB.draft||MPB.open||MPB.busy||(mineP&&!myPlanOn()));
+    var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"크루 계획 · "+dotDate(CREW_RACE);
+    var pc=document.getElementById("plansrc");if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
   } else if(tab==="crew"){
     foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
     foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
