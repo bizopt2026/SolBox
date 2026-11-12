@@ -1079,7 +1079,7 @@ async function freddySync(manual){
     if(!runs.length&&qerr)WS.err="freddy에서 기록을 조회하지 못했어요("+qerr+"건 실패). 아래 '진단 정보'를 확인해 주세요.";
     else if(!runs.length)WS.msg="freddy 응답에서 러닝 기록을 찾지 못했어요("+from.slice(5)+"~"+to.slice(5)+"). 기록이 있는데 안 보이면 '진단 정보'를 복사해 보내 주세요.";
     else WS.msg=(added?"러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":""):"새 러닝 기록이 없어요")+(provs.length?" ("+provs.map(function(pv){return pv==="GARMIN"?"Garmin":pv==="APPLE_HEALTH"?"애플 건강":pv}).join("·")+")":"")+".";
-    save();pushShare();
+    save();pushShare();if(added)wxForRuns();
   }catch(e){var cd=e&&e.code;fdiag("실패 단계 "+step+" · 코드 "+(cd||"-")+" · "+(e&&e.message||""));WS.err=ERRWF[cd]||("freddy "+step+" 단계에서 실패했어요"+(cd?" ("+cd+")":"")+(e&&e.message?": "+e.message:"")+". '진단 정보'를 복사해 보내 주세요.");WS.msg=""}
   finally{WS.busy=false;keepIf()}
 }
@@ -1126,7 +1126,7 @@ async function watchSync(manual){
     var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
       if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){addWeight(Date.now(),kg,"COROS");wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg}}}catch(e2){}
     WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+fmsg+".";
-    save();pushShare();
+    save();pushShare();if(added)wxForRuns();
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
   finally{WS.busy=false;keepIf()}
 }
@@ -2162,6 +2162,12 @@ function wxRecord(){S.wxlog=S.wxlog||{};var ch=false;
   var c=WX.cur&&WX.cur.currentConditions;if(c)put(Math.floor(Date.now()/1000),{i:+c.iconCode||+c.icon||0,t:c.temperatureValue,p:c.phrase,dl:c.isDayTime!==false},true);
   var cut=addDays(T,-21);Object.keys(S.wxlog).forEach(function(d){if(d<cut)delete S.wxlog[d]});
   if(ch)save()}
+// right after a watch sync: save the current observed weather as the weather of runs that ended in the last ~2.5h
+async function wxForRuns(){try{if(!S.wx||!S.wx.key)return;var now=Date.now()/1000,list=[];
+  [T,addDays(T,-1)].forEach(function(ds){runsOn(ds).forEach(function(r){if(!r.ts)return;var mid=r.ts+(r.dur||0)/2,end=r.ts+(r.dur||0);if(now-end<=9000&&now-end>=-600){var h=new Date(mid*1000).getHours(),L=(S.wxlog||{})[ds];if(!(L&&L[h]&&L[h].a))list.push([ds,h])}})});
+  if(!list.length)return;await wxLoad(true);var c=WX.cur&&WX.cur.currentConditions;if(!c)return;S.wxlog=S.wxlog||{};
+  list.forEach(function(x){var L=S.wxlog[x[0]]=S.wxlog[x[0]]||{};L[x[1]]={i:+c.iconCode||+c.icon||0,t:c.temperatureValue,p:String(c.phrase||"").slice(0,16),dl:c.isDayTime!==false,a:1}});
+  save();var y=window.scrollY;if(tab==="today"){render();window.scrollTo(0,y)}}catch(e){}}
 function wxAt(ds,hour){var L=(S.wxlog||{})[ds];if(!L)return null;var best=null,bd=9;for(var h in L){var dd=Math.abs(+h-hour);if(dd<bd||(dd===bd&&L[h].a)){bd=dd;best=L[h]}}return bd<=2?best:null}
 // when (local hour, fractional) the run on ds happened: middle of the first run; null if unknown
 function runHour(ds){var rs=runsOn(ds).filter(function(x){return x.ts});if(!rs.length)return null;var x=rs[0],m=new Date((x.ts+(x.dur||0)/2)*1000);return m.getHours()+m.getMinutes()/60}
