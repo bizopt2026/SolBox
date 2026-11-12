@@ -243,7 +243,7 @@ details.more[open]{padding-bottom:10px}
 .dday b{display:block;font-family:var(--f-display);font-size:22px;opacity:1}
 .sync{font-size:var(--fs-xs);opacity:.7}
 
-main{padding-block:16px 150px;display:flex;flex-direction:column;gap:14px}
+main{padding-block:16px 150px;display:flex;flex-direction:column;gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
 h2{font-size:17px;margin:0;text-wrap:balance}
 h3{font-size:14px;margin:0;color:var(--muted);font-weight:500}
@@ -645,7 +645,8 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 .resbox{border-color:transparent;background:var(--bg)}
 .resdet{border-top:0}
 .recgrp,.rpeask,.zguide div,.ws,.wstep,.acts button,details.more{border-color:transparent!important;background:var(--bg)!important}
-.ws.sel{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.ws.sel{box-shadow:0 4px 14px rgba(17,26,46,.12);background:var(--card)!important;transform:scale(1.08);position:relative;z-index:1}
+.ws.sel .muted{color:var(--accent)!important;font-weight:800}
 .jrlist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .jr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:13px}
 .jr>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -692,6 +693,28 @@ body.coach .hcoach{background:#fff;color:var(--accent)}
 .wxh{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0;border-radius:10px;background:var(--bg);font-size:13px;color:var(--ink)}
 .wxh i{font-style:normal;font-size:11px;color:var(--muted)}
 .wxh b{font-weight:700}.wxh small{font-size:11px;color:var(--q);margin-left:1px}
+.info{margin-top:8px;font-size:12px;color:var(--muted)}
+.info>summary{list-style:none;cursor:pointer;display:inline-block;padding:2px 0}
+.info>summary::-webkit-details-marker{display:none}
+.info[open]>summary{color:var(--accent)}
+.info p{margin:4px 0 0;line-height:1.5}
+.card{padding:16px}
+.wchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.wchip{font-size:12px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--ink)}
+.wchip b{color:var(--c);font-weight:800}.wchip small{color:var(--muted);font-size:11px}
+.keypace{display:flex;align-items:baseline;gap:8px;margin-top:8px;flex-wrap:wrap}
+.keypace span{font-size:13px;font-weight:700;color:var(--muted)}
+.keypace b{font-family:var(--f-display);font-size:28px;line-height:1.1}.keypace b small{font-size:13px;color:var(--muted);font-weight:600;margin-left:2px}
+.keypace em{font-style:normal;font-size:13px;color:var(--bad)}
+.aiq{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:-4px}
+.aiq>span{font-size:12px;font-weight:700;color:var(--muted)}
+.aiq button{border:0;border-radius:99px;padding:6px 12px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:700}
+#dsheet .sh-bg{position:fixed;inset:0;background:rgba(10,14,28,.4);z-index:50;animation:fdin .15s}
+#dsheet .sh{position:fixed;left:0;right:0;bottom:0;z-index:51;max-height:80vh;overflow:auto;background:var(--card);border-radius:18px 18px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.2);animation:shup .2s ease-out;max-width:560px;margin:0 auto}
+#dsheet .sh-grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+#dsheet .sh-score{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:14px}
+#dsheet .sh-score>b{font-size:20px;font-family:var(--f-display)}
+@keyframes shup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
 .gchips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:0;border-radius:99px;padding:7px 13px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
@@ -1606,6 +1629,11 @@ function foldSet(id,v){FOLD[id]=v;try{localStorage.setItem("sub3-fold",JSON.stri
 function findCard(title){var cs=view.querySelectorAll(".card");for(var i=0;i<cs.length;i++){var h=cs[i].querySelector("h2");if(h&&h.textContent.trim().indexOf(title)===0)return cs[i]}return null}
 function toast(msg){var t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.setAttribute("role","status");t.setAttribute("aria-live","polite");document.body.appendChild(t)}
   t.textContent=msg;t.classList.remove("show");void t.offsetWidth;t.classList.add("show");clearTimeout(toast.tm);toast.tm=setTimeout(function(){t.classList.remove("show")},2400)}
+function info(txt,lbl){return '<details class="info"><summary aria-label="설명 보기">ⓘ '+(lbl||'설명')+'</summary><p>'+txt+'</p></details>'}
+// score reasons as chips: "거리 26/30" etc.; full sentences behind ⓘ
+function whyChips(why){var ch=[];why.forEach(function(w){var m=w.match(/(\d+)\/(\d+)\s*$/);if(!m)return;var lb=/^거리/.test(w)?"거리":/^반복 편차/.test(w)?"편차":/^(평균|본 구간 평균)/.test(w)?"페이스":/심박/.test(w)?"심박":/랩이 없어/.test(w)?"랩 없음":w.split(" ")[0];
+    var r=+m[1]/+m[2];ch.push('<span class="wchip" style="--c:'+SCOL[band(r*100)]+'" title="'+esc(w)+'">'+esc(lb)+' <b>'+m[1]+'</b><small>/'+m[2]+'</small></span>')});
+  return (ch.length?'<div class="wchips">'+ch.join('')+'</div>':'')+info(esc(why.join(" · ")),'점수 근거')}
 function popIn(el){if(!el)return;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}
 function foldCard(card,id,sum,def){
   if(!card||card.dataset.folded)return;var h2=card.querySelector("h2");if(!h2)return;
@@ -2033,7 +2061,7 @@ function mealCard(ds,d,t){
   var h='<div class="card" id="meals"><div class="row between"><h2>식단 기록</h2><span class="chip" style="background:var(--accent-soft);color:var(--accent)">'+tg.k+'</span></div>';
   if(MS)h+='<div class="sreason" style="margin:8px 0 2px"><b style="color:'+SCOL[MS.b]+'">식단 점수 '+MS.s+'점 / 100 · '+SNAME[MS.b]+(MS.per?' <span class="muted" style="font-weight:500">('+MS.per.map(function(x){return x[0]+' '+Math.round(x[2]*100)+'%'}).join(' + ')+' 반영'+(MS.live&&MS.per.length<3?' · 남은 끼니를 먹으면 올라가요':'')+')</span>':'')+'</b><span data-tip="'+esc(mealTip(ds,d,MS))+'" style="display:block;padding:8px 0;margin:-8px 0">'+sbar(MS.s)+'</span>'+'<span>'+esc(MS.why.join(" · "))+'</span></div>';
   var ff=MS&&MS.per?MS.per.reduce(function(a2,x){return a2+MSPLIT.filter(function(y){return y[0]===x[0]})[0][1]},0):1;
-  h+='<div class="mbars">'+mbar("열량",tot.kcal,tg.kcal,0,"kcal",tg.kcal*0.9,1.1,ff)+mbar("탄수",tot.c,tg.c[0],tg.c[1],"g",tg.c[0],1.1,ff)+mbar("단백질",tot.p,tg.p[0],tg.p[1],"g",tg.p[0],1.3,ff)+mbar("지방",tot.f,tg.f[0],tg.f[1],"g",tg.f[0]*0.8,1.15,ff)+'</div><div class="mtk-leg">막대의 눈금 ▏= 아침(30%) · 점심(65%)까지 먹으면 좋은 양 · 저녁까지 100% · 간식은 가까운 끼니에 더해요</div>';
+  h+='<div class="mbars">'+mbar("열량",tot.kcal,tg.kcal,0,"kcal",tg.kcal*0.9,1.1,ff)+mbar("탄수",tot.c,tg.c[0],tg.c[1],"g",tg.c[0],1.1,ff)+mbar("단백질",tot.p,tg.p[0],tg.p[1],"g",tg.p[0],1.3,ff)+mbar("지방",tot.f,tg.f[0],tg.f[1],"g",tg.f[0]*0.8,1.15,ff)+'</div>';
   var fu=fuelTot(ds);if(fu.n)h+='<div class="fuelrow">⚡ 훈련 중 보급 <b>'+fu.n+'회</b> · 탄수 '+Math.round(fu.c)+'g · '+Math.round(fu.kcal)+'kcal <span class="muted">(식단 점수와 별도)</span></div>';
   var hints=mealHint(ds,t,tot,tg);if(hints.length)h+='<ul class="tight small" style="margin:8px 0 0;color:var(--muted)">'+hints.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul>';
   if(!ms.length)h+='<p class="small muted" style="margin:10px 0 0">아직 기록한 식사가 없어요. 사진 한 장이면 칼로리·탄단지를 AI가 계산해요.</p>';
@@ -2054,7 +2082,7 @@ function mealCard(ds,d,t){
   if(ML.busy)h+='<div class="small muted" style="margin-top:8px">클로드가 음식을 살펴보는 중이에요…</div>';
   if(ML.err)h+='<div class="small" style="margin-top:8px;color:var(--bad)">'+esc(ML.err)+'</div>';
   if(!can)h+='<div class="small muted" style="margin-top:6px">claude.ai에 로그인해야 식단 분석을 쓸 수 있어요.</div>';
-  h+='<p class="small muted" style="margin:10px 0 0">목표는 '+tg.k+' 기준, 내 체중 '+(Math.round(bodyW()*10)/10)+'kg으로 계산했어요. AI 추정은 ±20~30% 오차가 있을 수 있어요. 사진은 저장하지 않아요.</p>';
+  h+=info('목표는 '+tg.k+' 기준, 내 체중 '+(Math.round(bodyW()*10)/10)+'kg으로 계산했어요. AI 추정은 ±20~30% 오차가 있을 수 있어요. 사진은 저장하지 않아요.<br>막대의 눈금은 아침(30%)·점심(65%)까지 먹으면 좋은 양이고, 간식은 가까운 끼니에 더해요.','목표·계산 기준');
   return h+'</div>';
 }
 function mealPrompt(hint,prev,fix){
@@ -2465,13 +2493,14 @@ function vToday(){
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var DS=dn||(t[0]==="r"&&r.w)?dayScore(sel):null,folded=!!(DS&&DS.s!=null),det="";
+  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0];if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'</div>'}}
   var rv=rpeOf(sel),rpeOn=dn||!!r.w;
   if(rpeOn)h+='<button class="rpeb" id="rpe-open" aria-label="RPE '+(rv?RPE[rv].n:'입력')+'">'+rpeFace(rv,"lg")+'<small>'+(rv?RPE[rv].n:'RPE')+'</small></button>';
   var askR=rpeOn&&(RPEASK===sel||(dn&&!rv&&!RPESKIP[sel]));
   // (done days: the plan table lives under 상세 보기)
   var rpeLine=askR&&folded?'<div class="rpeline"><span>오늘 강도는?</span><div class="rpemini">'+[1,2,3,4,5].map(function(v){return '<button data-rpe="'+v+'" aria-pressed="'+(rv===v)+'" aria-label="RPE '+v+' '+RPE[v].n+'" title="'+RPE[v].n+'">'+rpeFace(v,"md")+'</button>'}).join("")+'</div></div>':'';
   if(askR&&!folded)h+='<div class="rpeask"><div class="small" style="font-weight:700">오늘 훈련 강도(RPE)는 어땠어요?</div><div class="rpeopts">'+[1,2,3,4,5].map(function(v){return '<button data-rpe="'+v+'" aria-pressed="'+(rv===v)+'" style="--rc:'+RPE[v].c+'">'+rpeFace(v,"lg")+'<small>'+RPE[v].n+'</small></button>'}).join("")+'</div><button class="linkbtn" id="rpe-later">'+(rv?'닫기':'나중에')+'</button></div>';
-  if(folded){var rk=r.w?r.w:null;h+='<div class="resbox"><div class="res"><div class="ring" style="--c:'+SCOL[DS.b]+';--p:'+DS.s+'"><b class="num">'+DS.s+'</b></div><div style="min-width:0"><div class="small" style="font-weight:700;color:'+SCOL[DS.b]+'">'+(DS.extra?'추가 러닝 점수':'훈련 점수')+' · '+SNAME[DS.b]+'</div>'+(rk?'<div class="num" style="font-size:17px;font-weight:700">'+fmtKm(rk.km)+'km · '+fmtPaceKm(rk.dur,rk.km)+'/km'+(rk.hr?' · ♥'+rk.hr:'')+'</div>':'')+'<div class="small muted">'+esc(DS.why.join(" · "))+'</div></div></div>'+rpeLine+'@@RESACT@@</div>'}
+  if(folded){var rk=r.w?r.w:null;h+='<div class="resbox"><div class="res"><div class="ring" style="--c:'+SCOL[DS.b]+';--p:'+DS.s+'"><b class="num">'+DS.s+'</b></div><div style="min-width:0"><div class="small" style="font-weight:700;color:'+SCOL[DS.b]+'">'+(DS.extra?'추가 러닝 점수':'훈련 점수')+' · '+SNAME[DS.b]+'</div>'+(rk?'<div class="num" style="font-size:17px;font-weight:700">'+fmtKm(rk.km)+'km · '+fmtPaceKm(rk.dur,rk.km)+'/km'+(rk.hr?' · ♥'+rk.hr:'')+'</div>':'')+whyChips(DS.why)+'</div></div>'+rpeLine+'@@RESACT@@</div>'}
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){var zh2='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(z.trk?' <small style="color:var(--q);font-weight:700">'+lap400(z)+'</small>':'')+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>';if(folded)det+=zh2;else h+=planTable(t,zs)}
   if(t[0]==="r"){h+=r.w?'<div class="warn" style="margin-top:6px">휴식 권장일이에요. 오늘 뛴 '+fmtKm(r.w.km)+'km는 <b>추가 러닝</b>으로 이번 주 거리에 더하고, 정말 편하게 뛰었는지만 평가해요.</div>':'<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
   if(W[w].note&&t[1].indexOf("66K 장거리")===0)h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
@@ -2497,6 +2526,8 @@ function vToday(){
   h+='</div>';
   if(!dn)h+=dayEditor(sel,w,d,t);
   h+='</div>';
+  var aq=dn||r.w?[[md(sel)+" 훈련을 분석해 줘. 잘한 점과 다음에 고칠 점을 알려 줘.","이 날 훈련 분석"],["오늘 컨디션과 이번 주 남은 훈련을 보고 회복은 어떻게 하면 좋을지 알려 줘.","회복 방법"]]:[[md(sel)+" 계획 \""+ptxt(t[1]).replace(/\n/g," / ")+"\"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.","이 훈련 팁"],[md(addDays(sel,-1))+" 훈련 기록을 분석해 줘.","전날 기록 분석"]];
+  h+='<div class="aiq"><span>💬 AI 코치</span>'+aq.map(function(q){return '<button type="button" data-aiq="'+esc(q[0])+'">'+q[1]+'</button>'}).join('')+'</div>';
   // week strip
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
@@ -2533,6 +2564,7 @@ function vToday(){
   var sbx=document.getElementById("sb-x");if(sbx)sbx.onclick=function(){S.startDone=true;save();render()};
   var rpx=document.getElementById("rep-x");if(rpx)rpx.onclick=function(){S.repSeen=Math.floor(idxOf(T)/7)-1;save();var y=window.scrollY;render();window.scrollTo(0,y)};
   var kq=document.getElementById("kmq");if(kq)kq.onsubmit=function(e){e.preventDefault();var v=parseFloat(document.getElementById("kmq-in").value);if(!(v>0&&v<200)){document.getElementById("kmq-in").focus();return}var r2=S.days[sel]||{};r2.km=String(Math.round(v*100)/100);S.days[sel]=r2;save();var y=window.scrollY;render();window.scrollTo(0,y);var dsx=dayScore(sel);if(dsx&&dsx.s!=null)toast("✓ "+dsx.s+"점 "+SNAME[dsx.b])};
+  view.querySelectorAll("[data-aiq]").forEach(function(b){b.onclick=function(){enterSub("coach");render();coachAsk(b.dataset.aiq)}});
   view.querySelectorAll("[data-rpe]").forEach(function(b){b.onclick=function(){var r=S.days[sel]||{};r.rpe=+b.dataset.rpe;r.rpeSrc="manual";S.days[sel]=r;RPEASK=null;RPESKIP[sel]=true;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){sel=b.dataset.go;render()}});
   ["km","hr","pace","note"].forEach(function(k){var el=document.getElementById("f-"+k);if(!el)return;el.addEventListener("input",function(){var r=S.days[sel]||{};r[k]=el.value;S.days[sel]=r;save()})});
@@ -2642,6 +2674,16 @@ function bindPlanSrc(){function $(i){return document.getElementById(i)}
   var nw=$("mp-new");if(nw)nw.onclick=function(){MPB.open=true;MPB.f=null;keepIf()};
   var dl=$("mp-del");if(dl)dl.onclick=function(){if(!confirm("나만의 계획을 삭제하고 크루 계획으로 돌아갈까요? 체크·기록은 남아요."))return;S.myplan=null;S.planMode="crew";save();pushShare(true);keepIf()}}
 var PASTW=false;
+function closeSheet(){var o=document.getElementById("dsheet");if(o)o.remove()}
+function openDaySheet(ds){closeSheet();var i=idxOf(ds);if(i<0||i>=TOTAL)return;var w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),dn=isDone(ds),DS=(dn||(t[0]==="r"&&r.w))?dayScore(ds):null;
+  var h='<div class="sh-bg" data-shx></div><div class="sh" role="dialog" aria-label="'+md(ds)+' 훈련"><div class="sh-grab"></div><div class="row between"><div><div class="eyebrow">'+wn(w)+' · '+esc(W[w].lab)+'</div><h2 style="margin-top:2px">'+md(ds)+' ('+DOW[i%7]+')</h2></div><button class="linkbtn" data-shx type="button">닫기</button></div>';
+  h+='<div class="what" style="font-size:17px;font-weight:700;margin-top:6px">'+esc(ptxt(t[1]).split("\n").join(" · "))+'</div>';
+  if(DS&&DS.s!=null)h+='<div class="sh-score"><b style="color:'+SCOL[DS.b]+'">'+DS.s+'점</b> '+SNAME[DS.b]+(r.w?' · '+fmtKm(r.w.km)+'km '+fmtPaceKm(r.w.dur,r.w.km)+'/km':'')+whyChips(DS.why)+'</div>';
+  else if(t[0]!=="r"){var zs=zonesFor(t);if(zs.length)h+=withDayK(ds,function(){return planTable(t,zs)})}
+  h+='<p class="small muted" style="margin:8px 0 0">'+(dn?'✓ 완료':t[0]==="r"?'휴식일':ds<T?'✕ 미완료':ds===T?'오늘 훈련':'예정')+'</p>';
+  h+='<button class="btn" type="button" data-shgo style="width:100%;margin-top:12px">오늘 화면에서 열기</button></div>';
+  var o=document.createElement("div");o.id="dsheet";o.innerHTML=h;document.body.appendChild(o);
+  o.querySelectorAll("[data-shx]").forEach(function(x){x.onclick=closeSheet});o.querySelector("[data-shgo]").onclick=function(){closeSheet();sel=ds;tab="today";render();window.scrollTo(0,0)}}
 function vPlan(){
   if(S.planMode==="mine"&&!myPlanOn()){view.innerHTML=planSrcCard()+'<p class="small muted" style="padding:0 4px">나만의 계획을 만들기 전까지는 오늘·크루 화면에 크루 계획이 그대로 쓰여요. 체크·기록은 날짜 기준이라 계획을 바꿔도 남아요.</p>';bindPlanSrc();return}
   var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
@@ -2662,18 +2704,18 @@ function vPlan(){
       h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+'"><button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt" data-open="'+ds+'">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(oneLine(t))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':';color:#fff')+'"':'')+'>'+(dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn'+(dayScore(ds).s>=100?' n3':'')+'">'+dayScore(ds).s+'</span>':'✓')+'</button></div>'}}
     h+='</details>';
   }
-  h+='<p class="small muted">날짜를 누르면 그날 기록(거리·심박·메모) 화면으로 이동해요. 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.</p>';
+  h+=info('날짜를 누르면 그날 계획과 기록을 볼 수 있어요. 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.','훈련표 안내');
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   var pw=document.getElementById("pastwk");if(pw)pw.addEventListener("toggle",function(){PASTW=pw.open});
   bindMyPlan();bindPlanSrc();
   view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
-  view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){sel=b.dataset.open;tab="today";render();window.scrollTo(0,0)}});
+  view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){openDaySheet(b.dataset.open)}});
 }
 
 // wrap an SVG chart with a hover/touch layer: pts = [{x, ys:[[y,color],...], t:'tooltip html'}] in viewBox units
 function hoverWrap(svg,W,H,top,bot,pts){if(!pts.length)return svg;return '<div class="rchart hchart" data-h="'+esc(JSON.stringify({W:W,H:H,T:top,B:bot,p:pts}))+'">'+svg+'<i class="rcur" hidden></i><div class="rtip" hidden></div></div>'}
-function chart(){
+function chart(){if(!WZU){var dk=wDays();WZ=dk.length&&(p(T)-p(dk[0]))/864e5<28?"4w":"all"}
   var WT=wtPlan();
   var days=wDays(),lo=66.5,hi=73.5;days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
   var x0=p("2026-11-09"),x1=p("2027-03-21");
@@ -2714,7 +2756,7 @@ function chart(){
 }
 
 var WOPEN=null;
-var WZ="all";
+var WZ="all",WZU=false;
 // shared date window for the resting-HR and HRV charts so their x axes line up
 function bodyRange(){var a=Object.keys(S.rhr||{}).sort().slice(-28),hv=Object.keys(S.hrv||{}).filter(function(k){return S.hrv[k]&&S.hrv[k].avg}).sort().slice(-28),all=a.concat(hv).sort();return all.length?[all[0],all[all.length-1]]:null}
 function trendSvg(series,unit,col,lo,hi,mini,xr){var ks=Object.keys(series).sort().slice(-28);if(xr)ks=ks.filter(function(k){return k>=xr[0]&&k<=xr[1]});if(ks.length<1||(!xr&&ks.length<2))return '<p class="small muted" style="margin:6px 0 0">기록이 쌓이면 추이를 그려요.</p>';
@@ -2760,13 +2802,13 @@ function bindEmpty(){view.querySelectorAll("[data-empty]").forEach(function(b){b
 function bodyPanel(k){
   if(k==="rhr"){var ks=Object.keys(S.rhr||{}).sort(),last=ks.slice(-7).reverse(),avg=0;ks.slice(-14).forEach(function(d){avg+=S.rhr[d]});avg=ks.length?Math.round(avg/Math.min(14,ks.length)):0;
     var h='<div class="card"><div class="row between"><h2>안정시 심박</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,false,bodyRange());
-    if(last.length)h+='<div class="blist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0;return '<div><span class="num">'+md(d)+'</span><b class="num">'+v+'<small> bpm</small></b><span class="small" style="color:'+(df>=3?'var(--bad)':df<=-2?'var(--ok)':'var(--muted)')+'">'+(df>0?'+':'')+df+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.</p>';
+    if(last.length)h+='<div class="blist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0;return '<div><span class="num">'+md(d)+'</span><b class="num">'+v+'<small> bpm</small></b><span class="small" style="color:'+(df>=3?'var(--bad)':df<=-2?'var(--ok)':'var(--muted)')+'">'+(df>0?'+':'')+df+'</span></div>'}).join("")+'</div>'+info('오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.','읽는 법')+'';
     else h+=emptyAct('아직 기록이 없어요. 워치를 연결하면 매일 아침 자동으로 채워져요.',[[S.watch?'지금 불러오기':'워치 연결하기','watch'],['아침 심박 직접 적기','ready']]);
     return h+'</div>'}
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
     var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
     var h2='<div class="card"><div class="row between"><h2>수면 HRV</h2><span class="small muted">'+(hb&&hb.lo?'정상 범위 '+hb.lo+'~'+hb.hi+'ms':'')+'</span></div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange());
-    if(ks2.length)h2+='<div class="blist">'+ks2.map(function(d){var x=S.hrv[d];return '<div><span class="num">'+md(d)+'</span><b class="num">'+x.avg+'<small> ms</small></b><span class="small" style="color:'+(/Low|Poor|Unbalanced/.test(x.ev)?'var(--bad)':'var(--muted)')+'">'+esc(EV[x.ev]||x.ev||"")+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.</p>';
+    if(ks2.length)h2+='<div class="blist">'+ks2.map(function(d){var x=S.hrv[d];return '<div><span class="num">'+md(d)+'</span><b class="num">'+x.avg+'<small> ms</small></b><span class="small" style="color:'+(/Low|Poor|Unbalanced/.test(x.ev)?'var(--bad)':'var(--muted)')+'">'+esc(EV[x.ev]||x.ev||"")+'</span></div>'}).join("")+'</div>'+info('음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.','읽는 법')+'';
     else h2+=emptyAct('아직 기록이 없어요. 수면 HRV는 COROS를 연결하면 매일 아침 불러와요.',[[S.watch==="coros"?'지금 불러오기':'COROS 연결하기','watch']]);
     return h2+'</div>'}
   // diet
@@ -2776,7 +2818,7 @@ function bodyPanel(k){
   h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
   return h3+'</div>'}
 var WEDIT=null;
-function vLog(){
+function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<28?"4w":"all"}
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var h='<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
@@ -2800,7 +2842,7 @@ function vLog(){
   bindEmpty();
   view.querySelectorAll("[data-bk]").forEach(function(b){b.onclick=function(){BODYV=b.dataset.bk;var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-ws]").forEach(function(b){b.onclick=function(){var el=document.getElementById("w-val"),v=parseFloat(String(el.value).replace(",","."));if(isNaN(v))v=bodyW();el.value=(Math.round((v+0.1*b.dataset.ws)*10)/10).toFixed(1)}});
-  view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
+  view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;WZU=true;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wedit]").forEach(function(b){b.onclick=function(){WEDIT=b.dataset.wedit;keepIf()}});
   view.querySelectorAll("[data-wedit-ok]").forEach(function(b){b.onclick=function(){var pr=b.dataset.weditOk.split("|"),inp=b.parentNode.querySelector("[data-wedit-in]"),nt=new Date(inp.value).getTime();WEDIT=null;if(isFinite(nt)){moveWeight(pr[0],+pr[1],nt);save();toast("잰 시각을 바꿨어요")}keepIf()}});
@@ -3412,7 +3454,7 @@ function vCrew(){
       for(var wi=0;wi<W.length;wi++){var st=memStats(r.m,wi);h+='<span class="num">'+wn(wi)+'</span>'+st.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")}
       var all=memStats(r.m,0);h+='</div><div class="small muted" style="margin-top:8px">지금까지 '+all.dn+'/'+all.tot+'회 완료'+(r.m.upd?' · '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' 업데이트':'')+'</div>'}
     h+='</div>'});
-  h+='</div></div>'+scoreLegend()+'<p class="small muted">점 색은 계획 거리 대비 실제 거리 달성률이에요(크루에는 거리만 공유돼요. 거리 없이 체크만 하면 초록). 빨간 ✕는 지난 훈련일 미완료, 점선은 휴식일, 주황 테두리 점은 휴식일 추가 러닝이에요. 이름을 누르면 전체 일정을 볼 수 있어요.</p>';
+  h+='</div></div>'+scoreLegend()+''+info('점 색은 계획 거리 대비 실제 거리 달성률이에요(크루에는 거리만 공유돼요. 거리 없이 체크만 하면 초록). 빨간 ✕는 지난 훈련일 미완료, 점선은 휴식일, 주황 테두리 점은 휴식일 추가 러닝이에요. 이름을 누르면 전체 일정을 볼 수 있어요.','점 색 읽는 법')+'';
   view.innerHTML=h;bindShare();bindCrewCommon(ids);
   document.getElementById("cw-prev").onclick=function(){if(CREW.wk>0){CREW.wk--;keep()}};
   document.getElementById("cw-next").onclick=function(){if(CREW.wk<W.length-1){CREW.wk++;keep()}};
@@ -3580,6 +3622,8 @@ function vGuide(){
   go.onclick=function(){try{var o=JSON.parse(ta.value);if(!o||typeof o!=="object"||!o.days)throw 0;merge(o);save();msg.textContent="복원했어요."}catch(e){msg.textContent="코드를 읽지 못했어요. 전체를 빠짐없이 붙여 넣었는지 확인하세요."}};
 }
 
+(function(){var sx=null;view.addEventListener("touchstart",function(e){if(tab!=="today"||!e.target.closest||!e.target.closest(".session")||e.target.closest("input,textarea,select,.rchart,.hchart")){sx=null;return}var t0=e.touches[0];sx={x:t0.clientX,y:t0.clientY}},{passive:true});
+  view.addEventListener("touchend",function(e){if(!sx)return;var t1=e.changedTouches[0],dx=t1.clientX-sx.x,dy=t1.clientY-sx.y;sx=null;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){var b=document.getElementById(dx<0?"next":"prev");if(b&&!b.disabled)b.click()}},{passive:true})})();
 (function(){var a=document.getElementById("h-admin");if(a)a.onclick=function(){if(!CREW.owner)return;if(tab==="admin"){goBack();return}enterSub("admin");render();window.scrollTo(0,0)}})();
 (function(){var f=document.getElementById("h-coach");if(f)f.onclick=function(){if(tab==="coach"){goBack();return}enterSub("coach");render();coachBottom()}})();
 (function(){var ft=document.createElement("div");ft.className="rtip ftip";ft.hidden=true;document.body.appendChild(ft);var cur=null;
