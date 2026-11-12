@@ -400,8 +400,8 @@ details.mpfold[open]>summary{margin-bottom:4px}
 .strip{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 14px;display:flex;flex-direction:column}
 .srow{display:flex;align-items:center;gap:10px;padding:9px 0;min-height:24px}
 .srow+.srow{border-top:1px solid var(--line)}
-.ssum{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;white-space:nowrap}
-.ssum>span:not(.fold-c){flex:1 1 auto;padding:0 2px;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.ssum{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 4px;font-size:13px;white-space:nowrap}
+.ssum>span:not(.fold-c){min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:0 4px}
 .ssum>span:not(.fold-c)+span:not(.fold-c){border-left:1px solid var(--line)}
 .ssum .fold-c,.sfold span{color:var(--muted)}
 .sfold{all:unset;cursor:pointer;align-self:center;font-size:12px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--line);width:100%;text-align:center;box-sizing:border-box}
@@ -1099,7 +1099,7 @@ function stripSum(today){
   var c=[];
   c.push('<span>🎯 '+(S.goal?'<b class="num">'+fmtT(S.goal.sec)+'</b>':'<span style="color:var(--accent)">목표 정하기</span>')+'</span>');
   var wn2=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일":"";
-  c.push('<span>⌚ '+(wn2?(WS.err?'<span style="color:var(--bad)">'+wn2+' 오류</span>':wn2+(WS.busy?' …':' ✓')):'<span class="muted">연결 안 됨</span>')+'</span>');
+  c.push('<span>⌚ '+(wn2?(WS.err?'<span style="color:var(--bad)">'+wn2+' 오류</span>':'<span style="color:var(--ok)">'+wn2+'</span>'+(WS.busy?' …':'')):'<span class="muted">연결 안 됨</span>')+'</span>');
   var cur=WX.cur&&WX.cur.currentConditions;
   c.push('<span>🌤 '+(!today?'<span class="muted">대기</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
   var R=readiness(today?T:sel);
