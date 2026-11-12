@@ -140,9 +140,9 @@ details.more[open]{padding-bottom:10px}
 .mpdays .t-q{border-color:var(--q);color:var(--q)}.mpdays .t-l{border-color:var(--accent);color:var(--accent)}.mpdays .t-r{color:var(--muted)}.mpdays .t-x{border-color:var(--accent);background:var(--accent-soft)}
 .mpprev .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fields select{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);font-size:16px;width:100%;color:var(--ink)}
-.rf{display:inline-grid;place-items:center;line-height:1;border-radius:50%;background:color-mix(in srgb,var(--rc) 18%,transparent);box-shadow:inset 0 0 0 1.5px var(--rc)}
-.rf.none{filter:grayscale(1);opacity:.45;background:var(--line);box-shadow:none}
-.rf.lg{width:40px;height:40px;font-size:24px}.rf.sm{width:18px;height:18px;font-size:12px;margin:3px auto 0}.rf.xs{width:17px;height:17px;font-size:11px;vertical-align:-4px}
+.rf{display:inline-block;line-height:0;vertical-align:middle}.rf svg{width:100%;height:100%;display:block}
+.rf.none{opacity:.6}
+.rf.lg{width:36px;height:36px}.rf.sm{width:16px;height:16px;margin:3px auto 0}.rf.xs{width:15px;height:15px;vertical-align:-3px}.rf.md{width:22px;height:22px}
 .rpeb{all:unset;cursor:pointer;position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
 .rpeb small{font-size:10.5px;color:var(--muted);font-weight:600}
 .session .eyebrow,.session .what{padding-right:58px}
@@ -151,7 +151,7 @@ details.more[open]{padding-bottom:10px}
 .rpeask{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--card)}
 .rpeopts{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}
 .rpeopts button{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px}
-.rpeopts button span{font-size:22px;line-height:1}.rpeopts button small{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.rpeopts button .rf.lg{width:30px;height:30px}.rpeopts button small{font-size:10.5px;color:var(--muted);white-space:nowrap}
 .rpeopts button[aria-pressed="true"]{border-color:var(--rc);box-shadow:0 0 0 1.5px var(--rc);background:color-mix(in srgb,var(--rc) 12%,transparent)}
 .ws .rf.sm{display:grid}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
@@ -714,6 +714,7 @@ function avatar(u,lg){var n=nickOf(u);return '<span class="av'+(lg?' lg':'')+'" 
 function keep(){var y=window.scrollY;render();window.scrollTo(0,y)}
 function summary(){var sw=tab==="crew"&&myPlanOn();if(sw)applyPlanSrc();try{return summary0()}finally{if(sw)crewPlanMode()}}
 function summary0(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){var km=parseFloat(r.km);if(isNaN(km)&&r.w)km=r.w.km;d[k]=isNaN(km)?0:Math.round(km*10)/10}else if(r&&r.w&&r.w.km){var ix=idxOf(k);if(ix>=0&&ix<TOTAL&&planAt(ix)[0]==="r")d[k]=Math.round(r.w.km*10)/10}}var o={d:d,goal:S.goal?fmtT(S.goal.sec):"",nick:S.nick,color:S.color||0,bio:S.bio||""};
+  var rp={};Object.keys(d).forEach(function(k){var v=rpeOf(k);if(v)rp[k]=v});if(Object.keys(rp).length)o.rp=rp;
   if(myPlanOn()){o.pm="mine";o.pn=String(S.myplan.name||"").slice(0,24);o.pk={};Object.keys(d).forEach(function(k){var ix=idxOf(k);if(ix>=0&&ix<TOTAL){var t=planAt(ix);o.pk[k]=[t[0],t[2]]}})}
   return o}
 function banned(u){var b=CREW.settings&&CREW.settings.banned;return !!(b&&u&&b[u])}
@@ -733,7 +734,10 @@ function isDone(ds){return !!dayRec(ds).done}
 // RPE (perceived effort) in 5 levels: 1 아주 쉬움 … 5 매우 힘듦
 var RPE=[null,{e:"😄",n:"아주 쉬움",c:"#2563eb"},{e:"🙂",n:"쉬움",c:"#16a34a"},{e:"😐",n:"적당",c:"#ca8a04"},{e:"😣",n:"힘듦",c:"#ea580c"},{e:"🥵",n:"매우 힘듦",c:"#dc2626"}];
 function rpeOf(ds){var v=+dayRec(ds).rpe;return v>=1&&v<=5?Math.round(v):null}
-function rpeFace(v,cls){var o=RPE[v];return o?'<span class="rf '+(cls||'')+'" style="--rc:'+o.c+'" title="RPE '+o.n+'">'+o.e+'</span>':'<span class="rf none '+(cls||'')+'" title="RPE 미입력">😶</span>'}
+var RPEM=["M8 15h8","M7 13.5q5 5 10 0","M7.5 14q4.5 3.2 9 0","M8 15h8","M7.5 16.5q4.5-3.2 9 0","M7 17q5-5.5 10 0"];
+function rpeSvg(v){var o=RPE[v],col=o?o.c:"#b8bfcc",m=RPEM[v||0],eyes=v===5?'<path d="M7 8.5l3 1.5M17 8.5l-3 1.5" stroke="#1b1b1b" stroke-width="1.6" stroke-linecap="round"/><circle cx="8.6" cy="11" r="1.2" fill="#1b1b1b"/><circle cx="15.4" cy="11" r="1.2" fill="#1b1b1b"/>':v===4?'<path d="M7.3 9.4l2.6 1.3-2.6 1.3M16.7 9.4l-2.6 1.3 2.6 1.3" stroke="#1b1b1b" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>':'<circle cx="8.6" cy="10" r="1.3" fill="#1b1b1b"/><circle cx="15.4" cy="10" r="1.3" fill="#1b1b1b"/>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="'+col+'"/>'+eyes+'<path d="'+m+'" stroke="#1b1b1b" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>'}
+function rpeFace(v,cls){var o=RPE[v];return '<span class="rf '+(o?'':'none ')+(cls||'')+'" title="RPE '+(o?o.n:'미입력')+'">'+rpeSvg(o?v:0)+'</span>'}
 function rpeFrom10(v){v=+v;if(!(v>0))return null;if(v>10)v=v/10;return Math.min(5,Math.max(1,Math.ceil(v/2)))}
 var RPEASK=null,RPESKIP={};
 // ---------- My plan: per-user changes, stored only in this viewer's private data ----------
@@ -1862,7 +1866,7 @@ function dayScore(ds){
     else{q=42;qn.push("직접 끊은 랩이 없어 질 평가는 기본 42/70 · 본 구간마다 랩을 끊으면 정확해져요")}}
   why=why.concat(qn);var sc=Math.max(0,Math.min(100,dp+q));return{s:sc,b:band(sc),why:why};
 }
-function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:'+SCOL[n]+'"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>😄🙂😐😣🥵 RPE</span></div>'}
+function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:'+SCOL[n]+'"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>'+[1,2,3,4,5].map(function(v){return rpeFace(v,"xs")}).join("")+' RPE</span></div>'}
 function lapsHtml(ds){
   var rs=runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length});if(!rs.length)return "";
   var h="";rs.forEach(function(r,ri){var L=r.laps,sm=lapSummary(L);
@@ -2110,7 +2114,7 @@ function vToday(){
   if(rpeOn)h+='<button class="rpeb" id="rpe-open" aria-label="RPE '+(rv?RPE[rv].n:'입력')+'">'+rpeFace(rv,"lg")+'<small>'+(rv?RPE[rv].n:'RPE')+'</small></button>';
   var askR=rpeOn&&(RPEASK===sel||(dn&&!rv&&!RPESKIP[sel]));
   if(folded){var zs0=zonesFor(t);if(zs0.length&&t[0]!=="r")h+='<div class="zline">'+zs0.map(function(z){var hh=zh(z);return '<span><b>'+z.n+'</b> '+zr(z)+(hh?' · '+hh:'')+'</span>'}).join("")+'</div>'}
-  if(askR)h+='<div class="rpeask"><div class="small" style="font-weight:700">오늘 훈련 강도(RPE)는 어땠어요?</div><div class="rpeopts">'+[1,2,3,4,5].map(function(v){return '<button data-rpe="'+v+'" aria-pressed="'+(rv===v)+'" style="--rc:'+RPE[v].c+'"><span>'+RPE[v].e+'</span><small>'+RPE[v].n+'</small></button>'}).join("")+'</div><button class="linkbtn" id="rpe-later">'+(rv?'닫기':'나중에')+'</button></div>';
+  if(askR)h+='<div class="rpeask"><div class="small" style="font-weight:700">오늘 훈련 강도(RPE)는 어땠어요?</div><div class="rpeopts">'+[1,2,3,4,5].map(function(v){return '<button data-rpe="'+v+'" aria-pressed="'+(rv===v)+'" style="--rc:'+RPE[v].c+'">'+rpeFace(v,"lg")+'<small>'+RPE[v].n+'</small></button>'}).join("")+'</div><button class="linkbtn" id="rpe-later">'+(rv?'닫기':'나중에')+'</button></div>';
   if(folded){var rk=r.w?r.w:null;h+='<div class="res"><div class="ring" style="--c:'+SCOL[DS.b]+';--p:'+DS.s+'"><b class="num">'+DS.s+'</b></div><div style="min-width:0"><div class="small" style="font-weight:700;color:'+SCOL[DS.b]+'">'+(DS.extra?'추가 러닝 점수':'훈련 점수')+' · '+SNAME[DS.b]+'</div>'+(rk?'<div class="num" style="font-size:17px;font-weight:700">'+fmtKm(rk.km)+'km · '+fmtPaceKm(rk.dur,rk.km)+'/km'+(rk.hr?' · ♥'+rk.hr:'')+'</div>':'')+'<div class="small muted">'+esc(DS.why.join(" · "))+'</div></div></div>'}
   var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){var zh2='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(z.trk?' <small style="color:var(--q);font-weight:700">'+lap400(z)+'</small>':'')+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>';if(folded)det+=zh2;else h+=zh2}
   if(t[0]==="r"){h+=r.w?'<div class="warn" style="margin-top:6px">휴식 권장일이에요. 오늘 뛴 '+fmtKm(r.w.km)+'km는 <b>추가 러닝</b>으로 이번 주 거리에 더하고, 정말 편하게 뛰었는지만 평가해요.</div>':'<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
@@ -2900,7 +2904,7 @@ function vCrew(){
     h+='<div class="feed">';
     if(!posts.length)h+='<div class="card"><p class="small muted" style="margin:0">아직 완료한 훈련이 없어요. 훈련을 체크하면 크루 피드에 올라가고, 서로 좋아요와 댓글로 응원할 수 있어요.</p></div>';
     posts.forEach(function(x){var k=x.id+"_"+ymd(x.ds),liked=!!myS().likes[k],n=likesOf(k),cs=cmtsOf(k),op=CREW.cOpen===k;
-      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+(x.ex?' 추가 러닝':' 훈련 완료')+'</div></div><div class="pkm">'+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
+      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+(x.ex?' 추가 러닝':' 훈련 완료')+'</div></div><div class="pkm">'+rpeFace(((CREW.members[x.id]||{}).rp||{})[x.ds],"md")+' '+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
       var mm=CREW.members[x.id]||{},own=mm.pm==="mine";
       h+='<div class="pb">'+(x.ex?'휴식일 추가 러닝':own?'📋 나만의 계획'+(mm.pn?' · '+esc(mm.pn):''):esc(x.t[1].split("\n").slice(0,3).join(" · ")))+'</div>';
       h+='<div class="acts"><button class="'+(liked?'on':'')+'" data-like="'+esc(k)+'" aria-pressed="'+liked+'">'+HEART+'좋아요'+(n?' '+n:'')+'</button><button data-cmt="'+esc(k)+'" aria-expanded="'+op+'">'+BUBBLE+'댓글'+(cs.length?' '+cs.length:'')+'</button></div>';
