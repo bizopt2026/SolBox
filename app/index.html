@@ -153,7 +153,8 @@ details.more[open]{padding-bottom:10px}
 .rpeopts button{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px}
 .rpeopts button .rf.lg{width:30px;height:30px}.rpeopts button small{font-size:10.5px;color:var(--muted);white-space:nowrap}
 .rpeopts button[aria-pressed="true"]{border-color:var(--rc);box-shadow:0 0 0 1.5px var(--rc);background:color-mix(in srgb,var(--rc) 12%,transparent)}
-.ws .rf.sm{display:grid}
+.ws .rf.sm{display:block;margin:3px auto 0}
+.ws .rdot{margin:7px auto 4px}
 .fbi{border-top:1px solid var(--line);padding:8px 0}.fbi:first-child{border-top:0}
 .drow .dt[data-open]{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:12px;color:var(--accent);text-transform:uppercase}
@@ -2138,7 +2139,7 @@ function vToday(){
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
-    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--s1)">✕</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):'')+'</button>'}
+    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--s1)">✕</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):'<div class="dot rdot"></div>')+'</button>'}
   h+='</div>'+scoreLegend();
   var ks=nextKeySessions(),ko=foldOpen("keys",false);
   if(ks.length){h+='<button type="button" class="ifold-h" id="keys-tog" aria-expanded="'+ko+'" style="margin-top:8px"><span><b style="color:var(--accent)">★</b> 다가오는 핵심 훈련 '+ks.length+'개'+(ko?'':' · 다음 '+md(ks[0][0])+' '+DOW[idxOf(ks[0][0])%7])+'</span><span class="chev" aria-hidden="true"></span></button>';
