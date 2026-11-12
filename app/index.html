@@ -2519,6 +2519,8 @@ function vPlan(){
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){sel=b.dataset.open;tab="today";render();window.scrollTo(0,0)}});
 }
 
+// wrap an SVG chart with a hover/touch layer: pts = [{x, ys:[[y,color],...], t:'tooltip html'}] in viewBox units
+function hoverWrap(svg,W,H,top,bot,pts){if(!pts.length)return svg;return '<div class="rchart hchart" data-h="'+esc(JSON.stringify({W:W,H:H,T:top,B:bot,p:pts}))+'">'+svg+'<i class="rcur" hidden></i><div class="rtip" hidden></div></div>'}
 function chart(){
   var WT=wtPlan();
   var days=wDays(),lo=66.5,hi=73.5;days.forEach(function(k){var d=wDay(k);lo=Math.min(lo,Math.floor(d.min)-0.5);hi=Math.max(hi,Math.ceil(d.max)+0.5)});
@@ -2546,7 +2548,12 @@ function chart(){
     if(pts.length>1)s+='<path d="'+pts.map(function(k,i){return (i?"L":"M")+X(p(k)).toFixed(1)+" "+Y(wDay(k).m).toFixed(1)}).join("")+'" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-opacity=".6"/>';
     pts.forEach(function(k,i){var last=i===pts.length-1;s+='<circle cx="'+X(p(k)).toFixed(1)+'" cy="'+Y(wDay(k).m).toFixed(1)+'" r="'+(last?Math.max(3,dr+1):dr).toFixed(1)+'" fill="var(--accent)" stroke="var(--card)" stroke-width="'+(last?1.5:0.6)+'"/>'});
   }
-  return s+'</svg>';
+  s+='</svg>';
+  function band(t){for(var i=0;i<WT.length-1;i++){var a=p(WT[i][0]),b=p(WT[i+1][0]);if(t>=a&&t<=b){var f2=(t-a)/Math.max(1,b-a);return [WT[i][1]+(WT[i+1][1]-WT[i][1])*f2,WT[i][2]+(WT[i+1][2]-WT[i][2])*f2]}}return null}
+  function r1(v){return Math.round(v*10)/10}
+  var hp=pts.map(function(k){var d=wDay(k),t=p(k),bd=band(t);return {x:+X(t).toFixed(1),ys:[[+Y(d.m).toFixed(1),"var(--accent)"]],t:'<b>'+md(k)+(d.n>1?' · '+d.n+'회':'')+'</b><span><i style="background:var(--accent)"></i>평균 '+d.avg+'kg'+(d.max>d.min?' <small>('+r1(d.min)+'~'+r1(d.max)+')</small>':'')+'</span>'+(bd?'<span class="muted">목표 '+r1(bd[0])+(r1(bd[0])!==r1(bd[1])?'~'+r1(bd[1]):'')+'kg</span>':'')}});
+  if(!hp.length)hp=WT.filter(function(m){var t=p(m[0]);return t>=x0&&t<=x1}).map(function(m){return {x:+X(p(m[0])).toFixed(1),ys:[[+Y((m[1]+m[2])/2).toFixed(1),"var(--q)"]],t:'<b>'+md(m[0])+'</b><span class="muted">목표 '+m[1]+(m[1]!==m[2]?'~'+m[2]:'')+'kg</span>'}});
+  return hoverWrap(s,Wd,Hd,Tp,Hd-B,hp);
 }
 
 var WOPEN=null;
@@ -2560,6 +2567,7 @@ function trendSvg(series,unit,col,lo,hi,mini){var ks=Object.keys(series).sort().
   for(var i=0;i<P.length-1;i++){var a=P[i-1]||P[i],b=P[i],c=P[i+1],e=P[i+2]||c;d+=' C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+','+(b[1]+(c[1]-a[1])/6).toFixed(1)+' '+(c[0]-(e[0]-b[0])/6).toFixed(1)+','+(c[1]-(e[1]-b[1])/6).toFixed(1)+' '+c[0].toFixed(1)+','+c[1].toFixed(1)}
   o+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
   o+='<text x="8" y="'+(H0-3)+'" class="ax">'+md(ks[0])+'</text><text x="'+(W0-8)+'" y="'+(H0-3)+'" class="ax" text-anchor="end">'+md(ks[ks.length-1])+'</text></svg>';
+  o=hoverWrap(o,W0,H0,6,H0-16,ks.map(function(k){var v=series[k];return {x:+X(k).toFixed(1),ys:[[+Y(v).toFixed(1),col]],t:'<b>'+md(k)+'</b><span><i style="background:'+col+'"></i>'+v+unit+'</span>'+(lo!=null&&hi!=null?'<span class="muted">정상 '+lo+'~'+hi+unit+'</span>':'')}}));
   var last=series[ks[ks.length-1]];if(mini)return o+'<div class="small muted">4주 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>';return '<div class="small" style="margin-top:2px">최근 <b class="num">'+last+unit+'</b> · 4주 범위 '+Math.round(Math.min.apply(null,vs))+'~'+Math.round(Math.max.apply(null,vs))+unit+'</div>'+o}
 function lastOf(o){var ks=Object.keys(o||{}).sort();return ks.length?o[ks[ks.length-1]]:null}
 function dietWeeks(){var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d);if(ds>T)break;var ms=mealScore(ds,d);if(ms&&!ms.live){a+=ms.s;n++}}if(n)rows.push([w,Math.round(a/n),n])}return rows.slice(-4)}
@@ -3377,6 +3385,19 @@ function vGuide(){
 }
 
 (function(){var f=document.getElementById("h-coach");if(f)f.onclick=function(){if(tab==="coach"){goBack();return}enterSub("coach");render();coachBottom()}})();
+(function(){function hideH(c){c.querySelectorAll(".rcur,.hdot,.rtip").forEach(function(x){x.hidden=true})}
+  function showH(e){var c=e.target.closest&&e.target.closest(".hchart");if(!c)return;var d;try{d=JSON.parse(c.dataset.h)}catch(_){return}
+    var sv=c.querySelector("svg"),r=sv.getBoundingClientRect(),vx=(e.clientX-r.left)/r.width*d.W,best=null,bd=1e9;
+    d.p.forEach(function(q){var dd=Math.abs(q.x-vx);if(dd<bd){bd=dd;best=q}});if(!best){hideH(c);return}
+    var cr=c.getBoundingClientRect(),ox=r.left-cr.left,oy=r.top-cr.top,sx=r.width/d.W,sy=r.height/d.H,px=ox+best.x*sx,cur=c.querySelector(".rcur"),tp=c.querySelector(".rtip");
+    cur.hidden=false;cur.style.left=px+"px";cur.style.top=(oy+d.T*sy)+"px";cur.style.height=((d.B-d.T)*sy)+"px";
+    var ds=c.querySelectorAll(".hdot");for(var i=ds.length;i<best.ys.length;i++){var n=document.createElement("i");n.className="rdot hdot";c.appendChild(n)}ds=c.querySelectorAll(".hdot");
+    Array.prototype.forEach.call(ds,function(n,i){var y=best.ys[i];if(!y){n.hidden=true;return}n.hidden=false;n.style.left=px+"px";n.style.top=(oy+y[0]*sy)+"px";n.style.background=y[1]});
+    tp.innerHTML=best.t;tp.hidden=false;var tw=tp.offsetWidth,cw=c.clientWidth;tp.style.left=Math.max(0,Math.min(cw-tw,px-tw/2))+"px";tp.style.top=(oy-6)+"px"}
+  view.addEventListener("pointermove",showH);view.addEventListener("pointerdown",showH);
+  document.addEventListener("pointerdown",function(e){if(!(e.target.closest&&e.target.closest(".hchart")))view.querySelectorAll(".hchart").forEach(hideH)});
+  view.addEventListener("pointerleave",function(e){var t=e.target;if(t&&t.classList&&t.classList.contains("hchart"))hideH(t)},true);
+})();
 (function(){function hide(c){c.querySelectorAll(".rcur,.rdot,.rtip").forEach(function(x){x.hidden=true})}
   function show(e){var c=e.target.closest&&e.target.closest(".rchart");if(!c)return;var d;try{d=JSON.parse(c.dataset.c)}catch(_){return}
     var sv=c.querySelector("svg"),r=sv.getBoundingClientRect(),sx=r.width/d.W,vx=(e.clientX-r.left)/sx,km=(vx-d.L)/d.w*d.D;
