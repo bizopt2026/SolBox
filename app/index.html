@@ -1681,6 +1681,8 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
 }
 var BACK=null,TABN={today:"오늘",plan:"훈련표",pace:"내 페이스",crew:"크루",log:"바디",guide:"가이드",coach:"AI 코치",story:"인스타 스토리"};
 function enterSub(t){if(tab!=="coach"&&tab!=="story"){BACK={tab:tab,sel:sel,y:window.scrollY,pushed:false}}if(BACK&&!BACK.pushed){try{history.pushState({sub:1},"");BACK.pushed=true}catch(e){}}tab=t}
+var DETO=null;
+function coachBottom(){var go=function(){var c=document.getElementById("chat"),m=c&&c.lastElementChild;window.scrollTo(0,document.documentElement.scrollHeight);if(m&&m.getBoundingClientRect().bottom>innerHeight)m.scrollIntoView({block:"end"})};go();requestAnimationFrame(go);setTimeout(go,120)}
 function goBack(){var b=BACK||{tab:"today",sel:sel,y:0};BACK=null;tab=b.tab;sel=b.sel;render();window.scrollTo(0,b.y||0)}
 function backBar(){var n=TABN[(BACK&&BACK.tab)||"today"];return '<button type="button" class="backbar" data-back><span aria-hidden="true">‹</span> '+n+(/[가-힣]$/.test(n)&&((n.charCodeAt(n.length-1)-44032)%28)?'으로':'로')+' 돌아가기</button>'}
 function bindBack(){view.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){if(BACK&&BACK.pushed){try{history.back();return}catch(e){}}goBack()}})}
@@ -2235,7 +2237,7 @@ function vToday(){
   var IGSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',canStory=t[0]!=="r"&&(r.w||r.done||r.km);
   if(canStory&&!folded)h+='<button class="btn ghost story-btn" data-story="'+sel+'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>인스타 스토리 만들기</button>';
   var hasStory=h.indexOf('story-btn')>=0;det+=h;h=h0;
-  if(folded){var dop=foldOpen("t-det",false);det=detHtml(t,r,lh,sel);h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
+  if(folded){var dop=DETO===sel;det=detHtml(t,r,lh,sel);h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
   if(det)h+='<details class="more"'+(foldOpen("t-det",false)?' open':'')+' data-fold="t-det"><summary><span>훈련 상세'+(hasStory?' · <b style="color:var(--accent)">스토리 만들기</b>':'')+'</span><span class="small muted" style="margin-left:auto;margin-right:8px">'+[folded&&zs.length?'존':'',r.w?'워치':'',lh?'랩':''].filter(Boolean).join(' · ')+'</span><span class="chev" aria-hidden="true"></span></summary>'+det+'</details>';
   var hasF=!!(r.km||r.hr||r.pace||r.note),fOpen=foldOpen("fields",false),fTog=t[0]!=="r"?'<button class="sbtn ftog'+(fOpen?' on':'')+'" id="f-tog" aria-expanded="'+fOpen+'" aria-label="거리·심박·메모 직접 적기">✎'+(hasF?' 메모':' 직접')+'</button>':'';
   h+='<div class="recgrp">';
@@ -2272,7 +2274,7 @@ function vToday(){
   bindSeason();
   var no=document.getElementById("news-ok");if(no)no.onclick=function(e){e.preventDefault();S.seenV=APPV;save();render()};
   bindDayEditor(sel);bindMeals(sel);bindReady(T);bindLaps();
-  var dtg=document.getElementById("det-tog"),dbx=document.getElementById("det-box");if(dtg&&dbx)dtg.onclick=function(){var o=dbx.hidden;dbx.hidden=!o;dtg.setAttribute("aria-expanded",o);foldSet("t-det",o)};
+  var dtg=document.getElementById("det-tog"),dbx=document.getElementById("det-box");if(dtg&&dbx)dtg.onclick=function(){var o=dbx.hidden;dbx.hidden=!o;dtg.setAttribute("aria-expanded",o);DETO=o?sel:null};
   view.querySelectorAll("details[data-fold]").forEach(function(d){d.addEventListener("toggle",function(){foldSet(d.dataset.fold,d.open)})});
   view.querySelectorAll("[data-story]").forEach(function(b){b.onclick=function(){openStory(b.dataset.story)}});
   document.getElementById("prev").onclick=function(){if(idxOf(sel)>0){sel=addDays(sel,-1);render()}};
@@ -3265,7 +3267,7 @@ function vGuide(){
   go.onclick=function(){try{var o=JSON.parse(ta.value);if(!o||typeof o!=="object"||!o.days)throw 0;merge(o);save();msg.textContent="복원했어요."}catch(e){msg.textContent="코드를 읽지 못했어요. 전체를 빠짐없이 붙여 넣었는지 확인하세요."}};
 }
 
-(function(){var f=document.getElementById("fab");if(f)f.onclick=function(){enterSub("coach");render();window.scrollTo(0,0)}})();
+(function(){var f=document.getElementById("fab");if(f)f.onclick=function(){enterSub("coach");render();coachBottom()}})();
 window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story")goBack()});
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
 (function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
