@@ -8,7 +8,7 @@
 :root{
   --bg:#f3f5f9; --card:#ffffff; --ink:#111a2e; --muted:#5d6880; --line:#dde3ee;
   --navy:#111a2e; --navy-fg:#ffffff;
-  --accent:#e8590c; --accent-soft:#fdeee4;
+  --accent:#5b4fd6; --accent-soft:#eeecfc;
   --base:#7fb6f2; --build:#3b82f6; --spec:#1e3a8a; --rec:#c3cbd9; --taper:#f97316;
   --ok:#15803d; --ok-soft:#e3f4e8; --bad:#c2410c; --bad-soft:#fdebe2;
   --s5:#6b9ee8;--p5:#8fb8f2;--p4:#93d3a9;--p3:#f3d37c;--p2:#f4b182;--p1:#ef9a9a; --s4:#5cb882; --s3:#d9aa36; --s2:#e88f55; --s1:#e07272;
@@ -19,7 +19,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0b1020; --card:#151c2f; --ink:#e8ecf5; --muted:#98a3ba; --line:#263049;
   --navy:#060a16; --navy-fg:#e8ecf5;
-  --accent:#ff7a33; --accent-soft:#3a2115;
+  --accent:#9d94ff; --accent-soft:#262342;
   --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#fb8a3c;
   --ok:#4ade80; --ok-soft:#14301f; --bad:#ff8a5c; --bad-soft:#3a1d12;
   --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
@@ -27,7 +27,7 @@
 :root[data-theme="dark"]{
   --bg:#0b1020; --card:#151c2f; --ink:#e8ecf5; --muted:#98a3ba; --line:#263049;
   --navy:#060a16; --navy-fg:#e8ecf5;
-  --accent:#ff7a33; --accent-soft:#3a2115;
+  --accent:#9d94ff; --accent-soft:#262342;
   --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#fb8a3c;
   --ok:#4ade80; --ok-soft:#14301f; --bad:#ff8a5c; --bad-soft:#3a1d12;
   --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
@@ -726,7 +726,7 @@ function cmtsOf(k){var out=[];for(var u in CREW.social){if(u===CREW.me||banned(u
 function inbox(){var l=0,c=0,pre=CREW.me+"_";for(var u in CREW.social){if(u===CREW.me)continue;var so=CREW.social[u];for(var k in (so.likes||{}))if(k.indexOf(pre)===0)l++;(so.cmts||[]).forEach(function(x){if(x.k.indexOf(pre)===0)c++})}return{l:l,c:c}}
 var HEART='<svg class="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
 var BUBBLE='<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
-var AVC=["#e8590c","#2563eb","#15803d","#7c3aed","#db2777","#0e7490"];
+var AVC=["#0f766e","#2563eb","#15803d","#7c3aed","#db2777","#0e7490"];
 function nickOf(u){var m=CREW.members[u],so=CREW.social[u];if(u===CREW.me&&S.nick)return S.nick;return (m&&m.nick)||(so&&so.nick)||"러너"}
 function colorOf(u){var m=CREW.members[u],so=CREW.social[u],c=u===CREW.me?S.color:(m&&m.color!=null?m.color:so&&so.color);return AVC[(+c||0)%AVC.length]}
 function avatar(u,lg){var n=nickOf(u);return '<span class="av'+(lg?' lg':'')+'" style="background:'+colorOf(u)+'" aria-hidden="true">'+esc(Array.from(n)[0]||"?")+'</span>'}
@@ -1521,7 +1521,7 @@ async function drawStory(){
   var SK=storySky(D.ds);
   if(!STORY.img){try{drawSky(ctx,Wd,Hd,SK)}catch(eS){var g2=ctx.createLinearGradient(0,0,Wd,Hd);g2.addColorStop(0,"#111a2e");g2.addColorStop(1,"#1e3a8a");ctx.fillStyle=g2;ctx.fillRect(0,0,Wd,Hd)}}
   var M=80,y=150,goal=S.goal?S.goal.sec:REF_GOAL,dd=Math.round((p(RACE)-p(D.ds))/864e5);
-  ctx.textBaseline="alphabetic";ctx.fillStyle="#ff7a33";ctx.font="800 34px "+FD;ctx.fillText(("SUB-"+subLabel(goal)+" · 2027.3.21 SEOUL").toUpperCase(),M,y);
+  ctx.textBaseline="alphabetic";ctx.fillStyle="#9d94ff";ctx.font="800 34px "+FD;ctx.fillText(("SUB-"+subLabel(goal)+" · 2027.3.21 SEOUL").toUpperCase(),M,y);
   ctx.textAlign="right";ctx.fillStyle="#fff";ctx.font="800 56px "+FD;ctx.fillText("D-"+dd,Wd-M,y+8);ctx.textAlign="left";
   y+=86;var dt=new Date(p(D.ds));ctx.fillStyle="rgba(255,255,255,.85)";ctx.font="500 40px "+FB;ctx.fillText(wn(D.w)+" · "+(dt.getUTCMonth()+1)+"/"+dt.getUTCDate()+" "+DOW[D.i%7]+"요일 · "+W[D.w].lab,M,y);
   if(!SK.guess){var hh=Math.floor(SK.hr),mm=Math.round((SK.hr-hh)*60);if(mm===60){hh++;mm=0}var night2=SK.tod==="night"||SK.tod==="dusk"||(SK.w&&SK.w.dl===false);
@@ -1542,7 +1542,7 @@ async function drawStory(){
   if(showP)drawLapPanel(ctx,D,M,panelB-panelH,Wd-2*M,panelB,FD,FB);
   else if(D.work.length){ctx.fillStyle="#9cc0ff";ctx.font="700 36px "+FB;ctx.fillText(wrapText(ctx,"본 구간 "+D.work.map(function(x){return fmtMS(x.p)}).join(" · ")+(D.work[0].hr?"   ♥ "+D.work.map(function(x){return x.hr}).join("·"):""),Wd-2*M)[0],M,lapY)}
   ctx.fillStyle="rgba(255,255,255,.14)";rrect(ctx,M,boxY,Wd-2*M,bh,36);ctx.fill();ctx.strokeStyle="rgba(255,255,255,.22)";ctx.lineWidth=2;ctx.stroke();
-  ctx.fillStyle="#ff7a33";ctx.font="800 32px "+FB;ctx.fillText("AI 코치",M+40,boxY+58);ctx.fillStyle="#fff";ctx.font="500 42px "+FB;cl.forEach(function(l,k){ctx.fillText(l,M+40,boxY+122+k*60)});
+  ctx.fillStyle="#9d94ff";ctx.font="800 32px "+FB;ctx.fillText("AI 코치",M+40,boxY+58);ctx.fillStyle="#fff";ctx.font="500 42px "+FB;cl.forEach(function(l,k){ctx.fillText(l,M+40,boxY+122+k*60)});
   
 }
 function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
@@ -1565,10 +1565,10 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   Sr.p.forEach(function(v,i){if(!v){pen=false;return}var px=X(Sr.d[i]),py=Y(v);if(pen)ctx.lineTo(px,py);else{ctx.moveTo(px,py);pen=true}});ctx.stroke();
   // lap averages: straight line + value
   var lastX=-999;segs.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,x0=X(q.a),x1=X(q.b),yy=Y(q.l.p);if(x1-x0<10)return;
-    ctx.strokeStyle=hard?"#ff7a33":"rgba(255,200,150,.7)";ctx.lineWidth=hard?5:3;ctx.setLineDash(hard?[]:[10,8]);ctx.beginPath();ctx.moveTo(x0+3,yy);ctx.lineTo(x1-3,yy);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=hard?"#9d94ff":"rgba(200,195,255,.7)";ctx.lineWidth=hard?5:3;ctx.setLineDash(hard?[]:[10,8]);ctx.beginPath();ctx.moveTo(x0+3,yy);ctx.lineTo(x1-3,yy);ctx.stroke();ctx.setLineDash([]);
     var mid=(x0+x1)/2;if((!hard&&x1-x0<70)||mid-lastX<80)return;lastX=mid;
     var txt=fmtMS(q.l.p);ctx.font=(hard?"800 30px ":"600 24px ")+FD;var tw=ctx.measureText(txt).width+18,ly=Math.max(top+4,yy-46);
-    ctx.fillStyle=hard?"#ff7a33":"rgba(0,0,0,.45)";rrect(ctx,Math.min(Math.max(mid-tw/2,cx),cx+cw-tw),ly,tw,hard?40:34,10);ctx.fill();
+    ctx.fillStyle=hard?"#9d94ff":"rgba(0,0,0,.45)";rrect(ctx,Math.min(Math.max(mid-tw/2,cx),cx+cw-tw),ly,tw,hard?40:34,10);ctx.fill();
     ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText(txt,Math.min(Math.max(mid,cx+tw/2),cx+cw-tw/2),ly+(hard?30:25));ctx.textAlign="left"});
   // axes + legend
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(dmax/100)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
@@ -1583,12 +1583,12 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var L=D.laps,h=yb-y;if(h<220)return;
   if(STORY.view==="table"){var nr=lapRows(L,Math.max(2,Math.floor((h-150)/52))).length;h=Math.min(h,150+nr*52);y=yb-h}
   ctx.fillStyle="rgba(8,12,24,.55)";rrect(ctx,x,y,w,h,32);ctx.fill();
-  ctx.fillStyle="#ff7a33";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간"):"페이스 흐름",x+36,y+56);
+  ctx.fillStyle="#9d94ff";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간"):"페이스 흐름",x+36,y+56);
   ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":(D.series?"초 단위 · 랩 평균":"랩별 평균 페이스"),x+w-36,y+56);ctx.textAlign="left";
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
     ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
-    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(hard){ctx.fillStyle="rgba(255,122,51,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
+    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
       ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.font=(hard?"800 ":"600 ")+"34px "+FD;
       [[String(r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
     ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
@@ -1607,7 +1607,7 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   for(var tk=Math.ceil(lo/step)*step;tk<=hi;tk+=step){var gy=Y(tk);ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(cx,gy);ctx.lineTo(cx+cw,gy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillText(fmtMS(tk),cx-14,gy+8)}
   ctx.textAlign="left";
   ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=2;seg.forEach(function(q,k2){if(k2){var a=seg[k2-1];ctx.beginPath();ctx.moveTo(q.x0,Y(a.l.p));ctx.lineTo(q.x0,Y(q.l.p));ctx.stroke()}});
-  seg.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,yy=Y(q.l.p);ctx.strokeStyle=hard?"#ff7a33":"rgba(255,255,255,.8)";ctx.lineWidth=hard?9:5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(q.x0+4,yy);ctx.lineTo(q.x1-4,yy);ctx.stroke();ctx.lineCap="butt"});
+  seg.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,yy=Y(q.l.p);ctx.strokeStyle=hard?"#9d94ff":"rgba(255,255,255,.8)";ctx.lineWidth=hard?9:5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(q.x0+4,yy);ctx.lineTo(q.x1-4,yy);ctx.stroke();ctx.lineCap="butt"});
   var lastX=-999;seg.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,mid=(q.x0+q.x1)/2,yy=Y(q.l.p),wd=q.x1-q.x0;if(!hard&&wd<64)return;if(mid-lastX<78)return;
     ctx.textAlign="center";ctx.font=(hard?"800 32px ":"600 24px ")+FD;ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.7)";var ly=yy-18<top-6?yy+40:yy-18;ctx.fillText(fmtMS(q.l.p),Math.min(Math.max(mid,cx+40),cx+cw-40),ly);ctx.textAlign="left";lastX=mid});
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(tot*10)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
