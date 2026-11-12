@@ -764,7 +764,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet());
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -1143,12 +1143,17 @@ async function watchSync(manual){
           var pl=parseLaps(lo);rr.laps=pl||{kind:"none",laps:[]};}catch(e4){}}
     }catch(e6){}
     var auto=applyRuns();S.watchAt=Date.now();S.watchFrom=START;
-    try{var rh=await mcp.callTool("COROS","queryRestingHeartRate",{days:14},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
+    try{var rh=await mcp.callTool("COROS","queryRestingHeartRate",{days:28},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
       payloadText(rh).replace(/(\d{4}-\d{2}-\d{2}):\s*(\d+)\s*bpm/g,function(m,d,v){v=+v;if(v>=25&&v<=120)S.rhr[d]=v;return m});
       var hv=await mcp.callTool("COROS","querySleepHrv",{startDate:addDays(T,-2).replace(/-/g,""),endDate:T.replace(/-/g,"")},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
-      var ht=payloadText(hv),ass=ht.split(/Sleep HRV Time Series/)[0];
-      ass.replace(/(\d{4}-\d{2}-\d{2}):\s*\n\s*HRV Avg:\s*(\d+)\s*ms\s*[—-]\s*([A-Za-z ]+)\s*\n\s*Normal Range:\s*(\d+)\s*-\s*(\d+)\s*ms(?:\s*\n\s*Baseline:\s*(\d+))?/g,function(m,d,a,ev,lo,hi,base){S.hrv[d]={avg:+a,ev:ev.trim(),lo:+lo,hi:+hi,base:base?+base:null};return m});
-      var ks=Object.keys(S.rhr).sort();while(ks.length>40)delete S.rhr[ks.shift()];var kh=Object.keys(S.hrv).sort();while(kh.length>20)delete S.hrv[kh.shift()];
+      function hrvParse(x){payloadText(x).split(/Sleep HRV Time Series/)[0].replace(/(\d{4}-\d{2}-\d{2}):\s*\n\s*HRV Avg:\s*(\d+)\s*ms\s*[—-]\s*([A-Za-z ]+)\s*\n\s*Normal Range:\s*(\d+)\s*-\s*(\d+)\s*ms(?:\s*\n\s*Baseline:\s*(\d+))?/g,function(m,d,a,ev,lo,hi,base){S.hrv[d]={avg:+a,ev:ev.trim(),lo:+lo,hi:+hi,base:base?+base:null};return m})}
+      hrvParse(hv);
+      // backfill the 28-day window in 7-day chunks (COROS allows max 7 days per call), only where days are missing; at most once a day
+      if(!S.hrvFill||Date.now()-S.hrvFill>20*3600*1000||manual){var did=false;
+        for(var ci=0;ci<4;ci++){var ce=addDays(T,-3-7*ci),cs=addDays(ce,-6),miss=false;for(var dd=cs;dd<=ce;dd=addDays(dd,1))if(!S.hrv[dd]){miss=true;break}
+          if(!miss)continue;did=true;try{hrvParse(await mcp.callTool("COROS","querySleepHrv",{startDate:cs.replace(/-/g,""),endDate:ce.replace(/-/g,"")},{cache:{staleTime:3600000,gcTime:3600000}}))}catch(eH){}}
+        if(did||!S.hrvFill)S.hrvFill=Date.now()}
+      var ks=Object.keys(S.rhr).sort();while(ks.length>40)delete S.rhr[ks.shift()];var kh=Object.keys(S.hrv).sort();while(kh.length>40)delete S.hrv[kh.shift()];
     }catch(e3){}
     var fmsg="";try{var CC=manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000};
       var fa=payloadText(await mcp.callTool("COROS","queryFitnessAssessmentOverview",{},{cache:CC}));function gx(re){var m=fa.match(re);return m?m[1]:""}
