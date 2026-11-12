@@ -253,6 +253,14 @@ input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 .rli.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .rh{margin:16px 0 6px;color:var(--ink);font-size:15px}
 .rsvg{width:100%;height:auto;display:block}
+.rchart{position:relative;touch-action:pan-y;cursor:crosshair}
+.rcur{position:absolute;width:1px;margin-left:-.5px;background:var(--muted);opacity:.6;pointer-events:none}
+.rdot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--card);pointer-events:none}
+.rdot.act{background:var(--ink)}
+.rtip{position:absolute;top:-6px;transform:translateY(-100%);display:flex;flex-direction:column;gap:1px;padding:6px 9px;border-radius:9px;background:var(--ink);color:var(--bg);font-size:12px;line-height:1.35;white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:2}
+.rtip i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.rtip small{opacity:.75}
+.rtip .muted{color:inherit;opacity:.7}
 .rsvg .ax{font-size:9px;fill:var(--muted);font-variant-numeric:tabular-nums}
 .rleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
 .rleg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
@@ -2738,7 +2746,10 @@ function raceSvg(rc,pl,act){
   o+='<text x="'+(L+w+4)+'" y="'+(Tp+8)+'" class="ax">'+fmtMS(pmin)+'</text><text x="'+(L+w+4)+'" y="'+(Tp+h)+'" class="ax">'+fmtMS(pmax)+'</text>';
   var stp=D>=30?10:D>=15?5:D>=8?2:1;for(var t=0;t<=D+0.01;t+=stp)o+='<text x="'+X(t).toFixed(1)+'" y="'+(H0-6)+'" class="ax" text-anchor="middle">'+t+'</text>';
   o+='</svg>';
-  o+='<div class="rleg small muted"><span>가로축 km</span><span><i style="background:var(--accent)"></i>목표 페이스(위가 빠름)</span>'+(act?'<span><i style="background:var(--ink)"></i>실제 페이스</span>':'')+(rc.course&&rc.course.e?'<span><i style="background:var(--line);height:8px"></i>고도</span>':'')+'</div>';
+  var ele=null;if(rc.course&&rc.course.e){ele=[];for(var ek=0;ek<=Math.ceil(D);ek++)ele.push(Math.round(eleAt(rc.course,Math.min(D,ek)*1000,D)))}
+  var cd={W:W0,H:H0,L:L,w:w,T:Tp,h:h,D:D,mn:pmin,mx:pmax,s:pl.segs.map(function(q){return [q.i,q.len,Math.round(q.p)]}),a:act||null,e:ele};
+  o='<div class="rchart" data-c="'+esc(JSON.stringify(cd))+'">'+o+'<i class="rcur" hidden></i><i class="rdot" hidden></i><i class="rdot act" hidden></i><div class="rtip" hidden></div></div>';
+  o+='<div class="rleg small muted"><span>가로축 km · 차트를 누르거나 밀어서 페이스 보기</span><span><i style="background:var(--accent)"></i>목표 페이스(위가 빠름)</span>'+(act?'<span><i style="background:var(--ink)"></i>실제 페이스</span>':'')+(rc.course&&rc.course.e?'<span><i style="background:var(--line);height:8px"></i>고도</span>':'')+'</div>';
   return o;
 }
 // ---- actual per-km from a synced run ----
@@ -3302,6 +3313,23 @@ function vGuide(){
 }
 
 (function(){var f=document.getElementById("fab");if(f)f.onclick=function(){enterSub("coach");render();coachBottom()}})();
+(function(){function hide(c){c.querySelectorAll(".rcur,.rdot,.rtip").forEach(function(x){x.hidden=true})}
+  function show(e){var c=e.target.closest&&e.target.closest(".rchart");if(!c)return;var d;try{d=JSON.parse(c.dataset.c)}catch(_){return}
+    var sv=c.querySelector("svg"),r=sv.getBoundingClientRect(),sx=r.width/d.W,vx=(e.clientX-r.left)/sx,km=(vx-d.L)/d.w*d.D;
+    if(km<0||km>d.D){hide(c);return}
+    var sg=null;for(var i=0;i<d.s.length;i++){var q=d.s[i];if(km>=q[0]&&km<=q[0]+q[1]/1000+1e-6){sg=q;break}}if(!sg)sg=d.s[d.s.length-1];
+    var ki=Math.min(Math.floor(km),Math.ceil(d.D)-1),av=d.a&&d.a[ki]?d.a[ki]:null,el=d.e?d.e[Math.min(d.e.length-1,Math.round(km))]:null;
+    function Y(p){return d.T+(Math.min(Math.max(p,d.mn),d.mx)-d.mn)/(d.mx-d.mn)*d.h}
+    var px=(d.L+km/d.D*d.w)/d.W*100,cur=c.querySelector(".rcur"),dt=c.querySelectorAll(".rdot"),tp=c.querySelector(".rtip");
+    cur.hidden=false;cur.style.left=px+"%";cur.style.top=(d.T/d.H*100)+"%";cur.style.height=(d.h/d.H*100)+"%";
+    dt[0].hidden=false;dt[0].style.left=px+"%";dt[0].style.top=(Y(sg[2])/d.H*100)+"%";
+    if(av){dt[1].hidden=false;dt[1].style.left=px+"%";dt[1].style.top=(Y(av)/d.H*100)+"%"}else dt[1].hidden=true;
+    tp.innerHTML='<b>'+(Math.round(km*10)/10)+'km</b><span><i style="background:var(--accent)"></i>목표 '+fmtMS(sg[2])+'/km</span>'+(av?'<span><i style="background:currentColor"></i>실제 '+fmtMS(av)+'/km'+(av-sg[2]?' <small>('+(av>sg[2]?'+':'−')+Math.abs(Math.round(av-sg[2]))+'초)</small>':'')+'</span>':'')+(el!=null?'<span class="muted">고도 '+el+'m</span>':'');
+    tp.hidden=false;var tw=tp.offsetWidth,cw=c.clientWidth,lx=px/100*cw;tp.style.left=Math.max(0,Math.min(cw-tw,lx-tw/2))+"px"}
+  view.addEventListener("pointermove",show);view.addEventListener("pointerdown",show);
+  view.addEventListener("pointerleave",function(){view.querySelectorAll(".rchart").forEach(hide)},true);
+  document.addEventListener("pointerdown",function(e){if(!(e.target.closest&&e.target.closest(".rchart")))view.querySelectorAll(".rchart").forEach(hide)});
+})();
 window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story")goBack()});
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
 (function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
