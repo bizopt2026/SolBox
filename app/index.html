@@ -442,6 +442,9 @@ details.mpfold[open]>summary{margin-bottom:4px}
 .ssum>span:not(.fold-c){min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:0 4px}
 .ssum>span:not(.fold-c)+span:not(.fold-c){border-left:1px solid var(--line)}
 .ssum .fold-c,.sfold span{color:var(--muted)}
+.ssum .fold-c{transition:transform .15s}
+.ssum[aria-expanded=true] .fold-c{transform:rotate(180deg)}
+.strip .ssum{background:transparent;box-shadow:none!important;border-radius:0;padding:10px 0 10px 0;margin:0 -4px;width:calc(100% + 8px);border-bottom:1px solid var(--line)!important}
 .sfold{all:unset;cursor:pointer;align-self:center;font-size:12px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--line);width:100%;text-align:center;box-sizing:border-box}
 
 .srow .sl{flex:none;width:22px;text-align:center}
@@ -1153,7 +1156,7 @@ function wxRowS(){var rw0=runWx(T);if(rw0)return runWxRow(T,rw0);
 function readyRowS(){
   var R=readiness(T),open=foldOpen("ready",false),col=["var(--ok)","var(--s3)","var(--bad)"][R.lv],lb=["좋음","주의","쉬어가기"][R.lv];
   var sub=R.has?[R.r?'안정시 심박 '+R.r+'bpm'+(R.diff!=null?'('+(R.diff>0?'+':'')+R.diff+')':''):'',R.h?'HRV '+R.h.avg+'ms':'',R.sq?'잠 '+R.sq:'',R.rc?'회복률 '+R.rc.pct+'%':''].filter(Boolean).join(' · '):'아침 심박·수면을 넣으면 오늘 훈련 강도를 알려 줘요';
-  return '<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><button class="wlink" data-rdp aria-expanded="'+open+'"><b>훈련 전 컨디션'+(R.has?' · <span style="color:'+col+'">'+lb+'</span>':'')+'</b><span>'+esc(sub)+'</span></button><button class="sbtn wset'+(open?' on':'')+'" data-rdp aria-expanded="'+open+'">'+(open?'닫기':R.has?'자세히':'기록')+'</button></div>';
+  return '<div class="srow wrow"><span class="sl" aria-hidden="true">❤️</span><button class="wlink" data-rdp aria-expanded="'+open+'"><b>훈련 전 컨디션'+(R.has?' · <span style="color:'+col+'">'+lb+'</span>':'')+'</b><span>'+esc(sub)+'</span></button><button class="sbtn wset'+(open?' on':'')+'" data-rdp aria-expanded="'+open+'">'+(open?'닫기':R.has?'자세히':'대기')+'</button></div>';
 }
 function waitPill(){return '<span class="sbtn" style="opacity:.55;cursor:default;pointer-events:none">대기</span>'}
 function otherDayRows(ds){
@@ -1172,11 +1175,11 @@ function statusStrip(){
   var open=foldOpen("strip",false)||WPANEL||(today&&(foldOpen("wxo",false)||foldOpen("ready",false)||(WX.edit&&!(S.wx&&S.wx.key))));
   var top=uploadDue()?watchBar():'';
   if(!open)return top+stripSum(today);
-  var fold='<button class="sfold" data-strip aria-expanded="true">요약으로 접기 <span aria-hidden="true">⌃</span></button>';
-  if(uploadDue())return top+'<div class="strip">'+goalRow(false)+ext+fold+'</div>'+panels;
-  return '<div class="strip">'+goalRow(false)+watchRow()+ext+fold+'</div>'+panels;
+  var fold=stripSum(today,true);
+  if(uploadDue())return top+'<div class="strip">'+fold+goalRow(false)+ext+'</div>'+panels;
+  return '<div class="strip">'+fold+goalRow(false)+watchRow()+ext+'</div>'+panels;
 }
-function stripSum(today){
+function stripSum(today,open){
   var c=[];
   c.push('<span>🎯 '+(S.goal?'<b class="num">'+fmtT(S.goal.sec)+'</b>':'<span style="color:var(--accent)">목표 정하기</span>')+'</span>');
   var wn2=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일":"";
@@ -1187,7 +1190,7 @@ function stripSum(today){
   else c.push('<span>🌤 '+(!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
   var R=readiness(today?T:sel);
   c.push('<span>❤️ '+(R.has?'<b style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</b>':'<span class="muted">대기</span>')+'</span>');
-  return '<button class="ssum" data-strip aria-expanded="false" aria-label="목표·워치·날씨·컨디션 자세히 보기">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
+  return '<button class="ssum" data-strip aria-expanded="'+!!open+'" aria-label="'+(open?'요약으로 접기':'목표·워치·날씨·컨디션 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
 }
 function goalRow(alone){
   var r=S.goal?'<span class="sl" aria-hidden="true">🎯</span><span class="sm">3.21 목표 <b>'+fmtT(S.goal.sec)+'</b> · MP <b>'+fmtMS(S.goal.sec/42.195)+'</b>/km</span><button class="sbtn" data-goto="pace">목표</button>'
