@@ -2563,7 +2563,12 @@ function chart(){
   function band(t){for(var i=0;i<WT.length-1;i++){var a=p(WT[i][0]),b=p(WT[i+1][0]);if(t>=a&&t<=b){var f2=(t-a)/Math.max(1,b-a);return [WT[i][1]+(WT[i+1][1]-WT[i][1])*f2,WT[i][2]+(WT[i+1][2]-WT[i][2])*f2]}}return null}
   function r1(v){return Math.round(v*10)/10}
   var hp=pts.map(function(k){var d=wDay(k),t=p(k),bd=band(t);return {x:+X(t).toFixed(1),ys:[[+Y(d.m).toFixed(1),"var(--accent)"]],t:'<b>'+md(k)+(d.n>1?' · '+d.n+'회':'')+'</b><span><i style="background:var(--accent)"></i>평균 '+d.avg+'kg'+(d.max>d.min?' <small>('+r1(d.min)+'~'+r1(d.max)+')</small>':'')+'</span>'+(bd?'<span class="muted">목표 '+r1(bd[0])+(r1(bd[0])!==r1(bd[1])?'~'+r1(bd[1]):'')+'kg</span>':'')}});
-  if(!hp.length)hp=WT.filter(function(m){var t=p(m[0]);return t>=x0&&t<=x1}).map(function(m){return {x:+X(p(m[0])).toFixed(1),ys:[[+Y((m[1]+m[2])/2).toFixed(1),"var(--q)"]],t:'<b>'+md(m[0])+'</b><span class="muted">목표 '+m[1]+(m[1]!==m[2]?'~'+m[2]:'')+'kg</span>'}});
+  // goal-line points: every few days across the window wherever no weigh-in is nearby, plus each milestone
+  var wts=pts.map(function(k){return p(k)}),stepD=WZ==="4w"?2:5,gp={};
+  for(var gt=x0;gt<=x1+1;gt+=stepD*864e5)gp[f(gt)]=1;WT.forEach(function(m){var t=p(m[0]);if(t>=x0&&t<=x1)gp[m[0]]=2});
+  Object.keys(gp).forEach(function(k){var t=p(k),bd=band(t);if(!bd)return;if(gp[k]!==2&&wts.some(function(w){return Math.abs(w-t)<=2.5*864e5}))return;
+    var ms=WT.filter(function(m){return m[0]===k})[0];
+    hp.push({x:+X(t).toFixed(1),ys:[[+Y((bd[0]+bd[1])/2).toFixed(1),"var(--q)"]],t:'<b>'+md(k)+'</b><span><i style="background:var(--q)"></i>목표 '+r1(bd[0])+(r1(bd[0])!==r1(bd[1])?'~'+r1(bd[1]):'')+'kg</span>'+(ms&&ms[3]?'<span class="muted">'+esc(ms[3])+'</span>':'')})});
   return hoverWrap(s,Wd,Hd,Tp,Hd-B,hp);
 }
 
