@@ -59,7 +59,7 @@ body.compact .dday b{font-size:16px}
 .pop{animation:fdin .16s ease-out}
 @media (prefers-reduced-motion:reduce){.pop{animation:none}}
 .hco{display:grid;place-items:center}.hco svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9}
-body.coach .hco{background:rgba(255,255,255,.18)}
+
 #brand-eb{display:none}
 header.top .wrap{padding-block:8px}
 .brand b{font-size:17px!important}
@@ -715,6 +715,13 @@ body.coach .hcoach{background:#fff;color:var(--accent)}
 #dsheet .sh-score{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:14px}
 #dsheet .sh-score>b{font-size:20px;font-family:var(--f-display)}
 @keyframes shup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.lapai{display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;padding:10px 12px;border:0;border-radius:12px;background:var(--accent-soft);color:var(--ink);text-align:left;cursor:pointer}
+.lapai>span:first-child{font-size:18px}.lapai>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
+.lapai b{font-size:14px;color:var(--accent)}.lapai small{font-size:12px;color:var(--muted)}
+.lapai:active{transform:scale(.99)}
+body.coach .cbar{position:fixed;left:0;right:0;margin:0 auto;max-width:560px;box-sizing:border-box;bottom:calc(62px + env(safe-area-inset-bottom,0px));padding:8px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));z-index:6;background:var(--bg);box-shadow:0 -8px 16px -8px rgba(17,26,46,.12)}
+body.coach header.top .wrap{padding-block:8px!important}
+.chat{overflow-anchor:none}
 .gchips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:0;border-radius:99px;padding:7px 13px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
@@ -1971,6 +1978,8 @@ function coachChips(){
   c.push("오늘 컨디션으로 훈련해도 될까?","이번 주 훈련 잘 하고 있어?","체중 감량 속도 괜찮아?","지금 목표가 현실적이야?");
   return c;
 }
+// keep the chat clear of the fixed input bar
+function coachPad(){var cb=document.querySelector(".cbar"),mn=document.querySelector("main");if(!cb||!mn)return 0;var hh=cb.offsetHeight;mn.style.paddingBottom=(hh+84)+"px";return hh}
 function vCoach(){
   var M=S.coach||[],can=AUTH.st==="ok";
   var h=backBar()+'<div class="card"><div class="row between"><h2>AI 코치</h2>'+(M.length?'<button class="btn ghost" id="co-clear" style="padding:6px 12px;font-size:13px">대화 지우기</button>':'')+'</div><p class="small muted" style="margin:4px 0 0">내 훈련 계획, 달린 기록(워치·직접 입력), 체중, 목표와 페이스 존을 보고 답해요. 답은 참고용이에요.</p></div>';
@@ -1992,8 +2001,8 @@ function vCoach(){
   var st=document.getElementById("co-stop");if(st)st.onclick=function(){if(COACH.ctl)COACH.ctl.abort()};
   var cl=document.getElementById("co-clear");if(cl)cl.onclick=function(){if(COACH.busy)return;S.coach=[];save();render()};
   view.querySelectorAll("[data-say]").forEach(function(b){b.onclick=function(){var m=(S.coach||[])[+b.dataset.say];if(m)speakText(m.text)}});
-  voiceInit();coachBar();
-  window.scrollTo(0,document.body.scrollHeight);
+  voiceInit();coachBar();coachPad();
+  window.scrollTo(0,document.documentElement.scrollHeight);
 }
 async function coachAsk(q){
   S.coach=S.coach||[];var hist=S.coach.filter(function(m){return !m.err&&m.text}).slice(-8);
@@ -2006,7 +2015,7 @@ async function coachAsk(q){
     if(msgs.length&&msgs[msgs.length-1].role==="user")msgs.pop();
     msgs.push({role:"user",content:COACH_SYS+"\n\n[러너 데이터]\n"+coachCtx()+"\n\n[질문]\n"+q});
     COACH.ctl=new AbortController();
-    var res=await sm(msgs,{cache:false,signal:COACH.ctl.signal,modelTier:"default",onText:function(u){ans.text=u.text;var el=document.getElementById("cb-last");if(el&&tab==="coach"){el.innerHTML='<span class="mwho">코치</span>'+mdLite(u.text);window.scrollTo(0,document.body.scrollHeight)}}});
+    var res=await sm(msgs,{cache:false,signal:COACH.ctl.signal,modelTier:"default",onText:function(u){ans.text=u.text;if(COACH.raf)return;COACH.raf=requestAnimationFrame(function(){COACH.raf=0;var el=document.getElementById("cb-last");if(el&&tab==="coach"){var de=document.documentElement,near=window.innerHeight+window.scrollY>=de.scrollHeight-(coachPad()+120);el.innerHTML='<span class="mwho">코치</span>'+mdLite(ans.text);if(near)window.scrollTo(0,de.scrollHeight)}})}});
     ans.text=(res&&res.text)||ans.text||"답을 받지 못했어요.";
   }catch(e){var c=e&&e.code;if(c==="cancelled"){ans.text=(ans.text||"")+(ans.text?"\n\n(여기서 멈췄어요)":"멈췄어요.")}else{ans.err=!ans.text;ans.text=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 코치를 쓸 수 있어요.":c==="rate_limited"?"질문이 많아요. 잠시 후 다시 물어봐 주세요.":(e&&e.text)||("답하지 못했어요"+(e&&e.message?": "+e.message:"."))}}
   finally{COACH.busy=false;COACH.ctl=null;ans.text=String(ans.text||"").slice(0,4000);if(S.coach.length>30)S.coach=S.coach.slice(-30);save();if(tab==="coach")render();if(VOICE.read&&!ans.err&&ans.text)speakText(ans.text)}
@@ -2020,6 +2029,7 @@ function render(){
   if(tab==="welcome"&&(S.gv||0)>=GUIDE_V&&!WMANUAL)tab="today";
   var nav=document.querySelector("nav.tabs");nav.hidden=tab==="welcome";document.body.classList.toggle("welcome",tab==="welcome");
   var fab=document.getElementById("fab");if(fab)fab.hidden=tab==="welcome"||tab==="coach"||tab==="story";document.body.classList.toggle("coach",tab==="coach");
+  if(tab!=="coach"){var mn0=document.querySelector("main");if(mn0)mn0.style.paddingBottom=""}
   if(tab==="welcome"){vWelcome();return}
   if(tab!=="coach"&&VOICE.speaking)stopSpeak();
   if(tab==="coach"){vCoach();return}
@@ -2256,7 +2266,7 @@ function detHtml(t,r,lh,ds){
   if(lh)runsOn(ds).filter(function(x){return x.laps&&x.laps.laps&&x.laps.laps.length}).forEach(function(x){var L=x.laps,sm=lapSummary(L);
     h+='<section class="dsec"><div class="dh">랩 <span class="muted">· '+(L.kind==="manual"?"내가 끊은 랩":"1km 구간")+' '+L.laps.length+'개</span></div>'+(sm?'<p class="dsum">'+esc(sm)+'</p>':'');
     h+=L.laps.map(function(q,i){var hard=q.p<330*K&&q.d>=0.4;return row('<span class="lapn">'+(i+1)+'</span>'+q.d.toFixed(2)+'km',(hard?'<span style="color:var(--q)">':'<span>')+fmtMS(q.p)+'</span><small class="u">/km</small>',[q.hr?'♥'+q.hr+(q.mx?'/'+q.mx:''):'',fmtT(q.t),esc(lapZone(q.p))].filter(Boolean).join(' · '))}).join("");
-    h+='<div class="resact" style="justify-content:flex-start"><button type="button" class="sbtn" data-coachrun="'+ds+'">AI 코치 랩 분석</button></div></section>'});
+    h+='<button type="button" class="lapai" data-coachrun="'+ds+'"><span>💬</span><span><b>AI 코치에게 랩 분석 받기</b><small>계획대로 했는지, 페이스·심박 흐름, 고칠 점</small></span><span class="chev" aria-hidden="true" style="transform:rotate(-90deg)"></span></button></section>'});
   return h}
 function lapsHtml(ds){
   var rs=runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length});if(!rs.length)return "";
@@ -2533,7 +2543,7 @@ function vToday(){
   var IGSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',canStory=t[0]!=="r"?!!(r.w||r.done||r.km):!!(r.w||isDone(sel));
   if(canStory&&!folded&&t[0]!=="r")h+='<button class="btn ghost story-btn" data-story="'+sel+'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>인스타 스토리 만들기</button>';
   var hasStory=h.indexOf('story-btn')>=0;det+=h;h=h0;
-  if(folded){var dop=DETO===sel;det=withDayK(sel,function(){return detHtml(t,r,lh,sel)});h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+'<button type="button" class="sbtn" data-aiq="'+esc(md(sel)+' 훈련을 분석해 줘. 잘한 점과 다음에 고칠 점을 알려 줘.')+'">💬 AI 분석</button>'+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
+  if(folded){var dop=DETO===sel;det=withDayK(sel,function(){return detHtml(t,r,lh,sel)});h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
   if(det)h+='<details class="more"'+(foldOpen("t-det",false)?' open':'')+' data-fold="t-det"><summary><span>훈련 상세'+(hasStory?' · <b style="color:var(--accent)">스토리 만들기</b>':'')+'</span><span class="small muted" style="margin-left:auto;margin-right:8px">'+[folded&&zs.length?'존':'',r.w?'워치':'',lh?'랩':''].filter(Boolean).join(' · ')+'</span><span class="chev" aria-hidden="true"></span></summary>'+det+'</details>';
   if(canStory&&!folded&&t[0]==="r")h+='<div class="resact" style="justify-content:flex-start;margin-top:10px"><button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button></div>';
   var hasF=!!(r.km||r.hr||r.pace||r.note),fOpen=foldOpen("fields",false),fTog=t[0]!=="r"?'<button class="sbtn ftog'+(fOpen?' on':'')+'" id="f-tog" aria-expanded="'+fOpen+'" aria-label="거리·심박·메모 직접 적기">✎'+(hasF?' 메모':' 직접')+'</button>':'';
