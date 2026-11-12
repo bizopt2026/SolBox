@@ -2211,7 +2211,7 @@ function vToday(){
     h+='<div class="fields"'+(fOpen?'':' hidden')+'><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(r.w?r.w.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(r.w&&r.w.hr?r.w.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
   }
   h+='</div>';
-  h+=dayEditor(sel,w,d,t);
+  if(!dn)h+=dayEditor(sel,w,d,t);
   h+='</div>';
   // week strip
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
