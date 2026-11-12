@@ -776,8 +776,8 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
-merge(lsGet());
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+merge(lsGet()||{});
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
 var syncT=null;function setSync(t){syncEl.textContent=t==="계정에 저장됨"?"✓ 저장됨":t;syncEl.title=t;syncEl.classList.remove('gone');clearTimeout(syncT);if(t==="계정에 저장됨")syncT=setTimeout(function(){syncEl.classList.add('gone')},2500)}
@@ -843,7 +843,7 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
     } else if(S.ts){save()}
     setSync("계정에 저장됨");AUTH.st="ok";
     CREW.db=db;CREW.user=user;CREW.me=id;
-    user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
+    try{user.canEdit().then(function(v){CREW.editor=!!v;if(tab==='crew')keep()},function(){})}catch(eE){}user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
     db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
     var ct=setTimeout(function(){if(CREW.status==="loading"){CREW.status="slow";if(tab==="crew")keep()}},10000);
     db.collection("members").onSnapshot(function(sn){
@@ -889,6 +889,19 @@ function summary0(){var d={};for(var k in S.days){var r=S.days[k];if(r&&r.done){
   var rp={};Object.keys(d).forEach(function(k){var v=rpeOf(k);if(v)rp[k]=v});if(Object.keys(rp).length)o.rp=rp;
   if(myPlanOn()){o.pm="mine";o.pn=String(S.myplan.name||"").slice(0,24);o.pk={};Object.keys(d).forEach(function(k){var ix=idxOf(k);if(ix>=0&&ix<TOTAL){var t=planAt(ix);o.pk[k]=[t[0],t[2]]}})}
   return o}
+// ---- record codes: members who cannot write (outside the organization) share a code; the owner registers it ----
+function isCodeId(u){return /^code_/.test(u||"")}
+function isMeCode(u){return !!(S.codeId&&u==="code_"+S.codeId)}
+function codeTag(u){return isCodeId(u)?'<em class="me-tag ctag" style="font-style:normal" title="기록 코드로 공유">코드</em>':''}
+function recCode(){if(!S.codeId){S.codeId=Math.random().toString(36).slice(2,12);save()}var o=summary();o.i=S.codeId;o.upd=Date.now();return "SUB3REC:"+btoa(unescape(encodeURIComponent(JSON.stringify(o))))}
+function parseRecCode(t){var m=String(t||"").match(/SUB3REC:([A-Za-z0-9+\/=]+)/);if(!m)return null;var o;try{o=JSON.parse(decodeURIComponent(escape(atob(m[1]))))}catch(e){return null}
+  if(!o||typeof o.i!=="string"||!/^[a-z0-9]{6,16}$/.test(o.i)||typeof o.nick!=="string"||!o.nick.trim())return null;
+  var d={};Object.keys(o.d||{}).forEach(function(k){var v=+o.d[k];if(/^\d{4}-\d{2}-\d{2}$/.test(k)&&isFinite(v)&&v>=0&&v<200)d[k]=Math.round(v*10)/10});
+  var rp={};Object.keys(o.rp||{}).forEach(function(k){var v=+o.rp[k];if(d[k]!=null&&v>=1&&v<=5)rp[k]=v});
+  var out={d:d,nick:o.nick.trim().slice(0,12),color:Math.max(0,Math.min(AVC.length-1,+o.color||0)),bio:String(o.bio||"").slice(0,30),goal:String(o.goal||"").slice(0,8),upd:+o.upd||Date.now(),via:"code"};
+  if(Object.keys(rp).length)out.rp=rp;
+  if(o.pm==="mine"){out.pm="mine";out.pn=String(o.pn||"").slice(0,24);var pk={};Object.keys(o.pk||{}).forEach(function(k){var a=o.pk[k];if(d[k]!=null&&Array.isArray(a))pk[k]=[String(a[0]).slice(0,1),+a[1]||0]});out.pk=pk}
+  return {id:"code_"+o.i,doc:out}}
 function banned(u){var b=CREW.settings&&CREW.settings.banned;return !!(b&&u&&b[u])}
 var CREW_MAX=100;
 function pushShare(force){
@@ -1576,7 +1589,7 @@ function enhance(){
     var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"크루 계획 · "+dotDate(CREW_RACE);
     var pc=document.getElementById("plansrc");if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
   } else if(tab==="crew"){
-    foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
+    foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(AUTH.st==="view"?" · 기록 코드로 공유":S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
     foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
     foldCard(findCard("크루 정보"),"c-info",(CREW.settings&&CREW.settings.name)||"이름·공지",false);
     foldCard(findCard("제외한 크루원"),"c-banned","",false);
@@ -3163,7 +3176,7 @@ function adminView(ids){
   h+='<div class="card"><div class="row between"><h2>크루원 '+rows.length+'명 <span class="small muted">/ '+CREW_MAX+'</span></h2><span class="small muted">최근 활동 순</span></div><div style="margin-top:6px">';
   if(!rows.length)h+='<p class="small muted" style="margin:0">아직 크루원이 없어요.</p>';
   rows.forEach(function(r){var tk=0,km=0,d=r.m.d||{};for(var k in d){var i=idxOf(k);if(i<0||i>=TOTAL)continue;var t=W[Math.floor(i/7)].d[i%7];if(t[0]!=="r"){tk++;km+=d[k]>0?d[k]:t[2]}}
-    h+='<div class="adm-row">'+avatar(r.u)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.u))+'</span>'+(r.u===CREW.me?'<em class="me-tag" style="font-style:normal">관리자</em>':'')+'</div><div class="small muted">'+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'완료 '+tk+'회 · '+Math.round(km)+'km'+(r.s.rate!=null?' · 이행 '+r.s.rate+'%':'')+'</div><div class="small muted">'+(r.m.upd?'최근 '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):'')+'</div></div>'+(r.u===CREW.me?'<span></span>':'<button class="btn ghost" data-ban="'+esc(r.u)+'" style="padding:8px 12px">제외</button>');
+    h+='<div class="adm-row">'+avatar(r.u)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.u))+'</span>'+(r.u===CREW.me?'<em class="me-tag" style="font-style:normal">관리자</em>':'')+codeTag(r.u)+'</div><div class="small muted">'+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'완료 '+tk+'회 · '+Math.round(km)+'km'+(r.s.rate!=null?' · 이행 '+r.s.rate+'%':'')+'</div><div class="small muted">'+(r.m.upd?'최근 '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):'')+'</div></div>'+(r.u===CREW.me?'<span></span>':'<button class="btn ghost" data-ban="'+esc(r.u)+'" style="padding:8px 12px">제외</button>');
     if(CREW.confirm===r.u)h+='<div class="adm-confirm"><span><b>'+esc(nickOf(r.u))+'</b>님을 크루에서 제외할까요? 크루 목록·피드·좋아요·댓글에서 사라지고, 다시 허용하기 전까지 공유할 수 없어요.</span><div class="row"><button class="btn danger" data-ban-go="'+esc(r.u)+'">제외하기</button><button class="btn ghost" data-ban-no>취소</button></div></div>';
     h+='</div>'});
   h+='</div></div>';
@@ -3199,6 +3212,7 @@ function vAdmin(){
     return}
   h+='<div class="row between" style="padding:2px 4px 8px"><h2>관리자 메뉴</h2><button class="linkbtn" id="adm-lock" type="button">잠그기</button></div>';
   h+=joinCard();
+  h+='<div class="card"><h2>기록 코드 등록</h2><p class="small muted" style="margin:4px 0 8px">편집자가 아닌 크루원이 보낸 <b>SUB3REC:</b> 코드를 붙여 넣으면 크루 피드·주간 현황에 올라가요. 같은 사람 코드를 다시 넣으면 최신 기록으로 바뀌어요.</p><textarea id="rc-in" class="inp" rows="3" placeholder="카톡에서 받은 메시지를 그대로 붙여 넣어도 돼요" style="width:100%;font-size:12px"></textarea><div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="rc-reg" type="button">등록</button><span class="small" id="rc-res" style="min-width:0"></span></div></div>';
   if(CREW.db){var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)});h+=adminView(ids)}
   else h+='<div class="card"><p class="small muted" style="margin:0">크루 정보를 불러오는 중이에요…</p></div>';
   h+='<div class="card"><h2>PIN 번호 바꾸기</h2><form id="pin-c" class="fields"><label>지금 PIN<input id="pc-old" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label>새 PIN (4~8자리 숫자)<input id="pc-new" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label class="full"><button class="btn" type="submit">PIN 바꾸기</button></label></form>'+(ADM.msg?'<p class="small" style="margin:6px 0 0;color:'+(ADM.ok?'var(--ok)':'var(--bad)')+'">'+esc(ADM.msg)+'</p>':'')+'<p class="small muted" style="margin:6px 0 0">관리자 메뉴는 앱을 만든 계정에만 보여요. PIN은 그 위에 한 번 더 거는 잠금이에요.</p></div>';
@@ -3206,7 +3220,11 @@ function vAdmin(){
   document.getElementById("adm-lock").onclick=function(){ADMIN_OK=false;render()};
   document.getElementById("pin-c").onsubmit=function(e){e.preventDefault();var o=document.getElementById("pc-old").value.trim(),n=document.getElementById("pc-new").value.trim();ADM.ok=false;
     if(!pinOk(o))ADM.msg="지금 PIN이 맞지 않아요.";else if(!/^\d{4,8}$/.test(n))ADM.msg="새 PIN은 숫자 4~8자리로 정해 주세요.";else{S.pinH=pinHash(n);save();ADM.ok=true;ADM.msg="PIN을 바꿨어요."}keep()};
-  bindJoin();if(CREW.db){bindAdmin();bindCrewCommon(Object.keys(CREW.members))}
+  bindJoin();var rr=document.getElementById("rc-reg");if(rr)rr.onclick=function(){var out=document.getElementById("rc-res"),txt=document.getElementById("rc-in").value,codes=txt.match(/SUB3REC:[A-Za-z0-9+\/=]+/g)||[];
+    if(!codes.length){out.style.color="var(--bad)";out.textContent="코드를 찾지 못했어요.";return}if(!CREW.db){out.style.color="var(--bad)";out.textContent="크루 정보를 아직 불러오지 못했어요.";return}
+    var ok=[],bad=0;codes.forEach(function(c){var r=parseRecCode(c);if(!r){bad++;return}if(banned(r.id)){bad++;return}ok.push(r);CREW.db.doc("members/"+r.id).set(r.doc).catch(function(){out.style.color="var(--bad)";out.textContent="저장하지 못했어요. 다시 시도해 주세요."})});
+    out.style.color=ok.length?"var(--ok)":"var(--bad)";out.textContent=ok.length?ok.map(function(r){return r.doc.nick+"("+Object.keys(r.doc.d).length+"일)"}).join(", ")+" 등록했어요"+(bad?" · "+bad+"개는 읽지 못했어요":""):"코드를 읽지 못했어요.";if(ok.length)document.getElementById("rc-in").value=""};
+  if(CREW.db){bindAdmin();bindCrewCommon(Object.keys(CREW.members))}
 }
 // join requests: emails the owner collects (kept in the owner's private data only)
 function joinCard(){var L=S.joinReq||[];
@@ -3224,6 +3242,7 @@ function bindJoin(){var f=document.getElementById("jr-f");if(!f)return;
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7)));
   var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"보기 전용":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
+  if(CREW.editor&&!CREW.owner)h+='<div class="warn" style="font-size:13px"><b>✏️ 편집 권한이 있는 핵심 멤버예요.</b> 앱을 고치거나 다시 게시하지 마세요. Claude에게 이 앱 수정을 요청하면 모든 크루원의 앱이 바뀌어요.</div>';
   if(CREW.full)h+='<div class="warn">크루 정원(<b>'+CREW_MAX+'명</b>)이 가득 차서 내 훈련 현황을 공유할 수 없어요. 개인 훈련 기록은 그대로 쓸 수 있어요. 자리가 나면 자동으로 공유돼요.</div>';
   h+=profCard()+'<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크를 보내면 받은 사람이 자기 claude.ai 계정으로 로그인해 바로 참여해요. 기록 저장·크루 공유는 관리자와 같은 claude.ai 조직(팀) 계정만 돼요.</p>'+inviteLink()+'</div>';
   if(!CREW.db){
@@ -3244,7 +3263,7 @@ function vCrew(){
     h+='<div class="feed">';
     if(!posts.length)h+='<div class="card"><p class="small muted" style="margin:0">아직 완료한 훈련이 없어요. 훈련을 체크하면 크루 피드에 올라가고, 서로 좋아요와 댓글로 응원할 수 있어요.</p></div>';
     posts.forEach(function(x){var k=x.id+"_"+ymd(x.ds),liked=!!myS().likes[k],n=likesOf(k),cs=cmtsOf(k),op=CREW.cOpen===k;
-      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+(x.ex?' 추가 러닝':' 훈련 완료')+'</div></div><div class="pkm">'+rpeFace(((CREW.members[x.id]||{}).rp||{})[x.ds],"md")+' '+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
+      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me||isMeCode(x.id)?'<em class="me-tag" style="font-style:normal">나</em>':'')+codeTag(x.id)+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+(x.ex?' 추가 러닝':' 훈련 완료')+'</div></div><div class="pkm">'+rpeFace(((CREW.members[x.id]||{}).rp||{})[x.ds],"md")+' '+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
       var chs=cs.filter(function(c){return CHEERS.indexOf(c.t)>=0});cs=cs.filter(function(c){return CHEERS.indexOf(c.t)<0});
       var mm=CREW.members[x.id]||{},own=mm.pm==="mine";
       h+='<div class="pb">'+(x.ex?'휴식일 추가 러닝':own?'📋 나만의 계획'+(mm.pn?' · '+esc(mm.pn):''):esc(x.t[1].split("\n").slice(0,3).join(" · ")))+'</div>';
@@ -3269,7 +3288,7 @@ function vCrew(){
   var rows=ids.map(function(id){return{id:id,m:CREW.members[id],s:memStats(CREW.members[id],w)}});
   rows.sort(function(a,b){return (b.s.done-a.s.done)||(b.s.km-a.s.km)||((b.s.rate||0)-(a.s.rate||0))});
   rows.forEach(function(r){var me=r.id===CREW.me,open=CREW.open===r.id;
-    h+='<div class="mem"><button data-mem="'+esc(r.id)+'" aria-expanded="'+open+'">'+avatar(r.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.id))+'</span>'+(me?'<em class="me-tag" style="font-style:normal">나</em>':'')+'</div><div class="dots">'+r.s.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")+'</div><div class="small muted">'+(r.m.bio?esc(r.m.bio)+' · ':'')+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'누적 이행 '+(r.s.rate==null?'-':r.s.rate+'%')+'</div></div><div class="mstat"><b>'+r.s.done+'/'+r.s.n+'</b>'+r.s.km+'km/'+W[w].km+'K</div></button>';
+    h+='<div class="mem"><button data-mem="'+esc(r.id)+'" aria-expanded="'+open+'">'+avatar(r.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(r.id))+'</span>'+(me||isMeCode(r.id)?'<em class="me-tag" style="font-style:normal">나</em>':'')+codeTag(r.id)+'</div><div class="dots">'+r.s.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")+'</div><div class="small muted">'+(r.m.bio?esc(r.m.bio)+' · ':'')+(r.m.goal?'목표 '+esc(r.m.goal)+' · ':'')+'누적 이행 '+(r.s.rate==null?'-':r.s.rate+'%')+'</div></div><div class="mstat"><b>'+r.s.done+'/'+r.s.n+'</b>'+r.s.km+'km/'+W[w].km+'K</div></button>';
     if(open){h+='<div class="grid16"><span></span>'+DOW.map(function(x){return '<span style="text-align:center">'+x+'</span>'}).join("");
       for(var wi=0;wi<W.length;wi++){var st=memStats(r.m,wi);h+='<span class="num">'+wn(wi)+'</span>'+st.dots.map(function(c){return '<i class="'+c+'"></i>'}).join("")}
       var all=memStats(r.m,0);h+='</div><div class="small muted" style="margin-top:8px">지금까지 '+all.dn+'/'+all.tot+'회 완료'+(r.m.upd?' · '+new Date(r.m.upd).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' 업데이트':'')+'</div>'}
@@ -3283,12 +3302,20 @@ function vCrew(){
 function bindCrewCommon(ids){
   view.querySelectorAll("[data-cv]").forEach(function(b){b.onclick=function(){CREW.view=b.dataset.cv;keep()}});
 }
+function codeCard(){var reg=CREW.members&&S.codeId&&CREW.members["code_"+S.codeId];
+  var h='<div class="card" id="rec-code"><h2>기록 코드로 공유</h2><p class="small muted" style="margin:4px 0 10px">이 계정은 크루에 바로 저장할 수 없어요. <b>기록 코드</b>를 크루장에게 보내면 크루 피드에 올라가요. 일주일에 한 번쯤 보내 주세요.</p>';
+  if(!S.nick)h+='<p class="small" style="margin:0 0 8px;color:var(--bad)">먼저 위에서 닉네임을 정해 주세요.</p>';
+  h+='<button class="btn" id="rc-copy" type="button" style="width:100%;background:var(--accent);color:#fff"'+(S.nick?'':' disabled')+'>내 기록 코드 복사</button><p class="small muted" data-rc-msg style="margin:6px 0 0">'+(reg?'크루에 등록됨 · '+agoT(reg.upd)+' 기록 기준':'아직 크루에 등록되지 않았어요.')+'</p></div>';
+  return h}
 function profCard(){
-  if(AUTH.st==="anon"||AUTH.st==="view")return '<div class="card"><h2>크루에 참여하려면</h2><p class="small muted" style="margin:6px 0 0">'+(AUTH.st==="anon"?'claude.ai에 로그인한 뒤 이 링크를 다시 열어 주세요. 로그인하면 닉네임을 정하고 크루와 훈련 현황을 공유할 수 있어요.</p><div class="row" style="margin-top:10px"><a class="btn" href="https://claude.ai/login" target="_blank" rel="noopener" style="text-decoration:none">claude.ai 로그인</a></div>':'이 계정은 관리자와 다른 claude.ai 조직이라 크루 기능을 쓸 수 없어요. 크루 현황은 볼 수 있지만 공유·좋아요·댓글은 저장되지 않아요. 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</p>')+'</div>';
+  if(AUTH.st==="view")return profEdit(true)+codeCard();
+  if(AUTH.st==="anon")return '<div class="card"><h2>크루에 참여하려면</h2><p class="small muted" style="margin:6px 0 0">'+(AUTH.st==="anon"?'claude.ai에 로그인한 뒤 이 링크를 다시 열어 주세요. 로그인하면 닉네임을 정하고 크루와 훈련 현황을 공유할 수 있어요.</p><div class="row" style="margin-top:10px"><a class="btn" href="https://claude.ai/login" target="_blank" rel="noopener" style="text-decoration:none">claude.ai 로그인</a></div>':'이 계정은 관리자와 다른 claude.ai 조직이라 크루 기능을 쓸 수 없어요. 크루 현황은 볼 수 있지만 공유·좋아요·댓글은 저장되지 않아요. 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</p>')+'</div>';
+  return profEdit(false)}
+function profEdit(local){
   var editing=!S.nick||CREW.editP,h='<div class="card" id="prof">';
   if(!editing){
     h+='<h2>내 프로필</h2><div class="prof" style="margin-top:10px">'+avatar(CREW.me||"me",true)+'<div style="min-width:0"><b>'+esc(S.nick)+'</b><div class="small muted">'+(S.bio?esc(S.bio):'한마디를 남겨 보세요')+'</div></div><button class="btn ghost" id="p-edit">수정</button></div>';
-    h+='<label class="tog"><input type="checkbox" id="share-tog"'+(S.share!==false?' checked':'')+'><span>내 훈련 현황 공유</span></label><p class="small muted" style="margin:6px 0 0">닉네임과 완료한 날짜·거리만 공유돼요. claude.ai 이름·사진, 메모·심박·체중은 공유되지 않아요.</p></div>';
+    if(!local)h+='<label class="tog"><input type="checkbox" id="share-tog"'+(S.share!==false?' checked':'')+'><span>내 훈련 현황 공유</span></label><p class="small muted" style="margin:6px 0 0">닉네임과 완료한 날짜·거리만 공유돼요. claude.ai 이름·사진, 메모·심박·체중은 공유되지 않아요.</p></div>';else h+='</div>';
     return h;
   }
   var dup=false,nn=(CREW.draft&&CREW.draft.nick!=null?CREW.draft.nick:S.nick);for(var u in CREW.members){if(u!==CREW.me&&CREW.members[u].nick&&nn&&CREW.members[u].nick.trim()===nn.trim())dup=true}
@@ -3302,7 +3329,8 @@ function profCard(){
   return h+'</div>';
 }
 function bindShare(){
-  bindCopy();var ih=document.getElementById("inv-how");if(ih)ih.onclick=function(){WMANUAL="invite";WSTEP=0;tab="welcome";render();window.scrollTo(0,0)};
+  bindCopy();var rc=document.getElementById("rc-copy");if(rc)rc.onclick=function(){var code=recCode(),msg=view.querySelector("[data-rc-msg]");var txt="🏃 "+S.nick+" 기록 코드 (크루장님 등록 부탁해요)\n"+code;
+    copyText(txt,function(){if(msg)msg.textContent="복사했어요. 카톡으로 크루장에게 보내 주세요."},function(){if(msg)msg.textContent="자동 복사가 막혔어요. 아래 코드를 길게 눌러 복사해 주세요.";var ta=document.createElement("textarea");ta.className="inp";ta.readOnly=true;ta.value=txt;ta.style.cssText="width:100%;height:80px;margin-top:6px;font-size:12px";rc.parentNode.appendChild(ta);ta.select()})};var ih=document.getElementById("inv-how");if(ih)ih.onclick=function(){WMANUAL="invite";WSTEP=0;tab="welcome";render();window.scrollTo(0,0)};
   var t=document.getElementById("share-tog");if(t)t.onchange=function(){S.share=t.checked;save();pushShare(true);keep()};
   var e=document.getElementById("p-edit");if(e)e.onclick=function(){CREW.editP=true;CREW.draft={};keep()};
   var c=document.getElementById("pf-cancel");if(c)c.onclick=function(){CREW.editP=false;CREW.draft=null;keep()};
@@ -3342,7 +3370,7 @@ var APP_URL="https://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ";
 function inviteMsg(){
   var cn=(CREW.settings&&CREW.settings.name)||"서브3 훈련 크루";
   return ["🏃 "+cn+"에 초대해요!","2027.3.21 서울마라톤까지 같은 18주 훈련표로 매일 체크하고 서로 응원해요.","",
-    "[가입 방법]","1. claude.ai 로그인 이메일을 저에게 알려 주세요","2. 초대 메일이 오면 열어서 로그인해요","3. 크루 탭에서 닉네임을 정하면 끝!","",
+    "[가입 방법]","1. claude.ai 로그인 이메일을 저에게 알려 주세요","2. 초대 메일이 오면 열어서 로그인해요","3. 크루 탭에서 닉네임을 정하면 끝!","","초대 없이 링크로 들어왔다면: 크루 탭 → 닉네임 → '내 기록 코드 복사'를 저에게 보내 주세요.","",
     "👉 앱: "+APP_URL].join("\n")}
 function inviteLink(){return '<div class="linkbox"><input class="inp" id="inv-url" readonly value="'+APP_URL+'" aria-label="앱 링크"><button class="btn" type="button" data-copy-link>링크 복사</button></div><button class="btn" type="button" data-copy-inv style="width:100%;margin-top:8px;background:var(--accent);color:#fff">초대 메시지 복사 (카톡에 붙여 넣기)</button><details class="invprev"><summary class="small muted">보낼 메시지 미리 보기</summary><textarea class="inp" readonly rows="12" style="font-size:13px;margin-top:6px">'+esc(inviteMsg())+'</textarea></details><div class="small muted" data-copy-msg style="margin-top:6px"></div>'}
 function bindCopy(){view.querySelectorAll("[data-copy-inv]").forEach(function(b){b.onclick=function(){var msg=b.parentNode.querySelector("[data-copy-msg]");copyText(inviteMsg(),function(){if(msg)msg.textContent="초대 메시지를 복사했어요. 카톡·문자에 붙여 넣어 보내세요."},function(){var d=b.parentNode.querySelector("details.invprev");if(d){d.open=true;var ta=d.querySelector("textarea");ta.focus();ta.select()}if(msg)msg.textContent="자동 복사가 막혔어요. 미리 보기 글을 길게 눌러 복사하세요."})}});
