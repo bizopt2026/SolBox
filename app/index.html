@@ -1186,7 +1186,7 @@ function stripSum(today){
   if(rwd)c.push('<span title="훈련 때 날씨">'+(rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'🌤')+' <b class="num">'+Math.round(rwd.w.t)+'°</b>':'🌤 <span class="muted">기록 없음</span>')+'</span>');
   else c.push('<span>🌤 '+(!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
   var R=readiness(today?T:sel);
-  c.push('<span>❤️ '+(R.has?'<b style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</b>':'<span class="muted">기록</span>')+'</span>');
+  c.push('<span>❤️ '+(R.has?'<b style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</b>':'<span class="muted">대기</span>')+'</span>');
   return '<button class="ssum" data-strip aria-expanded="false" aria-label="목표·워치·날씨·컨디션 자세히 보기">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
 }
 function goalRow(alone){
