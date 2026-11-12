@@ -118,17 +118,17 @@ details.more[open]{padding-bottom:10px}
 .wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
 .bk.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
-.went{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
-.went-top{display:flex;justify-content:space-between;align-items:center}
-.went-l{font-size:13px;font-weight:700}
-.went-row{display:flex;gap:8px;margin-top:8px;align-items:stretch}
-.wstep{flex:1;display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;min-width:0}
-.wstep button{border:0;background:none;width:44px;height:46px;font-size:22px;font-weight:600;color:var(--muted);flex:none}
+.went{margin-top:8px}
+.went-row{display:flex;gap:6px;align-items:center}
+.went-l{font-size:12px;font-weight:700;color:var(--muted);flex:none;display:flex;flex-direction:column;line-height:1.15}
+.went-l small{font-size:10px;font-weight:600}
+.wstep{flex:1;display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden;min-width:0;height:34px}
+.wstep button{border:0;background:none;width:32px;height:34px;font-size:17px;font-weight:600;color:var(--muted);flex:none}
 .wstep button:active{background:var(--accent-soft);color:var(--accent)}
-.wstep input{flex:1;min-width:0;border:0;background:none;text-align:right;font-family:var(--f-display);font-weight:800;font-size:24px;color:var(--ink);padding:0;outline:none}
-.wstep em{font-style:normal;color:var(--muted);font-size:14px;margin:0 6px 0 4px;font-weight:600}
-.btn.went-go{background:var(--accent);color:#fff;padding:0 20px;border-radius:12px;font-size:15px}
-.went .wwhen{margin-top:6px}
+.wstep input{flex:1;min-width:0;border:0;background:none;text-align:right;font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--ink);padding:0;outline:none}
+.wstep em{font-style:normal;color:var(--muted);font-size:12px;margin:0 4px 0 3px;font-weight:600}
+.btn.went-go{background:var(--accent);color:#fff;padding:0 14px;border-radius:10px;font-size:13px;height:34px;min-height:34px;flex:none}
+.went .wwhen{margin-top:4px}
 .blist{display:grid;gap:0;margin-top:8px}
 .blist>div{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
 .blist b small{font-size:11px;color:var(--muted);font-weight:500}
@@ -2365,7 +2365,13 @@ function dietWeeks(){var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var
 function bodyKpis(ld){
   var g=S.wgoal&&S.wgoal.target,r=lastOf(S.rhr),hv=lastOf(S.hrv),dw=dietWeeks(),dl=dw.length?dw[dw.length-1]:null;
   function t(id,lb,v,u,sub,col){return '<button class="bk'+(BODYV===id?' on':'')+'" data-bk="'+id+'" aria-pressed="'+(BODYV===id)+'"><span>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span>'+sub+'</span></button>'}
-  return '<div class="bkgrid">'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미정'))+t("rhr","안정시 심박",r||"—","bpm",r?'최근 아침':'기록 없음')+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'기록 없음')+t("diet","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'기록 없음',dl?SCOL[band(dl[1])]:null)+'</div>'}
+  var wc=null,rc=null,hc=null,rs='최근 아침';
+  if(ld){var wp=wtPlan(),st=null;for(var i=1;i<wp.length;i++)if(wp[i][0]>=T){st=wp[i];break}
+    var ov=st?ld.avg-st[2]:(g?ld.avg-g:null);if(ov!=null)wc=SCOL[ov<=0?5:ov<=0.5?4:ov<=1?3:ov<=2?2:1]}
+  if(r){var rk=Object.keys(S.rhr||{}).sort().slice(-15,-1),ra=0;rk.forEach(function(d){ra+=S.rhr[d]});
+    if(rk.length>=3){ra=ra/rk.length;var df=Math.round(r-ra);rc=SCOL[df<=0?5:df<=1?4:df<=2?3:df<=4?2:1];rs='평소 '+(df>0?'+':'')+df}}
+  if(hv&&hv.avg){if(hv.lo)hc=SCOL[hv.avg>=hv.lo?5:hv.avg>=hv.lo*0.95?3:1];else if(hv.ev)hc=SCOL[/Low|Poor/.test(hv.ev)?2:/Unbalanced/.test(hv.ev)?3:5]}
+  return '<div class="bkgrid">'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미정'),wc)+t("rhr","안정시 심박",r||"—","bpm",r?rs:'기록 없음',rc)+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'기록 없음',hc)+t("diet","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'기록 없음',dl?SCOL[band(dl[1])]:null)+'</div>'}
 function bodyTrends(){
   var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
@@ -2398,8 +2404,8 @@ function vLog(){
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var h='<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
   var tdn=(S.wlog[T]||[]).length,nowD=new Date();
-  h+='<div class="went"><form id="wf" class="went-f"><div class="went-top"><span class="went-l">⚖️ 오늘 체중'+(tdn?' <span class="small muted">· 오늘 '+tdn+'회 기록</span>':'')+'</span></div><div class="went-row"><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></div></form>';
-  h+='<details class="wwhen"><summary class="small muted">📅 '+md(T)+' '+hhmm(nowD.getTime())+' 기록 · 날짜·시간 바꾸기</summary><div class="row" style="gap:6px;margin-top:6px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px"></div></details>';h+='</div>';
+  h+='<div class="went"><form id="wf" class="went-row"><span class="went-l">오늘'+(tdn?'<small>'+tdn+'회</small>':'')+'</span><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></form>';
+  h+='<details class="wwhen"><summary class="small muted">'+md(T)+' '+hhmm(nowD.getTime())+' · 변경</summary><div class="row" style="gap:6px;margin-top:4px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"></div></details>';h+='</div>';
   h+=(ld?'':'<div class="small muted" style="margin-top:2px">아침 공복 체중을 기록해 보세요</div>')+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   h+='<div class="wlist" style="margin-top:6px">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
