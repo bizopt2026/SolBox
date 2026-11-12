@@ -117,6 +117,10 @@ details.more[open]{padding-bottom:10px}
 .wxres{display:grid;gap:6px;margin-top:8px}
 .wxpick.rec{border-color:var(--ok)}
 .wxpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
+.bk.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.blist{display:grid;gap:0;margin-top:8px}
+.blist>div{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.blist b small{font-size:11px;color:var(--muted);font-weight:500}
 .bkgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .bk{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:1px;padding:10px 8px;border:1px solid var(--line);border-radius:12px;background:var(--card);min-width:0}
 .bk>span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1383,12 +1387,10 @@ function enhance(){
     foldCard(findCard("크루 정보"),"c-info",(CREW.settings&&CREW.settings.name)||"이름·공지",false);
     foldCard(findCard("제외한 크루원"),"c-banned","",false);
   } else if(tab==="log"){
-    var wc=findCard("체중");
-    if(wc){var dl=wc.querySelector("dl.kv"),gl=wc.querySelector("#wg-save");
-      if(dl&&gl){var gdiv=gl.closest("div[style*='border-top']")||gl.parentNode.parentNode,sec=document.createElement("section");sec.className="card";
-        sec.innerHTML='<h2>체중 목표 · 단계별 체중</h2>';sec.appendChild(dl);dl.style.marginTop="10px";if(gdiv)sec.appendChild(gdiv);wc.parentNode.insertBefore(sec,wc.nextSibling);
-        var g=S.wgoal;foldCard(sec,"w-goal",g&&g.target?g.start+" → "+g.target+"kg":"목표 체중 정하기",!(g&&g.target))}
-      var rows=wc.querySelectorAll(".wlist>div");if(rows.length>3){var more=Array.prototype.slice.call(rows,3),mb=document.createElement("button");mb.type="button";mb.className="ifold-h";mb.style.marginTop="6px";
+    var gsc=document.getElementById("wgoal"),g=S.wgoal,lw=wDays().slice(-1)[0],lv=lw?wDay(lw).avg:null;
+    foldCard(gsc,"w-goal",g&&g.target?(lv?lv+" → "+g.target+"kg"+(lv>g.target?" · −"+(Math.round((lv-g.target)*10)/10):" · 달성"):g.start+" → "+g.target+"kg"):"목표 체중 정하기",!(g&&g.target));
+    var wc=document.getElementById("wcard");
+    if(wc){var rows=wc.querySelectorAll(".wlist>div");if(rows.length>3){var more=Array.prototype.slice.call(rows,3),mb=document.createElement("button");mb.type="button";mb.className="ifold-h";mb.style.marginTop="6px";
         var showAll=foldOpen("w-all",false);function setM(o){more.forEach(function(x){x.hidden=!o});mb.firstChild.textContent=o?"최근 3일만 보기":"지난 기록 "+more.length+"일 더 보기";mb.setAttribute("aria-expanded",o?"true":"false")}
         mb.appendChild(document.createElement("span"));var c2=document.createElement("span");c2.className="chev";mb.appendChild(c2);rows[0].parentNode.parentNode.insertBefore(mb,rows[0].parentNode.nextSibling);setM(showAll);mb.onclick=function(){showAll=!showAll;setM(showAll);foldSet("w-all",showAll)}}}
   } else if(tab==="guide"){
@@ -2349,8 +2351,8 @@ function lastOf(o){var ks=Object.keys(o||{}).sort();return ks.length?o[ks[ks.len
 function dietWeeks(){var rows=[];for(var w=0;w<W.length;w++){var a=0,n=0;for(var d=0;d<7;d++){var ds=dateOf(w,d);if(ds>T)break;var ms=mealScore(ds,d);if(ms&&!ms.live){a+=ms.s;n++}}if(n)rows.push([w,Math.round(a/n),n])}return rows.slice(-4)}
 function bodyKpis(ld){
   var g=S.wgoal&&S.wgoal.target,r=lastOf(S.rhr),hv=lastOf(S.hrv),dw=dietWeeks(),dl=dw.length?dw[dw.length-1]:null;
-  function t(id,lb,v,u,sub,col){return '<button class="bk" data-bk="'+id+'"><span>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span>'+sub+'</span></button>'}
-  return '<div class="bkgrid">'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미정'))+t("tr","안정시 심박",r||"—","bpm",r?'최근 아침':'기록 없음')+t("tr","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'기록 없음')+t("tr","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'기록 없음',dl?SCOL[band(dl[1])]:null)+'</div>'}
+  function t(id,lb,v,u,sub,col){return '<button class="bk'+(BODYV===id?' on':'')+'" data-bk="'+id+'" aria-pressed="'+(BODYV===id)+'"><span>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span>'+sub+'</span></button>'}
+  return '<div class="bkgrid">'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미정'))+t("rhr","안정시 심박",r||"—","bpm",r?'최근 아침':'기록 없음')+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'기록 없음')+t("diet","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'기록 없음',dl?SCOL[band(dl[1])]:null)+'</div>'}
 function bodyTrends(){
   var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
@@ -2359,10 +2361,29 @@ function bodyTrends(){
   h+='<div class="small" style="font-weight:700;margin-top:10px">주간 식단 점수</div>'+(rows.length?'<div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:4px 0 0">오늘 화면에서 식단을 기록하면 주간 평균을 보여 줘요.</p>');
   if(S.watch!=="coros")h+='<p class="small muted" style="margin:8px 0 0">안정시 심박·HRV는 COROS 연동 시 자동으로, 아니면 오늘 화면의 훈련 전 컨디션에서 적은 값으로 쌓여요.</p>';
   return h+'</div>'}
+var BODYV="wt";
+function bodyPanel(k){
+  if(k==="rhr"){var ks=Object.keys(S.rhr||{}).sort(),last=ks.slice(-7).reverse(),avg=0;ks.slice(-14).forEach(function(d){avg+=S.rhr[d]});avg=ks.length?Math.round(avg/Math.min(14,ks.length)):0;
+    var h='<div class="card"><div class="row between"><h2>안정시 심박</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>'+trendSvg(S.rhr||{},'bpm','var(--accent)');
+    if(last.length)h+='<div class="blist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0;return '<div><span class="num">'+md(d)+'</span><b class="num">'+v+'<small> bpm</small></b><span class="small" style="color:'+(df>=3?'var(--bad)':df<=-2?'var(--ok)':'var(--muted)')+'">'+(df>0?'+':'')+df+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.</p>';
+    else h+='<p class="small muted" style="margin:6px 0 0">아직 기록이 없어요. COROS를 연동하거나 오늘 화면의 훈련 전 컨디션에서 아침 심박을 적어 주세요.</p>';
+    return h+'</div>'}
+  if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
+    var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
+    var h2='<div class="card"><div class="row between"><h2>수면 HRV</h2><span class="small muted">'+(hb&&hb.lo?'정상 범위 '+hb.lo+'~'+hb.hi+'ms':'')+'</span></div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi);
+    if(ks2.length)h2+='<div class="blist">'+ks2.map(function(d){var x=S.hrv[d];return '<div><span class="num">'+md(d)+'</span><b class="num">'+x.avg+'<small> ms</small></b><span class="small" style="color:'+(/Low|Poor|Unbalanced/.test(x.ev)?'var(--bad)':'var(--muted)')+'">'+esc(EV[x.ev]||x.ev||"")+'</span></div>'}).join("")+'</div><p class="small muted" style="margin:6px 0 0">음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.</p>';
+    else h2+='<p class="small muted" style="margin:6px 0 0">아직 기록이 없어요. COROS를 연동하면 매일 아침 불러와요.</p>';
+    return h2+'</div>'}
+  // diet
+  var rows=dietWeeks(),h3='<div class="card"><h2>식단 점수</h2>';
+  h3+=rows.length?'<div class="small" style="font-weight:700;margin-top:8px">주간 평균</div><div class="wdiet">'+rows.map(function(r){return '<div><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'';
+  var days=[];for(var i=0;i<14;i++){var ds=addDays(T,-i),ix=idxOf(ds);var ms=ix>=0?mealScore(ds,ix%7):null;if(ms)days.push([ds,ms])}
+  h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':'<p class="small muted" style="margin:6px 0 0">오늘 화면의 식단 기록에서 사진이나 글로 식사를 남기면 점수를 매겨요.</p>';
+  return h3+'</div>'}
 function vLog(){
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
-  var h=bodyKpis(ld)+'<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
+  var h='<div class="card wcard" id="wcard"><div class="row between"><h2>체중</h2><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
   h+=(ld?'':'<div class="small muted" style="margin-top:2px">아침 공복 체중을 기록해 보세요</div>')+chart();
   h+='<div class="small muted" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 8px;font-size:11.5px"><span><span style="color:var(--q)">┅</span> 목표</span><span><span style="color:var(--accent)">●</span> 하루 평균</span><span><span style="display:inline-block;width:6px;height:10px;border-radius:3px;background:var(--accent);opacity:.3;vertical-align:-1px"></span> 최소~최대</span>'+(S.watch==="coros"?'<span>⌚ COROS 체중 자동</span>':'')+'</div>';
   var nowD=new Date();
@@ -2372,15 +2393,15 @@ function vLog(){
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px"><span class="muted num">'+hhmm(x.t)+' · '+esc(x.src||"직접")+'</span><span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
-  h+='<dl class="kv small" style="margin-top:12px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</div>';
-  h+=bodyTrends();
+  var gsec='<section class="card" id="wgoal"><h2>체중 목표 · 단계별 체중</h2><dl class="kv small" style="margin-top:10px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</section>';h+='</div>';
+  var wch=h;h=gsec+bodyKpis(ld)+(BODYV==="wt"?wch:bodyPanel(BODYV));
   view.innerHTML=h;
-  document.getElementById("wf").onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
+  var wfm=document.getElementById("wf");if(wfm)wfm.onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
   var wgs=document.getElementById("wg-save");if(wgs)wgs.onclick=function(){var a=numv(document.getElementById("wg-start").value)||Math.round(bodyW()*10)/10,b=numv(document.getElementById("wg-target").value),m=document.getElementById("wg-msg");
     if(!(a>=30&&a<=200)){m.textContent="현재 체중을 넣어 주세요.";return}if(!(b>=30&&b<=200)){m.textContent="목표 체중을 넣어 주세요.";return}
     S.wgoal={start:Math.round(a*10)/10,target:Math.round(b*10)/10,date:T};save();keepIf()};
   var wgc=document.getElementById("wg-clear");if(wgc)wgc.onclick=function(){S.wgoal=null;save();keepIf()};
-  view.querySelectorAll("[data-bk]").forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.bk==="wt"?"wcard":"bt");if(el)el.scrollIntoView({block:"start",behavior:"smooth"})}});
+  view.querySelectorAll("[data-bk]").forEach(function(b){b.onclick=function(){BODYV=b.dataset.bk;var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-wz]").forEach(function(b){b.onclick=function(){WZ=b.dataset.wz;keepIf()}});
   view.querySelectorAll("[data-wopen]").forEach(function(b){b.onclick=function(){WOPEN=WOPEN===b.dataset.wopen?null:b.dataset.wopen;keepIf()}});
   view.querySelectorAll("[data-wdel]").forEach(function(b){b.onclick=function(){var pr=b.dataset.wdel.split("|"),k=pr[0],t=+pr[1];S.wlog[k]=(S.wlog[k]||[]).filter(function(x){return x.t!==t});if(!S.wlog[k].length)delete S.wlog[k];save();keepIf()}});
@@ -3129,7 +3150,7 @@ function vGuide(){
 }
 
 (function(){var f=document.getElementById("fab");if(f)f.onclick=function(){tab="coach";render()}})();
-document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;render();window.scrollTo(0,0)}});
+document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
 (function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>lastY+4||(y>200&&y>=lastY));lastY=y;tick=false})},{passive:true})})();
 var hq=document.getElementById("h-guide");if(hq)hq.onclick=function(){tab="guide";render();window.scrollTo(0,0)};
 render();
