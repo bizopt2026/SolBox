@@ -177,6 +177,12 @@ input[type=date]::-webkit-calendar-picker-indicator{margin:0}
 .rleg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .rseg{display:grid;gap:8px}
 .rseg>div{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
+.rcp{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px}
+.rcase{border-left:3px solid var(--line);padding:2px 0 2px 8px;margin-top:6px}
+.rcase>span{font-size:12px;font-weight:700}
+.rcase.k0{border-color:var(--s5)}.rcase.k0>span{color:var(--s5)}
+.rcase.k1{border-color:var(--ok)}.rcase.k1>span{color:var(--ok)}
+.rcase.k2{border-color:var(--bad)}.rcase.k2>span{color:var(--bad)}
 .rscore{display:flex;gap:14px;align-items:flex-start}
 .rscore>div:first-child{flex:none;width:86px;height:86px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;align-content:center;color:var(--accent)}
 .rscore>div:first-child b{font-family:var(--f-display);font-size:34px;line-height:1}
@@ -2279,17 +2285,24 @@ function raceCtx(rc){
   L.push("러너: 역치 심박 "+(pf.lthr||"미입력")+" · 역치 페이스 "+(pf.thr||"미입력")+(EG.curPred?" · 현재 마라톤 예상 "+fmtT(EG.curPred):"")+(EG.vdot?" · VDOT "+EG.vdot.toFixed(1):"")+" · 레이스 심박 상한 참고 "+HR(158)+"(하프 이후) / "+HR(162)+"(35km 이후)");
   return L.join("\n");
 }
+function raceCps(rc){var pl=racePlan(rc),D=rc.dist,pts=D>=40?[[21.0975,"하프"],[30,"30K"]]:D>=20?[[10,"10K"],[15,"15K"]]:D>=9?[[5,"5K"],[8,"8K"]]:[[D/2,"중간"]];
+  function at(d){var t=0;for(var i=0;i<pl.segs.length;i++){var sg=pl.segs[i],a=sg.i,b=sg.i+sg.len/1000;if(d>=b){t=sg.cum;continue}return t+(d-a)*sg.p}return pl.finish}
+  return pts.map(function(x){var d=x[0],t=at(d),rem=pl.finish-t,lim=rc.goal-rem*0.98;return{at:x[1],d:d,plan:Math.round(t),fast:Math.round(t-Math.max(20,t*0.005)),lim:Math.round(lim),remKm:Math.round((D-d)*10)/10,remPace:(D-d)>0?rem/(D-d):0}})}
 async function raceAI(rc){
   RS.busy="ai";RS.err="";keepRace();
   try{var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;if(!sm){RS.err=AUTH.st==="anon"?"claude.ai에 로그인하면 AI 전략을 받을 수 있어요. 구간 페이스는 그대로 쓸 수 있어요.":"이 화면에서는 AI 전략을 만들 수 없어요.";return}
+    var cps=raceCps(rc);
     var prompt="너는 마라톤 코치야. 아래 대회 코스와 러너 정보로 목표 기록을 달성하기 위한 레이스 전략을 한국어로 짜 줘. km별 목표 페이스는 오르막·내리막을 반영해 같은 힘으로 달리도록 이미 계산돼 있어. 그 숫자를 바탕으로 구간을 4~7개로 나눠 운영법을 설명해.\n\n"+raceCtx(rc)+
+      "\n\n[통과 시간 체크포인트 · 공식 표지판 기준]\n"+cps.map(function(c){return c.at+": 계획 통과 "+fmtT(c.plan)+" · 이보다 빠르면 과속 기준 "+fmtT(c.fast)+" 이전 · 목표 가능 한계 "+fmtT(c.lim)+" (이후 남은 "+c.remKm+"km를 계획보다 2% 빠르게 달려야 함) · 남은 구간 계획 평균 "+fmtMS(c.remPace)+"/km"}).join("\n")+
+      "\n각 체크포인트마다 통과 시간 3가지 상황(① 과속 기준보다 빠름 ② 계획~한계 사이 ③ 한계보다 늦음)별로 남은 구간 페이스·심박·보급·목표 조정을 구체적인 숫자로 정해 줘. ③에서는 현실적인 대안 목표(예: 몇 분 늦춘 기록)와 무너지지 않는 페이스를 제시해."+
       "\n\n규칙: 초반 과속 금지, 오르막은 페이스 대신 노력(심박·호흡)을 유지, 내리막은 보폭을 짧게 하고 과하게 당기지 않기, 시계 거리는 길게 찍히니 공식 km 표지판 기준. 보급은 시간당 탄수화물 60~90g. 짧고 구체적으로, 존댓말 '~해요'체.\n"+
-      "JSON만 답해: {\"summary\":\"전체 전략 2~3문장\",\"segments\":[{\"range\":\"0~5km\",\"pace\":\"4:17~4:19\",\"tip\":\"이 구간 운영법 1~2문장\"}],\"keys\":[\"꼭 지킬 것 3~5개\"],\"fuel\":[\"보급 계획 2~4개\"],\"warn\":[\"이 코스에서 조심할 점 2~3개\"]}";
+      "JSON만 답해: {\"summary\":\"전체 전략 2~3문장\",\"segments\":[{\"range\":\"0~5km\",\"pace\":\"4:17~4:19\",\"tip\":\"이 구간 운영법 1~2문장\"}],\"keys\":[\"꼭 지킬 것 3~5개\"],\"fuel\":[\"보급 계획 2~4개\"],\"warn\":[\"이 코스에서 조심할 점 2~3개\"],\"checkpoints\":[{\"at\":\"하프\",\"plan\":\"1:29:40\",\"cases\":[{\"when\":\"1:29:10 이전 (빠름)\",\"do\":\"대응 1~2문장, 남은 구간 페이스 숫자 포함\"},{\"when\":\"1:29:10~1:31:00\",\"do\":\"...\"},{\"when\":\"1:31:00 이후\",\"do\":\"...\"}]}]}";
     var out=await sm.json(prompt,{modelTier:"default"});
     function arr(a,n,m){return (Array.isArray(a)?a:[]).filter(function(x){return typeof x==="string"&&x.trim()}).slice(0,n).map(function(x){return x.trim().slice(0,m)})}
     var segs=(Array.isArray(out&&out.segments)?out.segments:[]).filter(function(s){return s&&s.range&&s.tip}).slice(0,8).map(function(s){return{range:String(s.range).slice(0,20),pace:String(s.pace||"").slice(0,20),tip:String(s.tip).slice(0,220)}});
     if(!segs.length&&!out.summary)throw{code:"invalid_json"};
-    rc.ai={summary:String(out.summary||"").slice(0,400),segments:segs,keys:arr(out.keys,5,160),fuel:arr(out.fuel,4,160),warn:arr(out.warn,3,160),at:Date.now(),goal:rc.goal};save();
+    var cpo=(Array.isArray(out&&out.checkpoints)?out.checkpoints:[]).filter(function(c){return c&&c.at&&Array.isArray(c.cases)}).slice(0,3).map(function(c,i){var ref=cps[i]||{};return{at:String(c.at).slice(0,12),plan:String(c.plan||(ref.plan?fmtT(ref.plan):"")).slice(0,12),cases:c.cases.filter(function(x){return x&&x.when&&x.do}).slice(0,4).map(function(x){return{when:String(x.when).slice(0,40),do:String(x.do).slice(0,240)}})}}).filter(function(c){return c.cases.length});
+    rc.ai={summary:String(out.summary||"").slice(0,400),segments:segs,keys:arr(out.keys,5,160),fuel:arr(out.fuel,4,160),warn:arr(out.warn,3,160),cps:cpo,at:Date.now(),goal:rc.goal};save();
   }catch(e){var c=e&&e.code;RS.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 전략을 받을 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 눌러 주세요.":c==="invalid_json"?"AI 답을 읽지 못했어요. 다시 만들어 주세요.":"AI 전략을 만들지 못했어요"+(e&&e.message?": "+e.message:".")}
   finally{RS.busy="";keepRace()}
 }
@@ -2309,6 +2322,7 @@ async function raceReview(rc,manualDur){
       "점수 "+res.score+"/100: "+res.parts.map(function(p){return p.k+" "+p.v+"/"+p.m+" ("+p.d+")"}).join("; ")];
     if(res.km)lines.push("km별 실제(번호|실제|목표|심박): "+res.km.map(function(v,k){var s=pl.segs[k];return (k+1)+"|"+fmtMS(v)+"|"+(s?fmtMS(s.p):"-")+"|"+((res.kmhr&&res.kmhr[k])||"-")}).join(", "));
     if(rc.ai&&rc.ai.summary)lines.push("레이스 전 세운 전략: "+rc.ai.summary);
+    if(res.km){var cpr=raceCps(rc).map(function(c){var t=0;for(var k=0;k<Math.floor(c.d)&&k<res.km.length;k++)t+=res.km[k];var fr=c.d-Math.floor(c.d);if(fr&&res.km[Math.floor(c.d)])t+=res.km[Math.floor(c.d)]*fr;return c.at+" 실제 약 "+fmtT(t)+" (계획 "+fmtT(c.plan)+", 한계 "+fmtT(c.lim)+")"});lines.push("체크포인트 통과(시계 km 기준 추정): "+cpr.join("; "))}
     var dday=Math.round((p(RACE)-p(rc.date))/864e5);if(rc.date<RACE)lines.push("다음 목표 대회: 2027-03-21 서울마라톤 (이 대회 후 "+dday+"일 뒤), 목표 "+(S.goal?fmtT(S.goal.sec):"2:59:59"));
     var prompt="너는 마라톤 코치야. 아래 대회 전략과 실제 기록을 비교해서 레이스를 평가해 줘. 점수는 앱이 계산했으니 바꾸지 말고, 왜 그 점수인지 근거와 함께 설명해. 숫자를 인용해 구체적으로, 존댓말 '~해요'체.\n\n"+lines.join("\n")+
       "\n\nJSON만 답해: {\"summary\":\"레이스 총평 2~3문장\",\"good\":[\"잘한 점 2~3개\"],\"bad\":[\"아쉬운 점 2~3개(어느 구간에서 왜)\"],\"next\":[\"다음 레이스에서 유의할 점 3~5개, 훈련·페이스·보급 포함\"]}";
@@ -2325,6 +2339,7 @@ function raceText(rc){
   if(rc.ai&&rc.ai.summary)L.push("",rc.ai.summary);
   L.push("","[구간별 목표]");blocks(pl,rc.dist).forEach(function(b){L.push(kmLbl(b.from)+"~"+kmLbl(b.to)+"km  "+fmtMS(b.p)+"/km  통과 "+fmtT(b.cum)+(rc.course&&rc.course.e&&(b.up||b.dn)?"  (↑"+b.up+" ↓"+b.dn+")":""))});
   if(rc.ai){if(rc.ai.segments.length){L.push("","[구간 운영]");rc.ai.segments.forEach(function(x){L.push("· "+x.range+(x.pace?" ("+x.pace+")":"")+": "+x.tip)})}
+    if(rc.ai.cps&&rc.ai.cps.length){L.push("","[통과 시간별 대응]");var cpv2=raceCps(rc);rc.ai.cps.forEach(function(c,i){var r=cpv2[i];L.push("◆ "+c.at+" 통과 (계획 "+(r?fmtT(r.plan)+" · 한계 "+fmtT(r.lim):c.plan)+")");c.cases.forEach(function(x){L.push("· "+x.when+": "+x.do)})})}
     [["keys","꼭 지킬 것"],["warn","조심할 점"],["fuel","보급"]].forEach(function(x){if(rc.ai[x[0]]&&rc.ai[x[0]].length){L.push("","["+x[1]+"]");rc.ai[x[0]].forEach(function(t){L.push("· "+t)})}})}
   var r=rc.result;if(r){L.push("","[결과] "+fmtT(r.dur)+" · "+r.score+"/100점");r.parts.forEach(function(q){L.push("· "+q.k+" "+q.v+"/"+q.m+" — "+q.d)});
     if(r.ai&&r.ai.next&&r.ai.next.length){L.push("","[다음 레이스 유의사항]");r.ai.next.forEach(function(t){L.push("· "+t)})}}
@@ -2390,6 +2405,9 @@ function raceDetail(rc){
   if(rc.ai){var a=rc.ai;if(a.goal&&a.goal!==rc.goal)h+='<div class="small" style="color:var(--bad);margin-bottom:6px">목표를 바꿨어요. 전략을 다시 만들면 새 목표에 맞춰요.</div>';
     if(a.summary)h+='<p class="small" style="margin:0 0 8px">'+esc(a.summary)+'</p>';
     if(a.segments.length)h+='<div class="rseg">'+a.segments.map(function(s){return '<div><div class="row between"><b>'+esc(s.range)+'</b><span class="num small" style="color:var(--accent);font-weight:700">'+esc(s.pace)+'</span></div><div class="small">'+esc(s.tip)+'</div></div>'}).join("")+'</div>';
+    var cpv=raceCps(rc);h+='<div class="small muted" style="margin:12px 0 4px;font-weight:700">통과 시간별 대응</div>';
+    if(a.cps&&a.cps.length)h+=a.cps.map(function(c,i){var r=cpv[i];return '<div class="rcp"><div class="row between"><b>'+esc(c.at)+' 통과</b><span class="small muted num">계획 '+(r?fmtT(r.plan):esc(c.plan))+(r?' · 한계 '+fmtT(r.lim):'')+'</span></div>'+c.cases.map(function(x,k){return '<div class="rcase k'+k+'"><span>'+esc(x.when)+'</span><div class="small">'+esc(x.do)+'</div></div>'}).join("")+'</div>'}).join("");
+    else h+='<div class="rcp"><div class="small muted">'+cpv.map(function(c){return '<b style="color:var(--ink)">'+c.at+'</b> 계획 '+fmtT(c.plan)+' · 한계 '+fmtT(c.lim)}).join('<br>')+'</div><div class="small" style="margin-top:4px">AI 전략을 다시 만들면 통과 시간별 대응이 추가돼요.</div></div>';
     [["keys","꼭 지킬 것"],["warn","이 코스에서 조심할 점"],["fuel","보급"]].forEach(function(x){if(a[x[0]]&&a[x[0]].length)h+='<div class="small muted" style="margin:10px 0 2px;font-weight:700">'+x[1]+'</div><ul class="tight small">'+a[x[0]].map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul>'});
   } else if(RS.busy!=="ai")h+='<p class="small muted" style="margin:0">아직 AI 전략이 없어요.</p>';
   h+='<button class="btn ghost" id="rs-ai" style="width:100%;margin-top:8px"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="ai"?'전략 짜는 중…':rc.ai?'AI 전략 다시 만들기':'AI 전략 만들기')+'</button>';
