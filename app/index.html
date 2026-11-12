@@ -129,6 +129,8 @@ details.more[open]{padding-bottom:10px}
 .wwhen>summary::-webkit-details-marker{display:none}
 .fdiag{margin-top:10px}
 .fdiag pre{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:240px;overflow:auto;margin:6px 0}
+.mplib{border:1px solid var(--line);border-radius:10px;padding:4px 10px 10px;margin-top:6px}
+.mplibi{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
 .mpsum{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .mpprev{display:grid;gap:2px;margin-top:6px;max-height:420px;overflow:auto}
 .mpprev>div{display:grid;grid-template-columns:44px 1fr 40px;gap:6px;align-items:center;padding:6px 2px;border-top:1px solid var(--line)}
@@ -665,6 +667,7 @@ function setAuth(st){AUTH.st=st;if(st!=="ok")setSync("이 기기에만 저장");
       if(first&&CREW.status!=="loading")pushShare(true);
       if(tab==="crew")keep();
     },function(e){clearTimeout(ct);CREW.status="err";if(tab==="crew")keep()});
+    db.collection("plans").onSnapshot(function(sn){var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.plans=m;if(tab==="plan"&&!document.activeElement.matches("input,textarea,select"))keepIf()},function(){});
     db.collection("social").onSnapshot(function(sn){
       var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.social=m;
       if(!CREW.mine&&m[id])CREW.mine=JSON.parse(JSON.stringify(m[id]));
@@ -716,7 +719,7 @@ function isDone(ds){return !!dayRec(ds).done}
 // ---------- My plan: per-user changes, stored only in this viewer's private data ----------
 var PL_T={r:"휴식",e:"이지",q:"포인트",l:"롱런·지속주",c:"회복",x:"대회"};
 function plan(){var mine=myPlanOn(),host=mine?S.myplan:S,key=mine?"adj":"plan";if(!host[key])host[key]={swaps:[],vol:100,days:{},hist:[]};var P=host[key];P.swaps=P.swaps||[];P.days=P.days||{};P.hist=P.hist||[];if(!P.vol)P.vol=100;return P}
-function weekLocked(w){return W[w].d.some(function(t){return t[0]==="x"})}
+function weekLocked(w){return !!W[w]&&W[w].d.some(function(t){return t[0]==="x"})}
 var PERM=[0,1,2,3,4,5,6];
 function refreshPlan(){var pm=[0,1,2,3,4,5,6];plan().swaps.forEach(function(x){var a=x[0],b=x[1],y=pm[a];pm[a]=pm[b];pm[b]=y});PERM=pm}
 function scaleTxt(t,f){
@@ -732,6 +735,7 @@ function scaleTxt(t,f){
 }
 function planDay(w,d){
   var ds=dateOf(w,d),o=plan().days[ds];if(o)return [o.t,o.x,+o.k||0,1];
+  if(!W[w])return ["r","계획 기간 밖",0];
   var lk=weekLocked(w),t=W[w].d[lk?d:PERM[d]],f=plan().vol/100;
   if(f!==1&&!lk)t=scaleTxt(t,f);return t;
 }
@@ -1880,9 +1884,9 @@ function myPlanCard(){
   h+='<div style="margin-top:14px"><b>1. 요일 바꾸기</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+pre.map(function(x){var on=P.swaps.some(function(s2){return (s2[0]===x[0]&&s2[1]===x[1])||(s2[0]===x[1]&&s2[1]===x[0])});return '<button class="btn ghost" data-sw="'+x[0]+','+x[1]+'" style="padding:6px 10px;font-size:13px'+(on?';border-color:var(--accent);color:var(--accent);background:var(--accent-soft)':'')+'">'+(on?'✓ ':'')+x[2]+'</button>'}).join("")+'</div>';
   h+='<div class="row" style="margin-top:8px;gap:6px"><select id="sw-a" class="inp" style="flex:1">'+DOW.map(function(x,i){return '<option value="'+i+'">'+x+'</option>'}).join("")+'</select><span>↔</span><select id="sw-b" class="inp" style="flex:1">'+DOW.map(function(x,i){return '<option value="'+i+'"'+(i===6?' selected':'')+'>'+x+'</option>'}).join("")+'</select><button class="btn ghost" id="sw-add">교환</button></div>';
   if(P.swaps.length)h+='<div class="small" style="margin-top:6px">적용 중: '+P.swaps.map(function(x,i){return DOW[x[0]]+'↔'+DOW[x[1]]+' <button data-swdel="'+i+'" style="border:0;background:none;color:var(--muted)" aria-label="교환 지우기">✕</button>'}).join(" · ")+'</div>';
-  var sw=12;h+='<div class="week-strip" style="margin-top:8px" aria-label="바뀐 한 주 예시">'+DOW.map(function(x,k){var tt=W[sw].d[PERM[k]];return '<div class="ws t-'+tt[0]+'"><span class="muted">'+x+'</span><b style="font-size:11px">'+PL_T[tt[0]]+'</b></div>'}).join("")+'</div><div class="small muted" style="margin-top:4px">예시: W13 한 주</div></div>';
+  var sw=Math.max(0,Math.min(12,W.length-2));h+='<div class="week-strip" style="margin-top:8px" aria-label="바뀐 한 주 예시">'+DOW.map(function(x,k){var tt=W[sw].d[PERM[k]];return '<div class="ws t-'+tt[0]+'"><span class="muted">'+x+'</span><b style="font-size:11px">'+PL_T[tt[0]]+'</b></div>'}).join("")+'</div><div class="small muted" style="margin-top:4px">예시: '+wn(sw)+' 한 주</div></div>';
   // 2. volume
-  h+='<div style="margin-top:16px"><b>2. 주간 거리 <span class="num" style="color:var(--accent)">'+P.vol+'%</span></b><input type="range" id="vol" min="80" max="110" step="5" value="'+P.vol+'" style="width:100%;margin-top:8px;accent-color:var(--accent)" aria-label="주간 거리 비율"><div class="small muted">이지·조깅·LSD 거리만 조절하고, 포인트 훈련·지속주·MP 구간은 그대로 둬요. 피크 주 '+weekKm(13)+'km (원래 '+W[13].km+'km)</div></div>';
+  h+='<div style="margin-top:16px"><b>2. 주간 거리 <span class="num" style="color:var(--accent)">'+P.vol+'%</span></b><input type="range" id="vol" min="80" max="110" step="5" value="'+P.vol+'" style="width:100%;margin-top:8px;accent-color:var(--accent)" aria-label="주간 거리 비율"><div class="small muted">이지·조깅·LSD 거리만 조절하고, 포인트 훈련·지속주·MP 구간은 그대로 둬요. 피크 주 '+(function(){var pw=0;W.forEach(function(w,i){if((w.km||0)>(W[pw].km||0))pw=i});return weekKm(pw)+'km (원래 '+(W[pw].km||0)+'km)'})()+'</div></div>';
   // 3. ask Claude
   h+='<div style="margin-top:16px"><b>3. 클로드에게 부탁하기</b><div class="small muted" style="margin-top:4px">예: "회사 때문에 수요일 훈련을 목요일로 옮겨 줘", "12월 셋째 주는 출장이라 주 3회만", "다음 주 토요일 롱런을 일요일로"</div>';
   h+='<textarea id="ai-req" class="inp" rows="3" maxlength="300" style="margin-top:8px" placeholder="바꾸고 싶은 내용을 적어 주세요">'+esc(AI.req)+'</textarea>';
@@ -2130,24 +2134,51 @@ function vToday(){
 }
 
 // ---------- Own plan: AI builds a full plan from the runner's race/date/goal; crew plan stays as the default ----------
-var MPB={busy:false,err:"",draft:null,open:false,f:null};
+var MPB={busy:false,err:"",draft:null,open:false,f:null,lib:false,msg:"",codeFb:false};
 function nextMon(d){var x=p(d),dow=(new Date(x).getUTCDay()+6)%7;return f(x-dow*864e5)}
 function mpForm(){if(!MPB.f){var m=S.myplan||{};MPB.f={name:m.name||"",date:m.race||"",dist:m.dist||"42.195",goal:m.goal?fmtT(m.goal):"",days:m.days||"5",long:m.long||"토",note:m.note||""}}return MPB.f}
 function mpWeeks(start,race){return Math.floor((p(race)-p(start))/864e5/7)+1}
 function dayShort(t){if(t[0]==="r")return"휴식";if(t[0]==="x")return"🏁 대회";
   var ls=String(t[1]).split("\n").map(function(x){return x.trim()}).filter(function(x){return x&&!/^(총|WU|CD|\()/.test(x)});
   var s2=(ls.length?ls.slice(0,2).join(" + "):t[2]+"K").replace(/\s*×\s*/g,"×");return (t[0]==="q"||t[0]==="l"?"★":"")+(s2.length>22?s2.slice(0,21)+"…":s2)}
+// ---------- Plan sharing: crew library (plans/{uid}.items) + portable plan code ----------
+function planItem(m){return{id:m.id||("p"+Date.now().toString(36)),name:m.name,start:m.start,race:m.race,dist:m.dist,goal:m.goal,days:m.days,long:m.long,note:m.note||"",weeks:m.weeks.map(function(w){return{lab:w.lab,ph:w.ph,km:w.km,d:w.d}}),by:(S.nick||"러너").slice(0,20),at:Date.now()}}
+function planCode(it){return "SUB3PLAN:"+btoa(unescape(encodeURIComponent(JSON.stringify(it))))}
+function parsePlanCode(t){var m=String(t||"").match(/SUB3PLAN:([A-Za-z0-9+\/=]+)/);if(!m)return null;try{var o=JSON.parse(decodeURIComponent(escape(atob(m[1]))));return validPlan(o)?o:null}catch(e){return null}}
+function validPlan(o){return o&&typeof o.name==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(o.race)&&/^\d{4}-\d{2}-\d{2}$/.test(o.start)&&Array.isArray(o.weeks)&&o.weeks.length>=2&&o.weeks.length<=40&&o.weeks.every(function(w){return w&&Array.isArray(w.d)&&w.d.length===7})}
+function libItems(){var out=[];Object.keys(CREW.plans||{}).forEach(function(u){if(banned(u))return;((CREW.plans[u]||{}).items||[]).forEach(function(it){if(validPlan(it))out.push({u:u,it:it})})});return out.sort(function(a,b){return (b.it.at||0)-(a.it.at||0)})}
+function mySharedIds(){return (((CREW.plans||{})[CREW.me]||{}).items||[]).map(function(x){return x.id})}
+function shiftPlan(it,newRace){var o=JSON.parse(JSON.stringify(it));if(!newRace||newRace===o.race)return o;
+  var dw=Math.round((p(newRace)-p(o.race))/864e5/7),st=f(p(o.start)+dw*7*864e5),nw=mpWeeks(st,newRace),wk=o.weeks;
+  while(wk.length<nw)wk.unshift(JSON.parse(JSON.stringify(wk[0])));while(wk.length>nw)wk.shift();
+  var rd=Math.round((p(newRace)-p(st))/864e5)%7,last=wk[nw-1],xr=null;last.d.forEach(function(t){if(t[0]==="x")xr=t});
+  for(var k=0;k<7;k++){if(k===rd)last.d[k]=xr||["x",o.name,o.dist||42.195];else if(last.d[k][0]==="x"||k>rd)last.d[k]=["r","휴식",0]}
+  o.start=st;o.race=newRace;o.weeks=wk;return o}
+function sharedPlansHtml(){
+  var L=libItems(),open=MPB.lib,h='<button type="button" class="ifold-h" id="mp-lib" aria-expanded="'+open+'" style="margin-top:10px"><span>📚 공유된 계획 '+L.length+'개 · 코드로 가져오기</span><span class="chev" aria-hidden="true"></span></button>';
+  if(!open)return h;
+  h+='<div class="mplib">';
+  if(!CREW.db)h+='<p class="small muted" style="margin:6px 0 0">크루 공유 목록은 claude.ai에 로그인한 크루원만 볼 수 있어요. 아래 코드로는 가져올 수 있어요.</p>';
+  else if(!L.length)h+='<p class="small muted" style="margin:6px 0 0">아직 크루에 공유된 계획이 없어요.</p>';
+  L.forEach(function(x,i){var it=x.it,dn=it.dist===42.195||!it.dist?"풀":it.dist>21?"하프":it.dist+"K";h+='<div class="mplibi"><div style="min-width:0"><b>'+esc(it.name)+'</b>'+(x.u===CREW.me?' <span class="pill na">내 계획</span>':'')+'<div class="small muted">'+esc(it.by||"러너")+' · '+dotDate(it.race)+' '+dn+' · '+(it.weeks.length-1)+'주'+(it.goal?' · 목표 '+fmtT(it.goal):'')+'</div></div><button class="sbtn" data-libpick="'+i+'">미리 보기</button></div>'});
+  h+='<div class="cin" style="margin-top:8px"><input id="mp-code" class="inp" placeholder="받은 계획 코드(SUB3PLAN:…) 붙여넣기"><button class="btn ghost" id="mp-codego">가져오기</button></div>';
+  return h+'</div>'}
 function planSrcCard(){
   var mine=S.planMode==="mine",has=!!(S.myplan&&S.myplan.weeks&&S.myplan.weeks.length),h='<div class="card" id="plansrc"><h2>훈련 계획</h2>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr;margin-top:10px"><button role="radio" aria-checked="'+!mine+'" data-psrc="crew">크루 계획 따르기</button><button role="radio" aria-checked="'+mine+'" data-psrc="mine">나만의 계획</button></div>';
-  if(!mine){h+='<p class="small muted" style="margin:8px 0 0">크루장이 배포한 공용 훈련표('+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 아래 <b style="color:var(--ink)">크루 계획 조정</b>에서 나에게만 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'');return h+'</div>'}
+  if(!mine&&!MPB.draft){h+='<p class="small muted" style="margin:8px 0 0">크루장이 배포한 공용 훈련표('+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 아래 <b style="color:var(--ink)">크루 계획 조정</b>에서 나에게만 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'')+sharedPlansHtml();return h+'</div>'}
   if(has&&!MPB.open&&!MPB.draft){var m=S.myplan;h+='<div class="mpsum"><b>📋 '+esc(m.name)+'</b><span class="small muted">'+dotDate(m.start)+' 시작 · '+dotDate(m.race)+' 대회 · '+(m.weeks.length-1)+'주 + 레이스 주'+(m.goal?' · 목표 '+fmtT(m.goal):'')+'</span></div>';
-    h+='<p class="small muted" style="margin:6px 0 0">AI가 만든 나만의 계획을 따르고 있어요. 요일·거리는 아래 <b style="color:var(--ink)">나만의 계획 조정</b>에서 바꿔요. 체크·기록은 날짜 기준이라 그대로 남아요.</p>';
-    h+='<div class="row" style="gap:6px;margin-top:8px"><button class="btn ghost" id="mp-new">새로 만들기</button><button class="btn ghost" id="mp-del" style="color:var(--bad)">삭제</button></div>';return h+'</div>'}
+    h+='<p class="small muted" style="margin:6px 0 0">나만의 계획을 따르고 있어요. 요일·거리는 아래 <b style="color:var(--ink)">나만의 계획 조정</b>에서 바꿔요. 체크·기록은 날짜 기준이라 그대로 남아요.</p>';
+    var shd=mySharedIds().indexOf(m.id)>=0;
+    h+='<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost" id="mp-share"'+(CREW.db?'':' disabled')+'>'+(shd?'✓ 크루에 공유 중 · 취소':'크루에 공유')+'</button><button class="btn ghost" id="mp-code-copy">계획 코드 복사</button><button class="btn ghost" id="mp-new">새로 만들기</button><button class="btn ghost" id="mp-del" style="color:var(--bad)">삭제</button></div>';
+    if(MPB.msg)h+='<p class="small" style="color:var(--ok);margin:6px 0 0">'+esc(MPB.msg)+'</p>';
+    if(MPB.codeFb)h+='<textarea class="inp" readonly rows="3" style="font-size:11px;margin-top:6px">'+esc(planCode(planItem(m)))+'</textarea><p class="small muted" style="margin:2px 0 0">자동 복사가 막혔어요. 위 코드를 길게 눌러 복사하세요.</p>';
+    return h+sharedPlansHtml()+'</div>'}
   var F=mpForm(),st=nextMon(T),nw=F.date&&/^\d{4}-\d{2}-\d{2}$/.test(F.date)?mpWeeks(st,F.date):0;
   if(MPB.draft){var D=MPB.draft;h+='<div class="mpsum"><b>미리 보기 · '+esc(D.name)+'</b><span class="small muted">'+dotDate(D.start)+' ~ '+dotDate(D.race)+' · '+D.weeks.length+'주</span></div><div class="mpprev">'+D.weeks.map(function(w,i){var km=0;w.d.forEach(function(t){km+=t[2]});return '<div><span class="num">'+(i===D.weeks.length-1?'레이스':'W'+(i+1))+'</span><span class="small">'+esc(w.lab)+'</span><b class="num small">'+Math.round(km)+'K</b><div class="mpdays">'+w.d.map(function(t,k){return '<span class="t-'+t[0]+'"><i>'+DOW[k]+'</i>'+esc(dayShort(t))+'</span>'}).join("")+'</div></div>'}).join("")+'</div>';
     if(D.note)h+='<p class="small muted" style="margin:6px 0 0">'+esc(D.note)+'</p>';
-    h+='<div class="row" style="gap:6px;margin-top:8px"><button class="btn" id="mp-use" style="background:var(--accent);color:#fff">이 계획으로 시작</button><button class="btn ghost" id="mp-redo"'+(MPB.busy?' disabled':'')+'>다시 만들기</button><button class="btn ghost" id="mp-cancel">취소</button></div>';
+    if(D.imported)h+='<p class="small muted" style="margin:8px 0 0">📥 '+esc(D.by||"러너")+'님이 공유한 계획이에요. 목표와 대회 날짜를 내게 맞춰 바꿀 수 있어요(날짜를 바꾸면 같은 흐름으로 주 단위로 옮겨요).</p><div class="fields"><label>내 목표 기록<input id="mp-igoal" placeholder="예: 3:10:00" value="'+esc(D.goal?fmtT(D.goal):"")+'"></label><label>내 대회 날짜<input id="mp-idate" type="date" value="'+esc(D.race)+'"></label></div>';
+    h+='<div class="row" style="gap:6px;margin-top:8px"><button class="btn" id="mp-use" style="background:var(--accent);color:#fff">이 계획으로 시작</button>'+(D.imported?'':'<button class="btn ghost" id="mp-redo"'+(MPB.busy?' disabled':'')+'>다시 만들기</button>')+'<button class="btn ghost" id="mp-cancel">취소</button></div>';
     if(MPB.err)h+='<div class="warn" style="margin-top:8px">'+esc(MPB.err)+'</div>';return h+'</div>'}
   h+='<p class="small muted" style="margin:8px 0 0">내 대회와 목표를 넣으면 AI가 처음부터 훈련표를 만들어요. 페이스는 내 기준(목표·존)에 맞춰 표시돼요.</p>';
   h+='<div class="fields"><label class="full">대회 이름<input id="mp-name" maxlength="24" placeholder="예: 2027 JTBC 마라톤" value="'+esc(F.name)+'"></label><label>대회 날짜<input id="mp-date" type="date" value="'+esc(F.date)+'"></label><label>종목<select id="mp-dist">'+[["42.195","풀코스"],["21.0975","하프"],["10","10K"]].map(function(o){return '<option value="'+o[0]+'"'+(F.dist===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select></label>'+
@@ -2156,7 +2187,7 @@ function planSrcCard(){
   h+='<p class="small muted" style="margin:6px 0 0">'+(nw?'시작 '+dotDate(st)+'(이번 주 월요일) · <b style="color:var(--ink)">'+nw+'주</b> 계획'+(nw<4||nw>30?' · 4~30주 사이여야 해요':''):'대회 날짜를 고르면 기간을 계산해요')+'</p>';
   h+='<div class="row" style="gap:6px;margin-top:8px"><button class="btn" id="mp-make" style="background:var(--accent);color:#fff"'+(MPB.busy?' disabled':'')+'>'+(MPB.busy?'AI가 계획 짜는 중…':'AI로 계획 만들기')+'</button>'+(has?'<button class="btn ghost" id="mp-cancel">취소</button>':'')+'</div>';
   if(MPB.err)h+='<div class="warn" style="margin-top:8px">'+esc(MPB.err)+'</div>';
-  return h+'</div>'}
+  return h+sharedPlansHtml()+'</div>'}
 async function mpGenerate(){
   var F=mpForm(),st=nextMon(T),goal=parseTime(F.goal),dist=+F.dist;MPB.err="";
   if(!F.name.trim()){MPB.err="대회 이름을 넣어 주세요.";keepIf();return}
@@ -2192,8 +2223,17 @@ function bindPlanSrc(){function $(i){return document.getElementById(i)}
   ["mp-date"].forEach(function(id){var el=$(id);if(el)el.addEventListener("change",function(){mpForm().date=el.value;keepIf()})});
   [["mp-dist","dist"],["mp-days","days"],["mp-long","long"]].forEach(function(a){var el=$(a[0]);if(el)el.onchange=function(){mpForm()[a[1]]=el.value}});
   var mk=$("mp-make");if(mk)mk.onclick=mpGenerate;var rd=$("mp-redo");if(rd)rd.onclick=function(){MPB.draft=null;mpGenerate()};
-  var us=$("mp-use");if(us)us.onclick=function(){S.myplan=MPB.draft;S.myplan.adj={swaps:[],vol:100,days:{},hist:[]};S.planMode="mine";MPB.draft=null;MPB.open=false;MPB.f=null;save();pushShare(true);var ti=idxOf(T);openWeeks={};openWeeks[Math.max(0,Math.min(S.myplan.weeks.length-1,Math.floor(ti/7)))]=true;keepIf()};
+  var us=$("mp-use");if(us)us.onclick=function(){var D=MPB.draft;if(D&&D.imported){var gi=$("mp-igoal"),di=$("mp-idate"),g=gi&&parseTime(gi.value);var nd=di&&di.value;
+      if(nd&&nd!==D.race){if(nd<=T){MPB.err="대회 날짜는 오늘 이후여야 해요.";keepIf();return}var nwk=mpWeeks(f(p(D.start)+Math.round((p(nd)-p(D.race))/864e5/7)*7*864e5),nd);if(nwk<2||nwk>40){MPB.err="날짜를 너무 멀리 옮겼어요.";keepIf();return}D=shiftPlan(D,nd)}
+      if(g){D.goal=g}D.id="p"+Date.now().toString(36);delete D.imported;delete D.by;delete D.at;MPB.draft=D}
+    S.myplan=MPB.draft;S.myplan.adj={swaps:[],vol:100,days:{},hist:[]};S.planMode="mine";MPB.draft=null;MPB.open=false;MPB.f=null;save();pushShare(true);var ti=idxOf(T);openWeeks={};openWeeks[Math.max(0,Math.min(S.myplan.weeks.length-1,Math.floor(ti/7)))]=true;keepIf()};
   var cn=$("mp-cancel");if(cn)cn.onclick=function(){MPB.draft=null;MPB.open=false;MPB.err="";keepIf()};
+  var lb=$("mp-lib");if(lb)lb.onclick=function(){MPB.lib=!MPB.lib;keepIf()};
+  view.querySelectorAll("[data-libpick]").forEach(function(b){b.onclick=function(){var x=libItems()[+b.dataset.libpick];if(!x)return;var d=JSON.parse(JSON.stringify(x.it));d.imported=1;MPB.draft=d;MPB.err="";keepIf();var el=document.getElementById("plansrc");if(el)el.scrollIntoView({block:"start"})}});
+  var cg=$("mp-codego");if(cg)cg.onclick=function(){var o=parsePlanCode($("mp-code").value);if(!o){MPB.err="계획 코드를 읽지 못했어요. SUB3PLAN: 으로 시작하는 코드 전체를 붙여넣어 주세요.";keepIf();return}o.imported=1;MPB.draft=o;MPB.err="";keepIf()};
+  var sh=$("mp-share");if(sh)sh.onclick=function(){if(!CREW.db||!S.myplan)return;if(!S.myplan.id)S.myplan.id="p"+Date.now().toString(36);var cur=(((CREW.plans||{})[CREW.me]||{}).items||[]).filter(function(x){return x.id!==S.myplan.id}),on=mySharedIds().indexOf(S.myplan.id)<0;
+    if(on)cur.unshift(planItem(S.myplan));cur=cur.slice(0,5);var ref=CREW.db.doc("plans/"+CREW.me);(cur.length?ref.set({items:cur,upd:Date.now()}):ref.delete()).then(function(){MPB.msg=on?"크루에 공유했어요. 크루원이 훈련표 → 공유된 계획에서 가져갈 수 있어요.":"공유를 취소했어요.";keepIf()},function(e){MPB.msg="";MPB.err="공유하지 못했어요"+(e&&e.code?" ("+e.code+")":"")+".";keepIf()});save()};
+  var cc=$("mp-code-copy");if(cc)cc.onclick=function(){if(!S.myplan)return;if(!S.myplan.id){S.myplan.id="p"+Date.now().toString(36);save()}copyText(planCode(planItem(S.myplan)),function(){MPB.codeFb=false;MPB.msg="계획 코드를 복사했어요. 카톡 등으로 보내면 받은 사람이 훈련표 → 공유된 계획 → 코드로 가져오기에서 쓸 수 있어요.";keepIf()},function(){MPB.codeFb=true;keepIf()})};
   var nw=$("mp-new");if(nw)nw.onclick=function(){MPB.open=true;MPB.f=null;keepIf()};
   var dl=$("mp-del");if(dl)dl.onclick=function(){if(!confirm("나만의 계획을 삭제하고 크루 계획으로 돌아갈까요? 체크·기록은 남아요."))return;S.myplan=null;S.planMode="crew";save();pushShare(true);keepIf()}}
 function vPlan(){
