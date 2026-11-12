@@ -2376,7 +2376,7 @@ function raceCtx(rc){
   L.push("러너: 역치 심박 "+(pf.lthr||"미입력")+" · 역치 페이스 "+(pf.thr||"미입력")+(EG.curPred?" · 현재 마라톤 예상 "+fmtT(EG.curPred):"")+(EG.vdot?" · VDOT "+EG.vdot.toFixed(1):"")+" · 레이스 심박 상한 참고 "+HR(158)+"(하프 이후) / "+HR(162)+"(35km 이후)");
   return L.join("\n");
 }
-function raceCps(rc){var pl=racePlan(rc),D=rc.dist,pts=D>=40?[[21.0975,"하프"],[30,"30K"]]:D>=20?[[10,"10K"],[15,"15K"]]:D>=9?[[5,"5K"],[8,"8K"]]:[[D/2,"중간"]];
+function raceCps(rc){var pl=racePlan(rc),D=rc.dist,pts=D>=40?[[21.0975,"하프"],[30,"30K"],[35,"35K"]]:D>=20?[[10,"10K"],[15,"15K"]]:D>=9?[[5,"5K"],[8,"8K"]]:[[D/2,"중간"]];
   function at(d){var t=0;for(var i=0;i<pl.segs.length;i++){var sg=pl.segs[i],a=sg.i,b=sg.i+sg.len/1000;if(d>=b){t=sg.cum;continue}return t+(d-a)*sg.p}return pl.finish}
   return pts.map(function(x){var d=x[0],t=at(d),rem=pl.finish-t,lim=rc.goal-rem*0.98;return{at:x[1],d:d,plan:Math.round(t),fast:Math.round(t-Math.max(20,t*0.005)),lim:Math.round(lim),remKm:Math.round((D-d)*10)/10,remPace:(D-d)>0?rem/(D-d):0}})}
 async function raceAI(rc){
