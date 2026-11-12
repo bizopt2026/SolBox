@@ -99,6 +99,8 @@ header.top .wrap{padding-block:8px}
 .drw b small{font-size:11px;color:var(--q);font-weight:700}
 .drw em{font-style:normal;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsum{margin:0 0 2px;font-size:11px;color:var(--muted)}
+.plantb{margin-top:12px;padding:10px 12px 6px;border-radius:12px;background:var(--bg)}
+.plantb .dh{margin-bottom:4px}
 .lapn{display:inline-block;min-width:16px;color:var(--muted);font-size:11px;font-weight:700}
 .drw b small.u{color:var(--muted);font-weight:500}
 .dnote{margin:4px 0 0;font-size:12px;color:var(--bad)}
@@ -2060,6 +2062,12 @@ function dayScore(ds){
   why=why.concat(qn);var sc=Math.max(0,Math.min(100,dp+q));return{s:sc,b:band(sc),why:why};
 }
 function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:var(--p'+n+')"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>'+[1,2,3,4,5].map(function(v){return rpeFace(v,"xs")}).join("")+' RPE</span></div>'}
+// today's plan as a table: zone | distance · heart rate | pace
+function planTable(t,zs){var tx=ptxt(t[1]);
+  var rows=zs.map(function(z){var ab=(z.n.match(/\(([^)]+)\)\s*$/)||[])[1]||(/^[A-Z]+$/.test(z.n)?z.n:""),dist="";
+    if(ab){var m=tx.match(new RegExp("(^|[^A-Z])"+ab.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(\\d+(?:\\.\\d+)?)\\s*K(\\s*[x×]\\s*\\d+)?"));if(m)dist=m[2]+"K"+(m[3]?" "+m[3].replace(/\s|x/g,"").replace(/^×?/,"×"):"");else{var m2=tx.match(new RegExp(ab.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(\\d+)\\s*분"));if(m2)dist=m2[1]+"분"}}
+    var hh=zh(z);return '<div class="drw"><span>'+esc(z.n)+'</span><em>'+[dist,hh?hh.replace("♥ ","♥"):""].filter(Boolean).join(" · ")+'</em><b class="num">'+zr(z)+(z.trk?' <small>'+lap400(z)+'</small>':'')+'</b></div>'}).join("");
+  return '<section class="plantb"><div class="dh">훈련 구성'+(t[2]?'<span class="muted" style="margin-left:auto;font-weight:500">총 '+t[2]+'K</span>':'')+'</div>'+rows+'</section>'}
 function detHtml(t,r,lh,ds){
   var h="",zs=t[0]!=="r"?zonesFor(t):[];
   function row(a,b,c){return '<div class="drw"><span>'+a+'</span><em>'+(c||'')+'</em><b class="num">'+b+'</b></div>'}
@@ -2330,7 +2338,7 @@ function vToday(){
   if(folded){var zs0=zonesFor(t);if(zs0.length&&t[0]!=="r")h+='<div class="zline">'+zs0.map(function(z){var hh=zh(z);return '<span><b>'+z.n+'</b> '+zr(z)+(hh?' · '+hh:'')+'</span>'}).join("")+'</div>'}
   if(askR)h+='<div class="rpeask"><div class="small" style="font-weight:700">오늘 훈련 강도(RPE)는 어땠어요?</div><div class="rpeopts">'+[1,2,3,4,5].map(function(v){return '<button data-rpe="'+v+'" aria-pressed="'+(rv===v)+'" style="--rc:'+RPE[v].c+'">'+rpeFace(v,"lg")+'<small>'+RPE[v].n+'</small></button>'}).join("")+'</div><button class="linkbtn" id="rpe-later">'+(rv?'닫기':'나중에')+'</button></div>';
   if(folded){var rk=r.w?r.w:null;h+='<div class="resbox"><div class="res"><div class="ring" style="--c:'+SCOL[DS.b]+';--p:'+DS.s+'"><b class="num">'+DS.s+'</b></div><div style="min-width:0"><div class="small" style="font-weight:700;color:'+SCOL[DS.b]+'">'+(DS.extra?'추가 러닝 점수':'훈련 점수')+' · '+SNAME[DS.b]+'</div>'+(rk?'<div class="num" style="font-size:17px;font-weight:700">'+fmtKm(rk.km)+'km · '+fmtPaceKm(rk.dur,rk.km)+'/km'+(rk.hr?' · ♥'+rk.hr:'')+'</div>':'')+'<div class="small muted">'+esc(DS.why.join(" · "))+'</div></div></div>@@RESACT@@</div>'}
-  var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){var zh2='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(z.trk?' <small style="color:var(--q);font-weight:700">'+lap400(z)+'</small>':'')+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>';if(folded)det+=zh2;else h+=zh2}
+  var zs=zonesFor(t);if(zs.length&&t[0]!=="r"){var zh2='<div class="zguide">'+zs.map(function(z){var hh=zh(z);return '<div><span>'+z.n+'</span><span><b>'+zr(z)+'</b>'+(z.trk?' <small style="color:var(--q);font-weight:700">'+lap400(z)+'</small>':'')+(hh?' <small>'+hh+'</small>':'')+'</span></div>'}).join("")+'</div>';if(folded)det+=zh2;else h+=planTable(t,zs)}
   if(t[0]==="r"){h+=r.w?'<div class="warn" style="margin-top:6px">휴식 권장일이에요. 오늘 뛴 '+fmtKm(r.w.km)+'km는 <b>추가 러닝</b>으로 이번 주 거리에 더하고, 정말 편하게 뛰었는지만 평가해요.</div>':'<div class="small muted">푹 쉬기. 다리가 무거우면 스트레칭만.</div>'}
   if(W[w].note&&t[1].indexOf("66K 장거리")===0)h+='<ul class="tight small" style="margin:10px 0 0">'+W[w].note.map(function(x){return '<li>'+esc(ptxt(x))+'</li>'}).join("")+'</ul>';
   var h0=h;h="";
