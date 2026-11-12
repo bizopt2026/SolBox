@@ -2077,7 +2077,13 @@ function restScore(r){var z=ZONES.filter(function(x){return x.k==="e"})[0],lo=z.
   if(r.w.hr){var hp=Math.round(Math.max(0,50-Math.max(0,r.w.hr-cap)*4));sc+=hp;why.push("심박 "+r.w.hr+(r.w.hr>cap?" · 상한 "+cap+"보다 "+(r.w.hr-cap)+" 높음":" · 상한 "+cap+" 이하")+" "+hp+"/50")}else{sc+=35;why.push("심박 정보 없음 35/50")}
   if(r.w.km>10){sc-=10;why.push("휴식일엔 10km 이내로 짧게 −10")}
   sc=Math.max(0,Math.min(100,sc));return{s:sc,b:band(sc),why:why,extra:true}}
-function dayScore(ds){
+// A completed day keeps the pace/heart-rate standard it was first scored with, so changing the goal later
+// does not re-score past training. fk = {k: pace scale, h: heart-rate scale} frozen at first scoring.
+var FK_SAVE=null;
+function withDayK(ds,fn){var r=S.days[ds],f=r&&r.fk;if(!f)return fn();var k0=K,h0=HRK;K=f.k;HRK=f.h;try{return fn()}finally{K=k0;HRK=h0}}
+function dayScore(ds){var r=S.days[ds];if(r&&r.fk)return withDayK(ds,function(){return dayScore0(ds)});
+  var res=dayScore0(ds);if(res&&res.s!=null&&r){r.fk={k:K,h:HRK};clearTimeout(FK_SAVE);FK_SAVE=setTimeout(save,800)}return res}
+function dayScore0(ds){
   var i=idxOf(ds);if(i<0||i>=TOTAL)return null;var t=planAt(i),r=dayRec(ds);
   if(t[0]==="r"){if(!r.w||!r.w.km)return null;return restScore(r)}
   if(!r.done)return null;
@@ -2389,7 +2395,7 @@ function vToday(){
   var IGSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',canStory=t[0]!=="r"&&(r.w||r.done||r.km);
   if(canStory&&!folded)h+='<button class="btn ghost story-btn" data-story="'+sel+'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>인스타 스토리 만들기</button>';
   var hasStory=h.indexOf('story-btn')>=0;det+=h;h=h0;
-  if(folded){var dop=DETO===sel;det=detHtml(t,r,lh,sel);h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
+  if(folded){var dop=DETO===sel;det=withDayK(sel,function(){return detHtml(t,r,lh,sel)});h=h.replace("@@RESACT@@",'<div class="resact">'+(det?'<button type="button" class="sbtn" id="det-tog" aria-expanded="'+dop+'">상세 보기 <span class="chev" aria-hidden="true"></span></button>':'')+(canStory?'<button type="button" class="sbtn igbtn" data-story="'+sel+'">'+IGSVG+'인스타 스토리</button>':'')+'</div>'+(det?'<div class="resdet" id="det-box"'+(dop?'':' hidden')+'>'+det+'</div>':''));det=""}
   if(det)h+='<details class="more"'+(foldOpen("t-det",false)?' open':'')+' data-fold="t-det"><summary><span>훈련 상세'+(hasStory?' · <b style="color:var(--accent)">스토리 만들기</b>':'')+'</span><span class="small muted" style="margin-left:auto;margin-right:8px">'+[folded&&zs.length?'존':'',r.w?'워치':'',lh?'랩':''].filter(Boolean).join(' · ')+'</span><span class="chev" aria-hidden="true"></span></summary>'+det+'</details>';
   var hasF=!!(r.km||r.hr||r.pace||r.note),fOpen=foldOpen("fields",false),fTog=t[0]!=="r"?'<button class="sbtn ftog'+(fOpen?' on':'')+'" id="f-tog" aria-expanded="'+fOpen+'" aria-label="거리·심박·메모 직접 적기">✎'+(hasF?' 메모':' 직접')+'</button>':'';
   h+='<div class="recgrp">';
