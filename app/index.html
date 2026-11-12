@@ -1748,7 +1748,7 @@ var DETO=null;
 function coachBottom(){var go=function(){var c=document.getElementById("chat"),m=c&&c.lastElementChild;window.scrollTo(0,document.documentElement.scrollHeight);if(m&&m.getBoundingClientRect().bottom>innerHeight)m.scrollIntoView({block:"end"})};go();requestAnimationFrame(go);setTimeout(go,120)}
 function goBack(){var b=BACK||{tab:"today",sel:sel,y:0};BACK=null;tab=b.tab;sel=b.sel;render();window.scrollTo(0,b.y||0)}
 function backBar(){var n=TABN[(BACK&&BACK.tab)||"today"];return '<button type="button" class="backbar" data-back><span aria-hidden="true">‹</span> '+n+(/[가-힣]$/.test(n)&&((n.charCodeAt(n.length-1)-44032)%28)?'으로':'로')+' 돌아가기</button>'}
-function bindBack(){view.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){if(BACK&&BACK.pushed){try{history.back();return}catch(e){}}goBack()}})}
+function bindBack(){view.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){goBack()}})}
 function vStory(){
   var D=storyData(STORY.ds);
   var h=backBar()+'<div class="card"><div class="row between"><h2>인스타 스토리 만들기</h2></div><p class="small muted" style="margin:4px 0 0">'+md(STORY.ds)+' '+DOW[D.i%7]+' 훈련 기록 위에 AI 코치 코멘트를 얹은 스토리 이미지(1080×1920)를 만들어요. 사진은 이 기기에서만 쓰고 어디에도 올리지 않아요.</p></div>';
