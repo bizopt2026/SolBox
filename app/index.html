@@ -893,14 +893,42 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wgrec{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12.5px}.wgrec small{display:block;color:var(--muted);font-size:11px;margin-left:20px}
 .coback{position:fixed;z-index:8;right:max(16px,calc(env(safe-area-inset-right,0px) + 12px));display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;padding:9px 14px 9px 12px;border-radius:99px;background:var(--card);color:var(--accent);font:inherit;font-size:13.5px;font-weight:800;box-shadow:0 4px 16px rgba(20,20,60,.16),inset 0 0 0 1.5px var(--accent);transition:bottom .15s}
 .coback span{font-size:15px}.coback:active{transform:scale(.96)}.coback[hidden]{display:none}
-.cwlist{display:flex;flex-direction:column;margin-top:10px}
-.cwrow{display:grid;grid-template-columns:20px 42px 1fr auto;gap:8px;align-items:start;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}.cwrow:last-child{border-bottom:0}
-.cwrow.off{cursor:default}.cwrow input{margin:3px 0 0;width:18px;height:18px;accent-color:var(--accent)}
-.cwd{display:flex;flex-direction:column;font-weight:800;font-size:14px;line-height:1.2}.cwd small{font-size:11px;color:var(--muted);font-weight:600}
-.cwm{min-width:0;display:flex;flex-direction:column;gap:2px}.cwm b{font-size:13.5px;line-height:1.35}.cwm small{font-size:11.5px;color:var(--muted);line-height:1.4}.cwm .cwold s{opacity:.8}
-.cwrow .rhst{white-space:nowrap;font-size:11px;padding:3px 8px}.rhst.na{color:var(--muted);background:var(--bg)}
+.rhst.na{color:var(--muted);background:var(--bg)}
 .kpbtns{margin-left:auto;display:inline-flex;gap:6px;align-self:center;flex-wrap:wrap;justify-content:flex-end}.kpbtns .aiq1{margin-left:0}
 .cwq.same{background:var(--bg);color:var(--muted)}.cwq.chg{background:color-mix(in srgb,var(--s3) 22%,transparent);color:color-mix(in srgb,var(--s3) 70%,var(--ink))}.cwq[disabled]{opacity:.7}
+.cwtool{display:flex;align-items:center;gap:10px;margin-top:12px}
+.cwseg{width:150px;flex:none;background:var(--bg);box-shadow:none;padding:3px;border-radius:12px}.cwseg .pind{top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/3);border-radius:9px;background:var(--card);box-shadow:0 1px 3px rgba(20,20,60,.12)}
+.cwseg button{padding:6px 4px;font-size:13px;font-weight:700;border-radius:9px}.cwseg button[aria-checked="true"]{color:var(--ink)}
+.cwrange{font-size:12px;color:var(--muted);font-weight:600}
+.cwre{margin-left:auto;width:34px;height:34px;border:0;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:17px;font-weight:800;cursor:pointer}
+.cwempty{margin-top:12px;padding:20px 16px 16px;border-radius:16px;background:linear-gradient(135deg,var(--accent-soft),var(--bg));text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.cwempty p{margin:0;font-size:13px;color:var(--muted);line-height:1.55}.cwempty small{font-size:12px;color:var(--muted)}
+.cwflow{display:flex;align-items:center;gap:10px}.cwflow span{display:flex;flex-direction:column;align-items:center;gap:2px;width:64px;padding:10px 0 8px;border-radius:14px;background:var(--card);font-size:22px;box-shadow:0 2px 8px rgba(20,20,60,.08)}.cwflow small{font-size:10.5px;font-weight:700;color:var(--muted)}
+.cwflow i{width:44px;height:2px;background:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 10px);position:relative}.cwflow i:after{content:"";position:absolute;right:-2px;top:-4px;border:5px solid transparent;border-left-color:var(--accent)}
+.cwhero{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.cwhero>div{display:flex;flex-direction:column;align-items:center;padding:9px 2px 7px;border-radius:12px;background:var(--bg)}
+.cwhero b{font-size:21px;font-family:var(--f-display);line-height:1.1}.cwhero small{font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+.cwhero .mid b{color:color-mix(in srgb,var(--s3) 75%,var(--ink))}.cwhero .ok b{color:var(--ok)}.cwhero .bad b{color:var(--bad)}.cwhero .na b{color:var(--muted)}.cwhero .zero{opacity:.45}
+.cwgh{display:flex;align-items:center;justify-content:space-between;margin:14px 2px 6px}.cwgh b{font-size:12.5px;color:var(--muted)}.cwgh .num{color:var(--ink);margin-left:2px}.cwgh .linkbtn{text-decoration:none;color:var(--accent);font-weight:700;padding:2px 4px;min-height:0;font-size:12px}
+.cwgrp{display:flex;flex-direction:column;gap:6px}
+.cwi{position:relative;display:grid;grid-template-columns:auto 44px 1fr;gap:10px;align-items:start;padding:10px 12px 10px 10px;border-radius:14px;background:var(--bg);box-shadow:inset 0 0 0 1.5px transparent;cursor:pointer;transition:box-shadow .15s,background .15s}
+.cwi.on{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--accent),0 2px 10px rgba(20,20,60,.06)}
+.cwi.off{grid-template-columns:44px 1fr;cursor:default}
+.cwck{position:absolute;opacity:0;pointer-events:none}.cwtick{width:20px;height:20px;margin-top:8px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--line);background:var(--card);display:grid;place-items:center;transition:all .15s}
+.cwi.on .cwtick{background:var(--accent);box-shadow:none}.cwi.on .cwtick:after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
+.cwck:focus-visible+.cwtick{outline:2px solid var(--accent);outline-offset:2px}
+.cwdate{display:flex;flex-direction:column;align-items:center;padding:4px 0;border-radius:10px;background:var(--card)}.cwi.on .cwdate{background:var(--accent-soft)}
+.cwdate b{font-size:19px;font-family:var(--f-display);line-height:1.1}.cwdate small{font-size:10px;font-weight:700;color:var(--muted);white-space:nowrap}
+.cwbody{min-width:0;display:flex;flex-direction:column;gap:5px}
+.cwtop{display:flex;align-items:flex-start;gap:6px}.cwtop b{flex:1;min-width:0;font-size:13.5px;line-height:1.35}.cwtop .rhst{flex:none;font-size:10.5px;padding:3px 8px;white-space:nowrap}
+.cwbar{display:flex;gap:1.5px;height:8px;border-radius:99px;overflow:hidden}.cwbar i{display:block;min-width:2px}
+.cwsub{font-size:11.5px;color:var(--muted);line-height:1.45}.cwsub b{color:var(--ink);font-weight:700}
+.cwfrom{font-size:11.5px;color:var(--muted);line-height:1.4}.cwfrom s{opacity:.75}
+.cwdone{margin-top:12px;padding:12px;border-radius:12px;text-align:center;font-size:13px;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.cwsame{margin-top:12px}.cwsame summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:4px 2px;list-style:none}.cwsame summary::-webkit-details-marker{display:none}.cwsame summary:before{content:"▸ "}.cwsame[open] summary:before{content:"▾ "}.cwsame .cwgrp{margin-top:6px}
+.cwfoot{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:2;display:flex;align-items:center;gap:10px;margin:14px -4px 0;padding:10px 10px 10px 14px;border-radius:16px;background:var(--card);box-shadow:0 4px 18px rgba(20,20,60,.14)}
+.cwfoot .btn{flex:none;margin:0}.cwfmsg{flex:1;min-width:0;font-size:12.5px;color:var(--muted);line-height:1.4}.cwfmsg b{color:var(--ink)}
+.cwprog{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}.cwprog .bar{height:5px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3170,7 +3198,7 @@ async function cwLoad(){CW.busy="load";CW.err="";CW.msg="";keepIf();
 async function cwApply(){var list=(CW.rows||[]).filter(function(r){return CW.pick[r.ds]&&r.c&&(r.st==="new"||r.st==="over")});if(!list.length)return;
   CW.busy="apply";CW.err="";var ok=0,skip=[],fail=[];S.cw=S.cw||{};
   try{var mcp=await cwMcp();
-    for(var i=0;i<list.length;i++){var r=list[i],dk=r.ds.replace(/-/g,""),res,tx;CW.msg=(i+1)+" / "+list.length+" · "+md(r.ds)+" 반영 중…";keepIf();
+    for(var i=0;i<list.length;i++){var r=list[i],dk=r.ds.replace(/-/g,""),res,tx;CW.prog={i:i,n:list.length};CW.msg=md(r.ds)+" 보내는 중… ("+(i+1)+"/"+list.length+")";keepIf();
       try{if(r.st==="over"){var dt=await mcp.callTool("COROS","queryScheduledWorkoutDetails",{date:dk,idInPlan:r.tgt.id}),dx=cwText(dt);
           if(dt&&dt.isError||!/Editable via MCP:\s*yes/i.test(dx)){CW.lock[r.ds+"|"+r.tgt.id]=1;skip.push(md(r.ds)+" (완료했거나 수정할 수 없는 워크아웃)");continue}
           res=await mcp.callTool("COROS","updateScheduledWorkout",{date:dk,idInPlan:r.tgt.id,course:r.c.course})}
@@ -3181,26 +3209,48 @@ async function cwApply(){var list=(CW.rows||[]).filter(function(r){return CW.pic
     save();CW.msg="✓ "+ok+"일 반영했어요"+(skip.length?" · 건너뜀: "+skip.join(", "):"")+(fail.length?" · 실패: "+fail.join(", "):"")+". 워치를 COROS 앱과 동기화하면 바뀐 운동이 나와요.";
     try{var ds2=cwDates(CW.range),r2=await mcp.callTool("COROS","queryTrainingSchedule",{startDate:ds2[0].replace(/-/g,""),endDate:ds2[ds2.length-1].replace(/-/g,"")});CW.sched=cwParseSched(cwText(r2));
       Object.keys(S.cw).forEach(function(d){var rec=S.cw[d],ls=CW.sched[d]||[];if(rec&&!ls.some(function(x){return x.id===rec.id})){var hit=ls.filter(function(x){return x.name===rec.name})[0];if(hit)rec.id=hit.id}});save();cwBuild()}catch(e){}}
-  catch(e){CW.err=cwErr(e)}finally{CW.busy="";keepIf()}}
+  catch(e){CW.err=cwErr(e)}finally{CW.busy="";CW.prog=null;keepIf()}}
 function cwSecTxt(c){function one(x){var r=x.intensityValueStart===x.intensityValueEnd?fmtMS(x.intensityValueStart):fmtMS(x.intensityValueStart)+"~"+fmtMS(x.intensityValueEnd),v=x.targetType===2?Math.round(x.targetValue/60)+"분":x.targetValue>=1000?(Math.round(x.targetValue/100)/10)+"K":x.targetValue+"m";return v+" "+r}
   return c.sections.map(function(x){return x.intervalGroup?"("+x.sets.map(one).join(" + ")+") ×"+x.repeats:one(x)}).join(" → ")}
+function cwSegs(c){var out=[];function col(x){if(x.sectionType===3)return "var(--rec)";var a=(x.intensityValueStart+x.intensityValueEnd)/2/K;return a<235?"var(--bad)":a<250?"var(--taper)":a<262?"var(--q)":a<300?"var(--build)":x.sectionType===1||x.sectionType===4?"var(--rec)":"var(--base)"}
+  function w(x){return x.targetType===2?x.targetValue*1000/360:x.targetValue}
+  c.sections.forEach(function(x){if(x.intervalGroup){for(var r=0;r<x.repeats;r++)x.sets.forEach(function(y){out.push([w(y),col(y)])})}else out.push([w(x),col(x)])});
+  var tot=out.reduce(function(a,x){return a+x[0]},0)||1;
+  return '<span class="cwbar" aria-hidden="true">'+out.slice(0,80).map(function(x){return '<i style="flex:'+Math.max(0.6,x[0]/tot*100).toFixed(2)+';background:'+x[1]+'"></i>'}).join("")+'</span>'}
+function cwKm(c){var m=0,s=0;c.sections.forEach(function(x){(x.intervalGroup?x.sets.map(function(y){return [y,x.repeats]}):[[x,1]]).forEach(function(q){if(q[0].targetType===2)s+=q[0].targetValue*q[1];else m+=q[0].targetValue*q[1]})});
+  return (m?(Math.round(m/100)/10)+"km":"")+(m&&s?" + ":"")+(s?Math.round(s/60)+"분":"")}
 function cwCard(){
-  var h='<div class="card cwcard"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">⌚</span><div style="flex:1;min-width:0"><h2>COROS 워크아웃 맞추기</h2><small>계획이 바뀐 날은 같은 날짜 워크아웃을 덮어써요</small></div></div>';
-  h+='<div class="row between" style="margin-top:10px;gap:8px"><span class="mseg" role="radiogroup" aria-label="반영 기간">'+[[7,"1주"],[14,"2주"],[28,"4주"]].map(function(x){return '<button type="button" role="radio" data-cwr="'+x[0]+'" aria-checked="'+(CW.range===x[0])+'">'+x[1]+'</button>'}).join("")+'</span><button type="button" class="sbtn wset" id="cw-load"'+(CW.busy?' disabled':'')+'>'+(CW.busy==="load"?'불러오는 중…':CW.rows?'↻ 다시 비교':'COROS 일정 불러와 비교')+'</button></div>';
-  if(CW.err)h+='<div class="warn" style="margin-top:8px">'+esc(CW.err)+'</div>';
-  if(CW.rows){var lab={new:["새로 추가","ok"],over:["덮어쓰기","mid"],same:["최신","na"],rest:["휴식으로 바뀜","bad"],race:["레이스","na"],lock:["수정 불가","bad"]};
-    if(!CW.rows.length)h+='<p class="small muted" style="margin:10px 0 0">이 기간에 보낼 훈련이 없어요.</p>';
-    h+='<div class="cwlist">'+CW.rows.map(function(r){var L=lab[r.st],can=r.st==="new"||r.st==="over",dw=DOW[(new Date(p(r.ds)).getUTCDay()+6)%7];
-      return '<label class="cwrow'+(can?'':' off')+'"><input type="checkbox" data-cwp="'+r.ds+'"'+(can?'':' disabled')+(CW.pick[r.ds]?' checked':'')+'><span class="cwd num">'+md(r.ds)+'<small>'+dw+'</small></span><span class="cwm"><b>'+esc(r.c?r.c.course.courseName:ptxt(r.t[1]).split("\n")[0])+'</b>'
-        +(r.st==="over"?'<small class="cwold">COROS: <s>'+esc(r.tgt.name)+'</s></small>':r.st==="lock"?'<small>COROS: '+esc(r.tgt.name)+'</small>':'')+(r.c&&can?'<small>'+esc(cwSecTxt(r.c.course))+'</small>':'')+(r.note?'<small>'+esc(r.note)+'</small>':'')+(r.c&&r.c.skip.length&&can?'<small class="muted">설명에만 담김: '+esc(r.c.skip.join(", "))+'</small>':'')+'</span><span class="rhst '+L[1]+'">'+L[0]+'</span></label>'}).join("")+'</div>';
-    var np=Object.keys(CW.pick).filter(function(k){return CW.pick[k]}).length;
-    h+='<div class="ksave"><span class="small muted">'+(CW.msg?esc(CW.msg):np?np+'일 선택':'바꿀 날이 없어요')+'</span><button class="btn" id="cw-apply" style="background:var(--accent);color:var(--on-accent)"'+(np&&!CW.busy?'':' disabled')+'>'+(CW.busy==="apply"?'반영 중…':'선택한 '+np+'일 반영')+'</button></div>'}
-  else if(CW.msg)h+='<p class="small muted" style="margin:8px 0 0">'+esc(CW.msg)+'</p>';
-  h+=info('오늘부터 고른 기간의 훈련을 COROS 일정과 비교해요. 같은 날짜에 워크아웃이 있으면 새 계획으로 덮어쓰고(완료했거나 지난 운동은 건너뜀), 없으면 새로 만들어요. COROS에서는 운동을 지울 수 없어서, 휴식으로 바뀐 날은 COROS 앱에서 직접 지워 주세요. 레이스 날은 페이스 탭의 레이스 전략에서 등록해요. 페이스는 기준 설정의 존을 실제 페이스 범위로 넣어요.','동작 방식')+'</div>';
+  var dw=function(ds){return DOW[(new Date(p(ds)).getUTCDay()+6)%7]},rows=CW.rows,ds0=cwDates(CW.range);
+  var h='<div class="card cwcard"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">⌚</span><div style="flex:1;min-width:0"><h2>COROS 워크아웃 맞추기</h2><small>바뀐 날은 같은 날짜 워크아웃을 덮어써요</small></div></div>';
+  h+='<div class="cwtool"><span class="pseg cwseg" role="radiogroup" aria-label="반영 기간" style="--pn:3;--pi:'+[7,14,28].indexOf(CW.range)+'"><span class="pind" aria-hidden="true"></span>'+[[7,"1주"],[14,"2주"],[28,"4주"]].map(function(x){return '<button type="button" role="radio" data-cwr="'+x[0]+'" aria-checked="'+(CW.range===x[0])+'">'+x[1]+'</button>'}).join("")+'</span><span class="cwrange num">'+(ds0.length?md(ds0[0])+' ~ '+md(ds0[ds0.length-1]):'')+'</span>'+(rows?'<button type="button" class="cwre" id="cw-load" aria-label="COROS 일정 다시 비교"'+(CW.busy?' disabled':'')+'>'+(CW.busy==="load"?'…':'↻')+'</button>':'')+'</div>';
+  if(CW.err)h+='<div class="warn" style="margin-top:10px">'+esc(CW.err)+'</div>';
+  if(!rows){
+    h+='<div class="cwempty"><div class="cwflow" aria-hidden="true"><span>📋<small>내 계획</small></span><i></i><span>⌚<small>COROS</small></span></div><p>앞으로 '+(CW.range/7)+'주 훈련을 COROS 일정과 날짜별로 비교해요.<br>보내기 전에 무엇이 바뀌는지 먼저 보여드려요.</p><button type="button" class="btn" id="cw-load" style="background:var(--accent);color:var(--on-accent)"'+(CW.busy?' disabled':'')+'>'+(CW.busy==="load"?'COROS 일정 불러오는 중…':'COROS 일정 불러와 비교')+'</button>'+(CW.msg?'<small>'+esc(CW.msg)+'</small>':'')+'</div>';
+  }else{
+    var act=rows.filter(function(r){return r.st==="new"||r.st==="over"}),same=rows.filter(function(r){return r.st==="same"}),warn=rows.filter(function(r){return r.st==="lock"||r.st==="rest"||r.st==="race"});
+    var nOv=act.filter(function(r){return r.st==="over"}).length,nNew=act.length-nOv;
+    h+='<div class="cwhero">'+[[nOv,"덮어쓰기","mid"],[nNew,"새로 추가","ok"],[same.length,"최신","na"],[warn.length,"확인 필요","bad"]].map(function(x){return '<div class="'+x[2]+(x[0]?'':' zero')+'"><b class="num">'+x[0]+'</b><small>'+x[1]+'</small></div>'}).join("")+'</div>';
+    function row(r,can){var L={new:"새로 추가",over:"덮어쓰기",same:"최신",lock:"수정 불가",rest:"휴식으로 바뀜",race:"레이스"}[r.st],cls={new:"ok",over:"mid",same:"na",lock:"bad",rest:"bad",race:"na"}[r.st],nm=r.c?r.c.course.courseName:ptxt(r.t[1]).split("\n")[0];
+      var s=can?'<label class="cwi'+(CW.pick[r.ds]?' on':'')+'"><input type="checkbox" class="cwck" data-cwp="'+r.ds+'"'+(CW.pick[r.ds]?' checked':'')+(CW.busy?' disabled':'')+'><span class="cwtick" aria-hidden="true"></span>':'<div class="cwi off">';
+      s+='<span class="cwdate"><b class="num">'+(+r.ds.slice(8))+'</b><small>'+(+r.ds.slice(5,7))+'월 · '+dw(r.ds)+'</small></span><span class="cwbody"><span class="cwtop"><b>'+esc(nm)+'</b><span class="rhst '+cls+'">'+L+'</span></span>';
+      if(r.c&&r.st!=="race"&&r.st!=="rest"){var cs=r.c.course.sections,one=cs.length===1&&!cs[0].intervalGroup;s+=cwSegs(r.c.course)+'<small class="cwsub">'+(one?'':'<b class="num">'+cwKm(r.c.course)+'</b> · ')+esc(cwSecTxt(r.c.course))+'</small>'}
+      if(r.st==="over")s+='<small class="cwfrom">지금 COROS <s>'+esc(r.tgt.name)+'</s> → 새 계획으로 바꿔요</small>';
+      else if(r.st==="lock")s+='<small class="cwfrom">COROS '+esc(r.tgt.name)+' · 완료했거나 수정할 수 없어 COROS 앱에서 바꿔 주세요</small>';
+      else if(r.note)s+='<small class="cwfrom">'+esc(r.note)+'</small>';
+      return s+'</span>'+(can?'</label>':'</div>')}
+    if(act.length){var allOn=act.every(function(r){return CW.pick[r.ds]});h+='<div class="cwgh"><b>보낼 날 <span class="num">'+act.length+'</span></b><button type="button" class="linkbtn" data-cwall="'+(allOn?0:1)+'"'+(CW.busy?' disabled':'')+'>'+(allOn?'모두 해제':'모두 선택')+'</button></div><div class="cwgrp">'+act.map(function(r){return row(r,true)}).join("")+'</div>'}
+    else h+='<div class="cwdone">✓ 이 기간은 COROS가 계획과 같아요</div>';
+    if(warn.length)h+='<div class="cwgh"><b>확인 필요 <span class="num">'+warn.length+'</span></b></div><div class="cwgrp">'+warn.map(function(r){return row(r,false)}).join("")+'</div>';
+    if(same.length)h+='<details class="cwsame"><summary>그대로인 날 <span class="num">'+same.length+'</span>일 <span class="small muted">'+same.map(function(r){return md(r.ds)}).join(" · ")+'</span></summary><div class="cwgrp">'+same.map(function(r){return row(r,false)}).join("")+'</div></details>';
+    var np=act.filter(function(r){return CW.pick[r.ds]}).length,pr=CW.prog;
+    if(act.length||CW.msg)h+='<div class="cwfoot">'+(pr?'<div class="cwprog"><span>'+esc(CW.msg)+'</span><div class="bar"><i style="width:'+Math.round(pr.i/pr.n*100)+'%"></i></div></div>':'<span class="cwfmsg">'+(CW.msg?esc(CW.msg):np?'<b class="num">'+np+'</b>일 선택 · 같은 날짜는 덮어써요':'보낼 날을 골라 주세요')+'</span>')+(act.length?'<button class="btn" id="cw-apply" style="background:var(--accent);color:var(--on-accent)"'+(np&&!CW.busy?'':' disabled')+'>'+(CW.busy==="apply"?'보내는 중…':'⌚ '+np+'일 보내기')+'</button>':'')+'</div>';
+  }
+  h+=info('완료했거나 지난 운동은 덮어쓰지 않아요. COROS에서는 운동을 지울 수 없어서, 휴식으로 바뀐 날은 COROS 앱에서 직접 지워 주세요. 대회 날은 페이스 탭 레이스 전략에서 등록해요. 페이스는 기준 설정의 존을 실제 페이스 범위로 넣고, 막대 색은 강도(회색 회복 · 하늘 이지 · 파랑 지속주·MP · 청록 템포 · 빨강 인터벌)예요.','동작 방식')+'</div>';
   return h}
 function bindCw(){var c=view.querySelector(".cwcard");if(!c)return;
-  c.querySelectorAll("[data-cwr]").forEach(function(b){b.onclick=function(){CW.range=+b.dataset.cwr;if(CW.sched)CW.rows=null,CW.sched=null;CW.msg="";keepIf()}});
-  var l=c.querySelector("#cw-load");if(l)l.onclick=cwLoad;var a=c.querySelector("#cw-apply");if(a)a.onclick=cwApply;
+  c.querySelectorAll("[data-cwr]").forEach(function(b){b.onclick=function(){if(CW.busy)return;CW.range=+b.dataset.cwr;CW.rows=null;CW.sched=null;CW.msg="";keepIf()}});
+  c.querySelectorAll("#cw-load").forEach(function(l){l.onclick=cwLoad});var a=c.querySelector("#cw-apply");if(a)a.onclick=cwApply;
+  c.querySelectorAll("[data-cwall]").forEach(function(b){b.onclick=function(){var on=b.dataset.cwall==="1";(CW.rows||[]).forEach(function(r){if(r.st==="new"||r.st==="over")CW.pick[r.ds]=on});CW.msg="";keepIf()}});
   c.querySelectorAll("[data-cwp]").forEach(function(x){x.onchange=function(){CW.pick[x.dataset.cwp]=x.checked;CW.msg="";keepIf()}})}
 var CWD={busy:""};
 function cwDayBtn(ds,t){if(S.watch&&S.watch!=="coros")return "";if(ds<T||ds>addDays(T,90))return "";var c=cwCourse(t,ds);if(!c)return "";
