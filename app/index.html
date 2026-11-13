@@ -899,6 +899,8 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .cwd{display:flex;flex-direction:column;font-weight:800;font-size:14px;line-height:1.2}.cwd small{font-size:11px;color:var(--muted);font-weight:600}
 .cwm{min-width:0;display:flex;flex-direction:column;gap:2px}.cwm b{font-size:13.5px;line-height:1.35}.cwm small{font-size:11.5px;color:var(--muted);line-height:1.4}.cwm .cwold s{opacity:.8}
 .cwrow .rhst{white-space:nowrap;font-size:11px;padding:3px 8px}.rhst.na{color:var(--muted);background:var(--bg)}
+.kpbtns{margin-left:auto;display:inline-flex;gap:6px;align-self:center;flex-wrap:wrap;justify-content:flex-end}.kpbtns .aiq1{margin-left:0}
+.cwq.same{background:var(--bg);color:var(--muted)}.cwq.chg{background:color-mix(in srgb,var(--s3) 22%,transparent);color:color-mix(in srgb,var(--s3) 70%,var(--ink))}.cwq[disabled]{opacity:.7}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -2889,7 +2891,7 @@ function vToday(){
   h+='<div class="t2col"><div class="tcol">';
   h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var DS=dn||(t[0]==="r"&&r.w)?dayScore(sel):null,folded=!!(DS&&DS.s!=null),det="";
-  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0];if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'<button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button></div>'}}
+  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0],cwb=cwDayBtn(sel,t);if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'<span class="kpbtns"><button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button>'+cwb+'</span></div>'}else if(cwb)h+='<div class="keypace"><span class="kpbtns">'+cwb+'</span></div>'}
   var rv=rpeOf(sel),rpeOn=dn||!!r.w;
   if(rpeOn)h+='<button class="rpeb" id="rpe-open" aria-label="RPE '+(rv?RPE[rv].n:'입력')+'">'+rpeFace(rv,"lg")+'<small>'+(rv?RPE[rv].n:'RPE')+'</small></button>';
   var askR=rpeOn&&(RPEASK===sel||(dn&&!rv&&!RPESKIP[sel]));
@@ -2962,6 +2964,7 @@ function vToday(){
   var rpx=document.getElementById("rep-x");if(rpx)rpx.onclick=function(){S.repSeen=Math.floor(idxOf(T)/7)-1;save();var y=window.scrollY;render();window.scrollTo(0,y)};
   var kq=document.getElementById("kmq");if(kq)kq.onsubmit=function(e){e.preventDefault();var v=parseFloat(document.getElementById("kmq-in").value);if(!(v>0&&v<200)){document.getElementById("kmq-in").focus();return}var r2=S.days[sel]||{};r2.km=String(Math.round(v*100)/100);S.days[sel]=r2;save();var y=window.scrollY;render();window.scrollTo(0,y);var dsx=dayScore(sel);if(dsx&&dsx.s!=null)toast("✓ "+dsx.s+"점 "+SNAME[dsx.b])};
   view.querySelectorAll("[data-aiq]").forEach(function(b){b.onclick=function(){enterSub("coach");if(BACK)BACK.ctx=true;render();coachAsk(b.dataset.aiq)}});
+  view.querySelectorAll("[data-cwsend]").forEach(function(b){b.onclick=function(){cwSendDay(b.dataset.cwsend)}});
   view.querySelectorAll("[data-rpe]").forEach(function(b){b.onclick=function(){var r=S.days[sel]||{};r.rpe=+b.dataset.rpe;r.rpeSrc="manual";S.days[sel]=r;RPEASK=null;RPESKIP[sel]=true;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){sel=b.dataset.go;render()}});
   ["km","hr","pace","note"].forEach(function(k){var el=document.getElementById("f-"+k);if(!el)return;el.addEventListener("input",function(){var r=S.days[sel]||{};r[k]=el.value;S.days[sel]=r;save()})});
@@ -3199,6 +3202,22 @@ function bindCw(){var c=view.querySelector(".cwcard");if(!c)return;
   c.querySelectorAll("[data-cwr]").forEach(function(b){b.onclick=function(){CW.range=+b.dataset.cwr;if(CW.sched)CW.rows=null,CW.sched=null;CW.msg="";keepIf()}});
   var l=c.querySelector("#cw-load");if(l)l.onclick=cwLoad;var a=c.querySelector("#cw-apply");if(a)a.onclick=cwApply;
   c.querySelectorAll("[data-cwp]").forEach(function(x){x.onchange=function(){CW.pick[x.dataset.cwp]=x.checked;CW.msg="";keepIf()}})}
+var CWD={busy:""};
+function cwDayBtn(ds,t){if(S.watch&&S.watch!=="coros")return "";if(ds<T||ds>addDays(T,90))return "";var c=cwCourse(t,ds);if(!c)return "";
+  var r=(S.cw||{})[ds],st=!r?"new":r.h===cwHash(c.course)?"same":"chg",bz=CWD.busy===ds;
+  return '<button type="button" class="aiq1 cwq '+st+'" data-cwsend="'+ds+'"'+(bz||CWD.busy?' disabled':'')+' title="'+(st==="new"?'이 훈련을 COROS 일정에 보내요. 같은 날짜 워크아웃이 있으면 덮어써요':st==="chg"?'COROS에 보낸 뒤 계획이 바뀌었어요. 다시 보내면 같은 날짜 워크아웃을 덮어써요':'COROS에 보낸 그대로예요. 누르면 다시 보내요')+'">'+(bz?'⌚ 보내는 중…':st==="new"?'⌚ 워치로 보내기':st==="chg"?'⌚ 바뀜 · 다시 보내기':'⌚ 보냄 ✓')+'</button>'}
+async function cwSendDay(ds){var t=cwPlanOf(ds),c=cwCourse(t,ds);if(!c||CWD.busy)return;CWD.busy=ds;keepIf();
+  try{var mcp=await cwMcp(),dk=ds.replace(/-/g,""),q=await mcp.callTool("COROS","queryTrainingSchedule",{startDate:dk,endDate:dk}),ex=(cwParseSched(cwText(q))[ds]||[]).filter(function(x){return !x.plan}),
+      rec=(S.cw||{})[ds],tgt=(rec&&ex.filter(function(x){return x.id===rec.id})[0])||ex[0]||null,res;
+    if(tgt){var dt=await mcp.callTool("COROS","queryScheduledWorkoutDetails",{date:dk,idInPlan:tgt.id});
+      if(!/Editable via MCP:\s*yes/i.test(cwText(dt))){toast("이 날 COROS 워크아웃('"+tgt.name+"')은 완료했거나 수정할 수 없어요. COROS 앱에서 바꿔 주세요.");return}
+      res=await mcp.callTool("COROS","updateScheduledWorkout",{date:dk,idInPlan:tgt.id,course:c.course})}
+    else res=await mcp.callTool("COROS","createScheduledWorkout",{date:dk,course:c.course});
+    var tx=cwText(res),nid=(tx.match(/idInPlan[^\d]{0,12}(\d+)/)||[])[1]||(tgt&&tgt.id)||null;
+    if(!nid){try{var q2=await mcp.callTool("COROS","queryTrainingSchedule",{startDate:dk,endDate:dk}),hit=(cwParseSched(cwText(q2))[ds]||[]).filter(function(x){return x.name===c.course.courseName})[0];if(hit)nid=hit.id}catch(e2){}}
+    S.cw=S.cw||{};S.cw[ds]={h:cwHash(c.course),id:nid,at:Date.now(),name:c.course.courseName};CW.rows=null;CW.sched=null;save();
+    toast(tgt?md(ds)+" COROS 워크아웃('"+tgt.name+"')을 새 계획으로 덮어썼어요. 워치를 동기화해 주세요.":md(ds)+" COROS 일정에 보냈어요. 워치를 동기화해 주세요.")}
+  catch(e){toast(cwErr(e))}finally{CWD.busy="";keepIf()}}
 function planStrip(dn,tot,km,canAdj){
   var mine=myPlanOn(),n=planEdited(),P=plan(),pct=tot?Math.round(dn/tot*100):0,tkm=W.reduce(function(a,x,wi){return a+weekKm(wi)},0);
   var srcO=foldOpen("psrc",false)||!!(MPB.draft||MPB.open),adjO=canAdj&&MPOPEN;
