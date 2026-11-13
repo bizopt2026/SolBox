@@ -670,6 +670,19 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .rregen{display:block;margin:10px auto 0;border:0;background:none;color:var(--accent);font-size:13px;font-weight:700;padding:6px 10px;border-radius:99px}.rregen:hover{background:var(--accent-soft)}
 .redit{margin-top:6px;padding:2px 12px;border-radius:12px;background:var(--bg)}.redit .kvr+.kvr{border-color:var(--line)}
 .rinfo-pv{margin-top:10px;display:grid;place-items:center;min-height:200px;border-radius:14px;background:var(--bg);overflow:hidden}.rinfo-pv img{display:block;width:100%;max-height:62vh;object-fit:contain}
+.ahero{display:flex;align-items:center;gap:10px;margin-top:12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,var(--accent-soft),var(--bg))}
+.ahero>div{display:flex;flex-direction:column;gap:2px;min-width:0}.ahero small{font-size:12px;font-weight:700;color:var(--muted)}
+.ahero b{font-size:28px;line-height:1.05;font-family:var(--f-display);letter-spacing:-.5px}.ahero span{font-size:11px;color:var(--muted)}
+.ahero .aarrow{flex:none;color:var(--accent);font-size:20px;font-weight:800}
+.ahero .agoal{margin-left:auto;text-align:right;align-items:flex-end}.ahero .agoal b{color:var(--accent)}
+.ahero em{font-style:normal;font-weight:800}.ahero em.bad{color:var(--bad)}.ahero em.ok{color:var(--ok)}
+.agap{height:6px;border-radius:99px;background:var(--line);margin-top:10px;overflow:hidden}.agap i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--ok))}
+.agapl{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:11px;color:var(--muted)}.agapl span:first-child{font-weight:700;color:var(--ink)}
+.astats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;text-align:center}
+.astats>div{display:flex;flex-direction:column;gap:1px;padding:4px 2px;min-width:0}.astats>div+div{border-left:1px solid var(--line)}
+.astats small{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}.astats b{font-size:19px;font-family:var(--f-display)}.astats span{font-size:10px;color:var(--muted)}
+.astats .hl b{color:var(--accent)}
+.anote{display:flex;gap:6px;align-items:baseline;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.anote b{color:var(--ink)}.anote>span:first-child{color:var(--accent);font-weight:800}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3539,15 +3552,19 @@ function vPace(){
   // results
   if(e.k){
     var pctv=Math.round((e.k-1)*1000)/10, dsec=Math.round(255*e.k-255);
-    h+='<div class="card"><div class="row between"><h2>분석 결과</h2>'+(e.on?'<span class="pill ok">적용 중</span>':'<span class="pill na">원본 표시 중</span>')+'</div><div class="grid2" style="margin-top:10px">';
-    if(e.vdot)h+='<div class="mini"><div class="small muted">VDOT ('+DIST[rd][1]+' 기록)</div><b>'+e.vdot.toFixed(1)+'</b></div><div class="mini"><div class="small muted">예상 마라톤</div><b>'+fmtT(e.mar)+'</b></div>';
-    if(e.thr)h+='<div class="mini"><div class="small muted">역치 페이스</div><b>'+fmtMS(e.thr)+'<span class="small muted">/km</span></b></div>';
-    h+='<div class="mini"><div class="small muted">훈련 마라톤 페이스</div><b>'+fmtMS(255*e.k)+'<span class="small muted">/km</span></b></div>';
-    if(e.curPred)h+='<div class="mini"><div class="small muted">현재 예상 기록</div><b>'+fmtT(e.curPred)+'</b></div>';
-    if(e.lthr)h+='<div class="mini"><div class="small muted">역치 심박</div><b>'+e.lthr+'<span class="small muted"> bpm</span></b></div>';
-    h+='</div><p class="small" style="margin:10px 0 0">'+(Math.abs(pctv)<0.5?'원본 서브3 페이스와 거의 같아요.':'원본 서브3 페이스보다 km당 <b>'+Math.abs(dsec)+'초 '+(dsec>0?'느리게':'빠르게')+'</b> ('+(pctv>0?'+':'')+pctv+'%) 맞췄어요.')+(e.goal?' 확정한 목표 '+fmtT(e.goal)+' 기준이에요.':(e.kRace&&e.kThr?' 현재 실력 기준이고, 기록과 역치 페이스를 반반 반영했어요.':' 현재 실력 기준이에요.'))+'</p>';
+    h+='<div class="card"><div class="row between"><h2>분석 결과</h2>'+(e.on?'<span class="pill ok">적용 중</span>':'<span class="pill na">원본 표시 중</span>')+'</div>';
+    if(e.curPred){var gap=e.goal?e.curPred-e.goal:null;
+      h+='<div class="ahero"><div><small>현재 예상 기록</small><b class="num">'+fmtT(e.curPred)+'</b>'+(e.vdot&&e.mar&&Math.abs(e.mar-e.curPred)>=30?'<span>VDOT 기준 '+fmtT(e.mar)+'</span>':'<span>'+(e.kRace&&e.kThr?'기록·역치 페이스 반반 반영':'내 기록 기준')+'</span>')+'</div>';
+      if(e.goal)h+='<div class="aarrow" aria-hidden="true">→</div><div class="agoal"><small>목표</small><b class="num">'+fmtT(e.goal)+'</b><span>'+(gap>0?'<em class="bad">−'+fmtT(gap)+'</em> · km당 '+Math.round(gap/42.195)+'초 단축':'<em class="ok">이미 목표 안쪽</em>')+'</span></div>';
+      h+='</div>';
+    }
+    h+='<div class="astats">';
+    if(e.vdot)h+='<div><small>VDOT</small><b class="num">'+e.vdot.toFixed(1)+'</b><span>'+DIST[rd][1]+' 기록</span></div>';
+    if(e.thr)h+='<div><small>역치 페이스</small><b class="num">'+fmtMS(e.thr)+'</b><span>/km</span></div>';
+    if(e.lthr)h+='<div><small>역치 심박</small><b class="num">'+e.lthr+'</b><span>bpm</span></div>';
+    h+='<div class="hl"><small>훈련 MP</small><b class="num">'+fmtMS(255*e.k)+'</b><span>/km</span></div></div>';
+    h+='<div class="anote"><span>'+(Math.abs(pctv)<0.5?'≈':dsec>0?'▼':'▲')+'</span><span>'+(Math.abs(pctv)<0.5?'원본 서브3 페이스와 거의 같아요':'원본 서브3보다 km당 <b>'+Math.abs(dsec)+'초 '+(dsec>0?'느리게':'빠르게')+'</b> ('+(pctv>0?'+':'')+pctv+'%)')+(e.goal?' · 목표 '+fmtT(e.goal)+' 기준':' · 현재 실력 기준')+'. W11·W15 점검 기록을 넣으면 다시 계산해요.</span></div>';
     if(e.gap>0.03)h+='<div class="warn" style="margin-top:8px">기록 기준과 역치 페이스 기준이 '+Math.round(e.gap*100)+'% 차이나요. 오래된 기록이거나 역치 페이스가 정확하지 않을 수 있어요. 둘 중 최근 값을 확인해 주세요.</div>';
-    if(e.goal&&e.curPred)h+='<p class="small muted" style="margin:8px 0 0">'+(e.curPred>e.goal?'목표까지 지금보다 <b style="color:var(--ink)">'+fmtT(e.curPred-e.goal)+'</b> 줄이면 돼요.':'현재 예상 기록이 이미 목표 안쪽이에요. 목표를 올려 봐도 좋아요.')+' W11·W15 점검 기록을 넣으면 다시 계산해요.</p>';
     h+='</div>';
   } else {
     h+='<div class="card"><h2>분석 결과</h2><p class="small muted" style="margin:6px 0 0">역치 페이스나 최근 5K·10K·하프 기록 중 하나만 넣어도 페이스를 계산해요. 지금은 원본 서브3 페이스(MP 4:15/km)를 보여 주고 있어요.</p></div>';
