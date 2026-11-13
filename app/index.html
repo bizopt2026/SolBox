@@ -705,6 +705,25 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .bseg .bk>span:last-child{font-size:10.5px;color:var(--muted);max-width:100%}
 .bseg .bk:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 @media (prefers-reduced-motion:reduce){.bseg .bind{transition:none}}
+.whero{display:flex;align-items:center;gap:12px;margin-top:12px;padding:14px;border-radius:16px;background:linear-gradient(135deg,var(--accent-soft),var(--bg))}
+.whero small{display:block;font-size:11px;font-weight:700;color:var(--muted)}.whero b{font-size:24px;font-family:var(--f-display);line-height:1.1}.whero b i{font-style:normal;font-size:12px;color:var(--muted);margin-left:1px}
+.wh-b{text-align:right}.wh-b b{color:var(--accent)}
+.wh-m{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}.wh-m span{font-size:11px;color:var(--muted);white-space:nowrap}.wh-m span b{font-size:12px;color:var(--ink)}
+.wh-bar{width:100%;height:6px;border-radius:99px;background:var(--line);overflow:hidden}.wh-bar u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--ok))}
+.wtl{list-style:none;margin:14px 0 0;padding:0}
+.wtl li{display:grid;grid-template-columns:40px 14px 1fr;gap:8px;align-items:start;position:relative;padding-bottom:12px}
+.wtl li:not(:last-child)::after{content:"";position:absolute;left:54px;top:14px;bottom:-2px;width:2px;background:var(--line)}
+.wtl li.done:not(:last-child)::after{background:var(--ok)}
+.wtl .wd{font-size:12px;color:var(--muted);padding-top:2px;text-align:right}
+.wtl .wdot{width:10px;height:10px;border-radius:50%;margin:4px 0 0 2px;background:var(--card);box-shadow:inset 0 0 0 2px var(--line);position:relative;z-index:1}
+.wtl li.done .wdot{background:var(--ok);box-shadow:none}.wtl li.next .wdot{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.wtl li>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;min-width:0}
+.wtl b{font-size:15px}.wtl b i{font-style:normal;font-size:11px;color:var(--muted);margin-left:1px}
+.wtl small{flex-basis:100%;font-size:12px;color:var(--muted)}
+.wtl em{font-style:normal;font-size:10px;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:99px}
+.wtl li.next b{color:var(--accent)}.wtl li.done{opacity:.75}
+.wgedit{margin-top:4px;padding-top:12px;border-top:1px solid var(--line)}.wgedit>.row b{font-size:14px}
+.wrec{font-size:11px;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);padding:2px 8px;border-radius:99px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1179,17 +1198,25 @@ function wtPlan(){
     out.push([m[0],Math.round((v-band)*10)/10,Math.round((v+band)*10)/10,lab[m[0]]])});
   return out;
 }
+function wGoalHero(WT,ld){
+  var g=S.wgoal||{},cur=ld?ld.avg:(Object.keys(S.wlog||{}).length?Math.round(bodyW()*10)/10:null),st=+(g.start||WT[0][1]),last=WT[WT.length-1],tg=+(g.target||((last[1]+last[2])/2));tg=Math.round(tg*10)/10;
+  var left=cur!=null?Math.round((cur-tg)*10)/10:null,pct=cur!=null&&st>tg?Math.max(0,Math.min(100,Math.round((st-cur)/(st-tg)*100))):0,dd=Math.round((p(RACE)-p(T))/864e5);
+  var h='<div class="whero"><div class="wh-a"><small>지금</small><b class="num">'+(cur!=null?cur:'—')+'<i>kg</i></b></div><div class="wh-m"><div class="wh-bar"><u style="width:'+pct+'%"></u></div><span>'+(left==null?'체중을 기록해 주세요':left>0?'<b>−'+left+'kg</b> 남음 · D-'+dd:'<b style="color:var(--ok)">목표 도달</b>')+'</span></div><div class="wh-b"><small>3/21 목표</small><b class="num">'+tg+'<i>kg</i></b></div></div>';
+  var nx=-1;WT.forEach(function(m,k){if(nx<0&&m[0]>T)nx=k});
+  h+='<ol class="wtl">'+WT.map(function(m,k){var cls=k===nx?'next':m[0]<=T?'done':'';var rg=m[1]===m[2]?m[1]:m[1]+'~'+m[2];
+    return '<li class="'+cls+'"><span class="wd num">'+md(m[0])+'</span><span class="wdot" aria-hidden="true"></span><div><b class="num">'+rg+'<i>kg</i></b>'+(k===nx?'<em>다음 목표</em>':'')+'<small>'+esc(m[3])+'</small></div></li>'}).join("")+'</ol>';
+  return h}
 function wGoalCard(){
   var g=S.wgoal||{},cur=Object.keys(S.wlog||{}).length?Math.round(bodyW()*10)/10:"";
   var wk=Math.max(1,(p(RACE)-p(T>START?T:START))/(7*864e5)),st=+(g.start||cur)||0;
-  var h='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><div class="row between"><b>내 체중 목표</b>'+(g.target?'<span class="small muted">3/21 목표 <b class="num" style="color:var(--ink)">'+g.target+'kg</b></span>':'')+'</div>';
-  h+='<div class="fields" style="margin-top:8px"><label>현재 체중 (kg)<input id="wg-start" inputmode="decimal" placeholder="'+(cur||"예: 72.5")+'" value="'+esc(g.start||"")+'"></label><label>3/21 목표 체중 (kg)<input id="wg-target" inputmode="decimal" placeholder="'+(st?Math.round((st-wk*0.3)*2)/2:"예: 68")+'" value="'+esc(g.target||"")+'"></label></div>';
-  if(st)h+='<p class="small muted" style="margin:6px 0 0">계획 권장 속도는 주 0.25~0.4kg이에요. 3/21까지 약 '+Math.round(wk)+'주라서 권장 목표는 <b style="color:var(--ink)">'+(Math.round((st-wk*0.4)*10)/10)+'~'+(Math.round((st-wk*0.25)*10)/10)+'kg</b>예요.</p>';
+  var h='<div class="wgedit"><div class="row between"><b>'+(g.target?'내 목표 수정':'내 목표 정하기')+'</b>'+(st?'<span class="wrec">권장 '+(Math.round((st-wk*0.4)*10)/10)+'~'+(Math.round((st-wk*0.25)*10)/10)+'kg</span>':'')+'</div>';
+  h+='<label class="kvr"><span class="kl">현재 체중</span><span class="kin"><input id="wg-start" class="inp" inputmode="decimal" placeholder="'+(cur||"72.5")+'" value="'+esc(g.start||"")+'"><em>kg</em></span></label>';
+  h+='<label class="kvr"><span class="kl">3/21 목표 체중</span><span class="kin"><input id="wg-target" class="inp" inputmode="decimal" placeholder="'+(st?Math.round((st-wk*0.3)*2)/2:"68")+'" value="'+esc(g.target||"")+'"><em>kg</em></span></label>';
   if(g.start&&g.target){var rate=(g.start-g.target)/wk;
     if(rate>0.4)h+='<div class="warn" style="margin-top:6px">주 '+(Math.round(rate*100)/100)+'kg씩 빼야 하는 목표예요. 권장(주 0.4kg 이하)보다 빨라서 훈련 회복과 부상 위험이 커져요.</div>';
     else if(rate<0)h+='<p class="small muted" style="margin:6px 0 0">목표가 현재보다 높아요. 유지·증량 목표로 그래프를 그려요.</p>'}
-  h+='<div class="row" style="margin-top:8px"><button class="btn" id="wg-save">'+(g.target?'목표 바꾸기':'목표 저장')+'</button>'+(g.target?'<button class="btn ghost" id="wg-clear">기본 계획으로</button>':'')+'<span class="small" id="wg-msg" style="color:var(--bad)"></span></div>';
-  h+='<p class="small muted" style="margin:8px 0 0">목표를 저장하면 그래프의 목표 범위와 단계별 체중이 내 숫자로 바뀌어요. 감량은 베이스기에 몰고(1/24까지 72%), 특화기엔 천천히, 테이퍼부터는 멈추는 원래 계획의 흐름을 그대로 따라가요.</p></div>';
+  h+='<div class="ksave"><span class="small" id="wg-msg" style="color:var(--bad)"></span>'+(g.target?'<button class="btn ghost" id="wg-clear">기본 계획</button>':'')+'<button class="btn" id="wg-save" style="background:var(--accent);color:var(--on-accent)">'+(g.target?'저장':'목표 저장')+'</button></div>';
+  h+=info('계획 권장 속도는 주 0.25~0.4kg이에요(3/21까지 약 '+Math.round(wk)+'주). 저장하면 그래프의 목표 범위와 단계별 체중이 내 숫자로 바뀌어요. 감량은 베이스기에 몰고(1/24까지 72%), 특화기엔 천천히, 테이퍼부터는 멈추는 원래 계획의 흐름을 따라가요.','계산 방법')+'</div>';
   return h;
 }
 function hhmm(ms){var d=new Date(ms);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
@@ -3022,7 +3049,7 @@ function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<2
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
     if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px">'+(WEDIT===k+'|'+x.t?'<span class="wedit"><input class="inp" type="datetime-local" data-wedit-in value="'+dtLocal(x.t)+'"><button class="sbtn wset" type="button" data-wedit-ok="'+k+'|'+x.t+'">저장</button></span>':'<span class="muted num"><button class="wtime" type="button" data-wedit="'+k+'|'+x.t+'" aria-label="잰 시각 바꾸기">'+hhmm(x.t)+' ✎</button> · '+esc(x.src||"직접")+'</span>')+'<span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 체중을 기록해 보세요.</div>')+'</div>';
-  var gsec='<section class="card" id="wgoal"><h2>체중 목표</h2><dl class="kv small" style="margin-top:10px">'+WT.map(function(m){return '<dt class="num">'+md(m[0])+'</dt><dd>'+(m[1]===m[2]?m[1]:m[1]+'~'+m[2])+'kg · '+m[3]+'</dd>'}).join("")+'</dl>'+wGoalCard()+'</section>';h+='</div>';
+  var gsec='<section class="card" id="wgoal"><h2>체중 목표</h2>'+wGoalHero(WT,ld)+wGoalCard()+'</section>';h+='</div>';
   var wch=h;h=bodyKpis(ld)+(BODYV==="wt"?gsec+wch:bodyPanel(BODYV));
   view.innerHTML=h;
   var wfm=document.getElementById("wf");if(wfm)wfm.onsubmit=function(e){e.preventDefault();var d=document.getElementById("w-date").value,tm=document.getElementById("w-time").value||"07:00",v=parseFloat(document.getElementById("w-val").value.replace(",","."));if(!d||isNaN(v)||v<30||v>200)return;var a=d.split("-"),hm=tm.split(":");addWeight(new Date(+a[0],a[1]-1,+a[2],+hm[0],+hm[1]).getTime(),v,"직접");WOPEN=d;save();keepIf()};
