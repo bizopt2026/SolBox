@@ -795,6 +795,7 @@ body.coach .cbar .chips button{font-size:12px;padding:6px 11px}
 .carbdays span{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border-radius:10px;background:var(--card);font-size:11px}
 .carbdays small{font-size:10px;color:var(--muted);font-weight:700}.carbdays b{font-size:13px;font-family:var(--f-display)}.carbdays i{font-style:normal;font-size:10px;color:var(--muted)}
 .carbdays span.now{background:linear-gradient(135deg,#ffb347,#ff7e5f);color:#fff}.carbdays span.now small,.carbdays span.now i{color:#fff}.carbdays span.past{opacity:.5}
+body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-style:none;padding-bottom:2px}body.coach .cbar .chips.cochips::-webkit-scrollbar{display:none!important;height:0}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -2196,7 +2197,7 @@ function vCoach(){
   h+='</div>';
   h+='<div class="cbar">';
   if(AUTH.st==="anon")h+='<div class="small muted">claude.ai에 로그인해야 AI 코치를 쓸 수 있어요.</div>';
-  if(false)h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
+  if(M.length)h+='<div class="chips cochips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
   h+='<form class="cin" id="co-form"><textarea id="co-in" class="inp" rows="1" maxlength="600" placeholder="코치에게 물어보기…" aria-label="질문">'+esc(COACH.draft)+'</textarea>'+(COACH.busy?'<button class="cosend stop" type="button" id="co-stop" aria-label="멈춤"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>':'<button class="cosend" type="submit" aria-label="보내기"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>')+'</form></div>';
   view.innerHTML=h;bindBack();
   var ta=document.getElementById("co-in");ta.oninput=function(){COACH.draft=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";
