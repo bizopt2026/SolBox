@@ -1722,7 +1722,7 @@ function enhance(){
   } else if(tab==="plan"){
     var mineP=S.planMode==="mine",busy=!!(MPB.draft||MPB.open||MPB.busy||(mineP&&!myPlanOn()));
     var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"크루 계획 · "+dotDate(CREW_RACE);
-    var pc=document.getElementById("plansrc");if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
+    var pc=document.getElementById("plansrc");if(pc&&view.querySelector("[data-pstrip]"))pc=null;if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
   } else if(tab==="crew"){
     foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(AUTH.st==="view"?" · 기록 코드로 공유":S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
     foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
@@ -2672,9 +2672,9 @@ function sharedPlansHtml(){
 function planSrcCard(){
   var mine=S.planMode==="mine",has=!!(S.myplan&&S.myplan.weeks&&S.myplan.weeks.length),h='<div class="card" id="plansrc"><h2>훈련 계획</h2>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr;margin-top:10px"><button role="radio" aria-checked="'+!mine+'" data-psrc="crew">크루 계획 따르기</button><button role="radio" aria-checked="'+mine+'" data-psrc="mine">나만의 계획</button></div>';
-  if(!mine&&!MPB.draft){h+='<p class="small muted" style="margin:8px 0 0">크루장이 배포한 공용 훈련표('+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 아래 <b style="color:var(--ink)">크루 계획 조정</b>에서 나에게만 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'')+sharedPlansHtml();return h+'</div>'}
+  if(!mine&&!MPB.draft){h+='<p class="small muted" style="margin:8px 0 0">크루장이 배포한 공용 훈련표('+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 위 <b style="color:var(--ink)">크루 계획 조정</b>에서 나에게만 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'')+sharedPlansHtml();return h+'</div>'}
   if(has&&!MPB.open&&!MPB.draft){var m=S.myplan;h+='<div class="mpsum"><b>📋 '+esc(m.name)+'</b><span class="small muted">'+dotDate(m.start)+' 시작 · '+dotDate(m.race)+' 대회 · '+(m.weeks.length-1)+'주 + 레이스 주'+(m.goal?' · 목표 '+fmtT(m.goal):'')+'</span></div>';
-    h+='<p class="small muted" style="margin:6px 0 0">나만의 계획을 따르고 있어요. 요일·거리는 아래 <b style="color:var(--ink)">나만의 계획 조정</b>에서 바꿔요. 체크·기록은 날짜 기준이라 그대로 남아요.</p>';
+    h+='<p class="small muted" style="margin:6px 0 0">나만의 계획을 따르고 있어요. 요일·거리는 위 <b style="color:var(--ink)">나만의 계획 조정</b>에서 바꿔요. 체크·기록은 날짜 기준이라 그대로 남아요.</p>';
     var shd=mySharedIds().indexOf(m.id)>=0;
     h+='<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost" id="mp-share"'+(CREW.db?'':' disabled')+'>'+(shd?'✓ 크루에 공유 중 · 취소':'크루에 공유')+'</button><button class="btn ghost" id="mp-code-copy">계획 코드 복사</button><button class="btn ghost" id="mp-new">새로 만들기</button><button class="btn ghost" id="mp-del" style="color:var(--bad)">삭제</button></div>';
     if(MPB.msg)h+='<p class="small" style="color:var(--ok);margin:6px 0 0">'+esc(MPB.msg)+'</p>';
@@ -2759,11 +2759,31 @@ function openMemberSheet(id){closeSheet();var m=CREW.members[id]||{},d=m.d||{},c
   h+='<div class="mstats"><div><small>목표</small><b>'+(m.goal?esc(m.goal):'—')+'</b></div><div><small>'+wn(cw)+'</small><b>'+wn0+'회 · '+Math.round(wkm)+'km</b></div><div><small>시즌 누적</small><b>'+tot+'회 · '+Math.round(tkm)+'km</b></div></div>';
   if(m.pm==="mine")h+='<p class="small muted" style="margin:8px 0 0">📋 나만의 계획'+(m.pn?' · '+esc(m.pn):'')+'</p>';
   h+='</div>';var o=document.createElement("div");o.id="dsheet";o.innerHTML=h;document.body.appendChild(o);o.querySelectorAll("[data-shx]").forEach(function(x){x.onclick=closeSheet})}
+function planStrip(dn,tot,km,canAdj){
+  var mine=myPlanOn(),n=planEdited(),P=plan(),pct=tot?Math.round(dn/tot*100):0,tkm=W.reduce(function(a,x,wi){return a+weekKm(wi)},0);
+  var srcO=foldOpen("psrc",false)||(S.planMode==="mine"&&!!(MPB.draft||MPB.open)),adjO=canAdj&&MPOPEN;
+  var open=foldOpen("pstrip",false)||srcO||adjO;
+  var c=['<span>📋 <b>'+(mine?'내 계획':'크루')+'</b></span>','<span>🛠 '+(n?'<b style="color:var(--accent)">조정 '+n+'</b>':'<span class="muted">조정 없음</span>')+'</span>','<span>✓ <b class="num">'+dn+'/'+tot+'</b></span>','<span>📏 <b class="num">'+Math.round(km)+'</b>km</span>'];
+  var sum='<button class="ssum" data-pstrip aria-expanded="'+open+'" aria-label="'+(open?'요약으로 접기':'훈련 계획·계획 조정·전체 진행 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
+  if(!open)return sum;
+  var src=mine?'<b>훈련 계획 · 나만의 계획</b><span>'+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+' 대회 · '+(S.myplan.weeks.length-1)+'주 + 레이스 주</span>'
+    :'<b>훈련 계획 · 크루 계획 따르기</b><span>크루장이 배포한 공용 훈련표 · '+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주</span>';
+  var h='<div class="strip">'+sum;
+  h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📋</span><button class="wlink" data-ptog="psrc" aria-expanded="'+srcO+'">'+src+'</button><button class="sbtn wset'+(srcO?' on':'')+'" data-ptog="psrc" aria-expanded="'+srcO+'">'+(srcO?'닫기':'바꾸기')+'</button></div>';
+  if(canAdj)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🛠</span><button class="wlink" data-ptog="padj" aria-expanded="'+adjO+'"><b>'+(mine?'나만의':'크루')+' 계획 조정'+(n?' · <span style="color:var(--accent)">바꾼 내용 '+n+'개</span>':'')+'</b><span>요일 바꾸기'+(P.swaps.length?' '+P.swaps.length+'개':'')+' · 주간 거리 '+P.vol+'% · 클로드에게 부탁</span></button><button class="sbtn wset'+(adjO?' on':'')+'" data-ptog="padj" aria-expanded="'+adjO+'">'+(adjO?'닫기':'조정')+'</button></div>';
+  h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📈</span><div class="wlink" style="cursor:default"><b>전체 진행 · <span class="num" style="color:var(--ok)">'+pct+'%</span></b><span>완료 '+dn+' / '+tot+'회 · 누적 '+Math.round(km)+' / '+tkm.toLocaleString()+' km</span><div class="bar" style="height:5px;margin-top:5px"><i style="width:'+pct+'%"></i></div></div></div>';
+  h+='</div>';
+  if(srcO)h+=planSrcCard();
+  if(adjO)h+=myPlanCard();
+  return h}
+function bindPlanStrip(){
+  view.querySelectorAll("[data-pstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("pstrip",!op);if(op){foldSet("psrc",false);MPOPEN=false;if(S.planMode==="mine"&&!MPB.draft)MPB.open=false}keepIf();if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
+  view.querySelectorAll("[data-ptog]").forEach(function(b){b.onclick=function(){var k=b.dataset.ptog;if(k==="psrc"){var o=foldOpen("psrc",false);foldSet("psrc",!o);if(o&&!MPB.draft)MPB.open=false}else MPOPEN=!MPOPEN;foldSet("pstrip",true);keepIf()}})}
 function vPlan(){
   if(S.planMode==="mine"&&!myPlanOn()){view.innerHTML=planSrcCard()+'<p class="small muted" style="padding:0 4px">나만의 계획을 만들기 전까지는 오늘·크루 화면에 크루 계획이 그대로 쓰여요. 체크·기록은 날짜 기준이라 계획을 바꿔도 남아요.</p>';bindPlanSrc();return}
   var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
   var showPlan=S.planMode!=="mine"||myPlanOn();
-  var h=planSrcCard()+(showPlan&&!(S.planMode==="mine"&&(MPB.draft||MPB.open))?myPlanCard():'')+'<div class="card"><div class="row between"><h2>전체 진행 ('+(W.length-1)+'주 + 레이스 주)</h2><span class="num small muted">'+dn+' / '+tot+'회</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:'+Math.round(dn/tot*100)+'%"></i></div><div class="small muted">누적 <b class="num" style="color:var(--ink)">'+Math.round(km)+'</b> km · 계획 총 '+W.reduce(function(a,x,wi){return a+weekKm(wi)},0).toLocaleString()+' km</div></div>';
+  var h=planStrip(dn,tot,km,showPlan&&!(S.planMode==="mine"&&(MPB.draft||MPB.open)));
   var cwk=Math.floor(idxOf(T)/7);
   for(var w=0;w<W.length;w++){
     var s=weekStats(w),cur=cwk===w;
@@ -2783,7 +2803,7 @@ function vPlan(){
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   var pw=document.getElementById("pastwk");if(pw)pw.addEventListener("toggle",function(){PASTW=pw.open});
-  bindMyPlan();bindPlanSrc();
+  bindMyPlan();bindPlanSrc();bindPlanStrip();
   view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){openDaySheet(b.dataset.open)}});
 }
