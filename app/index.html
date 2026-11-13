@@ -761,6 +761,32 @@ html{scrollbar-gutter:stable}
 .kvr.npfull{flex-direction:column;align-items:stretch;gap:6px}.kvr.npfull .kl{flex-direction:row;align-items:baseline}.kvr.npfull .inp{width:100%;font-size:16px;padding:10px 12px}.kl small{display:inline;font-size:11px;color:var(--muted);font-weight:600;margin-left:4px}
 .npsum{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:13px;color:var(--muted)}.npsum b{color:var(--ink)}.npsum.ok{color:var(--ink)}.npsum.bad{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
 .gsec{font-size:12px;font-weight:800;letter-spacing:.4px;color:var(--accent);margin:18px 4px 2px}
+.cohead{display:flex;align-items:center;gap:10px;padding:4px 2px 2px}
+.coav{flex:none;width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),#8b7cf6);color:#fff;box-shadow:0 4px 12px -4px var(--accent)}
+.coav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.cot{flex:1;min-width:0}.cot h2{margin:0;font-size:18px}.cot small{display:block;font-size:12px;color:var(--muted)}
+.coib{flex:none;display:inline-flex;align-items:center;gap:4px;border:0;border-radius:99px;padding:7px 12px;background:var(--card);box-shadow:var(--sh);font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
+.coib svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+.coempty{margin:18px 4px 4px;text-align:center}.coempty b{font-size:17px}.coempty p{margin:6px auto 0;max-width:320px;font-size:13px;color:var(--muted);line-height:1.55}
+.coq{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.coq button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;border:0;border-radius:14px;padding:12px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;line-height:1.4;color:var(--ink);cursor:pointer;min-height:84px}
+.coq button span{font-size:18px}.coq button:active{transform:scale(.98)}
+.chat .msg.ai{background:var(--card);border:0;box-shadow:var(--sh);border-radius:4px 16px 16px 16px;padding:12px 14px}
+.chat .msg.me{background:var(--accent);color:var(--on-accent);border-radius:16px 16px 4px 16px;padding:10px 14px}
+.chat .msg .mwho{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-bottom:4px}.chat .msg .mwho::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.chat .msg .say{display:inline-flex;align-items:center;margin-top:8px;padding:3px 9px;border-radius:99px;background:var(--bg);font-size:11px;font-weight:700;color:var(--muted)}.chat .msg .say+.say{margin-left:6px}
+body.coach .cbar .cin{display:flex;align-items:flex-end;gap:6px;background:var(--card);border-radius:22px;padding:5px 5px 5px 14px;box-shadow:0 0 0 1px var(--line)}
+body.coach .cbar .cin:focus-within{box-shadow:0 0 0 1.5px var(--accent)}
+body.coach .cbar .cin textarea{flex:1;border:0;background:none;box-shadow:none!important;padding:9px 0;min-height:38px;font-size:16px;outline:none}
+.cosend{flex:none;width:38px;height:38px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);cursor:pointer}
+.cosend svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}.cosend.stop{background:var(--ink)}.cosend.stop svg{fill:currentColor;stroke:none}
+body.coach .cbar .vbtn{padding:5px 10px;font-size:12px;border:0;background:var(--bg)}body.coach .cbar .vbtn.on{background:var(--accent);color:#fff}
+body.coach .cbar .chips button{font-size:12px;padding:6px 11px}
+.spanel{position:relative}
+.spanel>.pclose{position:absolute;top:10px;right:10px;z-index:3;width:32px;height:32px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--muted);cursor:pointer}
+.spanel>.pclose:hover{color:var(--ink)}.spanel>.pclose svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.spanel>.card>.row:first-child,.spanel>.card>button:first-child,.spanel>details.card>summary,.spanel>.card>h2:first-child{padding-right:40px;box-sizing:border-box}
+.spanel>details.card>summary .chev{display:none}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1466,6 +1492,11 @@ async function watchSync(manual){
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
   finally{WS.busy=false;keepIf()}
 }
+function pwrap(k,html){return '<div class="spanel"><button type="button" class="pclose" data-pclose="'+k+'" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+html+'</div>'}
+function bindPclose(){view.querySelectorAll("[data-pclose]").forEach(function(b){b.onclick=function(){var k=b.dataset.pclose;
+  if(k==="watch")WPANEL=false;else if(k==="wx"){foldSet("wxo",false);WX.edit=false}else if(k==="ready")foldSet("ready",false);
+  else if(k==="psrc"){foldSet("psrc",false);if(!MPB.busy){MPB.open=false;MPB.draft=null;MPB.err=""}}else if(k==="padj")MPOPEN=false;
+  var y=window.scrollY;render();window.scrollTo(0,y)}})}
 function keepIf(){if(tab==="today"||tab==="log"||tab==="plan"){var y=window.scrollY;render();window.scrollTo(0,y)}}
 function watchStatus(){return WS.err?'<span style="color:var(--bad)">'+esc(WS.err)+'</span>':(WS.busy||WS.msg?esc(WS.msg):(S.watchAt?'마지막 동기화 '+agoT(S.watchAt)+' · 앱을 열 때마다 자동으로 불러와요':'아직 불러온 기록이 없어요'))}
 function agoT(t){var m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";var h=Math.round(m/60);if(h<24)return h+"시간 전";return Math.round(h/24)+"일 전"}
@@ -1507,7 +1538,7 @@ function otherDayRows(ds){
   return h}
 function statusStrip(){
   var today=tab==="today"&&sel===T,ext=today?wxRowS()+readyRowS():(tab==="today"?otherDayRows(sel):'');
-  var panels=(WPANEL?watchCard():'')+(today&&(foldOpen("wxo",false)||!(S.wx&&S.wx.key)&&WX.edit)?wxCard():'')+(today&&foldOpen("ready",false)?readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})()):'');
+  var panels=(WPANEL?pwrap("watch",watchCard()):'')+(today&&(foldOpen("wxo",false)||!(S.wx&&S.wx.key)&&WX.edit)?pwrap("wx",wxCard()):'')+(today&&foldOpen("ready",false)?pwrap("ready",readyCard(T,(function(){var ti=idxOf(T);return ti>=0&&ti<TOTAL?planAt(ti):null})())):'');
   var open=foldOpen("strip",false)||WPANEL||(today&&(foldOpen("wxo",false)||foldOpen("ready",false)||(WX.edit&&!(S.wx&&S.wx.key))));
   var top=uploadDue()?watchBar():'';
   if(!open)return top+stripSum(today);
@@ -1555,7 +1586,7 @@ var WXOPEN=null,WPANEL=false;
 function watchCard(){
   var n=Object.keys(S.runs).length,autoN=0;for(var d in S.days)if(S.days[d].auto&&S.days[d].done)autoN++;
   var open=true;
-  var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
+  var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:12px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
   if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">복제하지 않고 링크로 열면 내 claude.ai에 COROS·freddy를 연결해 둬도 이 앱에서는 자동 연동이 안 돼요(claude.ai 보안 정책). <b>파일 올리기</b>로 넣거나, 이 앱을 <b>복제</b>해서 내 앱으로 쓰면 자동 연동돼요.<div style="margin-top:8px"><button class="btn" type="button" data-watch="file" style="background:var(--accent);color:var(--on-accent)">파일 올리기로 바꾸기</button></div></div>';
@@ -2151,16 +2182,16 @@ function coachChips(){
 function coachPad(){var cb=document.querySelector(".cbar"),mn=document.querySelector("main");if(!cb||!mn)return 0;var nv=document.querySelector("nav.tabs");if(nv&&tab==="coach")cb.style.bottom=nv.offsetHeight+"px";var hh=cb.offsetHeight;mn.style.paddingBottom=(hh+84)+"px";return hh}
 function vCoach(){
   var M=S.coach||[],can=AUTH.st==="ok";
-  var h=backBar()+'<div class="card"><div class="row between"><h2>AI 코치</h2>'+(M.length?'<button class="btn ghost" id="co-clear" style="padding:6px 12px;font-size:13px">＋ 새 대화</button>':(S.coachPrev&&S.coachPrev.length?'<button class="btn ghost" id="co-prev" style="padding:6px 12px;font-size:13px">이전 대화 열기</button>':''))+'</div><p class="small muted" style="margin:4px 0 0">내 훈련 계획, 달린 기록(워치·직접 입력), 체중, 목표와 페이스 존을 보고 답해요. 답은 참고용이에요.</p></div>';
+  var h='<div class="cohead"><span class="coav" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div class="cot"><h2>AI 코치</h2><small>내 기록을 보고 답해요</small></div>'+(M.length?'<button type="button" class="coib" id="co-clear" aria-label="새 대화"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>새 대화</span></button>':(S.coachPrev&&S.coachPrev.length?'<button type="button" class="coib" id="co-prev" aria-label="이전 대화 열기"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg><span>이전 대화</span></button>':''))+'</div>';
   h+='<div class="chat" id="chat">';
-  if(!M.length)h+='<div class="msg ai"><span class="mwho">코치</span><p>안녕하세요! 달린 기록이나 훈련, 페이스, 보급, 컨디션처럼 궁금한 걸 물어보세요. 앱에 저장된 내 기록을 보고 답할게요.</p></div>';
+  if(!M.length){var QI=["🏃","📋","❤️","📈","⚖️","🎯"];h+='<div class="coempty"><b>무엇이든 물어보세요</b><p>달린 기록, 훈련 방법, 페이스, 보급, 컨디션까지. 앱에 저장된 내 기록을 보고 답해요.</p></div><div class="coq">'+coachChips().map(function(q,k){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'><span aria-hidden="true">'+(QI[k]||"💬")+'</span>'+esc(q)+'</button>'}).join("")+'</div>'}
   M.forEach(function(m,k){h+=m.role==="user"?'<div class="msg me">'+esc(m.text)+'</div>':'<div class="msg ai'+(m.err?' err':'')+'"'+(k===M.length-1?' id="cb-last"':'')+'><span class="mwho">코치</span>'+(m.text?mdLite(m.text):'<p class="muted">생각하는 중…</p>')+(m.text&&!m.err&&canSpeak()?'<button type="button" class="say" data-say="'+k+'" aria-label="이 답변 읽어주기">🔊 듣기</button>':'')+(m.text&&!m.err?'<button type="button" class="say" data-copyans="'+k+'" aria-label="답변 복사">📋 복사</button>':'')+'</div>'});
   h+='</div>';
   h+='<div class="cbar">';
   if(AUTH.st==="anon")h+='<div class="small muted">claude.ai에 로그인해야 AI 코치를 쓸 수 있어요.</div>';
-  h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
+  if(M.length)h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
   h+='<div class="vrow" id="co-voice"></div>';
-  h+='<form class="cin" id="co-form"><textarea id="co-in" class="inp" rows="1" maxlength="600" placeholder="코치에게 물어보기" aria-label="질문">'+esc(COACH.draft)+'</textarea>'+(COACH.busy?'<button class="btn" type="button" id="co-stop">멈춤</button>':'<button class="btn" type="submit" style="background:var(--accent);color:var(--on-accent)">보내기</button>')+'</form></div>';
+  h+='<form class="cin" id="co-form"><textarea id="co-in" class="inp" rows="1" maxlength="600" placeholder="코치에게 물어보기…" aria-label="질문">'+esc(COACH.draft)+'</textarea>'+(COACH.busy?'<button class="cosend stop" type="button" id="co-stop" aria-label="멈춤"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>':'<button class="cosend" type="submit" aria-label="보내기"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>')+'</form></div>';
   view.innerHTML=h;bindBack();
   var ta=document.getElementById("co-in");ta.oninput=function(){COACH.draft=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";
     if(VOICE.kb){clearTimeout(VOICE.kbT);VOICE.kbT=setTimeout(function(){var q=ta.value.trim();if(VOICE.kb&&q&&q!==(VOICE.kbStart||"").trim()&&!COACH.busy){VOICE.kb=false;ta.blur();coachAsk(q)}},2500)}};
@@ -2192,7 +2223,7 @@ async function coachAsk(q){
   finally{COACH.busy=false;COACH.ctl=null;ans.text=String(ans.text||"").slice(0,4000);if(S.coach.length>30)S.coach=S.coach.slice(-30);save();if(tab==="coach")render();if(VOICE.read&&!ans.err&&ans.text)speakText(ans.text)}
 }
 var RLAST=null;
-function render(){
+function render(){setTimeout(function(){try{bindPclose()}catch(e){}},0);
   applyPlanSrc();if(tab==="crew")crewPlanMode();
   var keepY=RLAST===tab?window.scrollY:null;RLAST=tab;
   document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===tab?"true":"false")});
@@ -2938,8 +2969,8 @@ function planStrip(dn,tot,km,canAdj){
   if(canAdj)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🛠</span><button class="wlink" data-ptog="padj" aria-expanded="'+adjO+'"><b>일정 조정'+(n?' · <span style="color:var(--accent)">바꾼 내용 '+n+'개</span>':' · <span class="muted">그대로</span>')+'</b><span>요일 바꾸기'+(P.swaps.length?' '+P.swaps.length+'개':'')+' · 주간 거리 '+P.vol+'% · 클로드에게 부탁</span></button><button class="sbtn wset'+(adjO?' on':'')+'" data-ptog="padj" aria-expanded="'+adjO+'">'+(adjO?'닫기':'조정')+'</button></div>';
   h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📈</span><div class="wlink" style="cursor:default"><b>전체 진행 · <span class="num" style="color:var(--ok)">'+pct+'%</span></b><span>완료 '+dn+' / '+tot+'회 · 누적 '+Math.round(km)+' / '+tkm.toLocaleString()+' km</span><div class="bar" style="height:5px;margin-top:5px"><i style="width:'+pct+'%"></i></div></div></div>';
   h+='</div>';
-  if(srcO)h+=planSrcCard();
-  if(adjO)h+=myPlanCard();
+  if(srcO)h+=pwrap("psrc",planSrcCard());
+  if(adjO)h+=pwrap("padj",myPlanCard());
   return h}
 function bindPlanStrip(){
   view.querySelectorAll("[data-pstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("pstrip",!op);if(op){foldSet("psrc",false);MPOPEN=false;if(S.planMode==="mine"&&!MPB.draft)MPB.open=false}keepIf();if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
