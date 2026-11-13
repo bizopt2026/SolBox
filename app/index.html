@@ -3353,7 +3353,7 @@ function bindRace(){
 }
 function racesCtx(){var a=racesSorted().slice(0,4);if(!a.length)return "";return "\n[레이스 전략·결과]\n"+a.map(function(rc){var r=rc.result;return rc.date+" "+rc.name+" "+rc.dist+"km 목표 "+fmtT(rc.goal)+(r?" → 기록 "+fmtT(r.dur)+" · "+r.score+"점"+(r.split!=null?" · 후반 "+(r.split>0?"+":"")+r.split+"%":"")+(r.ai&&r.ai.next&&r.ai.next.length?" · 다음 유의: "+r.ai.next.slice(0,3).join(" / "):""):rc.ai&&rc.ai.summary?" · 전략: "+rc.ai.summary.slice(0,140):"")}).join("\n")}
 function checksCard(){var h='';
-  var miss=0;h+='<div class="card"><h2>세 번의 점검</h2><p class="small muted" style="margin:2px 0 8px">10K·하프 기록을 넣으면 목표·존의 페이스가 다시 계산돼요.</p>';
+  var miss=0;h+='<div class="card"><h2>세 번의 점검</h2><p class="small muted" style="margin:2px 0 8px">10K·하프 기록을 넣으면 기준 설정의 페이스·존이 다시 계산돼요.</p>';
   CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
     h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:13px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미입력':stt?'통과':'미달')+'</span></div></div>'});
   h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
@@ -3365,7 +3365,7 @@ function bindChecks(){
   view.querySelectorAll("[data-cp]").forEach(function(el){el.addEventListener("change",function(){S.checks[el.dataset.cp]=el.value.trim();save();render()})});
 }
 var PACEV=(function(){try{return localStorage.getItem("sub3-pacev")||"base"}catch(e){return"base"}})();
-function paceSeg(){return '<div class="seg" role="tablist" style="grid-template-columns:1fr 1fr 1fr">'+[["base","목표·존"],["check","중간 점검"],["race","레이스 전략"]].map(function(o){return '<button role="tab" aria-checked="'+(PACEV===o[0])+'" data-pv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div>'}
+function paceSeg(){return '<div class="seg" role="tablist" style="grid-template-columns:1fr 1fr 1fr">'+[["base","기준 설정"],["check","중간 점검"],["race","레이스 전략"]].map(function(o){return '<button role="tab" aria-checked="'+(PACEV===o[0])+'" data-pv="'+o[0]+'">'+o[1]+'</button>'}).join("")+'</div>'}
 function bindPaceSeg(){view.querySelectorAll("[data-pv]").forEach(function(b){b.onclick=function(){PACEV=b.dataset.pv;try{localStorage.setItem("sub3-pacev",PACEV)}catch(e){}render();window.scrollTo(0,0)}})}
 function vPace(){
   if(PACEV==="race"){view.innerHTML=paceSeg()+raceCards();bindPaceSeg();bindRace();return}
