@@ -738,6 +738,8 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .fontpick button b{font-size:14px}.fontpick button span{font-size:13px;color:var(--muted)}
 .fontpick button[aria-pressed="true"]{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}.fontpick button[aria-pressed="true"] b{color:var(--accent)}
 .fsample{margin:10px 0 0;padding:10px 12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line);font-size:13px;line-height:1.6}
+html{scrollbar-gutter:stable}
+@media (min-width:1000px){header.top .wrap{max-width:1080px}}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -4083,7 +4085,7 @@ document.addEventListener("keydown",function(e){var tg=e.target;if(e.metaKey||e.
 document.addEventListener("toggle",function(e){var d=e.target;if(d&&d.tagName==="DETAILS"&&d.open)Array.prototype.forEach.call(d.children,function(c){if(c.tagName!=="SUMMARY")popIn(c)})},true);
 window.addEventListener("popstate",function(){if(tab==="coach"||tab==="story"||tab==="admin")goBack()});
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.onclick=function(){tab=b.dataset.tab;if(tab==="log")BODYV="wt";render();window.scrollTo(0,0)}});
-(function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40);var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
+(function(){var lastY=0,tick=false;window.addEventListener("scroll",function(){if(tick)return;tick=true;requestAnimationFrame(function(){var y=window.scrollY;document.body.classList.toggle("compact",y>40&&!(window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches));var fab=document.getElementById("fab");if(fab)fab.classList.toggle("mini",y>24);lastY=y;tick=false})},{passive:true})})();
 var hq=document.getElementById("h-guide");if(hq)hq.onclick=function(){tab="guide";render();window.scrollTo(0,0)};
 render();
 })();
