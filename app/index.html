@@ -1709,7 +1709,7 @@ function enhance(){
     view.querySelectorAll(".session .what").forEach(function(el){var fs=20;while(fs>13&&el.scrollWidth>el.clientWidth+1){fs--;el.style.fontSize=fs+"px"}if(el.scrollWidth>el.clientWidth+1)el.classList.add("wrap")});
     var i=idxOf(sel),f=FOOD[FOOD_BY_DOW[i%7]];
     var RR=readiness(T),rs=RR.has?["좋음","주의","쉬어가기"][RR.lv]+(RR.r?" · "+RR.r+"bpm"+(RR.diff!=null?"("+(RR.diff>0?"+":"")+RR.diff+")":""):"")+(RR.h?" · HRV "+RR.h.avg:""):"오늘 아침 기록 없음";
-    var mt=mealTot(sel),msc=mealScore(sel,i%7);foldCard(findCard("식단 기록"),"meals",(msc?msc.s+"점 · ":"")+Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",false);
+    var mt=mealTot(sel),msc=mealScore(sel,i%7);foldCard(findCard("식단 기록"),"meals",(msc?msc.s+"점 · ":"")+Math.round(mt.kcal).toLocaleString()+" / "+foodKcal(f)+"kcal · 단백질 "+Math.round(mt.p)+"g",window.innerWidth>=1000);
     var r=dayRec(sel),fx=view.querySelector(".session .fields");
     var ftg=document.getElementById("f-tog");if(fx&&ftg)ftg.onclick=function(){var o=fx.hidden;fx.hidden=!o;if(o)popIn(fx);ftg.setAttribute("aria-expanded",o);ftg.classList.toggle("on",o);foldSet("fields",o);if(o){var i0=fx.querySelector("input");if(i0)i0.focus()}};
   } else if(tab==="pace"){
@@ -2589,7 +2589,6 @@ function vToday(){
   h+='</div>';
   if(!dn)h+=dayEditor(sel,w,d,t);
   h+='</div>';
-  h+='</div><div class="tcol">';
   // week strip
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
@@ -2601,7 +2600,7 @@ function vToday(){
     if(ko){h+='<div class="keys">';ks.forEach(function(x){var t=x[1];h+='<button class="key t-'+t[0]+'" data-go="'+x[0]+'"><span class="kd"><b>'+md(x[0])+' '+DOW[idxOf(x[0])%7]+'</b><span>'+(t[0]==="q"?"포인트":t[0]==="l"?"롱런":"대회")+' · '+t[2]+'K</span></span><span class="kt">'+esc(oneLine(t))+'</span></button>'});h+='</div>'}}
   h+='</div>';
   // food
-  h+=mealCard(sel,d,t);
+  h+='</div><div class="tcol">'+mealCard(sel,d,t);
   h+='</div></div>';
   view.innerHTML=h;
   view.querySelectorAll("[data-rck]").forEach(function(c){c.onchange=function(){var pr=c.dataset.rck.split("|");S.raceChk=S.raceChk||{};var o=S.raceChk[pr[0]]=S.raceChk[pr[0]]||{};if(c.checked)o[pr[1]]=1;else delete o[pr[1]];save();var y=window.scrollY;render();window.scrollTo(0,y)}});
