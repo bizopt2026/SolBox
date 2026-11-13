@@ -636,6 +636,33 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .kvr.chg .kl::after{content:"변경";font-size:10px;font-weight:800;color:var(--accent);margin-top:1px}
 .kvr.chg .inp{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .ksave{display:flex;align-items:center;gap:8px;margin-top:10px}.ksave>span{flex:1;min-width:0}.ksave .btn{padding:9px 16px}.ksave .btn[disabled]{opacity:.4}
+.qmap .qstar{font-size:15px;letter-spacing:1px;color:#f5b301}.qmap .qstar i{font-style:normal;color:var(--line)}
+.qpath{display:flex;align-items:flex-start;margin:16px 0 4px}
+.qline{flex:1;height:3px;border-radius:2px;background:var(--line);margin-top:21px}.qline.on{background:var(--ok)}
+.qnode{border:0;background:none;padding:0;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--ink);width:64px;flex:none}
+.qnode .qn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:17px;background:var(--bg);color:var(--muted);box-shadow:inset 0 0 0 2px var(--line)}
+.qnode b{font-size:13px}.qnode small{font-size:11px;color:var(--muted);font-weight:700}
+.qnode.next .qn{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent);animation:qpulse 1.8s ease-in-out infinite}
+.qnode.clr .qn{background:var(--ok);color:#fff;box-shadow:none}.qnode.clr small{color:#f5b301;letter-spacing:1px}
+.qnode.fail .qn{background:var(--bad);color:#fff;box-shadow:none}.qnode.fail small{color:var(--bad)}
+@keyframes qpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@media (prefers-reduced-motion:reduce){.qnode.next .qn{animation:none}}
+.qsum{display:grid;grid-template-columns:repeat(3,1fr);margin-top:12px;padding-top:10px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)}
+.qsum b{display:block;font-size:17px;color:var(--ink);font-family:var(--f-display)}
+.qst{position:relative;overflow:hidden}.qst::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line)}
+.qst.next::before{background:var(--accent)}.qst.clr::before{background:var(--ok)}.qst.fail::before{background:var(--bad)}
+.qhd{display:flex;align-items:center;gap:8px}
+.qbadge{font-size:10px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.qst.next .qbadge{background:var(--accent-soft);color:var(--accent)}.qst.clr .qbadge{background:var(--ok);color:#fff;font-size:12px;padding:1px 9px}.qst.fail .qbadge{background:var(--bad);color:#fff;font-size:12px;padding:1px 9px}
+.qbody{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:8px}
+.qinfo{display:flex;flex-direction:column;gap:2px;min-width:0}.qname{font-size:16px}.qinfo>small{font-size:12px;color:var(--muted)}
+.qgoal{display:flex;align-items:baseline;gap:6px;margin-top:6px;flex-wrap:wrap}.qgoal span{font-size:11px;font-weight:800;color:var(--accent)}
+.qgoal b{font-size:24px;line-height:1;color:var(--accent);font-family:var(--f-display)}.qgoal small{font-size:11px;color:var(--muted)}
+.qin{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.qin .inp{width:112px;text-align:center;font-size:16px;padding:9px 10px;font-variant-numeric:tabular-nums}
+.qres{display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:1.3;min-height:30px}.qres b{font-size:13px}.qres small{font-size:11px;color:var(--muted)}
+.qup{width:100%;margin-top:10px;padding:8px 10px;font-size:13px}
+.qrule{display:flex;gap:8px;padding:12px 14px;border-radius:12px;background:var(--card);font-size:12px;line-height:1.5;color:var(--muted);box-shadow:var(--sh)}.qrule b{color:var(--ink)}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -867,7 +894,7 @@ var FOOD_BY_DOW=[0,1,2,1,0,3,4];
 var CHECKS=[
  {id:"w8",wk:"W11 · 1/23 (토)",name:"10K 기록측정",goal:"≤ 39:00",lim:39*60,kind:"time",dist:"10",date:"2027-01-23",ph:"예: 38:42"},
  {id:"w12",wk:"W15 · 2/20 (토)",name:"하프 기록측정",goal:"≤ 1:24:30",lim:84*60+30,kind:"time",dist:"21",date:"2027-02-20",ph:"예: 1:24:05"},
- {id:"w13",wk:"W16 · 2/27 (토)",name:"35K 리허설 중 MP 22km",goal:"심박 ≤ 158",sub:"마지막 5km도 4:15 유지",lim:158,kind:"hr",ph:"평균 심박"}];
+ {id:"w13",wk:"W16 · 2/27 (토)",name:"35K 리허설 중 MP 22km",goal:"심박 ≤ 158",sub:"마지막 5km도 4:15 유지",lim:158,kind:"hr",date:"2027-02-27",ph:"평균 심박"}];
 var WT=[["2026-11-09",72,73,"출발 · 인천 대회 후까지 유지"],["2027-01-24",69,69.5,"W11 · 하루 −400kcal"],["2027-02-28",68,68.5,"W16 · 하루 −200kcal"],["2027-03-21",67.5,68.5,"레이스 · 유지+로딩"]];
 
 // ---------- Dates ----------
@@ -3378,16 +3405,34 @@ function bindRace(){
   var dg=$("rs-del-go");if(dg)dg.onclick=function(){S.races=(S.races||[]).filter(function(x){return x.id!==rc.id});RS.sel=null;RS.del=null;RS.msg="";save();keepRace()};
 }
 function racesCtx(){var a=racesSorted().slice(0,4);if(!a.length)return "";return "\n[레이스 전략·결과]\n"+a.map(function(rc){var r=rc.result;return rc.date+" "+rc.name+" "+rc.dist+"km 목표 "+fmtT(rc.goal)+(r?" → 기록 "+fmtT(r.dur)+" · "+r.score+"점"+(r.split!=null?" · 후반 "+(r.split>0?"+":"")+r.split+"%":"")+(r.ai&&r.ai.next&&r.ai.next.length?" · 다음 유의: "+r.ai.next.slice(0,3).join(" / "):""):rc.ai&&rc.ai.summary?" · 전략: "+rc.ai.summary.slice(0,140):"")}).join("\n")}
-function checksCard(){var h='';
-  var miss=0;h+='<div class="card"><h2>세 번의 점검</h2><p class="small muted" style="margin:2px 0 8px">10K·하프 기록을 넣으면 기준 설정의 페이스·존이 다시 계산돼요.</p>';
-  CHECKS.forEach(function(c){var stt=checkState(c);if(stt===false)miss++;
-    h+='<div class="cp"><div><div class="small muted">'+c.wk+'</div><b>'+c.name+'</b><div class="goal">'+cGoal(c)+'</div>'+(c.sub?'<div class="small muted">'+ptxt(c.sub)+'</div>':'')+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<div class="small muted">원본 '+c.goal+'</div>':'')+(c.dist&&parseTime(S.checks[c.id])?'<button class="btn ghost" data-use="'+c.id+'" style="margin-top:6px;padding:6px 10px;font-size:13px">이 기록으로 내 페이스 갱신</button>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+c.ph+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'"><span class="pill '+(stt===null?'na':stt?'ok':'bad')+'" style="text-align:center">'+(stt===null?'미입력':stt?'통과':'미달')+'</span></div></div>'});
-  h+=miss>=2?'<div class="warn">두 개 이상 미달이에요. 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정하고 PB 경신을 노리세요. 측정 기록으로 "내 페이스 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>':'<div class="small muted">두 개 이상 못 미치면 목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정합니다.</div>';
-  h+='</div>';
+function checkMargin(c){var v=S.checks[c.id];if(v==null||v==="")return null;var lim=cLim(c);if(c.kind==="time"){var t=parseTime(v);return t==null?null:{d:lim-t,r:(lim-t)/lim}}var n=parseFloat(v);return isNaN(n)?null:{d:lim-n,r:(lim-n)/lim}}
+function checkStars(c){var m=checkMargin(c);if(!m||m.d<0)return 0;if(c.kind==="hr")return m.d>=6?3:m.d>=3?2:1;return m.r>=0.025?3:m.r>=0.01?2:1}
+function checksCard(){var h='',miss=0,pass=0,stars=0;
+  var st=CHECKS.map(function(c){var s2=checkState(c);if(s2===false)miss++;if(s2===true){pass++;stars+=checkStars(c)}return s2});
+  var nextI=-1;CHECKS.forEach(function(c,k){if(nextI<0&&st[k]===null)nextI=k});
+  // stage map
+  h+='<div class="card qmap"><div class="row between"><h2>중간 점검</h2><span class="qstar" aria-label="별 '+stars+'개">'+'★'.repeat(stars)+'<i>'+'★'.repeat(9-stars)+'</i></span></div>';
+  h+='<p class="small muted" style="margin:2px 0 0">세 번의 관문을 통과하면 3.21 목표 페이스를 그대로 가져가요.</p><div class="qpath">';
+  CHECKS.forEach(function(c,k){var s2=st[k],dd=Math.round((p(c.date)-p(T))/864e5),cls=s2===true?'clr':s2===false?'fail':k===nextI?'next':'lock';
+    if(k)h+='<span class="qline'+(st[k-1]===true?' on':'')+'"></span>';
+    h+='<button type="button" class="qnode '+cls+'" data-qgo="qs-'+c.id+'"><span class="qn">'+(s2===true?'✓':s2===false?'✕':(k+1))+'</span><b>'+(c.dist==="10"?"10K":c.dist==="21"?"하프":"35K")+'</b><small>'+(s2===true?'★'.repeat(checkStars(c)):s2===false?'미달':dd>0?'D-'+dd:dd===0?'오늘':'입력 대기')+'</small></button>'});
+  h+='</div><div class="qsum"><span>통과 <b>'+pass+'/3</b></span><span>미달 <b'+(miss?' style="color:var(--bad)"':'')+'>'+miss+'</b></span><span>남은 관문 <b>'+(3-pass-miss)+'</b></span></div></div>';
+  // stages
+  CHECKS.forEach(function(c,k){var s2=st[k],m=checkMargin(c),dd=Math.round((p(c.date)-p(T))/864e5),sc=checkStars(c);
+    var res=s2===null?'':c.kind==="time"?(m.d>=0?fmtT(m.d)+' 여유':fmtT(-m.d)+' 부족'):(m.d>=0?m.d+'bpm 여유':(-m.d)+'bpm 초과');
+    h+='<div class="card qst '+(s2===true?'clr':s2===false?'fail':k===nextI?'next':'')+'" id="qs-'+c.id+'"><div class="qhd"><span class="qbadge">'+(s2===true?'✓':s2===false?'✕':'STAGE '+(k+1))+'</span><span class="small muted">'+c.wk+(dd>0?' · D-'+dd:dd===0?' · 오늘':'')+'</span></div>';
+    h+='<div class="qbody"><div class="qinfo"><b class="qname">'+c.name+'</b>'+(c.sub?'<small>'+ptxt(c.sub)+'</small>':'')+'<div class="qgoal"><span>목표</span><b class="num">'+cGoal(c).replace("심박 ≤ ","♥ ").replace("≤ ","")+'</b>'+(K!==1&&c.kind==="time"||HRK&&c.kind==="hr"?'<small>원본 '+c.goal.replace("≤ ","")+'</small>':'')+'</div></div>';
+    h+='<div class="qin"><input class="inp" id="c-'+c.id+'" data-cp="'+c.id+'" placeholder="'+(c.kind==="hr"?"평균 심박":c.ph.replace("예: ",""))+'" value="'+esc(S.checks[c.id])+'" inputmode="'+(c.kind==="hr"?"numeric":"text")+'" aria-label="'+c.name+' 결과"><span class="qres">'+(s2===null?'<span class="muted">'+(c.kind==="hr"?'평균 심박 입력':'기록 입력')+'</span>':'<b style="color:'+(s2?'var(--ok)':'var(--bad)')+'">'+(s2?'통과 '+'★'.repeat(sc):'미달')+'</b><small>'+res+'</small>')+'</span></div></div>';
+    if(c.dist&&parseTime(S.checks[c.id]))h+='<button class="btn ghost qup" data-use="'+c.id+'">⚡ 이 기록으로 기준 설정 갱신</button>';
+    h+='</div>'});
+  var rule='목표를 '+fmtT(REF_GOAL*K*1.011)+'~'+fmtT(REF_GOAL*K*1.017)+' ('+P(259)+'/km)으로 조정';
+  h+=miss>=2?'<div class="warn">관문 두 개 이상 미달이에요. '+rule+'하고 PB 경신을 노리세요. 측정 기록으로 "기준 설정 갱신"을 누르면 남은 훈련 페이스가 맞춰져요.</div>'
+    :'<div class="qrule"><span>⚠</span><span><b>규칙</b> · 두 개 이상 미달이면 '+rule+'해요. 별: 통과 ★ · 목표보다 1% 빠르면 ★★ · 2.5% 빠르면 ★★★ (심박은 3·6bpm 여유)</span></div>';
   return h;
 }
 function bindChecks(){
-  view.querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){var c=CHECKS.filter(function(x){return x.id===b.dataset.use})[0];S.profile=S.profile||{};S.profile.recDist=c.dist;S.profile.recTime=S.checks[c.id];S.profile.recDate=c.date;save();PACEV="base";tab="pace";render();window.scrollTo(0,0)}});
+  view.querySelectorAll("[data-qgo]").forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.qgo);if(el){var hh=(document.querySelector("header.top")||{}).offsetHeight||0;window.scrollTo({top:el.getBoundingClientRect().top+scrollY-hh-10,behavior:"smooth"});popIn(el)}}});
+  view.querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){var c=CHECKS.filter(function(x){return x.id===b.dataset.use})[0];S.profile=S.profile||{};S.profile.recDist=c.dist;S.profile.recTime=S.checks[c.id];S.profile.recDate=c.date;PD=null;save();PACEV="base";tab="pace";render();window.scrollTo(0,0);toast("기준 설정을 이 기록으로 갱신했어요")}});
   view.querySelectorAll("[data-cp]").forEach(function(el){el.addEventListener("change",function(){S.checks[el.dataset.cp]=el.value.trim();save();render()})});
 }
 var PACEV=(function(){try{return localStorage.getItem("sub3-pacev")||"base"}catch(e){return"base"}})();
