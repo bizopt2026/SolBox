@@ -663,6 +663,13 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .qres{display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:1.3;min-height:30px}.qres b{font-size:13px}.qres small{font-size:11px;color:var(--muted)}
 .qup{width:100%;margin-top:10px;padding:8px 10px;font-size:13px}
 .qrule{display:flex;gap:8px;padding:12px 14px;border-radius:12px;background:var(--card);font-size:12px;line-height:1.5;color:var(--muted);box-shadow:var(--sh)}.qrule b{color:var(--ink)}
+.ract{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ract.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ract button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 6px 10px;border:0;border-radius:14px;background:var(--bg);color:var(--ink);cursor:pointer;min-width:0}
+.ract button .ri{font-size:22px;line-height:1.1}.ract button b{font-size:13px}.ract button small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ract button.hi{background:var(--accent-soft)}.ract button.hi b{color:var(--accent)}.ract button[disabled]{opacity:.5}
+.rregen{display:block;margin:10px auto 0;border:0;background:none;color:var(--accent);font-size:13px;font-weight:700;padding:6px 10px;border-radius:99px}.rregen:hover{background:var(--accent-soft)}
+.redit{margin-top:6px;padding:2px 12px;border-radius:12px;background:var(--bg)}.redit .kvr+.kvr{border-color:var(--line)}
+.rinfo-pv{margin-top:10px;display:grid;place-items:center;min-height:200px;border-radius:14px;background:var(--bg);overflow:hidden}.rinfo-pv img{display:block;width:100%;max-height:62vh;object-fit:contain}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3125,7 +3132,7 @@ function bindGoal(){
 }
 
 // ---------- Race strategy: course GPX -> per-km target paces, AI plan, history, post-race review & score ----------
-var RS={sel:null,newOpen:false,draft:null,busy:"",err:"",msg:"",del:null,full:false};
+var RS={sel:null,newOpen:false,draft:null,busy:"",err:"",msg:"",del:null,full:false,edit:null};
 var RDIST={"42.195":"풀","21.0975":"하프","10":"10K"};
 function raceById(id){return (S.races||[]).filter(function(r){return r.id===id})[0]||null}
 function racesSorted(){return (S.races||[]).slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:(b.at||0)-(a.at||0)})}
@@ -3307,6 +3314,66 @@ async function raceToWatch(rc){
   }catch(e){var c=e&&e.code;RS.err=c==="not_granted"?"COROS 연결을 허용해야 워치에 등록할 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 눌러 주세요.":"워치에 등록하지 못했어요"+(e&&e.message?": "+e.message:".")}
   finally{RS.busy="";keepRace()}
 }
+// ---- race strategy infographic (canvas 1080x1920) ----
+function rrect(x,c,y,w,h,r){x.beginPath();x.moveTo(c+r,y);x.arcTo(c+w,y,c+w,y+h,r);x.arcTo(c+w,y+h,c,y+h,r);x.arcTo(c,y+h,c,y,r);x.arcTo(c,y,c+w,y,r);x.closePath()}
+function wrapLines(x,t,w,max){var out=[],line="";String(t).split("").forEach(function(ch){if(x.measureText(line+ch).width>w&&line){out.push(line);line=ch.trim()?ch:""}else line+=ch});if(line)out.push(line);if(out.length>max){out=out.slice(0,max);out[max-1]=out[max-1].replace(/.$/,"…")}return out}
+async function drawRaceInfo(rc){
+  try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(e){}
+  var W=1080,H=1920,cv=document.createElement("canvas");cv.width=W;cv.height=H;var x=cv.getContext("2d"),pl=racePlan(rc),bl=blocks(pl,rc.dist),cps=raceCps(rc),hasE=!!(rc.course&&rc.course.e);
+  var FB='"IBM Plex Sans KR","Apple SD Gothic Neo",system-ui,sans-serif',FD='Archivo,"IBM Plex Sans KR",system-ui,sans-serif',M=72;
+  var C={bg0:"#0b1224",bg1:"#18213f",ink:"#ffffff",mut:"#93a0bf",dim:"#55617f",line:"rgba(255,255,255,.10)",acc:"#8b7cf6",acc2:"#c4b8ff",ok:"#3ecf8e",hill:"#ff9f43",card:"rgba(255,255,255,.06)"};
+  var g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,C.bg1);g.addColorStop(1,C.bg0);x.fillStyle=g;x.fillRect(0,0,W,H);
+  var rg=x.createRadialGradient(W-120,140,10,W-120,140,520);rg.addColorStop(0,"rgba(139,124,246,.35)");rg.addColorStop(1,"rgba(139,124,246,0)");x.fillStyle=rg;x.fillRect(0,0,W,700);
+  function T(t,X,Y,font,col,al){x.font=font;x.fillStyle=col;x.textAlign=al||"left";x.fillText(t,X,Y)}
+  var dn=RDIST[String(rc.dist)]==="풀"?"FULL MARATHON":RDIST[String(rc.dist)]==="하프"?"HALF MARATHON":kmLbl(rc.dist)+"K";
+  T("RACE STRATEGY",M,120,"800 26px "+FD,C.acc2);x.letterSpacing="0px";
+  T(rc.date.replace(/-/g,".")+" · "+dn,W-M,120,"600 26px "+FB,C.mut,"right");
+  x.font="800 66px "+FB;var nm=wrapLines(x,rc.name,W-2*M,2);nm.forEach(function(l,i){T(l,M,205+i*78,"800 66px "+FB,C.ink)});
+  var y=205+nm.length*78+20;
+  T("목표 기록",M,y,"700 28px "+FB,C.mut);y+=128;
+  var gg=x.createLinearGradient(M,y-120,M+700,y);gg.addColorStop(0,"#ffffff");gg.addColorStop(1,C.acc2);T(fmtT(rc.goal),M,y,"900 140px "+FD,gg);
+  y+=36;var st=[["계획 골인",fmtT(pl.finish)],["평균 페이스",fmtMS(pl.finish/rc.dist)+"/km"],["코스 고도",hasE?"↑"+pl.up+" ↓"+pl.dn+"m":"평지 계산"]],cw=(W-2*M-2*20)/3;
+  st.forEach(function(q,i){var cx=M+i*(cw+20);x.fillStyle=C.card;rrect(x,cx,y,cw,104,22);x.fill();T(q[0],cx+26,y+40,"600 24px "+FB,C.mut);T(q[1],cx+26,y+84,"800 36px "+FD,C.ink)});
+  y+=104+54;
+  // chart
+  var ch=250,cl=M,cr=W-M,cwid=cr-cl,ct=y,cb=y+ch,D=rc.dist;function X(km){return cl+km/D*cwid}
+  x.fillStyle=C.card;rrect(x,cl-24,ct-30,cwid+48,ch+72,26);x.fill();
+  T("코스 · 구간 목표 페이스",cl,ct+6,"700 26px "+FB,C.ink);
+  var pt=ct+40,ph=ch-60;
+  if(hasE){var lo=pl.lo,hi=Math.max(pl.hi,pl.lo+20);x.beginPath();x.moveTo(cl,pt+ph);for(var m=0;m<=D*1000;m+=Math.max(100,D*10)){x.lineTo(X(m/1000),pt+ph-(eleAt(rc.course,m,D)-lo)/(hi-lo)*ph*0.7)}x.lineTo(cr,pt+ph);x.closePath();var eg=x.createLinearGradient(0,pt,0,pt+ph);eg.addColorStop(0,"rgba(147,160,191,.45)");eg.addColorStop(1,"rgba(147,160,191,.05)");x.fillStyle=eg;x.fill();
+    T(hi+"m",cr,pt+18,"600 20px "+FB,C.dim,"right")}
+  var pmin=1e9,pmax=0;bl.forEach(function(b){pmin=Math.min(pmin,b.p);pmax=Math.max(pmax,b.p)});var pr=Math.max(6,pmax-pmin);
+  function PY(pc){return pt+12+(pc-pmin+pr*0.15)/(pr*1.3)*(ph*0.55)}
+  x.strokeStyle=C.acc;x.lineWidth=6;x.lineJoin="round";x.beginPath();bl.forEach(function(b,i){var y1=PY(b.p);if(!i)x.moveTo(X(b.from),y1);else x.lineTo(X(b.from),y1);x.lineTo(X(b.to),y1)});x.stroke();
+  bl.forEach(function(b){if(b.up>=15){x.fillStyle=C.hill;x.beginPath();x.arc((X(b.from)+X(b.to))/2,PY(b.p)-22,7,0,7);x.fill()}});
+  cps.forEach(function(c){var xx=X(c.d);x.strokeStyle="rgba(255,255,255,.18)";x.lineWidth=2;x.setLineDash([6,8]);x.beginPath();x.moveTo(xx,pt);x.lineTo(xx,pt+ph);x.stroke();x.setLineDash([]);T(c.at,xx,pt+ph+30,"700 20px "+FB,C.mut,"center")});
+  T("0",cl,pt+ph+30,"600 20px "+FB,C.dim,"left");T(kmLbl(D)+"km",cr,pt+ph+30,"600 20px "+FB,C.dim,"right");
+  y=cb+100;
+  // split table
+  T("구간",M,y,"700 24px "+FB,C.mut);T("목표 페이스",M+330,y,"700 24px "+FB,C.mut,"right");T("통과",M+560,y,"700 24px "+FB,C.mut,"right");if(hasE)T("고도",W-M,y,"700 24px "+FB,C.mut,"right");
+  y+=18;var rh=Math.min(54,Math.floor(470/bl.length));
+  bl.forEach(function(b,i){var ry=y+i*rh;if(i%2===0){x.fillStyle="rgba(255,255,255,.035)";rrect(x,M-16,ry,W-2*M+32,rh,14);x.fill()}var by=ry+rh/2+11;
+    T(kmLbl(b.from)+"–"+kmLbl(b.to)+"km",M,by,"600 30px "+FB,C.ink);T(fmtMS(b.p),M+330,by,"800 32px "+FD,b.up>=15?C.hill:C.acc2,"right");T(fmtT(b.cum),M+560,by,"700 30px "+FD,C.ink,"right");
+    if(hasE)T((b.up||b.dn)?"↑"+b.up+" ↓"+b.dn:"—",W-M,by,"600 26px "+FB,b.up>=15?C.hill:C.mut,"right")});
+  y+=bl.length*rh+40;
+  // checkpoints
+  if(cps.length){var pw=(W-2*M-(cps.length-1)*16)/cps.length;cps.forEach(function(c,i){var cx=M+i*(pw+16);x.strokeStyle="rgba(139,124,246,.55)";x.lineWidth=2;rrect(x,cx,y,pw,96,20);x.stroke();
+    T(c.at+" 통과",cx+22,y+36,"700 22px "+FB,C.acc2);T(fmtT(c.plan),cx+22,y+78,"800 32px "+FD,C.ink);T("한계 "+fmtT(c.lim),cx+pw-18,y+78,"600 19px "+FB,C.mut,"right")});y+=96+50}
+  // tips
+  var tips=[];if(rc.ai){var kk=(rc.ai.keys||[]).map(function(t){return["✓",t,C.ok]}),ff=(rc.ai.fuel||[]).map(function(t){return["⚡",t,C.hill]});[kk[0],kk[1],ff[0],kk[2],ff[1]].forEach(function(q){if(q)tips.push(q)})}
+  if(!tips.length)tips=[["✓","처음 "+pl.firstN+"km는 목표보다 살짝 아껴서 출발",C.ok],["✓","오르막은 페이스보다 호흡·심박을 지키기",C.ok],["⚡","젤은 물과 함께, 시간당 60~90g",C.hill]];
+  T("레이스 핵심",M,y,"700 26px "+FB,C.ink);y+=12;x.font="500 26px "+FB;
+  for(var ti=0;ti<tips.length;ti++){var ls=wrapLines(x,tips[ti][1],W-2*M-50,2);if(y+44+(ls.length-1)*36>H-120)break;T(tips[ti][0],M,y+40,"800 26px "+FB,tips[ti][2]);ls.forEach(function(l,k){T(l,M+46,y+40+k*36,"500 26px "+FB,"#dbe1f0")});y+=ls.length*36+12}
+  // footer
+  x.fillStyle=C.line;x.fillRect(M,H-100,W-2*M,2);T("Sub-3 훈련 체크",M,H-52,"800 24px "+FB,C.mut);T("통과 시간은 공식 km 표지판 기준",W-M,H-52,"500 22px "+FB,C.dim,"right");
+  return cv}
+async function openRaceInfo(rc){closeSheet();var o=document.createElement("div");o.id="dsheet";o.innerHTML='<div class="sh-bg" data-shx></div><div class="sh" role="dialog" aria-label="레이스 전략 인포그래픽"><div class="sh-grab"></div><div class="row between"><h2>인포그래픽</h2><button class="linkbtn" data-shx type="button">닫기</button></div><div class="rinfo-pv"><span class="skel">만드는 중…</span></div><div class="row" style="gap:8px;margin-top:12px"><button class="btn" id="ri-save" style="flex:1;background:var(--accent);color:var(--on-accent)" disabled>이미지 저장</button></div><p class="small muted" id="ri-msg" style="margin:6px 0 0">1080×1920 세로 이미지예요. 대회 날 잠금화면이나 스토리에 쓰기 좋아요.</p></div>';
+  document.body.appendChild(o);o.querySelectorAll("[data-shx]").forEach(function(b){b.onclick=closeSheet});
+  var cv=await drawRaceInfo(rc),url=cv.toDataURL("image/png"),pv=o.querySelector(".rinfo-pv");pv.innerHTML='<img src="'+url+'" alt="'+esc(rc.name)+' 레이스 전략 인포그래픽">';
+  var sv=o.querySelector("#ri-save"),msg=o.querySelector("#ri-msg");sv.disabled=false;
+  sv.onclick=async function(){var blob=await new Promise(function(r){cv.toBlob(r,"image/png")});var dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(function(){return null}):null;
+    if(dl&&blob){try{await dl.save({filename:"race-"+rc.date+".png",data:blob});msg.textContent="저장했어요."}catch(e){msg.textContent=e&&e.code==="cancelled"?"":"저장하지 못했어요. 위 이미지를 길게 눌러 저장해 주세요."}}
+    else msg.textContent="위 이미지를 길게 눌러 사진에 저장하세요."}}
 function keepRace(){if(tab!=="pace")return;var y=window.scrollY;render();window.scrollTo(0,y)}
 function raceStatus(rc){if(rc.result)return '<span class="pill ok">'+rc.result.score+'점</span>';if(rc.date<T)return '<span class="pill bad">미입력</span>';if(rc.date===T)return '<span class="pill ok">오늘</span>';return '<span class="pill na">D-'+Math.round((p(rc.date)-p(T))/864e5)+'</span>'}
 function raceCards(){
@@ -3351,10 +3418,12 @@ function raceDetail(rc){
     else h+='<div class="rcp"><div class="small muted">'+cpv.map(function(c){return '<b style="color:var(--ink)">'+c.at+'</b> 계획 '+fmtT(c.plan)+' · 한계 '+fmtT(c.lim)}).join('<br>')+'</div><div class="small" style="margin-top:4px">AI 전략을 다시 만들면 통과 시간별 대응이 추가돼요.</div></div>';
     [["keys","꼭 지킬 것"],["warn","이 코스에서 조심할 점"],["fuel","보급"]].forEach(function(x){if(a[x[0]]&&a[x[0]].length)h+='<div class="small muted" style="margin:10px 0 2px;font-weight:700">'+x[1]+'</div><ul class="tight small">'+a[x[0]].map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul>'});
   } else if(RS.busy!=="ai")h+='<p class="small muted" style="margin:0">아직 AI 전략이 없어요.</p>';
-  h+='<button class="btn ghost" id="rs-ai" style="width:100%;margin-top:8px"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="ai"?'전략 짜는 중…':rc.ai?'AI 전략 다시 만들기':'AI 전략 만들기')+'</button>';
-  h+='<h3 class="rh">공유 · 워치</h3><div class="row" style="gap:8px"><button class="btn ghost" id="rs-copy" style="flex:1">전략 텍스트 복사</button>'+(rc.date>=T?'<button class="btn ghost" id="rs-watch" style="flex:1"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="watch"?'등록 중…':rc.watch?'워치에 다시 등록':'COROS 워치에 등록')+'</button>':'')+'</div>';
-  if(rc.watch&&rc.date>=T)h+='<p class="small muted" style="margin:6px 0 0">'+(rc.watch.sched?'COROS 일정에 등록됨':'COROS 라이브러리에 저장됨')+' · '+agoT(rc.watch.at)+(rc.watch.goal!==rc.goal?' · 그 뒤 목표가 바뀌었어요. 다시 등록하면 새 워크아웃이 추가돼요(이전 것은 COROS 앱에서 지워 주세요).':'')+'</p>';
-  else if(rc.date>=T)h+='<p class="small muted" style="margin:6px 0 0">'+(S.watch==="coros"?'':'COROS 워치 사용자만 쓸 수 있어요. ')+'구간별 목표 페이스(±3초)가 들어간 워크아웃으로 만들어요. 대회까지 90일 안이면 대회 날 일정에, 그보다 멀면 운동 라이브러리에 저장해요.</p>';
+  h+=rc.ai?'<button class="rregen" id="rs-ai"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="ai"?'<span class="skel">전략 짜는 중…</span>':'↻ 최신 기록으로 전략 다시 만들기')+'</button>'
+    :'<button class="btn" id="rs-ai" style="width:100%;margin-top:8px;background:var(--accent);color:var(--on-accent)"'+(RS.busy?' disabled':'')+'>'+(RS.busy==="ai"?'전략 짜는 중…':'✨ AI 전략 만들기')+'</button>';
+  var wOn=rc.date>=T,wSub=RS.busy==="watch"?'등록 중…':rc.watch?(rc.watch.sched?'일정 등록됨':'라이브러리 저장됨')+' · '+agoT(rc.watch.at):(S.watch==="coros"?'구간 페이스 ±3초':'COROS 전용');
+  h+='<h3 class="rh">내보내기</h3><div class="ract'+(wOn?'':' two')+'"><button type="button" id="rs-info" class="hi"><span class="ri">🖼</span><b>인포그래픽</b><small>이미지로 저장</small></button><button type="button" id="rs-copy"><span class="ri">📋</span><b>텍스트 복사</b><small>카톡·메모 공유</small></button>'+(wOn?'<button type="button" id="rs-watch"'+(RS.busy?' disabled':'')+'><span class="ri">⌚</span><b>'+(rc.watch?'워치 재등록':'워치 등록')+'</b><small>'+wSub+'</small></button>':'')+'</div>';
+  if(rc.watch&&wOn&&rc.watch.goal!==rc.goal)h+='<p class="small muted" style="margin:6px 0 0">워치 등록 뒤 목표가 바뀌었어요. 다시 등록하면 새 워크아웃이 추가돼요(이전 것은 COROS 앱에서 지워 주세요).</p>';
+  else if(wOn&&!rc.watch)h+='<p class="small muted" style="margin:6px 0 0">워치 등록: 대회까지 90일 안이면 대회 날 일정에, 그보다 멀면 운동 라이브러리에 저장해요.</p>';
   if(RS.copyFb===rc.id)h+='<textarea class="inp" id="rs-copytxt" readonly rows="8" style="margin-top:8px;font-size:13px">'+esc(raceText(rc))+'</textarea><p class="small muted" style="margin:4px 0 0">자동 복사가 막혔어요. 위 글을 길게 눌러 전체 선택 후 복사하세요.</p>';
   // post race
   if(done){h+='<h3 class="rh">레이스 분석</h3>';var r=rc.result;
@@ -3369,8 +3438,11 @@ function raceDetail(rc){
   if(RS.msg)h+='<p class="small muted" style="margin:8px 0 0">'+esc(RS.msg)+'</p>';
   if(RS.err)h+='<div class="warn" style="margin-top:8px">'+esc(RS.err)+'</div>';
   // edit / delete
-  h+='<div class="row" style="margin-top:14px;gap:8px;border-top:1px solid var(--line);padding-top:12px"><input id="rs-goal2" class="inp" style="flex:1" placeholder="목표 바꾸기 예: 2:58:00" aria-label="목표 기록 바꾸기"><button class="btn ghost" id="rs-goal-save">목표 저장</button></div>';
-  h+='<div class="row" style="margin-top:8px;gap:8px"><label class="btn ghost" for="rs-gpx2" style="flex:1;text-align:center;cursor:pointer">코스 GPX '+(rc.course?'바꾸기':'올리기')+'</label><input type="file" id="rs-gpx2" accept=".gpx,application/gpx+xml,application/xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0">'+(RS.del===rc.id?'<button class="btn danger" id="rs-del-go">정말 삭제</button><button class="btn ghost" id="rs-del-no">취소</button>':'<button class="btn ghost" id="rs-del" style="color:var(--bad)">삭제</button>')+'</div>';
+  var eo=RS.edit===rc.id||RS.del===rc.id;
+  h+='<button type="button" class="ifold-h" id="rs-edit" aria-expanded="'+eo+'" style="margin-top:16px"><span>⚙ 대회 설정 · 목표·코스·삭제</span><span class="chev" aria-hidden="true"></span></button>';
+  if(eo){h+='<div class="redit"><label class="kvr"><span class="kl">목표 기록</span><span class="kin"><input id="rs-goal2" class="inp" style="width:110px" placeholder="'+fmtT(rc.goal)+'" aria-label="목표 기록 바꾸기"><button class="btn ghost" id="rs-goal-save" style="padding:8px 12px">저장</button></span></label>';
+    h+='<div class="kvr"><span class="kl">코스 GPX<small>'+(rc.course?esc(rc.course.name||"코스")+' · '+(rc.course.len/1000).toFixed(1)+'km':'없음 · 평지로 계산')+'</small></span><span class="kin"><label class="btn ghost" for="rs-gpx2" style="padding:8px 12px;cursor:pointer">'+(rc.course?'바꾸기':'올리기')+'</label><input type="file" id="rs-gpx2" accept=".gpx,application/gpx+xml,application/xml,text/xml" style="position:absolute;width:1px;height:1px;opacity:0"></span></div>';
+    h+='<div class="kvr"><span class="kl">대회 삭제<small>전략·분석이 함께 지워져요</small></span><span class="kin">'+(RS.del===rc.id?'<button class="btn danger" id="rs-del-go" style="padding:8px 12px">정말 삭제</button><button class="btn ghost" id="rs-del-no" style="padding:8px 12px">취소</button>':'<button class="btn ghost" id="rs-del" style="color:var(--bad);padding:8px 12px">삭제</button>')+'</span></div></div>'}
   return h+'</div>';
 }
 function readGpx(file,cb){var fr=new FileReader();fr.onload=function(){try{cb(null,parseCourse(String(fr.result)))}catch(e){cb(e)}};fr.onerror=function(){cb(new Error("파일을 읽지 못했어요."))};fr.readAsText(file)}
@@ -3397,6 +3469,8 @@ function bindRace(){
   var rv=$("rs-review");if(rv)rv.onclick=function(){raceReview(rc)};
   var cp=$("rs-copy");if(cp)cp.onclick=function(){var t=raceText(rc);copyText(t,function(){RS.copyFb=null;RS.err="";RS.msg="전략을 복사했어요. 카톡·메모에 붙여 넣어 공유하세요.";keepRace()},function(){RS.copyFb=rc.id;keepRace();var ta=$("rs-copytxt");if(ta){ta.focus();ta.select()}})};
   var wb=$("rs-watch");if(wb)wb.onclick=function(){raceToWatch(rc)};
+  var ib=$("rs-info");if(ib)ib.onclick=function(){openRaceInfo(rc)};
+  var eb=$("rs-edit");if(eb)eb.onclick=function(){RS.edit=RS.edit===rc.id?null:rc.id;RS.del=null;keepRace()};
   var mn=$("rs-manual");if(mn)mn.onclick=function(){var t=parseTime($("rs-fin").value);if(!t||t<rc.dist*150||t>rc.dist*600){RS.err="기록을 시:분:초로 넣어 주세요.";keepRace();return}raceReview(rc,t)};
   var gs=$("rs-goal-save");if(gs)gs.onclick=function(){var t=parseTime($("rs-goal2").value);if(!t||t<rc.dist*150||t>rc.dist*600){RS.err="목표를 시:분:초로 넣어 주세요.";keepRace();return}rc.goal=t;RS.err="";RS.msg="목표를 "+fmtT(t)+"로 바꾸고 구간 페이스를 다시 계산했어요.";if(rc.result){var sc=scoreRace(rc,rc.result);rc.result.score=sc.score;rc.result.parts=sc.parts}save();keepRace()};
   var g2=$("rs-gpx2");if(g2)g2.onchange=function(){if(!g2.files||!g2.files[0])return;readGpx(g2.files[0],function(e,c){if(e){RS.err=e.message;keepRace();return}rc.course=c;RS.err="";RS.msg="코스를 바꾸고 구간 페이스를 다시 계산했어요. AI 전략도 다시 만들어 보세요.";save();keepRace()})};
