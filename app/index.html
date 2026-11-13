@@ -790,6 +790,11 @@ body.coach .cbar .chips button{font-size:12px;padding:6px 11px}
 .carbchip{border:0;cursor:pointer;background:linear-gradient(135deg,#ffb347,#ff7e5f);color:#fff;font-weight:800;display:inline-flex;align-items:center;gap:4px}.carbchip span{opacity:.85;font-size:11px}
 .carbbox{margin-top:10px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,#ff9f43 12%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,#ff9f43 35%,transparent)}
 .carbbox>b{font-size:14px}.carbbox ul{margin:6px 0 0;padding-left:18px}.carbbox li{margin:2px 0}
+.carbcard{background:color-mix(in srgb,#ff9f43 10%,var(--card))!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ff9f43 35%,transparent),var(--sh)!important}.carbcard.off,.carbcard.soon{background:var(--card)!important;box-shadow:var(--sh)!important}
+.carbdays{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:10px}
+.carbdays span{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border-radius:10px;background:var(--card);font-size:11px}
+.carbdays small{font-size:10px;color:var(--muted);font-weight:700}.carbdays b{font-size:13px;font-family:var(--f-display)}.carbdays i{font-style:normal;font-size:10px;color:var(--muted)}
+.carbdays span.now{background:linear-gradient(135deg,#ffb347,#ff7e5f);color:#fff}.carbdays span.now small,.carbdays span.now i{color:#fff}.carbdays span.past{opacity:.5}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3091,7 +3096,7 @@ function bodyKpis(ld){
   if(r){var rk=Object.keys(S.rhr||{}).sort().slice(-15,-1),ra=0;rk.forEach(function(d){ra+=S.rhr[d]});
     if(rk.length>=3){ra=ra/rk.length;var df=Math.round(r-ra);rc=SCOL[df<=0?5:df<=1?4:df<=2?3:df<=4?2:1];rs='평소 '+(df>0?'+':'')+df}}
   if(hv&&hv.avg){if(hv.lo)hc=SCOL[hv.avg>=hv.lo?5:hv.avg>=hv.lo*0.95?3:1];else if(hv.ev)hc=SCOL[/Low|Poor/.test(hv.ev)?2:/Unbalanced/.test(hv.ev)?3:5]}
-  var bi=["wt","rhr","hrv","diet"].indexOf(BODYV);return '<div class="bkgrid bseg" role="tablist" aria-label="바디 지표" style="--bi:'+Math.max(0,bi)+'"><span class="bind" aria-hidden="true"></span>'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미입력'),wc)+t("rhr","안정시 심박",r||"—","bpm",r?rs:'눌러서 시작',rc)+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'눌러서 시작',hc)+t("diet","식단 점수",dl?dl[1]:"—","",dl?wn(dl[0])+' 평균':'눌러서 시작',dl?SCOL[band(dl[1])]:null)+'</div>'}
+  var bi=["wt","rhr","hrv","diet"].indexOf(BODYV);return '<div class="bkgrid bseg" role="tablist" aria-label="바디 지표" style="--bi:'+Math.max(0,bi)+'"><span class="bind" aria-hidden="true"></span>'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표 −'+(Math.round((ld.avg-g)*10)/10)+'kg':'목표 달성'):(g?'목표 '+g+'kg':'목표 미입력'),wc)+t("rhr","안정시 심박",r||"—","bpm",r?rs:'눌러서 시작',rc)+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'눌러서 시작',hc)+t("diet","식단 점수",dl?dl[1]:"—","",(function(){var c=carbLoad(T);return c&&!c.off?'🍝 카보로딩 D-'+c.left:dl?wn(dl[0])+' 평균':'눌러서 시작'})(),dl?SCOL[band(dl[1])]:null)+'</div>'}
 function bodyTrends(){
   var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
@@ -3118,10 +3123,16 @@ function bodyPanel(k){
     else h2+=emptyAct('아직 기록이 없어요. 수면 HRV는 COROS를 연결하면 매일 아침 불러와요.',[[S.watch==="coros"?'지금 불러오기':'COROS 연결하기','watch']]);
     return h2+'</div>'}
   // diet
-  var rows=dietWeeks(),h3='<div class="card"><h2>식단 점수</h2>';
+  var rows=dietWeeks(),h3='',CLT=carbLoad(T),nxr=null;if(!CLT){for(var q=1;q<=7&&!nxr;q++){var c7=carbRace(addDays(T,q));if(c7)nxr={start:addDays(T,q),c:c7}}}
+   if(CLT){var tgc=mealTarget(idxOf(T)%7,T),tc=mealTot(T);h3+='<div class="card carbcard'+(CLT.off?' off':'')+'"><div class="row between"><h2>🍝 카보로딩'+(CLT.off?' <span class="muted" style="font-size:13px">꺼짐</span>':'')+'</h2>'+(CLT.off?'<button type="button" class="sbtn wset" data-carb="on">다시 켜기</button>':'<button type="button" class="chip carbchip" data-carb="off" aria-label="카보로딩 끄기">D-'+CLT.left+' <span aria-hidden="true">✕</span></button>')+'</div><p class="small" style="margin:4px 0 0">'+esc(CLT.name)+' · '+dotDate(CLT.race)+' · '+(7-CLT.left)+'/6일차</p>';
+     if(!CLT.off){h3+='<div class="carbdays">'+[6,5,4,3,2,1].map(function(k){var d0=addDays(CLT.race,-k),now=k===CLT.left,past=k>CLT.left;return '<span class="'+(now?'now':past?'past':'')+'"><small>D-'+k+'</small><b>'+(k>3?'5~7':'8~10')+'</b><i>'+md(d0)+'</i></span>'}).join('')+'</div><div class="small" style="margin-top:8px">오늘 탄수 <b class="num">'+Math.round(tc.c)+'</b> / '+tgc.c[0]+'~'+tgc.c[1]+'g · 열량 '+Math.round(tc.kcal).toLocaleString()+' / '+tgc.kcal.toLocaleString()+'kcal</div><button type="button" class="linkbtn" data-goto-meals style="margin-top:6px;font-size:13px">오늘 식단 기록하기 →</button>'}
+     else h3+='<p class="small muted" style="margin:6px 0 0">평소 요일별 식단 목표로 계산하고 있어요.</p>';
+     h3+='</div>'}
+   else if(nxr)h3+='<div class="card carbcard soon"><h2>🍝 카보로딩 예정</h2><p class="small" style="margin:4px 0 0">'+esc(nxr.c.name)+' · '+dotDate(nxr.c.race)+' — <b>'+md(nxr.start)+'</b>부터 6일간 탄수화물을 늘려요(D-6~D-4 5~7g/kg, D-3~D-1 8~10g/kg).</p></div>';
+   h3+='<div class="card"><h2>식단 점수</h2>';
   h3+=rows.length?'<div class="small" style="font-weight:700;margin-top:8px">주간 평균</div><div class="wdiet">'+rows.map(function(r){return '<div data-tip="'+esc(dietWeekTip(r[0],r[1],r[2]))+'"><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'';
   var days=[];for(var i=0;i<14;i++){var ds=addDays(T,-i),ix=idxOf(ds);var ms=ix>=0?mealScore(ds,ix%7):null;if(ms)days.push([ds,ms])}
-  h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
+  h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+(function(){var c=carbLoad(x[0]);return c&&!c.off?'🍝 ':''})()+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
   return h3+'</div>'}
 var WEDIT=null;
 function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<28?"4w":"all"}
@@ -3146,6 +3157,8 @@ function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<2
     S.wgoal={start:Math.round(a*10)/10,target:Math.round(b*10)/10,date:T};save();keepIf()};
   var wgc=document.getElementById("wg-clear");if(wgc)wgc.onclick=function(){S.wgoal=null;save();keepIf()};
   bindEmpty();
+  view.querySelectorAll("[data-carb]").forEach(function(b){b.onclick=function(){var c=carbRace(T);if(!c)return;S.carbOff=S.carbOff||{};if(b.dataset.carb==="off")S.carbOff[c.race]=1;else delete S.carbOff[c.race];save();keepIf();toast(b.dataset.carb==="off"?"카보로딩을 껐어요 · 평소 식단 목표로 계산해요":"카보로딩을 켰어요")}});
+  view.querySelectorAll("[data-goto-meals]").forEach(function(b){b.onclick=function(){tab="today";sel=T;foldSet("meals",true);render();var el=document.getElementById("meals");if(el)el.scrollIntoView({block:"start"})}});
   (function(){var ord=["wt","rhr","hrv","diet"],sg=view.querySelector(".bseg");function go(v,f){if(v===BODYV)return;var rm=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;if(sg){sg.style.setProperty("--bi",ord.indexOf(v));sg.querySelectorAll("[data-bk]").forEach(function(x){x.classList.toggle("on",x.dataset.bk===v)})}
     setTimeout(function(){BODYV=v;var y=window.scrollY;render();window.scrollTo(0,y);if(f){var nb=view.querySelector('.bseg [data-bk="'+v+'"]');if(nb)nb.focus()}},rm?0:200)}
   view.querySelectorAll("[data-bk]").forEach(function(b){b.tabIndex=b.dataset.bk===BODYV?0:-1;b.onclick=function(){go(b.dataset.bk)};b.onkeydown=function(e){var i=ord.indexOf(BODYV);if(e.key==="ArrowRight"){e.preventDefault();e.stopPropagation();go(ord[(i+1)%4],true)}else if(e.key==="ArrowLeft"){e.preventDefault();e.stopPropagation();go(ord[(i+3)%4],true)}}})})();
