@@ -797,6 +797,21 @@ body.coach .cbar .chips button{font-size:12px;padding:6px 11px}
 .carbdays span.now{background:linear-gradient(135deg,#ffb347,#ff7e5f);color:#fff}.carbdays span.now small,.carbdays span.now i{color:#fff}.carbdays span.past{opacity:.5}
 body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-style:none;padding-bottom:2px}body.coach .cbar .chips.cochips::-webkit-scrollbar{display:none!important;height:0}
 .wxlocn{font-size:14px}.wxtop .wxchg{padding:4px 10px;font-size:12px}
+.wxtip{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.45;margin-top:8px;padding:9px 12px;border-radius:12px;background:var(--accent-soft);font-size:13px;font-weight:600;color:var(--ink)}.wxtip.good{background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.wxfc{position:relative;margin-top:10px}
+.wxline{position:absolute;left:0;right:0;top:54px;width:100%;height:30px;pointer-events:none;overflow:visible;z-index:2}
+.wxline path{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;opacity:.45}
+.wxcols{display:grid;gap:6px}
+.wxcol{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 10px;border-radius:14px;background:var(--bg);min-width:0}
+.wxcol.now{background:linear-gradient(180deg,var(--accent-soft),var(--bg))}
+.wxcol .tt{font-size:11px;font-weight:700;color:var(--muted)}.wxcol.now .tt{color:var(--accent)}
+.wxcol .ic{font-size:22px;line-height:1.1;height:26px}
+.wxcol b{font-size:18px;font-family:var(--f-display);margin-top:30px}.wxcol.now b{color:var(--accent)}
+.wxcol .wxdot{z-index:3;position:absolute;left:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
+.wxcol .rp{width:70%;height:4px;border-radius:99px;background:color-mix(in srgb,var(--q) 15%,transparent);overflow:hidden;margin-top:2px}.wxcol .rp i{display:block;height:100%;border-radius:99px;background:color-mix(in srgb,var(--q) 55%,transparent)}.wxcol .rp.wet i{background:var(--q)}
+.wxcol small{font-size:11px;color:var(--muted);white-space:nowrap}.wxcol small.wet{color:var(--q);font-weight:800}
+.wxcol .ph{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.wxhrs .wxh{border-radius:12px;padding:6px 0}.wxhrs .wxh:first-child{background:linear-gradient(180deg,var(--accent-soft),var(--bg))}.wxhrs .wxh:first-child i{color:var(--accent);font-weight:700}.wxhrs .wxh:first-child b{color:var(--accent)}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -2691,10 +2706,15 @@ function wxCard(){
   h+='<div class="wxtop"><span class="wxlocn">📍 <b>'+esc(String(S.wx.name).split(",")[0])+'</b></span><button type="button" class="sbtn wxchg" id="wx-loc" aria-label="동네 바꾸기">동네 바꾸기</button><span class="small muted">'+(WX.busy?'갱신 중…':WX.at?(c&&c.now?c.now.replace("AM","오전").replace("PM","오후")+' 관측':agoT(WX.at)):'')+'</span><button class="wxre" id="wx-re" aria-label="새로고침"'+(WX.busy?' disabled':'')+'>↻</button></div>';
   if(!c&&!nx.length){h+='<p class="small'+(WX.err?'" style="color:var(--bad);margin:4px 0 0"':' muted" style="margin:4px 0 0"')+'>'+esc(WX.err||(WX.busy?'날씨를 불러오는 중…':'↻를 눌러 날씨를 불러와 주세요.'))+'</p>';return h+'</div>'}
   function rp(x){return parseInt((x.extended&&x.extended.rainProbability)||x.precip)||0}
-  h+='<div class="small" style="margin-top:6px">'+esc(tp[0])+'</div>';
-  h+='<div class="wxrow"><span class="wxm now"><small>지금</small><b class="num">'+(c?(Math.round(c.temperatureValue*10)/10)+'°':'-')+'</b><small>💨'+(c&&c.extended?wxMs(c.extended.windValue):'-')+'</small><small>'+esc(c?c.phrase:'')+'</small></span>'+nx.map(function(x){var p=rp(x),e=x.extended||{};return '<span class="wxm"><small>'+new Date(x.epoch*1000).getHours()+'시</small><b class="num">'+Math.round(x.temperatureValue)+'°</b><small'+(e.windValue>=20||e.gustsValue>=35?' class="wet"':'')+'>💨'+wxMs(e.windValue)+'</small><small'+(p>=50?' class="wet"':'')+'>☔'+p+'%</small></span>'}).join("")+'</div>';
+  h+='<div class="wxtip'+(good?' good':'')+'">'+esc(tp[0])+'</div>';
+  var PT=[{t:"지금",v:c?c.temperatureValue:null,ic:c?(wxEmoji(skyKind(+c.iconCode||+c.icon||0),c.isDayTime===false)||"🌤"):"",ph:c?c.phrase:"",w:c&&c.extended?c.extended.windValue:null,p:null,now:1}].concat(nx.map(function(x){var e=x.extended||{};return{t:new Date(x.epoch*1000).getHours()+"시",v:x.temperatureValue,ic:wxEmoji(skyKind(+x.icon||0),x.isDayLight===false)||"🌤",w:e.windValue,g:e.gustsValue,p:rp(x)}}));
+  var vs=PT.filter(function(q){return q.v!=null}).map(function(q){return q.v}),lo=Math.min.apply(null,vs),hi=Math.max.apply(null,vs),rg=Math.max(2,hi-lo),N=PT.length;
+  var yy=function(v){return 26-((v-lo)/rg)*22},xx=function(k){return (k+0.5)/N*400};
+  var path=PT.map(function(q,k){return q.v==null?"":(k&&PT[k-1].v!=null?"L":"M")+xx(k).toFixed(1)+","+yy(q.v).toFixed(1)}).join("");
+  h+='<div class="wxfc"><svg class="wxline" viewBox="0 0 400 30" preserveAspectRatio="none" aria-hidden="true"><path d="'+path+'"/></svg><div class="wxcols" style="grid-template-columns:repeat('+N+',1fr)">'+PT.map(function(q,k){var wet=q.p!=null&&q.p>=50,windy=(q.w||0)>=20||(q.g||0)>=35;
+    return '<div class="wxcol'+(q.now?' now':'')+'"><i class="wxdot" style="top:'+(54+(q.v!=null?yy(q.v):15)).toFixed(1)+'px"></i><small class="tt">'+q.t+'</small><span class="ic">'+q.ic+'</span><b class="num">'+(q.v!=null?(q.now?Math.round(q.v*10)/10:Math.round(q.v))+'°':'-')+'</b>'+(q.now?'<small class="ph">'+esc(q.ph||"")+'</small>':'<span class="rp'+(wet?' wet':'')+'"><i style="width:'+Math.max(4,q.p)+'%"></i></span><small class="rpv'+(wet?' wet':'')+'">☔ '+q.p+'%</small>')+'<small class="wd'+(windy?' wet':'')+'">💨 '+(q.w!=null?wxMs(q.w):'-')+'</small></div>'}).join("")+'</div></div>';
   if(tp.length>1)h+='<ul class="tight small" style="margin:6px 0 0">'+tp.slice(1).map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
-  h+='<div class="small muted" style="margin-top:4px">바람 m/s · AccuWeather</div>';
+  h+='<div class="small muted" style="margin-top:6px;text-align:right;font-size:11px">☔ 강수 확률 · 💨 바람 m/s · AccuWeather</div>';
   if(WX.err)h+='<p class="small" style="color:var(--bad);margin:4px 0 0">'+esc(WX.err)+'</p>';
   return h+'</div>'}
 function wxFold(){var el=document.getElementById("wx");if(el&&el.dataset.sum!==undefined&&S.wx&&S.wx.key&&!WX.edit)foldCard(el,"wxo",el.dataset.sum,false)}
