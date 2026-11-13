@@ -863,7 +863,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.goalHist=o.goalHist||null;S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet()||{});
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -2243,9 +2243,13 @@ function restScore(r){var z=ZONES.filter(function(x){return x.k==="e"})[0],lo=z.
 // A completed day keeps the pace/heart-rate standard it was first scored with, so changing the goal later
 // does not re-score past training. fk = {k: pace scale, h: heart-rate scale} frozen at first scoring.
 var FK_SAVE=null;
-function withDayK(ds,fn){var r=S.days[ds],f=r&&r.fk;if(!f)return fn();var k0=K,h0=HRK;K=f.k;HRK=f.h;try{return fn()}finally{K=k0;HRK=h0}}
-function dayScore(ds){var r=S.days[ds];if(r&&r.fk)return withDayK(ds,function(){return dayScore0(ds)});
-  var res=dayScore0(ds);if(res&&res.s!=null&&r){r.fk={k:K,h:HRK};clearTimeout(FK_SAVE);FK_SAVE=setTimeout(save,800)}return res}
+// Goal history: a day is scored with the goal that was in effect when it was run,
+// so moving the goal later never re-scores past training. Before any recorded change the goal was 2:59:59.
+function goalHist(){if(!S.goalHist){var h=[{at:0,sec:REF_GOAL}];if(S.goal&&S.goal.sec){if(S.goal.at)h.push({at:S.goal.at,sec:S.goal.sec});else h[0].sec=S.goal.sec}S.goalHist=h}return S.goalHist}
+function dayTs(ds){var rs=runsOn(ds).filter(function(x){return x.ts});return rs.length?rs[0].ts*1000:p(ds)+86399000}
+function dayK(ds){if(myPlanOn())return null;var t=dayTs(ds),sec;goalHist().forEach(function(x){if(x.at<=t)sec=x.sec});return sec?sec/REF_GOAL:null}
+function withDayK(ds,fn){var k=dayK(ds);if(k==null){var r=S.days[ds],f=r&&r.fk;if(!f)return fn();k=f.k}var k0=K;K=k;try{return fn()}finally{K=k0}}
+function dayScore(ds){return withDayK(ds,function(){return dayScore0(ds)})}
 function dayScore0(ds){
   var i=idxOf(ds);if(i<0||i>=TOTAL)return null;var t=planAt(i),r=dayRec(ds);
   if(t[0]==="r"){if(!r.w||!r.w.km)return null;return restScore(r)}
@@ -3031,7 +3035,7 @@ function bindGoal(){
   function y(){var v=window.scrollY;render();window.scrollTo(0,v)}
   var ch=document.getElementById("g-change");if(ch)ch.onclick=function(){GSEL=(S.goal&&S.goal.tier)||"권장";GMSG="";y()};
   var ca=document.getElementById("g-cancel");if(ca)ca.onclick=function(){GSEL=null;y()};
-  var cl=document.getElementById("g-clear");if(cl)cl.onclick=function(){S.goal=null;GSEL=null;GMSG="";save();pushShare(true);y()};
+  var cl=document.getElementById("g-clear");if(cl)cl.onclick=function(){goalHist().push({at:Date.now(),sec:REF_GOAL});S.goal=null;GSEL=null;GMSG="";save();pushShare(true);y()};
   view.querySelectorAll("[data-gopt]").forEach(function(b){b.onclick=function(){GSEL=b.dataset.gopt;GMSG_CUSTOM="";y()}});
   var cu=document.getElementById("g-custom");if(cu)cu.addEventListener("input",function(){GMSG_CUSTOM=cu.value;if(GSEL!=="직접"){GSEL="직접";view.querySelectorAll("[data-gopt]").forEach(function(b){b.setAttribute("aria-checked","false")})}});
   var cf=document.getElementById("g-confirm");if(cf)cf.onclick=function(){
@@ -3039,7 +3043,7 @@ function bindGoal(){
     if(GSEL==="직접"||(!goalOptions().length)){sec=parseTime((cu&&cu.value)||"");tier="직접 입력";
       if(!sec||sec<7200||sec>23400){err.textContent="2:00:00~6:30:00 사이 기록을 시:분:초로 넣어 주세요.";return}}
     else{var sel=GSEL||(S.goal&&S.goal.tier)||"권장",o=goalOptions().filter(function(x){return x.tier===sel})[0];if(!o){err.textContent="목표를 골라 주세요.";return}sec=o.sec;tier=o.tier}
-    S.goal={sec:sec,tier:tier,at:Date.now()};GSEL=null;GMSG="목표를 "+fmtT(sec)+"로 확정했어요.";GMSG_CUSTOM="";
+    goalHist();S.goal={sec:sec,tier:tier,at:Date.now()};S.goalHist.push({at:S.goal.at,sec:sec});GSEL=null;GMSG="목표를 "+fmtT(sec)+"로 확정했어요.";GMSG_CUSTOM="";
     if(S.profile&&S.profile.use===false)S.profile.use=true;
     save();pushShare(true);render();var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"});
   };
