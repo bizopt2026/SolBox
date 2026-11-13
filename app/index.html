@@ -868,6 +868,15 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .rhlist small{font-size:11px;color:var(--muted)}.rhlist b{font-size:15px;text-align:right}.rhlist em{font-style:normal;font-size:12px;font-weight:700;color:var(--muted);text-align:right}
 .rhbar{height:6px;border-radius:99px;background:var(--bg);overflow:hidden}.rhbar u{display:block;height:100%;border-radius:99px;background:color-mix(in srgb,var(--accent) 45%,transparent)}
 .rhlist .bad em,.rhlist .bad b{color:var(--bad)}.rhlist .bad .rhbar u{background:var(--bad)}.rhlist .ok em{color:var(--ok)}
+.hvhero{flex-wrap:wrap}.hvgauge{position:relative;flex-basis:100%;height:8px;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--bad) 35%,transparent),color-mix(in srgb,var(--s3) 30%,transparent) 30%,color-mix(in srgb,var(--ok) 25%,transparent) 50%,color-mix(in srgb,var(--q) 25%,transparent));margin-top:8px}
+.hvgauge .hvband{position:absolute;top:-2px;bottom:-2px;border-radius:99px;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ok) 70%,transparent)}
+.hvgauge i{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--card);box-shadow:0 0 0 3px var(--accent)}
+.hvlbl{flex-basis:100%;display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted)}
+.rhbar.hv u{background:color-mix(in srgb,var(--s5) 55%,transparent)}.rhlist .mid em{color:color-mix(in srgb,var(--s3) 75%,var(--ink))}
+.dwk{display:grid;grid-template-columns:repeat(auto-fit,minmax(48px,1fr));gap:8px;align-items:end}
+.dwk>div{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dwb{width:26px;height:64px;border-radius:8px;background:var(--bg);display:flex;align-items:flex-end;overflow:hidden}.dwb u{display:block;width:100%;border-radius:8px 8px 0 0}
+.dwk b{font-size:14px;font-family:var(--f-display)}.dwk small{font-size:10.5px;color:var(--muted)}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3204,8 +3213,13 @@ function bodyPanel(k){
     return h+'</div>'}
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
     var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
-    var h2='<div class="card"><div class="row between"><h2>수면 HRV</h2><span class="small muted">'+(hb&&hb.lo?'정상 범위 '+hb.lo+'~'+hb.hi+'ms':'')+'</span></div>'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange());
-    if(ks2.length)h2+='<div class="blist">'+ks2.map(function(d){var x=S.hrv[d];return '<div><span class="num">'+md(d)+'</span><b class="num">'+x.avg+'<small> ms</small></b><span class="small" style="color:'+(/Low|Poor|Unbalanced/.test(x.ev)?'var(--bad)':'var(--muted)')+'">'+esc(EV[x.ev]||x.ev||"")+'</span></div>'}).join("")+'</div>'+info('음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.','읽는 법')+'';
+    var hk=Object.keys(hv).sort(),lk2=hk[hk.length-1],lx=lk2?S.hrv[lk2]:null,bad=lx&&/Low|Poor/.test(lx.ev),mid=lx&&/Unbalanced/.test(lx.ev);
+    var h2='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">🌙</span><div style="flex:1;min-width:0"><h2>수면 HRV</h2><small>잠자는 동안 심박 변이 · COROS</small></div></div>';
+    if(lx){var pos=lx.lo&&lx.hi?Math.max(0,Math.min(100,Math.round((lx.avg-(lx.lo-10))/((lx.hi+10)-(lx.lo-10))*100))):null,blo=lx.lo?Math.round(10/((lx.hi+10)-(lx.lo-10))*100):0,bw=lx.lo?Math.round((lx.hi-lx.lo)/((lx.hi+10)-(lx.lo-10))*100):0;
+      h2+='<div class="wthero hvhero"><div><small>최근 '+md(lk2)+'</small><b class="num">'+lx.avg+'<i>ms</i></b></div><span class="rhst '+(bad?'bad':mid?'mid':'ok')+'">'+esc(EV[lx.ev]||lx.ev||'')+(bad?' · 강도 낮추기':mid?' · 주의':' · 좋음')+'</span>'+(pos!=null?'<div class="hvgauge"><span class="hvband" style="left:'+blo+'%;width:'+bw+'%"></span><i style="left:'+pos+'%"></i></div><div class="hvlbl"><span>낮음</span><span>정상 '+lx.lo+'~'+lx.hi+'</span><span>높음</span></div>':'')+'</div>'}
+    h2+='<div style="margin-top:8px">'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange())+'</div>';
+    if(ks2.length){var vv=ks2.map(function(d){return S.hrv[d].avg}),lo3=Math.min.apply(null,vv)-5,hi3=Math.max.apply(null,vv)+1;
+      h2+='<div class="wlsth">최근 7일</div><div class="rhlist">'+ks2.map(function(d){var x=S.hrv[d],c=/Low|Poor/.test(x.ev)?'bad':/Unbalanced/.test(x.ev)?'mid':'';return '<div class="'+c+'"><span class="num">'+md(d)+' <small>'+DOW[(new Date(d+"T00:00:00").getDay()+6)%7]+'</small></span><span class="rhbar hv"><u style="width:'+Math.max(8,Math.round((x.avg-lo3)/Math.max(1,hi3-lo3)*100))+'%"></u></span><b class="num">'+x.avg+'</b><em>'+esc(EV[x.ev]||x.ev||"")+'</em></div>'}).join("")+'</div>'+info('음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.','읽는 법')}
     else h2+=emptyAct('아직 기록이 없어요. 수면 HRV는 COROS를 연결하면 매일 아침 불러와요.',[[S.watch==="coros"?'지금 불러오기':'COROS 연결하기','watch']]);
     return h2+'</div>'}
   // diet
@@ -3215,10 +3229,12 @@ function bodyPanel(k){
      else h3+='<p class="small muted" style="margin:6px 0 0">평소 요일별 식단 목표로 계산하고 있어요.</p>';
      h3+='</div>'}
    else if(nxr)h3+='<div class="card carbcard soon"><h2>🍝 카보로딩 예정</h2><p class="small" style="margin:4px 0 0">'+esc(nxr.c.name)+' · '+dotDate(nxr.c.race)+' — <b>'+md(nxr.start)+'</b>부터 6일간 탄수화물을 늘려요(D-6~D-4 5~7g/kg, D-3~D-1 8~10g/kg).</p></div>';
-   h3+='<div class="card"><h2>식단 점수</h2>';
-  h3+=rows.length?'<div class="small" style="font-weight:700;margin-top:8px">주간 평균</div><div class="wdiet">'+rows.map(function(r){return '<div data-tip="'+esc(dietWeekTip(r[0],r[1],r[2]))+'"><span class="small muted">'+wn(r[0])+'</span>'+sbar(r[1])+'<b class="num" style="color:'+SCOL[band(r[1])]+'">'+r[1]+'</b><span class="small muted">'+r[2]+'일</span></div>'}).join("")+'</div>':'';
+   var lw=rows.length?rows[rows.length-1]:null,pw=rows.length>1?rows[rows.length-2]:null;
+   h3+='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">🥗</span><div style="flex:1;min-width:0"><h2>식단 점수</h2><small>끼니별 영양 · 100점 기준</small></div><button type="button" class="sbtn wset" data-goto-meals>오늘 기록</button></div>';
+   if(lw)h3+='<div class="wthero"><div><small>'+wn(lw[0])+' 평균 · '+lw[2]+'일 기록</small><b class="num" style="color:'+SCOL[band(lw[1])]+'">'+lw[1]+'<i>점</i></b></div>'+(pw?'<span class="wtchip '+(lw[1]>pw[1]?'ok':lw[1]<pw[1]?'bad':'')+'">'+(lw[1]>pw[1]?'▲':lw[1]<pw[1]?'▼':'±')+Math.abs(lw[1]-pw[1])+' <small>지난주보다</small></span>':'')+'<span class="rhst" style="color:'+SCOL[band(lw[1])]+';background:var(--card)">'+SNAME[band(lw[1])]+'</span></div>';
+  h3+=rows.length>1?'<div class="wlsth">주간 평균</div><div class="dwk">'+rows.map(function(r){var bb=band(r[1]);return '<div data-tip="'+esc(dietWeekTip(r[0],r[1],r[2]))+'"><span class="dwb"><u style="height:'+Math.max(6,r[1])+'%;background:'+SCOL[bb]+'"></u></span><b class="num" style="color:'+SCOL[bb]+'">'+r[1]+'</b><small>'+wn(r[0])+'</small></div>'}).join("")+'</div>':'';
   var days=[];for(var i=0;i<14;i++){var ds=addDays(T,-i),ix=idxOf(ds);var ms=ix>=0?mealScore(ds,ix%7):null;if(ms)days.push([ds,ms])}
-  h3+=days.length?'<div class="small" style="font-weight:700;margin-top:10px">최근 기록한 날</div><div class="blist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+'</span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'<small> 점</small></b><span class="small muted">'+(function(){var c=carbLoad(x[0]);return c&&!c.off?'🍝 ':''})()+Math.round(t2.kcal)+'kcal'+(x[1].live?' · 진행 중':'')+'</span></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
+  h3+=days.length?'<div class="wlsth">최근 기록한 날</div><div class="rhlist">'+days.slice(0,7).map(function(x){var t2=mealTot(x[0]);return '<div><span class="num">'+md(x[0])+' <small>'+DOW[(new Date(x[0]+"T00:00:00").getDay()+6)%7]+'</small></span><span class="rhbar"><u style="width:'+Math.max(6,x[1].s)+'%;background:'+SCOL[x[1].b]+'"></u></span><b class="num" style="color:'+SCOL[x[1].b]+'">'+x[1].s+'</b><em>'+(function(){var c=carbLoad(x[0]);return c&&!c.off?'🍝':''})()+(x[1].live?'진행':Math.round(t2.kcal/100)/10+'k')+'</em></div>'}).join("")+'</div>':emptyAct('사진이나 글로 식사를 남기면 100점 기준으로 점수를 매겨요.',[['오늘 식단 기록하기','meals']]);
   return h3+'</div>'}
 var WEDIT=null;
 function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<28?"4w":"all"}
