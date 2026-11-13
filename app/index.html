@@ -740,6 +740,7 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .fsample{margin:10px 0 0;padding:10px 12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line);font-size:13px;line-height:1.6}
 html{scrollbar-gutter:stable}
 @media (min-width:1000px){header.top .wrap{max-width:1080px}}
+.hq[hidden],.hco[hidden]{display:none!important}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -911,7 +912,7 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 
 <header class="top"><div class="wrap">
   <div class="brand"><span id="brand-eb">Sub-3 · 2027.3.21</span><b>2:59:59 프로젝트</b></div>
-  <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hcoach" id="h-coach" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>AI 코치</button><button type="button" class="hq" id="h-guide" aria-label="가이드와 의견 보내기">?</button></div>
+  <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hcoach" id="h-coach" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>AI 코치</button><button type="button" class="hq" id="h-guide" aria-label="가이드" hidden>?</button></div>
 </div></header>
 
 <main class="wrap" id="view"></main>
@@ -920,8 +921,8 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
   <button role="tab" data-tab="today"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>오늘</button>
   <button role="tab" data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>훈련표</button>
   <button role="tab" data-tab="pace"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg>페이스</button>
-  <button role="tab" data-tab="crew"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg>크루</button>
   <button role="tab" data-tab="log"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M7 12h3l1.5-2.5 2 4.5 1.5-2H17"/></svg>바디</button>
+  <button role="tab" data-tab="guide"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>가이드</button>
 </div></nav>
 <button id="fab" type="button" aria-label="AI 코치에게 물어보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span>AI 코치</span></button>
 
@@ -1071,7 +1072,7 @@ function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이
     if(!user||!db){setAuth("anon");return}
     var id=await user.id(); if(!id){setAuth("anon");return}
     var cw=null;try{cw=await user.can("data.write")}catch(e){}
-    if(cw===false){try{crewReadOnly(db,user,id)}catch(eR){}setAuth("view");return}
+    if(cw===false){setAuth("view");return}
     var ref=db.collection("data/users/"+id).doc("plan");
     var timer=setTimeout(function(){setSync("이 기기에 저장")},10000);
     var snap;try{snap=await ref.get()}catch(e){clearTimeout(timer);setAuth("view");return}clearTimeout(timer);
@@ -1086,24 +1087,6 @@ function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이
     setSync("계정에 저장됨");AUTH.st="ok";setTimeout(bootDone,0);
     try{ref.onSnapshot(function(sn){if(!sn.exists)return;var dd=sn.data();if((dd.ts||0)<=BASE_TS)return;var rem;try{rem=JSON.parse(dd.json)}catch(eJ){return}
       var ch=merge3(rem);BASE=snapMain(rem);BASE_TS=dd.ts||0;lsSet();if(ch&&tab!=="coach"&&tab!=="story"){var y=window.scrollY;render();window.scrollTo(0,y)}},function(){})}catch(eS){}
-    CREW.db=db;CREW.user=user;CREW.me=id;
-    try{user.canEdit().then(function(v){CREW.editor=!!v;if(tab==='crew')keep()},function(){})}catch(eE){}user.isOwner().then(function(v){CREW.owner=!!v;var ha=document.getElementById("h-admin");if(ha)ha.hidden=!CREW.owner;if(tab==="crew"||tab==="admin")keep()},function(){});
-    db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(banned(CREW.me))pushShare(true);if(tab==="crew")keep()},function(){});
-    var ct=setTimeout(function(){if(CREW.status==="loading"){CREW.status="slow";if(tab==="crew")keep()}},10000);
-    db.collection("members").onSnapshot(function(sn){
-      var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.members=m;
-      var first=CREW.status==="loading"||CREW.status==="slow";
-      if(!sn.metadata.fromCache){clearTimeout(ct);CREW.status="ok"}else if(CREW.status==="loading")CREW.status="cache";
-      if(first&&CREW.status!=="loading")pushShare(true);
-      if(tab==="crew")keep();
-    },function(e){clearTimeout(ct);CREW.status="err";if(tab==="crew")keep()});
-    db.collection("plans").onSnapshot(function(sn){var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.plans=m;if(tab==="plan"&&!document.activeElement.matches("input,textarea,select"))keepIf()},function(){});
-    db.collection("social").onSnapshot(function(sn){
-      var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.social=m;
-      if(!CREW.mine&&m[id])CREW.mine=JSON.parse(JSON.stringify(m[id]));
-      if(tab==="crew")keep();
-    },function(){});
-    pushShare(true);
     if(S.watch)watchSync(false);
   }catch(e){setSync("이 기기에 저장")}
 })();
@@ -1373,7 +1356,7 @@ function freddyScalar(text,hint){var groups={},cur=null;
   var out=[];Object.keys(groups).forEach(function(k){var g=groups[k];if(!g.km||!g.dur)return;var st=Math.floor(Date.UTC(+g.date.slice(0,4),+g.date.slice(5,7)-1,+g.date.slice(8,10),3)/1000);
     var r=freddyRun({distanceInMeters:g.km*1000,durationInSeconds:g.dur,startTimeInSeconds:st,averageHeartRateInBeatsPerMinute:g.hr,activityType:g.type||undefined,summaryId:g.id||undefined,directWorkoutRpe:g.rpe},hint);if(r){r.date=g.date;out.push(r)}});
   return out}
-function noMcpMsg(what){return AUTH.st==="view"?"링크로 참여한 계정은 "+what+"을(를) 쓸 수 없어요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
+function noMcpMsg(what){return AUTH.st==="view"?"복제하지 않은 화면이라 "+what+"을(를) 쓸 수 없어요. 앱을 복제해서 내 앱으로 열어 주세요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
 async function freddySync(manual){
   if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
   var step="연결";
@@ -1467,8 +1450,8 @@ function keepIf(){if(tab==="today"||tab==="log"||tab==="plan"){var y=window.scro
 function watchStatus(){return WS.err?'<span style="color:var(--bad)">'+esc(WS.err)+'</span>':(WS.busy||WS.msg?esc(WS.msg):(S.watchAt?'마지막 동기화 '+agoT(S.watchAt)+' · 앱을 열 때마다 자동으로 불러와요':'아직 불러온 기록이 없어요'))}
 function agoT(t){var m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";var h=Math.round(m/60);if(h<24)return h+"시간 전";return Math.round(h/24)+"일 전"}
 function authBar(){
-  if(AUTH.st==="anon")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>claude.ai에 로그인해 주세요</b><div class="small" style="margin-top:4px">지금은 기록이 이 기기에만 저장돼요. 내 claude.ai 계정으로 로그인한 뒤 이 링크를 다시 열면 계정에 저장되고 크루와 함께할 수 있어요.</div><div class="row" style="margin-top:8px"><a class="btn" href="https://claude.ai/login" target="_blank" rel="noopener" style="text-decoration:none">claude.ai 로그인</a></div></div>';
-  if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>링크로 참여 중이에요</b><div class="small" style="margin-top:4px">훈련 체크·체중·식단은 <b>이 기기</b>에 저장돼요. 크루 공유는 크루 탭 → <b>기록 코드</b>, 워치 기록은 <b>파일 올리기</b>로 넣어요. 기기를 바꾸기 전엔 가이드 → 백업을 해 두세요.</div></div>';
+  if(AUTH.st==="anon")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>claude.ai에 로그인해 주세요</b><div class="small" style="margin-top:4px">지금은 기록이 이 기기에만 저장돼요. claude.ai에 로그인한 뒤 이 앱을 <b>복제</b>해서 내 앱으로 쓰세요.</div></div>';
+  if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>📋 이 앱은 복제해서 쓰는 앱이에요</b><div class="small" style="margin-top:4px">① 이 화면의 <b>복제</b>로 내 Claude에 복사 → ② 복제된 내 앱을 열기 → ③ claude.ai 설정 → 커넥터에서 COROS·freddy·AccuWeather를 연결하면 내 기록이 자동으로 들어와요. 지금 화면에서는 기록이 이 기기에만 저장돼요.</div></div>';
   return "";
 }
 // weather at the time of the run on a completed day (from the hourly log), else null
@@ -1555,7 +1538,7 @@ function watchCard(){
   var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:12px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
-  if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">링크로 참여하면 내 claude.ai에 COROS·freddy를 연결해 둬도 이 앱에서는 자동 연동이 안 돼요(claude.ai 보안 정책). <b>파일 올리기</b>로 넣거나, 자동 연동을 원하면 가이드(?) → <b>앱 복사</b>로 내 앱을 만들어 쓰세요.<div style="margin-top:8px"><button class="btn" type="button" data-watch="file" style="background:var(--accent);color:var(--on-accent)">파일 올리기로 바꾸기</button></div></div>';
+  if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">복제하지 않고 링크로 열면 내 claude.ai에 COROS·freddy를 연결해 둬도 이 앱에서는 자동 연동이 안 돼요(claude.ai 보안 정책). <b>파일 올리기</b>로 넣거나, 이 앱을 <b>복제</b>해서 내 앱으로 쓰면 자동 연동돼요.<div style="margin-top:8px"><button class="btn" type="button" data-watch="file" style="background:var(--accent);color:var(--on-accent)">파일 올리기로 바꾸기</button></div></div>';
   if(!open)return h+'</div>';
   if(S.watch==="coros"){
     h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li><li><span><b>체중</b>도 함께 가져와요. COROS 앱에 체중을 입력하거나 체중계가 동기화해 프로필 체중이 바뀌면, 앱을 열 때 그 시각으로 기록돼요.</span></li></ul>';
@@ -1866,7 +1849,7 @@ function enhance(){
     foldCard(findCard("내 훈련 존"),"p-zones","이지 "+zr(Zk.e)+" · MP "+zr(Zk.mp),false);
   } else if(tab==="plan"){
     var mineP=S.planMode==="mine",busy=!!(MPB.draft||MPB.open||MPB.busy||(mineP&&!myPlanOn()));
-    var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"크루 계획 · "+dotDate(CREW_RACE);
+    var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"기본 계획 · "+dotDate(CREW_RACE);
     var pc=document.getElementById("plansrc");if(pc&&view.querySelector("[data-pstrip]"))pc=null;if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
   } else if(tab==="crew"){
     if(!view.querySelector("[data-cstrip]"))foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(AUTH.st==="view"?" · 기록 코드로 공유":S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
@@ -2479,8 +2462,8 @@ function bindDayEditor(ds){
 }
 function myPlanCard(){
   var P=plan(),n=planEdited(),nd=Object.keys(P.days).length;
-  var h='<details class="card mpfold'+(MPOPEN?'':' folded')+'" id="myplan"'+(MPOPEN?' open':'')+'><summary class="fold-h" aria-expanded="'+MPOPEN+'"><h2>'+(myPlanOn()?'나만의 계획 조정':'크루 계획 조정')+'</h2><span class="fold-s"'+(MPOPEN?' hidden':'')+'>'+(n?'바꾼 내용 '+n+'개':'요일·거리 그대로')+'</span><span class="chev" aria-hidden="true"></span></summary>';
-  h+='<p class="small muted" style="margin:6px 0 0">요일·거리를 바꾼 내용은 <b style="color:var(--ink)">나에게만</b> 적용돼요. '+(myPlanOn()?'나만의 계획에만 적용되고, 크루 계획으로 돌아가면 크루 계획 조정 내용이 따로 적용돼요.':'크루장이 배포한 계획과 다른 크루원의 계획은 그대로예요.')+' 대회가 있는 주(인천·서울)는 요일·거리 설정이 적용되지 않아요.</p>';
+  var h='<details class="card mpfold'+(MPOPEN?'':' folded')+'" id="myplan"'+(MPOPEN?' open':'')+'><summary class="fold-h" aria-expanded="'+MPOPEN+'"><h2>'+(myPlanOn()?'나만의 계획 조정':'기본 계획 조정')+'</h2><span class="fold-s"'+(MPOPEN?' hidden':'')+'>'+(n?'바꾼 내용 '+n+'개':'요일·거리 그대로')+'</span><span class="chev" aria-hidden="true"></span></summary>';
+  h+='<p class="small muted" style="margin:6px 0 0">요일·거리를 바꾼 내용은 <b style="color:var(--ink)">나에게만</b> 적용돼요. '+(myPlanOn()?'나만의 계획에만 적용되고, 기본 계획으로 돌아가면 기본 계획 조정 내용이 따로 적용돼요.':'기본 계획 원본은 그대로 남아 언제든 되돌릴 수 있어요.')+' 대회가 있는 주(인천·서울)는 요일·거리 설정이 적용되지 않아요.</p>';
   // 1. weekday swaps
   var pre=[[5,6,"롱런을 일요일로 (토↔일)"],[2,3,"포인트를 목요일로 (수↔목)"],[2,1,"포인트를 화요일로 (수↔화)"],[4,3,"휴식을 목요일로 (금↔목)"]];
   h+='<div style="margin-top:14px"><b>1. 요일 바꾸기</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+pre.map(function(x){var on=P.swaps.some(function(s2){return (s2[0]===x[0]&&s2[1]===x[1])||(s2[0]===x[1]&&s2[1]===x[0])});return '<button class="btn ghost" data-sw="'+x[0]+','+x[1]+'" style="padding:6px 10px;font-size:13px'+(on?';border-color:var(--accent);color:var(--accent);background:var(--accent-soft)':'')+'">'+(on?'✓ ':'')+x[2]+'</button>'}).join("")+'</div>';
@@ -2664,14 +2647,14 @@ function bindWx(){function $(i){return document.getElementById(i)}
 }
 function wxCtx(){if(!WX.cur&&!WX.hr)return "";var c=WX.cur&&WX.cur.currentConditions,nx=wxNext();
   return "날씨("+(S.wx&&S.wx.name||"")+", "+agoT(WX.at)+"): 지금 "+(c?Math.round(c.temperatureValue)+"° 체감 "+Math.round(c.realFeelValue)+"° "+c.phrase+" 바람 "+wxMs(c.extended&&c.extended.windValue)+"m/s":"-")+"; "+nx.map(function(x){var e=x.extended||{};return x.dateTime+" "+Math.round(x.temperatureValue)+"° 비 "+(e.rainProbability||x.precip)+" 바람 "+wxMs(e.windValue)+"m/s"}).join("; ")}
-var APPV="beta-3";
+var APPV="beta-4";
 var NEWSN=6,CHEERS=["👏","🔥","💪"];
 function newsCard(){if(S.seenV===APPV||!S.onboarded)return "";
-  return '<details class="news1"><summary><span>🎉 <b>새로 바뀐 점 '+NEWSN+'가지</b> · 업데이트 내용 보기</span><span class="fold-c" aria-hidden="true">⌄</span><button class="linkbtn" id="news-ok" type="button">확인</button></summary><ul class="tight small" style="margin:8px 0 0"><li><b>요약 줄</b>: 오늘·훈련표·크루 맨 위 한 줄을 누르면 펼쳐져 자세히 보고 관리해요</li><li><b>페이스 탭</b>: 기준 설정 · 중간 점검 · 레이스 전략. 내 기준은 직접 입력하고 <b>저장</b>해야 반영돼요. COROS 값은 "COROS에서 불러오기"로 채워요</li><li><b>중간 점검</b>: 세 관문(10K·하프·35K)을 깨면 별 ★을 모아요</li><li><b>레이스 인포그래픽</b>: 레이스 전략 → 내보내기 → 🖼 이미지로 저장. 지점별 통과 시간으로 빠름·계획·늦음을 판단해요</li><li><b>바디</b>: 체중·심박·HRV·식단을 한 줄에서 골라 보고, 체중 목표는 단계 타임라인으로 봐요</li><li><b>크루 피드</b>: 카드가 간결해지고 ♡·💬·응원 버튼이 한 줄로 바뀌었어요</li></ul></details>'}
+  return '<details class="news1"><summary><span>🎉 <b>새로 바뀐 점</b> · 업데이트 내용 보기</span><span class="fold-c" aria-hidden="true">⌄</span><button class="linkbtn" id="news-ok" type="button">확인</button></summary><ul class="tight small" style="margin:8px 0 0"><li><b>나만의 앱</b>: 공유받은 링크를 내 Claude로 <b>복제</b>해서 쓰고, 내 claude.ai에 COROS·freddy·AccuWeather를 연결하면 내 기록이 자동으로 들어와요</li><li><b>크루·관리자 기능을 뺐어요</b>: 기록은 나만 봐요</li><li><b>기본 계획</b>: 훈련표의 \'크루 계획\'은 \'기본 계획\'으로 바뀌었어요</li><li><b>가이드</b>는 아래 메뉴 맨 오른쪽으로 옮겼어요</li></ul></details>'}
 var NSEAS={confirm:false,msg:""};
 function seasonCard(){if(T<=RACE)return "";
   var n=Object.keys(S.runs).length,h='<div class="card news"><h2>🏁 2027 서울마라톤 시즌이 끝났어요</h2><p class="small" style="margin:6px 0 8px">수고 많으셨어요! 이 앱의 훈련표·체크·러닝·랩 기록·점수는 이번 시즌(11/9~3/21) 훈련표에 맞춰져 있어요.</p>';
-  h+='<ol class="tight small" style="padding-left:18px"><li><b>먼저 백업:</b> 가이드(오른쪽 위 ?) → 백업에서 백업 코드를 복사해 메모 앱에 저장해요. 레이스 전략·결과는 새 시즌에도 남아요.</li><li><b>다음 목표 정하기:</b> 다음 대회 이름·날짜·목표 기록을 정해요.</li><li><b>새 훈련표 만들기:</b> 크루장(관리자)이 Claude와 대화하는 화면에서 이 앱 링크와 함께 "다음 대회 ○○, 목표 ○:○○:○○로 새 훈련표 만들어 줘"라고 요청하면 앱의 훈련표가 새로 바뀌어요.</li><li><b>새 시즌 시작:</b> 새 훈련표가 반영되면 아래 버튼으로 이전 기록을 정리해요. <b>러닝 '+n+'개·훈련 체크·랩·식단·AI 코치 대화가 지워지고</b>, 체중·내 기준(역치)·레이스 기록은 남아요.</li></ol>';
+  h+='<ol class="tight small" style="padding-left:18px"><li><b>먼저 백업:</b> 가이드 → 백업에서 백업 코드를 복사해 메모 앱에 저장해요. 레이스 전략·결과는 새 시즌에도 남아요.</li><li><b>다음 목표 정하기:</b> 다음 대회 이름·날짜·목표 기록을 정해요.</li><li><b>새 훈련표 만들기:</b> 훈련표 → 맨 위 요약 줄 → 📋 훈련 계획 → 나만의 계획에서 다음 대회·목표로 AI 훈련표를 만들어요.</li><li><b>새 시즌 시작:</b> 새 훈련표가 반영되면 아래 버튼으로 이전 기록을 정리해요. <b>러닝 '+n+'개·훈련 체크·랩·식단·AI 코치 대화가 지워지고</b>, 체중·내 기준(역치)·레이스 기록은 남아요.</li></ol>';
   if(NSEAS.confirm)h+='<div class="warn" style="margin-top:8px">정말 지울까요? 되돌릴 수 없어요. 백업 코드를 먼저 복사해 두세요.<div class="row" style="gap:6px;margin-top:8px"><button class="btn danger" id="ns-go">지우고 새 시즌 시작</button><button class="btn ghost" id="ns-no">취소</button></div></div>';
   else h+='<div class="row" style="gap:6px;margin-top:10px"><button class="btn ghost" id="ns-bk">백업하러 가기</button><button class="btn ghost" id="ns-start" style="color:var(--bad)">새 시즌 시작(기록 정리)</button></div>';
   if(NSEAS.msg)h+='<p class="small" style="color:var(--ok);margin:6px 0 0">'+esc(NSEAS.msg)+'</p>';
@@ -2681,8 +2664,8 @@ function bindSeason(){function y(){var v=window.scrollY;render();window.scrollTo
   var b=document.getElementById("ns-start");if(b)b.onclick=function(){NSEAS.confirm=true;y()};
   var c=document.getElementById("ns-no");if(c)c.onclick=function(){NSEAS.confirm=false;y()};
   var d=document.getElementById("ns-go");if(d)d.onclick=function(){S.runs={};S.days={};S.checks={};S.meals={};S.coach=[];S.plan=null;S.goal=null;S.watchAt=0;S.fileAt=0;S.wxlog={};NSEAS.confirm=false;NSEAS.msg="이전 시즌 기록을 정리했어요. 새 훈련표로 시작해요!";save();pushShare(true);y()}}
-function startCard(){if(S.startDone||(S.goal&&S.watch&&S.nick))return '';
-  var st=[["goal","3.21 목표 정하기",!!S.goal],["watch","워치 연결",!!S.watch],["crew","크루 닉네임",!!S.nick]],done=st.filter(function(x){return x[2]}).length,nx=st.filter(function(x){return !x[2]})[0];
+function startCard(){if(S.startDone||(S.goal&&S.watch&&S.wx&&S.wx.key))return '';
+  var st=[["goal","3.21 목표 정하기",!!S.goal],["watch","워치 연결",!!S.watch],["wx","날씨 동네",!!(S.wx&&S.wx.key)]],done=st.filter(function(x){return x[2]}).length,nx=st.filter(function(x){return !x[2]})[0];
   return '<div class="startbar"><button type="button" class="sb-go" data-start="'+nx[0]+'"><span class="sb-n">시작하기 '+done+'/3</span><span class="sb-dots">'+st.map(function(x){return '<i class="'+(x[2]?'on':'')+'"></i>'}).join('')+'</span><span class="sb-next">다음: <b>'+nx[1]+'</b> →</span></button><button type="button" class="linkbtn" id="sb-x" aria-label="시작하기 숨기기">✕</button></div>'}
 function weekReport(){var ti=idxOf(T);if(ti<7||ti>=TOTAL+7||sel!==T)return '';var pw=Math.floor(ti/7)-1;if(ti%7>1||S.repSeen===pw||pw<0||pw>=W.length)return '';
   var st=weekStats(pw),av=weekAvg(pw),wk=[];for(var d=0;d<7;d++){var x=wDay(dateOf(pw,d));if(x)wk.push(x.avg)}var dw=dietWeeks().filter(function(r){return r[0]===pw})[0];
@@ -2775,7 +2758,7 @@ function vToday(){
   document.getElementById("done").onclick=function(){var r=S.days[sel]||{},wasDone=isDone(sel),oldR=JSON.parse(JSON.stringify(r)),sd=sel;r.done=!isDone(sel);if(wasDone)setTimeout(function(){undoable("완료 체크를 해제했어요",function(){S.days[sd]=oldR})},0);delete r.auto;if(r.done){delete r.unck;r.dt=Math.floor(Date.now()/1000);if(sel===T)doneWx();if(!rpeOf(sel))RPEASK=sel}else{delete r.dt;r.unck=Math.floor(Date.now()/1000)}S.days[sel]=r;save();render();if(isDone(sel)){var dsx=dayScore(sel);toast(dsx&&dsx.s!=null?"✓ 완료 · "+dsx.s+"점 "+SNAME[dsx.b]:"✓ 완료")}};
   var ro=document.getElementById("rpe-open");if(ro)ro.onclick=function(){RPEASK=RPEASK===sel?null:sel;if(RPEASK)delete RPESKIP[sel];else RPESKIP[sel]=true;var y=window.scrollY;render();window.scrollTo(0,y)};
   var rl=document.getElementById("rpe-later");if(rl)rl.onclick=function(){RPESKIP[sel]=true;RPEASK=null;var y=window.scrollY;render();window.scrollTo(0,y)};
-  view.querySelectorAll("[data-start]").forEach(function(b){b.onclick=function(){var g=b.dataset.start;if(g==="goal"){tab="pace";PACEV="base";render();window.scrollTo(0,0)}else if(g==="watch"){WPANEL=true;foldSet("strip",true);render();window.scrollTo(0,0)}else{tab="crew";render();window.scrollTo(0,0)}}});
+  view.querySelectorAll("[data-start]").forEach(function(b){b.onclick=function(){var g=b.dataset.start;if(g==="goal"){tab="pace";PACEV="base";render();window.scrollTo(0,0)}else if(g==="watch"){WPANEL=true;foldSet("strip",true);render();window.scrollTo(0,0)}else{WX.edit=true;foldSet("strip",true);foldSet("wxo",true);render();window.scrollTo(0,0)}}});
   var sbx=document.getElementById("sb-x");if(sbx)sbx.onclick=function(){S.startDone=true;save();render()};
   var rpx=document.getElementById("rep-x");if(rpx)rpx.onclick=function(){S.repSeen=Math.floor(idxOf(T)/7)-1;save();var y=window.scrollY;render();window.scrollTo(0,y)};
   var kq=document.getElementById("kmq");if(kq)kq.onsubmit=function(e){e.preventDefault();var v=parseFloat(document.getElementById("kmq-in").value);if(!(v>0&&v<200)){document.getElementById("kmq-in").focus();return}var r2=S.days[sel]||{};r2.km=String(Math.round(v*100)/100);S.days[sel]=r2;save();var y=window.scrollY;render();window.scrollTo(0,y);var dsx=dayScore(sel);if(dsx&&dsx.s!=null)toast("✓ "+dsx.s+"점 "+SNAME[dsx.b])};
@@ -2806,23 +2789,15 @@ function shiftPlan(it,newRace){var o=JSON.parse(JSON.stringify(it));if(!newRace|
   var rd=Math.round((p(newRace)-p(st))/864e5)%7,last=wk[nw-1],xr=null;last.d.forEach(function(t){if(t[0]==="x")xr=t});
   for(var k=0;k<7;k++){if(k===rd)last.d[k]=xr||["x",o.name,o.dist||42.195];else if(last.d[k][0]==="x"||k>rd)last.d[k]=["r","휴식",0]}
   o.start=st;o.race=newRace;o.weeks=wk;return o}
-function sharedPlansHtml(){
-  var L=libItems(),open=MPB.lib,h='<button type="button" class="ifold-h" id="mp-lib" aria-expanded="'+open+'" style="margin-top:10px"><span>📚 공유된 계획 '+L.length+'개 · 코드로 가져오기</span><span class="chev" aria-hidden="true"></span></button>';
-  if(!open)return h;
-  h+='<div class="mplib">';
-  if(!CREW.db)h+='<p class="small muted" style="margin:6px 0 0">크루 공유 목록은 claude.ai에 로그인한 크루원만 볼 수 있어요. 아래 코드로는 가져올 수 있어요.</p>';
-  else if(!L.length)h+='<p class="small muted" style="margin:6px 0 0">아직 크루에 공유된 계획이 없어요.</p>';
-  L.forEach(function(x,i){var it=x.it,dn=it.dist===42.195||!it.dist?"풀":it.dist>21?"하프":it.dist+"K";h+='<div class="mplibi"><div style="min-width:0"><b>'+esc(it.name)+'</b>'+(x.u===CREW.me?' <span class="pill na">내 계획</span>':'')+'<div class="small muted">'+esc(it.by||"러너")+' · '+dotDate(it.race)+' '+dn+' · '+(it.weeks.length-1)+'주'+(it.goal?' · 목표 '+fmtT(it.goal):'')+'</div></div><button class="sbtn" data-libpick="'+i+'">미리 보기</button></div>'});
-  h+='<div class="cin" style="margin-top:8px"><input id="mp-code" class="inp" placeholder="받은 계획 코드(SUB3PLAN:…) 붙여넣기"><button class="btn ghost" id="mp-codego">가져오기</button></div>';
-  return h+'</div>'}
+function sharedPlansHtml(){return ""}
 function planSrcCard(){
   var mine=S.planMode==="mine",has=!!(S.myplan&&S.myplan.weeks&&S.myplan.weeks.length),h='<div class="card" id="plansrc"><h2>훈련 계획</h2>';
-  h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr;margin-top:10px"><button role="radio" aria-checked="'+!mine+'" data-psrc="crew">크루 계획 따르기</button><button role="radio" aria-checked="'+mine+'" data-psrc="mine">나만의 계획</button></div>';
-  if(!mine&&!MPB.draft){h+='<p class="small muted" style="margin:8px 0 0">크루장이 배포한 공용 훈련표('+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 위 <b style="color:var(--ink)">크루 계획 조정</b>에서 나에게만 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'')+sharedPlansHtml();return h+'</div>'}
+  h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr;margin-top:10px"><button role="radio" aria-checked="'+!mine+'" data-psrc="crew">기본 계획</button><button role="radio" aria-checked="'+mine+'" data-psrc="mine">나만의 계획</button></div>';
+  if(!mine&&!MPB.draft){h+='<p class="small muted" style="margin:8px 0 0">앱에 들어 있는 기본 훈련표('+dotDate(CREW_RACE)+' 서울마라톤까지 '+(CREW_W.length-1)+'주 + 레이스 주)를 따라요. 요일·거리는 위 <b style="color:var(--ink)">기본 계획 조정</b>에서 내게 맞게 바꿀 수 있어요.</p>'+(has?'<p class="small muted" style="margin:4px 0 0">만들어 둔 나만의 계획: '+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+'</p>':'')+sharedPlansHtml();return h+'</div>'}
   if(has&&!MPB.open&&!MPB.draft){var m=S.myplan;h+='<div class="mpsum"><b>📋 '+esc(m.name)+'</b><span class="small muted">'+dotDate(m.start)+' 시작 · '+dotDate(m.race)+' 대회 · '+(m.weeks.length-1)+'주 + 레이스 주'+(m.goal?' · 목표 '+fmtT(m.goal):'')+'</span></div>';
     h+='<p class="small muted" style="margin:6px 0 0">나만의 계획을 따르고 있어요. 요일·거리는 위 <b style="color:var(--ink)">나만의 계획 조정</b>에서 바꿔요. 체크·기록은 날짜 기준이라 그대로 남아요.</p>';
     var shd=mySharedIds().indexOf(m.id)>=0;
-    h+='<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost" id="mp-share"'+(CREW.db?'':' disabled')+'>'+(shd?'✓ 크루에 공유 중 · 취소':'크루에 공유')+'</button><button class="btn ghost" id="mp-code-copy">계획 코드 복사</button><button class="btn ghost" id="mp-new">새로 만들기</button><button class="btn ghost" id="mp-del" style="color:var(--bad)">삭제</button></div>';
+    h+='<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost" id="mp-new">새로 만들기</button><button class="btn ghost" id="mp-del" style="color:var(--bad)">삭제</button></div>';
     if(MPB.msg)h+='<p class="small" style="color:var(--ok);margin:6px 0 0">'+esc(MPB.msg)+'</p>';
     if(MPB.codeFb)h+='<textarea class="inp" readonly rows="3" style="font-size:12px;margin-top:6px">'+esc(planCode(planItem(m)))+'</textarea><p class="small muted" style="margin:2px 0 0">자동 복사가 막혔어요. 위 코드를 길게 눌러 복사하세요.</p>';
     return h+sharedPlansHtml()+'</div>'}
@@ -2857,7 +2832,7 @@ async function mpGenerate(){
       "\n- 러너 수준: "+(EG.curPred?"현재 마라톤 예상 "+fmtT(EG.curPred):"정보 없음")+(pf.thr?" · 역치 페이스 "+pf.thr:"")+(pf.lthr?" · 역치 심박 "+pf.lthr:"")+
       "\n\n규칙: 기초→빌드업→특화→테이퍼 순으로, 3~4주마다 회복 주. 포인트(q)는 주 1~2회, 롱런(l)은 주 1회. 페이스 숫자는 쓰지 말고 E(이지), LSD, MP(목표 마라톤 페이스), T(템포), I(인터벌), WU, CD, 지속주 같은 존 이름과 거리로만 써(앱이 러너 페이스로 바꿔 보여 줘). 한 줄에 한 동작, 줄바꿈은 \\n."+
       "\n종류 코드: r=휴식, e=이지·조깅, q=포인트(인터벌·템포), l=롱런·지속주, c=회복 LSD, x=대회. 각 날은 [종류, 내용, km]이고 월요일부터 7개."+
-      "\n크루 계획 예시(형식만 참고):\n"+ex+
+      "\n기본 계획 예시(형식만 참고):\n"+ex+
       "\n\nJSON만 답해: {\"note\":\"계획 요약 1~2문장\",\"weeks\":[{\"lab\":\"베이스 1\",\"ph\":\"base|build|spec|rec|taper|race\",\"d\":[[\"r\",\"휴식\",0],[\"e\",\"E 8K\",8],...7개]}]} weeks는 정확히 "+nw+"개.";
     var out=await sm.json(prompt,{modelTier:"default"});
     var wk=(Array.isArray(out&&out.weeks)?out.weeks:[]).slice(0,nw);
@@ -2887,7 +2862,7 @@ function bindPlanSrc(){function $(i){return document.getElementById(i)}
     if(on)cur.unshift(planItem(S.myplan));cur=cur.slice(0,5);var ref=CREW.db.doc("plans/"+CREW.me);(cur.length?ref.set({items:cur,upd:Date.now()}):ref.delete()).then(function(){MPB.msg=on?"크루에 공유했어요. 크루원이 훈련표 → 공유된 계획에서 가져갈 수 있어요.":"공유를 취소했어요.";keepIf()},function(e){MPB.msg="";MPB.err="공유하지 못했어요"+(e&&e.code?" ("+e.code+")":"")+".";keepIf()});save()};
   var cc=$("mp-code-copy");if(cc)cc.onclick=function(){if(!S.myplan)return;if(!S.myplan.id){S.myplan.id="p"+Date.now().toString(36);save()}copyText(planCode(planItem(S.myplan)),function(){MPB.codeFb=false;MPB.msg="계획 코드를 복사했어요. 카톡 등으로 보내면 받은 사람이 훈련표 → 공유된 계획 → 코드로 가져오기에서 쓸 수 있어요.";keepIf()},function(){MPB.codeFb=true;keepIf()})};
   var nw=$("mp-new");if(nw)nw.onclick=function(){MPB.open=true;MPB.f=null;keepIf()};
-  var dl=$("mp-del");if(dl)dl.onclick=function(){if(!confirm("나만의 계획을 삭제하고 크루 계획으로 돌아갈까요? 체크·기록은 남아요."))return;S.myplan=null;S.planMode="crew";save();pushShare(true);keepIf()}}
+  var dl=$("mp-del");if(dl)dl.onclick=function(){if(!confirm("나만의 계획을 삭제하고 기본 계획으로 돌아갈까요? 체크·기록은 남아요."))return;S.myplan=null;S.planMode="crew";save();pushShare(true);keepIf()}}
 var PASTW=false;
 function closeSheet(){var o=document.getElementById("dsheet");if(o)o.remove()}
 function openDaySheet(ds){closeSheet();var i=idxOf(ds);if(i<0||i>=TOTAL)return;var w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),dn=isDone(ds),DS=(dn||(t[0]==="r"&&r.w))?dayScore(ds):null;
@@ -2909,14 +2884,14 @@ function planStrip(dn,tot,km,canAdj){
   var mine=myPlanOn(),n=planEdited(),P=plan(),pct=tot?Math.round(dn/tot*100):0,tkm=W.reduce(function(a,x,wi){return a+weekKm(wi)},0);
   var srcO=foldOpen("psrc",false)||(S.planMode==="mine"&&!!(MPB.draft||MPB.open)),adjO=canAdj&&MPOPEN;
   var open=foldOpen("pstrip",false)||srcO||adjO;
-  var c=['<span>📋 <b>'+(mine?'내 계획':'크루')+'</b></span>','<span>🛠 '+(n?'<b style="color:var(--accent)">조정 '+n+'</b>':'<span class="muted">조정 없음</span>')+'</span>','<span>✓ <b class="num">'+dn+'/'+tot+'</b></span>','<span>📏 <b class="num">'+Math.round(km)+'</b>km</span>'];
+  var c=['<span>📋 <b>'+(mine?'내 계획':'기본')+'</b></span>','<span>🛠 '+(n?'<b style="color:var(--accent)">조정 '+n+'</b>':'<span class="muted">조정 없음</span>')+'</span>','<span>✓ <b class="num">'+dn+'/'+tot+'</b></span>','<span>📏 <b class="num">'+Math.round(km)+'</b>km</span>'];
   var sum='<button class="ssum" data-pstrip aria-expanded="'+open+'" aria-label="'+(open?'요약으로 접기':'훈련 계획·계획 조정·전체 진행 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
   if(!open)return sum;
   var src=mine?'<b>훈련 계획 · 나만의 계획</b><span>'+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+' 대회 · '+(S.myplan.weeks.length-1)+'주 + 레이스 주</span>'
-    :'<b>훈련 계획 · 크루 계획 따르기</b><span>크루장이 배포한 공용 훈련표 · '+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주</span>';
+    :'<b>훈련 계획 · 기본 계획</b><span>앱 기본 훈련표 · '+dotDate(CREW_RACE)+'까지 '+(CREW_W.length-1)+'주 + 레이스 주</span>';
   var h='<div class="strip">'+sum;
   h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📋</span><button class="wlink" data-ptog="psrc" aria-expanded="'+srcO+'">'+src+'</button><button class="sbtn wset'+(srcO?' on':'')+'" data-ptog="psrc" aria-expanded="'+srcO+'">'+(srcO?'닫기':'바꾸기')+'</button></div>';
-  if(canAdj)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🛠</span><button class="wlink" data-ptog="padj" aria-expanded="'+adjO+'"><b>'+(mine?'나만의':'크루')+' 계획 조정'+(n?' · <span style="color:var(--accent)">바꾼 내용 '+n+'개</span>':'')+'</b><span>요일 바꾸기'+(P.swaps.length?' '+P.swaps.length+'개':'')+' · 주간 거리 '+P.vol+'% · 클로드에게 부탁</span></button><button class="sbtn wset'+(adjO?' on':'')+'" data-ptog="padj" aria-expanded="'+adjO+'">'+(adjO?'닫기':'조정')+'</button></div>';
+  if(canAdj)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🛠</span><button class="wlink" data-ptog="padj" aria-expanded="'+adjO+'"><b>'+(mine?'나만의':'기본')+' 계획 조정'+(n?' · <span style="color:var(--accent)">바꾼 내용 '+n+'개</span>':'')+'</b><span>요일 바꾸기'+(P.swaps.length?' '+P.swaps.length+'개':'')+' · 주간 거리 '+P.vol+'% · 클로드에게 부탁</span></button><button class="sbtn wset'+(adjO?' on':'')+'" data-ptog="padj" aria-expanded="'+adjO+'">'+(adjO?'닫기':'조정')+'</button></div>';
   h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📈</span><div class="wlink" style="cursor:default"><b>전체 진행 · <span class="num" style="color:var(--ok)">'+pct+'%</span></b><span>완료 '+dn+' / '+tot+'회 · 누적 '+Math.round(km)+' / '+tkm.toLocaleString()+' km</span><div class="bar" style="height:5px;margin-top:5px"><i style="width:'+pct+'%"></i></div></div></div>';
   h+='</div>';
   if(srcO)h+=planSrcCard();
@@ -2926,7 +2901,7 @@ function bindPlanStrip(){
   view.querySelectorAll("[data-pstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("pstrip",!op);if(op){foldSet("psrc",false);MPOPEN=false;if(S.planMode==="mine"&&!MPB.draft)MPB.open=false}keepIf();if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
   view.querySelectorAll("[data-ptog]").forEach(function(b){b.onclick=function(){var k=b.dataset.ptog;if(k==="psrc"){var o=foldOpen("psrc",false);foldSet("psrc",!o);if(o&&!MPB.draft)MPB.open=false}else MPOPEN=!MPOPEN;foldSet("pstrip",true);keepIf()}})}
 function vPlan(){
-  if(S.planMode==="mine"&&!myPlanOn()){view.innerHTML=planSrcCard()+'<p class="small muted" style="padding:0 4px">나만의 계획을 만들기 전까지는 오늘·크루 화면에 크루 계획이 그대로 쓰여요. 체크·기록은 날짜 기준이라 계획을 바꿔도 남아요.</p>';bindPlanSrc();return}
+  if(S.planMode==="mine"&&!myPlanOn()){view.innerHTML=planSrcCard()+'<p class="small muted" style="padding:0 4px">나만의 계획을 만들기 전까지는 오늘 화면에 기본 계획이 그대로 쓰여요. 체크·기록은 날짜 기준이라 계획을 바꿔도 남아요.</p>';bindPlanSrc();return}
   var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
   var showPlan=S.planMode!=="mine"||myPlanOn();
   var h=planStrip(dn,tot,km,showPlan&&!(S.planMode==="mine"&&(MPB.draft||MPB.open)));
@@ -3179,7 +3154,7 @@ function nextKeySessions(){
 }
 function goalCard(){
   if(myPlanOn()&&S.myplan.goal){var m=S.myplan,mg=EG.goal||m.goal,dn=m.dist===42.195?"풀코스":m.dist>21?"하프":m.dist+"K";
-    return '<div class="card" id="goal"><div class="goal-hero"><div><div class="eyebrow">나만의 계획 목표 · '+esc(m.name)+'</div><b>'+fmtT(m.goal)+'</b><span class="small" style="opacity:.8">'+dn+' · '+dotDate(m.race)+(m.dist!==42.195?' · 풀코스 환산 '+fmtT(mg):'')+' · 마라톤 페이스 '+fmtMS(mg/42.195)+'/km</span></div></div><p class="small muted" style="margin:8px 0 0">나만의 계획을 쓰는 동안 모든 훈련 페이스와 존은 이 목표로 계산돼요. 목표를 바꾸려면 훈련표 → 나만의 계획 → 새로 만들기, 크루 계획으로 돌아가면 3.21 목표로 다시 계산돼요.</p></div>'}
+    return '<div class="card" id="goal"><div class="goal-hero"><div><div class="eyebrow">나만의 계획 목표 · '+esc(m.name)+'</div><b>'+fmtT(m.goal)+'</b><span class="small" style="opacity:.8">'+dn+' · '+dotDate(m.race)+(m.dist!==42.195?' · 풀코스 환산 '+fmtT(mg):'')+' · 마라톤 페이스 '+fmtMS(mg/42.195)+'/km</span></div></div><p class="small muted" style="margin:8px 0 0">나만의 계획을 쓰는 동안 모든 훈련 페이스와 존은 이 목표로 계산돼요. 목표를 바꾸려면 훈련표 → 나만의 계획 → 새로 만들기, 기본 계획으로 돌아가면 3.21 목표로 다시 계산돼요.</p></div>'}
   var opts=goalOptions(),g=S.goal,h='<div class="card" id="goal">';
   if(g&&g.sec){
     h+='<div class="goal-hero"><div><div class="eyebrow">2027.3.21 마라톤 목표'+(g.tier&&g.tier!=="직접 입력"?' · '+esc(g.tier):'')+'</div><b>'+fmtT(g.sec)+'</b><span class="small" style="opacity:.8">마라톤 페이스 '+fmtMS(g.sec/42.195)+'/km · SUB-'+subLabel(g.sec)+'</span></div><button class="btn ghost" id="g-change" style="color:var(--navy-fg);border-color:currentColor">변경</button></div>';
@@ -3908,17 +3883,17 @@ function bindShare(){bindCrewStrip();
 var WSTEPS=[
  function(){
   var h='<div class="wel-hero"><div class="eyebrow">2026.11.9 → 2027.3.21 서울마라톤</div><h1>'+(S.goal?fmtT(S.goal.sec)+' 목표,':'서브3 목표,')+'<br>18주 매일 체크</h1><p>오늘 할 훈련만 보고 달리면 돼요.</p></div>';
-  h+='<div class="card"><ul class="steps" style="margin:0"><li><span><b>오늘</b> — 훈련·페이스 확인, 워치로 자동 체크, 100점 평가</span></li><li><span><b>훈련표</b> — 18주 계획, 맨 위 줄에서 계획 조정·진행 확인</span></li><li><span><b>페이스</b> — 기준 설정 · 중간 점검 · 레이스 전략</span></li><li><span><b>크루 · 바디</b> — 함께 응원하고, 체중·컨디션·식단 관리</span></li></ul></div>';
+  h+='<div class="card"><ul class="steps" style="margin:0"><li><span><b>오늘</b> — 훈련·페이스 확인, 워치로 자동 체크, 100점 평가</span></li><li><span><b>훈련표</b> — 18주 계획, 맨 위 줄에서 계획 조정·진행 확인</span></li><li><span><b>페이스</b> — 기준 설정 · 중간 점검 · 레이스 전략</span></li><li><span><b>바디</b> — 체중·심박·HRV·식단 관리</span></li></ul></div>';
   return h;
  },
  function(){
   var h='<h2>시작할 때 3가지</h2><p class="muted" style="margin:0">지금 안 해도 돼요. 나중에 언제든 할 수 있어요.</p>';
-  h+='<div class="wsetup">'+[["🎯","기준·목표","페이스 → 기준 설정에 기록을 넣고 저장하면 페이스와 3.21 목표를 맞춰 줘요","goal","정하기"],["⌚","워치 연결","COROS · 가민·애플(freddy) · 파일","watch","연결"],["👥","크루 닉네임","정하면 크루에 내 훈련이 공유돼요","crew","만들기"]].map(function(x){return '<div><span class="wi" aria-hidden="true">'+x[0]+'</span><span class="wt"><b>'+x[1]+'</b><small>'+x[2]+'</small></span><button class="sbtn wset" data-wgo="'+x[3]+'">'+x[4]+'</button></div>'}).join("")+'</div>';
+  h+='<div class="wsetup">'+[["🎯","기준·목표","페이스 → 기준 설정에 기록을 넣고 저장하면 페이스와 3.21 목표를 맞춰 줘요","goal","정하기"],["⌚","워치 연결","COROS · 가민·애플(freddy) · 파일","watch","연결"],["🌤","날씨 동네","AccuWeather 커넥터를 연결하고 동네를 정하면 달리기 전 3시간 날씨를 알려 줘요","wx","설정"]].map(function(x){return '<div><span class="wi" aria-hidden="true">'+x[0]+'</span><span class="wt"><b>'+x[1]+'</b><small>'+x[2]+'</small></span><button class="sbtn wset" data-wgo="'+x[3]+'">'+x[4]+'</button></div>'}).join("")+'</div>';
   return h;
  },
  function(){
   var h='<h2>매일 하는 일</h2><ol class="steps"><li><span><b>오늘</b> 탭에서 훈련 확인</span></li><li><span>달리기 → 워치 기록이 들어오면 <b>자동 완료</b> (아니면 완료 체크)</span></li><li><span>힘든 정도(<b>RPE</b>) 한 번 누르기</span></li></ol>';
-  h+='<div class="card"><p class="small muted" style="margin:0">📱 홈 화면에 추가하면 앱처럼 열려요 · 💬 AI 코치와 <b>?</b> 가이드는 오른쪽 위에 있어요 · 각 탭 맨 위 요약 줄을 누르면 자세히 펼쳐져요.</p></div>';
+  h+='<div class="card"><p class="small muted" style="margin:0">📱 홈 화면에 추가하면 앱처럼 열려요 · 💬 AI 코치는 오른쪽 위, 가이드는 아래 메뉴 맨 오른쪽에 있어요 · 각 탭 맨 위 요약 줄을 누르면 자세히 펼쳐져요.</p></div>';
   return h;
  }
 ];
@@ -3943,8 +3918,8 @@ view.querySelectorAll("[data-copy-link]").forEach(function(b){b.onclick=function
   try{navigator.clipboard.writeText(appUrl()).then(function(){if(msg)msg.textContent="복사했어요. 초대한 사람에게 보내 주세요."},fb)}catch(e){fb()}}})}
 var INVITE_STEP=0;
 function whatsNew(){
-  var h='<div class="wel-hero"><div class="eyebrow">새로 바뀐 점</div><h1>앱이 업데이트됐어요</h1><p>달라진 내용을 먼저 보고, 이어서 전체 사용법을 한 번 더 안내해 드려요.</p></div>';
-  h+='<div class="card"><ul class="steps"><li><span><b>맨 위 요약 줄</b><br><span class="small muted">오늘·훈련표·크루 맨 위 한 줄에 핵심만 보여요. 누르면 펼쳐져 목표·워치·날씨·컨디션, 훈련 계획·조정·진행, 프로필·초대를 관리해요.</span></span></li><li><span><b>페이스 탭 3단계</b><br><span class="small muted">기준 설정 → 중간 점검 → 레이스 전략. 내 기준은 직접 입력 후 <b>저장</b>해야 반영되고, COROS 값은 "COROS에서 불러오기"로 칸을 채워요.</span></span></li><li><span><b>중간 점검 관문</b><br><span class="small muted">W11 10K · W15 하프 · W16 35K. 기록을 넣으면 통과/미달과 여유 시간, 별 ★을 보여 줘요.</span></span></li><li><span><b>레이스 인포그래픽</b><br><span class="small muted">레이스 전략 → 내보내기 → 🖼 인포그래픽. 구간 페이스·고도와 지점별 통과 시간 판단(빠름·계획·늦음)을 한 장 이미지로 저장해요.</span></span></li><li><span><b>바디 · 크루 정리</b><br><span class="small muted">바디는 4개 지표를 한 줄에서 골라 보고, 체중 목표는 단계 타임라인으로 봐요. 크루 피드는 더 간결해졌어요.</span></span></li></ul></div>';
+  var h='<div class="wel-hero"><div class="eyebrow">새로 바뀐 점</div><h1>나만의 앱으로 바뀌었어요</h1><p>달라진 내용을 먼저 보고, 이어서 전체 사용법을 한 번 더 안내해 드려요.</p></div>';
+  h+='<div class="card"><ul class="steps"><li><span><b>복제해서 내 앱으로</b><br><span class="small muted">공유받은 링크를 내 Claude로 복제하면 내가 주인인 앱이 돼요. 기록은 내 계정에 저장되고 나만 봐요.</span></span></li><li><span><b>내 커넥터로 자동 연동</b><br><span class="small muted">claude.ai 설정 → 커넥터에서 COROS·freddy(가민·애플)·AccuWeather를 연결하면 러닝·몸 상태·날씨가 자동으로 들어와요.</span></span></li><li><span><b>기본 계획</b><br><span class="small muted">2027 서울마라톤 18주 기본 훈련표를 그대로 쓰거나, 나만의 계획을 AI로 만들어요.</span></span></li><li><span><b>크루·관리자 기능 정리</b><br><span class="small muted">기록 공유 기능을 빼고, 가이드를 아래 메뉴로 옮겼어요.</span></span></li></ul></div>';
   return h;
 }
 function finishWelcome(to){S.onboarded=true;S.gv=GUIDE_V;WMANUAL=false;save();tab=to||"today";WSTEP=0;render();window.scrollTo(0,0)}
@@ -3959,7 +3934,7 @@ function vWelcome(){
   var sk=document.getElementById("w-skip");if(sk)sk.onclick=function(){if(!last)finishWelcome("today")};
   var pv=document.getElementById("w-prev");if(pv)pv.onclick=function(){WSTEP--;render();window.scrollTo(0,0)};
   document.getElementById("w-next").onclick=function(){if(last)finishWelcome(WMANUAL==="invite"?"crew":"today");else{WSTEP++;render();window.scrollTo(0,0)}};
-  view.querySelectorAll("[data-wgo]").forEach(function(b){b.onclick=function(){var g=b.dataset.wgo;if(g==="watch")WPANEL=true;finishWelcome(g==="goal"?"pace":g==="watch"?"today":g);if(g==="goal"){var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"})}}});
+  view.querySelectorAll("[data-wgo]").forEach(function(b){b.onclick=function(){var g=b.dataset.wgo;if(g==="watch")WPANEL=true;if(g==="wx"){WX.edit=true;foldSet("strip",true);foldSet("wxo",true)}finishWelcome(g==="goal"?"pace":"today");if(g==="goal"){var el=document.getElementById("goal");if(el)el.scrollIntoView({block:"start"})}}});
   bindCopy();
 }
 
@@ -4000,7 +3975,7 @@ function fbAdmin(){if(!FB.sub&&CREW.db){FB.sub=true;try{CREW.db.collection("feed
   if(!L)h+='<p class="small muted" style="margin:0">불러오는 중…</p>';else if(!L.length)h+='<p class="small muted" style="margin:0">아직 받은 의견이 없어요.</p>';
   else L.slice(0,50).forEach(function(x){h+='<div class="fbi"><div class="small muted">'+esc(x.nick||"러너")+' · '+new Date(x.t).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' · '+esc(x.ua||"")+'</div><div class="small">'+esc(x.text)+'</div></div>'});
   return h+'</div></div>'}
-var GCHIPS=[["링크 참여","링크로 참여하기"],["앱 복사","내 앱으로 복사하기"],["글꼴","글꼴 미리보기"],["화면","화면 구성"],["기준·점검","기준 설정 · 중간 점검"],["페이스","페이스 존"],["레이스","레이스 데이 페이스"],["식단","요일별 먹는 양"],["점수","훈련 점수"],["연동","워치 기록 연동"],["계획","훈련 계획 · 조정"],["AI 코치","AI 코치"],["백업","백업"]];
+var GCHIPS=[["시작하기","시작하기 · 복제와 커넥터"],["글꼴","글꼴 미리보기"],["화면","화면 구성"],["기준·점검","기준 설정 · 중간 점검"],["페이스","페이스 존"],["레이스","레이스 데이 페이스"],["식단","요일별 먹는 양"],["점수","훈련 점수"],["연동","워치 기록 연동"],["계획","훈련 계획 · 조정"],["AI 코치","AI 코치"],["백업","백업"]];
 var FONTS={plex:["IBM Plex Sans KR","IBM Plex Sans KR",""],noto:["Noto Sans KR","Noto Sans KR","Noto+Sans+KR:wght@400;500;600;700;800"],nanum:["Nanum Gothic","나눔고딕","Nanum+Gothic:wght@400;700;800"],gothic:["Gothic A1","Gothic A1","Gothic+A1:wght@400;500;600;700;800"]};
 function fontDef(){try{return window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches?"noto":"plex"}catch(e){return "plex"}}
 function fontKey(){try{var k=localStorage.getItem("sub3-font");return FONTS[k]?k:fontDef()}catch(e){return fontDef()}}
@@ -4014,7 +3989,7 @@ function fontCard(){var cur=fontKey();
 function bindFont(){view.querySelectorAll("[data-font]").forEach(function(b){b.onclick=function(){var k=b.dataset.font;try{localStorage.setItem("sub3-font",k)}catch(e){}applyFont(k);view.querySelectorAll("[data-font]").forEach(function(x){x.setAttribute("aria-pressed",x.dataset.font===k)});toast(FONTS[k][1]+"로 바꿨어요")}});
   Object.keys(FONTS).forEach(function(k){if(FONTS[k][2]&&!document.getElementById("gf-"+k)){var l=document.createElement("link");l.id="gf-"+k;l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+FONTS[k][2]+"&display=swap";document.head.appendChild(l)}})}
 function vGuide(){
-  var h='<nav class="gchips" aria-label="가이드 주제">'+GCHIPS.map(function(c){return '<button type="button" data-gc="'+esc(c[1])+'">'+c[0]+'</button>'}).join('')+'</nav>'+fbCard()+'<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>'+fontCard()+'<div class="card"><h2>링크로 참여하기</h2><p class="small muted" style="margin:4px 0 0">링크만 있으면 누구나 쓸 수 있어요. 크루장과 다른 claude.ai 조직 계정은 아래처럼 써요.</p><ul class="tight small gl"><li><b>참여:</b> claude.ai 로그인 → 링크 열기 → 크루 탭에서 닉네임</li><li><b>내 기록:</b> 체크·체중·식단은 <b>이 기기</b>에 저장. 기기를 바꾸기 전엔 아래 <b>백업</b></li><li><b>크루 공유:</b> 크루 탭 → <b>내 기록 코드 복사</b> → 크루장에게 전달(일주일에 한 번). 크루장은 ☰ 관리자 메뉴 → 기록 코드 등록</li><li><b>워치:</b> 내 claude.ai에 COROS·freddy를 연결해도 이 앱에서는 자동 연동이 안 돼요(claude.ai 보안 정책) → <b>파일 올리기</b>(GPX·TCX·FIT·가민 CSV). 자동 연동을 원하면 아래 <b>내 앱으로 복사하기</b></li><li><b>크루 피드:</b> 볼 수 있지만 좋아요·댓글은 남길 수 없어요</li></ul></div>'+'<div class="card"><h2>내 앱으로 복사하기</h2><p class="small" style="margin:4px 0 0"><b>내 기록을 자동 연동해서 보고 싶다면 이 방법이에요.</b> 링크로 참여하면 내 claude.ai에 COROS·freddy·AccuWeather를 연결해도, claude.ai가 다른 사람이 만든 앱에는 내 커넥터를 열어 주지 않아요. 내 앱으로 복사하면 내가 주인이라 내 커넥터로 내 기록이 자동으로 들어오고, 계정에도 저장돼요.</p><ol class="tight small gl" style="padding-left:18px"><li>크루장에게 앱 파일(<b>index.html</b>)을 받아요</li><li><b>claude.ai/code</b>(Claude Code)에서 파일을 주고 <b>"이 앱을 연동 권한 그대로 내 아티팩트로 게시해 줘"</b>라고 요청해요</li><li>게시된 내 링크로 열면 내가 주인이라 모든 기능이 돼요</li><li><b>원본 크루와 연결:</b> 크루 탭 → 내 프로필 → <b>내 기록 코드 복사</b> → 원본 크루장에게 보내요</li><li><b>업데이트:</b> 새 파일을 받아 <b>같은 링크에 다시 게시</b>하면 기록은 그대로 남아요</li></ol><p class="small muted" style="margin:6px 0 0">복사본의 크루 피드·좋아요는 원본과 따로예요. 초대 링크는 지금 열린 앱 주소로 자동으로 바뀌고, 관리자 메뉴 → 크루 정보에서 직접 정할 수도 있어요. 관리자 PIN은 처음 1234예요.</p></div>'+'<div class="card"><h2>화면 구성</h2><p class="small muted" style="margin:4px 0 0">각 탭 맨 위 <b style="color:var(--ink)">요약 줄</b>을 누르면 펼쳐져서 자세히 보고 관리해요.</p><dl class="kv small" style="margin-top:8px"><dt>오늘</dt><dd>🎯 목표 · ⌚ 워치 · 🌤 날씨 · ❤️ 컨디션 → 훈련·점수·식단</dd><dt>훈련표</dt><dd>📋 계획 · 🛠 조정 · 진행 → 주별 훈련표</dd><dt>페이스</dt><dd>🎯 기준 설정 · 🚩 중간 점검 · 🏁 레이스 전략</dd><dt>크루</dt><dd>👤 프로필 · 🔗 초대 · 🏃 이번 주 → 피드 · 주간 현황</dd><dt>바디</dt><dd>⚖️ 체중 · ❤️ 심박 · 🌙 HRV · 🥗 식단</dd></dl></div>'+'<div class="card"><h2>기준 설정 · 중간 점검</h2><ul class="tight small gl"><li><b>내 기준:</b> 역치 심박·역치 페이스·최근 기록을 넣고 <b>저장</b>해야 반영. \'COROS에서 불러오기\'는 칸만 채워요</li><li><b>분석 결과:</b> 현재 예상 → 목표 차이, VDOT·역치·훈련 MP</li><li><b>중간 점검:</b> W11 10K · W15 하프 · W16 35K. 통과 ★, 1% 빠르면 ★★, 2.5% 빠르면 ★★★. 두 개 이상 미달이면 목표 조정</li></ul></div>'+'<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){return zoneRow(z,false)}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "페이스" 탭에서 바꿀 수 있어요.</p></div>';
+  var h='<nav class="gchips" aria-label="가이드 주제">'+GCHIPS.map(function(c){return '<button type="button" data-gc="'+esc(c[1])+'">'+c[0]+'</button>'}).join('')+'</nav>'+'<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>'+fontCard()+'<div class="card"><h2>시작하기 · 복제와 커넥터</h2><ol class="tight small gl" style="padding-left:18px"><li>공유받은 링크를 열고 <b>복제</b>를 눌러 내 Claude로 복사해요. 복제된 앱이 <b>나만의 앱</b>이에요(기록은 내 계정에 저장, 나만 봐요).</li><li>claude.ai <b>설정 → 커넥터</b>에서 필요한 것을 연결해요: <b>COROS</b>(러닝·체중·심박·HRV), <b>freddy</b>(가민·애플 러닝), <b>AccuWeather</b>(날씨), Google Calendar(알림, 선택).</li><li>내 앱 → 오늘 → 맨 위 요약 줄 → ⌚ 워치에서 연결할 워치를 고르고 <b>지금 불러오기</b>, 🌤 날씨에서 동네를 정해요. 처음 한 번 사용 허용을 눌러요.</li><li>페이스 → 기준 설정에 내 기록을 넣고 <b>저장</b>하면 훈련표 페이스가 내게 맞춰져요.</li></ol><p class="small muted" style="margin:6px 0 0">복제하지 않고 링크로만 열면 기록이 그 기기에만 저장되고, 내 커넥터를 연결해도 자동 연동이 안 돼요(claude.ai 보안 정책). 새 버전이 나오면 백업 코드를 복사해 두고 새로 복제한 앱에서 복원하세요.</p></div>'+'<div class="card"><h2>화면 구성</h2><p class="small muted" style="margin:4px 0 0">각 탭 맨 위 <b style="color:var(--ink)">요약 줄</b>을 누르면 펼쳐져서 자세히 보고 관리해요.</p><dl class="kv small" style="margin-top:8px"><dt>오늘</dt><dd>🎯 목표 · ⌚ 워치 · 🌤 날씨 · ❤️ 컨디션 → 훈련·점수·식단</dd><dt>훈련표</dt><dd>📋 계획 · 🛠 조정 · 진행 → 주별 훈련표</dd><dt>페이스</dt><dd>🎯 기준 설정 · 🚩 중간 점검 · 🏁 레이스 전략</dd><dt>바디</dt><dd>⚖️ 체중 · ❤️ 심박 · 🌙 HRV · 🥗 식단</dd></dl></div>'+'<div class="card"><h2>기준 설정 · 중간 점검</h2><ul class="tight small gl"><li><b>내 기준:</b> 역치 심박·역치 페이스·최근 기록을 넣고 <b>저장</b>해야 반영. \'COROS에서 불러오기\'는 칸만 채워요</li><li><b>분석 결과:</b> 현재 예상 → 목표 차이, VDOT·역치·훈련 MP</li><li><b>중간 점검:</b> W11 10K · W15 하프 · W16 35K. 통과 ★, 1% 빠르면 ★★, 2.5% 빠르면 ★★★. 두 개 이상 미달이면 목표 조정</li></ul></div>'+'<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){return zoneRow(z,false)}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "페이스" 탭에서 바꿀 수 있어요.</p></div>';
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>R</dt><dd>조깅·회복 (Recovery) '+zr(Zk.rec)+' · '+zh(Zk.rec)+'</dd><dt>LSD</dt><dd>천천히 오래 (Long Slow Distance) '+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd><dt>LRP</dt><dd>롱런 페이스 (Long Run Pace) · 롱런의 MP 구간 전 '+zr(Zk.mpf)+' · '+zh(Zk.mpf)+'</dd><dt>F</dt><dd>플로트 (Float) '+zr(Zk.float)+' · MP 반복 사이 1K</dd><dt>ST</dt><dd>지속주 (Steady) '+zr(Zk.steady)+'</dd><dt>T</dt><dd>템포·역치 (Tempo/Threshold) '+zr(Zk.tempo)+' · '+lap400(Zk.tempo)+'</dd><dt>I</dt><dd>인터벌 (Interval) '+zr(Zk.int)+' · '+lap400(Zk.int)+'</dd><dt>×</dt><dd>반복 횟수 (예: MP 3K ×3 = 3K를 3번)</dd></dl></div>';
   h+='<div class="card"><h2>레이스 데이 페이스</h2><div class="race" style="margin-top:10px"><div><div class="small" style="opacity:.75">0~5km</div><b>'+P(256)+'~'+P(258)+'</b></div><div class="hot"><div class="small" style="opacity:.85">5~30km · 하프 통과 '+fmtT(5340*K)+'~'+fmtT(5370*K)+'</div><b>'+P(252)+'~'+P(253)+' /km</b></div><div class="end"><div class="small" style="opacity:.85">30km~ 버티기</div><b>보폭 유지 · 팔치기</b></div></div><p class="small muted" style="margin:8px 0 0">시계 페이스 기준이에요. 올해 풀코스는 시계에 42.29~42.36km로 찍혔어요. 시계 '+P(255)+'로 달리면 여유 없이 목표 안팎이 돼요. 3/18~20 탄수화물 로딩.</p>'+raceGuide()+'</div>';
@@ -4023,7 +3998,7 @@ function vGuide(){
   h+='<div class="card"><h2>훈련 점수</h2><p class="small" style="margin:8px 0 6px"><b style="color:var(--s5)">90+</b> · <b style="color:var(--s4)">80+</b> · <b style="color:var(--s3)">70+</b> · <b style="color:var(--s2)">60+</b> · <b style="color:var(--s1)">60 미만</b> 색으로 보여 줘요. 놓친 날은 빨간 테두리.</p><ul class="tight small gl"><li><b>100점 = 거리 30 + 질 70</b></li><li><b>포인트·롱런:</b> 본 구간 페이스 40 · 반복 편차 15 · 심박 15 (랩이 없으면 질 42점)</li><li><b>이지·회복:</b> 기준보다 빠르지 않게 35 · 심박 상한 35</li><li><b>휴식일 추가 러닝:</b> 정말 편하게 뛰었는지만 평가</li><li><b>RPE:</b> 완료 후 힘든 정도 한 번 누르기(워치 값이 있으면 자동)</li><li><b>식단:</b> 열량 30 · 탄수 30 · 단백질 25 · 지방 15, 끼니 비중(아침 30 · 점심 35 · 저녁 35%)으로 합산</li></ul></div>';
   h+='<div class="card"><h2>워치 기록 연동</h2><ul class="tight small gl"><li><b>COROS:</b> 커넥터 연결 → 러닝·체중·안정시 심박·HRV 자동. 역치 페이스·예측 기록은 기준 설정의 \'COROS에서 불러오기\' 후 저장</li><li><b>가민·애플(freddy):</b> 커넥터에서 freddy 연결 → 러닝 자동(무료는 최근 7일)</li><li><b>파일:</b> GPX·TCX·FIT·가민 CSV를 오늘 → 요약 줄 → ⌚ 워치에서 올리기</li><li>계획 거리 80% 이상 뛴 날은 자동 체크. 직접 바꾼 체크는 건드리지 않아요</li></ul></div>';
   h+='<div class="card"><h2>AI 코치</h2><ul class="tight small gl"><li>오른쪽 위 <b>AI 코치</b>(단축키 C). 내 계획·기록·체중·목표·점검 결과를 보고 답해요</li><li><b>음성:</b> 🎤 말로 묻기 · 🔊 답변 읽어주기</li><li>대화는 내 계정에만 저장. 답은 참고용 — 통증·어지럼은 바로 쉬기</li></ul></div>';
-  h+='<div class="card"><h2>훈련 계획 · 조정</h2><ul class="tight small gl"><li><b>위치:</b> 훈련표 맨 위 요약 줄을 펼쳐요</li><li><b>📋 훈련 계획:</b> 크루 계획 따르기(기본) 또는 나만의 계획(AI가 내 대회에 맞춰 생성)</li><li><b>🛠 계획 조정:</b> 요일 바꾸기 · 주간 거리 80~110%(이지만 조절) · 클로드에게 부탁(적용 눌러야 반영)</li><li><b>하루만:</b> 오늘 탭에서 그 날짜를 골라 \'이 날 훈련 바꾸기\'</li><li>모두 나에게만 적용, 되돌리기 가능. 체크·기록은 날짜 기준이라 그대로</li></ul></div>';
+  h+='<div class="card"><h2>훈련 계획 · 조정</h2><ul class="tight small gl"><li><b>위치:</b> 훈련표 맨 위 요약 줄을 펼쳐요</li><li><b>📋 훈련 계획:</b> 기본 계획(2027 서울마라톤 18주) 또는 나만의 계획(AI가 내 대회에 맞춰 생성)</li><li><b>🛠 계획 조정:</b> 요일 바꾸기 · 주간 거리 80~110%(이지만 조절) · 클로드에게 부탁(적용 눌러야 반영)</li><li><b>하루만:</b> 오늘 탭에서 그 날짜를 골라 \'이 날 훈련 바꾸기\'</li><li>모두 나에게만 적용, 되돌리기 가능. 체크·기록은 날짜 기준이라 그대로</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙 · 한 주의 리듬</h2><ul class="tight small gl"><li>핵심 훈련은 <b>수·토</b>, 나머지는 천천히. 근력은 화·목 이지런 뒤 20~30분</li><li>아침 심박이 평소보다 5↑ 또는 수면 불량 → 수·토 훈련을 하루 미루기</li><li>인천마라톤(11/22) 뒤 1주 완전 휴식. 통증 3일 이상 → 회복주 수준으로</li><li>한파·빙판은 트랙·트레드밀, 페이스보다 노력도</li><li>피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지키기</li></ul></div>';
 
   h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
