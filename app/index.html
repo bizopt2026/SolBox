@@ -891,6 +891,8 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wgpace{margin-top:10px;padding:9px 12px;border-radius:12px;font-size:12.5px;font-weight:700;background:var(--bg);color:var(--muted)}
 .wgpace.ok{background:color-mix(in srgb,var(--ok) 13%,transparent);color:var(--ok)}.wgpace.mid{background:color-mix(in srgb,var(--s3) 20%,transparent);color:color-mix(in srgb,var(--s3) 70%,var(--ink))}.wgpace.bad{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
 .wgrec{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12.5px}.wgrec small{display:block;color:var(--muted);font-size:11px;margin-left:20px}
+.coback{position:fixed;z-index:8;right:max(16px,calc(env(safe-area-inset-right,0px) + 12px));display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;padding:9px 14px 9px 12px;border-radius:99px;background:var(--card);color:var(--accent);font:inherit;font-size:13.5px;font-weight:800;box-shadow:0 4px 16px rgba(20,20,60,.16),inset 0 0 0 1.5px var(--accent);transition:bottom .15s}
+.coback span{font-size:15px}.coback:active{transform:scale(.96)}.coback[hidden]{display:none}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -2291,7 +2293,7 @@ function coachChips(){
   return c;
 }
 // keep the chat clear of the fixed input bar
-function coachPad(){var cb=document.querySelector(".cbar"),mn=document.querySelector("main");if(!cb||!mn)return 0;var nv=document.querySelector("nav.tabs");if(nv&&tab==="coach")cb.style.bottom=nv.offsetHeight+"px";var hh=cb.offsetHeight;mn.style.paddingBottom=(hh+84)+"px";return hh}
+function coachPad(){var cb=document.querySelector(".cbar"),mn=document.querySelector("main");if(!cb||!mn)return 0;var nv=document.querySelector("nav.tabs");if(nv&&tab==="coach")cb.style.bottom=nv.offsetHeight+"px";var hh=cb.offsetHeight;mn.style.paddingBottom=(hh+84)+"px";try{coBackPos()}catch(e){}return hh}
 function vCoach(){
   var M=S.coach||[],can=AUTH.st==="ok";
   var h='<div class="cohead"><span class="coav" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div class="cot"><h2>AI 코치</h2><small>내 기록을 보고 답해요</small></div>'+(M.length?'<button type="button" class="coib" id="co-clear" aria-label="새 대화"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>새 대화</span></button>':(S.coachPrev&&S.coachPrev.length?'<button type="button" class="coib" id="co-prev" aria-label="이전 대화 열기"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg><span>이전 대화</span></button>':''))+'</div>';
@@ -2334,7 +2336,14 @@ async function coachAsk(q){
   finally{COACH.busy=false;COACH.ctl=null;ans.text=String(ans.text||"").slice(0,4000);if(S.coach.length>30)S.coach=S.coach.slice(-30);save();if(tab==="coach")render();if(VOICE.read&&!ans.err&&ans.text)speakText(ans.text)}
 }
 var RLAST=null;
-function render(){setTimeout(function(){try{bindPclose()}catch(e){}},0);
+function coBack(){var b=document.getElementById("co-back"),on=tab==="coach"&&BACK&&BACK.ctx;
+  if(!on){if(b)b.hidden=true;return}
+  if(!b){b=document.createElement("button");b.type="button";b.id="co-back";b.className="coback";b.onclick=function(){goBack()};document.body.appendChild(b)}
+  var n=TABN[BACK.tab]||"이전 화면";b.innerHTML='<span aria-hidden="true">↩</span>'+n+'로 돌아가기';b.setAttribute("aria-label",n+" 화면으로 돌아가기");b.hidden=false;coBackPos()}
+function coBackPos(){var b=document.getElementById("co-back");if(!b||b.hidden)return;var cb=document.querySelector(".cbar"),nv=document.querySelector("nav.tabs"),bt=0;
+  if(cb&&getComputedStyle(cb).position==="fixed")bt=window.innerHeight-cb.getBoundingClientRect().top;else if(nv)bt=nv.offsetHeight;b.style.bottom=(bt+10)+"px"}
+window.addEventListener("resize",function(){try{coBackPos()}catch(e){}});
+function render(){setTimeout(function(){try{bindPclose()}catch(e){}},0);setTimeout(function(){try{coBack()}catch(e){}},0);
   applyPlanSrc();if(tab==="crew")crewPlanMode();
   var keepY=RLAST===tab?window.scrollY:null;RLAST=tab;
   document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===tab?"true":"false")});
@@ -2615,7 +2624,7 @@ function lapsHtml(ds){
 var LAPOPEN=null;
 function bindLaps(){
   view.querySelectorAll("details.laps").forEach(function(d){d.addEventListener("toggle",function(){LAPOPEN=d.open?d.dataset.lo:null})});
-  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;enterSub("coach");render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
+  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;enterSub("coach");if(BACK)BACK.ctx=true;render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
 }
 function lapsCtx(ds){
   return runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length}).map(function(r){var L=r.laps;
@@ -2946,7 +2955,7 @@ function vToday(){
   var sbx=document.getElementById("sb-x");if(sbx)sbx.onclick=function(){S.startDone=true;save();render()};
   var rpx=document.getElementById("rep-x");if(rpx)rpx.onclick=function(){S.repSeen=Math.floor(idxOf(T)/7)-1;save();var y=window.scrollY;render();window.scrollTo(0,y)};
   var kq=document.getElementById("kmq");if(kq)kq.onsubmit=function(e){e.preventDefault();var v=parseFloat(document.getElementById("kmq-in").value);if(!(v>0&&v<200)){document.getElementById("kmq-in").focus();return}var r2=S.days[sel]||{};r2.km=String(Math.round(v*100)/100);S.days[sel]=r2;save();var y=window.scrollY;render();window.scrollTo(0,y);var dsx=dayScore(sel);if(dsx&&dsx.s!=null)toast("✓ "+dsx.s+"점 "+SNAME[dsx.b])};
-  view.querySelectorAll("[data-aiq]").forEach(function(b){b.onclick=function(){enterSub("coach");render();coachAsk(b.dataset.aiq)}});
+  view.querySelectorAll("[data-aiq]").forEach(function(b){b.onclick=function(){enterSub("coach");if(BACK)BACK.ctx=true;render();coachAsk(b.dataset.aiq)}});
   view.querySelectorAll("[data-rpe]").forEach(function(b){b.onclick=function(){var r=S.days[sel]||{};r.rpe=+b.dataset.rpe;r.rpeSrc="manual";S.days[sel]=r;RPEASK=null;RPESKIP[sel]=true;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){sel=b.dataset.go;render()}});
   ["km","hr","pace","note"].forEach(function(k){var el=document.getElementById("f-"+k);if(!el)return;el.addEventListener("input",function(){var r=S.days[sel]||{};r[k]=el.value;S.days[sel]=r;save()})});
