@@ -1653,7 +1653,7 @@ function watchBar(){
 var WXOPEN=null,WPANEL=false;
 function watchCard(){
   var n=Object.keys(S.runs).length,autoN=0;for(var d in S.days)if(S.days[d].auto&&S.days[d].done)autoN++;
-  var W0=S.watch,SRC=[["coros","⌚","COROS","계정 연결 · 자동"],["freddy","🍎","가민·애플","freddy 경유 · 자동"],["file","📁","파일 올리기","GPX·FIT·CSV"]];
+  var W0=S.watch,SRC=[["coros","⌚","COROS","계정 연결 · 자동"],["freddy","🔗","가민·애플","freddy 경유 · 자동"],["file","📁","파일 올리기","GPX·FIT·CSV"]];
   var h='<div class="card wpanel" id="watch"><div class="whead"><span class="wico" aria-hidden="true">⌚</span><div><h2>워치 기록 연동</h2><small>'+(W0?'<span class="wdot'+(WS.err?' bad':'')+'"></span>'+(W0==="file"?'파일로 가져오기':W0==="coros"?'COROS 연결됨':'freddy 연결됨'):'사용하는 워치를 골라 주세요')+'</small></div></div>';
   h+='<div class="wsrc" role="radiogroup" aria-label="연동 방식">'+SRC.map(function(x){var on=W0===x[0];return '<button type="button" role="radio" aria-checked="'+on+'" data-watch="'+x[0]+'"><span class="wsi" aria-hidden="true">'+x[1]+'</span><b>'+x[2]+'</b><small>'+x[3]+'</small>'+(on?'<i class="wck" aria-hidden="true">✓</i>':'')+'</button>'}).join("")+'</div>';
   if(AUTH.st==="view"&&W0!=="file")h+='<div class="warn" style="margin-top:10px">복제하지 않고 링크로 열면 내 claude.ai에 COROS·freddy를 연결해 둬도 이 앱에서는 자동 연동이 안 돼요(claude.ai 보안 정책). <b>파일 올리기</b>로 넣거나, 이 앱을 <b>복제</b>해서 내 앱으로 쓰면 자동 연동돼요.<div style="margin-top:8px"><button class="btn" type="button" data-watch="file" style="background:var(--accent);color:var(--on-accent)">파일 올리기로 바꾸기</button></div></div>';
