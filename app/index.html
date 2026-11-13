@@ -1293,7 +1293,7 @@ function parseCoros(txt){
     var km=parseFloat((b.match(/Distance:\s*([\d.]+)\s*km/)||[])[1]);
     var dur=durSec((b.match(/Duration:\s*([\d:]+)/)||[])[1]);
     var hr=+((b.match(/Avg HR:\s*(\d+)/)||[])[1]||0),rpc=rpeFrom10((b.match(/(?:RPE|Perceived[^:]*):\s*(\d+)/i)||[])[1]);
-    var date=ts?localDate(ts):(head?head[2]:"");if(!date||isNaN(km))return;
+    var date=head?head[2]:(ts?localDate(ts):"");if(!date||isNaN(km))return;
     var sp=+((b.match(/SportType:\s*(\d+)/)||[])[1]||100);out.push({id:"coros-"+id,lid:id,sp:sp,date:date,ts:ts,km:Math.round(km*100)/100,dur:dur,hr:hr||null,src:"COROS",rpe:rpc||undefined});
   });return out;
 }
@@ -1634,7 +1634,7 @@ async function addCalReminder(){
     var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
     if(!mcp){CAL.err=noMcpMsg("구글 캘린더");return}
     var d=nextSunday();
-    await mcp.callTool("Google Calendar","create_event",{summary:"⌚ 워치 기록 올리기 (Sub-3 훈련 체크)",description:"지난주 러닝 기록을 CSV로 내보내 앱에 올려 주세요.\nhttps://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ",startTime:d+"T21:00:00",endTime:d+"T21:10:00",recurrenceData:["RRULE:FREQ=WEEKLY;BYDAY=SU;UNTIL=20270321T235959Z"],overrideReminders:[{method:"popup",minutes:0}],availability:"AVAILABILITY_FREE"});
+    await mcp.callTool("Google Calendar","create_event",{summary:"⌚ 워치 기록 올리기 (Sub-3 훈련 체크)",description:"지난주 러닝 기록을 앱에 올려 주세요.\n"+appUrl(),startTime:d+"T21:00:00",endTime:d+"T21:10:00",recurrenceData:["RRULE:FREQ=WEEKLY;BYDAY=SU;UNTIL=20270321T235959Z"],overrideReminders:[{method:"popup",minutes:0}],availability:"AVAILABILITY_FREE"});
     S.calSet=Date.now();CAL.msg="구글 캘린더에 매주 일요일 21:00 알림을 등록했어요. 휴대폰 캘린더 앱에서 알림이 와요.";save();
   }catch(e){var c=e&&e.code;CAL.err=c==="server_not_connected"||c==="needs_reauth"?"구글 캘린더가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 Google Calendar를 연결한 뒤 다시 눌러 주세요.":c==="not_in_manifest"?"이 앱의 구글 캘린더 사용을 허용하지 않았어요. 앱의 권한 메뉴에서 허용해 주세요.":"등록하지 못했어요"+(e&&e.message?": "+e.message:".");CAL.msg=""}
   finally{CAL.busy=false;keepIf()}
