@@ -863,7 +863,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.goalHist=o.goalHist||null;S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.lthrHist=o.lthrHist||null;S.goalHist=o.goalHist||null;S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet()||{});
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -2248,7 +2248,8 @@ var FK_SAVE=null;
 function goalHist(){if(!S.goalHist){var h=[{at:0,sec:REF_GOAL}];if(S.goal&&S.goal.sec){if(S.goal.at)h.push({at:S.goal.at,sec:S.goal.sec});else h[0].sec=S.goal.sec}S.goalHist=h}return S.goalHist}
 function dayTs(ds){var rs=runsOn(ds).filter(function(x){return x.ts});return rs.length?rs[0].ts*1000:p(ds)+86399000}
 function dayK(ds){if(myPlanOn())return null;var t=dayTs(ds),sec;goalHist().forEach(function(x){if(x.at<=t)sec=x.sec});return sec?sec/REF_GOAL:null}
-function withDayK(ds,fn){var k=dayK(ds);if(k==null){var r=S.days[ds],f=r&&r.fk;if(!f)return fn();k=f.k}var k0=K;K=k;try{return fn()}finally{K=k0}}
+function dayHRK(ds){var lh=S.lthrHist;if(!lh||!lh.length)return HRK;var t=dayTs(ds),l=lh[0].l;lh.forEach(function(x){if(x.at<=t)l=x.l});return l?l/REF_LTHR:null}
+function withDayK(ds,fn){var k=dayK(ds);if(k==null){var r=S.days[ds],f=r&&r.fk;k=f?f.k:K}var k0=K,h0=HRK;K=k;HRK=dayHRK(ds);try{return fn()}finally{K=k0;HRK=h0}}
 function dayScore(ds){return withDayK(ds,function(){return dayScore0(ds)})}
 function dayScore0(ds){
   var i=idxOf(ds);if(i<0||i>=TOTAL)return null;var t=planAt(i),r=dayRec(ds);
@@ -2963,6 +2964,8 @@ function engine(){
 }
 var EG={},K=1,HRK=null;
 function refreshEngine(){EG=engine();K=EG.on&&EG.k?EG.k:1;HRK=EG.on&&EG.lthr?EG.lthr/REF_LTHR:null;
+  // threshold-HR history: record each change so past days keep the heart-rate standard of their time
+  var lh=S.lthrHist||(S.lthrHist=[{at:0,l:HRK?EG.lthr:null}]),lastL=lh[lh.length-1].l,curL=HRK?EG.lthr:null;if(lastL!==curL)lh.push({at:Date.now(),l:curL});
   var G=EG.goal,b=document.querySelector(".brand b"),eb=document.getElementById("brand-eb");
   if(b)b.textContent=G?fmtT(G)+" 프로젝트":"2:59:59 프로젝트";
   var rd=dotDate(RACE);if(myPlanOn()){if(b&&S.myplan.goal)b.textContent=fmtT(S.myplan.goal)+" 프로젝트";if(eb)eb.textContent=(S.myplan.name||"나만의 계획")+" · "+rd;return}
