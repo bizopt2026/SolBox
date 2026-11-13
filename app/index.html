@@ -1918,8 +1918,7 @@ function enhance(){
         var showAll=foldOpen("w-all",false);function setM(o){more.forEach(function(x){x.hidden=!o});mb.firstChild.textContent=o?"최근 3일만 보기":"지난 기록 "+more.length+"일 더 보기";mb.setAttribute("aria-expanded",o?"true":"false")}
         mb.appendChild(document.createElement("span"));var c2=document.createElement("span");c2.className="chev";mb.appendChild(c2);rows[0].parentNode.parentNode.insertBefore(mb,rows[0].parentNode.nextSibling);setM(showAll);mb.onclick=function(){showAll=!showAll;setM(showAll);foldSet("w-all",showAll)}}}
   } else if(tab==="guide"){
-    var titles=[["페이스 존",true],["약어",false],["레이스 데이 페이스",false],["요일별 먹는 양",false],["훈련 점수",false],["AI 코치",false],["레이스 전략",false],["워치 기록 연동",false],["계획 수립 · 일정 조정",false],["운영 원칙",false],["한 주의 리듬",false],["백업",false]];
-    titles.forEach(function(x){foldCard(findCard(x[0]),"g-"+x[0],"",x[1])});
+    view.querySelectorAll(":scope>.card").forEach(function(c){var h=c.querySelector("h2");if(h)foldCard(c,"g-"+h.textContent.trim(),"",false)});
     view.querySelectorAll("[data-gc]").forEach(function(b){b.onclick=function(){var c=findCard(b.dataset.gc);if(!c)return;var fb=c.querySelector(".fold-h");if(fb&&fb.getAttribute("aria-expanded")==="false")fb.click();var hh=(document.querySelector("header.top")||{}).offsetHeight||0;window.scrollTo({top:c.getBoundingClientRect().top+window.scrollY-hh-8,behavior:"smooth"})}});
   }
   }catch(e){if(window.console)console.error(e)}
@@ -4075,7 +4074,7 @@ function vGuide(){
 
   h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
   view.innerHTML=h;
-  (function(){var G=[["",["시작하기 · 복제와 커넥터","화면 구성"]],["오늘",["훈련 점수"]],["훈련표",["계획 수립 · 일정 조정","운영 원칙 · 한 주의 리듬"]],["페이스",["기준 설정 · 중간 점검","페이스 존","약어","레이스 전략 · 대회 평가"]],["바디",["요일별 먹는 양"]],["AI 코치",["AI 코치"]],["",["백업"]]];
+  (function(){var G=[["기본",["시작하기 · 복제와 커넥터","화면 구성"]],["오늘",["훈련 점수"]],["훈련표",["계획 수립 · 일정 조정","운영 원칙 · 한 주의 리듬"]],["페이스",["기준 설정 · 중간 점검","페이스 존","약어","레이스 전략 · 대회 평가"]],["바디",["요일별 먹는 양"]],["AI 코치",["AI 코치"]],["기타",["백업"]]];
     var cards=[].slice.call(view.querySelectorAll(":scope>.card")).filter(function(c){return c.querySelector("h2")}),by={};cards.forEach(function(c){by[c.querySelector("h2").textContent.trim()]=c});
     G.forEach(function(g){if(g[0]){var lb=document.createElement("div");lb.className="gsec";lb.textContent=g[0];view.appendChild(lb)}g[1].forEach(function(t){var c=by[t];if(c){view.appendChild(c);delete by[t]}})});
     Object.keys(by).forEach(function(t){view.appendChild(by[t])})})();
