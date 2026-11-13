@@ -1964,7 +1964,7 @@ function coachCtx(){
   return L.join("\n");
 }
 // ---------- Voice: dictation (speech -> text) and reading answers aloud (Claude voice, else the browser's own) ----------
-var VOICE={d:undefined,t:undefined,state:"idle",speaking:false,sendOnStop:false,base:"",read:(function(){try{return localStorage.getItem("sub3-voice")==="1"}catch(e){return false}})()};
+var VOICE={d:undefined,t:undefined,state:"idle",speaking:false,sendOnStop:false,base:"",read:false};
 function voiceInit(){
   if(!window.claude||!window.claude.use)return;
   if(VOICE.d===undefined){VOICE.d=null;window.claude.use("dictation").then(function(d){VOICE.d=d||null;if(!d){if(tab==="coach")coachBar();return}
@@ -2196,8 +2196,7 @@ function vCoach(){
   h+='</div>';
   h+='<div class="cbar">';
   if(AUTH.st==="anon")h+='<div class="small muted">claude.ai에 로그인해야 AI 코치를 쓸 수 있어요.</div>';
-  if(M.length)h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
-  h+='<div class="vrow" id="co-voice"></div>';
+  if(false)h+='<div class="chips" aria-label="추천 질문">'+coachChips().map(function(q){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'>'+esc(q)+'</button>'}).join("")+'</div>';
   h+='<form class="cin" id="co-form"><textarea id="co-in" class="inp" rows="1" maxlength="600" placeholder="코치에게 물어보기…" aria-label="질문">'+esc(COACH.draft)+'</textarea>'+(COACH.busy?'<button class="cosend stop" type="button" id="co-stop" aria-label="멈춤"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>':'<button class="cosend" type="submit" aria-label="보내기"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>')+'</form></div>';
   view.innerHTML=h;bindBack();
   var ta=document.getElementById("co-in");ta.oninput=function(){COACH.draft=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";
@@ -4097,7 +4096,7 @@ function vGuide(){
   h+='<div class="card"><h2>레이스 전략 · 대회 평가</h2><ul class="tight small gl"><li><b>만들기:</b> 페이스 → 🏁 레이스 전략 → + 새 대회. 코스 GPX를 올리면 고도 반영 km별 페이스·통과 시간·AI 전략</li><li><b>내보내기:</b> 🖼 인포그래픽(지점별 판단 🔵 빠름 → 속도 줄이기 · 🟢 계획 → 유지 · 🔴 늦음 → 목표 낮추기) · 📋 텍스트 복사 · ⌚ COROS 워치 등록</li><li><b>대회 후:</b> 워치 기록으로 분석 → 100점 평가(목표 40 · 분배 25 · 계획 준수 20 · 후반 15)와 다음 유의사항</li><li><b>설정:</b> 목표·코스 GPX·삭제는 ⚙ 대회 설정에서</li></ul></div>';
   h+='<div class="card"><h2>요일별 먹는 양</h2><p class="small muted" style="margin:2px 0 0">'+(Object.keys(S.wlog||{}).length||S.wgoal?'내 체중 '+(Math.round(bodyW()*10)/10)+'kg 기준이에요.':'체중을 기록하면 내 체중에 맞춰 계산돼요. 지금은 72kg 기준.')+'</p><div class="grid2" style="margin-top:10px">'+FOOD.map(function(x){return '<div class="mini"><div class="small muted">'+x.k+'</div><b>'+foodKcal(x)+' kcal</b><div class="small">탄수 '+foodCarb(x)+'</div></div>'}).join("")+'</div><ul class="tight" style="margin-top:12px"><li>단백질 매일 '+protTxt()+': 계란·닭가슴살·생선·두부·그릭요거트, 끼니마다 30g</li><li>훈련 전후: 3시간 전 밥·식빵+꿀+바나나 → 중 시간당 60~90g 젤 → 1시간 내 초코우유 500ml</li><li>줄일 것: 야식·술·튀김. 훈련 전후 탄수화물은 줄이지 않는다</li><li>감량은 베이스기에 몰고, 테이퍼부터는 멈춘다</li><li><b>🍝 카보로딩:</b> 풀코스 대회 6일 전부터 자동으로 바뀌어요. D-6~D-4는 탄수 5~7g/kg, D-3~D-1은 8~10g/kg. 하지 않으려면 오늘 화면 식단 기록의 🍝 표시를 눌러 끄면 평소 목표로 돌아가요</li></ul></div>';
   h+='<div class="card"><h2>훈련 점수</h2><p class="small" style="margin:8px 0 6px"><b style="color:var(--s5)">90+</b> · <b style="color:var(--s4)">80+</b> · <b style="color:var(--s3)">70+</b> · <b style="color:var(--s2)">60+</b> · <b style="color:var(--s1)">60 미만</b> 색으로 보여 줘요. 놓친 날은 빨간 테두리.</p><ul class="tight small gl"><li><b>100점 = 거리 30 + 질 70</b></li><li><b>포인트·롱런:</b> 본 구간 페이스 40 · 반복 편차 15 · 심박 15 (랩이 없으면 질 42점)</li><li><b>이지·회복:</b> 기준보다 빠르지 않게 35 · 심박 상한 35</li><li><b>휴식일 추가 러닝:</b> 정말 편하게 뛰었는지만 평가</li><li><b>RPE:</b> 완료 후 힘든 정도 한 번 누르기(워치 값이 있으면 자동)</li><li><b>식단:</b> 열량 30 · 탄수 30 · 단백질 25 · 지방 15, 끼니 비중(아침 30 · 점심 35 · 저녁 35%)으로 합산</li></ul></div>';
-  h+='<div class="card"><h2>AI 코치</h2><ul class="tight small gl"><li>아래 메뉴 맨 오른쪽 <b>AI 코치</b>(PC 단축키 C). 내 계획·기록·체중·목표·점검 결과를 보고 답해요</li><li><b>음성:</b> 🎤 말로 묻기 · 🔊 답변 읽어주기</li><li>대화는 내 계정에만 저장. 답은 참고용 — 통증·어지럼은 바로 쉬기</li></ul></div>';
+  h+='<div class="card"><h2>AI 코치</h2><ul class="tight small gl"><li>아래 메뉴 맨 오른쪽 <b>AI 코치</b>(PC 단축키 C). 내 계획·기록·체중·목표·점검 결과를 보고 답해요</li><li>처음엔 추천 질문 카드를 눌러 바로 물어볼 수 있어요. 답변 아래 🔊 듣기 · 📋 복사</li><li>대화는 내 계정에만 저장. 답은 참고용 — 통증·어지럼은 바로 쉬기</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙 · 한 주의 리듬</h2><ul class="tight small gl"><li>핵심 훈련은 <b>수·토</b>, 나머지는 천천히. 근력은 화·목 이지런 뒤 20~30분</li><li>아침 심박이 평소보다 5↑ 또는 수면 불량 → 수·토 훈련을 하루 미루기</li><li>인천마라톤(11/22) 뒤 1주 완전 휴식. 통증 3일 이상 → 회복주 수준으로</li><li>한파·빙판은 트랙·트레드밀, 페이스보다 노력도</li><li>피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지키기</li></ul></div>';
 
   h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
