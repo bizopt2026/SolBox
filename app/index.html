@@ -624,6 +624,30 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .seg button{border:1px solid var(--line);border-radius:10px;padding:9px 0;background:var(--card);font-weight:700}
 .seg button[aria-checked="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.kvsw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;cursor:pointer}
+.kvsw>span{display:flex;flex-direction:column;gap:2px;min-width:0}.kvsw b{font-size:14px}.kvsw small{font-size:12px;color:var(--muted)}
+.kvsrc{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.swi{appearance:none;-webkit-appearance:none;flex:none;width:44px;height:26px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;margin:0}
+.swi::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.swi:checked{background:var(--accent)}.swi:checked::after{transform:translateX(18px)}
+.swi:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kvl{margin-top:6px}
+@media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
+.kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
+.kvr+.kvr{border-top:1px solid var(--line)}
+.kl{display:flex;flex-direction:column;gap:1px;font-size:14px;font-weight:600;min-width:0;white-space:nowrap}
+.kl small{font-size:11px;font-weight:600;color:var(--muted)}.kl small.kco{color:var(--q)}
+.kin{display:flex;align-items:center;gap:6px;flex:none}
+.kin .inp{width:84px;padding:8px 10px;font-size:16px;text-align:right;font-variant-numeric:tabular-nums}
+.kin .inp[readonly]{color:var(--muted);background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.kin em{font-style:normal;font-size:12px;color:var(--muted);width:26px}
+.mseg{display:inline-flex;background:var(--bg);border-radius:99px;padding:2px}
+.mseg button{border:0;background:none;border-radius:99px;padding:5px 8px;font-size:12px;font-weight:700;color:var(--muted)}
+.mseg button[aria-checked="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(17,26,46,.12)}
+.kfit{margin-top:8px;padding:10px 4px 8px;border-radius:12px;background:var(--q-soft);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));text-align:center}
+.kfit .kfl{grid-column:1/-1;font-size:11px;font-weight:800;color:var(--q);margin-bottom:6px}
+.kfit>span:not(.kfl){display:flex;flex-direction:column;gap:1px;min-width:0}.kfit small{font-size:11px;color:var(--muted)}.kfit b{font-size:14px}
+.kfit>span:not(.kfl)+span:not(.kfl){border-left:1px solid rgba(127,127,127,.18)}
 .tog{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;font-weight:500}
 .tog input{width:22px;height:22px;accent-color:var(--accent)}
 .zguide{margin-top:12px;display:flex;flex-direction:column;gap:6px}
@@ -3371,14 +3395,19 @@ function vPace(){
   if(PACEV==="race"){view.innerHTML=paceSeg()+raceCards();bindPaceSeg();bindRace();return}
   if(PACEV==="check"){view.innerHTML=paceSeg()+checksCard();bindPaceSeg();bindChecks();return}
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
-  var h=paceSeg()+'<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 12px">입력한 값으로 훈련표의 모든 페이스와 심박 기준을 내 수준에 맞게 바꿔요.</p>';
-  var auto=S.watch==="coros"&&p.auto!==false,F=S.fit;
-  if(S.watch==="coros")h+='<label class="tog" style="margin:0 0 10px"><input type="checkbox" id="p-auto"'+(p.auto!==false?' checked':'')+'><span>COROS 값으로 자동 업데이트'+(F&&F.at?' <span class="small muted">· '+agoT(F.at)+'</span>':'')+'</span></label>';
-  h+='<div class="fields" style="margin-top:0"><label>역치 심박 (bpm)<input id="p-lthr" inputmode="numeric" placeholder="예: 168" value="'+esc(p.lthr)+'">'+(S.watch==="coros"?'<span class="small muted">COROS가 제공하지 않아 직접 입력</span>':'')+'</label><label>역치 페이스 (/km)'+(auto&&F&&F.thr?' <span class="srcb">COROS</span>':'')+'<input id="p-thr" placeholder="예: 4:02" value="'+esc(p.thr)+'"'+(auto&&F&&F.thr?' readonly':'')+'></label></div>';
-  h+='<div style="margin-top:14px"><div class="small muted" style="margin-bottom:6px">최근 기록</div><div class="seg" role="radiogroup">'+Object.keys(DIST).map(function(k){return '<button role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</div>';
-  h+='<div class="fields"><label>기록'+(auto&&F&&F.k10&&rd==="10"?' <span class="srcb">COROS 예측</span>':'')+'<input id="p-rec"'+(auto&&F&&F.k10?' readonly':'')+' placeholder="'+(rd==="21"?"예: 1:26:30":rd==="5"?"예: 19:30":"예: 40:10")+'" value="'+esc(p.recTime)+'"></label><label>측정일<input id="p-recdate" type="date" value="'+esc(p.recDate)+'"></label></div></div>';
-  if(auto&&F)h+='<div class="small muted" style="margin-top:8px">COROS 체력 평가 · VO2max '+esc(F.vo2)+' · 예측 5K '+esc(F.k5)+' / 하프 '+esc(F.half)+' / 풀 '+esc(F.mar)+'. 역치 페이스와 10K 예측을 앱을 열 때마다 반영해요. 직접 넣으려면 자동 업데이트를 꺼 주세요.</div>';
-  h+='<label class="tog"><input type="checkbox" id="p-use"'+(p.use!==false?' checked':'')+'><span>훈련표·가이드에 내 페이스 적용</span></label></div>';
+  var h=paceSeg()+'<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 0">훈련표의 페이스·심박 기준이 이 값에 맞춰져요.</p>';
+  var auto=S.watch==="coros"&&p.auto!==false,F=S.fit,lk=function(on){return on?' readonly':''};
+  if(S.watch==="coros")h+='<label class="kvsw kvsrc"><span><b>⌚ COROS 자동 업데이트</b><small>'+(auto?'역치 페이스·10K 기록 자동 반영'+(F&&F.at?' · '+agoT(F.at):''):'꺼짐 · 직접 입력한 값 사용')+'</small></span><input type="checkbox" role="switch" class="swi" id="p-auto"'+(p.auto!==false?' checked':'')+'></label>';
+  h+='<div class="kvl">';
+  h+='<label class="kvr"><span class="kl">역치 심박'+(S.watch==="coros"?'<small>직접 입력</small>':'')+'</span><span class="kin"><input id="p-lthr" class="inp" inputmode="numeric" placeholder="168" value="'+esc(p.lthr)+'"><em>bpm</em></span></label>';
+  h+='<label class="kvr"><span class="kl">역치 페이스'+(auto&&F&&F.thr?'<small class="kco">COROS</small>':'')+'</span><span class="kin"><input id="p-thr" class="inp" placeholder="4:02" value="'+esc(p.thr)+'"'+lk(auto&&F&&F.thr)+'><em>/km</em></span></label>';
+  h+='<div class="kvr krec"><span class="kl">최근 기록'+(auto&&F&&F.k10&&rd==="10"?'<small class="kco">COROS</small>':'')+'</span><span class="kin"><span class="mseg" role="radiogroup" aria-label="기록 거리">'+Object.keys(DIST).map(function(k){return '<button type="button" role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</span><input id="p-rec" class="inp" aria-label="기록"'+lk(auto&&F&&F.k10)+' placeholder="'+(rd==="21"?"1:26:30":rd==="5"?"19:30":"40:10")+'" value="'+esc(p.recTime)+'" style="width:84px"><em></em></span></div>';
+  h+='<label class="kvr"><span class="kl">측정일</span><span class="kin"><input id="p-recdate" class="inp" type="date" value="'+esc(p.recDate)+'" style="width:auto"><em></em></span></label>';
+  h+='</div>';
+  if(auto&&F)h+='<div class="kfit"><span class="kfl">COROS 체력 평가 · 예측 기록</span>'+[["VO2max",F.vo2],["5K",F.k5],["하프",F.half],["풀",F.mar]].filter(function(x){return x[1]}).map(function(x){return '<span><small>'+x[0]+'</small><b class="num">'+esc(x[1])+'</b></span>'}).join("")+'</div>';
+  h+='<label class="kvsw"><span><b>훈련표·가이드에 적용</b><small>끄면 원본 서브3 페이스로 보여요</small></span><input type="checkbox" role="switch" class="swi" id="p-use"'+(p.use!==false?' checked':'')+'></label>';
+  if(auto)h+=info('COROS 자동 업데이트가 켜져 있으면 역치 페이스와 10K 기록 칸은 COROS 값으로 채워지고 잠겨요. 직접 넣으려면 위 스위치를 꺼 주세요. 역치 심박은 COROS가 주지 않아 직접 입력해요.','입력 안내');
+  h+='</div>';
   // results
   if(e.k){
     var pctv=Math.round((e.k-1)*1000)/10, dsec=Math.round(255*e.k-255);
