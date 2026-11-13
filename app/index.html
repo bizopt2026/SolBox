@@ -684,8 +684,8 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .astats .hl b{color:var(--accent)}
 .anote{display:flex;gap:6px;align-items:baseline;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.anote b{color:var(--ink)}.anote>span:first-child{color:var(--accent);font-weight:800}
 .srow .sl .av{width:24px;height:24px;font-size:12px;margin:0 auto}
-.pseg{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:4px;border-radius:16px;background:var(--card);box-shadow:var(--sh)}
-.pseg .pind{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:12px;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);transform:translateX(calc(var(--pi)*100%));transition:transform .25s cubic-bezier(.3,.7,.2,1)}
+.pseg{position:relative;display:grid;grid-template-columns:repeat(var(--pn,3),1fr);gap:0;padding:4px;border-radius:16px;background:var(--card);box-shadow:var(--sh)}
+.pseg .pind{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/var(--pn,3));border-radius:12px;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);transform:translateX(calc(var(--pi)*100%));transition:transform .25s cubic-bezier(.3,.7,.2,1)}
 .pseg button{position:relative;z-index:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px 7px;border-radius:12px;cursor:pointer;color:var(--muted);min-width:0}
 .pseg .pic{font-size:17px;line-height:1.2;filter:grayscale(1);opacity:.6;transition:filter .2s,opacity .2s}
 .pseg b{font-size:14px;font-weight:700;color:var(--ink);opacity:.7}
@@ -724,6 +724,14 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .wtl li.next b{color:var(--accent)}.wtl li.done{opacity:.75}
 .wgedit{margin-top:4px;padding-top:12px;border-top:1px solid var(--line)}.wgedit>.row b{font-size:14px}
 .wrec{font-size:11px;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);padding:2px 8px;border-radius:99px}
+.post{padding:12px 14px}
+.post .ph{grid-template-columns:34px 1fr auto;gap:10px}.post .ph .av{width:34px;height:34px;font-size:14px}
+.post .mname{font-size:14px}.pmeta{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.post .pkm{font-size:19px;display:flex;align-items:center;gap:4px}.post .pkm .rf{width:20px;height:20px}
+.post .acts{margin-top:10px;gap:6px;align-items:center}
+.post .acts button{padding:4px 10px;min-height:30px;font-size:12px;gap:4px}
+.post .acts .cheers button{padding:3px 7px;font-size:13px;min-height:30px}
+.feed{gap:8px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3771,7 +3779,7 @@ function vCrew(){
   var ib=inbox();
   if(CREW.settings.notice)h+='<div class="notice"><span class="pill part" style="background:var(--accent);color:var(--on-accent);margin-right:6px">공지</span>'+esc(CREW.settings.notice)+'</div>';
   if(CREW.view==="admin"&&!CREW.owner)CREW.view="feed";
-  if(CREW.view==="admin")CREW.view="feed";h+='<div class="seg" role="tablist" style="grid-template-columns:repeat(2,1fr)"><button role="tab" aria-checked="'+(CREW.view==="feed")+'" data-cv="feed">피드</button><button role="tab" aria-checked="'+(CREW.view==="week")+'" data-cv="week">주간 현황</button>'+'</div>';
+  if(CREW.view==="admin")CREW.view="feed";var cwk0=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7))),cvi=CREW.view==="week"?1:0;h+='<div class="pseg" role="tablist" aria-label="크루 보기" style="--pn:2;--pi:'+cvi+'"><span class="pind" aria-hidden="true"></span>'+[["feed","💬","피드","크루원 "+ids.length+"명 · 응원하기"],["week","📊","주간 현황",wn(cwk0)+" 크루 진행표"]].map(function(o){var on=CREW.view===o[0];return '<button role="tab" aria-selected="'+on+'" aria-checked="'+on+'" data-cv="'+o[0]+'"><span class="pic" aria-hidden="true">'+o[1]+'</span><b>'+o[2]+'</b><small>'+o[3]+'</small></button>'}).join("")+'</div>';
   if(CREW.view==="admin"){view.innerHTML=h+adminView(ids);bindShare();bindCrewCommon(ids);bindAdmin();return}
   if(CREW.view==="feed"){
     var cw2=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7))),wn0=0,wkm=0,top=null,topN=0;
@@ -3781,11 +3789,10 @@ function vCrew(){
     h+='<div class="feed">';
     if(!posts.length)h+='<div class="card"><p class="small muted" style="margin:0">아직 완료한 훈련이 없어요. 훈련을 체크하면 크루 피드에 올라가고, 서로 좋아요와 댓글로 응원할 수 있어요.</p></div>';
     var lastD=null;posts.forEach(function(x){if(x.ds!==lastD){lastD=x.ds;h+='<div class="fdate">'+(x.ds===T?'오늘':x.ds===addDays(T,-1)?'어제':md(x.ds)+' ('+DOW[(new Date(x.ds+"T00:00:00").getDay()+6)%7]+')')+'</div>'}var k=x.id+"_"+ymd(x.ds),liked=!!myS().likes[k],n=likesOf(k),cs=cmtsOf(k),op=CREW.cOpen===k;
-      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me||isMeCode(x.id)?'<em class="me-tag" style="font-style:normal">나</em>':'')+codeTag(x.id)+'</div><div class="small muted">'+wn(x.w)+' '+DOW[idxOf(x.ds)%7]+' · '+md(x.ds)+(x.ex?' 추가 러닝':' 훈련 완료')+'</div></div><div class="pkm">'+rpeFace(((CREW.members[x.id]||{}).rp||{})[x.ds],"md")+' '+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
+      h+='<article class="post"><div class="ph">'+avatar(x.id)+'<div style="min-width:0"><div class="mname"><span>'+esc(nickOf(x.id))+'</span>'+(x.id===CREW.me||isMeCode(x.id)?'<em class="me-tag" style="font-style:normal">나</em>':'')+codeTag(x.id)+'</div><div class="pmeta">'+DOW[idxOf(x.ds)%7]+' · '+((CREW.members[x.id]||{}).pm==="mine"?'📋 '+esc((CREW.members[x.id]||{}).pn||'나만의 계획'):x.ex?'휴식일 추가 러닝':esc(x.t[1].split("\n").slice(0,3).join(" · ")))+'</div></div><div class="pkm">'+rpeFace(((CREW.members[x.id]||{}).rp||{})[x.ds],"md")+' '+(x.km>0?x.km:x.t[2])+'<span class="small muted">km</span></div></div>';
       var chs=cs.filter(function(c){return CHEERS.indexOf(c.t)>=0});cs=cs.filter(function(c){return CHEERS.indexOf(c.t)<0});
       var mm=CREW.members[x.id]||{},own=mm.pm==="mine";
-      h+='<div class="pb">'+(x.ex?'휴식일 추가 러닝':own?'📋 나만의 계획'+(mm.pn?' · '+esc(mm.pn):''):esc(x.t[1].split("\n").slice(0,3).join(" · ")))+'</div>';
-      h+='<div class="acts"><button class="'+(liked?'on':'')+'" data-like="'+esc(k)+'" aria-pressed="'+liked+'">'+HEART+'좋아요'+(n?' '+n:'')+'</button><button data-cmt="'+esc(k)+'" aria-expanded="'+op+'">'+BUBBLE+'댓글'+(cs.length?' '+cs.length:'')+'</button><span class="cheers">'+CHEERS.map(function(e){var a=chs.filter(function(c){return c.t===e}),mine=a.some(function(c){return c.u===CREW.me});return '<button class="'+(mine?'on':'')+'" data-cheer="'+esc(k)+'" data-e="'+e+'" aria-pressed="'+mine+'" aria-label="'+e+' 응원'+(a.length?' '+a.length+'개':'')+'"'+(a.length?' title="'+esc(a.map(function(c){return nickOf(c.u)}).join(", "))+'"':'')+'>'+e+(a.length?'<small>'+a.length+'</small>':'')+'</button>'}).join('')+'</span></div>';
+      h+='<div class="acts"><button class="'+(liked?'on':'')+'" data-like="'+esc(k)+'" aria-pressed="'+liked+'" aria-label="좋아요'+(n?' '+n+'개':'')+'">'+HEART+(n?'<span>'+n+'</span>':'')+'</button><button data-cmt="'+esc(k)+'" aria-expanded="'+op+'" aria-label="댓글'+(cs.length?' '+cs.length+'개':'')+'">'+BUBBLE+(cs.length?'<span>'+cs.length+'</span>':'')+'</button><span class="cheers">'+CHEERS.map(function(e){var a=chs.filter(function(c){return c.t===e}),mine=a.some(function(c){return c.u===CREW.me});return '<button class="'+(mine?'on':'')+'" data-cheer="'+esc(k)+'" data-e="'+e+'" aria-pressed="'+mine+'" aria-label="'+e+' 응원'+(a.length?' '+a.length+'개':'')+'"'+(a.length?' title="'+esc(a.map(function(c){return nickOf(c.u)}).join(", "))+'"':'')+'>'+e+(a.length?'<small>'+a.length+'</small>':'')+'</button>'}).join('')+'</span></div>';
       if(op||cs.length){h+='<div class="cmts">'+cs.slice(op?0:-2).map(function(c){return '<div class="cm"><b>'+esc(nickOf(c.u))+'</b><span>'+esc(c.t)+'</span>'+(c.u===CREW.me?'<button data-del-c="'+c.at+'" aria-label="댓글 삭제">삭제</button>':'')+'</div>'}).join("");
         if(!op&&cs.length>2)h+='<button class="small muted" data-cmt="'+esc(k)+'" style="border:0;background:none;text-align:left;padding:0">댓글 '+cs.length+'개 모두 보기</button>';
         if(op)h+='<form class="cform" data-cf="'+esc(k)+'"><input class="inp" id="cin-'+esc(k)+'" maxlength="140" placeholder="응원 한마디" aria-label="댓글"><button class="btn" type="submit">등록</button></form>';
