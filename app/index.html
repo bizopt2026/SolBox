@@ -812,6 +812,16 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wxcol small{font-size:11px;color:var(--muted);white-space:nowrap}.wxcol small.wet{color:var(--q);font-weight:800}
 .wxcol .ph{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:11px}
 .wxhrs .wxh{border-radius:12px;padding:6px 0}.wxhrs .wxh:first-child{background:linear-gradient(180deg,var(--accent-soft),var(--bg))}.wxhrs .wxh:first-child i{color:var(--accent);font-weight:700}.wxhrs .wxh:first-child b{color:var(--accent)}
+.wxhrs{gap:0!important;padding:4px;border-radius:14px;background:var(--bg)}
+.wxhrs .wxh{background:none!important;border-radius:11px;padding:6px 2px 7px;gap:2px;position:relative}
+.wxhrs .wxh+.wxh::before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:1px;background:var(--line)}
+.wxhrs .wxh.now{background:var(--card)!important;box-shadow:0 1px 4px rgba(17,26,46,.08)}.wxhrs .wxh.now::before,.wxhrs .wxh.now+.wxh::before{display:none}
+.wxhrs .wxh i{font-size:10.5px;font-weight:700;color:var(--muted)}.wxhrs .wxh.now i{color:var(--accent)}
+.wxhrs .wxh em{font-style:normal;font-size:18px;line-height:1.15}
+.wxhrs .wxh b{font-size:15px;font-family:var(--f-display);color:var(--ink)}.wxhrs .wxh.now b{color:var(--accent)}
+.wxhrs .wxh .rb{width:60%;height:3px;border-radius:99px;background:color-mix(in srgb,var(--q) 15%,transparent);overflow:hidden;margin-top:2px}.wxhrs .wxh .rb u{display:block;height:100%;background:color-mix(in srgb,var(--q) 55%,transparent);border-radius:99px}
+.wxhrs .wxh small{font-size:10px;color:var(--muted);margin:0}.wxhrs .wxh.wet small{color:var(--q);font-weight:800}.wxhrs .wxh.wet .rb u{background:var(--q)}
+.wxhrs .wxh .ph{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1540,8 +1550,8 @@ function wxRowS(){var rw0=runWx(T);if(rw0)return runWxRow(T,rw0);
   var set=!!(S.wx&&S.wx.key),c=WX.cur&&WX.cur.currentConditions,nx=wxNext(),tp=(c||nx.length)?wxTips():[],open=foldOpen("wxo",false)||(!set&&WX.edit);
   var t=set?'날씨 · '+esc(String(S.wx.name).split(",")[0]):'날씨';
   // before the run: now + the next three hours, one line
-  var hrs='';if(set&&(c||nx.length)){var cells=[];if(c)cells.push('<span class="wxh"><i>지금</i>'+(wxEmoji(skyKind(+c.iconCode||+c.icon||0),c.isDayTime===false)||'')+'<b>'+Math.round(c.temperatureValue)+'°</b></span>');
-    nx.slice(0,3).forEach(function(x){var hh=new Date(x.epoch*1000).getHours();cells.push('<span class="wxh"><i>'+hh+'시</i>'+(wxEmoji(skyKind(+x.icon||0),x.isDayLight===false)||'')+'<b>'+Math.round(x.temperatureValue)+'°</b>'+(x.precip&&parseInt(x.precip)>=30?'<small>☔'+parseInt(x.precip)+'%</small>':'')+'</span>')});hrs=cells.join('')}
+  var hrs='';if(set&&(c||nx.length)){var cells=[];if(c)cells.push('<span class="wxh now"><i>지금</i><em>'+(wxEmoji(skyKind(+c.iconCode||+c.icon||0),c.isDayTime===false)||'🌤')+'</em><b class="num">'+Math.round(c.temperatureValue)+'°</b><small class="ph">'+esc(String(c.phrase||'').slice(0,6))+'</small></span>');
+    nx.slice(0,3).forEach(function(x){var hh=new Date(x.epoch*1000).getHours();var pp=parseInt((x.extended&&x.extended.rainProbability)||x.precip)||0;cells.push('<span class="wxh'+(pp>=50?' wet':'')+'"><i>'+hh+'시</i><em>'+(wxEmoji(skyKind(+x.icon||0),x.isDayLight===false)||'🌤')+'</em><b class="num">'+Math.round(x.temperatureValue)+'°</b><span class="rb"><u style="width:'+Math.max(6,pp)+'%"></u></span><small>'+pp+'%</small></span>')});hrs=cells.join('')}
   var sub=!set?'동네를 정하면 3시간 기온·바람·강수를 알려 줘요':WX.err&&!c?WX.err:(WX.busy?'불러오는 중…':'↻를 눌러 불러와 주세요');
   return '<div class="srow wrow'+(hrs?' wxwrap':'')+'"><span class="sl" aria-hidden="true">🌤</span><button class="wlink" data-wxp aria-expanded="'+open+'"><b>'+t+'</b>'+(hrs?'<span class="small muted">지금부터 3시간</span>':'<span'+(WX.err&&!c?' style="color:var(--bad)"':'')+(WX.busy&&!c?' class="skel"':'')+'>'+esc(sub)+'</span>')+'</button><button class="sbtn wset'+(open?' on':'')+'" data-wxp aria-expanded="'+open+'">'+(open?'닫기':set?'자세히':'설정')+'</button>'+(hrs?'<div class="wxhrs" data-wxp>'+hrs+'</div>':'')+'</div>';
 }
