@@ -1071,7 +1071,7 @@ function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이
     if(!user||!db){setAuth("anon");return}
     var id=await user.id(); if(!id){setAuth("anon");return}
     var cw=null;try{cw=await user.can("data.write")}catch(e){}
-    if(cw===false){setAuth("view");return}
+    if(cw===false){try{crewReadOnly(db,user,id)}catch(eR){}setAuth("view");return}
     var ref=db.collection("data/users/"+id).doc("plan");
     var timer=setTimeout(function(){setSync("이 기기에 저장")},10000);
     var snap;try{snap=await ref.get()}catch(e){clearTimeout(timer);setAuth("view");return}clearTimeout(timer);
@@ -1108,12 +1108,17 @@ function setAuth(st){AUTH.st=st;setTimeout(bootDone,0);if(st!=="ok")setSync("이
   }catch(e){setSync("이 기기에 저장")}
 })();
 
+function crewReadOnly(db,user,id){CREW.db=db;CREW.user=user;CREW.me=id;CREW.ro=true;
+  db.doc("crew/settings").onSnapshot(function(sn){CREW.settings=(sn.exists&&sn.data())||{};if(tab==="crew")keep()},function(){});
+  db.collection("members").onSnapshot(function(sn){var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.members=m;CREW.status="ok";if(tab==="crew")keep()},function(){CREW.status="err";if(tab==="crew")keep()});
+  db.collection("social").onSnapshot(function(sn){var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.social=m;if(tab==="crew")keep()},function(){});
+  db.collection("plans").onSnapshot(function(sn){var m={};sn.docs.forEach(function(d){if(d.exists)m[d.id]=d.data()});CREW.plans=m},function(){})}
 // ---------- Crew sharing ----------
 // Shared: members/<viewer id> = {d:{date:km}, goal, upd}. Only done dates and distance; no memo, HR or weight.
 var CREW={owner:false,settings:{},confirm:null,db:null,user:null,me:null,members:{},social:{},mine:null,status:"loading",open:null,wk:null,last:"",view:"feed",cOpen:null,busy:false,again:false};
 // Social: social/<viewer id> = {likes:{postKey:at}, cmts:[{k,t,at}]}; postKey = <member id>_<yyyymmdd>
 function myS(){if(!CREW.mine)CREW.mine={likes:{},cmts:[]};CREW.mine.likes=CREW.mine.likes||{};CREW.mine.cmts=CREW.mine.cmts||[];return CREW.mine}
-function writeSocial(){
+function writeSocial(){if(CREW.ro)return;
   if(!CREW.db||!CREW.me||banned(CREW.me))return;if(CREW.busy){CREW.again=true;return}
   CREW.busy=true;var body=JSON.parse(JSON.stringify(myS()));body.nick=S.nick||"";body.color=S.color||0;
   CREW.db.doc("social/"+CREW.me).set(body).catch(function(){}).then(function(){CREW.busy=false;if(CREW.again){CREW.again=false;writeSocial()}});
@@ -1149,7 +1154,7 @@ function parseRecCode(t){var m=String(t||"").match(/SUB3REC:([A-Za-z0-9+\/=]+)/)
 function banned(u){var b=CREW.settings&&CREW.settings.banned;return !!(b&&u&&b[u])}
 var CREW_MAX=100;
 function pushShare(force){
-  if(!CREW.db||!CREW.me)return;
+  if(!CREW.db||!CREW.me||CREW.ro)return;
   var ref=CREW.db.doc("members/"+CREW.me);
   if(S.share===false||!S.nick||banned(CREW.me)){if(CREW.last!=="off"){CREW.last="off";ref.delete().catch(function(){})}return}
   if(CREW.status==="loading"||CREW.status==="slow")return;
@@ -1368,7 +1373,7 @@ function freddyScalar(text,hint){var groups={},cur=null;
   var out=[];Object.keys(groups).forEach(function(k){var g=groups[k];if(!g.km||!g.dur)return;var st=Math.floor(Date.UTC(+g.date.slice(0,4),+g.date.slice(5,7)-1,+g.date.slice(8,10),3)/1000);
     var r=freddyRun({distanceInMeters:g.km*1000,durationInSeconds:g.dur,startTimeInSeconds:st,averageHeartRateInBeatsPerMinute:g.hr,activityType:g.type||undefined,summaryId:g.id||undefined,directWorkoutRpe:g.rpe},hint);if(r){r.date=g.date;out.push(r)}});
   return out}
-function noMcpMsg(what){return AUTH.st==="view"?"보기 전용 계정이라 "+what+"을(를) 쓸 수 없어요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
+function noMcpMsg(what){return AUTH.st==="view"?"링크로 참여한 계정은 "+what+"을(를) 쓸 수 없어요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
 async function freddySync(manual){
   if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
   var step="연결";
@@ -1463,7 +1468,7 @@ function watchStatus(){return WS.err?'<span style="color:var(--bad)">'+esc(WS.er
 function agoT(t){var m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";var h=Math.round(m/60);if(h<24)return h+"시간 전";return Math.round(h/24)+"일 전"}
 function authBar(){
   if(AUTH.st==="anon")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>claude.ai에 로그인해 주세요</b><div class="small" style="margin-top:4px">지금은 기록이 이 기기에만 저장돼요. 내 claude.ai 계정으로 로그인한 뒤 이 링크를 다시 열면 계정에 저장되고 크루와 함께할 수 있어요.</div><div class="row" style="margin-top:8px"><a class="btn" href="https://claude.ai/login" target="_blank" rel="noopener" style="text-decoration:none">claude.ai 로그인</a></div></div>';
-  if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>보기 전용으로 들어왔어요</b><div class="small" style="margin-top:4px">관리자와 다른 claude.ai 조직의 계정이라 체크·체중은 <b>이 기기에만</b> 저장되고, 크루 공유·좋아요·댓글은 쓸 수 없어요. 크루로 함께하려면 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</div></div>';
+  if(AUTH.st==="view")return '<div class="warn" style="background:var(--q-soft);color:var(--ink)"><b>링크로 참여 중이에요</b><div class="small" style="margin-top:4px">훈련 체크·체중·식단은 <b>이 기기</b>에 저장돼요. 크루 공유는 크루 탭 → <b>기록 코드</b>, 워치 기록은 <b>파일 올리기</b>로 넣어요. 기기를 바꾸기 전엔 가이드 → 백업을 해 두세요.</div></div>';
   return "";
 }
 // weather at the time of the run on a completed day (from the hourly log), else null
@@ -1550,7 +1555,7 @@ function watchCard(){
   var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:12px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
-  if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">이 계정은 <b>보기 전용</b>이에요. claude.ai는 크루 조직 밖이거나 보기 권한만 있는 계정에서 COROS·freddy 같은 커넥터를 쓰지 못하게 막아요. <b>파일 올리기</b>(GPX·TCX·FIT·가민 CSV)로 기록을 넣거나, 크루장에게 이메일 편집자 초대를 요청하세요.</div>';
+  if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">링크로 참여한 계정은 claude.ai 정책상 COROS·freddy 자동 연동을 쓸 수 없어요. <b>파일 올리기</b>(GPX·TCX·FIT·가민 CSV)로 기록을 넣어 주세요.<div style="margin-top:8px"><button class="btn" type="button" data-watch="file" style="background:var(--accent);color:var(--on-accent)">파일 올리기로 바꾸기</button></div></div>';
   if(!open)return h+'</div>';
   if(S.watch==="coros"){
     h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li><li><span><b>체중</b>도 함께 가져와요. COROS 앱에 체중을 입력하거나 체중계가 동기화해 프로필 체중이 바뀌면, 앱을 열 때 그 시각으로 기록돼요.</span></li></ul>';
@@ -3746,8 +3751,8 @@ function vAdmin(){
     document.getElementById("pin-f").onsubmit=function(e){e.preventDefault();var v=document.getElementById("pin-in").value.trim();if(pinOk(v)){ADMIN_OK=true;ADM.err="";render()}else{ADM.err="PIN이 맞지 않아요.";render()}};
     return}
   h+='<div class="row between" style="padding:2px 4px 8px"><h2>관리자 메뉴</h2><button class="linkbtn" id="adm-lock" type="button">잠그기</button></div>';
-  h+=joinCard();
-  h+='<div class="card"><h2>기록 코드 등록</h2><p class="small muted" style="margin:4px 0 8px">편집자가 아닌 크루원이 보낸 <b>SUB3REC:</b> 코드를 붙여 넣으면 크루 피드·주간 현황에 올라가요. 같은 사람 코드를 다시 넣으면 최신 기록으로 바뀌어요.</p><textarea id="rc-in" class="inp" rows="3" placeholder="카톡에서 받은 메시지를 그대로 붙여 넣어도 돼요" style="width:100%;font-size:12px"></textarea><div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="rc-reg" type="button">등록</button><span class="small" id="rc-res" style="min-width:0"></span></div></div>';
+  // 편집자(이메일) 초대 명단은 비활성화: h+=joinCard();
+  h+='<div class="card"><h2>기록 코드 등록</h2><p class="small muted" style="margin:4px 0 8px">링크로 참여한 크루원이 보낸 <b>SUB3REC:</b> 코드를 붙여 넣으면 크루 피드·주간 현황에 올라가요. 같은 사람 코드를 다시 넣으면 최신 기록으로 바뀌어요.</p><textarea id="rc-in" class="inp" rows="3" placeholder="카톡에서 받은 메시지를 그대로 붙여 넣어도 돼요" style="width:100%;font-size:12px"></textarea><div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="rc-reg" type="button">등록</button><span class="small" id="rc-res" style="min-width:0"></span></div></div>';
   if(CREW.db){var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)});h+=adminView(ids)}
   else h+='<div class="card"><p class="small muted" style="margin:0">크루 정보를 불러오는 중이에요…</p></div>';
   h+='<div class="card"><h2>PIN 번호 바꾸기</h2><form id="pin-c" class="fields"><label>지금 PIN<input id="pc-old" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label>새 PIN (4~8자리 숫자)<input id="pc-new" class="inp" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label><label class="full"><button class="btn" type="submit">PIN 바꾸기</button></label></form>'+(ADM.msg?'<p class="small" style="margin:6px 0 0;color:'+(ADM.ok?'var(--ok)':'var(--bad)')+'">'+esc(ADM.msg)+'</p>':'')+'<p class="small muted" style="margin:6px 0 0">관리자 메뉴는 앱을 만든 계정에만 보여요. PIN은 그 위에 한 번 더 거는 잠금이에요.</p></div>';
@@ -3776,10 +3781,10 @@ function bindJoin(){var f=document.getElementById("jr-f");if(!f)return;
   view.querySelectorAll("[data-jr-del]").forEach(function(b){b.onclick=function(){S.joinReq.splice(+b.dataset.jrDel,1);save();keep()}})}
 function vCrew(){
   if(CREW.wk==null)CREW.wk=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7)));
-  var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"보기 전용":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
+  var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"링크 참여 · 기록 코드":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
   if(CREW.editor&&!CREW.owner)h+='<div class="warn" style="font-size:13px"><b>✏️ 편집 권한이 있는 핵심 멤버예요.</b> 앱을 고치거나 다시 게시하지 마세요. Claude에게 이 앱 수정을 요청하면 모든 크루원의 앱이 바뀌어요.</div>';
   if(CREW.full)h+='<div class="warn">크루 정원(<b>'+CREW_MAX+'명</b>)이 가득 차서 내 훈련 현황을 공유할 수 없어요. 개인 훈련 기록은 그대로 쓸 수 있어요. 자리가 나면 자동으로 공유돼요.</div>';
-  h+=crewStrip('<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크를 보내면 받은 사람이 자기 claude.ai 계정으로 로그인해 바로 참여해요. 기록 저장·크루 공유는 관리자와 같은 claude.ai 조직(팀) 계정만 돼요.</p>'+inviteLink()+'</div>');
+  h+=crewStrip('<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크만 보내면 돼요. 받은 사람은 claude.ai에 로그인해 링크를 열고, 크루 탭에서 닉네임을 정한 뒤 <b>기록 코드</b>를 크루장에게 보내면 피드에 올라가요.</p>'+inviteLink()+'</div>');
   if(!CREW.db){
     if(AUTH.st==="checking")h+='<div class="card" aria-busy="true" aria-label="크루 정보를 불러오는 중"><div class="skel" style="height:14px;width:45%"></div><div class="skel" style="height:12px;width:80%;margin-top:10px"></div><div class="skel" style="height:12px;width:65%;margin-top:8px"></div></div>';
     view.innerHTML=h;bindShare();return;
@@ -3839,12 +3844,12 @@ function bindCrewCommon(ids){
   view.querySelectorAll("[data-cv]").forEach(function(b){b.onclick=function(){CREW.view=b.dataset.cv;keep()}});
 }
 function codeCard(){var reg=CREW.members&&S.codeId&&CREW.members["code_"+S.codeId];
-  var h='<div class="card" id="rec-code"><h2>기록 코드로 공유</h2><p class="small muted" style="margin:4px 0 10px">이 계정은 크루에 바로 저장할 수 없어요. <b>기록 코드</b>를 크루장에게 보내면 크루 피드에 올라가요. 일주일에 한 번쯤 보내 주세요.</p>';
+  var h='<div class="card" id="rec-code"><h2>기록 코드로 공유</h2><p class="small muted" style="margin:4px 0 10px">링크로 참여한 계정은 크루에 바로 저장되지 않아요. <b>기록 코드</b>를 크루장에게 보내면 크루 피드에 올라가요. 일주일에 한 번쯤 보내 주세요.</p>';
   if(!S.nick)h+='<p class="small" style="margin:0 0 8px;color:var(--bad)">먼저 위에서 닉네임을 정해 주세요.</p>';
   h+='<button class="btn" id="rc-copy" type="button" style="width:100%;background:var(--accent);color:var(--on-accent)"'+(S.nick?'':' disabled')+'>내 기록 코드 복사</button><p class="small muted" data-rc-msg style="margin:6px 0 0">'+(reg?'크루에 등록됨 · '+agoT(reg.upd)+' 기록 기준':'아직 크루에 등록되지 않았어요.')+'</p></div>';
   return h}
 function crewStrip(invHtml){
-  var anon=AUTH.st==="anon",pO=foldOpen("cprof",false)||!!CREW.needNick||!!CREW.editP||anon||(AUTH.st==="ok"&&!S.nick),iO=foldOpen("cinv",false),open=foldOpen("cstrip",false)||pO||iO;
+  var anon=AUTH.st==="anon",pO=foldOpen("cprof",false)||!!CREW.needNick||!!CREW.editP||anon||((AUTH.st==="ok"||AUTH.st==="view")&&!S.nick),iO=foldOpen("cinv",false),open=foldOpen("cstrip",false)||pO||iO;
   var shareTxt=AUTH.st==="view"?"기록 코드로 공유":S.share===false?"공유 꺼짐":"공유 중",nick=S.nick||"";
   var wst=null;if(CREW.db){var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)}),cw2=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7))),n0=0,km=0,top=null,topN=0;
     ids.forEach(function(id){var d=(CREW.members[id]||{}).d||{},n=0;Object.keys(d).forEach(function(ds){var i=idxOf(ds);if(i<0||Math.floor(i/7)!==cw2)return;var tt=W[cw2].d[i%7];n++;km+=d[ds]>0?d[ds]:(tt[2]||0)});n0+=n;if(n>topN){topN=n;top=id}});
@@ -3917,9 +3922,9 @@ var WSTEPS=[
  }
 ];
 var WINVITE=[function(){
-  var h='<h2>크루 초대하기</h2><p class="muted" style="margin:0">초대받은 사람만 기록을 공유할 수 있어요.</p>';
-  h+='<div class="card"><span class="who">크루장</span><ol class="steps"><li><span>새 크루원의 <b>claude.ai 로그인 이메일</b>을 받아요</span></li><li><span>claude.ai <b>공유(Share)</b> → 이메일 → <b>편집자</b>로 초대 (링크 공유는 꺼 두기)</span></li><li><span>☰ 관리자 메뉴의 명단에서 <b>완료</b> 표시</span></li></ol></div>';
-  h+='<div class="card"><span class="who">크루원</span><ol class="steps"><li><span>초대 메일로 앱을 열고 로그인</span></li><li><span><b>크루</b> 탭에서 닉네임 정하면 끝</span></li></ol></div>';
+  var h='<h2>크루 초대하기</h2><p class="muted" style="margin:0">링크만 있으면 누구나 쓸 수 있어요.</p>';
+  h+='<div class="card"><span class="who">크루장</span><ol class="steps"><li><span>아래 <b>초대 메시지</b>를 카톡으로 보내요</span></li><li><span>크루원이 보낸 <b>기록 코드</b>를 ☰ 관리자 메뉴 → 기록 코드 등록에 붙여 넣어요</span></li></ol></div>';
+  h+='<div class="card"><span class="who">크루원</span><ol class="steps"><li><span>claude.ai에 로그인하고 링크를 열어요</span></li><li><span><b>크루</b> 탭에서 닉네임을 정해요</span></li><li><span><b>내 기록 코드 복사</b> → 크루장에게 보내요 (일주일에 한 번쯤)</span></li></ol></div>';
   h+=inviteLink();
   return h;
  }];
@@ -3927,7 +3932,7 @@ var APP_URL="https://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ";
 function inviteMsg(){
   var cn=(CREW.settings&&CREW.settings.name)||"서브3 훈련 크루";
   return ["🏃 "+cn+"에 초대해요!","2027.3.21 서울마라톤까지 같은 18주 훈련표로 매일 체크하고 서로 응원해요.","",
-    "[가입 방법]","1. claude.ai 로그인 이메일을 저에게 알려 주세요","2. 초대 메일이 오면 열어서 로그인해요","3. 크루 탭에서 닉네임을 정하면 끝!","","초대 없이 링크로 들어왔다면: 크루 탭 → 닉네임 → '내 기록 코드 복사'를 저에게 보내 주세요.","",
+    "[참여 방법]","1. claude.ai에 로그인하고 아래 링크를 열어요","2. 크루 탭에서 닉네임을 정해요","3. 크루 탭 → '내 기록 코드 복사'를 저에게 보내 주세요 (일주일에 한 번쯤)","",
     "👉 앱: "+APP_URL].join("\n")}
 function inviteLink(){return '<div class="linkbox"><input class="inp" id="inv-url" readonly value="'+APP_URL+'" aria-label="앱 링크"><button class="btn" type="button" data-copy-link>링크 복사</button></div><button class="btn" type="button" data-copy-inv style="width:100%;margin-top:8px;background:var(--accent);color:var(--on-accent)">초대 메시지 복사 (카톡에 붙여 넣기)</button><details class="invprev"><summary class="small muted">보낼 메시지 미리 보기</summary><textarea class="inp" readonly rows="12" style="font-size:13px;margin-top:6px">'+esc(inviteMsg())+'</textarea></details><div class="small muted" data-copy-msg style="margin-top:6px"></div>'}
 function bindCopy(){view.querySelectorAll("[data-copy-inv]").forEach(function(b){b.onclick=function(){var msg=b.parentNode.querySelector("[data-copy-msg]");copyText(inviteMsg(),function(){if(msg)msg.textContent="초대 메시지를 복사했어요. 카톡·문자에 붙여 넣어 보내세요."},function(){var d=b.parentNode.querySelector("details.invprev");if(d){d.open=true;var ta=d.querySelector("textarea");ta.focus();ta.select()}if(msg)msg.textContent="자동 복사가 막혔어요. 미리 보기 글을 길게 눌러 복사하세요."})}});
