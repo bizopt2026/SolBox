@@ -722,6 +722,7 @@ body.coach .hcoach{background:#fff;color:var(--accent)}
 body.coach .cbar{position:fixed;left:0;right:0;margin:0 auto;max-width:560px;box-sizing:border-box;bottom:calc(62px + env(safe-area-inset-bottom,0px));padding:8px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));z-index:6;background:var(--bg);box-shadow:0 -8px 16px -8px rgba(17,26,46,.12)}
 body.coach header.top .wrap{padding-block:8px!important}
 .chat{overflow-anchor:none}
+@media (hover:hover) and (pointer:fine){.chips,.gchips{scrollbar-width:thin;cursor:grab;padding-bottom:6px}.chips.dragging,.gchips.dragging{cursor:grabbing;user-select:none}}
 .gchips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px;scrollbar-width:none}
 .gchips::-webkit-scrollbar{display:none}
 .gchips button{flex:none;border:0;border-radius:99px;padding:7px 13px;background:var(--card);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
@@ -3652,6 +3653,14 @@ function vGuide(){
   go.onclick=function(){try{var o=JSON.parse(ta.value);if(!o||typeof o!=="object"||!o.days)throw 0;merge(o);save();msg.textContent="복원했어요."}catch(e){msg.textContent="코드를 읽지 못했어요. 전체를 빠짐없이 붙여 넣었는지 확인하세요."}};
 }
 
+// horizontal chip rows on desktop: mouse wheel scrolls sideways, click-drag scrolls, a drag never fires a click
+(function(){var SEL=".chips,.gchips,.wxhrs";
+  document.addEventListener("wheel",function(e){var el=e.target.closest&&e.target.closest(SEL);if(!el||el.scrollWidth<=el.clientWidth+1)return;
+    var d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!d)return;var max=el.scrollWidth-el.clientWidth;
+    if((d<0&&el.scrollLeft<=0)||(d>0&&el.scrollLeft>=max-1))return;el.scrollLeft+=d;e.preventDefault()},{passive:false});
+  var dr=null;document.addEventListener("pointerdown",function(e){if(e.pointerType!=="mouse"||e.button!==0)return;var el=e.target.closest&&e.target.closest(SEL);if(!el||el.scrollWidth<=el.clientWidth+1)return;dr={el:el,x:e.clientX,l:el.scrollLeft,moved:false}});
+  document.addEventListener("pointermove",function(e){if(!dr)return;var dx=e.clientX-dr.x;if(Math.abs(dx)>5){dr.moved=true;dr.el.classList.add("dragging")}if(dr.moved)dr.el.scrollLeft=dr.l-dx});
+  document.addEventListener("pointerup",function(){if(!dr)return;var m=dr.moved,el=dr.el;dr=null;el.classList.remove("dragging");if(m){var stop=function(ev){ev.stopPropagation();ev.preventDefault();window.removeEventListener("click",stop,true)};window.addEventListener("click",stop,true);setTimeout(function(){window.removeEventListener("click",stop,true)},50)}})})();
 (function(){var sx=null;view.addEventListener("touchstart",function(e){if(tab!=="today"||!e.target.closest||!e.target.closest(".session")||e.target.closest("input,textarea,select,.rchart,.hchart")){sx=null;return}var t0=e.touches[0];sx={x:t0.clientX,y:t0.clientY}},{passive:true});
   view.addEventListener("touchend",function(e){if(!sx)return;var t1=e.changedTouches[0],dx=t1.clientX-sx.x,dy=t1.clientY-sx.y;sx=null;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){var b=document.getElementById(dx<0?"next":"prev");if(b&&!b.disabled)b.click()}},{passive:true})})();
 (function(){var a=document.getElementById("h-admin");if(a)a.onclick=function(){if(!CREW.owner)return;if(tab==="admin"){goBack();return}enterSub("admin");render();window.scrollTo(0,0)}})();
