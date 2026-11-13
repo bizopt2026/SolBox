@@ -4279,10 +4279,11 @@ document.addEventListener("keydown",function(e){var tg=e.target;if(e.metaKey||e.
     var b=document.getElementById(dx<0?"next":"prev"),lim=b&&!b.disabled?1:0.25;setM("none","translate3d("+Math.round(dx*0.6*lim)+"px,0,0)",String(1-Math.min(.35,Math.abs(dx)/900)))},{passive:false});
   document.addEventListener("touchend",function(e){if(!sx)return;var t1=e.changedTouches[0],dx=t1.clientX-sx.x,was=on;sx=null;on=false;if(!was){reset();return}
     var b=document.getElementById(dx<0?"next":"prev");
-    if(Math.abs(dx)>60&&b&&!b.disabled){var dir=dx<0?1:-1,y=window.scrollY;busy=true;view.style.minHeight=view.offsetHeight+"px";
+    if(Math.abs(dx)>60&&b&&!b.disabled){var dir=dx<0?1:-1,y=window.scrollY;busy=true;
+      var hd=document.querySelector("header"),hh=hd&&getComputedStyle(hd).position==="sticky"?hd.getBoundingClientRect().bottom:0,dn=view.querySelector(":scope>.daynav"),dr=dn?dn.getBoundingClientRect():null,hid=dr&&(dr.top<hh||dr.bottom>window.innerHeight),ty=hid?Math.max(0,window.scrollY+dr.top-hh-8):null;view.style.minHeight=view.offsetHeight+"px";
       setM("transform .14s ease-in,opacity .14s","translate3d("+(-dir*40)+"%,0,0)","0");
       setTimeout(function(){b.click();if(window.scrollY!==y)window.scrollTo(0,y);setM("none","translate3d("+(dir*30)+"%,0,0)","0");view.offsetWidth;setM("transform .2s ease-out,opacity .2s","","");
-        requestAnimationFrame(function(){if(window.scrollY!==y)window.scrollTo(0,y)});setTimeout(reset,230)},140)}
+        requestAnimationFrame(function(){if(window.scrollY!==y)window.scrollTo(0,y);if(ty!=null){try{window.scrollTo({top:ty,behavior:"smooth"})}catch(_){window.scrollTo(0,ty)}}});setTimeout(reset,ty!=null?450:230)},140)}
     else{setM("transform .2s ease-out,opacity .2s","","");setTimeout(reset,220)}},{passive:true});
   document.addEventListener("touchcancel",function(){sx=null;on=false;reset()},{passive:true})})();
 (function(){var a=document.getElementById("h-admin");if(a)a.onclick=function(){if(!CREW.owner)return;if(tab==="admin"){goBack();return}enterSub("admin");render();window.scrollTo(0,0)}})();
