@@ -862,6 +862,12 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wtleg{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;margin:0 0 6px;font-size:11px;color:var(--muted)}
 .wlsth{font-size:11px;font-weight:800;letter-spacing:.3px;color:var(--muted);margin:12px 2px 4px}
 .wcard .wlist>div{padding:10px 2px}.wcard .wlist b.num{font-size:16px}
+.rhst{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:99px}.rhst.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}.rhst.mid{color:color-mix(in srgb,var(--s3) 75%,var(--ink));background:color-mix(in srgb,var(--s3) 20%,transparent)}.rhst.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 13%,transparent)}
+.rhlist{display:flex;flex-direction:column;gap:2px}
+.rhlist>div{display:grid;grid-template-columns:62px 1fr 34px 34px;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--line)}.rhlist>div:last-child{border-bottom:0}
+.rhlist small{font-size:11px;color:var(--muted)}.rhlist b{font-size:15px;text-align:right}.rhlist em{font-style:normal;font-size:12px;font-weight:700;color:var(--muted);text-align:right}
+.rhbar{height:6px;border-radius:99px;background:var(--bg);overflow:hidden}.rhbar u{display:block;height:100%;border-radius:99px;background:color-mix(in srgb,var(--accent) 45%,transparent)}
+.rhlist .bad em,.rhlist .bad b{color:var(--bad)}.rhlist .bad .rhbar u{background:var(--bad)}.rhlist .ok em{color:var(--ok)}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3188,8 +3194,12 @@ function bindEmpty(){view.querySelectorAll("[data-empty]").forEach(function(b){b
   render();window.scrollTo(0,0);if(a==="meals"){var c=document.getElementById("meals");if(c)c.scrollIntoView({block:"start"})}}})}
 function bodyPanel(k){
   if(k==="rhr"){var ks=Object.keys(S.rhr||{}).sort(),last=ks.slice(-7).reverse(),avg=0;ks.slice(-14).forEach(function(d){avg+=S.rhr[d]});avg=ks.length?Math.round(avg/Math.min(14,ks.length)):0;
-    var h='<div class="card"><div class="row between"><h2>안정시 심박</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,false,bodyRange());
-    if(last.length)h+='<div class="blist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0;return '<div><span class="num">'+md(d)+'</span><b class="num">'+v+'<small> bpm</small></b><span class="small" style="color:'+(df>=3?'var(--bad)':df<=-2?'var(--ok)':'var(--muted)')+'">'+(df>0?'+':'')+df+'</span></div>'}).join("")+'</div>'+info('오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.','읽는 법')+'';
+    var lk=ks[ks.length-1],lv=lk?S.rhr[lk]:null,ldf=lv&&avg?lv-avg:null,lst=ldf==null?null:ldf>=5?["bad","높음 · 쉬어가기 신호"]:ldf>=3?["mid","약간 높음 · 주의"]:ldf<=-2?["ok","평소보다 낮음 · 좋음"]:["ok","평소 수준 · 좋음"];
+    var h='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">❤️</span><div style="flex:1;min-width:0"><h2>안정시 심박</h2><small>아침 기상 직후 · '+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</small></div></div>';
+    if(lv)h+='<div class="wthero rhhero"><div><small>최근 '+md(lk)+'</small><b class="num">'+lv+'<i>bpm</i></b></div>'+(ldf!=null?'<span class="wtchip '+(lst[0]==="bad"?'bad':lst[0]==="ok"?'ok':'')+'">'+(ldf>0?'▲':ldf<0?'▼':'±')+Math.abs(ldf)+' <small>2주 평균 '+avg+'</small></span><span class="rhst '+lst[0]+'">'+lst[1]+'</span>':'<span class="wtchip"><small>2주 평균은 기록이 쌓이면 계산해요</small></span>')+'</div>';
+    h+='<div style="margin-top:8px">'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,false,bodyRange())+'</div>';
+    if(last.length){var lo2=Math.min.apply(null,last.map(function(d){return S.rhr[d]}))-3,hi2=Math.max.apply(null,last.map(function(d){return S.rhr[d]}))+1;
+      h+='<div class="wlsth">최근 7일</div><div class="rhlist">'+last.map(function(d){var v=S.rhr[d],df=avg?v-avg:0,c=df>=3?'bad':df<=-2?'ok':'';return '<div class="'+c+'"><span class="num">'+md(d)+' <small>'+DOW[(new Date(d+"T00:00:00").getDay()+6)%7]+'</small></span><span class="rhbar"><u style="width:'+Math.max(8,Math.round((v-lo2)/Math.max(1,hi2-lo2)*100))+'%"></u></span><b class="num">'+v+'</b><em>'+(df>0?'+':'')+df+'</em></div>'}).join("")+'</div>'+info('오른쪽 숫자는 최근 2주 평균('+avg+'bpm)과의 차이예요. 평소보다 3bpm 이상 높으면 피로·컨디션 저하 신호일 수 있어요.','읽는 법')}
     else h+=emptyAct('아직 기록이 없어요. 워치를 연결하면 매일 아침 자동으로 채워져요.',[[S.watch?'지금 불러오기':'워치 연결하기','watch'],['아침 심박 직접 적기','ready']]);
     return h+'</div>'}
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
