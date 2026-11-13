@@ -683,6 +683,7 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .astats small{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}.astats b{font-size:19px;font-family:var(--f-display)}.astats span{font-size:10px;color:var(--muted)}
 .astats .hl b{color:var(--accent)}
 .anote{display:flex;gap:6px;align-items:baseline;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.anote b{color:var(--ink)}.anote>span:first-child{color:var(--accent);font-weight:800}
+.srow .sl .av{width:24px;height:24px;font-size:12px;margin:0 auto}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1797,8 +1798,8 @@ function enhance(){
     var psum=mineP?(myPlanOn()?"나만의 계획 · "+S.myplan.name+" · "+dotDate(S.myplan.race):"나만의 계획 · 만들기 전"):"크루 계획 · "+dotDate(CREW_RACE);
     var pc=document.getElementById("plansrc");if(pc&&view.querySelector("[data-pstrip]"))pc=null;if(pc&&busy)FOLD["p-src"]=true;foldCard(pc,"p-src",psum,false);
   } else if(tab==="crew"){
-    foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(AUTH.st==="view"?" · 기록 코드로 공유":S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
-    foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
+    if(!view.querySelector("[data-cstrip]"))foldCard(findCard("내 프로필"),"c-prof",(S.nick||"")+(AUTH.st==="view"?" · 기록 코드로 공유":S.share===false?" · 공유 꺼짐":" · 공유 중"),false);
+    if(!view.querySelector("[data-cstrip]"))foldCard(findCard("크루 초대하기"),"c-invite","초대 메시지 · 링크 복사",false);
     foldCard(findCard("크루 정보"),"c-info",(CREW.settings&&CREW.settings.name)||"이름·공지",false);
     foldCard(findCard("제외한 크루원"),"c-banned","",false);
     var cm=findCard("크루원 ");if(cm){var cn=cm.querySelector("h2");foldCard(cm,"c-members",cn?cn.textContent.replace(/\s*\/.*$/,""):"",false)}
@@ -3698,7 +3699,7 @@ function vCrew(){
   var w=CREW.wk,h='<div class="row between" style="padding:2px 4px 0"><h2>'+esc((CREW.settings&&CREW.settings.name)||"크루 훈련 현황")+'</h2><span class="small muted">'+(AUTH.st==="anon"?"로그인 필요":AUTH.st==="view"?"보기 전용":CREW.status==="ok"?"실시간":CREW.status==="err"?"연결 끊김":CREW.status==="slow"?"연결 지연":"불러오는 중")+'</span></div>';
   if(CREW.editor&&!CREW.owner)h+='<div class="warn" style="font-size:13px"><b>✏️ 편집 권한이 있는 핵심 멤버예요.</b> 앱을 고치거나 다시 게시하지 마세요. Claude에게 이 앱 수정을 요청하면 모든 크루원의 앱이 바뀌어요.</div>';
   if(CREW.full)h+='<div class="warn">크루 정원(<b>'+CREW_MAX+'명</b>)이 가득 차서 내 훈련 현황을 공유할 수 없어요. 개인 훈련 기록은 그대로 쓸 수 있어요. 자리가 나면 자동으로 공유돼요.</div>';
-  h+=profCard()+'<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크를 보내면 받은 사람이 자기 claude.ai 계정으로 로그인해 바로 참여해요. 기록 저장·크루 공유는 관리자와 같은 claude.ai 조직(팀) 계정만 돼요.</p>'+inviteLink()+'</div>';
+  h+=crewStrip('<div class="card"><div class="row between"><h2>크루 초대하기</h2><button class="skip" id="inv-how" style="color:var(--accent);font-weight:700">방법 보기</button></div><p class="small muted" style="margin:4px 0 0">링크를 보내면 받은 사람이 자기 claude.ai 계정으로 로그인해 바로 참여해요. 기록 저장·크루 공유는 관리자와 같은 claude.ai 조직(팀) 계정만 돼요.</p>'+inviteLink()+'</div>');
   if(!CREW.db){
     if(AUTH.st==="checking")h+='<div class="card" aria-busy="true" aria-label="크루 정보를 불러오는 중"><div class="skel" style="height:14px;width:45%"></div><div class="skel" style="height:12px;width:80%;margin-top:10px"></div><div class="skel" style="height:12px;width:65%;margin-top:8px"></div></div>';
     view.innerHTML=h;bindShare();return;
@@ -3713,7 +3714,6 @@ function vCrew(){
   if(CREW.view==="feed"){
     var cw2=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7))),wn0=0,wkm=0,top=null,topN=0;
     ids.forEach(function(id){var d=(CREW.members[id]||{}).d||{},n=0;Object.keys(d).forEach(function(ds){var i=idxOf(ds);if(i<0||Math.floor(i/7)!==cw2)return;var tt=W[cw2].d[i%7];n++;wkm+=d[ds]>0?d[ds]:(tt[2]||0)});wn0+=n;if(n>topN){topN=n;top=id}});
-    h+='<div class="card inbox crewsum"><div><b>'+wn(cw2)+' 크루</b> · 완료 <b>'+wn0+'</b>회 · <b>'+Math.round(wkm)+'</b>km'+(top?' · 최다 <b>'+esc(nickOf(top))+'</b> ('+topN+'회)':'')+'</div><div class="small muted">내 훈련에 받은 좋아요 <b>'+ib.l+'</b> · 댓글 <b>'+ib.c+'</b></div></div>';
     var posts=[];ids.forEach(function(id){var d=(CREW.members[id]||{}).d||{};Object.keys(d).forEach(function(ds){var i=idxOf(ds);if(i<0||i>=TOTAL)return;var tt=W[Math.floor(i/7)].d[i%7];if(tt[0]==="r"&&!(d[ds]>0))return;posts.push({id:id,ds:ds,km:d[ds],t:tt,w:Math.floor(i/7),ex:tt[0]==="r"})})});
     posts.sort(function(a,b){return a.ds<b.ds?1:a.ds>b.ds?-1:(a.id<b.id?-1:1)});posts=posts.slice(0,40);
     h+='<div class="feed">';
@@ -3764,6 +3764,27 @@ function codeCard(){var reg=CREW.members&&S.codeId&&CREW.members["code_"+S.codeI
   if(!S.nick)h+='<p class="small" style="margin:0 0 8px;color:var(--bad)">먼저 위에서 닉네임을 정해 주세요.</p>';
   h+='<button class="btn" id="rc-copy" type="button" style="width:100%;background:var(--accent);color:var(--on-accent)"'+(S.nick?'':' disabled')+'>내 기록 코드 복사</button><p class="small muted" data-rc-msg style="margin:6px 0 0">'+(reg?'크루에 등록됨 · '+agoT(reg.upd)+' 기록 기준':'아직 크루에 등록되지 않았어요.')+'</p></div>';
   return h}
+function crewStrip(invHtml){
+  var anon=AUTH.st==="anon",pO=foldOpen("cprof",false)||!!CREW.needNick||!!CREW.editP||anon||(AUTH.st==="ok"&&!S.nick),iO=foldOpen("cinv",false),open=foldOpen("cstrip",false)||pO||iO;
+  var shareTxt=AUTH.st==="view"?"기록 코드로 공유":S.share===false?"공유 꺼짐":"공유 중",nick=S.nick||"";
+  var wst=null;if(CREW.db){var ids=Object.keys(CREW.members).filter(function(u){return !banned(u)}),cw2=Math.max(0,Math.min(W.length-1,Math.floor(idxOf(T)/7))),n0=0,km=0,top=null,topN=0;
+    ids.forEach(function(id){var d=(CREW.members[id]||{}).d||{},n=0;Object.keys(d).forEach(function(ds){var i=idxOf(ds);if(i<0||Math.floor(i/7)!==cw2)return;var tt=W[cw2].d[i%7];n++;km+=d[ds]>0?d[ds]:(tt[2]||0)});n0+=n;if(n>topN){topN=n;top=id}});
+    var ib=inbox();wst={w:cw2,n:n0,km:Math.round(km),top:top,topN:topN,l:ib.l,c:ib.c,m:ids.length}}
+  var c=['<span>👤 '+(nick?'<b>'+esc(nick)+'</b>':'<span style="color:var(--accent)">닉네임</span>')+'</span>','<span>🔗 <b>초대</b></span>',
+    '<span>🏃 '+(wst?'<b class="num">'+wst.n+'</b>회':'<span class="muted">—</span>')+'</span>','<span>'+(wst?'❤️ <b class="num">'+(wst.l+wst.c)+'</b>':'📏 <span class="muted">—</span>')+'</span>'];
+  var sum='<button class="ssum" data-cstrip aria-expanded="'+open+'" aria-label="'+(open?'요약으로 접기':'내 프로필·크루 초대·이번 주 크루 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
+  if(!open)return sum;
+  var h='<div class="strip">'+sum;
+  h+='<div class="srow wrow"><span class="sl" aria-hidden="true">'+(nick?avatar(CREW.me,false):'👤')+'</span><button class="wlink" data-ctog="cprof" aria-expanded="'+pO+'"><b>내 프로필'+(nick?' · '+esc(nick):'')+'</b><span>'+(anon?'로그인하면 닉네임을 정하고 크루와 공유해요':shareTxt+(S.goal?' · 목표 '+fmtT(S.goal.sec):'')+(S.bio?' · '+esc(S.bio):''))+'</span></button><button class="sbtn wset'+(pO?' on':'')+'" data-ctog="cprof" aria-expanded="'+pO+'">'+(pO?'닫기':'편집')+'</button></div>';
+  h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🔗</span><button class="wlink" data-ctog="cinv" aria-expanded="'+iO+'"><b>크루 초대하기</b><span>초대 메시지 · 링크 복사'+(wst?' · 크루원 '+wst.m+'명':'')+'</span></button><button class="sbtn wset'+(iO?' on':'')+'" data-ctog="cinv" aria-expanded="'+iO+'">'+(iO?'닫기':'초대')+'</button></div>';
+  if(wst)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🏃</span><div class="wlink" style="cursor:default"><b>'+wn(wst.w)+' 크루 · 완료 <span class="num" style="color:var(--accent)">'+wst.n+'</span>회 · '+wst.km+'km</b><span>'+(wst.top?'최다 '+esc(nickOf(wst.top))+' ('+wst.topN+'회) · ':'')+'내 훈련에 좋아요 '+wst.l+' · 댓글 '+wst.c+'</span></div></div>';
+  h+='</div>';
+  if(pO)h+=profCard();
+  if(iO)h+=invHtml;
+  return h}
+function bindCrewStrip(){
+  view.querySelectorAll("[data-cstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("cstrip",!op);if(op){foldSet("cprof",false);foldSet("cinv",false);CREW.needNick=false;CREW.editP=false}var y=scrollY;render();scrollTo(0,y);if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
+  view.querySelectorAll("[data-ctog]").forEach(function(b){b.onclick=function(){var k=b.dataset.ctog,o=foldOpen(k,false)||(k==="cprof"&&(CREW.needNick||CREW.editP));foldSet(k,!o);if(k==="cprof"&&o){CREW.needNick=false;CREW.editP=false}foldSet("cstrip",true);var y=scrollY;render();scrollTo(0,y)}})}
 function profCard(){
   if(AUTH.st==="view")return profEdit(true)+codeCard();
   if(AUTH.st==="anon")return '<div class="card"><h2>크루에 참여하려면</h2><p class="small muted" style="margin:6px 0 0">'+(AUTH.st==="anon"?'claude.ai에 로그인한 뒤 이 링크를 다시 열어 주세요. 로그인하면 닉네임을 정하고 크루와 훈련 현황을 공유할 수 있어요.</p><div class="row" style="margin-top:10px"><a class="btn" href="https://claude.ai/login" target="_blank" rel="noopener" style="text-decoration:none">claude.ai 로그인</a></div>':'이 계정은 관리자와 다른 claude.ai 조직이라 크루 기능을 쓸 수 없어요. 크루 현황은 볼 수 있지만 공유·좋아요·댓글은 저장되지 않아요. 관리자에게 같은 조직(팀)으로 초대해 달라고 요청하세요.</p>')+'</div>';
@@ -3785,7 +3806,7 @@ function profEdit(local){
   h+='<div class="row"><button class="btn" type="submit">저장</button>'+(S.nick?'<button class="btn ghost" type="button" id="pf-cancel">취소</button>':'')+'</div></form>';
   return h+'</div>';
 }
-function bindShare(){
+function bindShare(){bindCrewStrip();
   bindCopy();var rc=document.getElementById("rc-copy");if(rc)rc.onclick=function(){var code=recCode(),msg=view.querySelector("[data-rc-msg]");var txt="🏃 "+S.nick+" 기록 코드 (크루장님 등록 부탁해요)\n"+code;
     copyText(txt,function(){if(msg)msg.textContent="복사했어요. 카톡으로 크루장에게 보내 주세요.";toast("기록 코드를 복사했어요")},function(){if(msg)msg.textContent="자동 복사가 막혔어요. 아래 코드를 길게 눌러 복사해 주세요.";var ta=document.createElement("textarea");ta.className="inp";ta.readOnly=true;ta.value=txt;ta.style.cssText="width:100%;height:80px;margin-top:6px;font-size:12px";rc.parentNode.appendChild(ta);ta.select()})};var ih=document.getElementById("inv-how");if(ih)ih.onclick=function(){WMANUAL="invite";WSTEP=0;tab="welcome";render();window.scrollTo(0,0)};
   var t=document.getElementById("share-tog");if(t)t.onchange=function(){S.share=t.checked;save();pushShare(true);keep()};
