@@ -1368,11 +1368,12 @@ function freddyScalar(text,hint){var groups={},cur=null;
   var out=[];Object.keys(groups).forEach(function(k){var g=groups[k];if(!g.km||!g.dur)return;var st=Math.floor(Date.UTC(+g.date.slice(0,4),+g.date.slice(5,7)-1,+g.date.slice(8,10),3)/1000);
     var r=freddyRun({distanceInMeters:g.km*1000,durationInSeconds:g.dur,startTimeInSeconds:st,averageHeartRateInBeatsPerMinute:g.hr,activityType:g.type||undefined,summaryId:g.id||undefined,directWorkoutRpe:g.rpe},hint);if(r){r.date=g.date;out.push(r)}});
   return out}
+function noMcpMsg(what){return AUTH.st==="view"?"보기 전용 계정이라 "+what+"을(를) 쓸 수 없어요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
 async function freddySync(manual){
   if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
   var step="연결";
   try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){WS.err="claude.ai에 로그인한 상태로 열어야 freddy 기록을 불러올 수 있어요.";fdiag("mcp 사용 불가(로그인·권한)");return}
+    if(!mcp){WS.err=noMcpMsg("freddy");fdiag("mcp 사용 불가 · 계정 상태 "+AUTH.st);return}
     var CC=manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000};
     step="get_profile";var provs=[];try{var pft=allText(await mcp.callTool("freddy","get_profile",{},{cache:CC}));jsonBlobs(pft).forEach(function(o){(o&&o.sources||[]).forEach(function(x){if(x&&x.provider){fdiag("소스 "+x.provider+" · 상태 "+x.status+" · 데이터 "+(x.dataFrom||"?")+"~"+(x.dataTo||"?")+" · 마지막 동기화 "+(x.lastSyncAt||"?"));if(x.status==="connected")provs.push(x.provider)}})});if(!provs.length)fdiag("get_profile: 연결된 소스 없음 · 응답 앞부분: "+pft.slice(0,300))}catch(e0){fdiag("get_profile 실패: "+(e0&&(e0.code||e0.message)))}
     if(manual)provs.forEach(function(pv){mcp.callTool("freddy","sync_source",{provider:pv},{cache:false}).catch(function(e){fdiag("sync_source "+pv+" 실패: "+(e&&(e.code||e.message)))})});
@@ -1414,7 +1415,7 @@ async function watchSync(manual){
   if(WS.busy||S.watch!=="coros")return;WS.busy=true;WS.err="";WS.msg="COROS에서 불러오는 중…";keepIf();
   try{
     var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){WS.err="claude.ai에 로그인한 상태로 열어야 COROS 기록을 불러올 수 있어요.";return}
+    if(!mcp){WS.err=noMcpMsg("COROS");return}
     var from=START;if(S.watchAt&&S.watchFrom===START){var f2=addDays(localDate(Math.floor(S.watchAt/1000)),-3);if(f2>from)from=f2}
     var to=T<RACE?T:RACE;
     var res=await mcp.callTool("COROS","querySportRecords",{startDate:from.replace(/-/g,""),endDate:to.replace(/-/g,""),sportTypeCodes:[100,101,102,103],limit:200},{cache:manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000}});
@@ -1549,6 +1550,7 @@ function watchCard(){
   var h='<div class="card wpanel" id="watch"><button id="wx-tog" aria-expanded="'+open+'" style="all:unset;cursor:pointer;display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px"><span class="row" style="gap:8px"><h2>워치 기록 연동</h2>'+(S.watch?'<span class="pill ok">연결됨</span>':'')+'</span><span class="muted">'+'닫기 ✕'+'</span></button>';
   h+='<div class="small muted" style="margin:4px 0 10px">'+(S.watch==="coros"||S.watch==="freddy"?watchStatus():S.watch==="file"?(S.fileAt?'마지막 가져오기 '+agoT(S.fileAt)+' · 러닝 '+n+'개':'기록 파일을 올려 주세요'):'사용하는 워치를 고르세요. 각자 자기 계정으로 연결해요.')+'</div>';
   h+='<div class="seg" role="radiogroup" style="grid-template-columns:1fr 1fr 1fr"><button role="radio" aria-checked="'+(S.watch==="coros")+'" data-watch="coros">COROS</button><button role="radio" aria-checked="'+(S.watch==="freddy")+'" data-watch="freddy">가민·애플<br><span style="font-weight:500;font-size:12px">freddy</span></button><button role="radio" aria-checked="'+(S.watch==="file")+'" data-watch="file">파일 올리기</button></div>';
+  if(AUTH.st==="view"&&S.watch!=="file")h+='<div class="warn" style="margin-top:10px">이 계정은 <b>보기 전용</b>이에요. claude.ai는 크루 조직 밖이거나 보기 권한만 있는 계정에서 COROS·freddy 같은 커넥터를 쓰지 못하게 막아요. <b>파일 올리기</b>(GPX·TCX·FIT·가민 CSV)로 기록을 넣거나, 크루장에게 이메일 편집자 초대를 요청하세요.</div>';
   if(!open)return h+'</div>';
   if(S.watch==="coros"){
     h+='<ul class="steps" style="margin-top:12px"><li><span>claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결해요. 이미 연결했다면 넘어가요.</span></li><li><span>아래 <b>지금 불러오기</b>를 누르고, 이 앱의 COROS 사용을 <b>허용</b>해요.</span></li><li><span>그다음부터는 앱을 열 때마다 11/9 이후 러닝 기록을 자동으로 불러와요.</span></li><li><span><b>체중</b>도 함께 가져와요. COROS 앱에 체중을 입력하거나 체중계가 동기화해 프로필 체중이 바뀌면, 앱을 열 때 그 시각으로 기록돼요.</span></li></ul>';
@@ -1582,7 +1584,7 @@ async function addCalReminder(){
   if(CAL.busy)return;CAL.busy=true;CAL.err="";CAL.msg="구글 캘린더에 등록하는 중…";keepIf();
   try{
     var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
-    if(!mcp){CAL.err="claude.ai에 로그인한 상태로 열어야 캘린더에 등록할 수 있어요.";return}
+    if(!mcp){CAL.err=noMcpMsg("구글 캘린더");return}
     var d=nextSunday();
     await mcp.callTool("Google Calendar","create_event",{summary:"⌚ 워치 기록 올리기 (Sub-3 훈련 체크)",description:"지난주 러닝 기록을 CSV로 내보내 앱에 올려 주세요.\nhttps://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ",startTime:d+"T21:00:00",endTime:d+"T21:10:00",recurrenceData:["RRULE:FREQ=WEEKLY;BYDAY=SU;UNTIL=20270321T235959Z"],overrideReminders:[{method:"popup",minutes:0}],availability:"AVAILABILITY_FREE"});
     S.calSet=Date.now();CAL.msg="구글 캘린더에 매주 일요일 21:00 알림을 등록했어요. 휴대폰 캘린더 앱에서 알림이 와요.";save();
