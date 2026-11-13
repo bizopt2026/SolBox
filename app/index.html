@@ -893,6 +893,12 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wgrec{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12.5px}.wgrec small{display:block;color:var(--muted);font-size:11px;margin-left:20px}
 .coback{position:fixed;z-index:8;right:max(16px,calc(env(safe-area-inset-right,0px) + 12px));display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;padding:9px 14px 9px 12px;border-radius:99px;background:var(--card);color:var(--accent);font:inherit;font-size:13.5px;font-weight:800;box-shadow:0 4px 16px rgba(20,20,60,.16),inset 0 0 0 1.5px var(--accent);transition:bottom .15s}
 .coback span{font-size:15px}.coback:active{transform:scale(.96)}.coback[hidden]{display:none}
+.cwlist{display:flex;flex-direction:column;margin-top:10px}
+.cwrow{display:grid;grid-template-columns:20px 42px 1fr auto;gap:8px;align-items:start;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}.cwrow:last-child{border-bottom:0}
+.cwrow.off{cursor:default}.cwrow input{margin:3px 0 0;width:18px;height:18px;accent-color:var(--accent)}
+.cwd{display:flex;flex-direction:column;font-weight:800;font-size:14px;line-height:1.2}.cwd small{font-size:11px;color:var(--muted);font-weight:600}
+.cwm{min-width:0;display:flex;flex-direction:column;gap:2px}.cwm b{font-size:13.5px;line-height:1.35}.cwm small{font-size:11.5px;color:var(--muted);line-height:1.4}.cwm .cwold s{opacity:.8}
+.cwrow .rhst{white-space:nowrap;font-size:11px;padding:3px 8px}.rhst.na{color:var(--muted);background:var(--bg)}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -3097,11 +3103,108 @@ function openMemberSheet(id){closeSheet();var m=CREW.members[id]||{},d=m.d||{},c
   h+='<div class="mstats"><div><small>목표</small><b>'+(m.goal?esc(m.goal):'—')+'</b></div><div><small>'+wn(cw)+'</small><b>'+wn0+'회 · '+Math.round(wkm)+'km</b></div><div><small>시즌 누적</small><b>'+tot+'회 · '+Math.round(tkm)+'km</b></div></div>';
   if(m.pm==="mine")h+='<p class="small muted" style="margin:8px 0 0">📋 나만의 계획'+(m.pn?' · '+esc(m.pn):'')+'</p>';
   h+='</div>';var o=document.createElement("div");o.id="dsheet";o.innerHTML=h;document.body.appendChild(o);o.querySelectorAll("[data-shx]").forEach(function(x){x.onclick=closeSheet})}
+// ---------- COROS workout sync: plan day -> structured workout; same date = overwrite ----------
+var CW={open:false,range:14,busy:"",msg:"",err:"",sched:null,rows:null,pick:{},lock:{}};
+function cwRange(lo,hi){var a=Math.round(lo*K),b=Math.round((hi==null?lo+40:hi)*K);a=Math.max(120,Math.min(1499,a));b=Math.max(120,Math.min(1499,b));return a<=b?[a,b]:[b,a]}
+function cwZ(k){var z=ZONES.filter(function(x){return x.k===k})[0];return z?cwRange(z.lo,z.hi):cwRange(330,370)}
+function cwP(s){var m=String(s).split(":"),v=+m[0]*60+ +m[1];return cwRange(v-3,v+3)}
+function cwSec(st,v,time,r){return{sectionType:st,targetType:time?2:1,targetValue:Math.max(1,Math.round(v)),intensityType:2,intensityValueStart:r[0],intensityValueEnd:r[1]}}
+function cwM(n,u){n=parseFloat(n);return /K|km/i.test(u)?n*1000:n}
+function cwKey(s){s=s||"";return /^WU/.test(s)?"wu":/^CD/.test(s)?"cd":/^MP/.test(s)?"mp":/^(E|이지)\b|^이지/.test(s)?"e":/조깅/.test(s)?"rec":/LSD/.test(s)?"lsd":/지속주/.test(s)?"steady":/템포/.test(s)?"tempo":null}
+function cwCourse(t,ds){
+  if(!t||t[0]==="r"||t[0]==="x")return null;
+  var L=String(t[1]).split("\n").map(function(x){return x.trim()}).filter(Boolean),sec=[],skip=[],str=false,vb=null;
+  for(var i=0;i<L.length;i++){var s=L[i],nx=L[i+1]||"",m;
+    if(/^총 /.test(s)||/^휴식/.test(s))continue;
+    if(/근력/.test(s)){str=true;continue}
+    if(/^\(.*\)$/.test(s))continue;
+    if((m=s.match(/스트라이드(?:\s*(\d+)\s*회)?/))){str=str||false;sec.push({intervalGroup:true,repeats:Math.min(20,+(m[1]||4)),sets:[cwSec(2,100,false,cwZ("int")),cwSec(3,100,false,cwZ("rec"))]});continue}
+    if((m=s.match(/(하프|10K)\s*기록측정/))){var dm=m[1]==="하프"?21097:10000,tm=(nx.match(/(\d{1,2}:\d{2}(?::\d{2})?)\s*이내/)||[])[1],ts=tm?parseTime(tm):null;
+      if(ts){var pc=ts*K/(dm/1000);sec.push(cwSec(2,dm,false,[Math.max(120,Math.round(pc-4)),Math.round(pc)]));i++}else sec.push(cwSec(2,dm,false,cwZ("tempo")));continue}
+    if((m=s.match(/^변속\s*(\d+(?:\.\d+)?)\s*K/))){vb=+m[1]*1000;continue}
+    if(vb&&/교대/.test(s)){var seg=[],re=/(\d+(?:\.\d+)?)\s*(K|m)\s*@(\d:\d\d)/g,q;while((q=re.exec(s)))seg.push([cwM(q[1],q[2]),q[3]]);
+      if(seg.length>=2){var per=seg.reduce(function(a,x){return a+x[0]},0);sec.push({intervalGroup:true,repeats:Math.max(1,Math.min(20,Math.round(vb/per))),sets:seg.map(function(x,j){return cwSec(j===0?2:3,x[0],false,cwP(x[1]))})})}vb=null;continue}
+    if((m=s.match(/^(?:(MP|템포|언덕)\s*)?(\d+(?:\.\d+)?)\s*(K|m)\s*(?:@(\d:\d\d))?\s*[×x]\s*(\d+)/))){
+      var wr=m[4]?cwP(m[4]):m[1]==="MP"?cwZ("mp"):m[1]==="템포"?cwZ("tempo"):cwZ("int"),wd=cwM(m[2],m[3]),rd=400,rz=cwZ("rec"),rq;
+      if(/^\(.*\)$/.test(nx)){if((rq=nx.match(/(\d+(?:\.\d+)?)\s*(K|m)\s*(조깅|플로트)/)))rd=cwM(rq[1],rq[2]);if(/플로트/.test(nx))rz=cwZ("float");if(/내리막/.test(nx))rd=wd;i++}
+      sec.push({intervalGroup:true,repeats:Math.max(1,Math.min(20,+m[5])),sets:[cwSec(2,wd,false,wr),cwSec(3,rd,false,rz)]});continue}
+    if((m=s.match(/(LSD|조깅)\s*(\d+)\s*분/))){sec.push(cwSec(2,+m[2]*60,true,cwZ(m[1]==="LSD"?"lsd":"rec")));continue}
+    if((m=s.match(/^(?:\d세트\s*)?([^\d@]*?)\s*(\d+(?:\.\d+)?)\s*K(?:\s*@(\d:\d\d))?/))){var kw=m[1].trim(),k=cwKey(kw);
+      if(!k&&!m[3]){skip.push(s);continue}
+      sec.push(cwSec(k==="wu"?1:k==="cd"?4:2,+m[2]*1000,false,m[3]?cwP(m[3]):cwZ(k)));continue}
+    skip.push(s)}
+  if(!sec.length)return null;
+  var nm=ptxt(t[1]).split("\n").map(function(x){return x.trim()}).filter(function(x){return x&&!/^\(.*\)$/.test(x)}).join(" · ").slice(0,100);
+  var d=md(ds)+" ("+DOW[(new Date(p(ds)).getUTCDay()+6)%7]+") Sub-3 훈련 체크 계획: "+ptxt(t[1]).replace(/\n+/g," / ")+". 페이스는 내 기준 설정에 맞춘 실제 페이스 범위예요."+(str?" 달린 뒤 근력 운동도 잊지 마세요.":"");
+  return{course:{sportType:1,courseName:nm||"러닝",courseDescription:d.slice(0,900),sections:sec},skip:skip};
+}
+function cwHash(c){var s=JSON.stringify(c),h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return String(h)}
+function cwDates(n){var out=[],last=addDays(START,TOTAL-1);for(var j=0;j<n;j++){var ds=addDays(T,j);if(ds>last)break;out.push(ds)}return out}
+function cwPlanOf(ds){var i=idxOf(ds);return i>=0&&i<TOTAL?planAt(i):null}
+function cwLocalChanged(){var n=0,m=S.cw||{};cwDates(28).forEach(function(ds){var r=m[ds];if(!r)return;var t=cwPlanOf(ds),c=cwCourse(t,ds);if(!c?r.h!=="rest":cwHash(c.course)!==r.h)n++});return n}
+function cwText(res){var x=(res&&res.content||[]).map(function(c){return c.text||""}).join("\n");if(!x&&res&&typeof res.payload==="string")x=res.payload;if(/^\s*"/.test(x)){try{x=JSON.parse(x)}catch(e){}}return String(x)}
+function cwParseSched(txt){var out={},cur=null;String(txt).split(/\n\s*\n/).forEach(function(b){var ln=b.split("\n").map(function(x){return x.trim()}).filter(Boolean);if(!ln.length)return;var k=0;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(ln[0])){cur=ln[0];k=1}if(!cur||!ln[k])return;var id=(b.match(/idInPlan:\s*(\d+)/)||[])[1];if(!id)return;
+    (out[cur]=out[cur]||[]).push({name:ln[k],id:id,plan:/training plan|Plan ID/i.test(b)&&!/Standalone/i.test(b)})});return out}
+async function cwMcp(){var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)throw{code:"nomcp"};return mcp}
+function cwErr(e){var c=e&&e.code;return c==="nomcp"?noMcpMsg("COROS 연결"):c==="not_granted"?"COROS 연결을 허용해야 워크아웃을 맞출 수 있어요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 눌러 주세요.":"COROS와 통신하지 못했어요"+(e&&e.message?": "+String(e.message).slice(0,120):"")}
+function cwBuild(){var rows=[],m=S.cw||{},sc=CW.sched||{};
+  cwDates(CW.range).forEach(function(ds){var t=cwPlanOf(ds);if(!t)return;var c=cwCourse(t,ds),ex=(sc[ds]||[]),sa=ex.filter(function(x){return !x.plan}),mine=m[ds]&&sa.filter(function(x){return x.id===m[ds].id})[0],tgt=mine||sa[0]||null,r={ds:ds,t:t,c:c,ex:ex,tgt:tgt};
+    if(t[0]==="x"){r.st="race";r.note=ex.length?"COROS에 있음: "+ex.map(function(x){return x.name}).join(", "):"레이스 전략 화면에서 ⌚ 워치 등록";}
+    else if(!c){if(sa.length){r.st="rest";r.note="휴식으로 바뀐 날 · COROS 앱에서 '"+sa.map(function(x){return x.name}).join("', '")+"'을(를) 지워 주세요"}else return}
+    else{var h=cwHash(c.course);r.h=h;
+      if(mine&&m[ds].h===h)r.st="same";
+      else if(tgt&&CW.lock[ds+"|"+tgt.id])r.st="lock",r.note="완료했거나 수정할 수 없는 워크아웃이라 COROS 앱에서 바꿔 주세요";
+      else if(tgt)r.st="over";
+      else if(ex.length)r.st="new",r.note="COROS 플랜 워크아웃은 그대로 두고 새로 추가해요";
+      else r.st="new"}
+    rows.push(r)});
+  CW.rows=rows;CW.pick={};rows.forEach(function(r){if(r.st==="new"||r.st==="over")CW.pick[r.ds]=true})}
+async function cwLoad(){CW.busy="load";CW.err="";CW.msg="";keepIf();
+  try{var mcp=await cwMcp(),ds=cwDates(CW.range),res=await mcp.callTool("COROS","queryTrainingSchedule",{startDate:ds[0].replace(/-/g,""),endDate:ds[ds.length-1].replace(/-/g,"")});
+    if(res&&res.isError)throw new Error(cwText(res).slice(0,160));CW.sched=cwParseSched(cwText(res));cwBuild()}
+  catch(e){CW.err=cwErr(e)}finally{CW.busy="";keepIf()}}
+async function cwApply(){var list=(CW.rows||[]).filter(function(r){return CW.pick[r.ds]&&r.c&&(r.st==="new"||r.st==="over")});if(!list.length)return;
+  CW.busy="apply";CW.err="";var ok=0,skip=[],fail=[];S.cw=S.cw||{};
+  try{var mcp=await cwMcp();
+    for(var i=0;i<list.length;i++){var r=list[i],dk=r.ds.replace(/-/g,""),res,tx;CW.msg=(i+1)+" / "+list.length+" · "+md(r.ds)+" 반영 중…";keepIf();
+      try{if(r.st==="over"){var dt=await mcp.callTool("COROS","queryScheduledWorkoutDetails",{date:dk,idInPlan:r.tgt.id}),dx=cwText(dt);
+          if(dt&&dt.isError||!/Editable via MCP:\s*yes/i.test(dx)){CW.lock[r.ds+"|"+r.tgt.id]=1;skip.push(md(r.ds)+" (완료했거나 수정할 수 없는 워크아웃)");continue}
+          res=await mcp.callTool("COROS","updateScheduledWorkout",{date:dk,idInPlan:r.tgt.id,course:r.c.course})}
+        else res=await mcp.callTool("COROS","createScheduledWorkout",{date:dk,course:r.c.course});
+        tx=cwText(res);if(res&&res.isError)throw new Error(tx.slice(0,120));
+        var nid=(tx.match(/idInPlan[^\d]{0,12}(\d+)/)||[])[1]||(r.tgt&&r.tgt.id)||null;S.cw[r.ds]={h:r.h,id:nid,at:Date.now(),name:r.c.course.courseName};ok++}
+      catch(e){if(e&&(e.code==="not_granted"||e.code==="rate_limited"))throw e;fail.push(md(r.ds))}}
+    save();CW.msg="✓ "+ok+"일 반영했어요"+(skip.length?" · 건너뜀: "+skip.join(", "):"")+(fail.length?" · 실패: "+fail.join(", "):"")+". 워치를 COROS 앱과 동기화하면 바뀐 운동이 나와요.";
+    try{var ds2=cwDates(CW.range),r2=await mcp.callTool("COROS","queryTrainingSchedule",{startDate:ds2[0].replace(/-/g,""),endDate:ds2[ds2.length-1].replace(/-/g,"")});CW.sched=cwParseSched(cwText(r2));
+      Object.keys(S.cw).forEach(function(d){var rec=S.cw[d],ls=CW.sched[d]||[];if(rec&&!ls.some(function(x){return x.id===rec.id})){var hit=ls.filter(function(x){return x.name===rec.name})[0];if(hit)rec.id=hit.id}});save();cwBuild()}catch(e){}}
+  catch(e){CW.err=cwErr(e)}finally{CW.busy="";keepIf()}}
+function cwSecTxt(c){function one(x){var r=x.intensityValueStart===x.intensityValueEnd?fmtMS(x.intensityValueStart):fmtMS(x.intensityValueStart)+"~"+fmtMS(x.intensityValueEnd),v=x.targetType===2?Math.round(x.targetValue/60)+"분":x.targetValue>=1000?(Math.round(x.targetValue/100)/10)+"K":x.targetValue+"m";return v+" "+r}
+  return c.sections.map(function(x){return x.intervalGroup?"("+x.sets.map(one).join(" + ")+") ×"+x.repeats:one(x)}).join(" → ")}
+function cwCard(){
+  var h='<div class="card cwcard"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">⌚</span><div style="flex:1;min-width:0"><h2>COROS 워크아웃 맞추기</h2><small>계획이 바뀐 날은 같은 날짜 워크아웃을 덮어써요</small></div></div>';
+  h+='<div class="row between" style="margin-top:10px;gap:8px"><span class="mseg" role="radiogroup" aria-label="반영 기간">'+[[7,"1주"],[14,"2주"],[28,"4주"]].map(function(x){return '<button type="button" role="radio" data-cwr="'+x[0]+'" aria-checked="'+(CW.range===x[0])+'">'+x[1]+'</button>'}).join("")+'</span><button type="button" class="sbtn wset" id="cw-load"'+(CW.busy?' disabled':'')+'>'+(CW.busy==="load"?'불러오는 중…':CW.rows?'↻ 다시 비교':'COROS 일정 불러와 비교')+'</button></div>';
+  if(CW.err)h+='<div class="warn" style="margin-top:8px">'+esc(CW.err)+'</div>';
+  if(CW.rows){var lab={new:["새로 추가","ok"],over:["덮어쓰기","mid"],same:["최신","na"],rest:["휴식으로 바뀜","bad"],race:["레이스","na"],lock:["수정 불가","bad"]};
+    if(!CW.rows.length)h+='<p class="small muted" style="margin:10px 0 0">이 기간에 보낼 훈련이 없어요.</p>';
+    h+='<div class="cwlist">'+CW.rows.map(function(r){var L=lab[r.st],can=r.st==="new"||r.st==="over",dw=DOW[(new Date(p(r.ds)).getUTCDay()+6)%7];
+      return '<label class="cwrow'+(can?'':' off')+'"><input type="checkbox" data-cwp="'+r.ds+'"'+(can?'':' disabled')+(CW.pick[r.ds]?' checked':'')+'><span class="cwd num">'+md(r.ds)+'<small>'+dw+'</small></span><span class="cwm"><b>'+esc(r.c?r.c.course.courseName:ptxt(r.t[1]).split("\n")[0])+'</b>'
+        +(r.st==="over"?'<small class="cwold">COROS: <s>'+esc(r.tgt.name)+'</s></small>':r.st==="lock"?'<small>COROS: '+esc(r.tgt.name)+'</small>':'')+(r.c&&can?'<small>'+esc(cwSecTxt(r.c.course))+'</small>':'')+(r.note?'<small>'+esc(r.note)+'</small>':'')+(r.c&&r.c.skip.length&&can?'<small class="muted">설명에만 담김: '+esc(r.c.skip.join(", "))+'</small>':'')+'</span><span class="rhst '+L[1]+'">'+L[0]+'</span></label>'}).join("")+'</div>';
+    var np=Object.keys(CW.pick).filter(function(k){return CW.pick[k]}).length;
+    h+='<div class="ksave"><span class="small muted">'+(CW.msg?esc(CW.msg):np?np+'일 선택':'바꿀 날이 없어요')+'</span><button class="btn" id="cw-apply" style="background:var(--accent);color:var(--on-accent)"'+(np&&!CW.busy?'':' disabled')+'>'+(CW.busy==="apply"?'반영 중…':'선택한 '+np+'일 반영')+'</button></div>'}
+  else if(CW.msg)h+='<p class="small muted" style="margin:8px 0 0">'+esc(CW.msg)+'</p>';
+  h+=info('오늘부터 고른 기간의 훈련을 COROS 일정과 비교해요. 같은 날짜에 워크아웃이 있으면 새 계획으로 덮어쓰고(완료했거나 지난 운동은 건너뜀), 없으면 새로 만들어요. COROS에서는 운동을 지울 수 없어서, 휴식으로 바뀐 날은 COROS 앱에서 직접 지워 주세요. 레이스 날은 페이스 탭의 레이스 전략에서 등록해요. 페이스는 기준 설정의 존을 실제 페이스 범위로 넣어요.','동작 방식')+'</div>';
+  return h}
+function bindCw(){var c=view.querySelector(".cwcard");if(!c)return;
+  c.querySelectorAll("[data-cwr]").forEach(function(b){b.onclick=function(){CW.range=+b.dataset.cwr;if(CW.sched)CW.rows=null,CW.sched=null;CW.msg="";keepIf()}});
+  var l=c.querySelector("#cw-load");if(l)l.onclick=cwLoad;var a=c.querySelector("#cw-apply");if(a)a.onclick=cwApply;
+  c.querySelectorAll("[data-cwp]").forEach(function(x){x.onchange=function(){CW.pick[x.dataset.cwp]=x.checked;CW.msg="";keepIf()}})}
 function planStrip(dn,tot,km,canAdj){
   var mine=myPlanOn(),n=planEdited(),P=plan(),pct=tot?Math.round(dn/tot*100):0,tkm=W.reduce(function(a,x,wi){return a+weekKm(wi)},0);
   var srcO=foldOpen("psrc",false)||!!(MPB.draft||MPB.open),adjO=canAdj&&MPOPEN;
-  var open=foldOpen("pstrip",false)||srcO||adjO;
-  var c=['<span>📋 <b>계획 수립</b></span>','<span>🛠 <b>일정 조정</b>'+(n?'<em class="cnt">'+n+'</em>':'')+'</span>','<span>✓ <b class="num">'+dn+'/'+tot+'</b></span>','<span><b class="num">'+Math.round(km)+'</b><small>km</small></span>'];
+  var cwO=CW.open,cwn=cwLocalChanged();
+  var open=foldOpen("pstrip",false)||srcO||adjO||cwO;
+  var c=['<span>📋 <b>계획 수립</b></span>','<span>🛠 <b>일정 조정</b>'+(n?'<em class="cnt">'+n+'</em>':'')+'</span>','<span>✓ <b class="num">'+dn+'/'+tot+'</b></span>','<span><b class="num">'+Math.round(km)+'</b><small>km</small></span>'];if(cwn)c.splice(2,0,'<span>⌚ <b>COROS</b><em class="cnt">'+cwn+'</em></span>');
   var sum='<button class="ssum plsum" data-pstrip aria-expanded="'+open+'" aria-label="'+(open?'요약으로 접기':'계획 수립·일정 조정·전체 진행 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
   if(!open)return sum;
   var src=mine?'<b>계획 수립 · <span style="color:var(--accent)">나만의 계획</span></b><span>'+esc(S.myplan.name)+' · '+dotDate(S.myplan.race)+' 대회 · '+(S.myplan.weeks.length-1)+'주 + 레이스 주</span>'
@@ -3109,14 +3212,17 @@ function planStrip(dn,tot,km,canAdj){
   var h='<div class="strip">'+sum;
   h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📋</span><button class="wlink" data-ptog="psrc" aria-expanded="'+srcO+'">'+src+'</button><button class="sbtn wset'+(srcO?' on':'')+'" data-ptog="psrc" aria-expanded="'+srcO+'">'+(srcO?'닫기':'바꾸기')+'</button></div>';
   if(canAdj)h+='<div class="srow wrow"><span class="sl" aria-hidden="true">🛠</span><button class="wlink" data-ptog="padj" aria-expanded="'+adjO+'"><b>일정 조정'+(n?' · <span style="color:var(--accent)">바꾼 내용 '+n+'개</span>':' · <span class="muted">그대로</span>')+'</b><span>요일 바꾸기'+(P.swaps.length?' '+P.swaps.length+'개':'')+' · 주간 거리 '+P.vol+'% · 클로드에게 부탁</span></button><button class="sbtn wset'+(adjO?' on':'')+'" data-ptog="padj" aria-expanded="'+adjO+'">'+(adjO?'닫기':'조정')+'</button></div>';
+  h+='<div class="srow wrow"><span class="sl" aria-hidden="true">⌚</span><button class="wlink" data-ptog="pcw" aria-expanded="'+cwO+'"><b>COROS 워크아웃'+(cwn?' · <span style="color:var(--accent)">계획 변경 '+cwn+'일</span>':Object.keys(S.cw||{}).length?' · <span class="muted">보낸 그대로</span>':' · <span class="muted">아직 안 보냄</span>')+'</b><span>바뀐 날은 같은 날짜에 덮어쓰기 · 1~4주</span></button><button class="sbtn wset'+(cwO?' on':'')+'" data-ptog="pcw" aria-expanded="'+cwO+'">'+(cwO?'닫기':'맞추기')+'</button></div>';
   h+='<div class="srow wrow"><span class="sl" aria-hidden="true">📈</span><div class="wlink" style="cursor:default"><b>전체 진행 · <span class="num" style="color:var(--ok)">'+pct+'%</span></b><span>완료 '+dn+' / '+tot+'회 · 누적 '+Math.round(km)+' / '+tkm.toLocaleString()+' km</span><div class="bar" style="height:5px;margin-top:5px"><i style="width:'+pct+'%"></i></div></div></div>';
   h+='</div>';
   if(srcO)h+=pwrap("psrc",planSrcCard());
   if(adjO)h+=pwrap("padj",myPlanCard());
+  if(cwO)h+=pwrap("pcw",cwCard());
   return h}
 function bindPlanStrip(){
-  view.querySelectorAll("[data-pstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("pstrip",!op);if(op){foldSet("psrc",false);MPOPEN=false;if(S.planMode==="mine"&&!MPB.draft)MPB.open=false}keepIf();if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
-  view.querySelectorAll("[data-ptog]").forEach(function(b){b.onclick=function(){var k=b.dataset.ptog;if(k==="psrc"){var o=foldOpen("psrc",false);foldSet("psrc",!o);if(o&&!MPB.draft)MPB.open=false}else MPOPEN=!MPOPEN;foldSet("pstrip",true);keepIf()}})}
+  view.querySelectorAll("[data-pstrip]").forEach(function(b){b.onclick=function(){var op=b.getAttribute("aria-expanded")==="true";foldSet("pstrip",!op);if(op){foldSet("psrc",false);MPOPEN=false;CW.open=false;if(S.planMode==="mine"&&!MPB.draft)MPB.open=false}keepIf();if(!op)view.querySelectorAll(".strip>.srow").forEach(popIn)}});
+  view.querySelectorAll("[data-ptog]").forEach(function(b){b.onclick=function(){var k=b.dataset.ptog;if(k==="psrc"){var o=foldOpen("psrc",false);foldSet("psrc",!o);if(o&&!MPB.draft)MPB.open=false}else if(k==="pcw")CW.open=!CW.open;else MPOPEN=!MPOPEN;foldSet("pstrip",true);keepIf()}});
+  bindCw()}
 function vPlan(){
   if(S.planMode==="mine"&&!myPlanOn()){view.innerHTML=planSrcCard()+'<p class="small muted" style="padding:0 4px">나만의 계획을 만들기 전까지는 오늘 화면에 기본 계획이 그대로 쓰여요. 체크·기록은 날짜 기준이라 계획을 바꿔도 남아요.</p>';bindPlanSrc();return}
   var tot=0,dn=0,km=0;for(var w=0;w<W.length;w++){var s=weekStats(w);tot+=s.n;dn+=s.done;km+=s.km}
@@ -4232,7 +4338,7 @@ function fontCard(){var cur=fontKey();
 function bindFont(){view.querySelectorAll("[data-font]").forEach(function(b){b.onclick=function(){var k=b.dataset.font;try{localStorage.setItem("sub3-font",k)}catch(e){}applyFont(k);view.querySelectorAll("[data-font]").forEach(function(x){x.setAttribute("aria-pressed",x.dataset.font===k)});toast(FONTS[k][1]+"로 바꿨어요")}});
   Object.keys(FONTS).forEach(function(k){if(FONTS[k][2]&&!document.getElementById("gf-"+k)){var l=document.createElement("link");l.id="gf-"+k;l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+FONTS[k][2]+"&display=swap";document.head.appendChild(l)}})}
 function vGuide(){
-  var h='<nav class="gchips" aria-label="가이드 주제">'+GCHIPS.map(function(c){return '<button type="button" data-gc="'+esc(c[1])+'">'+c[0]+'</button>'}).join('')+'</nav>'+'<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>'+'<div class="card"><h2>시작하기 · 복제와 커넥터</h2><ol class="tight small gl" style="padding-left:18px"><li>공유받은 링크를 열고 <b>복제</b>를 눌러 내 Claude로 복사해요. 복제된 앱이 <b>나만의 앱</b>이에요(기록은 내 계정에 저장, 나만 봐요).</li><li>claude.ai <b>설정 → 커넥터</b>에서 필요한 것을 연결해요: <b>COROS</b>(러닝·체중·심박·HRV), <b>freddy</b>(가민·애플 러닝), <b>AccuWeather</b>(날씨), Google Calendar(알림, 선택).</li><li>내 앱 → 오늘 → 맨 위 요약 줄 → ⌚ 워치에서 연결할 워치를 고르고 <b>지금 불러오기</b>, 🌤 날씨에서 동네를 정해요. 처음 한 번 사용 허용을 눌러요.</li><li>페이스 → 기준 설정에 내 기록을 넣고 <b>저장</b>하면 훈련표 페이스가 내게 맞춰져요.</li></ol><p class="small muted" style="margin:6px 0 0">복제하지 않고 링크로만 열면 기록이 그 기기에만 저장되고, 내 커넥터를 연결해도 자동 연동이 안 돼요(claude.ai 보안 정책). 새 버전이 나오면 백업 코드를 복사해 두고 새로 복제한 앱에서 복원하세요.</p></div>'+'<div class="card"><h2>화면 구성</h2><p class="small muted" style="margin:4px 0 0">각 탭 맨 위 <b style="color:var(--ink)">요약 줄</b>을 누르면 펼쳐져서 자세히 보고 관리해요.</p><dl class="kv small" style="margin-top:8px"><dt>오늘</dt><dd>🎯 목표 · ⌚ 워치 · 🌤 날씨 · ❤️ 컨디션 → 훈련·점수·식단 · 화면을 좌우로 밀면 날짜가 바뀌어요</dd><dt>훈련표</dt><dd>📋 계획 수립(기본·나만의 계획 최대 3개) · 🛠 일정 조정 · 진행 → 주별 훈련표</dd><dt>페이스</dt><dd>🎯 기준 설정 · 🚩 중간 점검 · 🏁 레이스 전략</dd><dt>바디</dt><dd>⚖️ 체중 · ❤️ 심박 · 🌙 HRV · 🥗 식단</dd><dt>AI 코치</dt><dd>아래 메뉴 맨 오른쪽 · 내 기록을 보고 답해요</dd><dt>가이드</dt><dd>오른쪽 위 ? · 지금 보는 이 화면</dd></dl></div>'+'<div class="card"><h2>계획 수립 · 일정 조정</h2><ul class="tight small gl"><li><b>위치:</b> 훈련표 맨 위 요약 줄 → 📋 계획 수립 · 🛠 일정 조정</li><li><b>계획 고르기:</b> 🏁 기본 계획(2027 서울마라톤)과 📋 나만의 계획 카드 중 <b>적용</b>을 눌러요. 지금 쓰는 계획엔 \'적용 중\'이 붙어요</li><li><b>나만의 계획:</b> 최대 3개. <b>＋ 새 계획 만들기</b> → 대회 이름·날짜·종목·목표·주당 일수·롱런 요일 → ✨ AI로 계획 만들기 → 미리 보고 \'이 계획으로 시작\'</li><li><b>지우기:</b> 카드의 🗑 → 삭제. 적용 중인 계획을 지우면 기본 계획으로 돌아가요</li><li><b>🛠 일정 조정:</b> 요일 바꾸기 · 주간 거리 80~110%(이지만 조절) · 클로드에게 부탁(적용 눌러야 반영). 계획마다 따로 저장돼요</li><li><b>하루만:</b> 오늘 탭에서 그 날짜를 골라 \'이 날 훈련 바꾸기\'</li><li>계획을 바꿔도 체크·기록은 날짜 기준이라 그대로 남아요</li></ul></div>'+'<div class="card"><h2>기준 설정 · 중간 점검</h2><ul class="tight small gl"><li><b>내 기준:</b> 역치 심박·역치 페이스·최근 기록을 넣고 <b>저장</b>해야 반영. \'COROS에서 불러오기\'는 칸만 채워요</li><li><b>분석 결과:</b> 현재 예상 → 목표 차이, VDOT·역치·훈련 MP</li><li><b>중간 점검:</b> W11 10K · W15 하프 · W16 35K. 통과 ★, 1% 빠르면 ★★, 2.5% 빠르면 ★★★. 두 개 이상 미달이면 목표 조정</li></ul></div>'+'<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){return zoneRow(z,false)}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "페이스" 탭에서 바꿀 수 있어요.</p></div>';
+  var h='<nav class="gchips" aria-label="가이드 주제">'+GCHIPS.map(function(c){return '<button type="button" data-gc="'+esc(c[1])+'">'+c[0]+'</button>'}).join('')+'</nav>'+'<div class="card sbar"><div style="min-width:0"><b>처음 사용 안내</b><div class="small muted">앱 사용법을 단계별로 다시 볼 수 있어요.</div></div><button class="btn ghost" id="w-again">다시 보기</button></div>'+'<div class="card"><h2>시작하기 · 복제와 커넥터</h2><ol class="tight small gl" style="padding-left:18px"><li>공유받은 링크를 열고 <b>복제</b>를 눌러 내 Claude로 복사해요. 복제된 앱이 <b>나만의 앱</b>이에요(기록은 내 계정에 저장, 나만 봐요).</li><li>claude.ai <b>설정 → 커넥터</b>에서 필요한 것을 연결해요: <b>COROS</b>(러닝·체중·심박·HRV), <b>freddy</b>(가민·애플 러닝), <b>AccuWeather</b>(날씨), Google Calendar(알림, 선택).</li><li>내 앱 → 오늘 → 맨 위 요약 줄 → ⌚ 워치에서 연결할 워치를 고르고 <b>지금 불러오기</b>, 🌤 날씨에서 동네를 정해요. 처음 한 번 사용 허용을 눌러요.</li><li>페이스 → 기준 설정에 내 기록을 넣고 <b>저장</b>하면 훈련표 페이스가 내게 맞춰져요.</li></ol><p class="small muted" style="margin:6px 0 0">복제하지 않고 링크로만 열면 기록이 그 기기에만 저장되고, 내 커넥터를 연결해도 자동 연동이 안 돼요(claude.ai 보안 정책). 새 버전이 나오면 백업 코드를 복사해 두고 새로 복제한 앱에서 복원하세요.</p></div>'+'<div class="card"><h2>화면 구성</h2><p class="small muted" style="margin:4px 0 0">각 탭 맨 위 <b style="color:var(--ink)">요약 줄</b>을 누르면 펼쳐져서 자세히 보고 관리해요.</p><dl class="kv small" style="margin-top:8px"><dt>오늘</dt><dd>🎯 목표 · ⌚ 워치 · 🌤 날씨 · ❤️ 컨디션 → 훈련·점수·식단 · 화면을 좌우로 밀면 날짜가 바뀌어요</dd><dt>훈련표</dt><dd>📋 계획 수립(기본·나만의 계획 최대 3개) · 🛠 일정 조정 · ⌚ COROS 워크아웃(바뀐 날 같은 날짜에 덮어쓰기) · 진행 → 주별 훈련표</dd><dt>페이스</dt><dd>🎯 기준 설정 · 🚩 중간 점검 · 🏁 레이스 전략</dd><dt>바디</dt><dd>⚖️ 체중 · ❤️ 심박 · 🌙 HRV · 🥗 식단</dd><dt>AI 코치</dt><dd>아래 메뉴 맨 오른쪽 · 내 기록을 보고 답해요</dd><dt>가이드</dt><dd>오른쪽 위 ? · 지금 보는 이 화면</dd></dl></div>'+'<div class="card"><h2>계획 수립 · 일정 조정</h2><ul class="tight small gl"><li><b>위치:</b> 훈련표 맨 위 요약 줄 → 📋 계획 수립 · 🛠 일정 조정</li><li><b>계획 고르기:</b> 🏁 기본 계획(2027 서울마라톤)과 📋 나만의 계획 카드 중 <b>적용</b>을 눌러요. 지금 쓰는 계획엔 \'적용 중\'이 붙어요</li><li><b>나만의 계획:</b> 최대 3개. <b>＋ 새 계획 만들기</b> → 대회 이름·날짜·종목·목표·주당 일수·롱런 요일 → ✨ AI로 계획 만들기 → 미리 보고 \'이 계획으로 시작\'</li><li><b>지우기:</b> 카드의 🗑 → 삭제. 적용 중인 계획을 지우면 기본 계획으로 돌아가요</li><li><b>🛠 일정 조정:</b> 요일 바꾸기 · 주간 거리 80~110%(이지만 조절) · 클로드에게 부탁(적용 눌러야 반영). 계획마다 따로 저장돼요</li><li><b>하루만:</b> 오늘 탭에서 그 날짜를 골라 \'이 날 훈련 바꾸기\'</li><li>계획을 바꿔도 체크·기록은 날짜 기준이라 그대로 남아요</li></ul></div>'+'<div class="card"><h2>기준 설정 · 중간 점검</h2><ul class="tight small gl"><li><b>내 기준:</b> 역치 심박·역치 페이스·최근 기록을 넣고 <b>저장</b>해야 반영. \'COROS에서 불러오기\'는 칸만 채워요</li><li><b>분석 결과:</b> 현재 예상 → 목표 차이, VDOT·역치·훈련 MP</li><li><b>중간 점검:</b> W11 10K · W15 하프 · W16 35K. 통과 ★, 1% 빠르면 ★★, 2.5% 빠르면 ★★★. 두 개 이상 미달이면 목표 조정</li></ul></div>'+'<div class="card"><div class="row between"><h2>페이스 존</h2>'+(K!==1?'<span class="pill ok">내 페이스</span>':'')+'</div><div style="margin-top:8px">'+ZONES.filter(function(z){return ["rec","e","lsd","steady","mp","tempo","int"].indexOf(z.k)>=0}).map(function(z){return zoneRow(z,false)}).join("")+'</div><p class="small muted" style="margin:8px 0 0">빨간 심박 기준이 있는 존은 페이스보다 심박이 우선. 심박이 넘으면 페이스를 늦춘다. 내 기준은 "페이스" 탭에서 바꿀 수 있어요.</p></div>';
   var Zk={};ZONES.forEach(function(z){Zk[z.k]=z});
   h+='<div class="card"><h2>약어</h2><dl class="kv" style="margin-top:8px"><dt>E</dt><dd>이지 '+zr(Zk.e)+' · '+zh(Zk.e)+'</dd><dt>WU</dt><dd>워밍업 '+zr(Zk.wu)+' · 2~3K 조깅 후 스트라이드 4회</dd><dt>CD</dt><dd>쿨다운 '+zr(Zk.cd)+' · 아주 편하게</dd><dt>MP</dt><dd>'+P(255)+'/km (시계 기준 '+P(252)+'~'+P(253)+')</dd><dt>R</dt><dd>조깅·회복 (Recovery) '+zr(Zk.rec)+' · '+zh(Zk.rec)+'</dd><dt>LSD</dt><dd>천천히 오래 (Long Slow Distance) '+zr(Zk.lsd)+' · '+zh(Zk.lsd)+'</dd><dt>LRP</dt><dd>롱런 페이스 (Long Run Pace) · 롱런의 MP 구간 전 '+zr(Zk.mpf)+' · '+zh(Zk.mpf)+'</dd><dt>F</dt><dd>플로트 (Float) '+zr(Zk.float)+' · MP 반복 사이 1K</dd><dt>ST</dt><dd>지속주 (Steady) '+zr(Zk.steady)+'</dd><dt>T</dt><dd>템포·역치 (Tempo/Threshold) '+zr(Zk.tempo)+' · '+lap400(Zk.tempo)+'</dd><dt>I</dt><dd>인터벌 (Interval) '+zr(Zk.int)+' · '+lap400(Zk.int)+'</dd><dt>×</dt><dd>반복 횟수 (예: MP 3K ×3 = 3K를 3번)</dd></dl></div>';
   h+='<div class="card"><h2>레이스 전략 · 대회 평가</h2><ul class="tight small gl"><li><b>만들기:</b> 페이스 → 🏁 레이스 전략 → + 새 대회. 코스 GPX를 올리면 고도 반영 km별 페이스·통과 시간·AI 전략</li><li><b>내보내기:</b> 🖼 인포그래픽(지점별 판단 🔵 빠름 → 속도 줄이기 · 🟢 계획 → 유지 · 🔴 늦음 → 목표 낮추기) · 📋 텍스트 복사 · ⌚ COROS 워치 등록</li><li><b>대회 후:</b> 워치 기록으로 분석 → 100점 평가(목표 40 · 분배 25 · 계획 준수 20 · 후반 15)와 다음 유의사항</li><li><b>설정:</b> 목표·코스 GPX·삭제는 ⚙ 대회 설정에서</li></ul></div>';
