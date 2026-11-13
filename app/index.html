@@ -3330,13 +3330,13 @@ async function drawRaceInfo(rc){
   T(rc.date.replace(/-/g,".")+" · "+dn,W-M,120,"600 26px "+FB,C.mut,"right");
   x.font="800 66px "+FB;var nm=wrapLines(x,rc.name,W-2*M,2);nm.forEach(function(l,i){T(l,M,205+i*78,"800 66px "+FB,C.ink)});
   var y=205+nm.length*78+20;
-  T("목표 기록",M,y,"700 28px "+FB,C.mut);y+=128;
-  var gg=x.createLinearGradient(M,y-120,M+700,y);gg.addColorStop(0,"#ffffff");gg.addColorStop(1,C.acc2);T(fmtT(rc.goal),M,y,"900 140px "+FD,gg);
-  y+=36;var st=[["계획 골인",fmtT(pl.finish)],["평균 페이스",fmtMS(pl.finish/rc.dist)+"/km"],["코스 고도",hasE?"↑"+pl.up+" ↓"+pl.dn+"m":"평지 계산"]],cw=(W-2*M-2*20)/3;
+  T("목표 기록",M,y,"700 28px "+FB,C.mut);y+=112;
+  var gg=x.createLinearGradient(M,y-120,M+700,y);gg.addColorStop(0,"#ffffff");gg.addColorStop(1,C.acc2);T(fmtT(rc.goal),M,y,"900 124px "+FD,gg);
+  y+=32;var st=[["계획 골인",fmtT(pl.finish)],["평균 페이스",fmtMS(pl.finish/rc.dist)+"/km"],["코스 고도",hasE?"↑"+pl.up+" ↓"+pl.dn+"m":"평지 계산"]],cw=(W-2*M-2*20)/3;
   st.forEach(function(q,i){var cx=M+i*(cw+20);x.fillStyle=C.card;rrect(x,cx,y,cw,104,22);x.fill();T(q[0],cx+26,y+40,"600 24px "+FB,C.mut);T(q[1],cx+26,y+84,"800 36px "+FD,C.ink)});
   y+=104+54;
   // chart
-  var ch=250,cl=M,cr=W-M,cwid=cr-cl,ct=y,cb=y+ch,D=rc.dist;function X(km){return cl+km/D*cwid}
+  var ch=200,cl=M,cr=W-M,cwid=cr-cl,ct=y,cb=y+ch,D=rc.dist;function X(km){return cl+km/D*cwid}
   x.fillStyle=C.card;rrect(x,cl-24,ct-30,cwid+48,ch+72,26);x.fill();
   T("코스 · 구간 목표 페이스",cl,ct+6,"700 26px "+FB,C.ink);
   var pt=ct+40,ph=ch-60;
@@ -3351,14 +3351,20 @@ async function drawRaceInfo(rc){
   y=cb+100;
   // split table
   T("구간",M,y,"700 24px "+FB,C.mut);T("목표 페이스",M+330,y,"700 24px "+FB,C.mut,"right");T("통과",M+560,y,"700 24px "+FB,C.mut,"right");if(hasE)T("고도",W-M,y,"700 24px "+FB,C.mut,"right");
-  y+=18;var rh=Math.min(54,Math.floor(470/bl.length));
+  y+=18;var rh=Math.min(46,Math.floor(414/bl.length));
   bl.forEach(function(b,i){var ry=y+i*rh;if(i%2===0){x.fillStyle="rgba(255,255,255,.035)";rrect(x,M-16,ry,W-2*M+32,rh,14);x.fill()}var by=ry+rh/2+11;
     T(kmLbl(b.from)+"–"+kmLbl(b.to)+"km",M,by,"600 30px "+FB,C.ink);T(fmtMS(b.p),M+330,by,"800 32px "+FD,b.up>=15?C.hill:C.acc2,"right");T(fmtT(b.cum),M+560,by,"700 30px "+FD,C.ink,"right");
     if(hasE)T((b.up||b.dn)?"↑"+b.up+" ↓"+b.dn:"—",W-M,by,"600 26px "+FB,b.up>=15?C.hill:C.mut,"right")});
   y+=bl.length*rh+40;
-  // checkpoints
-  if(cps.length){var pw=(W-2*M-(cps.length-1)*16)/cps.length;cps.forEach(function(c,i){var cx=M+i*(pw+16);x.strokeStyle="rgba(139,124,246,.55)";x.lineWidth=2;rrect(x,cx,y,pw,96,20);x.stroke();
-    T(c.at+" 통과",cx+22,y+36,"700 22px "+FB,C.acc2);T(fmtT(c.plan),cx+22,y+78,"800 32px "+FD,C.ink);T("한계 "+fmtT(c.lim),cx+pw-18,y+78,"600 19px "+FB,C.mut,"right")});y+=96+50}
+  // checkpoints with decision bands
+  if(cps.length){T("통과 시간으로 판단하기",M,y,"700 26px "+FB,C.ink);
+    var lg=[["#5ab0ff","빠름"],[C.ok,"계획"],["#ff6b6b","늦음"]],lx=W-M;for(var li=lg.length-1;li>=0;li--){x.font="600 20px "+FB;var lw=x.measureText(lg[li][1]).width;T(lg[li][1],lx,y,"600 20px "+FB,C.mut,"right");x.fillStyle=lg[li][0];x.beginPath();x.arc(lx-lw-14,y-7,7,0,7);x.fill();lx-=lw+44}
+    y+=20;var pw=(W-2*M-(cps.length-1)*16)/cps.length,chH=198;
+    cps.forEach(function(c,i){var cx=M+i*(pw+16);x.fillStyle=C.card;rrect(x,cx,y,pw,chH,20);x.fill();
+      T(c.at+" 통과",cx+20,y+36,"700 22px "+FB,C.acc2);T(fmtT(c.plan),cx+20,y+80,"800 36px "+FD,C.ink);
+      var rows=[["#5ab0ff","~"+fmtT(c.fast),"속도 줄이기"],[C.ok,"~"+fmtT(c.lim),"그대로 유지"],["#ff6b6b",fmtT(c.lim)+"~","목표 낮추기"]];
+      rows.forEach(function(r,k){var ry=y+100+k*32;x.fillStyle=r[0];rrect(x,cx+20,ry,6,24,3);x.fill();T(r[1],cx+36,ry+19,"700 20px "+FD,C.ink);T(r[2],cx+pw-16,ry+19,"600 19px "+FB,r[0],"right")})});
+    y+=chH+52}
   // tips
   var tips=[];if(rc.ai){var kk=(rc.ai.keys||[]).map(function(t){return["✓",t,C.ok]}),ff=(rc.ai.fuel||[]).map(function(t){return["⚡",t,C.hill]});[kk[0],kk[1],ff[0],kk[2],ff[1]].forEach(function(q){if(q)tips.push(q)})}
   if(!tips.length)tips=[["✓","처음 "+pl.firstN+"km는 목표보다 살짝 아껴서 출발",C.ok],["✓","오르막은 페이스보다 호흡·심박을 지키기",C.ok],["⚡","젤은 물과 함께, 시간당 60~90g",C.hill]];
