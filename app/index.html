@@ -631,6 +631,11 @@ nav.tabs button{white-space:nowrap;letter-spacing:-.02em}
 .swi::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .swi:checked{background:var(--accent)}.swi:checked::after{transform:translateX(18px)}
 .swi:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kload{display:flex;align-items:center;gap:10px;margin-top:12px;padding:8px 8px 8px 8px;border-radius:12px;background:var(--bg)}
+.kload .btn{flex:none;padding:7px 12px;font-size:13px;background:var(--card)!important}.kload small{font-size:12px;color:var(--muted);min-width:0}
+.kvr.chg .kl::after{content:"변경";font-size:10px;font-weight:800;color:var(--accent);margin-top:1px}
+.kvr.chg .inp{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.ksave{display:flex;align-items:center;gap:8px;margin-top:10px}.ksave>span{flex:1;min-width:0}.ksave .btn{padding:9px 16px}.ksave .btn[disabled]{opacity:.4}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1326,10 +1331,7 @@ async function watchSync(manual){
     var fmsg="";try{var CC=manual?{refresh:true,staleTime:0,gcTime:600000}:{staleTime:600000,gcTime:600000};
       var fa=payloadText(await mcp.callTool("COROS","queryFitnessAssessmentOverview",{},{cache:CC}));function gx(re){var m=fa.match(re);return m?m[1]:""}
       var F={vo2:gx(/VO2max:\s*([\d.]+)/),lvl:gx(/Running Level:\s*([\d.]+)/),thr:gx(/Threshold Pace:\s*(\d+:\d{2})/),k5:gx(/5 km Prediction:\s*([\d:]+)/),k10:gx(/10 km Prediction:\s*([\d:]+)/),half:gx(/Half Marathon Prediction:\s*([\d:]+)/),mar:gx(/(?:^|\n)Marathon Prediction:\s*([\d:]+)/),at:Date.now(),date:T};
-      if(F.thr||F.k10){S.fit=F;S.profile=S.profile||{};if(S.profile.auto!==false){var ch=[];
-        if(F.thr&&S.profile.thr!==F.thr){S.profile.thr=F.thr;ch.push("역치 "+F.thr)}
-        if(F.k10&&(S.profile.recTime!==F.k10||S.profile.recDist!=="10")){S.profile.recDist="10";S.profile.recTime=F.k10;S.profile.recDate=T;ch.push("10K 예측 "+F.k10)}
-        S.profile.src="coros";if(ch.length)fmsg=" · "+ch.join(", ")+" 반영"}}
+      if(F.thr||F.k10){S.fit=F}
       var tl=payloadText(await mcp.callTool("COROS","queryTrainingLoadAssessment",{days:7},{cache:CC}));
       tl.replace(/(\d{4}-\d{2}-\d{2})\s*\nComment:\s*([^\n]+)\nShort-Term Load:\s*(\d+)\nLong-Term Load:\s*(\d+)\nLoad Ratio:\s*([\d.]+)/g,function(m,d,c,st,lt,r){S.load[d]={c:c.trim(),st:+st,lt:+lt,r:+r};return m});
       var kl=Object.keys(S.load).sort();while(kl.length>14)delete S.load[kl.shift()];
@@ -3395,18 +3397,19 @@ function vPace(){
   if(PACEV==="race"){view.innerHTML=paceSeg()+raceCards();bindPaceSeg();bindRace();return}
   if(PACEV==="check"){view.innerHTML=paceSeg()+checksCard();bindPaceSeg();bindChecks();return}
   var p=S.profile||{},rd=p.recDist||"10",e=EG;
-  var h=paceSeg()+'<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 0">훈련표의 페이스·심박 기준이 이 값에 맞춰져요.</p>';
-  var auto=S.watch==="coros"&&p.auto!==false,F=S.fit,lk=function(on){return on?' readonly':''};
-  if(S.watch==="coros")h+='<label class="kvsw kvsrc"><span><b>⌚ COROS 자동 업데이트</b><small>'+(auto?'역치 페이스·10K 기록 자동 반영'+(F&&F.at?' · '+agoT(F.at):''):'꺼짐 · 직접 입력한 값 사용')+'</small></span><input type="checkbox" role="switch" class="swi" id="p-auto"'+(p.auto!==false?' checked':'')+'></label>';
+  var h=paceSeg()+'<div class="card"><h2>내 기준 입력</h2><p class="small muted" style="margin:2px 0 0">값을 넣고 <b style="color:var(--ink)">저장</b>을 누르면 훈련표의 페이스·심박 기준이 바뀌어요.</p>';
+  var D=pDraft(),F=S.fit,dirty=pDirty(),rdD=D.recDist||"10",ch=function(k){return PD&&String(PD[k]||"")!==String(p[k]||"")?' chg':''};
+  if(S.watch==="coros")h+='<div class="kload"><button type="button" class="btn ghost" id="p-load"'+(PFIT.busy?' disabled':'')+'>'+(PFIT.busy?'불러오는 중…':'⌚ COROS에서 불러오기')+'</button><small>'+(PFIT.err?'<span style="color:var(--bad)">'+esc(PFIT.err)+'</span>':PFIT.msg?'<span style="color:var(--ok)">'+esc(PFIT.msg)+'</span>':'역치 페이스·10K 예측을 채워요')+'</small></div>';
   h+='<div class="kvl">';
-  h+='<label class="kvr"><span class="kl">역치 심박'+(S.watch==="coros"?'<small>직접 입력</small>':'')+'</span><span class="kin"><input id="p-lthr" class="inp" inputmode="numeric" placeholder="168" value="'+esc(p.lthr)+'"><em>bpm</em></span></label>';
-  h+='<label class="kvr"><span class="kl">역치 페이스'+(auto&&F&&F.thr?'<small class="kco">COROS</small>':'')+'</span><span class="kin"><input id="p-thr" class="inp" placeholder="4:02" value="'+esc(p.thr)+'"'+lk(auto&&F&&F.thr)+'><em>/km</em></span></label>';
-  h+='<div class="kvr krec"><span class="kl">최근 기록'+(auto&&F&&F.k10&&rd==="10"?'<small class="kco">COROS</small>':'')+'</span><span class="kin"><span class="mseg" role="radiogroup" aria-label="기록 거리">'+Object.keys(DIST).map(function(k){return '<button type="button" role="radio" aria-checked="'+(rd===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</span><input id="p-rec" class="inp" aria-label="기록"'+lk(auto&&F&&F.k10)+' placeholder="'+(rd==="21"?"1:26:30":rd==="5"?"19:30":"40:10")+'" value="'+esc(p.recTime)+'" style="width:84px"><em></em></span></div>';
-  h+='<label class="kvr"><span class="kl">측정일</span><span class="kin"><input id="p-recdate" class="inp" type="date" value="'+esc(p.recDate)+'" style="width:auto"><em></em></span></label>';
+  h+='<label class="kvr'+ch("lthr")+'"><span class="kl">역치 심박</span><span class="kin"><input id="p-lthr" class="inp" inputmode="numeric" placeholder="168" value="'+esc(D.lthr)+'"><em>bpm</em></span></label>';
+  h+='<label class="kvr'+ch("thr")+'"><span class="kl">역치 페이스</span><span class="kin"><input id="p-thr" class="inp" inputmode="numeric" placeholder="4:02" value="'+esc(D.thr)+'"><em>/km</em></span></label>';
+  h+='<div class="kvr krec'+(ch("recTime")||ch("recDist"))+'"><span class="kl">최근 기록</span><span class="kin"><span class="mseg" role="radiogroup" aria-label="기록 거리">'+Object.keys(DIST).map(function(k){return '<button type="button" role="radio" aria-checked="'+(rdD===k)+'" data-rd="'+k+'">'+DIST[k][1]+'</button>'}).join("")+'</span><input id="p-rec" class="inp" inputmode="numeric" aria-label="기록" placeholder="'+(rdD==="21"?"1:26:30":rdD==="5"?"19:30":"40:10")+'" value="'+esc(D.recTime)+'" style="width:84px"><em></em></span></div>';
+  h+='<label class="kvr'+ch("recDate")+'"><span class="kl">측정일</span><span class="kin"><input id="p-recdate" class="inp" type="date" value="'+esc(D.recDate)+'" style="width:auto"><em></em></span></label>';
   h+='</div>';
-  if(auto&&F)h+='<div class="kfit"><span class="kfl">COROS 체력 평가 · 예측 기록</span>'+[["VO2max",F.vo2],["5K",F.k5],["하프",F.half],["풀",F.mar]].filter(function(x){return x[1]}).map(function(x){return '<span><small>'+x[0]+'</small><b class="num">'+esc(x[1])+'</b></span>'}).join("")+'</div>';
+  if(PFIT.verr)h+='<div class="warn" style="margin-top:8px">'+esc(PFIT.verr)+'</div>';
+  h+='<div class="ksave"><span class="small muted" id="p-dirty">'+(dirty?'저장 안 한 변경 있음':'저장됨')+'</span><button type="button" class="btn ghost" id="p-cancel"'+(dirty?'':' hidden')+'>되돌리기</button><button type="button" class="btn" id="p-save"'+(dirty?'':' disabled')+' style="background:var(--accent);color:var(--on-accent)">저장</button></div>';
+  if(F&&(F.vo2||F.k5||F.half||F.mar))h+='<div class="kfit"><span class="kfl">COROS 체력 평가 · 예측 기록'+(F.at?' · '+agoT(F.at):'')+'</span>'+[["VO2max",F.vo2],["5K",F.k5],["하프",F.half],["풀",F.mar]].filter(function(x){return x[1]}).map(function(x){return '<span><small>'+x[0]+'</small><b class="num">'+esc(x[1])+'</b></span>'}).join("")+'</div>';
   h+='<label class="kvsw"><span><b>훈련표·가이드에 적용</b><small>끄면 원본 서브3 페이스로 보여요</small></span><input type="checkbox" role="switch" class="swi" id="p-use"'+(p.use!==false?' checked':'')+'></label>';
-  if(auto)h+=info('COROS 자동 업데이트가 켜져 있으면 역치 페이스와 10K 기록 칸은 COROS 값으로 채워지고 잠겨요. 직접 넣으려면 위 스위치를 꺼 주세요. 역치 심박은 COROS가 주지 않아 직접 입력해요.','입력 안내');
   h+='</div>';
   // results
   if(e.k){
@@ -3432,12 +3435,36 @@ function vPace(){
   // upcoming
   view.innerHTML=h;
   function setP(k,v){S.profile=S.profile||{};S.profile[k]=v;save();var y=window.scrollY;render();window.scrollTo(0,y)}
-  var pa=document.getElementById("p-auto");if(pa)pa.onchange=function(){S.profile=S.profile||{};S.profile.auto=pa.checked;if(pa.checked&&S.fit){if(S.fit.thr)S.profile.thr=S.fit.thr;if(S.fit.k10){S.profile.recDist="10";S.profile.recTime=S.fit.k10;S.profile.recDate=S.fit.date||T}}save();var y=window.scrollY;render();window.scrollTo(0,y)};
-  [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);el.addEventListener("change",function(){setP(a[1],el.value.trim())})});
+  bindPForm();
   document.getElementById("p-use").onchange=function(){setP("use",this.checked)};
   bindGoal();bindPaceSeg();
-  view.querySelectorAll("[data-rd]").forEach(function(b){b.onclick=function(){setP("recDist",b.dataset.rd)}});
 }
+var PD=null,PFIT={busy:false,msg:"",err:"",verr:""},PKEYS=["lthr","thr","recDist","recTime","recDate"];
+function pDraft(){if(!PD){var p=S.profile||{};PD={};PKEYS.forEach(function(k){PD[k]=p[k]||""});if(!PD.recDist)PD.recDist="10"}return PD}
+function pDirty(){if(!PD)return false;var p=S.profile||{};return PKEYS.some(function(k){return String(PD[k]||"")!==String(p[k]||(k==="recDist"?"10":""))})}
+function pRerender(){var y=window.scrollY;render();window.scrollTo(0,y)}
+function bindPForm(){var D=pDraft();
+  function upd(){var d=pDirty(),sv=document.getElementById("p-save"),cn=document.getElementById("p-cancel"),t=document.getElementById("p-dirty");if(sv)sv.disabled=!d;if(cn)cn.hidden=!d;if(t)t.textContent=d?"저장 안 한 변경 있음":"저장됨"}
+  [["p-lthr","lthr"],["p-thr","thr"],["p-rec","recTime"],["p-recdate","recDate"]].forEach(function(a){var el=document.getElementById(a[0]);if(!el)return;el.addEventListener("input",function(){D[a[1]]=el.value.trim();el.closest(".kvr").classList.toggle("chg",String(D[a[1]])!==String((S.profile||{})[a[1]]||""));upd()})});
+  view.querySelectorAll("[data-rd]").forEach(function(b){b.onclick=function(){D.recDist=b.dataset.rd;pRerender()}});
+  var cn=document.getElementById("p-cancel");if(cn)cn.onclick=function(){PD=null;PFIT.msg="";PFIT.verr="";pRerender()};
+  var sv=document.getElementById("p-save");if(sv)sv.onclick=function(){
+    var e=[];if(D.lthr&&!(+D.lthr>=120&&+D.lthr<=210))e.push("역치 심박은 120~210 사이 숫자로 넣어 주세요.");
+    if(D.thr&&!/^\d{1,2}:\d{2}$/.test(D.thr))e.push("역치 페이스는 4:02처럼 분:초로 넣어 주세요.");
+    if(D.recTime&&!/^(\d{1,2}:)?\d{1,2}:\d{2}$/.test(D.recTime))e.push("기록은 40:10이나 1:26:30처럼 넣어 주세요.");
+    PFIT.verr=e.join(" ");if(e.length){pRerender();return}
+    S.profile=S.profile||{};PKEYS.forEach(function(k){S.profile[k]=D[k]||(k==="recDist"?"10":"")});S.profile.src=PFIT.from||"manual";delete S.profile.auto;
+    PD=null;PFIT.msg="";PFIT.from="";save();pRerender();toast("내 기준을 저장했어요 · 훈련표 페이스가 바뀌었어요")};
+  var ld=document.getElementById("p-load");if(ld)ld.onclick=loadFit}
+async function loadFit(){if(PFIT.busy)return;PFIT.busy=true;PFIT.err="";PFIT.msg="";pRerender();
+  try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)throw{message:"claude.ai에 로그인해야 불러올 수 있어요."};
+    var fa=payloadText(await mcp.callTool("COROS","queryFitnessAssessmentOverview",{},{cache:{refresh:true,staleTime:0,gcTime:600000}}));function gx(re){var m=fa.match(re);return m?m[1]:""}
+    var F={vo2:gx(/VO2max:\s*([\d.]+)/),lvl:gx(/Running Level:\s*([\d.]+)/),thr:gx(/Threshold Pace:\s*(\d+:\d{2})/),k5:gx(/5 km Prediction:\s*([\d:]+)/),k10:gx(/10 km Prediction:\s*([\d:]+)/),half:gx(/Half Marathon Prediction:\s*([\d:]+)/),mar:gx(/(?:^|\n)Marathon Prediction:\s*([\d:]+)/),at:Date.now(),date:T};
+    if(!F.thr&&!F.k10)throw{message:"COROS에서 역치 페이스·예측 기록을 찾지 못했어요."};
+    S.fit=F;var D=pDraft(),got=[];if(F.thr){D.thr=F.thr;got.push("역치 페이스")}if(F.k10){D.recDist="10";D.recTime=F.k10;D.recDate=T;got.push("10K 예측")}
+    PFIT.from="coros";PFIT.msg=got.join("·")+" 채움 · 확인 후 저장";save()}
+  catch(e){PFIT.err=(e&&e.code==="not_granted")?"COROS 연결을 허용해야 불러올 수 있어요.":"불러오지 못했어요"+(e&&e.message?": "+e.message:".")}
+  finally{PFIT.busy=false;pRerender()}}
 
 function distScore(v,plan){if(!(v>0)||!plan)return 4;return band(Math.round(100*Math.pow(Math.min(1,v/plan),1.5)))}
 function memStats(m,w){
