@@ -1026,7 +1026,7 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wrd{display:flex;flex-direction:column;align-items:center;gap:4px}.wrv{font-size:12px;font-weight:800;min-height:16px;color:var(--muted)}
 .wrcol{width:16px;height:46px;border-radius:99px;background:var(--card);display:flex;align-items:flex-end;overflow:hidden}.wrcol u{display:block;width:100%;border-radius:99px;background:var(--ok)}
 .wrd.miss .wrcol{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--s1) 70%,transparent)}.wrd.miss .wrcol u{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--s1) 22%,transparent) 0 4px,transparent 4px 8px)}.wrd.miss .wrv{color:var(--s1)}
-.wrd.rest .wrcol{opacity:.55}.wrd small{font-size:11px;font-weight:700;color:var(--muted)}.wrd.key small{color:var(--accent)}
+.wrd.rest .wrcol{opacity:.55}.wrd small{font-size:11px;font-weight:700;color:var(--muted)}.wrd.wpt small{color:var(--accent)}.wrd small .kstar{font-style:normal;font-size:9px;margin-right:1px;vertical-align:1px}
 .wrbest{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:8px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--s3) 12%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s3) 30%,transparent)}
 .wrmed{font-size:22px}.wrbt{min-width:0;display:flex;flex-direction:column}.wrbt small{font-size:11px;color:var(--muted)}.wrbt b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wrbs{font-size:22px;font-family:var(--f-display)}
 .wrai{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;margin-top:8px;padding:11px 14px;border-radius:14px;background:var(--accent-soft);color:var(--accent)}
@@ -1226,8 +1226,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.1.1",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.1.2",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.1.2","2026-11-16","주간 결과 요일 막대 정렬 수정","포인트·롱런 날 막대 위에 생기던 선과 들쭉날쭉한 위치를 고치고, 포인트 날은 요일 앞 ★로 표시해요."],
  ["1.1.1","2026-11-16","주간 결과 UI 개선","지난 주를 펼치면 결과가 바로 보이고 요일별 기록은 '일별 기록'으로 접혀요. 결과 카드를 그라데이션 헤더·점수 타일·요일별 점수 막대로 바꿨어요. 아직 안 끝난 주에는 결과가 나오지 않아요. '지난 주 N개'를 카드형 접기로 바꿨어요."],
  ["1.1.0","2026-11-16","훈련표 주간 결과 보기 · 체중 연동 개선","오늘 맨 위 주간 리포트를 없애고, 훈련표 각 주 안에 '📊 결과 보기'(완료 링·거리·평균 점수·체중·식단·요일별 점수·최고 훈련·AI 주간 리뷰)를 넣었어요. 가민·애플(freddy) 체중은 연동 앱에 기록된 측정 시각 그대로 지난 1년치를 모두 불러와요. COROS는 측정 시각을 주지 않아 '시각 미제공'으로 표시해요."],
  ["1.0.2","2026-11-15","버전 관리 카드 리디자인 · 가이드 기본 순서","버전 숫자를 MAJOR·MINOR·PATCH 자리별로 보여주고, 변경 기록을 타임라인으로 바꿨어요. 가이드 '기본' 그룹을 시작하기 → 화면 구성 → 친구에게 앱 공유하기 순서로 바꿨어요."],
@@ -3064,7 +3065,7 @@ function weekResultHtml(w){var st=weekStats(w),pkm=weekKm(w),av=weekAvg(w),wk=[]
   var best=null,days='';for(var d2=0;d2<7;d2++){var ds=dateOf(w,d2),t=planDay(w,d2),sc=dayScore(ds),dn=isDone(ds),r=dayRec(ds);
     if(sc&&sc.s!=null&&!sc.extra&&(!best||sc.s>best.s))best={s:sc.s,ds:ds,t:t,d:d2};
     var has=sc&&sc.s!=null,cls=t[0]==="r"?(r.w?'ex':'rest'):dn?'ok':'miss',col=has?SCOL[band(sc.s)]:'',ht=has?Math.max(14,sc.s):cls==='miss'?100:0;
-    days+='<div class="wrd '+cls+(t[0]==="q"||t[0]==="l"||t[0]==="x"?' key':'')+'" title="'+esc(md(ds)+' '+oneLine(t))+'"><span class="wrv num"'+(col?' style="color:'+col+'"':'')+'>'+(has?sc.s:cls==='rest'?'':cls==='miss'?'✕':'✓')+'</span><span class="wrcol"><u style="height:'+ht+'%'+(col?';background:'+col:'')+'"></u></span><small>'+DOW[d2]+'</small></div>'}
+    var pt=t[0]==="q"||t[0]==="l"||t[0]==="x";days+='<div class="wrd '+cls+(pt?' wpt':'')+'" title="'+esc(md(ds)+' '+oneLine(t))+'"><span class="wrv num"'+(col?' style="color:'+col+'"':'')+'>'+(has?sc.s:cls==='rest'?'':cls==='miss'?'✕':'✓')+'</span><span class="wrcol"><u style="height:'+ht+'%'+(col?';background:'+col:'')+'"></u></span><small>'+(pt?'<i class="kstar" aria-label="포인트 훈련">★</i>':'')+DOW[d2]+'</small></div>'}
   var vd=!st.n?['–','na']:cp>=100&&(av==null||av>=85)?['훌륭한 한 주','ok']:cp>=80?['잘 지킨 한 주','ok']:cp>=50?['절반 이상 소화','mid']:['다시 리듬 잡기','bad'];
   var h='<div class="wres"><div class="wrhero"><div class="wrring" style="--p:'+cp+'"><i><b class="num">'+st.done+'</b><small>/'+st.n+'</small></i></div>'
     +'<div class="wrhm"><small>'+wn(w)+' 결과 · '+md(dateOf(w,0))+'–'+md(ends)+'</small><b>'+vd[0]+'</b><div class="wrkm"><span><b class="num">'+st.km+'</b> / '+pkm+'km</span><span class="num">'+kp+'%</span></div><div class="wrbar"><u style="width:'+kp+'%"></u></div></div></div>';
