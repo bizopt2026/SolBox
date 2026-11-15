@@ -1033,9 +1033,11 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .wrai span:nth-child(2){display:flex;flex-direction:column}.wrai b{font-size:13.5px}.wrai small{font-size:11.5px;color:var(--muted)}.wrarr{font-weight:800}.wrai:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wdayb{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto auto 1fr 22px;align-items:center;gap:8px;width:calc(100% - 28px);margin:0 14px 12px;padding:10px 12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line);background:var(--card)}
 .wdayb b{font-size:13.5px}.wdayb .wrsum{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wdayb[aria-expanded="true"] .chev::before{transform:translateY(2px) rotate(-135deg)}.wdayb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.pastwk>summary.pwh{display:grid;grid-template-columns:auto 1fr auto 22px;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);cursor:pointer}
+.pastwk{border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+.pastwk>summary.pwh{display:grid;grid-template-columns:auto 1fr auto 22px;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
 .pwi{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--bg);font-size:18px}.pwt{display:flex;flex-direction:column;min-width:0}.pwt b{font-size:15px}.pwt small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pwo{font-size:12px;font-weight:700;color:var(--accent)}.pastwk[open]>summary.pwh{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.pwo{font-size:12px;font-weight:700;color:var(--accent)}.pastwk[open]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));padding-bottom:8px}.pastwk[open]>summary.pwh{border-bottom:1px dashed color-mix(in srgb,var(--accent) 35%,var(--line))}
+.pastwk>.wk{box-shadow:none}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1090,7 +1092,7 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:700}
 .pastwk>summary{list-style:none;margin:0}
 .pastwk>summary::-webkit-details-marker{display:none}
 .pastwk[open]>summary .chev::before{transform:translateY(2px) rotate(-135deg)}
-.pastwk>.wk{margin-top:10px}
+.pastwk>.wk{margin:8px 8px 0}
 #toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;pointer-events:none;z-index:40;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.2);transition:opacity .2s,transform .2s;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 .rpeline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding:6px 8px 6px 12px;border-radius:10px;background:var(--card)}
@@ -1226,8 +1228,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.1.2",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.1.3",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.1.3","2026-11-16","지난 주 카드 묶음 정리","지난 주 카드를 펼치면 W1 등 지난 주들이 그 카드 안에 묶여 보여요."],
  ["1.1.2","2026-11-16","주간 결과 요일 막대 정렬 수정","포인트·롱런 날 막대 위에 생기던 선과 들쭉날쭉한 위치를 고치고, 포인트 날은 요일 앞 ★로 표시해요."],
  ["1.1.1","2026-11-16","주간 결과 UI 개선","지난 주를 펼치면 결과가 바로 보이고 요일별 기록은 '일별 기록'으로 접혀요. 결과 카드를 그라데이션 헤더·점수 타일·요일별 점수 막대로 바꿨어요. 아직 안 끝난 주에는 결과가 나오지 않아요. '지난 주 N개'를 카드형 접기로 바꿨어요."],
  ["1.1.0","2026-11-16","훈련표 주간 결과 보기 · 체중 연동 개선","오늘 맨 위 주간 리포트를 없애고, 훈련표 각 주 안에 '📊 결과 보기'(완료 링·거리·평균 점수·체중·식단·요일별 점수·최고 훈련·AI 주간 리뷰)를 넣었어요. 가민·애플(freddy) 체중은 연동 앱에 기록된 측정 시각 그대로 지난 1년치를 모두 불러와요. COROS는 측정 시각을 주지 않아 '시각 미제공'으로 표시해요."],
