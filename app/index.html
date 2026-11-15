@@ -2189,7 +2189,7 @@ function coachBar(){
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
 var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
 function openStory(ds){var D0=storyData(ds);if(D0.serMiss&&D0.serMiss.length){STORY.serBusy=true;D0.serMiss.reduce(function(pr,x){return pr.then(function(){return fetchSeries(x)})},Promise.resolve()).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
-if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;enterSub("story");render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
+if(STORY.ds!==ds||STORY.parts!==D0.parts){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;STORY.parts=D0.parts;enterSub("story");render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
@@ -2202,7 +2202,8 @@ function storyData(ds){
   var cr=rs.filter(function(x){return x.src==="COROS"}),miss=cr.filter(function(x){return !x.series}),ser=null;
   if(cr.length&&!miss.length){var d=[],pc=[],h=[],off=0,cuts=[];cr.forEach(function(x,ri){var S0=x.series;if(ri){cuts.push(off);d.push(off);pc.push(0);h.push(0)}S0.d.forEach(function(v,j){d.push(off+v);pc.push(S0.p[j]);h.push(S0.h[j])});off+=S0.d[S0.d.length-1]||0});ser={d:d,p:pc,h:h,parts:cr.length,cuts:cuts}}
   else if(!cr.length)rs.forEach(function(x){if(!ser&&x.series)ser=x.series});
-  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:miss[0]||null,serMiss:miss,parts:rs.length};
+  var sess=rs.map(function(x){var wk=x.laps&&x.laps.laps?x.laps.laps.filter(function(q){return q.d>=0.4&&q.p<330*K}):[];return{km:x.km,dur:x.dur,hr:x.hr,pace:x.km&&x.dur?x.dur/x.km:null,work:wk,at:x.ts?hhmm(x.ts):""}});
+  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:miss[0]||null,serMiss:miss,parts:rs.length,sess:sess};
 }
 async function storyComment(){
   var D=storyData(STORY.ds);STORY.busy=true;STORY.err="";if(tab==="story")render();
@@ -2210,9 +2211,10 @@ async function storyComment(){
     var sm=window.claude&&window.claude.use?await window.claude.use("sample"):null;
     if(!sm){STORY.err="claude.ai에 로그인해야 AI 코멘트를 쓸 수 있어요. 직접 적어도 돼요.";return}
     var info="날짜 "+D.ds+" ("+wn(D.w)+" "+W[D.w].lab+"), 계획: "+ptxt(D.t[1]).replace(/\n/g," / ")+"\n실제: "+(D.km?D.km+"km":"거리 기록 없음")+(D.dur?" · "+fmtT(D.dur):"")+(D.pace?" · 평균 "+fmtMS(D.pace)+"/km":"")+(D.hr?" · 평균 심박 "+D.hr:"")+
-      (D.work.length?"\n본 구간 랩: "+D.work.map(function(x){return x.d.toFixed(1)+"km "+fmtMS(x.p)+(x.hr?" 심박"+x.hr:"")}).join(", "):"")+
+      (D.parts>1?"\n※ 이 날은 워치를 멈췄다 다시 시작해 기록이 "+D.parts+"개로 나뉘었지만 하나의 훈련이야. 위 '실제'는 하루 합계야.\n회차별: "+D.sess.map(function(q,k){return (k+1)+"회차"+(q.at?"("+q.at+")":"")+" "+(q.km?q.km+"km":"")+(q.pace?" "+fmtMS(q.pace)+"/km":"")+(q.hr?" 심박"+q.hr:"")+(q.work.length?" · 본 구간 "+q.work.map(function(x){return x.d.toFixed(1)+"km "+fmtMS(x.p)}).join(", "):"")}).join(" / "):"")+
+      (D.work.length?"\n하루 전체 본 구간 랩: "+D.work.map(function(x){return x.d.toFixed(1)+"km "+fmtMS(x.p)+(x.hr?" 심박"+x.hr:"")}).join(", "):"")+
       "\n목표: "+(S.goal?fmtT(S.goal.sec):"2:59:59")+" (MP "+P(255)+"/km), 2027-03-21 서울마라톤까지 D-"+Math.round((p(RACE)-p(D.ds))/864e5);
-    var out=await sm("너는 이 러너의 마라톤 코치야. 오늘 훈련을 인스타 스토리에 올릴 짧은 코치 코멘트를 한국어로 써.\n- 2~3문장, 공백 포함 90자 이내.\n- 아래 숫자 중 1~2개를 근거로 잘한 점과 다음 포인트를 하나씩.\n- 친근하고 자신감 있게. 해시태그·이모지는 쓰지 마. 따옴표 없이 본문만.\n\n"+info,{cache:false,modelTier:"default"});
+    var out=await sm("너는 이 러너의 마라톤 코치야. 오늘 훈련을 인스타 스토리에 올릴 짧은 코치 코멘트를 한국어로 써.\n- 2~3문장, 공백 포함 90자 이내.\n- 하루 훈련 전체(모든 회차 합계)를 하나로 평가해. 특정 회차만 오늘 훈련인 것처럼 쓰지 마.\n- 아래 숫자 중 1~2개를 근거로 잘한 점과 다음 포인트를 하나씩.\n- 친근하고 자신감 있게. 해시태그·이모지는 쓰지 마. 따옴표 없이 본문만.\n\n"+info,{cache:false,modelTier:"default"});
     STORY.comment=String(out&&out.text||"").replace(/\*\*/g,"").replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"").replace(/\s*\n\s*/g," ").replace(/^["'“]|["'”]$/g,"").trim().slice(0,160);
   }catch(e){var c=e&&e.code;STORY.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 코멘트를 쓸 수 있어요. 직접 적어도 돼요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":"코멘트를 만들지 못했어요. 직접 적어도 돼요."}
   finally{STORY.busy=false;if(tab==="story"){render();drawStory()}}
@@ -2267,7 +2269,8 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   // grid
   ctx.font="500 24px "+FD;ctx.textAlign="right";for(var tk=Math.ceil(lo/step)*step;tk<=hi;tk+=step){var gy=Y(tk);ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(cx,gy);ctx.lineTo(cx+cw,gy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillText(fmtMS(tk),cx-14,gy+8)}ctx.textAlign="left";
   // lap boundaries by distance + lap average lines
-  var cum=0,segs=lapsA.map(function(l){var a=cum;cum+=l.d*1000;return{l:l,a:a,b:cum}});
+  var starts=[0].concat(Sr.cuts||[]),ends=(Sr.cuts||[]).concat([dmax]),tot={};lapsA.forEach(function(l){var g=l.seg||0;tot[g]=(tot[g]||0)+l.d*1000});
+  var cumG={},segs=lapsA.map(function(l){var g=Sr.cuts&&l.seg!=null?l.seg:0,st=Sr.cuts?starts[g]||0:0,span=Sr.cuts?(ends[g]-st):dmax,f=Sr.cuts&&tot[g]?span/tot[g]:1,a=st+(cumG[g]||0)*f;cumG[g]=(cumG[g]||0)+l.d*1000;return{l:l,a:a,b:st+cumG[g]*f}});
   segs.forEach(function(q,k){if(k){ctx.strokeStyle="rgba(255,255,255,.10)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(q.a),top);ctx.lineTo(X(q.a),bot);ctx.stroke()}});
   // run boundaries when the watch was stopped and restarted
   (Sr.cuts||[]).forEach(function(cd,k){var bx=X(cd);ctx.strokeStyle="rgba(255,154,92,.85)";ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(bx,top-6);ctx.lineTo(bx,bot);ctx.stroke();ctx.setLineDash([]);
