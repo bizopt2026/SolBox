@@ -2188,16 +2188,21 @@ function coachBar(){
 }
 // ---------- Instagram story: 1080x1920 image of the day's run + AI coach comment over the runner's own photo ----------
 var STORY={view:"chart",ds:null,img:null,url:"",comment:"",busy:false,err:"",out:"",msg:""};
-function openStory(ds){var D0=storyData(ds);if(!D0.series&&D0.serRun){STORY.serBusy=true;fetchSeries(D0.serRun).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
+function openStory(ds){var D0=storyData(ds);if(D0.serMiss&&D0.serMiss.length){STORY.serBusy=true;D0.serMiss.reduce(function(pr,x){return pr.then(function(){return fetchSeries(x)})},Promise.resolve()).then(function(){STORY.serBusy=false;if(tab==="story"){render()}})}
 if(STORY.ds!==ds){STORY.comment="";STORY.out="";STORY.msg="";STORY.err=""}STORY.ds=ds;enterSub("story");render();window.scrollTo(0,0);if(!STORY.comment)storyComment();if(ds>=addDays(T,-1)&&S.wx&&S.wx.key&&!WX.busy)wxLoad(false).then(function(){if(tab==="story")drawStory()})}
 function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
-  var laps=null;runsOn(ds).forEach(function(x){if(x.laps&&x.laps.kind==="manual")laps=x.laps});
-  var work=laps?laps.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
-  var ser=null,serRun=null;runsOn(ds).forEach(function(x){if(!ser&&x.series){ser=x.series}if(!serRun&&x.src==="COROS")serRun=x});
-  var all=laps;if(!all)runsOn(ds).forEach(function(x){if(!all&&x.laps&&x.laps.laps&&x.laps.laps.length)all=x.laps});
-  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:serRun};
+  // a day can hold several runs (watch stopped and restarted): join their laps and per-second series in time order
+  var rs=runsOn(ds),lr=rs.filter(function(x){return x.laps&&x.laps.laps&&x.laps.laps.length}),all=null,laps=null;
+  if(lr.length){var lp=[];lr.forEach(function(x,ri){x.laps.laps.forEach(function(q){var c={};for(var k in q)c[k]=q[k];c.seg=ri;lp.push(c)})});
+    var allMan=lr.every(function(x){return x.laps.kind==="manual"});all={kind:allMan?"manual":lr.length>1?"mixed":lr[0].laps.kind,laps:lp,parts:lr.length}}
+  if(all&&all.kind==="manual")laps=all;
+  var work=all?all.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
+  var cr=rs.filter(function(x){return x.src==="COROS"}),miss=cr.filter(function(x){return !x.series}),ser=null;
+  if(cr.length&&!miss.length){var d=[],pc=[],h=[],off=0,cuts=[];cr.forEach(function(x,ri){var S0=x.series;if(ri){cuts.push(off);d.push(off);pc.push(0);h.push(0)}S0.d.forEach(function(v,j){d.push(off+v);pc.push(S0.p[j]);h.push(S0.h[j])});off+=S0.d[S0.d.length-1]||0});ser={d:d,p:pc,h:h,parts:cr.length,cuts:cuts}}
+  else if(!cr.length)rs.forEach(function(x){if(!ser&&x.series)ser=x.series});
+  return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:miss[0]||null,serMiss:miss,parts:rs.length};
 }
 async function storyComment(){
   var D=storyData(STORY.ds);STORY.busy=true;STORY.err="";if(tab==="story")render();
@@ -2264,6 +2269,9 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   // lap boundaries by distance + lap average lines
   var cum=0,segs=lapsA.map(function(l){var a=cum;cum+=l.d*1000;return{l:l,a:a,b:cum}});
   segs.forEach(function(q,k){if(k){ctx.strokeStyle="rgba(255,255,255,.10)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(q.a),top);ctx.lineTo(X(q.a),bot);ctx.stroke()}});
+  // run boundaries when the watch was stopped and restarted
+  (Sr.cuts||[]).forEach(function(cd,k){var bx=X(cd);ctx.strokeStyle="rgba(255,154,92,.85)";ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(bx,top-6);ctx.lineTo(bx,bot);ctx.stroke();ctx.setLineDash([]);
+    ctx.font="700 22px "+FB;var lb=(k+2)+"회차",tw=ctx.measureText(lb).width+16;ctx.fillStyle="rgba(255,154,92,.9)";rrect(ctx,Math.min(bx-tw/2,cx+cw-tw),top-40,tw,30,8);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb,Math.min(bx,cx+cw-tw/2),top-18);ctx.textAlign="left"});
   // per-second pace line
   ctx.strokeStyle="rgba(255,255,255,.92)";ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.beginPath();var pen=false;
   Sr.p.forEach(function(v,i){if(!v){pen=false;return}var px=X(Sr.d[i]),py=Y(v);if(pen)ctx.lineTo(px,py);else{ctx.moveTo(px,py);pen=true}});ctx.stroke();
@@ -2287,12 +2295,12 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var L=D.laps,h=yb-y;if(h<220)return;
   if(STORY.view==="table"){var nr=lapRows(L,Math.max(2,Math.floor((h-150)/52))).length;h=Math.min(h,150+nr*52);y=yb-h}
   ctx.fillStyle="rgba(8,12,24,.55)";rrect(ctx,x,y,w,h,32);ctx.fill();
-  ctx.fillStyle="#9d94ff";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":"1km 구간"):"페이스 흐름",x+36,y+56);
+  ctx.fillStyle="#9d94ff";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":L.kind==="mixed"?"구간 "+L.laps.length+"개":"1km 구간")+(L.parts>1?" · "+L.parts+"회 합산":""):"페이스 흐름",x+36,y+56);
   ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":(D.series?"초 단위 · 랩 평균":"랩별 평균 페이스"),x+w-36,y+56);ctx.textAlign="left";
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
     ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
-    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
+    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(k&&r.seg!=null&&rows[k-1].seg!==r.seg){ctx.strokeStyle="rgba(255,154,92,.8)";ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(x+16,yy-40);ctx.lineTo(x+w-16,yy-40);ctx.stroke();ctx.setLineDash([]);ctx.font="700 18px "+FB;var lb2=(r.seg+1)+"회차",tw3=ctx.measureText(lb2).width+16,lx2=x+w/2-tw3/2;ctx.fillStyle="rgba(255,154,92,.95)";rrect(ctx,lx2,yy-51,tw3,22,7);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb2,x+w/2,yy-34);ctx.textAlign="left"}if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
       ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.font=(hard?"800 ":"600 ")+"34px "+FD;
       [[String(r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
     ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
