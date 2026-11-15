@@ -1013,6 +1013,28 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .vtl details p{margin:6px 0 2px;font-size:12px;color:var(--muted);line-height:1.55}
 .vnote{display:grid;grid-template-columns:22px 1fr;gap:8px;margin-top:12px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 20%,transparent)}
 .vnote p{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink)}
+.wresb{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto auto 1fr 22px;align-items:center;gap:8px;width:calc(100% - 28px);margin:2px 14px 10px;padding:10px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent)}
+.wresb b{font-size:13.5px}.wresb .wrsum{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wresb .chev{background:var(--card)}
+.wresb[aria-expanded="true"] .chev::before{transform:translateY(2px) rotate(-135deg)}.wresb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wres{margin:0 14px 12px;padding:14px;border-radius:16px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line),0 4px 16px rgba(20,20,60,.06);animation:fdin .18s ease-out}
+.wrhd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.wrhd>div{display:flex;flex-direction:column}.wrhd small{font-size:11.5px;color:var(--muted)}.wrhd b{font-size:16px;font-family:var(--f-display)}
+.wrk{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:12px}
+.wrring{display:flex;flex-direction:column;align-items:center;gap:4px}.wrring>i{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ok) calc(var(--p)*1%),var(--line) 0);font-style:normal;position:relative}
+.wrring>i:before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--card)}.wrring>i b,.wrring>i small{position:relative}.wrring>i{grid-auto-flow:column;align-items:baseline;align-content:center;justify-content:center}
+.wrring b{font-size:24px;font-family:var(--f-display)}.wrring small{font-size:12px;color:var(--muted)}.wrring>span{font-size:11px;font-weight:700;color:var(--muted)}
+.wrm{min-width:0}.wrrow{display:flex;align-items:baseline;justify-content:space-between}.wrrow span{font-size:12px;font-weight:700;color:var(--muted)}.wrrow b{font-size:18px;font-family:var(--f-display)}.wrrow small{font-size:12px;color:var(--muted);font-weight:600}
+.wrbar{height:7px;border-radius:99px;background:var(--bg);overflow:hidden;margin:4px 0 10px}.wrbar u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--base),var(--accent))}
+.wrst{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.wrst>div{display:flex;flex-direction:column;align-items:center;padding:7px 2px;border-radius:10px;background:var(--bg)}.wrst small{font-size:10.5px;color:var(--muted);font-weight:700}.wrst b{font-size:17px;font-family:var(--f-display)}.wrst i{font-style:normal;font-size:11px;color:var(--muted)}
+.wrdays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px}
+.wrd{display:flex;flex-direction:column;align-items:center;gap:3px}.wrd small{font-size:11px;color:var(--muted);font-weight:700}.wrd.key small{color:var(--accent)}
+.wrb{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--bg);color:var(--muted)}
+.wrd.ok .wrb{background:color-mix(in srgb,var(--c,var(--ok)) 16%,var(--card));color:var(--c,var(--ok));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--c,var(--ok)) 45%,transparent)}.wrb b{font-size:13px}
+.wrd.ex .wrb{background:color-mix(in srgb,var(--c,var(--base)) 14%,var(--card));color:var(--c,var(--base))}
+.wrd.miss .wrb{box-shadow:inset 0 0 0 1.5px var(--s1);color:var(--s1);background:var(--card)}.wrd.fut .wrb{background:none;box-shadow:inset 0 0 0 1.5px var(--line)}.wrd.rest .wrb{font-weight:600}
+.wrbest{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-top:12px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--s3) 12%,var(--card));font-size:12.5px}.wrbest b.num{font-size:16px}
+.wrbest>span:nth-child(2){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrai{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;margin-top:10px;padding:11px 12px;border-radius:12px;background:var(--accent);color:var(--on-accent)}
+.wrai span:nth-child(2){display:flex;flex-direction:column}.wrai b{font-size:13.5px}.wrai small{font-size:11.5px;opacity:.85}.wrai:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1203,8 +1225,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.0.2",APP_RELEASED="2026-11-15";
+var APP_VERSION="1.1.0",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.1.0","2026-11-16","훈련표 주간 결과 보기 · 체중 연동 개선","오늘 맨 위 주간 리포트를 없애고, 훈련표 각 주 안에 '📊 결과 보기'(완료 링·거리·평균 점수·체중·식단·요일별 점수·최고 훈련·AI 주간 리뷰)를 넣었어요. 가민·애플(freddy) 체중은 연동 앱에 기록된 측정 시각 그대로 지난 1년치를 모두 불러와요. COROS는 측정 시각을 주지 않아 '시각 미제공'으로 표시해요."],
  ["1.0.2","2026-11-15","버전 관리 카드 리디자인 · 가이드 기본 순서","버전 숫자를 MAJOR·MINOR·PATCH 자리별로 보여주고, 변경 기록을 타임라인으로 바꿨어요. 가이드 '기본' 그룹을 시작하기 → 화면 구성 → 친구에게 앱 공유하기 순서로 바꿨어요."],
  ["1.0.1","2026-11-15","가이드 공유 카드 정리","'📤 친구에게 앱 공유하기'로 제목을 보이게 바꾸고, 다른 가이드 카드처럼 접고 펼 수 있게 했어요. 가이드 맨 위 주제 버튼에 '공유' 추가"],
  ["1.0.0","2026-11-15","첫 정식 버전","오늘·훈련표·페이스·바디·AI 코치 5개 탭 · COROS/가민(freddy)/AccuWeather 연동 · 계획 수립(기본+나만의 계획 3개)·일정 조정 · COROS 워크아웃 보내기·맞추기 · 가민 워크아웃 파일(.fit) · 기준 설정·중간 점검·레이스 전략 · 체중·심박·HRV·식단(훈련별 목표·카보로딩) · 인스타 스토리(하루 합산) · 대회 주 카드 · 친구에게 앱 공유"]];
@@ -1472,7 +1495,7 @@ function pushHist(){var P=plan();P.hist.push(JSON.stringify({swaps:P.swaps,vol:P
 // ---------- Weight log helpers ----------
 function wDay(ds){var a=S.wlog[ds]||[];if(!a.length)return null;var mn=Infinity,mx=-Infinity,sum=0;a.forEach(function(x){mn=Math.min(mn,x.kg);mx=Math.max(mx,x.kg);sum+=x.kg});return{avg:Math.round(sum/a.length*10)/10,m:sum/a.length,min:mn,max:mx,n:a.length}}
 function wDays(){return Object.keys(S.wlog).filter(function(k){return (S.wlog[k]||[]).length}).sort()}
-function moveWeight(ds,t,nt){var a=S.wlog[ds]||[],x=null;S.wlog[ds]=a.filter(function(y){if(y.t===t&&!x){x=y;return false}return true});if(!S.wlog[ds].length)delete S.wlog[ds];if(!x)return;
+function moveWeight(ds,t,nt){var a=S.wlog[ds]||[],x=null;S.wlog[ds]=a.filter(function(y){if(y.t===t&&!x){x=y;return false}return true});if(!S.wlog[ds].length)delete S.wlog[ds];if(!x)return;delete x.tu;
   var nd=localDate(Math.floor(nt/1000));x.t=nt;(S.wlog[nd]=S.wlog[nd]||[]).push(x);S.wlog[nd].sort(function(a2,b2){return a2.t-b2.t});if(S.wPend&&S.wPend.t===t)S.wPend=null}
 function dtLocal(ms){var d=new Date(ms);function z(n){return (n<10?"0":"")+n}return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+"T"+z(d.getHours())+":"+z(d.getMinutes())}
 function addWeight(ms,kg,src){var ds=localDate(Math.floor(ms/1000));(S.wlog[ds]=S.wlog[ds]||[]).push({t:ms,kg:Math.round(kg*10)/10,src:src});S.wlog[ds].sort(function(a,b){return a.t-b.t})}
@@ -1651,6 +1674,30 @@ function freddyScalar(text,hint){var groups={},cur=null;
     var r=freddyRun({distanceInMeters:g.km*1000,durationInSeconds:g.dur,startTimeInSeconds:st,averageHeartRateInBeatsPerMinute:g.hr,activityType:g.type||undefined,summaryId:g.id||undefined,directWorkoutRpe:g.rpe},hint);if(r){r.date=g.date;out.push(r)}});
   return out}
 function noMcpMsg(what){return AUTH.st==="view"?"복제하지 않은 화면이라 "+what+"을(를) 쓸 수 없어요. 앱을 복제해서 내 앱으로 열어 주세요.":AUTH.st==="anon"?"claude.ai에 로그인한 상태로 열어야 "+what+"을(를) 쓸 수 있어요.":what+"을(를) 쓸 수 없어요. 이 앱의 "+what+" 사용을 허용했는지 확인해 주세요."}
+// freddy body weight: import every reading with the time it was measured in the source app (Garmin scale, Apple Health ...)
+function freddyWeightNames(lm){var out=[],seen={};String(lm||"").split("\n").forEach(function(l){var re=/`?([A-Za-z][A-Za-z0-9]*(?:[_.][A-Za-z0-9]+)*)`?/g,m;while((m=re.exec(l))){var n=m[1];if(seen[n])continue;
+  if(/weight|body_?mass|bodymass/i.test(n)&&!/lean|fat|goal|bmi|muscle|bone|water|percent|pct|index|height/i.test(n)){seen[n]=1;out.push(n)}}});return out.slice(0,8)}
+function fwKg(v,u,n){u=String(u||"").toLowerCase();if(/lb|pound/.test(u+" "+n))v=v*0.45359237;else if(u==="g"||/gram/.test(u)||v>1000)v=v/1000;return v>=30&&v<=200?Math.round(v*10)/10:null}
+function fwTime(o,date){var keys=["timestamp","time","measuredAt","measured_at","recordedAt","startTime","start_time","startDate","sampleTime","date","calendarDate","localDate"];for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v==null)continue;
+    if(typeof v==="number"){var ms=v>1e12?v:v>1e9?v*1000:null;if(ms)return ms}
+    if(typeof v==="string"){if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)){var t=Date.parse(v);if(!isNaN(t))return t}if(/^\d{4}-\d{2}-\d{2}$/.test(v)&&!date)date=v}}
+  var sub=o.raw||o.data||o.record;if(sub&&typeof sub==="object"&&!Array.isArray(sub)){var t2=fwTime(sub,date);if(typeof t2==="number")return t2}
+  return date?{day:date}:null}
+function parseFreddyWeights(text){var out=[];
+  jsonBlobs(text).forEach(function(b){(function walk(o,date){if(!o||typeof o!=="object")return;if(Array.isArray(o)){o.forEach(function(x){walk(x,date)});return}
+    var d2=typeof o.date==="string"&&/^\d{4}-\d{2}-\d{2}/.test(o.date)?o.date.slice(0,10):date;
+    Object.keys(o).forEach(function(k){var v=o[k];if(typeof v==="number"&&/weight|bodymass|body_mass|^value$/i.test(k)&&!/lean|fat|goal|bmi|muscle|bone|water|percent/i.test(k)){var kg=fwKg(v,o.unit||o.units||"",k),tm=fwTime(o,d2);if(kg&&tm)out.push({kg:kg,t:typeof tm==="number"?tm:null,day:tm.day||null})}
+      else if(v&&typeof v==="object")walk(v,d2)})})(b,null)});
+  if(!out.length)String(text||"").split("\n").forEach(function(l){var dm=l.match(/(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2}))?/);if(!dm||!/weight|body_?mass/i.test(l))return;var vm=l.match(/(?:weight|mass)[\w.]*\s*[:=]\s*(\d[\d.,]*)\s*([a-zA-Z]*)/i);if(!vm)return;
+    var kg=fwKg(parseFloat(vm[1].replace(/,/g,"")),vm[2],"");if(!kg)return;var a=dm[1].split("-");out.push({kg:kg,t:dm[2]?new Date(+a[0],a[1]-1,+a[2],+dm[2],+dm[3]).getTime():null,day:dm[1]})});
+  return out}
+function addWeightsImported(list,src){var added=0;list.forEach(function(w){var ms=w.t,tu=false;if(!ms&&w.day){var a=w.day.split("-");ms=new Date(+a[0],a[1]-1,+a[2],7,0).getTime();tu=true}if(!ms)return;
+    var ds=localDate(Math.floor(ms/1000)),arr=S.wlog[ds]||[];if(arr.some(function(x){return Math.abs(x.t-ms)<10*60000&&Math.abs(x.kg-w.kg)<0.15||(x.src===src&&Math.abs(x.kg-w.kg)<0.05&&(tu||x.tu))}))return;
+    addWeight(ms,w.kg,src);if(tu){var e=S.wlog[ds].filter(function(x){return x.t===ms&&x.src===src})[0];if(e)e.tu=1}added++});return added}
+async function freddyWeightSync(mcp,lm,CC,provs){var names=freddyWeightNames(lm);fdiag("체중 항목 "+names.length+"개: "+names.join(", "));if(!names.length)return 0;
+  try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:addDays(T,-364),end:T,include_raw:true},{cache:CC}),qt=allText(q),ws=parseFreddyWeights(qt);
+    fdiag("체중 query_metrics 응답 "+qt.length+"자 · 읽은 체중 "+ws.length+"개 · 앞부분: "+qt.replace(/\s+/g," ").slice(0,300));
+    var src=provs&&provs.length===1?(provs[0]==="GARMIN"?"Garmin":provs[0]==="APPLE_HEALTH"?"애플 건강":provs[0]):"freddy";return addWeightsImported(ws,src)}catch(e){fdiag("체중 조회 실패: "+(e&&(e.code||e.message)));return 0}}
 async function freddySync(manual){
   if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
   var step="연결";
@@ -1662,6 +1709,7 @@ async function freddySync(manual){
     step="list_metrics";var lm=allText(await mcp.callTool("freddy","list_metrics",{},{cache:CC}));
     for(var pi=0;pi<provs.length;pi++){var slug=provs[pi].toLowerCase().replace(/_/g,"-");try{lm+="\nSource: "+provs[pi]+"\n"+allText(await mcp.callTool("freddy","list_metrics",{provider:slug},{cache:CC}))}catch(e5){fdiag("list_metrics("+slug+") 실패: "+(e5&&(e5.code||e5.message)))}}
     fdiag("list_metrics 응답 "+lm.length+"자 · 앞부분: "+lm.replace(/\s+/g," ").slice(0,500));
+    var wAdded=await freddyWeightSync(mcp,lm,CC,provs);if(wAdded)toast("체중 "+wAdded+"개를 측정 시각 그대로 불러왔어요");
     var ms=freddyMetrics(lm);fdiag("찾은 운동 항목 "+ms.length+"개: "+ms.map(function(m){return m.n}).slice(0,30).join(", "));
     if(!ms.length){if(/hydrating|still syncing|No health data/i.test(lm)){WS.msg=/hydrating/i.test(lm)?"freddy가 아직 처음 동기화 중이에요. 잠시 뒤 다시 불러와 주세요.":"freddy에 아직 운동 기록이 없어요. 연결한 앱(가민·애플 건강)에서 동기화된 뒤 다시 불러와 주세요. 가민은 freddy에서 가민 연결의 '히스토리컬 데이터(Historical data)'를 valid(사용)로 바꾸면 예전 기록까지 들어와요."}
       else WS.err="freddy 항목 목록에서 러닝·운동 항목 이름을 알아보지 못했어요. 아래 '진단 정보'를 복사해 관리자에게 보내 주세요.";S.watchAt=Date.now();save();return}
@@ -1681,7 +1729,7 @@ async function freddySync(manual){
     var auto=applyRuns();S.watchAt=Date.now();S.watchFrom=START;
     if(!runs.length&&qerr)WS.err="freddy에서 기록을 조회하지 못했어요("+qerr+"건 실패). 아래 '진단 정보'를 확인해 주세요.";
     else if(!runs.length)WS.msg="freddy 응답에서 러닝 기록을 찾지 못했어요("+from.slice(5)+"~"+to.slice(5)+"). 기록이 있는데 안 보이면 '진단 정보'를 복사해 보내 주세요.";
-    else WS.msg=(added?"러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":""):"새 러닝 기록이 없어요")+(provs.length?" ("+provs.map(function(pv){return pv==="GARMIN"?"Garmin":pv==="APPLE_HEALTH"?"애플 건강":pv}).join("·")+")":"")+".";
+    else WS.msg=(added?"러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":""):"새 러닝 기록이 없어요")+(wAdded?" · 체중 "+wAdded+"개":"")+(provs.length?" ("+provs.map(function(pv){return pv==="GARMIN"?"Garmin":pv==="APPLE_HEALTH"?"애플 건강":pv}).join("·")+")":"")+".";
     save();pushShare();if(added)wxForRuns();if(auto)toast("⌚ 워치 기록으로 "+auto+"일 자동 완료");
   }catch(e){var cd=e&&e.code;fdiag("실패 단계 "+step+" · 코드 "+(cd||"-")+" · "+(e&&e.message||""));WS.err=ERRWF[cd]||("freddy "+step+" 단계에서 실패했어요"+(cd?" ("+cd+")":"")+(e&&e.message?": "+e.message:"")+". '진단 정보'를 복사해 보내 주세요.");WS.msg=""}
   finally{WS.busy=false;keepIf()}
@@ -1690,7 +1738,7 @@ var ERRWF={server_not_connected:"freddy가 연결되어 있지 않아요. claude
 var CW_AT=0;
 async function corosWeightCheck(){if(S.watch!=="coros"||WS.busy||Date.now()-CW_AT<300000)return;CW_AT=Date.now();
   try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)return;var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
-    if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");S.corosW=kg;save();toast("COROS 체중 "+kg+"kg 기록 · 시각은 바디 탭 ✎로 고칠 수 있어요");if(tab==="log")keep()}}}catch(e){}}
+    if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");(function(){var e=(S.wlog[localDate(Math.floor(nt/1000))]||[]).filter(function(x){return x.t===nt})[0];if(e)e.tu=1})();S.corosW=kg;save();toast("COROS 체중 "+kg+"kg 기록 · COROS는 잰 시각을 주지 않아요. 바디 탭 ✎로 고칠 수 있어요");if(tab==="log")keep()}}}catch(e){}}
 document.addEventListener("visibilitychange",function(){if(!document.hidden)corosWeightCheck()});
 async function watchSync(manual){
   if(S.watch==="freddy")return freddySync(manual);
@@ -1734,7 +1782,7 @@ async function watchSync(manual){
       if(rp)S.recov={pct:+rp[1],lv:rl?rl[1].trim():"",full:rf?rf[1].trim():"",at:Date.now(),date:T};
     }catch(e7){}
     var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
-      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg;toast("COROS 체중 "+kg+"kg 기록 · 시각은 바디 탭 ✎로 고칠 수 있어요")}}}catch(e2){}
+      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");(function(){var e=(S.wlog[localDate(Math.floor(nt/1000))]||[]).filter(function(x){return x.t===nt})[0];if(e)e.tu=1})();wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg;toast("COROS 체중 "+kg+"kg 기록 · COROS는 잰 시각을 주지 않아요. 바디 탭 ✎로 고칠 수 있어요")}}}catch(e2){}
     WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+fmsg+".";
     save();pushShare();if(added)wxForRuns();if(auto)toast("⌚ 워치 기록으로 "+auto+"일 자동 완료");
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
@@ -3006,6 +3054,29 @@ function bindSeason(){function y(){var v=window.scrollY;render();window.scrollTo
 function startCard(){if(S.startDone||(S.goal&&S.watch&&S.wx&&S.wx.key))return '';
   var st=[["goal","3.21 목표 정하기",!!S.goal],["watch","워치 연결",!!S.watch],["wx","날씨 동네",!!(S.wx&&S.wx.key)]],done=st.filter(function(x){return x[2]}).length,nx=st.filter(function(x){return !x[2]})[0];
   return '<div class="startbar"><button type="button" class="sb-go" data-start="'+nx[0]+'"><span class="sb-n">시작하기 '+done+'/3</span><span class="sb-dots">'+st.map(function(x){return '<i class="'+(x[2]?'on':'')+'"></i>'}).join('')+'</span><span class="sb-next">다음: <b>'+nx[1]+'</b> →</span></button><button type="button" class="linkbtn" id="sb-x" aria-label="시작하기 숨기기">✕</button></div>'}
+// ---------- 훈련표: 주간 결과 보기 ----------
+var WRES={};
+function weekResultHtml(w){var st=weekStats(w),pkm=weekKm(w),av=weekAvg(w),wk=[],ends=dateOf(w,6),past=ends<T;
+  for(var d=0;d<7;d++){var x=wDay(dateOf(w,d));if(x)wk.push(x.avg)}var dv=wk.length>1?Math.round((wk[wk.length-1]-wk[0])*10)/10:null;
+  var dw=dietWeeks().filter(function(r){return r[0]===w})[0],cp=st.n?Math.round(st.done/st.n*100):0,kp=pkm?Math.min(100,Math.round(st.km/pkm*100)):0;
+  var best=null,days='';for(var d2=0;d2<7;d2++){var ds=dateOf(w,d2),t=planDay(w,d2),sc=ds<=T?dayScore(ds):null,dn=isDone(ds),fut=ds>T;
+    if(sc&&sc.s!=null&&!sc.extra&&(!best||sc.s>best.s))best={s:sc.s,ds:ds,t:t};
+    var cls=fut?'fut':t[0]==="r"?(dayRec(ds).w?'ex':'rest'):dn?'ok':'miss',col=sc&&sc.s!=null?SCOL[band(sc.s)]:'';
+    days+='<div class="wrd '+cls+(t[0]==="q"||t[0]==="l"||t[0]==="x"?' key':'')+'" title="'+esc(md(ds)+' '+oneLine(t))+'"><small>'+DOW[d2]+'</small><span class="wrb"'+(col?' style="--c:'+col+'"':'')+'>'+(sc&&sc.s!=null?'<b class="num">'+sc.s+'</b>':fut?'':t[0]==="r"?'휴':dn?'✓':'–')+'</span></div>'}
+  var verdict=!st.n?'':cp>=100&&(av==null||av>=85)?['훌륭한 한 주','ok']:cp>=80?['잘 지킨 한 주','ok']:cp>=50?['절반 이상 소화','mid']:['다시 리듬 잡기','bad'];
+  var h='<div class="wres"><div class="wrhd"><div><small>'+wn(w)+' · '+md(dateOf(w,0))+'–'+md(ends)+(past?'':' · 진행 중')+'</small><b>'+(past?'주간 결과':'이번 주 지금까지')+'</b></div>'+(verdict?'<span class="rhst '+verdict[1]+'">'+verdict[0]+'</span>':'')+'</div>';
+  h+='<div class="wrk"><div class="wrring" style="--p:'+cp+'"><i><b class="num">'+st.done+'</b><small>/'+st.n+'</small></i><span>완료</span></div>'
+    +'<div class="wrm"><div class="wrrow"><span>거리</span><b class="num">'+st.km+'<small>/'+pkm+'km</small></b></div><div class="wrbar"><u style="width:'+kp+'%"></u></div>'
+    +'<div class="wrst"><div><small>평균 점수</small><b class="num"'+(av!=null?' style="color:'+SCOL[band(av)]+'"':'')+'>'+(av!=null?av:'–')+'</b></div><div><small>체중</small><b class="num">'+(dv==null?'–':(dv>0?'+':dv<0?'−':'±')+Math.abs(dv)+'<i>kg</i>')+'</b></div><div><small>식단</small><b class="num"'+(dw?' style="color:'+SCOL[band(dw[1])]+'"':'')+'>'+(dw?dw[1]:'–')+'</b></div></div></div></div>';
+  h+='<div class="wrdays">'+days+'</div>';
+  if(best)h+='<div class="wrbest"><span aria-hidden="true">🏅</span><span>최고 훈련 <b>'+md(best.ds)+' '+DOW[(idxOf(best.ds)%7+7)%7]+'</b> · '+esc(oneLine(best.t))+'</span><b class="num" style="color:'+SCOL[band(best.s)]+'">'+best.s+'점</b></div>';
+  h+='<button type="button" class="wrai" data-wrai="'+w+'"><span aria-hidden="true">💬</span><span><b>AI 코치에게 주간 리뷰 받기</b><small>잘한 점 · 아쉬운 점 · 다음 주 포인트</small></span><span aria-hidden="true">→</span></button></div>';
+  return h}
+function weekResultBtn(w){var st=weekStats(w),av=weekAvg(w),on=!!WRES[w];
+  return '<button type="button" class="wresb'+(on?' on':'')+'" data-wres="'+w+'" aria-expanded="'+on+'"><span aria-hidden="true">📊</span><b>'+(dateOf(w,6)<T?'결과 보기':'이번 주 결과 보기')+'</b><span class="wrsum">완료 '+st.done+'/'+st.n+(av!=null?' · 평균 '+av+'점':'')+'</span><span class="chev" aria-hidden="true"></span></button>'+(on?weekResultHtml(w):'')}
+function bindWeekRes(){view.querySelectorAll("[data-wres]").forEach(function(b){b.onclick=function(){var w=+b.dataset.wres;WRES[w]=!WRES[w];var y=window.scrollY;render();window.scrollTo(0,y)}});
+  view.querySelectorAll("[data-wrai]").forEach(function(b){b.onclick=function(){var w=+b.dataset.wrai,st=weekStats(w),av=weekAvg(w);enterSub("coach");if(BACK)BACK.ctx=true;render();
+    coachAsk(wn(w)+"("+md(dateOf(w,0))+"~"+md(dateOf(w,6))+") 한 주 훈련을 리뷰해 줘. 완료 "+st.done+"/"+st.n+"회, "+st.km+"km(계획 "+weekKm(w)+"km)"+(av!=null?", 평균 점수 "+av+"점":"")+". 잘한 점, 아쉬운 점, 다음 주에 신경 쓸 포인트를 알려 줘.")}})}
 function weekReport(){var ti=idxOf(T);if(ti<7||ti>=TOTAL+7||sel!==T)return '';var pw=Math.floor(ti/7)-1;if(ti%7>1||S.repSeen===pw||pw<0||pw>=W.length)return '';
   var st=weekStats(pw),av=weekAvg(pw),wk=[];for(var d=0;d<7;d++){var x=wDay(dateOf(pw,d));if(x)wk.push(x.avg)}var dw=dietWeeks().filter(function(r){return r[0]===pw})[0];
   var it=['완료 <b>'+st.done+'/'+st.n+'</b>회','<b>'+st.km+'</b>km'];if(av!=null)it.push('평균 <b style="color:'+SCOL[band(av)]+'">'+av+'점</b>');if(wk.length>1){var dv=Math.round((wk[wk.length-1]-wk[0])*10)/10;it.push('체중 <b>'+(dv>0?'+':dv<0?'−':'±')+Math.abs(dv)+'kg</b>')}if(dw)it.push('식단 <b style="color:'+SCOL[band(dw[1])]+'">'+dw[1]+'점</b>');
@@ -3026,7 +3097,7 @@ function vToday(){
   var food=foodOf(sel,d);
   var dn=isDone(sel);
   var h="";
-  h+=authBar()+seasonCard()+newsCard()+startCard()+weekReport()+statusStrip();
+  h+=authBar()+seasonCard()+newsCard()+startCard()+statusStrip();
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:#cdc8ff">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:22px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+=raceWeekCard();
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
@@ -3504,6 +3575,7 @@ function vPlan(){
     if(w===0&&cwk>0)h+='<details class="pastwk" id="pastwk"'+(PASTW?' open':'')+'><summary class="ifold-h"><span>지난 주 '+Math.min(cwk,W.length)+'개 보기</span><span class="chev" aria-hidden="true"></span></summary>';
     if(w===cwk&&cwk>0)h+='</details>';
     h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+(weekAvg(w)!=null?' · 평균 <b style="color:'+SCOL[band(weekAvg(w))]+'">'+weekAvg(w)+'점</b>':'')+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">km/'+weekKm(w)+'K</span></b><i class="wkbar"><i style="width:'+(weekKm(w)?Math.min(100,Math.round(s.km/weekKm(w)*100)):0)+'%;background:'+phColor(w)+'"></i></i></span></summary>';
+    if(openWeeks[w]&&dateOf(w,0)<=T)h+=weekResultBtn(w);
     if(openWeeks[w]){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=planDay(w,d),r=dayRec(ds);
       var dn=isDone(ds);
       var extra=[];if(r.km)extra.push(r.km+"km");if(r.hr)extra.push("♥"+r.hr);if(r.pace)extra.push(r.pace);
@@ -3517,7 +3589,7 @@ function vPlan(){
   view.innerHTML=h;
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   var pw=document.getElementById("pastwk");if(pw)pw.addEventListener("toggle",function(){PASTW=pw.open});
-  bindMyPlan();bindPlanSrc();bindPlanStrip();
+  bindMyPlan();bindPlanSrc();bindPlanStrip();bindWeekRes();
   view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;if(r.done){delete r.unck;r.dt=Math.floor(Date.now()/1000);if(ds===T)doneWx()}else delete r.dt;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){openDaySheet(b.dataset.open)}});
 }
@@ -3659,7 +3731,7 @@ function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<2
   h+=WENT;
   h+='<div class="wlsth">날짜별 기록</div><div class="wlist">'+(keys.length?keys.map(function(k){var d=wDay(k),open=WOPEN===k;
     var r='<div style="flex-direction:column;align-items:stretch;gap:4px"><button data-wopen="'+k+'" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span class="num">'+md(k)+' <span class="muted small">'+d.n+'회</span></span><span><b class="num">'+d.avg+'</b> kg'+(d.n>1?' <span class="muted small num">('+d.min+'~'+d.max+', 폭 '+(Math.round((d.max-d.min)*10)/10)+')</span>':'')+' <span class="muted">'+(open?'－':'＋')+'</span></span></button>';
-    if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px">'+(WEDIT===k+'|'+x.t?'<span class="wedit"><input class="inp" type="datetime-local" data-wedit-in value="'+dtLocal(x.t)+'"><button class="sbtn wset" type="button" data-wedit-ok="'+k+'|'+x.t+'">저장</button></span>':'<span class="muted num"><button class="wtime" type="button" data-wedit="'+k+'|'+x.t+'" aria-label="잰 시각 바꾸기">'+hhmm(x.t)+' ✎</button> · '+esc(x.src||"직접")+'</span>')+'<span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
+    if(open)r+=(S.wlog[k]||[]).map(function(x){return '<div style="border:0;padding:2px 0 2px 12px;font-size:13px">'+(WEDIT===k+'|'+x.t?'<span class="wedit"><input class="inp" type="datetime-local" data-wedit-in value="'+dtLocal(x.t)+'"><button class="sbtn wset" type="button" data-wedit-ok="'+k+'|'+x.t+'">저장</button></span>':'<span class="muted num"><button class="wtime" type="button" data-wedit="'+k+'|'+x.t+'" aria-label="잰 시각 바꾸기">'+(x.tu?'시각 미제공':hhmm(x.t))+' ✎</button> · '+esc(x.src||"직접")+'</span>')+'<span><b class="num">'+x.kg+'</b> kg <button data-wdel="'+k+'|'+x.t+'" aria-label="이 측정 삭제">✕</button></span></div>'}).join("");
     return r+'</div>'}).join(""):'<div class="muted small" style="border:0">아침 공복 & 취침 직전 체중을 기록해 보세요.</div>')+'</div>';
   var gsec='<section class="card" id="wgoal"><h2>체중 목표 설정</h2>'+wGoalCard()+'</section>';h+='</div>';
   var wch=h;h=bodyKpis(ld)+(BODYV==="wt"?gsec+wch:bodyPanel(BODYV));
