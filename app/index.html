@@ -2195,12 +2195,12 @@ function storyData(ds){
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
   // a day can hold several runs (watch stopped and restarted): join their laps and per-second series in time order
   var rs=runsOn(ds),lr=rs.filter(function(x){return x.laps&&x.laps.laps&&x.laps.laps.length}),all=null,laps=null;
-  if(lr.length){var lp=[];lr.forEach(function(x,ri){x.laps.laps.forEach(function(q){var c={};for(var k in q)c[k]=q[k];c.seg=ri;lp.push(c)})});
-    var allMan=lr.every(function(x){return x.laps.kind==="manual"});all={kind:allMan?"manual":lr.length>1?"mixed":lr[0].laps.kind,laps:lp,parts:lr.length}}
+  if(lr.length){var lp=[];lr.forEach(function(x){var ri=rs.indexOf(x);x.laps.laps.forEach(function(q){var c={};for(var k in q)c[k]=q[k];c.seg=ri;lp.push(c)})});
+    var allMan=lr.every(function(x){return x.laps.kind==="manual"});all={kind:allMan?"manual":lr.length>1?"mixed":lr[0].laps.kind,laps:lp,parts:lr.length,only:lr.length===1&&rs.length>1?rs.indexOf(lr[0])+1:null}}
   if(all&&all.kind==="manual")laps=all;
   var work=all?all.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
   var cr=rs.filter(function(x){return x.src==="COROS"}),miss=cr.filter(function(x){return !x.series}),ser=null;
-  if(cr.length&&!miss.length){var d=[],pc=[],h=[],off=0,cuts=[];cr.forEach(function(x,ri){var S0=x.series;if(ri){cuts.push(off);d.push(off);pc.push(0);h.push(0)}S0.d.forEach(function(v,j){d.push(off+v);pc.push(S0.p[j]);h.push(S0.h[j])});off+=S0.d[S0.d.length-1]||0});ser={d:d,p:pc,h:h,parts:cr.length,cuts:cuts}}
+  if(cr.length&&!miss.length){var d=[],pc=[],h=[],off=0,cuts=[],spans={};cr.forEach(function(x,ri){var S0=x.series,len=S0.d[S0.d.length-1]||0;if(ri){cuts.push(off);d.push(off);pc.push(0);h.push(0)}spans[rs.indexOf(x)]=[off,off+len];S0.d.forEach(function(v,j){d.push(off+v);pc.push(S0.p[j]);h.push(S0.h[j])});off+=len});ser={d:d,p:pc,h:h,parts:cr.length,cuts:cuts,spans:spans}}
   else if(!cr.length)rs.forEach(function(x){if(!ser&&x.series)ser=x.series});
   var sess=rs.map(function(x){var wk=x.laps&&x.laps.laps?x.laps.laps.filter(function(q){return q.d>=0.4&&q.p<330*K}):[];return{km:x.km,dur:x.dur,hr:x.hr,pace:x.km&&x.dur?x.dur/x.km:null,work:wk,at:x.ts?hhmm(x.ts):""}});
   return{ds:ds,i:i,w:w,t:t,km:km,dur:dur,hr:hr,pace:km&&dur?dur/km:null,work:work,rpe:r.rpe,note:r.note,laps:all,series:ser,serRun:miss[0]||null,serMiss:miss,parts:rs.length,sess:sess};
@@ -2269,8 +2269,9 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   // grid
   ctx.font="500 24px "+FD;ctx.textAlign="right";for(var tk=Math.ceil(lo/step)*step;tk<=hi;tk+=step){var gy=Y(tk);ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(cx,gy);ctx.lineTo(cx+cw,gy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillText(fmtMS(tk),cx-14,gy+8)}ctx.textAlign="left";
   // lap boundaries by distance + lap average lines
-  var starts=[0].concat(Sr.cuts||[]),ends=(Sr.cuts||[]).concat([dmax]),tot={};lapsA.forEach(function(l){var g=l.seg||0;tot[g]=(tot[g]||0)+l.d*1000});
-  var cumG={},segs=lapsA.map(function(l){var g=Sr.cuts&&l.seg!=null?l.seg:0,st=Sr.cuts?starts[g]||0:0,span=Sr.cuts?(ends[g]-st):dmax,f=Sr.cuts&&tot[g]?span/tot[g]:1,a=st+(cumG[g]||0)*f;cumG[g]=(cumG[g]||0)+l.d*1000;return{l:l,a:a,b:st+cumG[g]*f}});
+  // each lap is drawn inside the span of the run it belongs to (scaled to that run's watch distance)
+  var SP=Sr.spans,tot={};lapsA.forEach(function(l){var g=l.seg||0;tot[g]=(tot[g]||0)+l.d*1000});
+  var cumG={},segs=lapsA.map(function(l){var g=l.seg||0,sp=SP&&SP[g],st=sp?sp[0]:0,span=sp?sp[1]-sp[0]:dmax,f=sp&&tot[g]?span/tot[g]:1,a=st+(cumG[g]||0)*f;cumG[g]=(cumG[g]||0)+l.d*1000;return{l:l,a:a,b:st+cumG[g]*f}}).filter(function(q){return !SP||SP[q.l.seg||0]});
   segs.forEach(function(q,k){if(k){ctx.strokeStyle="rgba(255,255,255,.10)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(q.a),top);ctx.lineTo(X(q.a),bot);ctx.stroke()}});
   // run boundaries when the watch was stopped and restarted
   (Sr.cuts||[]).forEach(function(cd,k){var bx=X(cd);ctx.strokeStyle="rgba(255,154,92,.85)";ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(bx,top-6);ctx.lineTo(bx,bot);ctx.stroke();ctx.setLineDash([]);
@@ -2298,7 +2299,7 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var L=D.laps,h=yb-y;if(h<220)return;
   if(STORY.view==="table"){var nr=lapRows(L,Math.max(2,Math.floor((h-150)/52))).length;h=Math.min(h,150+nr*52);y=yb-h}
   ctx.fillStyle="rgba(8,12,24,.55)";rrect(ctx,x,y,w,h,32);ctx.fill();
-  ctx.fillStyle="#9d94ff";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":L.kind==="mixed"?"구간 "+L.laps.length+"개":"1km 구간")+(L.parts>1?" · "+L.parts+"회 합산":""):"페이스 흐름",x+36,y+56);
+  ctx.fillStyle="#9d94ff";ctx.font="800 30px "+FB;ctx.fillText(L?(L.kind==="manual"?"랩 "+L.laps.length+"개":L.kind==="mixed"?"구간 "+L.laps.length+"개":"1km 구간")+(L.parts>1?" · "+L.parts+"회 합산":L.only?" · "+L.only+"회차":""):"페이스 흐름",x+36,y+56);
   ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="500 26px "+FB;ctx.fillText(STORY.view==="table"?"랩 기록":(D.series?"초 단위 · 랩 평균":"랩별 평균 페이스"),x+w-36,y+56);ctx.textAlign="left";
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
