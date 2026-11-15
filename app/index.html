@@ -1038,6 +1038,8 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .pwi{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--bg);font-size:18px}.pwt{display:flex;flex-direction:column;min-width:0}.pwt b{font-size:15px}.pwt small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pwo{font-size:12px;font-weight:700;color:var(--accent)}.pastwk[open]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));padding-bottom:8px}.pastwk[open]>summary.pwh{border-bottom:1px dashed color-mix(in srgb,var(--accent) 35%,var(--line))}
 .pastwk>.wk{box-shadow:none}
+.wtdl{display:block;margin-top:3px;font-size:12.5px;font-weight:800;color:var(--muted)}.wtdl.ok{color:var(--ok)}.wtdl.bad{color:var(--bad)}.wthero .wtdl small{display:inline;font-weight:600;color:var(--muted);font-size:11px}
+.bseg .bk .bks{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bseg .bk .bks .dlt{font-size:10.5px;font-weight:800;margin-left:1px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1228,8 +1230,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.1.3",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.1.4",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.1.4","2026-11-16","바디 탭 숫자 정리","맨 위 지표의 주간 변화(▲▼)를 숫자 옆에서 아래 설명 줄로 옮기고, 체중 카드의 '1주 전보다'를 큰 숫자 아래 한 줄로 정리했어요."],
  ["1.1.3","2026-11-16","지난 주 카드 묶음 정리","지난 주 카드를 펼치면 W1 등 지난 주들이 그 카드 안에 묶여 보여요."],
  ["1.1.2","2026-11-16","주간 결과 요일 막대 정렬 수정","포인트·롱런 날 막대 위에 생기던 선과 들쭉날쭉한 위치를 고치고, 포인트 날은 요일 앞 ★로 표시해요."],
  ["1.1.1","2026-11-16","주간 결과 UI 개선","지난 주를 펼치면 결과가 바로 보이고 요일별 기록은 '일별 기록'으로 접혀요. 결과 카드를 그라데이션 헤더·점수 타일·요일별 점수 막대로 바꿨어요. 아직 안 끝난 주에는 결과가 나오지 않아요. '지난 주 N개'를 카드형 접기로 바꿨어요."],
@@ -3668,7 +3671,7 @@ function bodyKpis(ld){
     return '<small class="dlt" style="color:'+(good?'var(--ok)':'var(--bad)')+'" title="지난주 평균 대비">'+(dv>0?'▲':'▼')+Math.abs(dv)+'</small>'}
   var DL={wt:wkDelta(function(k){var x=wDay(k);return x?x.m:null},Object.keys(S.wlog||{}),true),rhr:wkDelta(function(k){return S.rhr[k]},Object.keys(S.rhr||{}),true),hrv:wkDelta(function(k){var x=S.hrv[k];return x&&x.avg?x.avg:null},Object.keys(S.hrv||{}),false)};
   var IC={wt:"⚖️",rhr:"❤️",hrv:"🌙",diet:"🥗"};
-  function t(id,lb,v,u,sub,col){return '<button class="bk'+(BODYV===id?' on':'')+'" role="tab" data-bk="'+id+'" aria-selected="'+(BODYV===id)+'" aria-pressed="'+(BODYV===id)+'"><span class="bkl"><i aria-hidden="true">'+IC[id]+'</i>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+(DL[id]||'')+'</b><span>'+sub+'</span></button>'}
+  function t(id,lb,v,u,sub,col){return '<button class="bk'+(BODYV===id?' on':'')+'" role="tab" data-bk="'+id+'" aria-selected="'+(BODYV===id)+'" aria-pressed="'+(BODYV===id)+'"><span class="bkl"><i aria-hidden="true">'+IC[id]+'</i>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span class="bks">'+sub+(DL[id]&&id!=="wt"?' '+DL[id]:'')+'</span></button>'}
   var wc=null,rc=null,hc=null,rs='최근 아침';
   if(ld){var wp=wtPlan(),st=null;for(var i=1;i<wp.length;i++)if(wp[i][0]>=T){st=wp[i];break}
     var ov=st?ld.avg-st[2]:(g?ld.avg-g:null);if(ov!=null)wc=SCOL[ov<=0?5:ov<=0.5?4:ov<=1?3:ov<=2?2:1]}
@@ -3730,7 +3733,7 @@ function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<2
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var wk7=keys.filter(function(k){return k<=addDays(T,-6)})[0],wk7d=wk7?wDay(wk7):null,wdl=ld&&wk7d?Math.round((ld.avg-wk7d.avg)*10)/10:null,wgt=S.wgoal&&S.wgoal.target||(function(){var l=WT[WT.length-1];return l?Math.round((l[1]+l[2])/2*10)/10:null})(),wleft=ld&&wgt?Math.round((ld.avg-wgt)*10)/10:null;
   var h='<div class="card wcard" id="wcard"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">⚖️</span><div style="flex:1;min-width:0"><h2>체중</h2><small>아침 공복 & 취침 직전 체중 기준</small></div><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
-  if(ld)h+='<div class="wthero"><div><small>최근 '+md(keys[0])+'</small><b class="num">'+ld.avg+'<i>kg</i></b></div>'+(wdl!=null?'<span class="wtchip '+(wdl<0?'ok':wdl>0?'bad':'')+'">'+(wdl<0?'▼':wdl>0?'▲':'±')+Math.abs(wdl)+'kg <small>1주 전보다</small></span>':'')+(wleft!=null?'<button type="button" class="wtchip wtgo'+(WTLO?' on':'')+'" data-wtl aria-expanded="'+WTLO+'">'+(wleft>0?'목표까지 −'+wleft+'kg':'🎉 목표 도달')+' <span aria-hidden="true">'+(WTLO?'⌃':'⌄')+'</span></button>':'')+'</div>'+(WTLO?wGoalTl(WT,ld):'');
+  if(ld)h+='<div class="wthero"><div><small>최근 '+md(keys[0])+'</small><b class="num">'+ld.avg+'<i>kg</i></b>'+(wdl!=null?'<span class="wtdl '+(wdl<0?'ok':wdl>0?'bad':'')+'">'+(wdl<0?'▼':wdl>0?'▲':'±')+Math.abs(wdl)+'kg<small> · 1주 전보다</small></span>':'')+'</div>'+(wleft!=null?'<button type="button" class="wtchip wtgo'+(WTLO?' on':'')+'" data-wtl aria-expanded="'+WTLO+'">'+(wleft>0?'목표까지 −'+wleft+'kg':'🎉 목표 도달')+' <span aria-hidden="true">'+(WTLO?'⌃':'⌄')+'</span></button>':'')+'</div>'+(WTLO?wGoalTl(WT,ld):'');
   var tdn=(S.wlog[T]||[]).length,nowD=new Date();
   var WENT='<div class="went"><form id="wf" class="went-row"><span class="went-l">오늘 기록'+(tdn?'<small>'+tdn+'회 측정</small>':'')+'</span><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></form>';
   WENT+='<details class="wwhen"><summary class="small muted">'+md(T)+' '+hhmm(nowD.getTime())+' · 변경</summary><div class="row" style="gap:6px;margin-top:4px"><input class="inp" type="date" id="w-date" value="'+T+'" aria-label="날짜" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"><input class="inp" type="time" id="w-time" value="'+hhmm(nowD.getTime())+'" aria-label="시각" style="width:auto;min-height:30px;padding:2px 8px;font-size:12px"></div></details></div>';
