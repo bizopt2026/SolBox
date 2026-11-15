@@ -988,6 +988,15 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .rwgo{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;width:calc(100% - 24px);margin:6px 12px 12px;padding:12px 14px;border-radius:14px;background:var(--accent-soft);color:var(--accent)}
 .rwgo span:first-child{font-weight:800;font-size:14px}.rwgo small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rwarr{font-weight:800}
 .rwgo:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vhero{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:14px;border-radius:14px;background:linear-gradient(120deg,var(--navy),color-mix(in srgb,var(--accent) 55%,var(--navy)));color:#fff}
+.vhero>div{display:flex;flex-direction:column;gap:1px}.vhero small{font-size:11px;opacity:.75}.vhero b{font-size:28px;font-family:var(--f-display);line-height:1.1}.vhero span{font-size:12px;opacity:.85}
+.vbadge{flex:none;font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff;opacity:1!important}.vbadge.copy{background:#ffb37a;color:#2a1606}.vbadge.orig{background:#b8f0cd;color:#0f3a22}
+.vrule{margin-top:12px}.vrule>b,.vlog>b{font-size:13px}.vrule p{margin:8px 0 0;font-size:12px;color:var(--muted)}
+.vrg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}.vrg>div{display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:12px;background:var(--bg)}
+.vrg i{font-style:normal;font-size:20px;font-weight:800;color:var(--accent);font-family:var(--f-display)}.vrg b{font-size:12px}.vrg small{font-size:11px;color:var(--muted);line-height:1.4}
+.vlog{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.vli{display:grid;grid-template-columns:64px 1fr;gap:8px;padding:10px 0;border-top:1px solid var(--line)}.vli>span{font-weight:800;color:var(--accent);font-size:14px}
+.vli b{font-size:13.5px}.vli small{display:block;font-size:11px;color:var(--muted)}.vli p{margin:4px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -1176,6 +1185,11 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 <script>
 (function(){
 "use strict";
+// ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
+// 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
+var APP_VERSION="1.0.0",APP_RELEASED="2026-11-15";
+var VLOG=[
+ ["1.0.0","2026-11-15","첫 정식 버전","오늘·훈련표·페이스·바디·AI 코치 5개 탭 · COROS/가민(freddy)/AccuWeather 연동 · 계획 수립(기본+나만의 계획 3개)·일정 조정 · COROS 워크아웃 보내기·맞추기 · 가민 워크아웃 파일(.fit) · 기준 설정·중간 점검·레이스 전략 · 체중·심박·HRV·식단(훈련별 목표·카보로딩) · 인스타 스토리(하루 합산) · 대회 주 카드 · 친구에게 앱 공유"]];
 // ---------- Plan data (from 2027 서울 3.21 서브3 훈련계획: 18주 + 레이스 주) ----------
 // type: r 휴식, e 이지/조깅, q 수요일 포인트, l 토요일 롱런/지속주, c 일요일 회복, x 대회
 var START="2026-11-09", RACE="2027-03-21";
@@ -4492,6 +4506,13 @@ var WINVITE=[function(){
   return h;
  }];
 var APP_URL0="https://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ";
+function isCopyApp(){try{var m=String(document.referrer||"").match(/\/artifact\/([A-Za-z0-9_-]+)/);if(!m)return null;return APP_URL0.indexOf(m[1])<0}catch(e){return null}}
+function versionCard(){var cp=isCopyApp(),last=VLOG[0];
+  var h='<div class="card vcard"><h2>버전 관리</h2><div class="vhero"><div><small>지금 버전</small><b class="num">v'+APP_VERSION+'</b><span>'+dotDate(APP_RELEASED)+' · '+esc(last[2])+'</span></div><span class="vbadge '+(cp===true?'copy':cp===false?'orig':'')+'">'+(cp===true?'복제본 · 버전 고정':cp===false?'원본':'버전 고정값')+'</span></div>';
+  h+='<div class="vrule"><b>버전 번호 읽는 법</b><div class="vrg"><div><i class="num">1</i><b>MAJOR</b><small>데이터 구조가 바뀌어 예전 백업과 호환이 안 되거나, 탭 구성·핵심 흐름이 크게 바뀔 때</small></div><div><i class="num">0</i><b>MINOR</b><small>새 기능·새 화면·새 연동을 추가할 때 (아래 자리는 0으로)</small></div><div><i class="num">0</i><b>PATCH</b><small>버그 수정, 문구·UI 다듬기, 계산 보정</small></div></div><p>원본을 고쳐 게시할 때마다 한 번 올려요. 한 번에 여러 개를 고치면 가장 큰 범위 하나만 올려요.</p></div>';
+  h+='<div class="vlog"><b>변경 기록</b>'+VLOG.map(function(v){return '<div class="vli"><span class="num">v'+v[0]+'</span><div><b>'+esc(v[2])+'</b><small>'+dotDate(v[1])+'</small>'+(v[3]?'<p>'+esc(v[3])+'</p>':'')+'</div></div>'}).join('')+'</div>';
+  h+='<p class="small muted" style="margin:10px 0 0">복제한 앱의 버전은 <b>복제한 시점의 번호로 고정</b>돼요. 원본이 바뀌어도 자동으로 따라가지 않아요. 최신 기능을 쓰려면 원본을 새로 복제하고 \'백업\'으로 기록을 옮기세요.</p></div>';
+  return h}
 function appUrl(){var u=CREW.settings&&CREW.settings.url;if(u&&/^https:\/\/claude\.ai\//.test(u))return u;try{var m=String(document.referrer||"").match(/^https:\/\/claude\.ai\/(?:code\/)?artifact\/[A-Za-z0-9_-]+/);if(m)return m[0]}catch(e){}return APP_URL0}
 function inviteMsg(){
   return ["🏃 Sub-3 훈련 체크 앱 같이 써요!","마라톤 훈련표·페이스·식단·워치 기록을 한 곳에서 관리하는 앱이에요.","",
@@ -4579,7 +4600,7 @@ function fbAdmin(){if(!FB.sub&&CREW.db){FB.sub=true;try{CREW.db.collection("feed
   if(!L)h+='<p class="small muted" style="margin:0">불러오는 중…</p>';else if(!L.length)h+='<p class="small muted" style="margin:0">아직 받은 의견이 없어요.</p>';
   else L.slice(0,50).forEach(function(x){h+='<div class="fbi"><div class="small muted">'+esc(x.nick||"러너")+' · '+new Date(x.t).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+' · '+esc(x.ua||"")+'</div><div class="small">'+esc(x.text)+'</div></div>'});
   return h+'</div></div>'}
-var GCHIPS=[["시작하기","시작하기 · 복제와 커넥터"],["화면","화면 구성"],["오늘","훈련 점수"],["훈련표","계획 수립 · 일정 조정"],["페이스","기준 설정 · 중간 점검"],["바디","훈련별 먹는 양"],["AI 코치","AI 코치"],["백업","백업"]];
+var GCHIPS=[["시작하기","시작하기 · 복제와 커넥터"],["화면","화면 구성"],["오늘","훈련 점수"],["훈련표","계획 수립 · 일정 조정"],["페이스","기준 설정 · 중간 점검"],["바디","훈련별 먹는 양"],["AI 코치","AI 코치"],["백업","백업"],["버전","버전 관리"]];
 var FONTS={plex:["IBM Plex Sans KR","IBM Plex Sans KR",""],noto:["Noto Sans KR","Noto Sans KR","Noto+Sans+KR:wght@400;500;600;700;800"],nanum:["Nanum Gothic","나눔고딕","Nanum+Gothic:wght@400;700;800"],gothic:["Gothic A1","Gothic A1","Gothic+A1:wght@400;500;600;700;800"]};
 function fontDef(){try{return window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches?"noto":"plex"}catch(e){return "plex"}}
 function fontKey(){try{var k=localStorage.getItem("sub3-font");return FONTS[k]?k:fontDef()}catch(e){return fontDef()}}
@@ -4602,9 +4623,9 @@ function vGuide(){
   h+='<div class="card"><h2>AI 코치</h2><ul class="tight small gl"><li>아래 메뉴 맨 오른쪽 <b>AI 코치</b>(PC 단축키 C). 내 계획·기록·체중·목표·점검 결과를 보고 답해요</li><li>처음엔 추천 질문 카드를 눌러 바로 물어볼 수 있어요. 답변 아래 🔊 듣기 · 📋 복사</li><li>대화는 내 계정에만 저장. 답은 참고용 — 통증·어지럼은 바로 쉬기</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙 · 한 주의 리듬</h2><ul class="tight small gl"><li>핵심 훈련은 <b>수·토</b>, 나머지는 천천히. 근력은 화·목 이지런 뒤 20~30분</li><li>아침 심박이 평소보다 5↑ 또는 수면 불량 → 수·토 훈련을 하루 미루기</li><li>인천마라톤(11/22) 뒤 1주 완전 휴식. 통증 3일 이상 → 회복주 수준으로</li><li>한파·빙판은 트랙·트레드밀, 페이스보다 노력도</li><li>피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지키기</li></ul></div>';
 
-  h+='<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
+  h+=versionCard()+'<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
   view.innerHTML=h;
-  (function(){var G=[["기본",["친구에게 앱 공유","시작하기 · 복제와 커넥터","화면 구성"]],["오늘",["훈련 점수"]],["훈련표",["계획 수립 · 일정 조정","COROS 워크아웃 보내기","가민 워크아웃 파일","운영 원칙 · 한 주의 리듬"]],["페이스",["기준 설정 · 중간 점검","페이스 존","약어","레이스 전략 · 대회 평가"]],["바디",["훈련별 먹는 양"]],["AI 코치",["AI 코치"]],["기타",["백업"]]];
+  (function(){var G=[["기본",["친구에게 앱 공유","시작하기 · 복제와 커넥터","화면 구성"]],["오늘",["훈련 점수"]],["훈련표",["계획 수립 · 일정 조정","COROS 워크아웃 보내기","가민 워크아웃 파일","운영 원칙 · 한 주의 리듬"]],["페이스",["기준 설정 · 중간 점검","페이스 존","약어","레이스 전략 · 대회 평가"]],["바디",["훈련별 먹는 양"]],["AI 코치",["AI 코치"]],["기타",["버전 관리","백업"]]];
     var cards=[].slice.call(view.querySelectorAll(":scope>.card")).filter(function(c){return c.querySelector("h2")}),by={};cards.forEach(function(c){by[c.querySelector("h2").textContent.trim()]=c});
     G.forEach(function(g){if(g[0]){var lb=document.createElement("div");lb.className="gsec";lb.textContent=g[0];view.appendChild(lb)}g[1].forEach(function(t){var c=by[t];if(c){view.appendChild(c);delete by[t]}})});
     Object.keys(by).forEach(function(t){view.appendChild(by[t])})})();
