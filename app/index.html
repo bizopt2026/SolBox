@@ -964,6 +964,13 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .fitnext ol{margin:8px 0 0;padding:0;list-style:none;counter-reset:fn;display:flex;flex-direction:column;gap:5px}
 .fitnext li{counter-increment:fn;display:grid;grid-template-columns:20px 1fr;gap:6px;font-size:12.5px;line-height:1.5;color:var(--ink)}
 .fitnext li:before{content:counter(fn);width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;background:var(--ok);color:#fff;font-weight:800;font-size:11px}
+.rwh{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:1fr 64px 22px;align-items:center;gap:10px}
+.rwh:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.rwt{display:flex;flex-direction:column;min-width:0}.rwt b{font-size:16px;font-family:var(--f-display)}.rwt small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rwbar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}.rwbar u{display:block;height:100%;background:var(--accent);border-radius:99px}
+.rwh[aria-expanded="true"] .chev::before{transform:translateY(2px) rotate(-135deg)}
+.card.raceweek.rwfold{padding-block:12px}
+.raceweek .rchkl{margin-top:10px}
 .kvl{margin-top:6px}
 @media (max-width:379px){.kvr.krec{flex-wrap:wrap;row-gap:6px}.kvr.krec .kin{margin-left:auto}}
 .kvr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;min-height:44px}
@@ -2194,11 +2201,12 @@ function storyData(ds){
   var i=idxOf(ds),w=Math.floor(i/7),t=planAt(i),r=dayRec(ds),km=null,dur=null,hr=null;
   if(r.w){km=r.w.km;dur=r.w.dur;hr=r.w.hr}if(r.km&&!isNaN(+r.km))km=+r.km;if(r.hr&&!isNaN(+r.hr))hr=+r.hr;
   // a day can hold several runs (watch stopped and restarted): join their laps and per-second series in time order
-  var rs=runsOn(ds),lr=rs.filter(function(x){return x.laps&&x.laps.laps&&x.laps.laps.length}),all=null,laps=null;
-  if(lr.length){var lp=[];lr.forEach(function(x){var ri=rs.indexOf(x);x.laps.laps.forEach(function(q){var c={};for(var k in q)c[k]=q[k];c.seg=ri;lp.push(c)})});
-    var allMan=lr.every(function(x){return x.laps.kind==="manual"});all={kind:allMan?"manual":lr.length>1?"mixed":lr[0].laps.kind,laps:lp,parts:lr.length,only:lr.length===1&&rs.length>1?rs.indexOf(lr[0])+1:null}}
+  var rs=runsOn(ds),lr=rs.filter(function(x){return x.laps&&x.laps.laps&&x.laps.laps.length}),all=null,laps=null,whole=0;
+  if(lr.length||rs.length>1){var lp=[];rs.forEach(function(x,ri){if(x.laps&&x.laps.laps&&x.laps.laps.length)x.laps.laps.forEach(function(q){var c={};for(var k in q)c[k]=q[k];c.seg=ri;lp.push(c)});
+      else if(rs.length>1&&x.km&&x.dur){whole++;lp.push({d:x.km,t:x.dur,p:x.dur/x.km,hr:x.hr||null,seg:ri,whole:true})}});
+    var allMan=lr.every(function(x){return x.laps.kind==="manual"});all=!lp.length?null:whole||!lr.length?{kind:"mixed",laps:lp,parts:rs.length,only:null}:{kind:allMan?"manual":lr.length>1?"mixed":lr[0].laps.kind,laps:lp,parts:lr.length,only:lr.length===1&&rs.length>1?rs.indexOf(lr[0])+1:null}}
   if(all&&all.kind==="manual")laps=all;
-  var work=all?all.laps.filter(function(x){return x.d>=0.4&&x.p<330*K}):[];
+  var work=all?all.laps.filter(function(x){return !x.whole&&x.d>=0.4&&x.p<330*K}):[];
   var cr=rs.filter(function(x){return x.src==="COROS"}),miss=cr.filter(function(x){return !x.series}),ser=null;
   if(cr.length&&!miss.length){var d=[],pc=[],h=[],off=0,cuts=[],spans={};cr.forEach(function(x,ri){var S0=x.series,len=S0.d[S0.d.length-1]||0;if(ri){cuts.push(off);d.push(off);pc.push(0);h.push(0)}spans[rs.indexOf(x)]=[off,off+len];S0.d.forEach(function(v,j){d.push(off+v);pc.push(S0.p[j]);h.push(S0.h[j])});off+=len});ser={d:d,p:pc,h:h,parts:cr.length,cuts:cuts,spans:spans}}
   else if(!cr.length)rs.forEach(function(x){if(!ser&&x.series)ser=x.series});
@@ -2280,7 +2288,7 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   ctx.strokeStyle="rgba(255,255,255,.92)";ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.beginPath();var pen=false;
   Sr.p.forEach(function(v,i){if(!v){pen=false;return}var px=X(Sr.d[i]),py=Y(v);if(pen)ctx.lineTo(px,py);else{ctx.moveTo(px,py);pen=true}});ctx.stroke();
   // lap averages: straight line + value
-  var lastX=-999;segs.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,x0=X(q.a),x1=X(q.b),yy=Y(q.l.p);if(x1-x0<10)return;
+  var lastX=-999;segs.forEach(function(q){var hard=!q.l.whole&&q.l.d>=0.4&&q.l.p<330*K,x0=X(q.a),x1=X(q.b),yy=Y(q.l.p);if(x1-x0<10)return;
     ctx.strokeStyle=hard?"#9d94ff":"rgba(200,195,255,.7)";ctx.lineWidth=hard?5:3;ctx.setLineDash(hard?[]:[10,8]);ctx.beginPath();ctx.moveTo(x0+3,yy);ctx.lineTo(x1-3,yy);ctx.stroke();ctx.setLineDash([]);
     var mid=(x0+x1)/2;if((!hard&&x1-x0<70)||mid-lastX<80)return;lastX=mid;
     var txt=fmtMS(q.l.p);ctx.font=(hard?"800 30px ":"600 24px ")+FD;var tw=ctx.measureText(txt).width+18,ly=Math.max(top+4,yy-46);
@@ -2292,8 +2300,8 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   ctx.fillStyle="#ff9a5c";var lx=cx+40+ctx.measureText("페이스(초 단위)").width+28;ctx.fillRect(lx,y+h-30,30,5);ctx.fillText("랩 평균",lx+40,y+h-20);
   if(hs.length>5){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);var tw2=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillStyle="rgba(122,167,255,.45)";ctx.fillRect(cx+cw-tw2-44,y+h-36,32,18);ctx.textAlign="left"}
 }
-function lapRows(L,n){var a=L.laps.map(function(x,i){x.i=i+1;return x});if(a.length<=n)return a;
-  var work=a.filter(function(x){return x.d>=0.4&&x.p<330*K}).slice(0,n),rest=a.filter(function(x){return work.indexOf(x)<0}).sort(function(p,q){return q.d-p.d}).slice(0,n-work.length);
+function lapRows(L,n){var cn={},a=L.laps.map(function(x,i){x.i=i+1;var g=x.seg||0;cn[g]=(cn[g]||0)+(x.whole?0:1);x.n=cn[g];return x});if(a.length<=n)return a;
+  var work=a.filter(function(x){return x.whole||(x.d>=0.4&&x.p<330*K)}).slice(0,n),rest=a.filter(function(x){return work.indexOf(x)<0}).sort(function(p,q){return q.d-p.d}).slice(0,n-work.length);
   return work.concat(rest).sort(function(p,q){return p.i-q.i})}
 function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var L=D.laps,h=yb-y;if(h<220)return;
@@ -2304,9 +2312,9 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
     ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
-    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=r.d>=0.4&&r.p<330*K;if(k&&r.seg!=null&&rows[k-1].seg!==r.seg){ctx.strokeStyle="rgba(255,154,92,.8)";ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(x+16,yy-40);ctx.lineTo(x+w-16,yy-40);ctx.stroke();ctx.setLineDash([]);ctx.font="700 18px "+FB;var lb2=(r.seg+1)+"회차",tw3=ctx.measureText(lb2).width+16,lx2=x+w/2-tw3/2;ctx.fillStyle="rgba(255,154,92,.95)";rrect(ctx,lx2,yy-51,tw3,22,7);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb2,x+w/2,yy-34);ctx.textAlign="left"}if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
+    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=!r.whole&&r.d>=0.4&&r.p<330*K;var newSeg=r.seg!=null&&(L.parts>1||L.only)&&(k===0||rows[k-1].seg!==r.seg);if(newSeg){if(k){ctx.strokeStyle="rgba(255,154,92,.8)";ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(x+16,yy-40);ctx.lineTo(x+w-16,yy-40);ctx.stroke();ctx.setLineDash([])}ctx.font="700 18px "+FB;var lb2=(r.seg+1)+"회차",tw3=ctx.measureText(lb2).width+16,pcx=x+w*0.31;ctx.fillStyle="rgba(255,154,92,.95)";rrect(ctx,pcx-tw3/2,yy-51,tw3,22,7);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb2,pcx,yy-34);ctx.textAlign="left"}if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
       ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.font=(hard?"800 ":"600 ")+"34px "+FD;
-      [[String(r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
+      [[r.whole?"전체":String(L.parts>1||L.only?r.n:r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
     ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
     return;
   }
@@ -2323,8 +2331,8 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   for(var tk=Math.ceil(lo/step)*step;tk<=hi;tk+=step){var gy=Y(tk);ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(cx,gy);ctx.lineTo(cx+cw,gy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillText(fmtMS(tk),cx-14,gy+8)}
   ctx.textAlign="left";
   ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=2;seg.forEach(function(q,k2){if(k2){var a=seg[k2-1];ctx.beginPath();ctx.moveTo(q.x0,Y(a.l.p));ctx.lineTo(q.x0,Y(q.l.p));ctx.stroke()}});
-  seg.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,yy=Y(q.l.p);ctx.strokeStyle=hard?"#9d94ff":"rgba(255,255,255,.8)";ctx.lineWidth=hard?9:5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(q.x0+4,yy);ctx.lineTo(q.x1-4,yy);ctx.stroke();ctx.lineCap="butt"});
-  var lastX=-999;seg.forEach(function(q){var hard=q.l.d>=0.4&&q.l.p<330*K,mid=(q.x0+q.x1)/2,yy=Y(q.l.p),wd=q.x1-q.x0;if(!hard&&wd<64)return;if(mid-lastX<78)return;
+  seg.forEach(function(q){var hard=!q.l.whole&&q.l.d>=0.4&&q.l.p<330*K,yy=Y(q.l.p);ctx.strokeStyle=hard?"#9d94ff":"rgba(255,255,255,.8)";ctx.lineWidth=hard?9:5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(q.x0+4,yy);ctx.lineTo(q.x1-4,yy);ctx.stroke();ctx.lineCap="butt"});
+  var lastX=-999;seg.forEach(function(q){var hard=!q.l.whole&&q.l.d>=0.4&&q.l.p<330*K,mid=(q.x0+q.x1)/2,yy=Y(q.l.p),wd=q.x1-q.x0;if(!hard&&wd<64)return;if(mid-lastX<78)return;
     ctx.textAlign="center";ctx.font=(hard?"800 32px ":"600 24px ")+FD;ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.7)";var ly=yy-18<top-6?yy+40:yy-18;ctx.fillText(fmtMS(q.l.p),Math.min(Math.max(mid,cx+40),cx+cw-40),ly);ctx.textAlign="left";lastX=mid});
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(tot*10)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
   ctx.font="500 24px "+FB;ctx.fillStyle="#ff9a5c";ctx.fillRect(cx,y+h-30,34,6);ctx.fillText("랩 평균 페이스",cx+44,y+h-20);if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);ctx.fillStyle="rgba(122,167,255,.45)";var tw=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillRect(cx+cw-tw-44,y+h-36,32,18);ctx.textAlign="left"}
@@ -2956,8 +2964,11 @@ function weekReport(){var ti=idxOf(T);if(ti<7||ti>=TOTAL+7||sel!==T)return '';va
 var RCHK=[["carb","카보로딩","D-2~D-1 탄수 체중×8~10g, 섬유·지방은 줄이기"],["plan","레이스 전략 확인","구간 페이스·보급 시점 다시 보기"],["kit","준비물","배번·칩, 젤 4~6개, 바셀린, 레이스 복장·신발"],["sleep","수면","대회 전 이틀은 7시간 이상"],["route","출발 동선","집결 시간·교통·물품 보관 확인"]];
 function raceWeekCard(){if(sel!==T)return '';var nx=null;for(var k=0;k<=7;k++){var ds=addDays(T,k),ix=idxOf(ds);if(ix>=0&&ix<TOTAL&&planAt(ix)[0]==="x"){nx=ds;break}}
   (S.races||[]).forEach(function(rc){if(!nx&&rc.date>=T&&rc.date<=addDays(T,7))nx=rc.date});if(!nx)return '';
-  var dd=Math.round((p(nx)-p(T))/864e5),rc=(S.races||[]).filter(function(x){return x.date===nx})[0],nm=rc?rc.name:(nx===RACE?'서울마라톤':'대회'),ck=(S.raceChk||{})[nx]||{},n=RCHK.filter(function(x){return ck[x[0]]}).length;
-  return '<div class="card raceweek"><div class="row between"><h2>🏁 '+esc(nm)+' '+(dd?'D-'+dd:'오늘!')+'</h2><span class="small muted">준비 '+n+'/'+RCHK.length+'</span></div><ul class="rchkl">'+RCHK.map(function(x){return '<li><label><input type="checkbox" data-rck="'+nx+'|'+x[0]+'"'+(ck[x[0]]?' checked':'')+'><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span></label></li>'}).join('')+'</ul><button class="linkbtn" type="button" data-goto="pace" style="padding:4px 0">레이스 전략 보기 →</button></div>'}
+  var dd=Math.round((p(nx)-p(T))/864e5),rc=(S.races||[]).filter(function(x){return x.date===nx})[0],nm=rc?rc.name:(nx===RACE?'서울마라톤':(function(){var ix=idxOf(nx),tx=ix>=0&&ix<TOTAL?String(planAt(ix)[1]).split("\n")[0].trim():"";return tx&&tx.length<=20?tx:'대회'})()),ck=(S.raceChk||{})[nx]||{},n=RCHK.filter(function(x){return ck[x[0]]}).length;
+  var op=foldOpen("rw",false),nx2=RCHK.filter(function(x){return !ck[x[0]]})[0];
+  var hd='<button type="button" class="rwh" data-rwt aria-expanded="'+op+'"><span class="rwt"><b>🏁 '+esc(nm)+' '+(dd?'D-'+dd:'오늘!')+'</b><small>준비 '+n+'/'+RCHK.length+(op?'':nx2?' · 다음: '+esc(nx2[1]):' · 모두 완료 ✓')+'</small></span><span class="rwbar" aria-hidden="true"><u style="width:'+Math.round(n/RCHK.length*100)+'%"></u></span><span class="chev" aria-hidden="true"></span></button>';
+  if(!op)return '<div class="card raceweek rwfold">'+hd+'</div>';
+  return '<div class="card raceweek">'+hd+'<ul class="rchkl">'+RCHK.map(function(x){return '<li><label><input type="checkbox" data-rck="'+nx+'|'+x[0]+'"'+(ck[x[0]]?' checked':'')+'><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span></label></li>'}).join('')+'</ul><button class="linkbtn" type="button" data-goto="pace" style="padding:4px 0">레이스 전략 보기 →</button></div>'}
 function vToday(){
   var i=idxOf(sel), w=Math.floor(i/7), d=i%7, t=planDay(w,d), r=dayRec(sel), wkm=weekKm(w);
   var tIdx=idxOf(T), before=tIdx<0;
@@ -3020,6 +3031,7 @@ function vToday(){
   h+='</div></div>';
   view.innerHTML=h;
   // desktop: start the diet card level with the today card (below the date row)
+  view.querySelectorAll("[data-rwt]").forEach(function(b){b.onclick=function(){foldSet("rw",!foldOpen("rw",false));keepIf()}});
   view.querySelectorAll("[data-rck]").forEach(function(c){c.onchange=function(){var pr=c.dataset.rck.split("|");S.raceChk=S.raceChk||{};var o=S.raceChk[pr[0]]=S.raceChk[pr[0]]||{};if(c.checked)o[pr[1]]=1;else delete o[pr[1]];save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-goto]").forEach(function(b){b.onclick=function(){tab=b.dataset.goto;if(tab==="pace")PACEV=b.closest(".raceweek")?"race":"base";render();if(tab==="log"){WXOPEN=true;render()}var el=document.getElementById(tab==="log"?"watch":"goal");if(el)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)}});
   bindWatch();
