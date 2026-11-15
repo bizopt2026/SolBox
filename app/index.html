@@ -965,8 +965,8 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .card.rwc{padding:0;overflow:hidden;background:var(--card)!important}
 .rwh{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:auto 1fr auto 18px;align-items:center;gap:12px;padding:14px 14px 14px 12px;background:linear-gradient(120deg,var(--navy),color-mix(in srgb,var(--accent) 60%,var(--navy)));color:#fff}
 .rwh:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
-.rwd{width:58px;height:58px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.13);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
-.rwd small{font-size:11px;font-weight:800;letter-spacing:.08em;opacity:.75}.rwd b{font-size:26px;line-height:1;font-family:var(--f-display)}
+.rwd{min-width:62px;padding:0 6px;box-sizing:border-box;height:58px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.13);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.rwd small{font-size:11px;font-weight:700;opacity:.75;white-space:nowrap}.rwd b{font-size:22px;line-height:1.1;font-family:var(--f-display);white-space:nowrap;letter-spacing:-.02em}
 .rwt{display:flex;flex-direction:column;min-width:0;gap:1px}.rwt small{font-size:11.5px;opacity:.75}.rwt b{font-size:16.5px;font-family:var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rwt em{font-style:normal;font-size:12px;font-weight:700;color:#d9d4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rwring{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#b8b1ff calc(var(--p)*1%),rgba(255,255,255,.16) 0)}
@@ -1244,8 +1244,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.2.1",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.2.2",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.2.2","2026-11-16","대회 주 D-day 표시 정리","대회 주 카드의 D-day가 'D-'와 숫자로 줄이 나뉘던 것을 'D-6' 한 줄로 바꾸고, 위에 '대회까지'를 붙였어요."],
  ["1.2.1","2026-11-16","PC도 모바일과 같은 화면","PC에서 쓰던 2단 화면(오늘·가이드)과 넓은 머리줄을 없애고 모바일과 같은 한 줄 구성으로 맞췄어요."],
  ["1.2.0","2026-11-16","전체 UI·UX 개선","오늘 탭: 훈련 카드를 날짜 줄 바로 아래로, 대회 주 카드·새 소식은 아래로, 워치 미연결 시 연결 안내 · 툴바 버튼 모양 통일 · 컨디션 심박을 색 화살표로 · 탭별 역할 안내(처음 한 번) · 완료 결과에 💬 AI 분석 버튼 · 지난 주 접힘 상태 기억 · 불러오는 동안 상단 진행 막대 · 공통 디자인 값(둥글기·간격) · 작은 글자 최소 11px · PC에서 가이드 2단"],
  ["1.1.7","2026-11-16","바디 지표 표기 통일","체중·안정시 심박 아래 줄의 '−4.7kg', '-6' 같은 글자 표기를 수면 HRV처럼 색 화살표(▼4.7, ▼6)로 바꿨어요."],
@@ -3122,7 +3123,7 @@ function raceWeekCard(){if(sel!==T)return '';var nx=null;for(var k=0;k<=7;k++){v
   var dd=Math.round((p(nx)-p(T))/864e5),rc=(S.races||[]).filter(function(x){return x.date===nx})[0],nm=rc?rc.name:(nx===RACE?'서울마라톤':(function(){var ix=idxOf(nx),tx=ix>=0&&ix<TOTAL?String(planAt(ix)[1]).split("\n")[0].trim():"";return tx&&tx.length<=20?tx:'대회'})()),ck=(S.raceChk||{})[nx]||{},n=RCHK.filter(function(x){return ck[x[0]]}).length;
   var op=foldOpen("rw",false),nx2=RCHK.filter(function(x){return !ck[x[0]]})[0],pct=Math.round(n/RCHK.length*100),IC={carb:"🍝",plan:"🗺️",kit:"🎒",sleep:"😴",route:"🚇"},WHEN={carb:"D-2~D-1",plan:"D-3까지",kit:"D-1",sleep:"D-2부터",route:"D-1"};
   var gl=rc&&rc.goal?fmtT(rc.goal):(nx===RACE&&S.goal?fmtT(S.goal.sec):""),dw=DOW[(new Date(p(nx)).getUTCDay()+6)%7];
-  var hd='<button type="button" class="rwh" data-rwt aria-expanded="'+op+'" aria-label="'+esc(nm)+' 준비 '+(op?'접기':'펼치기')+'"><span class="rwd"><small>'+(dd?'D-':'D-DAY')+'</small><b class="num">'+(dd?dd:'🏁')+'</b></span><span class="rwt"><small>'+md(nx)+' ('+dw+')'+(gl?' · 목표 '+gl:'')+'</small><b>'+esc(nm)+'</b><em>'+(n===RCHK.length?'✓ 준비 완료':'다음 · '+esc(nx2[1]))+'</em></span><span class="rwring" style="--p:'+pct+'"><i class="num">'+n+'<small>/'+RCHK.length+'</small></i></span><span class="rwchev" aria-hidden="true"></span></button>';
+  var hd='<button type="button" class="rwh" data-rwt aria-expanded="'+op+'" aria-label="'+esc(nm)+' 준비 '+(op?'접기':'펼치기')+'"><span class="rwd"><small>'+(dd?'대회까지':'오늘 대회')+'</small><b class="num">'+(dd?'D-'+dd:'🏁')+'</b></span><span class="rwt"><small>'+md(nx)+' ('+dw+')'+(gl?' · 목표 '+gl:'')+'</small><b>'+esc(nm)+'</b><em>'+(n===RCHK.length?'✓ 준비 완료':'다음 · '+esc(nx2[1]))+'</em></span><span class="rwring" style="--p:'+pct+'"><i class="num">'+n+'<small>/'+RCHK.length+'</small></i></span><span class="rwchev" aria-hidden="true"></span></button>';
   if(!op)return '<div class="card raceweek rwc rwfold">'+hd+'</div>';
   return '<div class="card raceweek rwc">'+hd+'<ul class="rwl">'+RCHK.map(function(x){var on=!!ck[x[0]];return '<li><label class="rwi'+(on?' on':'')+'"><input type="checkbox" class="rwin" data-rck="'+nx+'|'+x[0]+'"'+(on?' checked':'')+'><span class="rwic" aria-hidden="true">'+IC[x[0]]+'</span><span class="rwtx"><b>'+x[1]+'<em>'+WHEN[x[0]]+'</em></b><small>'+x[2]+'</small></span><span class="rwck" aria-hidden="true"></span></label></li>'}).join('')+'</ul><button class="rwgo" type="button" data-goto="pace"><span>🏁 레이스 전략 보기</span><small>구간 페이스 · 보급 · 통과 시간</small><span class="rwarr" aria-hidden="true">→</span></button></div>'}
 function vToday(){
