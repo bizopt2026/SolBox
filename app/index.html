@@ -1354,6 +1354,7 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .xtrat{color:var(--accent);background:var(--accent-soft)}
 .wdlist .drow .ck{width:38px;height:38px}
 .wdayb.on{border-bottom-left-radius:14px;border-bottom-right-radius:14px}
+.wkt{overflow:hidden}.wkt small{white-space:nowrap}.wkt-race small{font-size:8.5px;letter-spacing:.06em}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1377,8 +1378,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.7",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.8",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.8","2026-11-16","레이스 주 주차 타일 수정","훈련표 마지막 레이스 주 타일에서 '레이스' 글자가 사각형 밖으로 나가던 문제를 고쳤어요. 이제 위에 RACE, 가운데 주차 번호(예: 19)로 보여요."],
  ["1.5.7","2026-11-16","훈련표 일별 기록 리디자인","끝난 주의 일별 기록을 카드 목록으로 바꿨어요. 완료한 날은 초록 막대, 놓친 날은 빨간 막대와 '놓침' 배지, 휴식일은 작은 테두리 줄, 휴식일에 뛴 날은 '추가 러닝' 배지로 구분해요. 휴식 줄에서 요일과 날짜가 붙어 보이던 문제도 고쳤어요."],
  ["1.5.6","2026-11-16","훈련표 주간 카드 리디자인 · RPE 위치 고정","훈련표 주 카드에 주차 타일, 이번 주 배지, 요일별 진행 점(완료 점수 색·놓침·핵심 훈련·오늘)을 넣고, 펼친 목록의 오늘 표시와 완료 버튼을 다듬었어요. 오늘 탭 RPE 얼굴이 글자 길이에 따라 움직이지 않게 고정했어요."],
  ["1.5.5","2026-11-16","오늘 훈련 카드 리디자인","오늘 탭 훈련 카드를 다듬었어요. 훈련 종류는 색 배지, 핵심 페이스는 존 색 패널에 크게, 코치 팁·워치 버튼은 나란히 같은 폭으로. 훈련 구성에는 구간별 거리 막대와 이니셜 배지를 넣고, 같은 구간이 여러 번이면 거리를 합쳐 보여줘요. 완료 체크는 버튼으로, 지난 날 안내는 한 줄로 정리했어요."],
@@ -3788,7 +3790,7 @@ function vPlan(){
     if(PASTW===null)PASTW=foldOpen("pastw",false);if(w===0&&cwk>0){var pn=Math.min(cwk,W.length),pd=0,pt=0,pk=0;for(var pw2=0;pw2<pn;pw2++){var ps=weekStats(pw2);pd+=ps.done;pt+=ps.n;pk+=ps.km}
       h+='<details class="pastwk" id="pastwk"'+(PASTW?' open':'')+'><summary class="pwh"><span class="pwi" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4.5V8.5H7.5"/><path d="M12 7.5V12l3 2"/></svg></span><span class="pwt"><b>지난 주 '+pn+'개</b><small>'+wn(0)+(pn>1?'–'+wn(pn-1):'')+' · 완료 '+pd+'/'+pt+' · '+Math.round(pk*10)/10+'km</small></span><span class="pwo">'+(PASTW?'접기':'펼치기')+'</span><span class="chev" aria-hidden="true"></span></summary>'}
     if(w===cwk&&cwk>0)h+='</details>';
-    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary style="--ph:'+phColor(w)+'"><span class="wkt"><small>W</small><b>'+wn(w).replace(/^W/,'')+'</b></span><span class="wkm"><span class="wkh"><b>'+esc(W[w].lab)+'</b>'+(cur?'<em class="wkcur">이번 주</em>':'')+'</span><span class="wsub">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+(weekAvg(w)!=null?' · 평균 <b style="color:'+SCOL[band(weekAvg(w))]+'">'+weekAvg(w)+'점</b>':'')+'</span><span class="wkdots" aria-hidden="true">'+(function(){var o="";for(var k=0;k<7;k++){var dz=dateOf(w,k),tz=planDay(w,k),sc=dayScore(dz),dn2=isDone(dz),c="wd-f",st="";if(tz[0]==="r")c="wd-r";else if(dn2||(sc&&sc.s!=null)){c="wd-ok";if(sc&&sc.s!=null)st=' style="--c:'+SCOL[sc.b]+'"'}else if(dz<T)c="wd-x";if(dz===T)c+=" wd-now";if(tz[0]==="q"||tz[0]==="l"||tz[0]==="x")c+=" wd-k";o+='<i class="wd '+c+'"'+st+'></i>'}return o})()+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">km/'+weekKm(w)+'K</span></b><i class="wkbar"><i style="width:'+(weekKm(w)?Math.min(100,Math.round(s.km/weekKm(w)*100)):0)+'%;background:'+phColor(w)+'"></i></i></span><span class="chev wkchev" aria-hidden="true"></span></summary>';
+    h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary style="--ph:'+phColor(w)+'"><span class="wkt'+(w===W.length-1?' wkt-race':'')+'"><small>'+(w===W.length-1?'RACE':'W')+'</small><b>'+(w+1)+'</b></span><span class="wkm"><span class="wkh"><b>'+esc(W[w].lab)+'</b>'+(cur?'<em class="wkcur">이번 주</em>':'')+'</span><span class="wsub">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+(weekAvg(w)!=null?' · 평균 <b style="color:'+SCOL[band(weekAvg(w))]+'">'+weekAvg(w)+'점</b>':'')+'</span><span class="wkdots" aria-hidden="true">'+(function(){var o="";for(var k=0;k<7;k++){var dz=dateOf(w,k),tz=planDay(w,k),sc=dayScore(dz),dn2=isDone(dz),c="wd-f",st="";if(tz[0]==="r")c="wd-r";else if(dn2||(sc&&sc.s!=null)){c="wd-ok";if(sc&&sc.s!=null)st=' style="--c:'+SCOL[sc.b]+'"'}else if(dz<T)c="wd-x";if(dz===T)c+=" wd-now";if(tz[0]==="q"||tz[0]==="l"||tz[0]==="x")c+=" wd-k";o+='<i class="wd '+c+'"'+st+'></i>'}return o})()+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">km/'+weekKm(w)+'K</span></b><i class="wkbar"><i style="width:'+(weekKm(w)?Math.min(100,Math.round(s.km/weekKm(w)*100)):0)+'%;background:'+phColor(w)+'"></i></i></span><span class="chev wkchev" aria-hidden="true"></span></summary>';
     if(openWeeks[w])h+=weekResultBtn(w);
     if(openWeeks[w]&&(!weekDone(w)||WDAYS[w])&&canDrag&&dateOf(w,6)>=T&&!S.dgSeen)h+='<div class="dgtip"><span class="dgtip-i" aria-hidden="true"><i></i></span><span><b>끌어서 요일 바꾸기</b><small>왼쪽 손잡이를 잡고 다른 요일 위에 놓으면 두 날 훈련이 바뀌어요</small></span><button type="button" class="dgtip-x" data-dgtipx aria-label="안내 닫기">✕</button></div>';
     if(openWeeks[w]&&(!weekDone(w)||WDAYS[w])){var wdl=weekDone(w);if(wdl)h+='<div class="wdlist">';for(var d=0;d<7;d++){var ds=dateOf(w,d),t=planDay(w,d),r=dayRec(ds);
