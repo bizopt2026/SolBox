@@ -1424,6 +1424,19 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .pseg:not(.cwseg) button[aria-selected="true"] small{color:var(--ink)!important;opacity:1;font-weight:700}
 .pseg:not(.cwseg) button+button::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:1px;background:var(--line)}
 .pseg:not(.cwseg) button[aria-selected="true"]::before,.pseg:not(.cwseg) button[aria-selected="true"]+button::before{opacity:0}
+/* ===== 오늘 탭 상단 요약 줄 리디자인 ===== */
+.ssum.tsum{grid-template-columns:repeat(4,minmax(0,1fr)) 18px;padding:8px 6px 8px 8px;gap:2px;border-radius:16px}
+.ssum.tsum>.tsc{display:flex!important;align-items:center;gap:7px;text-align:left!important;padding:2px 4px!important;min-width:0}
+.ssum.tsum>.tsc+.tsc{border-left:1px solid color-mix(in srgb,var(--line) 80%,transparent)!important;padding-left:7px!important}
+.tsc>i{flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:var(--tc,var(--muted));background:color-mix(in srgb,var(--tc,var(--muted)) 13%,transparent)}
+.tsc>i svg{display:block}
+.tsc>span{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.ssum.tsum .tsc small{font-size:10.5px!important;font-weight:600!important;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssum.tsum .tsc b,.ssum.tsum .tsc b span{font-size:13px!important;font-weight:800!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsc.tg{--tc:var(--accent)}.tsc.tw.ok{--tc:var(--ok)}.tsc.tw.bad{--tc:var(--bad)}.tsc.tw.off{--tc:var(--muted)}
+.tsc.tx{--tc:var(--s2)}.tsc.th{--tc:var(--muted)}.tsc.th.l0{--tc:var(--ok)}.tsc.th.l1{--tc:var(--s3)}.tsc.th.l2{--tc:var(--bad)}
+.ssum.tsum .fold-c{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:12px;background:var(--bg)}
+@media (max-width:370px){.tsc>i{display:none}}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1447,8 +1460,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.12",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.13",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.13","2026-11-16","오늘 탭 요약 줄 리디자인","오늘 탭 맨 위 요약 줄(목표·워치·날씨·컨디션)을 이모지 대신 상태 색 선 아이콘, 작은 이름표와 굵은 값으로 정리했어요. 워치는 연결 상태, 컨디션은 좋음·주의·쉬어가기 색으로 아이콘이 바뀌어요."],
  ["1.5.12","2026-11-16","페이스 탭 선택 UI 통일","페이스 탭 위 기준 설정·중간 점검·레이스 전략 선택을 바디 탭과 같은 스타일(색 틀 아이콘·은은한 선택 면·구분선)로 맞췄어요."],
  ["1.5.11","2026-11-16","AI 코치 탭 리디자인","AI 코치 첫 화면에 답변 순서(진단 › 원인 › 원포인트 › 보완 › 성공 기준)를 보여주는 카드와 선 아이콘 추천 질문을 넣었어요. 코치 답변은 항목별 색 블록으로 나눠 읽기 쉽게, 생각하는 중에는 점 애니메이션을 보여줘요."],
  ["1.5.10","2026-11-16","바디 탭 리디자인","바디 탭 위 네 지표(체중·안정시 심박·수면 HRV·식단 점수)와 각 카드 머리 아이콘을 이모지에서 지표 색 선 아이콘으로 바꾸고, 선택 표시를 부드러운 면과 그림자로 다듬었어요."],
@@ -2094,18 +2108,18 @@ function statusStrip(){
 }
 var STRIPPOP=false;
 function stripSum(today,open){
-  var c=[];
-  c.push('<span>🎯 '+(S.goal?'<b class="num">'+fmtT(S.goal.sec)+'</b>':'<span style="color:var(--accent)">목표 정하기</span>')+'</span>');
+  var c=[];function cell(cls,ic,lb,val,tt){return '<span class="tsc '+cls+'"'+(tt?' title="'+tt+'"':'')+'><i aria-hidden="true">'+ic+'</i><span><small>'+lb+'</small><b>'+val+'</b></span></span>'}
+  c.push(cell('tg','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>','목표',S.goal?'<span class="num">'+fmtT(S.goal.sec)+'</span>':'<span style="color:var(--accent)">정하기</span>'));
   var wn2=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일":"";
-  var sAge=S.watchAt?(function(){var m=Math.round((Date.now()-S.watchAt)/60000);return m<1?'방금':m<60?m+'분':m<1440?Math.round(m/60)+'시간':Math.round(m/1440)+'일'})():'';
-  c.push('<span>⌚ '+(wn2?(WS.err?'<span style="color:var(--bad)">'+wn2+' 오류</span>':'<span style="color:var(--ok)" title="'+wn2+'">'+(WS.busy?'…':sAge&&S.watch!=="file"?sAge:wn2)+'</span>'):'<span class="muted">연결 안 됨</span>')+'</span>');
+  var sAge=S.watchAt?(function(){var m=Math.round((Date.now()-S.watchAt)/60000);return m<1?'방금':m<60?m+'분 전':m<1440?Math.round(m/60)+'시간 전':Math.round(m/1440)+'일 전'})():'';
+  c.push(cell(wn2?(WS.err?'tw bad':'tw ok'):'tw off','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="3"/><path d="M9 6.5l.6-3h4.8l.6 3M9 17.5l.6 3h4.8l.6-3"/><path d="M12 9.5V12l1.5 1"/></svg>',wn2&&S.watch!=="file"?wn2:'워치',wn2?(WS.err?'<span style="color:var(--bad)">오류</span>':'<span style="color:var(--ok)">'+(WS.busy?'…':sAge&&S.watch!=="file"?sAge:wn2)+'</span>'):'<span class="muted">연결 안 됨</span>',wn2));
   var cur=WX.cur&&WX.cur.currentConditions;
   var rwd=runWx(today?T:sel);
-  if(rwd)c.push('<span title="훈련 때 날씨">'+(rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'🌤')+' <b class="num">'+Math.round(rwd.w.t)+'°</b>':'🌤 <span class="muted">없음</span>')+'</span>');
-  else c.push('<span>🌤 '+(!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<b class="num">'+Math.round(cur.temperatureValue)+'°</b>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>'))+'</span>');
+  if(rwd)c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','훈련 때',rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'')+' <span class="num">'+Math.round(rwd.w.t)+'°</span>':'<span class="muted">없음</span>','훈련 때 날씨'));
+  else c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','날씨',!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<span class="num">'+Math.round(cur.temperatureValue)+'°</span>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>')));
   var R=readiness(today?T:sel);
-  c.push('<span>❤️ '+(R.has?'<b style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</b>':'<span class="muted">대기</span>')+'</span>');
-  return '<button class="ssum" data-strip aria-expanded="'+!!open+'" aria-label="'+(open?'요약으로 접기':'목표·워치·날씨·컨디션 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
+  c.push(cell('th'+(R.has?' l'+R.lv:''),'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M7.5 12h2.2l1.3-2.2 2 4 1.3-1.8h2.2" stroke-width="1.5"/></svg>','컨디션',R.has?'<span style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</span>':'<span class="muted">대기</span>'));
+  return '<button class="ssum tsum" data-strip aria-expanded="'+!!open+'" aria-label="'+(open?'요약으로 접기':'목표·워치·날씨·컨디션 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
 }
 function goalRow(alone){
   var r=S.goal?'<span class="sl" aria-hidden="true">🎯</span><span class="sm">3.21 목표 <b>'+fmtT(S.goal.sec)+'</b> · MP <b>'+fmtMS(S.goal.sec/42.195)+'</b>/km</span><button class="sbtn" data-goto="pace">목표</button>'
