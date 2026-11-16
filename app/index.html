@@ -1057,11 +1057,24 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .nudge{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--r-card);background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
 .nudge>span:first-child{font-size:22px}.nudge>span:nth-child(2){display:flex;flex-direction:column;min-width:0}.nudge b{font-size:13.5px}.nudge small{font-size:12px;color:var(--muted)}.nudge .btn{padding:8px 14px}
 .dlt{font-weight:800}
-.drow{position:relative}.drow.dg{padding-left:30px}.dgh{position:absolute;left:0;top:0;bottom:0;width:28px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center}.dgh::before{content:"";width:10px;height:16px;opacity:.45;background:radial-gradient(circle,var(--muted) 1.5px,transparent 1.8px) 0 0/5px 5.33px}
-.dgh:hover::before{opacity:.8}.dging{user-select:none;-webkit-user-select:none}.dging .drow{transition:background .12s}.drow.dgsrc{z-index:5;background:var(--card);box-shadow:0 10px 24px rgba(0,0,0,.18),inset 0 0 0 1.5px var(--accent);border-radius:12px;cursor:grabbing;transform-origin:center}.drow.dgsrc .dgh{cursor:grabbing}
-.drow.dgover{background:var(--accent-soft);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent);border-radius:12px}
-.drow.dgdone{animation:dgflash 1.1s ease}@keyframes dgflash{0%{background:color-mix(in srgb,var(--accent) 28%,transparent)}100%{background:transparent}}
-@media (prefers-reduced-motion:reduce){.drow.dgdone{animation:none}}
+.drow{position:relative}.drow.dg{padding-left:34px}
+.dgh{position:absolute;left:4px;top:50%;width:24px;height:36px;margin-top:-18px;border-radius:8px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.dgh i{width:8px;height:14px;background:radial-gradient(circle,var(--muted) 1.4px,transparent 1.7px) 0 0/4px 4.67px;opacity:.55;transition:opacity .15s}
+.dgh:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}.dgh:hover i{opacity:1}
+.dging{user-select:none;-webkit-user-select:none}.dging .drow{transition:background .15s,box-shadow .15s,opacity .15s}.dging .drow:not(.dg){opacity:.38}
+.drow.dgsrc{background:transparent;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);border-radius:12px;background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent) 6%,transparent) 0 8px,transparent 8px 16px)}.drow.dgsrc>*{opacity:.35}
+.drow.dgover{background:color-mix(in srgb,var(--accent) 10%,var(--card));box-shadow:inset 0 0 0 2px var(--accent);border-radius:12px}
+.drow.dgover::after{content:attr(data-swl);position:absolute;right:62px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:800;color:var(--on-accent,#fff);background:var(--accent);padding:3px 9px;border-radius:99px;box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 35%,transparent)}
+.dgghost{position:fixed;z-index:1000;margin:0;pointer-events:none;background:var(--card);border:0;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);transition:transform .16s cubic-bezier(.2,.8,.2,1),box-shadow .16s,top .16s cubic-bezier(.2,.8,.2,1)}
+.dgghost.lift{transform:scale(1.03) rotate(-.6deg);box-shadow:0 18px 38px rgba(10,14,40,.22),0 0 0 1.5px var(--accent);transition:transform .16s cubic-bezier(.2,.8,.2,1),box-shadow .16s}
+.dgghost.drop{transform:none;box-shadow:0 2px 6px rgba(0,0,0,.08)}.dgghost .dgh{cursor:grabbing;background:color-mix(in srgb,var(--accent) 14%,transparent)}.dgghost .dgh i{opacity:1}
+.dgpill{position:absolute;right:10px;top:-13px;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:99px;background:var(--ink);color:var(--card);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.18);transition:background .15s}.dgpill.on{background:var(--accent);color:var(--on-accent,#fff)}
+.drow.dgdone{animation:dgflash 1.2s ease}@keyframes dgflash{0%{background:color-mix(in srgb,var(--accent) 26%,transparent);box-shadow:inset 0 0 0 2px var(--accent)}100%{background:transparent;box-shadow:inset 0 0 0 2px transparent}}
+.dgtip{display:flex;align-items:center;gap:10px;margin:0 12px 10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
+.dgtip>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.dgtip b{font-size:13px}.dgtip small{font-size:12px;color:var(--muted);line-height:1.4}
+.dgtip-i{flex:none;width:30px;height:30px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center}.dgtip-i i{width:8px;height:14px;background:radial-gradient(circle,#fff 1.4px,transparent 1.7px) 0 0/4px 4.67px}
+.dgtip-x{flex:none;border:0;background:none;color:var(--muted);font-size:14px;width:28px;height:28px;border-radius:8px;cursor:pointer}.dgtip-x:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+@media (prefers-reduced-motion:reduce){.drow.dgdone{animation:none}.dgghost,.dgghost.lift{transition:none;transform:none}}
 .delock{display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-top:10px}.delock .btn{padding:6px 12px;font-size:13px;opacity:.45;cursor:not-allowed}.delock small{font-size:11.5px;color:var(--muted);text-align:right;line-height:1.45}
 .aipast{background:color-mix(in srgb,var(--s2) 8%,transparent);border-radius:8px}.aipt{font-style:normal;font-size:11px;font-weight:800;color:var(--s2);background:color-mix(in srgb,var(--s2) 14%,transparent);padding:1px 6px;border-radius:99px}
 .aiconf{margin-top:10px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--bad) 8%,var(--card));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bad) 45%,transparent)}.aiconf>b{color:var(--bad);font-size:14px}.aiconf p{margin:6px 0 10px;font-size:13px;line-height:1.55}
@@ -1261,8 +1274,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.1",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.2",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.2","2026-11-16","끌어서 요일 바꾸기 다듬기 · 훈련 이름에서 요일 빼기","끌 때 카드가 떠올라 손가락을 따라오고, 놓을 요일에 '↔ 월' 표시와 '월 ↔ 토 바꾸기' 안내가 떠요. 처음 펼친 주에는 사용법 안내가 한 번 보여요. 오늘 화면 훈련 머리글에서 '수요일·토요일·일요일'을 빼서, 요일을 바꿔도 이름이 어긋나 보이지 않아요."],
  ["1.5.1","2026-11-16","오늘 화면 '훈련 구성' 깨짐 수정","1.5.0의 끌기 손잡이 스타일이 오늘 화면 '훈련 구성' 제목에도 적용돼 글자가 세로로 깨지던 문제를 고쳤어요."],
  ["1.5.0","2026-11-16","훈련표 끌어서 요일 바꾸기","훈련표에서 오늘 이후 훈련의 왼쪽 ⠿ 손잡이를 끌어 같은 주의 다른 요일에 놓으면 두 날 훈련이 서로 바뀌어요. 바로 아래 알림에서 되돌릴 수 있고, 식단·워치 워크아웃도 바뀐 계획을 따라가요."],
  ["1.4.2","2026-11-16","지난 훈련 계획 변경 방식 정리","1.4.1의 지난 날 바로 바꾸기를 되돌렸어요. 오늘 탭에서 지난 날은 '이 날 훈련 바꾸기'가 비활성이에요. 훈련표 → 일정 조정 → 클로드에게 부탁으로 지난(완료한) 날을 바꾸면 확인 창이 뜨고, '네, 바꿀게요'를 눌러야 적용돼요."],
@@ -2761,7 +2775,7 @@ function readyCard(ds,t){
   if(ds!==T)return "";
   var R=readiness(ds),key=t&&(t[0]==="q"||t[0]==="l"),col=["var(--ok)","var(--s3)","var(--bad)"][R.lv];
   var verdict=!R.has?"오늘 아침 안정시 심박이나 수면 상태를 넣으면 훈련 강도를 판단해 드려요."
-    :R.lv===2?(key?"쉬어가기 권장 · 계획서 원칙대로 오늘 "+(t[0]==="q"?"수요일 포인트":"토요일 롱런")+"를 하루 미루세요. 오늘은 휴식이나 조깅 30분.":t&&t[0]==="r"?"쉬어가기 · 오늘은 계획대로 푹 쉬어요.":"쉬어가기 권장 · 이지로 짧게(계획의 절반 정도) 하거나 쉬어요.")
+    :R.lv===2?(key?"쉬어가기 권장 · 계획서 원칙대로 오늘 "+(t[0]==="q"?"포인트 훈련":"롱런")+"을 하루 미루세요. 오늘은 휴식이나 조깅 30분.":t&&t[0]==="r"?"쉬어가기 · 오늘은 계획대로 푹 쉬어요.":"쉬어가기 권장 · 이지로 짧게(계획의 절반 정도) 하거나 쉬어요.")
     :R.lv===1?(key?"주의 · 계획대로 하되 워밍업 후 몸이 무거우면 반복 1회를 줄이세요.":"주의 · 계획대로 하되 심박 상한을 지켜 천천히요.")
     :"좋음 · 계획대로 훈련해요.";
   var LV=R.has?R.lv:-1,lvn=["좋음","주의","쉬어가기"],ico=["💚","⚠️","🛑"],cls=["ok","mid","bad"];
@@ -3173,7 +3187,7 @@ function vToday(){
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:#cdc8ff">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:22px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
   h+='<div class="t2col"><div class="tcol">';
-  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"수요일 포인트 훈련":t[0]==="l"?"토요일 지속주·롱런":t[0]==="c"?"일요일 회복":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
+  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"포인트 훈련":t[0]==="l"?"지속주·롱런":t[0]==="c"?"회복 런":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var DS=dn||(t[0]==="r"&&r.w)?dayScore(sel):null,folded=!!(DS&&DS.s!=null),det="";
   if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0],cwb=S.watch==="freddy"?fitDayBtn(sel,t):cwDayBtn(sel,t);if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'<span class="kpbtns"><button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button>'+cwb+'</span></div>'}else if(cwb)h+='<div class="keypace"><span class="kpbtns">'+cwb+'</span></div>';if(FITNEXT===sel&&S.watch==="freddy")h+=fitNextHtml(1)}
   var rv=rpeOf(sel),rpeOn=dn||!!r.w;
@@ -3663,13 +3677,14 @@ function vPlan(){
     if(w===cwk&&cwk>0)h+='</details>';
     h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+(weekAvg(w)!=null?' · 평균 <b style="color:'+SCOL[band(weekAvg(w))]+'">'+weekAvg(w)+'점</b>':'')+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">km/'+weekKm(w)+'K</span></b><i class="wkbar"><i style="width:'+(weekKm(w)?Math.min(100,Math.round(s.km/weekKm(w)*100)):0)+'%;background:'+phColor(w)+'"></i></i></span></summary>';
     if(openWeeks[w])h+=weekResultBtn(w);
+    if(openWeeks[w]&&(!weekDone(w)||WDAYS[w])&&canDrag&&dateOf(w,6)>=T&&!S.dgSeen)h+='<div class="dgtip"><span class="dgtip-i" aria-hidden="true"><i></i></span><span><b>끌어서 요일 바꾸기</b><small>왼쪽 손잡이를 잡고 다른 요일 위에 놓으면 두 날 훈련이 바뀌어요</small></span><button type="button" class="dgtip-x" data-dgtipx aria-label="안내 닫기">✕</button></div>';
     if(openWeeks[w]&&(!weekDone(w)||WDAYS[w])){for(var d=0;d<7;d++){var ds=dateOf(w,d),t=planDay(w,d),r=dayRec(ds);
       var dn=isDone(ds);
       var extra=[];if(r.km)extra.push(r.km+"km");if(r.hr)extra.push("♥"+r.hr);if(r.pace)extra.push(r.pace);
       if(!extra.length&&r.w){if(t[0]==="r")extra.push("추가 러닝");extra.push("⌚ "+fmtKm(r.w.km)+"km");extra.push(fmtPaceKm(r.w.dur,r.w.km)+"/km");if(r.w.hr)extra.push("♥"+r.w.hr)}
       var act=(extra.length?esc(extra.join(" · ")):"");if(dn||r.w)act=rpeFace(rpeOf(ds),"xs")+(act?" "+act:"");
       var ab='',mv=canDrag&&ds>=T&&!dn&&t[0]!=="x";
-      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+(mv?' dg':'')+'" data-dd="'+ds+'">'+(mv?'<span class="dgh" data-dh="'+ds+'" title="끌어서 다른 요일과 바꾸기" aria-hidden="true"></span>':'')+'<button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt" data-open="'+ds+'">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(oneLine(t))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':';color:#fff')+'"':'')+'>'+(dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn'+(dayScore(ds).s>=100?' n3':'')+'">'+dayScore(ds).s+'</span>':'✓')+'</button></div>'}}
+      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+(mv?' dg':'')+'" data-dd="'+ds+'">'+(mv?'<span class="dgh" data-dh="'+ds+'" title="끌어서 다른 요일과 바꾸기" aria-hidden="true"><i></i></span>':'')+'<button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt" data-open="'+ds+'">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(oneLine(t))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':';color:#fff')+'"':'')+'>'+(dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn'+(dayScore(ds).s>=100?' n3':'')+'">'+dayScore(ds).s+'</span>':'✓')+'</button></div>'}}
     h+='</details>';
   }
   h+=info('날짜를 누르면 그날 계획과 기록을 볼 수 있어요. 오늘 이후 훈련은 왼쪽 ⠿ 손잡이를 끌어 같은 주의 다른 요일에 놓으면 두 날 훈련이 서로 바뀌어요(되돌리기 가능). 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.','훈련표 안내');
@@ -3690,19 +3705,25 @@ function swapDays(a,b){var ia=idxOf(a),ib=idxOf(b),w=Math.floor(ia/7);if(Math.fl
   view.querySelectorAll('.drow[data-dd="'+a+'"],.drow[data-dd="'+b+'"]').forEach(function(r){r.classList.add("dgdone")});
   undoable(DOW[ia%7]+" ↔ "+DOW[ib%7]+" 훈련을 바꿨어요",function(){P.days=JSON.parse(before);P.hist.pop()})}
 function bindDayDrag(){
+  var tx=view.querySelector("[data-dgtipx]");if(tx)tx.onclick=function(){S.dgSeen=1;save();var y=window.scrollY;render();window.scrollTo(0,y)};
   view.querySelectorAll("[data-dh]").forEach(function(hd){hd.addEventListener("pointerdown",function(e){if(e.button>0)return;e.preventDefault();
-    var row=hd.parentNode,wk=row.parentNode,src=hd.dataset.dh,rows=[].slice.call(wk.querySelectorAll(".drow.dg")),sy=e.clientY+window.scrollY,cy=e.clientY,over=null,raf=0;
+    var row=hd.parentNode,wk=row.parentNode,src=hd.dataset.dh,sd=DOW[idxOf(src)%7],rows=[].slice.call(wk.querySelectorAll(".drow.dg")),rb=row.getBoundingClientRect(),off=e.clientY-rb.top,cy=e.clientY,over=null,raf=0;
     try{hd.setPointerCapture(e.pointerId)}catch(_){}
-    row.classList.add("dgsrc");wk.classList.add("dging");if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}
-    function pos(){row.style.transform="translateY("+(cy+window.scrollY-sy)+"px)";var nv=null;
+    var g=row.cloneNode(true);g.className=row.className.replace(/\b(today|dgdone)\b/g,"")+" dgghost";g.removeAttribute("data-dd");g.querySelectorAll("[id]").forEach(function(x){x.removeAttribute("id")});
+    g.style.left=rb.left+"px";g.style.width=rb.width+"px";g.style.top=rb.top+"px";var pill=document.createElement("span");pill.className="dgpill";g.appendChild(pill);document.body.appendChild(g);
+    row.classList.add("dgsrc");wk.classList.add("dging");requestAnimationFrame(function(){g.classList.add("lift")});if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}
+    function lab(){pill.textContent=over?sd+" ↔ "+DOW[idxOf(over.dataset.dd)%7]+" 바꾸기":"바꿀 요일 위에 놓으세요";pill.classList.toggle("on",!!over)}
+    function pos(){g.style.top=(cy-off)+"px";var nv=null;
       rows.forEach(function(r){if(r===row)return;var b=r.getBoundingClientRect();if(cy>=b.top&&cy<b.bottom)nv=r});
-      if(nv!==over){if(over)over.classList.remove("dgover");over=nv;if(over)over.classList.add("dgover")}}
-    function tick(){var m=56,v=cy<m?-(m-cy)/4:cy>innerHeight-m?(cy-innerHeight+m)/4:0;if(v){window.scrollBy(0,v);pos()}raf=requestAnimationFrame(tick)}
+      if(nv!==over){if(over){over.classList.remove("dgover");over.removeAttribute("data-swl")}over=nv;if(over){over.classList.add("dgover");over.setAttribute("data-swl","↔ "+sd);if(navigator.vibrate)try{navigator.vibrate(4)}catch(_){}}lab()}}
+    function tick(){var m=64,v=cy<m?-(m-cy)/4:cy>innerHeight-m?(cy-innerHeight+m)/4:0;if(v){window.scrollBy(0,v);pos()}raf=requestAnimationFrame(tick)}
     function mv(ev){cy=ev.clientY;pos()}
     function up(ev){cancelAnimationFrame(raf);hd.removeEventListener("pointermove",mv);hd.removeEventListener("pointerup",up);hd.removeEventListener("pointercancel",up);
-      row.classList.remove("dgsrc");row.style.transform="";wk.classList.remove("dging");if(over)over.classList.remove("dgover");
-      if(over&&ev.type==="pointerup")swapDays(src,over.dataset.dd)}
-    hd.addEventListener("pointermove",mv);hd.addEventListener("pointerup",up);hd.addEventListener("pointercancel",up);raf=requestAnimationFrame(tick)})})}
+      var tgt=over&&ev.type==="pointerup"?over:null;if(over){over.classList.remove("dgover");over.removeAttribute("data-swl")}
+      function done(){if(g.parentNode)g.parentNode.removeChild(g);row.classList.remove("dgsrc");wk.classList.remove("dging");if(tgt){if(!S.dgSeen)S.dgSeen=1;swapDays(src,tgt.dataset.dd)}}
+      var to=(tgt||row).getBoundingClientRect();g.classList.remove("lift");g.classList.add("drop");g.style.top=to.top+"px";
+      if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)done();else setTimeout(done,170)}
+    lab();pos();hd.addEventListener("pointermove",mv);hd.addEventListener("pointerup",up);hd.addEventListener("pointercancel",up);raf=requestAnimationFrame(tick)})})}
 
 // wrap an SVG chart with a hover/touch layer: pts = [{x, ys:[[y,color],...], t:'tooltip html'}] in viewBox units
 function hoverWrap(svg,W,H,top,bot,pts){if(!pts.length)return svg;return '<div class="rchart hchart" data-h="'+esc(JSON.stringify({W:W,H:H,T:top,B:bot,p:pts}))+'">'+svg+'<i class="rcur" hidden></i><div class="rtip" hidden></div></div>'}
