@@ -1468,6 +1468,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .ssum.tsum .tsc b,.ssum.tsum .tsc b span{font-size:12.5px!important;letter-spacing:-.02em;text-overflow:clip!important}
 .ssum.tsum .fold-c{width:16px;height:16px;font-size:11px}
 }
+/* 요약 줄: 이름표 없이 아이콘 + 한 줄 값 */
+.ssum.tsum .tsc b{line-height:1.25}
+@media (max-width:440px){.ssum.tsum .tsc b{white-space:normal!important;word-break:keep-all;overflow:visible!important;display:block;text-align:center;font-size:12px!important}.ssum.tsum .tsc b span{font-size:inherit!important;white-space:nowrap}.ssum.tsum>.tsc{gap:4px}}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1491,8 +1494,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.17",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.18",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.18","2026-11-16","오늘 탭 요약 줄 이름표 없애기","요약 줄의 '목표·워치·날씨·컨디션' 이름표를 없애고 아이콘과 한 줄 값만 보여줘요. 목표는 숫자만, 날씨는 아이콘과 기온, 워치는 '연동 방금', 컨디션은 '컨디션 좋음'처럼 표시해요."],
  ["1.5.17","2026-11-16","오늘 탭 요약 줄 모바일 글자 잘림 수정","휴대폰처럼 좁은 화면에서는 요약 줄 네 칸을 아이콘 위·글자 아래로 세워 배치해 값이 잘리지 않게 했어요. 이름표도 '워치'·'날씨'로 짧게 맞췄어요."],
  ["1.5.16","2026-11-16","오늘 탭 완료 체크 버튼 없애기","오늘 탭 훈련 카드의 '완료 체크·해제·휴식 완료' 버튼을 없앴어요. 워치 기록이 들어오면 자동 완료, 워치 없이 뛰었으면 '✎ 직접 기록'에 거리를 적으면 완료와 점수가 자동으로 처리돼요. 지난 휴식일은 자동으로 ✓ 휴식이에요."],
  ["1.5.15","2026-11-16","훈련표 체크 버튼 없애기","훈련표 일자별 오른쪽 체크 버튼을 없애고 상태 표시로만 바꿨어요. 훈련을 마치면 점수가, 지난 휴식일에는 ✓가 자동으로 표시돼요."],
@@ -2145,17 +2149,17 @@ function stripIcons(h){var M={"🎯":["g",'<circle cx="12" cy="12" r="8.5"/><cir
   return h.replace(/<span class="sl" aria-hidden="true">([^<]*)<\/span>/g,function(all,e){var m=M[e];return m?'<span class="sl sli sl-'+m[0]+'" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+m[1]+'</svg></span>':'<span class="sl sli sl-x" aria-hidden="true">'+e+'</span>'})}
 var STRIPPOP=false;
 function stripSum(today,open){
-  var c=[];function cell(cls,ic,lb,val,tt){return '<span class="tsc '+cls+'"'+(tt?' title="'+tt+'"':'')+'><i aria-hidden="true">'+ic+'</i><span><small>'+lb+'</small><b>'+val+'</b></span></span>'}
-  c.push(cell('tg','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>','목표',S.goal?'<span class="num">'+fmtT(S.goal.sec)+'</span>':'<span style="color:var(--accent)">정하기</span>'));
+  var c=[];function cell(cls,ic,lb,val,tt){return '<span class="tsc '+cls+'"'+(tt?' title="'+tt+'"':'')+'><i aria-hidden="true">'+ic+'</i><span>'+(lb?'<small>'+lb+'</small>':'')+'<b>'+val+'</b></span></span>'}
+  c.push(cell('tg','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>','',S.goal?'<span class="num">'+fmtT(S.goal.sec)+'</span>':'<span style="color:var(--accent)">목표 정하기</span>','목표'));
   var wn2=S.watch==="coros"?"COROS":S.watch==="freddy"?"가민·애플":S.watch==="file"?"파일":"";
   var sAge=S.watchAt?(function(){var m=Math.round((Date.now()-S.watchAt)/60000);return m<1?'방금':m<60?m+'분 전':m<1440?Math.round(m/60)+'시간 전':Math.round(m/1440)+'일 전'})():'';
-  c.push(cell(wn2?(WS.err?'tw bad':'tw ok'):'tw off','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="3"/><path d="M9 6.5l.6-3h4.8l.6 3M9 17.5l.6 3h4.8l.6-3"/><path d="M12 9.5V12l1.5 1"/></svg>','워치',wn2?(WS.err?'<span style="color:var(--bad)">오류</span>':'<span style="color:var(--ok)">'+(WS.busy?'…':sAge&&S.watch!=="file"?sAge:wn2)+'</span>'):'<span class="muted">연결 안 됨</span>',wn2));
+  c.push(cell(wn2?(WS.err?'tw bad':'tw ok'):'tw off','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="3"/><path d="M9 6.5l.6-3h4.8l.6 3M9 17.5l.6 3h4.8l.6-3"/><path d="M12 9.5V12l1.5 1"/></svg>','',wn2?(WS.err?'연동 <span style="color:var(--bad)">오류</span>':'연동 <span style="color:var(--ok)">'+(WS.busy?'…':sAge&&S.watch!=="file"?sAge:wn2)+'</span>'):'<span class="muted">연동 안 됨</span>','기록 연동'+(wn2?' · '+wn2:'')));
   var cur=WX.cur&&WX.cur.currentConditions;
   var rwd=runWx(today?T:sel);
-  if(rwd)c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','날씨',rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'')+' <span class="num">'+Math.round(rwd.w.t)+'°</span>':'<span class="muted">없음</span>','훈련 때 날씨'));
-  else c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','날씨',!today?'<span class="muted">'+(sel>T?'대기':'없음')+'</span>':cur?'<span class="num">'+Math.round(cur.temperatureValue)+'°</span>':(S.wx&&S.wx.key?'날씨':'<span class="muted">설정</span>')));
+  if(rwd)c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','',rwd.w?(wxEmoji(skyKind(rwd.w.i),rwd.w.dl===false)||'')+' <span class="num">'+Math.round(rwd.w.t)+'°</span>':'<span class="muted">날씨 없음</span>','훈련 때 날씨'));
+  else c.push(cell('tx','<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.2"/><path d="M9 2.5v1.3M3.8 9H2.5M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8 20h9.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.3 1.8A2.6 2.6 0 0 0 8 20z"/></svg>','',!today?'<span class="muted">날씨 '+(sel>T?'대기':'없음')+'</span>':cur?'<span class="num">'+Math.round(cur.temperatureValue)+'°</span>':(S.wx&&S.wx.key?'날씨':'<span class="muted">날씨 설정</span>'),'날씨'));
   var R=readiness(today?T:sel);
-  c.push(cell('th'+(R.has?' l'+R.lv:''),'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M7.5 12h2.2l1.3-2.2 2 4 1.3-1.8h2.2" stroke-width="1.5"/></svg>','컨디션',R.has?'<span style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</span>':'<span class="muted">대기</span>'));
+  c.push(cell('th'+(R.has?' l'+R.lv:''),'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M7.5 12h2.2l1.3-2.2 2 4 1.3-1.8h2.2" stroke-width="1.5"/></svg>','','컨디션 '+(R.has?'<span style="color:'+["var(--ok)","var(--s3)","var(--bad)"][R.lv]+'">'+["좋음","주의","쉬어가기"][R.lv]+'</span>':'<span class="muted">대기</span>'),'훈련 전 컨디션'));
   return '<button class="ssum tsum" data-strip aria-expanded="'+!!open+'" aria-label="'+(open?'요약으로 접기':'목표·워치·날씨·컨디션 자세히 보기')+'">'+c.join('')+'<span class="fold-c" aria-hidden="true">⌄</span></button>';
 }
 function goalRow(alone){
