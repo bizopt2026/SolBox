@@ -1410,6 +1410,20 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .cothink i:nth-child(2){animation-delay:.2s}.cothink i:nth-child(3){animation-delay:.4s}
 @keyframes cothk{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.cothink i{animation:none;opacity:.6}}
+/* ===== 페이스 탭 선택 UI를 바디 탭 스타일로 통일 ===== */
+.pseg:not(.cwseg) .pind{background:color-mix(in srgb,var(--accent) 9%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent),0 4px 12px color-mix(in srgb,var(--accent) 14%,transparent)}
+.pseg:not(.cwseg) button{padding:8px 2px 8px}
+.pseg:not(.cwseg) .pic{opacity:1!important;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;margin-bottom:3px;color:var(--muted)!important;background:color-mix(in srgb,var(--muted) 10%,transparent);transition:background .2s,color .2s}
+.pseg:not(.cwseg) button[aria-selected="true"] .pic{color:var(--accent)!important;background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.pseg:not(.cwseg) button[data-pv="check"][aria-selected="true"] .pic{color:var(--q)!important;background:color-mix(in srgb,var(--q) 13%,transparent)}
+.pseg:not(.cwseg) button[data-pv="race"][aria-selected="true"] .pic{color:var(--ok)!important;background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.pseg:not(.cwseg) .pic svg{width:18px;height:18px}
+.pseg:not(.cwseg) b{font-size:11.5px;font-weight:600;color:var(--muted);opacity:1}
+.pseg:not(.cwseg) small{font-size:11px;color:var(--muted)}
+.pseg:not(.cwseg) button[aria-selected="true"] b{color:var(--accent)!important;font-weight:800}
+.pseg:not(.cwseg) button[aria-selected="true"] small{color:var(--ink)!important;opacity:1;font-weight:700}
+.pseg:not(.cwseg) button+button::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:1px;background:var(--line)}
+.pseg:not(.cwseg) button[aria-selected="true"]::before,.pseg:not(.cwseg) button[aria-selected="true"]+button::before{opacity:0}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1433,8 +1447,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.11",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.12",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.12","2026-11-16","페이스 탭 선택 UI 통일","페이스 탭 위 기준 설정·중간 점검·레이스 전략 선택을 바디 탭과 같은 스타일(색 틀 아이콘·은은한 선택 면·구분선)로 맞췄어요."],
  ["1.5.11","2026-11-16","AI 코치 탭 리디자인","AI 코치 첫 화면에 답변 순서(진단 › 원인 › 원포인트 › 보완 › 성공 기준)를 보여주는 카드와 선 아이콘 추천 질문을 넣었어요. 코치 답변은 항목별 색 블록으로 나눠 읽기 쉽게, 생각하는 중에는 점 애니메이션을 보여줘요."],
  ["1.5.10","2026-11-16","바디 탭 리디자인","바디 탭 위 네 지표(체중·안정시 심박·수면 HRV·식단 점수)와 각 카드 머리 아이콘을 이모지에서 지표 색 선 아이콘으로 바꾸고, 선택 표시를 부드러운 면과 그림자로 다듬었어요."],
  ["1.5.9","2026-11-16","페이스 탭 리디자인","기준 설정·중간 점검·레이스 전략 탭을 선 아이콘과 채워진 선택 표시로 바꾸고, 목표 카드를 그라데이션으로, 대회 목록에 날짜 타일을 넣었어요."],
