@@ -1373,6 +1373,19 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .rlid small{font-size:10px;font-weight:800;color:var(--accent)}.rlid b{font-family:var(--f-display);font-size:19px;font-weight:800;margin-top:2px;color:var(--ink)}
 .rli.past .rlid small{color:var(--muted)}
 .rli>span:nth-child(2){display:flex;flex-direction:column;gap:2px}
+/* ===== 바디 탭 리디자인 ===== */
+.bseg{padding:5px;border-radius:18px}
+.bseg .bind{top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/4);border-radius:14px;background:color-mix(in srgb,var(--accent) 9%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent),0 4px 12px color-mix(in srgb,var(--accent) 14%,transparent)}
+.bseg .bkl i{filter:none!important;opacity:1!important;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;margin-bottom:3px;color:var(--muted);background:color-mix(in srgb,var(--muted) 10%,transparent);transition:background .2s,color .2s}
+.bseg .bkl i svg{display:block}
+.bseg .bk[data-bk="wt"].on .bkl i{color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.bseg .bk[data-bk="rhr"].on .bkl i{color:var(--bad);background:color-mix(in srgb,var(--bad) 13%,transparent)}
+.bseg .bk[data-bk="hrv"].on .bkl i{color:var(--q);background:color-mix(in srgb,var(--q) 13%,transparent)}
+.bseg .bk[data-bk="diet"].on .bkl i{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.bseg .bk .bkl{font-size:11.5px}
+.wico-rhr{color:var(--bad);background:color-mix(in srgb,var(--bad) 11%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bad) 18%,transparent)}
+.wico-hrv{color:var(--q);background:color-mix(in srgb,var(--q) 11%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--q) 18%,transparent)}
+.wico-diet{color:var(--ok);background:color-mix(in srgb,var(--ok) 11%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 18%,transparent)}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1396,8 +1409,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.9",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.10",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.10","2026-11-16","바디 탭 리디자인","바디 탭 위 네 지표(체중·안정시 심박·수면 HRV·식단 점수)와 각 카드 머리 아이콘을 이모지에서 지표 색 선 아이콘으로 바꾸고, 선택 표시를 부드러운 면과 그림자로 다듬었어요."],
  ["1.5.9","2026-11-16","페이스 탭 리디자인","기준 설정·중간 점검·레이스 전략 탭을 선 아이콘과 채워진 선택 표시로 바꾸고, 목표 카드를 그라데이션으로, 대회 목록에 날짜 타일을 넣었어요."],
  ["1.5.8","2026-11-16","레이스 주 주차 타일 수정","훈련표 마지막 레이스 주 타일에서 '레이스' 글자가 사각형 밖으로 나가던 문제를 고쳤어요. 이제 위에 RACE, 가운데 주차 번호(예: 19)로 보여요."],
  ["1.5.7","2026-11-16","훈련표 일별 기록 리디자인","끝난 주의 일별 기록을 카드 목록으로 바꿨어요. 완료한 날은 초록 막대, 놓친 날은 빨간 막대와 '놓침' 배지, 휴식일은 작은 테두리 줄, 휴식일에 뛴 날은 '추가 러닝' 배지로 구분해요. 휴식 줄에서 요일과 날짜가 붙어 보이던 문제도 고쳤어요."],
@@ -3924,7 +3938,7 @@ function bodyKpis(ld){
     var a=cur.reduce(function(x,y){return x+y},0)/cur.length,b=prev.reduce(function(x,y){return x+y},0)/prev.length,dv=Math.round((a-b)*10)/10;if(!dv)return '<small class="dlt">±0</small>';var good=goodDown?dv<0:dv>0;
     return '<small class="dlt" style="color:'+(good?'var(--ok)':'var(--bad)')+'" title="지난주 평균 대비">'+(dv>0?'▲':'▼')+Math.abs(dv)+'</small>'}
   var DL={wt:wkDelta(function(k){var x=wDay(k);return x?x.m:null},Object.keys(S.wlog||{}),true),rhr:wkDelta(function(k){return S.rhr[k]},Object.keys(S.rhr||{}),true),hrv:wkDelta(function(k){var x=S.hrv[k];return x&&x.avg?x.avg:null},Object.keys(S.hrv||{}),false)};
-  var IC={wt:"⚖️",rhr:"❤️",hrv:"🌙",diet:"🥗"};
+  var IC={wt:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M6.6 12a5.4 5.4 0 0 1 10.8 0z" fill="currentColor" fill-opacity=".14"/><path d="M12 12l2.2-3"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>',rhr:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M7.5 12h2.2l1.3-2.2 2 4 1.3-1.8h2.2" stroke-width="1.5"/></svg>',hrv:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.6A8 8 0 1 1 9.4 4.5a6.4 6.4 0 0 0 10.1 10.1z"/><path d="M16 4.5v3M14.5 6h3" stroke-width="1.5"/></svg>',diet:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M12 11.5c.2-3 1.8-5.2 4.8-6.3M8.5 11.5c0-1.9.9-3.3 2.6-4.1" stroke-width="1.5"/></svg>'};
   function t(id,lb,v,u,sub,col){return '<button class="bk'+(BODYV===id?' on':'')+'" role="tab" data-bk="'+id+'" aria-selected="'+(BODYV===id)+'" aria-pressed="'+(BODYV===id)+'"><span class="bkl"><i aria-hidden="true">'+IC[id]+'</i>'+lb+'</span><b class="num"'+(col?' style="color:'+col+'"':'')+'>'+v+(v!=="—"?'<small>'+u+'</small>':'')+'</b><span class="bks">'+sub+(DL[id]&&id==="hrv"?' '+DL[id]:'')+'</span></button>'}
   var wc=null,rc=null,hc=null,rs='최근 아침';
   if(ld){var wp=wtPlan(),st=null;for(var i=1;i<wp.length;i++)if(wp[i][0]>=T){st=wp[i];break}
@@ -3949,7 +3963,7 @@ function bindEmpty(){view.querySelectorAll("[data-empty]").forEach(function(b){b
 function bodyPanel(k){
   if(k==="rhr"){var ks=Object.keys(S.rhr||{}).sort(),last=ks.slice(-7).reverse(),avg=0;ks.slice(-14).forEach(function(d){avg+=S.rhr[d]});avg=ks.length?Math.round(avg/Math.min(14,ks.length)):0;
     var lk=ks[ks.length-1],lv=lk?S.rhr[lk]:null,ldf=lv&&avg?lv-avg:null,lst=ldf==null?null:ldf>=5?["bad","높음 · 쉬어가기 신호"]:ldf>=3?["mid","약간 높음 · 주의"]:ldf<=-2?["ok","평소보다 낮음 · 좋음"]:["ok","평소 수준 · 좋음"];
-    var h='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">❤️</span><div style="flex:1;min-width:0"><h2>안정시 심박</h2><small>아침 기상 직후 · '+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</small></div></div>';
+    var h='<div class="card"><div class="whead" style="padding-right:0"><span class="wico wico-svg wico-rhr" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M7.5 12h2.2l1.3-2.2 2 4 1.3-1.8h2.2" stroke-width="1.5"/></svg></span><div style="flex:1;min-width:0"><h2>안정시 심박</h2><small>아침 기상 직후 · '+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</small></div></div>';
     if(lv)h+='<div class="wthero rhhero"><div><small>최근 '+md(lk)+'</small><b class="num">'+lv+'<i>bpm</i></b>'+(ldf!=null?'<span class="wtdl '+(lst[0]==="bad"?'bad':lst[0]==="ok"?'ok':'')+'">'+(ldf>0?'▲':ldf<0?'▼':'±')+Math.abs(ldf)+'<small> · 2주 평균 '+avg+'bpm</small></span>':'<span class="wtdl"><small>2주 평균은 기록이 쌓이면 계산해요</small></span>')+'</div>'+(ldf!=null?'<span class="rhst '+lst[0]+'">'+lst[1]+'</span>':'')+'</div>';
     h+='<div style="margin-top:8px">'+trendSvg(S.rhr||{},'bpm','var(--accent)',null,null,false,bodyRange())+'</div>';
     if(last.length){var lo2=Math.min.apply(null,last.map(function(d){return S.rhr[d]}))-3,hi2=Math.max.apply(null,last.map(function(d){return S.rhr[d]}))+1;
@@ -3959,7 +3973,7 @@ function bodyPanel(k){
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
     var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
     var hk=Object.keys(hv).sort(),lk2=hk[hk.length-1],lx=lk2?S.hrv[lk2]:null,bad=lx&&/Low|Poor/.test(lx.ev),mid=lx&&/Unbalanced/.test(lx.ev);
-    var h2='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">🌙</span><div style="flex:1;min-width:0"><h2>수면 HRV</h2><small>잠자는 동안 심박 변이 · COROS</small></div></div>';
+    var h2='<div class="card"><div class="whead" style="padding-right:0"><span class="wico wico-svg wico-hrv" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.6A8 8 0 1 1 9.4 4.5a6.4 6.4 0 0 0 10.1 10.1z"/><path d="M16 4.5v3M14.5 6h3" stroke-width="1.5"/></svg></span><div style="flex:1;min-width:0"><h2>수면 HRV</h2><small>잠자는 동안 심박 변이 · COROS</small></div></div>';
     if(lx){var pos=lx.lo&&lx.hi?Math.max(0,Math.min(100,Math.round((lx.avg-(lx.lo-10))/((lx.hi+10)-(lx.lo-10))*100))):null,blo=lx.lo?Math.round(10/((lx.hi+10)-(lx.lo-10))*100):0,bw=lx.lo?Math.round((lx.hi-lx.lo)/((lx.hi+10)-(lx.lo-10))*100):0;
       h2+='<div class="wthero hvhero"><div><small>최근 '+md(lk2)+'</small><b class="num">'+lx.avg+'<i>ms</i></b></div><span class="rhst '+(bad?'bad':mid?'mid':'ok')+'">'+esc(EV[lx.ev]||lx.ev||'')+(bad?' · 강도 낮추기':mid?' · 주의':' · 좋음')+'</span>'+(pos!=null?'<div class="hvgauge"><span class="hvband" style="left:'+blo+'%;width:'+bw+'%"></span><i style="left:'+pos+'%"></i></div><div class="hvlbl"><span>낮음</span><span>정상 '+lx.lo+'~'+lx.hi+'</span><span>높음</span></div>':'')+'</div>'}
     h2+='<div style="margin-top:8px">'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange())+'</div>';
@@ -3975,7 +3989,7 @@ function bodyPanel(k){
      h3+='</div>'}
    else if(nxr)h3+='<div class="card carbcard soon"><h2>🍝 카보로딩 예정</h2><p class="small" style="margin:4px 0 0">'+esc(nxr.c.name)+' · '+dotDate(nxr.c.race)+' — <b>'+md(nxr.start)+'</b>부터 6일간 탄수화물을 늘려요(D-6~D-4 5~7g/kg, D-3~D-1 8~10g/kg).</p></div>';
    var lw=rows.length?rows[rows.length-1]:null,pw=rows.length>1?rows[rows.length-2]:null;
-   h3+='<div class="card"><div class="whead" style="padding-right:0"><span class="wico" aria-hidden="true">🥗</span><div style="flex:1;min-width:0"><h2>식단 점수</h2><small>끼니별 영양 · 100점 기준</small></div><button type="button" class="sbtn wset" data-goto-meals>오늘 기록</button></div>';
+   h3+='<div class="card"><div class="whead" style="padding-right:0"><span class="wico wico-svg wico-diet" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M12 11.5c.2-3 1.8-5.2 4.8-6.3M8.5 11.5c0-1.9.9-3.3 2.6-4.1" stroke-width="1.5"/></svg></span><div style="flex:1;min-width:0"><h2>식단 점수</h2><small>끼니별 영양 · 100점 기준</small></div><button type="button" class="sbtn wset" data-goto-meals>오늘 기록</button></div>';
    if(lw)h3+='<div class="wthero"><div><small>'+wn(lw[0])+' 평균 · '+lw[2]+'일 기록</small><b class="num" style="color:'+SCOL[band(lw[1])]+'">'+lw[1]+'<i>점</i></b>'+(pw?'<span class="wtdl '+(lw[1]>pw[1]?'ok':lw[1]<pw[1]?'bad':'')+'">'+(lw[1]>pw[1]?'▲':lw[1]<pw[1]?'▼':'±')+Math.abs(lw[1]-pw[1])+'점<small> · 지난주보다</small></span>':'')+'</div><span class="rhst" style="color:'+SCOL[band(lw[1])]+';background:var(--card)">'+SNAME[band(lw[1])]+'</span></div>';
   h3+=rows.length>1?'<div class="wlsth">주간 평균</div><div class="dwk">'+rows.map(function(r){var bb=band(r[1]);return '<div data-tip="'+esc(dietWeekTip(r[0],r[1],r[2]))+'"><span class="dwb"><u style="height:'+Math.max(6,r[1])+'%;background:'+SCOL[bb]+'"></u></span><b class="num" style="color:'+SCOL[bb]+'">'+r[1]+'</b><small>'+wn(r[0])+'</small></div>'}).join("")+'</div>':'';
   var days=[];for(var i=0;i<14;i++){var ds=addDays(T,-i),ix=idxOf(ds);var ms=ix>=0?mealScore(ds,ix%7):null;if(ms)days.push([ds,ms])}
