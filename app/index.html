@@ -1057,6 +1057,7 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .nudge{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--r-card);background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
 .nudge>span:first-child{font-size:22px}.nudge>span:nth-child(2){display:flex;flex-direction:column;min-width:0}.nudge b{font-size:13.5px}.nudge small{font-size:12px;color:var(--muted)}.nudge .btn{padding:8px 14px}
 .dlt{font-weight:800}
+.msg.ai p>b:first-child{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:12px}
 .tabhint{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--accent-soft);font-size:12.5px;color:var(--ink)}.tabhint span{flex:1;min-width:0}.tabhint b{color:var(--accent);margin-right:6px}
 .tabhint button{border:0;border-radius:var(--r-pill);padding:6px 12px;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:12px;cursor:pointer}
 header.top{position:sticky}header.top::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);background-size:40% 100%;background-repeat:no-repeat;opacity:0;transition:opacity .2s}
@@ -1252,8 +1253,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.2.3",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.3.0",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.3.0","2026-11-16","AI 코치 원포인트 레슨","AI 코치가 위로·칭찬 대신 가장 큰 약점 하나를 숫자로 짚고 진단 · 원인 · 원포인트 · 보완 훈련·팁 · 성공 기준 순서로 답해요. 랩 분석·주간 리뷰·레이스 평가·스토리 멘트도 같은 관점으로 바꿨어요."],
  ["1.2.3","2026-11-16","대회 주 카드 펼친 화면 리디자인","준비 진행 막대, 항목별 시점 태그(D-6~D-1 등), 지금 할 일 강조와 맨 위 정렬, 완료 항목은 아래로. 카보로딩 안내를 앱의 6일 카보로딩 기준으로 맞췄어요."],
  ["1.2.2","2026-11-16","대회 주 D-day 표시 정리","대회 주 카드의 D-day가 'D-'와 숫자로 줄이 나뉘던 것을 'D-6' 한 줄로 바꾸고, 위에 '대회까지'를 붙였어요."],
  ["1.2.1","2026-11-16","PC도 모바일과 같은 화면","PC에서 쓰던 2단 화면(오늘·가이드)과 넓은 머리줄을 없애고 모바일과 같은 한 줄 구성으로 맞췄어요."],
@@ -2357,7 +2359,7 @@ async function storyComment(){
       (D.parts>1?"\n※ 이 날은 워치를 멈췄다 다시 시작해 기록이 "+D.parts+"개로 나뉘었지만 하나의 훈련이야. 위 '실제'는 하루 합계야.\n회차별: "+D.sess.map(function(q,k){return (k+1)+"회차"+(q.at?"("+q.at+")":"")+" "+(q.km?q.km+"km":"")+(q.pace?" "+fmtMS(q.pace)+"/km":"")+(q.hr?" 심박"+q.hr:"")+(q.work.length?" · 본 구간 "+q.work.map(function(x){return x.d.toFixed(1)+"km "+fmtMS(x.p)}).join(", "):"")}).join(" / "):"")+
       (D.work.length?"\n하루 전체 본 구간 랩: "+D.work.map(function(x){return x.d.toFixed(1)+"km "+fmtMS(x.p)+(x.hr?" 심박"+x.hr:"")}).join(", "):"")+
       "\n목표: "+(S.goal?fmtT(S.goal.sec):"2:59:59")+" (MP "+P(255)+"/km), 2027-03-21 서울마라톤까지 D-"+Math.round((p(RACE)-p(D.ds))/864e5);
-    var out=await sm("너는 이 러너의 마라톤 코치야. 오늘 훈련을 인스타 스토리에 올릴 짧은 코치 코멘트를 한국어로 써.\n- 2~3문장, 공백 포함 90자 이내.\n- 하루 훈련 전체(모든 회차 합계)를 하나로 평가해. 특정 회차만 오늘 훈련인 것처럼 쓰지 마.\n- 아래 숫자 중 1~2개를 근거로 잘한 점과 다음 포인트를 하나씩.\n- 친근하고 자신감 있게. 해시태그·이모지는 쓰지 마. 따옴표 없이 본문만.\n\n"+info,{cache:false,modelTier:"default"});
+    var out=await sm("너는 이 러너의 마라톤 코치야. 오늘 훈련을 인스타 스토리에 올릴 짧은 코치 코멘트를 한국어로 써.\n- 2~3문장, 공백 포함 90자 이내.\n- 하루 훈련 전체(모든 회차 합계)를 하나로 평가해. 특정 회차만 오늘 훈련인 것처럼 쓰지 마.\n- 아래 숫자 1~2개를 근거로 오늘 가장 고칠 점 하나와 다음 훈련에서 할 원포인트(숫자 포함)를 써. 칭찬·위로 문장은 빼.\n- 단정한 존댓말. 해시태그·이모지는 쓰지 마. 따옴표 없이 본문만.\n\n"+info,{cache:false,modelTier:"default"});
     STORY.comment=String(out&&out.text||"").replace(/\*\*/g,"").replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,"").replace(/\s*\n\s*/g," ").replace(/^["'“]|["'”]$/g,"").trim().slice(0,160);
   }catch(e){var c=e&&e.code;STORY.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 AI 코멘트를 쓸 수 있어요. 직접 적어도 돼요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":"코멘트를 만들지 못했어요. 직접 적어도 돼요."}
   finally{STORY.busy=false;if(tab==="story"){render();drawStory()}}
@@ -2510,7 +2512,7 @@ function vStory(){
     render();drawStory()};
   drawStory();
 }
-var COACH_SYS="너는 이 러너의 마라톤 코치야. 아래 [러너 데이터]는 이 앱에 저장된 이 사람의 실제 계획·기록이야.\n- 한국어로, 친근하지만 짧고 구체적으로 답해. 보통 3~6문장, 필요하면 '- '로 시작하는 짧은 목록.\n- 데이터에 있는 숫자(날짜·거리·페이스·심박)를 근거로 들어. 데이터에 없는 기록은 지어내지 말고 '앱에 기록이 없다'고 말해.\n- 페이스·심박 기준은 데이터의 '내 기준' 페이스 존을 써.\n- 계획을 바꾸자고 할 땐 앱의 '훈련표 → 내 계획 바꾸기'나 '이 날 훈련 바꾸기'를 안내해.\n- 가슴 통증·어지럼·날카로운 통증 같은 위험 신호는 훈련 얘기보다 먼저 쉬고 진료받으라고 해.\n- 랩 데이터가 있으면 계획한 반복(예: MP 3K ×3)과 실제 랩을 맞춰 보고, 반복별 페이스·심박 흐름(후반 심박 상승, 페이스 편차)과 회복 구간을 짚어 줘.\n- 의학적 진단은 하지 마.";
+var COACH_SYS="너는 이 러너의 마라톤 코치야. 역할은 '원포인트 레슨'이야: 위로·칭찬·격려보다, 기록에서 가장 큰 약점 하나를 정확히 짚고 그걸 고칠 방법을 구체적으로 알려줘. 아래 [러너 데이터]는 이 앱에 저장된 이 사람의 실제 계획·기록이야.\n[말투]\n- 한국어 존댓말, 짧고 단정적으로('~하세요', '~예요'). 인사·감탄·칭찬 문장('잘하셨어요', '대단해요', '화이팅' 등)으로 시작하거나 끝내지 마.\n- 잘한 점은 꼭 필요할 때 사실 한 줄로만.\n[훈련·기록에 대한 답의 형식] 아래 굵은 제목을 그대로 써.\n**진단** 가장 중요한 문제 하나. 계획 대비 실제 숫자(페이스·심박·랩 편차·거리)로 근거를 대.\n**원인** 그렇게 된 가장 그럴듯한 이유 1~2개(초반 오버페이스, 회복 부족, 보급, 케이던스, 수면·컨디션 등).\n**원포인트** 다음 같은 훈련에서 할 행동 하나. 반드시 숫자로(예: '첫 2km를 4:20보다 느리게', '심박 155 넘으면 10초 늦추기', '반복 사이 200m 조깅을 6:00 이내로').\n**보완 훈련·팁** 1~2개: 드릴, 보강 훈련, 페이스 전략, 보급·수면·회복 중 이 약점에 맞는 것.\n**성공 기준** 다음에 고쳐졌는지 판단할 숫자 하나(예: '마지막 반복 페이스 편차 3초 이내').\n- 고칠 점이 뚜렷하지 않으면 그렇다고 한 줄로 말하고, 다음 단계(강도·거리·페이스를 올릴 지점)를 원포인트로 줘.\n- 훈련과 상관없는 질문(일정, 앱 사용법 등)은 형식 없이 3~5문장으로 답해.\n[근거]\n- 데이터에 있는 숫자(날짜·거리·페이스·심박·랩)만 근거로 써. 데이터에 없는 기록은 지어내지 말고 '앱에 기록이 없다'고 말해.\n- 페이스·심박 기준은 데이터의 '내 기준' 페이스 존을 써.\n- 랩 데이터가 있으면 계획한 반복(예: MP 3K ×3)과 실제 랩을 맞춰 보고, 반복별 페이스·심박 흐름(후반 심박 상승, 페이스 편차)과 회복 구간을 짚어.\n- 계획을 바꾸자고 할 땐 앱의 '훈련표 → 일정 조정'이나 '이 날 훈련 바꾸기'를 안내해.\n[안전]\n- 가슴 통증·어지럼·날카로운 통증 같은 위험 신호는 훈련 얘기보다 먼저 쉬고 진료받으라고 해. 의학적 진단은 하지 마.";
 function mdLite(t){
   var e=esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>"),out="",inL=false;
   e.split("\n").forEach(function(l){var m=l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)/);
@@ -2519,7 +2521,7 @@ function mdLite(t){
 }
 function coachChips(){
   var i=idxOf(T),t=i>=0&&i<TOTAL?planAt(i):null,c=[];
-  c.push("어제 달린 기록 어땠어?");
+  c.push("최근 훈련에서 가장 고칠 점 하나만 짚어줘");c.push("어제 달린 기록 어땠어?");
   if(t&&t[0]==="q")c.push("오늘 포인트 훈련 어떻게 달릴까?");else if(t&&t[0]==="l")c.push("오늘 롱런 페이스랑 보급 알려줘");else c.push("오늘 훈련 어떻게 하면 돼?");
   c.push("오늘 컨디션으로 훈련해도 될까?","이번 주 훈련 잘 하고 있어?","체중 감량 속도 괜찮아?","지금 목표가 현실적이야?");
   return c;
@@ -2528,7 +2530,7 @@ function coachChips(){
 function coachPad(){var cb=document.querySelector(".cbar"),mn=document.querySelector("main");if(!cb||!mn)return 0;var nv=document.querySelector("nav.tabs");if(nv&&tab==="coach")cb.style.bottom=nv.offsetHeight+"px";var hh=cb.offsetHeight;mn.style.paddingBottom=(hh+84)+"px";try{coBackPos()}catch(e){}return hh}
 function vCoach(){
   var M=S.coach||[],can=AUTH.st==="ok";
-  var h='<div class="cohead"><span class="coav" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div class="cot"><h2>AI 코치</h2><small>내 기록을 보고 답해요</small></div>'+(M.length?'<button type="button" class="coib" id="co-clear" aria-label="새 대화"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>새 대화</span></button>':(S.coachPrev&&S.coachPrev.length?'<button type="button" class="coib" id="co-prev" aria-label="이전 대화 열기"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg><span>이전 대화</span></button>':''))+'</div>';
+  var h='<div class="cohead"><span class="coav" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div class="cot"><h2>AI 코치</h2><small>내 기록에서 고칠 점 하나를 짚어 주는 원포인트 레슨</small></div>'+(M.length?'<button type="button" class="coib" id="co-clear" aria-label="새 대화"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>새 대화</span></button>':(S.coachPrev&&S.coachPrev.length?'<button type="button" class="coib" id="co-prev" aria-label="이전 대화 열기"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg><span>이전 대화</span></button>':''))+'</div>';
   h+='<div class="chat" id="chat">';
   if(!M.length){var QI=["🏃","📋","❤️","📈","⚖️","🎯"];h+='<div class="coempty"><b>무엇이든 물어보세요</b><p>달린 기록, 훈련 방법, 페이스, 보급, 컨디션까지. 앱에 저장된 내 기록을 보고 답해요.</p></div><div class="coq">'+coachChips().map(function(q,k){return '<button type="button" data-q="'+esc(q)+'"'+(COACH.busy?' disabled':'')+'><span aria-hidden="true">'+(QI[k]||"💬")+'</span>'+esc(q)+'</button>'}).join("")+'</div>'}
   M.forEach(function(m,k){h+=m.role==="user"?'<div class="msg me">'+esc(m.text)+'</div>':'<div class="msg ai'+(m.err?' err':'')+'"'+(k===M.length-1?' id="cb-last"':'')+'><span class="mwho">코치</span>'+(m.text?mdLite(m.text):'<p class="muted">생각하는 중…</p>')+(m.text&&!m.err&&canSpeak()?'<button type="button" class="say" data-say="'+k+'" aria-label="이 답변 읽어주기">🔊 듣기</button>':'')+(m.text&&!m.err?'<button type="button" class="say" data-copyans="'+k+'" aria-label="답변 복사">📋 복사</button>':'')+'</div>'});
@@ -2862,7 +2864,7 @@ function lapsHtml(ds){
 var LAPOPEN=null;
 function bindLaps(){
   view.querySelectorAll("details.laps").forEach(function(d){d.addEventListener("toggle",function(){LAPOPEN=d.open?d.dataset.lo:null})});
-  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;enterSub("coach");if(BACK)BACK.ctx=true;render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 계획대로 했는지, 페이스·심박 흐름, 다음에 고칠 점을 알려 줘.")}});
+  view.querySelectorAll("[data-coachrun]").forEach(function(b){b.onclick=function(){var ds=b.dataset.coachrun,i=idxOf(ds),t=i>=0&&i<TOTAL?planAt(i):null;enterSub("coach");if(BACK)BACK.ctx=true;render();coachAsk(md(ds)+" 훈련을 랩별로 분석해 줘."+(t?" 계획은 \""+t[1].replace(/\n/g," / ")+"\"였어.":"")+" 원포인트 레슨으로: 계획 대비 가장 큰 약점 하나(숫자로), 원인, 다음에 할 원포인트, 보완 훈련, 성공 기준.")}});
 }
 function lapsCtx(ds){
   return runsOn(ds).filter(function(r){return r.laps&&r.laps.laps&&r.laps.laps.length}).map(function(r){var L=r.laps;
@@ -3121,7 +3123,7 @@ function weekResultBtn(w){if(!weekDone(w))return '';var on=!!WDAYS[w];
 var WDAYS={};
 function bindWeekRes(){view.querySelectorAll("[data-wdays]").forEach(function(b){b.onclick=function(){var w=+b.dataset.wdays;WDAYS[w]=!WDAYS[w];var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-wrai]").forEach(function(b){b.onclick=function(){var w=+b.dataset.wrai,st=weekStats(w),av=weekAvg(w);enterSub("coach");if(BACK)BACK.ctx=true;render();
-    coachAsk(wn(w)+"("+md(dateOf(w,0))+"~"+md(dateOf(w,6))+") 한 주 훈련을 리뷰해 줘. 완료 "+st.done+"/"+st.n+"회, "+st.km+"km(계획 "+weekKm(w)+"km)"+(av!=null?", 평균 점수 "+av+"점":"")+". 잘한 점, 아쉬운 점, 다음 주에 신경 쓸 포인트를 알려 줘.")}})}
+    coachAsk(wn(w)+"("+md(dateOf(w,0))+"~"+md(dateOf(w,6))+") 한 주 훈련을 리뷰해 줘. 완료 "+st.done+"/"+st.n+"회, "+st.km+"km(계획 "+weekKm(w)+"km)"+(av!=null?", 평균 점수 "+av+"점":"")+". 원포인트 레슨으로: 이번 주 가장 큰 약점 하나(숫자로), 원인, 다음 주에 할 원포인트, 보완 훈련, 성공 기준.")}})}
 function weekReport(){var ti=idxOf(T);if(ti<7||ti>=TOTAL+7||sel!==T)return '';var pw=Math.floor(ti/7)-1;if(ti%7>1||S.repSeen===pw||pw<0||pw>=W.length)return '';
   var st=weekStats(pw),av=weekAvg(pw),wk=[];for(var d=0;d<7;d++){var x=wDay(dateOf(pw,d));if(x)wk.push(x.avg)}var dw=dietWeeks().filter(function(r){return r[0]===pw})[0];
   var it=['완료 <b>'+st.done+'/'+st.n+'</b>회','<b>'+st.km+'</b>km'];if(av!=null)it.push('평균 <b style="color:'+SCOL[band(av)]+'">'+av+'점</b>');if(wk.length>1){var dv=Math.round((wk[wk.length-1]-wk[0])*10)/10;it.push('체중 <b>'+(dv>0?'+':dv<0?'−':'±')+Math.abs(dv)+'kg</b>')}if(dw)it.push('식단 <b style="color:'+SCOL[band(dw[1])]+'">'+dw[1]+'점</b>');
@@ -4081,7 +4083,7 @@ async function raceReview(rc,manualDur){
     if(rc.ai&&rc.ai.summary)lines.push("레이스 전 세운 전략: "+rc.ai.summary);
     if(res.km){var cpr=raceCps(rc).map(function(c){var t=0;for(var k=0;k<Math.floor(c.d)&&k<res.km.length;k++)t+=res.km[k];var fr=c.d-Math.floor(c.d);if(fr&&res.km[Math.floor(c.d)])t+=res.km[Math.floor(c.d)]*fr;return c.at+" 실제 약 "+fmtT(t)+" (계획 "+fmtT(c.plan)+", 한계 "+fmtT(c.lim)+")"});lines.push("체크포인트 통과(시계 km 기준 추정): "+cpr.join("; "))}
     var dday=Math.round((p(RACE)-p(rc.date))/864e5);if(rc.date<RACE)lines.push("다음 목표 대회: 2027-03-21 서울마라톤 (이 대회 후 "+dday+"일 뒤), 목표 "+(S.goal?fmtT(S.goal.sec):"2:59:59"));
-    var prompt="너는 마라톤 코치야. 아래 대회 전략과 실제 기록을 비교해서 레이스를 평가해 줘. 점수는 앱이 계산했으니 바꾸지 말고, 왜 그 점수인지 근거와 함께 설명해. 숫자를 인용해 구체적으로, 존댓말 '~해요'체.\n\n"+lines.join("\n")+
+    var prompt="너는 마라톤 코치야. 아래 대회 전략과 실제 기록을 비교해서 레이스를 평가해 줘. 점수는 앱이 계산했으니 바꾸지 말고, 왜 그 점수인지 근거와 함께 설명해. 위로·칭찬보다 약점을 정확히 짚는 원포인트 레슨 관점으로: 아쉬운 점은 어느 구간에서 계획 대비 몇 초·몇 bpm 벗어났는지 숫자로, 다음 유의사항은 바로 실행할 수 있는 행동과 기준 숫자로. 숫자를 인용해 구체적으로, 단정한 존댓말 '~해요'체.\n\n"+lines.join("\n")+
       "\n\nJSON만 답해: {\"summary\":\"레이스 총평 2~3문장\",\"good\":[\"잘한 점 2~3개\"],\"bad\":[\"아쉬운 점 2~3개(어느 구간에서 왜)\"],\"next\":[\"다음 레이스에서 유의할 점 3~5개, 훈련·페이스·보급 포함\"]}";
     var out=await sm.json(prompt,{modelTier:"default"});
     function arr(a,n){return (Array.isArray(a)?a:[]).filter(function(x){return typeof x==="string"&&x.trim()}).slice(0,n).map(function(x){return x.trim().slice(0,220)})}
