@@ -1057,6 +1057,10 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .nudge{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--r-card);background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
 .nudge>span:first-child{font-size:22px}.nudge>span:nth-child(2){display:flex;flex-direction:column;min-width:0}.nudge b{font-size:13.5px}.nudge small{font-size:12px;color:var(--muted)}.nudge .btn{padding:8px 14px}
 .dlt{font-weight:800}
+.pwi{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent)}.pwi svg{display:block}
+.zone .zn0{display:flex;align-items:center;gap:6px;min-width:0}.zone .znm{overflow:hidden;text-overflow:ellipsis}
+.zab{flex:none;font-style:normal;font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.02em;min-width:30px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--zc);background:color-mix(in srgb,var(--zc) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zc) 28%,transparent)}
+.zone{--znw:140px}
 .wico-svg{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent)}.wico-svg svg{display:block}
 .gmove{margin-top:12px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--accent) 7%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 20%,transparent);font-size:13px;line-height:1.55}.gmove>b{font-size:13.5px}.gmove p{margin:4px 0 6px}.gmove ol{padding-left:18px;margin:0 0 8px}
 .gmove-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.gmove-g span{padding:8px 10px;border-radius:10px;background:var(--card);font-size:12px;color:var(--muted);line-height:1.5}.gmove-g b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:2px}.gmove-g span:first-child b{color:var(--ok)}
@@ -1278,8 +1282,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.3",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.4",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.4","2026-11-16","훈련 존 정리 · 지난 주 아이콘","페이스 탭 '내 훈련 존'을 빠른 페이스 순(인터벌 → 회복)으로 정리하고, I·T·MP 같은 이니셜을 이름 앞에 색 배지로 붙였어요. 훈련표 '지난 주' 아이콘을 지난 기록(되감기 시계) 선 아이콘으로 바꿨어요."],
  ["1.5.3","2026-11-16","복제 후 기록 옮기기 안내 · 체중 아이콘","가이드 '시작하기'에 다시 복제했을 때 백업 코드로 기록과 조정한 계획을 옮기는 방법을 넣었어요. 바디 탭 체중 카드 아이콘을 체중계 모양으로 바꿨어요."],
  ["1.5.2","2026-11-16","끌어서 요일 바꾸기 다듬기 · 훈련 이름에서 요일 빼기","끌 때 카드가 떠올라 손가락을 따라오고, 놓을 요일에 '↔ 월' 표시와 '월 ↔ 토 바꾸기' 안내가 떠요. 처음 펼친 주에는 사용법 안내가 한 번 보여요. 오늘 화면 훈련 머리글에서 '수요일·토요일·일요일'을 빼서, 요일을 바꿔도 이름이 어긋나 보이지 않아요."],
  ["1.5.1","2026-11-16","오늘 화면 '훈련 구성' 깨짐 수정","1.5.0의 끌기 손잡이 스타일이 오늘 화면 '훈련 구성' 제목에도 적용돼 글자가 세로로 깨지던 문제를 고쳤어요."],
@@ -3678,7 +3683,7 @@ function vPlan(){
   for(var w=0;w<W.length;w++){
     var s=weekStats(w),cur=cwk===w;
     if(PASTW===null)PASTW=foldOpen("pastw",false);if(w===0&&cwk>0){var pn=Math.min(cwk,W.length),pd=0,pt=0,pk=0;for(var pw2=0;pw2<pn;pw2++){var ps=weekStats(pw2);pd+=ps.done;pt+=ps.n;pk+=ps.km}
-      h+='<details class="pastwk" id="pastwk"'+(PASTW?' open':'')+'><summary class="pwh"><span class="pwi" aria-hidden="true">🗂</span><span class="pwt"><b>지난 주 '+pn+'개</b><small>'+wn(0)+(pn>1?'–'+wn(pn-1):'')+' · 완료 '+pd+'/'+pt+' · '+Math.round(pk*10)/10+'km</small></span><span class="pwo">'+(PASTW?'접기':'펼치기')+'</span><span class="chev" aria-hidden="true"></span></summary>'}
+      h+='<details class="pastwk" id="pastwk"'+(PASTW?' open':'')+'><summary class="pwh"><span class="pwi" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4.5V8.5H7.5"/><path d="M12 7.5V12l3 2"/></svg></span><span class="pwt"><b>지난 주 '+pn+'개</b><small>'+wn(0)+(pn>1?'–'+wn(pn-1):'')+' · 완료 '+pd+'/'+pt+' · '+Math.round(pk*10)/10+'km</small></span><span class="pwo">'+(PASTW?'접기':'펼치기')+'</span><span class="chev" aria-hidden="true"></span></summary>'}
     if(w===cwk&&cwk>0)h+='</details>';
     h+='<details class="wk'+(cur?' cur':'')+'" data-w="'+w+'"'+(openWeeks[w]?' open':'')+'><summary><span class="stripe" style="background:'+phColor(w)+'"></span><span><span class="wn">'+wn(w)+'</span> <span class="small" style="font-weight:700;color:'+phColor(w)+'">'+esc(W[w].lab)+'</span><span class="wsub" style="display:block">'+md(dateOf(w,0))+' – '+md(dateOf(w,6))+' · 완료 '+s.done+'/'+s.n+(weekAvg(w)!=null?' · 평균 <b style="color:'+SCOL[band(weekAvg(w))]+'">'+weekAvg(w)+'점</b>':'')+'</span></span><span class="wr"><b>'+s.km+'<span class="muted small">km/'+weekKm(w)+'K</span></b><i class="wkbar"><i style="width:'+(weekKm(w)?Math.min(100,Math.round(s.km/weekKm(w)*100)):0)+'%;background:'+phColor(w)+'"></i></i></span></summary>';
     if(openWeeks[w])h+=weekResultBtn(w);
@@ -3965,7 +3970,7 @@ function zoneRow(z,orig){
   var ls=[];if(z.trk)ls.push('<small class="lap">'+lap400(z)+'</small>');if(hh)ls.push('<small class="hr">'+hh+'</small>');if(orig&&!z.trk)ls.push('<small class="og">'+og+'</small>');
   var need=(orig||ZTRK)?2:1;while(ls.length<need)ls.push('<small>&nbsp;</small>');
   var l2=ls.join(""),l3="";
-  return '<div class="zone'+(orig||ZTRK?' z3':'')+'"'+(z.trk&&orig?' title="'+og+'"':'')+'><span class="zn0">'+z.n+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+l2+l3+'</span></div>';
+  return '<div class="zone'+(orig||ZTRK?' z3':'')+'"'+(z.trk&&orig?' title="'+og+'"':'')+'><span class="zn0">'+(function(){var m=z.n.match(/^(.*?)\s*\(([^)]+)\)\s*$/),ab=m?m[2]:z.n,nm=m?m[1]:(z.k==="lsd"?"장거리 천천히":"");return '<em class="zab" style="--zc:var('+z.c+')">'+ab+'</em>'+(nm?'<span class="znm">'+nm+'</span>':'')})()+(z.note?'<sup class="zn" aria-hidden="true">*</sup>':'')+'</span><span class="zb"><i style="width:'+z.bar+'%;background:var('+z.c+')"></i></span><span class="zp">'+zr(z)+l2+l3+'</span></div>';
 }
 function zonesFor(t){
   var s=t[1],z=[];function add(k){if(z.indexOf(k)<0)z.push(k)}
@@ -4460,8 +4465,8 @@ function vPace(){
   }
   h+=goalCard();
   // zones
-  h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.map(function(z){return zoneRow(z,K!==1)}).join("")+'</div>';
-  ZONES.forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note.replace("{hr}",z.hr?HR(z.hr):"")+'</div>'});
+  h+='<div class="card"><div class="row between"><h2>내 훈련 존</h2><span class="small muted">'+(K!==1?'원본 대비':'원본 그대로')+'</span></div><div style="margin-top:8px">'+ZONES.slice().sort(function(a,b){return a.lo-b.lo}).map(function(z){return zoneRow(z,K!==1)}).join("")+'</div>';
+  ZONES.slice().sort(function(x,y){return x.lo-y.lo}).forEach(function(z){if(z.note)h+='<div class="znote"><b style="color:var(--accent)">* '+z.n+'</b> · '+zr(z)+'/km. '+z.note.replace("{hr}",z.hr?HR(z.hr):"")+'</div>'});
   h+='<p class="small muted" style="margin:8px 0 0">'+(HRK?'심박 기준은 역치 심박의 비율로 계산해요 (회복·LSD 77%, 이지 83%, 롱런 페이스(LRP) 86%, MP 94%).':'역치 심박을 넣으면 심박 기준도 내 몸에 맞게 바뀌어요.')+' 심박 기준이 있는 존은 페이스보다 심박이 우선이에요.</p></div>';
   // upcoming
   view.innerHTML=h;
