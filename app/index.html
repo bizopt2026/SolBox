@@ -1259,6 +1259,51 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .mini{border-color:transparent;background:var(--bg)}
 .rchk>div{border-color:transparent!important;background:var(--bg)}
 .rchk>div.hot{background:var(--accent-soft)!important}
+/* ===== 오늘 탭 훈련 카드 리디자인 ===== */
+.session{border-radius:18px;padding:18px 16px 16px;box-shadow:0 1px 2px rgba(15,20,40,.04),0 8px 24px rgba(15,20,40,.05)}
+.session::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--stripe,var(--accent));opacity:.9}
+.session .eyebrow.shd{display:flex;align-items:center;gap:8px;letter-spacing:0;text-transform:none;font-size:12px}
+.session .eyebrow.shd::before{content:none}
+.session .stype{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-weight:800;font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--muted) 12%,transparent)}
+.session.t-q .stype{color:var(--q);background:color-mix(in srgb,var(--q) 13%,transparent)}
+.session.t-l .stype,.session.t-x .stype{color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.session.t-e .stype,.session.t-c .stype{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.session.t-q .stype::before,.session.t-l .stype::before,.session.t-x .stype::before{content:"★";font-size:11px}
+.session .skm{font-size:12px;color:var(--muted);font-weight:600}.session .skm b{font-size:13px;color:var(--ink);font-weight:800;margin:0 1px}
+.session .what{margin:10px 0 2px;letter-spacing:-.01em}
+.keypace.kpx{display:grid;grid-template-columns:1fr auto;align-items:end;gap:8px 10px;margin-top:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--zc,var(--accent)) 11%,var(--card)),color-mix(in srgb,var(--zc,var(--accent)) 4%,var(--card)));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zc,var(--accent)) 20%,transparent)}
+.keypace.kpx .kpl{grid-column:1/-1;display:flex;align-items:center;gap:6px;min-width:0}
+.keypace.kpx .kpl .zab{color:var(--zc);font-size:11px}
+.keypace.kpx .kpl>span{font-size:13px;font-weight:700;color:var(--ink)}
+.keypace.kpx .kpl small{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
+.keypace.kpx .kpv{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+.keypace.kpx .kpv b{font-size:32px;letter-spacing:-.02em;line-height:1}
+.keypace.kpx .kpv em{font-style:normal;font-size:12px;font-weight:700;color:var(--bad);padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--bad) 11%,transparent);white-space:nowrap}
+.keypace.kpx .kpbtns{grid-column:1/-1;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin:2px 0 0;width:100%}
+.keypace.kpx.kpo{display:block;padding:10px}
+.keypace.kpx .kpbtns>button{margin:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:9px 10px;border-radius:11px;font-size:13px;font-weight:700;background:var(--card);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent);white-space:nowrap}
+.keypace.kpx .kpbtns>button.same{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 30%,transparent)}
+.keypace.kpx .kpbtns>button.chg{color:var(--card);background:var(--accent);box-shadow:none}
+.session .plantb{margin-top:10px;padding:12px 14px 8px;border-radius:14px;background:var(--bg)}
+.session .plantb .dh{font-size:12.5px;margin-bottom:8px}
+.pbar{display:flex;gap:3px;height:22px;margin:0 0 8px;border-radius:7px;overflow:hidden}
+.pbar i{min-width:26px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--zc) 22%,var(--card));box-shadow:inset 0 -3px 0 var(--zc)}
+.pbar i span{font-size:10.5px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:clip;padding:0 3px;font-style:normal}
+.session .plantb .drw{align-items:center;padding:6px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.session .plantb .drw:first-of-type{border-top:0}
+.session .plantb .drw>span{display:flex;align-items:center;gap:7px;color:var(--ink);font-weight:600}
+.session .plantb .drw .zab{min-width:28px;height:19px;font-size:10.5px}
+.session .recgrp{margin-top:10px;padding:6px 6px 6px 12px;border-radius:12px}
+.session .recgrp .linkbtn.dochk{background:var(--accent);color:var(--on-accent,#fff);border-radius:99px;padding:5px 14px;font-size:12.5px;text-decoration:none}
+.session .recgrp .linkbtn.dochk:hover{filter:brightness(1.06)}
+.session .recgrp .linkbtn#done:not(.dochk){text-decoration:none;color:var(--muted)}
+.session .recgrp .ftog{border-radius:99px}
+.deopen{padding:6px 12px!important;font-size:12.5px!important;border-radius:99px!important;color:var(--muted)!important;background:transparent!important;box-shadow:inset 0 0 0 1px var(--line)!important}
+.deopen:hover{color:var(--accent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)!important}
+.session .delock{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--bg)}
+.session .delock .btn{display:none}
+.session .delock small{text-align:left;font-size:11.5px}
+.session .delock::before{content:"🔒";font-size:12px;flex:none}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1282,8 +1327,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.4",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.5",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.5","2026-11-16","오늘 훈련 카드 리디자인","오늘 탭 훈련 카드를 다듬었어요. 훈련 종류는 색 배지, 핵심 페이스는 존 색 패널에 크게, 코치 팁·워치 버튼은 나란히 같은 폭으로. 훈련 구성에는 구간별 거리 막대와 이니셜 배지를 넣고, 같은 구간이 여러 번이면 거리를 합쳐 보여줘요. 완료 체크는 버튼으로, 지난 날 안내는 한 줄로 정리했어요."],
  ["1.5.4","2026-11-16","훈련 존 정리 · 지난 주 아이콘","페이스 탭 '내 훈련 존'을 빠른 페이스 순(인터벌 → 회복)으로 정리하고, I·T·MP 같은 이니셜을 이름 앞에 색 배지로 붙였어요. 훈련표 '지난 주' 아이콘을 지난 기록(되감기 시계) 선 아이콘으로 바꿨어요."],
  ["1.5.3","2026-11-16","복제 후 기록 옮기기 안내 · 체중 아이콘","가이드 '시작하기'에 다시 복제했을 때 백업 코드로 기록과 조정한 계획을 옮기는 방법을 넣었어요. 바디 탭 체중 카드 아이콘을 체중계 모양으로 바꿨어요."],
  ["1.5.2","2026-11-16","끌어서 요일 바꾸기 다듬기 · 훈련 이름에서 요일 빼기","끌 때 카드가 떠올라 손가락을 따라오고, 놓을 요일에 '↔ 월' 표시와 '월 ↔ 토 바꾸기' 안내가 떠요. 처음 펼친 주에는 사용법 안내가 한 번 보여요. 오늘 화면 훈련 머리글에서 '수요일·토요일·일요일'을 빼서, 요일을 바꿔도 이름이 어긋나 보이지 않아요."],
@@ -2871,11 +2917,16 @@ function dayScore0(ds){
 }
 function scoreLegend(){return '<div class="slg">'+[5,4,3,2,1].map(function(n){return '<span><i style="background:var(--p'+n+')"></i>'+SLBL[n]+'</span>'}).join('')+'<span><b style="color:var(--s1)">✕</b> 놓침</span><span><b style="color:var(--accent)">★</b> 핵심 훈련</span><span>'+[1,2,3,4,5].map(function(v){return rpeFace(v,"xs")}).join("")+' RPE</span></div>'}
 // today's plan as a table: zone | distance · heart rate | pace
-function planTable(t,zs){var tx=ptxt(t[1]);
+function zAbbr(z){var m=z.n.match(/^(.*?)\s*\(([^)]+)\)\s*$/);return m?[m[2],m[1]]:[z.n,z.k==="lsd"?"장거리 천천히":""]}
+function planTable(t,zs){var tx=ptxt(t[1]),seg=[],esc2=function(x){return x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")};
   var rows=zs.map(function(z){var ab=(z.n.match(/\(([^)]+)\)\s*$/)||[])[1]||(/^[A-Z]+$/.test(z.n)?z.n:""),dist="";
-    if(ab){var m=tx.match(new RegExp("(^|[^A-Z])"+ab.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(\\d+(?:\\.\\d+)?)\\s*K(\\s*[x×]\\s*\\d+)?"));if(m)dist=m[2]+"K"+(m[3]?" "+m[3].replace(/\s|x/g,"").replace(/^×?/,"×"):"");else{var m2=tx.match(new RegExp(ab.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*(\\d+)\\s*분"));if(m2)dist=m2[1]+"분"}}
-    var hh=zh(z);return '<div class="drw"><span>'+esc(z.n)+'</span><em>'+[dist,hh?hh.replace("♥ ","♥"):""].filter(Boolean).join(" · ")+'</em><b class="num">'+zr(z)+(z.trk?' <small>'+lap400(z)+'</small>':'')+'</b></div>'}).join("");
-  return '<section class="plantb"><div class="dh">훈련 구성'+(t[2]?'<span class="muted" style="margin-left:auto;font-weight:500">총 '+t[2]+'K</span>':'')+'</div>'+rows+'</section>'}
+    if(ab){var re=new RegExp("(^|[^A-Z])"+esc2(ab)+"\\s*(\\d+(?:\\.\\d+)?)\\s*K(\\s*[x×]\\s*\\d+)?","g"),m,sum=0,n=0,rep="";
+      while((m=re.exec(tx))){var v=+m[2],rp=m[3]?+m[3].replace(/\D/g,""):1;n++;if(m[3])rep=m[2]+"K ×"+rp;sum+=v*rp;seg.push({i:m.index,k:v*rp,c:z.c,a:ab})}
+      if(n)dist=n===1&&rep?rep:(Math.round(sum*10)/10)+"K";else{var m2=tx.match(new RegExp(esc2(ab)+"\\s*(\\d+)\\s*분"));if(m2)dist=m2[1]+"분"}}
+    var hh=zh(z),za=zAbbr(z);return '<div class="drw"><span><em class="zab" style="--zc:var('+z.c+')">'+za[0]+'</em>'+esc(za[1]||z.n)+'</span><em>'+[dist,hh?hh.replace("♥ ","♥"):""].filter(Boolean).join(" · ")+'</em><b class="num">'+zr(z)+(z.trk?' <small>'+lap400(z)+'</small>':'')+'</b></div>'}).join("");
+  seg.sort(function(a,b){return a.i-b.i});var tot=seg.reduce(function(a,x){return a+x.k},0);
+  var bar=seg.length>1&&tot?'<div class="pbar" aria-hidden="true">'+seg.map(function(x){return '<i style="flex:'+x.k+';--zc:var('+x.c+')"><span>'+x.a+' '+(Math.round(x.k*10)/10)+'</span></i>'}).join("")+'</div>':'';
+  return '<section class="plantb"><div class="dh">훈련 구성'+(t[2]?'<span class="muted" style="margin-left:auto;font-weight:500">총 '+t[2]+'K</span>':'')+'</div>'+bar+rows+'</section>'}
 function detHtml(t,r,lh,ds){
   var h="",zs=t[0]!=="r"?zonesFor(t):[];
   function row(a,b,c){return '<div class="drw"><span>'+a+'</span><em>'+(c||'')+'</em><b class="num">'+b+'</b></div>'}
@@ -2912,7 +2963,7 @@ var EDIT=null,AI={busy:false,msg:"",err:"",prev:null,req:""},PLMSG="";
 function dayEditor(ds,w,d,t){
   if(t[0]==="x")return '<p class="small muted" style="margin:10px 0 0">대회 날은 바꿀 수 없어요.</p>';
   var o=plan().days[ds];
-  if(EDIT!==ds)return '<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn ghost" id="de-open" style="padding:6px 12px;font-size:13px">'+(o?'✎ 내가 바꾼 훈련 수정':'✎ 이 날 훈련 바꾸기')+'</button></div>';
+  if(EDIT!==ds)return '<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn ghost deopen" id="de-open">'+(o?'✎ 내가 바꾼 훈련 수정':'✎ 이 날 훈련 바꾸기')+'</button></div>';
   var h='<form id="de" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px"><b>이 날 훈련 바꾸기</b><div class="small muted">나에게만 적용돼요. 페이스는 원래 서브3 기준(예: @4:15)으로 적으면 내 페이스로 바꿔 보여 줘요.</div>';
   h+='<div class="fields" style="margin:0"><label>종류<select id="de-t" class="inp">'+Object.keys(PL_T).filter(function(k){return k!=="x"}).map(function(k){return '<option value="'+k+'"'+(t[0]===k?' selected':'')+'>'+PL_T[k]+'</option>'}).join("")+'</select></label><label>계획 거리 (km)<input id="de-k" class="inp" inputmode="decimal" value="'+esc(t[2])+'"></label><label class="full">훈련 내용 (줄바꿈으로 구분)<textarea id="de-x" class="inp" rows="4" maxlength="200">'+esc(t[1])+'</textarea></label></div>';
   h+='<div class="row"><button class="btn" type="submit">저장</button>'+(o?'<button class="btn ghost" type="button" id="de-reset">원래대로</button>':'')+'<button class="btn ghost" type="button" id="de-cancel">취소</button></div></form>';
@@ -3197,9 +3248,9 @@ function vToday(){
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:#cdc8ff">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:22px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
   h+='<div class="t2col"><div class="tcol">';
-  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow">'+(t[0]==="q"?"포인트 훈련":t[0]==="l"?"지속주·롱런":t[0]==="c"?"회복 런":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+(t[2]?' · 약 '+t[2]+'km':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
+  h+='<div class="session t-'+t[0]+'" style="--stripe:'+phColor(w)+'"><div class="eyebrow shd"><span class="stype">'+(t[0]==="q"?"포인트 훈련":t[0]==="l"?"지속주·롱런":t[0]==="c"?"회복 런":t[0]==="x"?"대회일":t[0]==="r"?"휴식일":"이지 런")+'</span>'+(t[2]?'<span class="skm">약 <b class="num">'+t[2]+'</b>km</span>':'')+'</div><div class="what">'+esc(ptxt(t[1]).split("\n").filter(function(x,k,a){return !(k===0&&a.length>1&&t[2]&&/^총\s*[\d.]+\s*K/i.test(x))}).join(" · "))+'</div>';
   var DS=dn||(t[0]==="r"&&r.w)?dayScore(sel):null,folded=!!(DS&&DS.s!=null),det="";
-  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0],cwb=S.watch==="freddy"?fitDayBtn(sel,t):cwDayBtn(sel,t);if(kz){var khh=zh(kz);h+='<div class="keypace"><span>'+esc(kz.n)+'</span><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'<span class="kpbtns"><button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button>'+cwb+'</span></div>'}else if(cwb)h+='<div class="keypace"><span class="kpbtns">'+cwb+'</span></div>';if(FITNEXT===sel&&S.watch==="freddy")h+=fitNextHtml(1)}
+  if(!folded&&t[0]!=="r"){var kz=workZone(t[1])||zonesFor(t)[0],cwb=S.watch==="freddy"?fitDayBtn(sel,t):cwDayBtn(sel,t);if(kz){var khh=zh(kz),kab=zAbbr(kz);h+='<div class="keypace kpx" style="--zc:var('+kz.c+')"><div class="kpl"><em class="zab" style="--zc:var('+kz.c+')">'+kab[0]+'</em><span>'+esc(kab[1]||kz.n)+'</span><small>핵심 페이스</small></div><div class="kpv"><b class="num">'+zr(kz)+'<small>/km</small></b>'+(khh?'<em>'+khh+'</em>':'')+'</div><span class="kpbtns"><button type="button" class="aiq1" data-aiq="'+esc(md(sel)+' 계획 "'+ptxt(t[1]).replace(/\n/g,' / ')+'"을 어떻게 뛰면 좋을지, 페이스·심박·보급 팁을 알려 줘.')+'">💬 코치 팁</button>'+cwb+'</span></div>'}else if(cwb)h+='<div class="keypace kpx kpo"><span class="kpbtns">'+cwb+'</span></div>';if(FITNEXT===sel&&S.watch==="freddy")h+=fitNextHtml(1)}
   var rv=rpeOf(sel),rpeOn=dn||!!r.w;
   if(rpeOn)h+='<button class="rpeb" id="rpe-open" aria-label="RPE '+(rv?RPE[rv].n:'입력')+'">'+rpeFace(rv,"lg")+'<small>'+(rv?RPE[rv].n:'RPE')+'</small></button>';
   var askR=rpeOn&&(RPEASK===sel||(dn&&!rv&&!RPESKIP[sel]));
@@ -3230,7 +3281,7 @@ function vToday(){
     h+='<div class="fields"'+(fOpen?'':' hidden')+'><label>실제 거리 (km)<input id="f-km" inputmode="decimal" placeholder="'+(r.w?r.w.km:t[2])+'" value="'+esc(r.km)+'"></label><label>평균 심박<input id="f-hr" inputmode="numeric" placeholder="'+(r.w&&r.w.hr?r.w.hr:'bpm')+'" value="'+esc(r.hr)+'"></label><label>시간 / 페이스<input id="f-pace" placeholder="예: 52:10 · 5:12/km" value="'+esc(r.pace)+'"></label><label class="full">메모<textarea id="f-note" placeholder="몸 상태, 보급, 날씨…">'+esc(r.note)+'</textarea></label></div>';
   }
   h+='</div>';
-  if(sel<T&&t[0]!=="x")h+='<div class="delock"><button class="btn ghost" type="button" disabled aria-disabled="true">✎ 이 날 훈련 바꾸기</button><small>지난 훈련은 여기서 바꿀 수 없어요. 꼭 바꿔야 하면 훈련표 → 일정 조정 → 클로드에게 부탁에서 날짜를 적어 요청하세요.</small></div>';
+  if(sel<T&&t[0]!=="x")h+='<div class="delock"><button class="btn ghost" type="button" disabled aria-disabled="true">✎ 이 날 훈련 바꾸기</button><small>지난 훈련은 여기서 바꿀 수 없어요 · 꼭 바꿔야 하면 <b>훈련표 → 일정 조정 → 클로드에게 부탁</b></small></div>';
   else if(!dn)h+=dayEditor(sel,w,d,t);
   h+='</div>';
   // week strip
