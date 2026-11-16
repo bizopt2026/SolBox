@@ -6,4 +6,4 @@
   - 고칠 곳: `APP_VERSION`, `APP_RELEASED`, `VLOG` 맨 앞 항목
   - 범위: MAJOR(호환 깨짐·구조 개편) / MINOR(새 기능) / PATCH(수정·다듬기)
   - 커밋 메시지 맨 앞에 `vX.Y.Z`를 붙이고, `docs/VERSIONING.md`의 변경 기록 표에도 한 줄 추가해요.
-- 복제본용 업데이트 프롬프트(`docs/*-prompt.md`)에는 "버전 값(APP_VERSION·VLOG)은 바꾸지 마"를 꼭 넣어요.
+- 복제본용 업데이트 프롬프트는 `docs/prompts/YYYY-MM-DD.md`로 **하루에 한 파일**로 정리하고, `docs/prompts/README.md` 표에 한 줄 추가해요. 프롬프트에는 "버전 값(APP_VERSION·VLOG)은 바꾸지 마"를 꼭 넣어요.
