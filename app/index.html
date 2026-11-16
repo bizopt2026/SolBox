@@ -1452,6 +1452,11 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .tstrip .srow .sbtn.on{box-shadow:0 4px 10px color-mix(in srgb,var(--accent) 30%,transparent)}
 .tstrip .srow.wxwrap{flex-wrap:wrap}
 .tstrip .srow .wxhrs{width:100%}
+/* ===== 훈련표 상태 표시(체크 버튼 없앰) ===== */
+.ck.ckv{cursor:default;pointer-events:none}
+.ck.ckv.none{border-color:transparent!important;background:transparent!important}
+.ck.ckv.rest{border:0!important;color:var(--ok)!important;background:color-mix(in srgb,var(--ok) 13%,transparent)!important;font-size:15px;opacity:1!important}
+.ck.ckv.on{border:0!important}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1475,8 +1480,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.14",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.15",APP_RELEASED="2026-11-16";
 var VLOG=[
+ ["1.5.15","2026-11-16","훈련표 체크 버튼 없애기","훈련표 일자별 오른쪽 체크 버튼을 없애고 상태 표시로만 바꿨어요. 훈련을 마치면 점수가, 지난 휴식일에는 ✓가 자동으로 표시돼요."],
  ["1.5.14","2026-11-16","오늘 탭 요약 줄 펼친 화면 리디자인","요약 줄을 펼치면 목표·워치·날씨·컨디션이 각각 둥근 카드로 나뉘고, 요약 줄과 같은 색 선 아이콘과 알약 버튼으로 맞췄어요. 목표 줄도 제목·설명 두 줄로 정리했어요."],
  ["1.5.13","2026-11-16","오늘 탭 요약 줄 리디자인","오늘 탭 맨 위 요약 줄(목표·워치·날씨·컨디션)을 이모지 대신 상태 색 선 아이콘, 작은 이름표와 굵은 값으로 정리했어요. 워치는 연결 상태, 컨디션은 좋음·주의·쉬어가기 색으로 아이콘이 바뀌어요."],
  ["1.5.12","2026-11-16","페이스 탭 선택 UI 통일","페이스 탭 위 기준 설정·중간 점검·레이스 전략 선택을 바디 탭과 같은 스타일(색 틀 아이콘·은은한 선택 면·구분선)로 맞췄어요."],
@@ -3904,7 +3910,7 @@ function vPlan(){
       if(!extra.length&&r.w){if(t[0]==="r")extra.push("추가 러닝");extra.push("⌚ "+fmtKm(r.w.km)+"km");extra.push(fmtPaceKm(r.w.dur,r.w.km)+"/km");if(r.w.hr)extra.push("♥"+r.w.hr)}
       var act=(extra.length?esc(extra.join(" · ")):"");if(dn||r.w)act=rpeFace(rpeOf(ds),"xs")+(act?" "+act:"");
       var ab='',mv=canDrag&&ds>=T&&!dn&&t[0]!=="x",dst=t[0]==="r"&&!r.w?' st-rest':dn?' st-ok':r.w?' st-run':(ds<T?' st-miss':'');if(dst===' st-miss')act='<span class="misst">놓침</span>';else if(t[0]==="r"&&r.w)act='<span class="xtrat">추가 러닝</span> '+act;
-      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+(mv?' dg':'')+dst+'" data-dd="'+ds+'">'+(mv?'<span class="dgh" data-dh="'+ds+'" title="끌어서 다른 요일과 바꾸기" aria-hidden="true"><i></i></span>':'')+'<button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt" data-open="'+ds+'">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(oneLine(t))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div><button class="ck'+(dn?' on':'')+'" data-ck="'+ds+'" aria-label="'+md(ds)+' 완료'+(dayScore(ds)&&dayScore(ds).s!=null?' '+dayScore(ds).s+'점':'')+'"'+(dayScore(ds)&&dayScore(ds).s!=null?' style="background:'+SCOL[dayScore(ds).b]+';border-color:'+SCOL[dayScore(ds).b]+(dayScore(ds).b===3?';color:#1b1b1b':';color:#fff')+'"':'')+'>'+(dayScore(ds)&&dayScore(ds).s!=null?'<span class="ckn'+(dayScore(ds).s>=100?' n3':'')+'">'+dayScore(ds).s+'</span>':'✓')+'</button></div>'}if(wdl)h+='</div>'}
+      h+='<div class="drow t-'+t[0]+(ds===T?' today':'')+(mv?' dg':'')+dst+'" data-dd="'+ds+'">'+(mv?'<span class="dgh" data-dh="'+ds+'" title="끌어서 다른 요일과 바꾸기" aria-hidden="true"><i></i></span>':'')+'<button class="dl" data-open="'+ds+'" style="border:0;background:none;text-align:left;padding:0"><b>'+DOW[d]+'</b>'+md(ds)+'</button><div class="dt" data-open="'+ds+'">'+(t[3]?'<span class="pill part" style="background:var(--accent-soft);color:var(--accent);margin-bottom:2px">내 계획</span><br>':'')+esc(oneLine(t))+(act||ab?'<div class="act">'+act+(act&&ab?'<br>':'')+ab+'</div>':'')+'</div>'+ckBadge(ds,t,dn)+'</div>'}if(wdl)h+='</div>'}
     h+='</details>';
   }
   h+=info('날짜를 누르면 그날 계획과 기록을 볼 수 있어요. 오늘 이후 훈련은 왼쪽 ⠿ 손잡이를 끌어 같은 주의 다른 요일에 놓으면 두 날 훈련이 서로 바뀌어요(되돌리기 가능). 토요일이 센 주(13·14·16주차)에 수요일 피로가 남으면 수요일 반복을 1회 줄입니다.','훈련표 안내');
@@ -3912,10 +3918,15 @@ function vPlan(){
   view.querySelectorAll("details.wk").forEach(function(el){el.addEventListener("toggle",function(){var w=+el.dataset.w;if(el.open!==!!openWeeks[w]){openWeeks[w]=el.open;var y=window.scrollY;render();window.scrollTo(0,y)}})});
   var pw=document.getElementById("pastwk");if(pw)pw.addEventListener("toggle",function(){PASTW=pw.open;foldSet("pastw",pw.open);var po=pw.querySelector(".pwo");if(po)po.textContent=pw.open?"접기":"펼치기"});
   bindMyPlan();bindPlanSrc();bindPlanStrip();bindWeekRes();
-  view.querySelectorAll("[data-ck]").forEach(function(b){b.onclick=function(){var ds=b.dataset.ck,i=idxOf(ds),r=S.days[ds]||{};r.done=!isDone(ds);delete r.auto;if(r.done){delete r.unck;r.dt=Math.floor(Date.now()/1000);if(ds===T)doneWx()}else delete r.dt;if(r.done)delete r.unck;else r.unck=Math.floor(Date.now()/1000);S.days[ds]=r;save();var y=window.scrollY;render();window.scrollTo(0,y)}});
   view.querySelectorAll("[data-open]").forEach(function(b){b.onclick=function(){openDaySheet(b.dataset.open)}});
   bindDayDrag();
 }
+// 훈련표 일자별 상태 표시(누르는 기능 없음): 점수가 있으면 점수, 지난 휴식일은 ✓, 그 외 빈 칸
+function ckBadge(ds,t,dn){var sc=dayScore(ds);
+  if(sc&&sc.s!=null)return '<span class="ck ckv" role="img" aria-label="'+md(ds)+' '+sc.s+'점" style="background:'+SCOL[sc.b]+';border-color:'+SCOL[sc.b]+(sc.b===3?';color:#1b1b1b':';color:#fff')+'"><span class="ckn'+(sc.s>=100?' n3':'')+'">'+sc.s+'</span></span>';
+  if(t[0]==="r"&&(ds<T||dn))return '<span class="ck ckv rest" role="img" aria-label="'+md(ds)+' 휴식">✓</span>';
+  if(dn)return '<span class="ck ckv on" role="img" aria-label="'+md(ds)+' 완료">✓</span>';
+  return '<span class="ck ckv none" aria-hidden="true"></span>'}
 // 훈련표: 같은 주 안에서 요일끼리 훈련 바꾸기 (드래그 앤 드롭)
 function baseDay(w,d){if(!W[w])return null;var lk=weekLocked(w),t=W[w].d[lk?d:PERM[d]],f=plan().vol/100;if(f!==1&&!lk)t=scaleTxt(t,f);return t}
 function swapDays(a,b){var ia=idxOf(a),ib=idxOf(b),w=Math.floor(ia/7);if(Math.floor(ib/7)!==w||a===b)return;
