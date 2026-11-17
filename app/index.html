@@ -1471,6 +1471,11 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 /* 요약 줄: 이름표 없이 아이콘 + 한 줄 값 */
 .ssum.tsum .tsc b{line-height:1.25}
 @media (max-width:440px){.ssum.tsum .tsc b{white-space:normal!important;word-break:keep-all;overflow:visible!important;display:block;text-align:center;font-size:12px!important}.ssum.tsum .tsc b span{font-size:inherit!important;white-space:nowrap}.ssum.tsum>.tsc{gap:4px}}
+/* COROS 체중 확인 카드 */
+.cwask{padding:14px;border-radius:16px;background:color-mix(in srgb,var(--accent) 7%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent),var(--sh)}
+.cwask-h{display:flex;gap:10px;align-items:flex-start}.cwask-h>div{display:flex;flex-direction:column;gap:2px;min-width:0}.cwask-h b{font-size:15px}.cwask-h small{font-size:12.5px;color:var(--muted);line-height:1.45}
+.cwask-i{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--card))}
+.cwask-b{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.cwask-b .btn{padding:10px 8px;font-size:13px}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1494,8 +1499,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.5.18",APP_RELEASED="2026-11-16";
+var APP_VERSION="1.5.19",APP_RELEASED="2026-11-17";
 var VLOG=[
+ ["1.5.19","2026-11-17","COROS 체중 중복 방지","COROS에서 새 체중을 가져올 때 오늘 이미 같은 체중이 있으면 등록하지 않고, 어제 같은 체중이 있으면 '오늘 잰 체중인가요?'를 물어본 뒤 '네'를 누를 때만 오늘 체중으로 기록해요."],
  ["1.5.18","2026-11-16","오늘 탭 요약 줄 이름표 없애기","요약 줄의 '목표·워치·날씨·컨디션' 이름표를 없애고 아이콘과 한 줄 값만 보여줘요. 목표는 숫자만, 날씨는 아이콘과 기온, 워치는 '연동 방금', 컨디션은 '컨디션 좋음'처럼 표시해요."],
  ["1.5.17","2026-11-16","오늘 탭 요약 줄 모바일 글자 잘림 수정","휴대폰처럼 좁은 화면에서는 요약 줄 네 칸을 아이콘 위·글자 아래로 세워 배치해 값이 잘리지 않게 했어요. 이름표도 '워치'·'날씨'로 짧게 맞췄어요."],
  ["1.5.16","2026-11-16","오늘 탭 완료 체크 버튼 없애기","오늘 탭 훈련 카드의 '완료 체크·해제·휴식 완료' 버튼을 없앴어요. 워치 기록이 들어오면 자동 완료, 워치 없이 뛰었으면 '✎ 직접 기록'에 거리를 적으면 완료와 점수가 자동으로 처리돼요. 지난 휴식일은 자동으로 ✓ 휴식이에요."],
@@ -1608,7 +1614,7 @@ var LS="sub3-train-v1";
 var S={days:{},wlog:{},checks:{},races:[]};
 function lsGet(){try{var v=localStorage.getItem(LS);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.lthrHist=o.lthrHist||null;S.goalHist=o.goalHist||null;S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.carbOff=o.carbOff||{};S.myplanAlt=Array.isArray(o.myplanAlt)?o.myplanAlt:[];S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
+function merge(o){if(!o)return;S.days=o.days||{};S.wlog=o.wlog||{};if(o.weights){for(var wd in o.weights){if(!S.wlog[wd]&&typeof o.weights[wd]==="number")var _a=wd.split("-");S.wlog[wd]=[{t:new Date(+_a[0],_a[1]-1,+_a[2],7,0).getTime(),kg:o.weights[wd],src:"직접"}]}}S.corosW=o.corosW||null;S.wgoal=o.wgoal||null;S.plan=o.plan||null;S.coach=o.coach||[];S.meals=o.meals||{};S.rhr=o.rhr||{};S.hrv=o.hrv||{};S.sleepQ=o.sleepQ||{};S.fit=o.fit||null;S.load=o.load||{};S.recov=o.recov||null;S.checks=o.checks||{};S.profile=o.profile||{};S.share=o.share;S.nick=o.nick||"";S.color=o.color||0;S.bio=o.bio||"";S.onboarded=!!o.onboarded;S.goal=o.goal||null;S.gv=o.gv||0;S.runs=o.runs||{};S.watch=o.watch||"";S.watchAt=o.watchAt||0;S.hrvFill=o.hrvFill||0;S.pinH=o.pinH||"";S.lthrHist=o.lthrHist||null;S.goalHist=o.goalHist||null;S.coachPrev=o.coachPrev||[];S.raceChk=o.raceChk||{};S.startDone=!!o.startDone;S.repSeen=o.repSeen!=null?o.repSeen:null;S.codeId=o.codeId||S.codeId||"";S.joinReq=o.joinReq||[];S.watchFrom=o.watchFrom||"";S.fileAt=o.fileAt||0;S.fileOn=o.fileOn||0;S.races=Array.isArray(o.races)?o.races:[];S.seenV=o.seenV||"";S.wx=o.wx||null;S.planMode=o.planMode||"crew";S.myplan=o.myplan||null;S.carbOff=o.carbOff||{};S.myplanAlt=Array.isArray(o.myplanAlt)?o.myplanAlt:[];S.wxlog=o.wxlog||{};S.calSet=o.calSet||0;S.cwAsk=o.cwAsk||null;S.ts=o.ts||0;if(typeof T==="string"&&T){try{applyRuns()}catch(e){}}}
 merge(lsGet()||{});
 
 var docRef=null, saveTimer=null, syncEl=document.getElementById("sync");
@@ -2039,9 +2045,19 @@ async function freddySync(manual){
 }
 var ERRWF={server_not_connected:"freddy가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 freddy를 연결한 뒤 다시 불러와 주세요.",needs_reauth:"freddy 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 다시 연결해 주세요.",not_in_manifest:"이 앱의 freddy 사용을 허용하지 않았어요. 앱 권한에서 freddy를 허용해 주세요.",approval_required:"freddy 불러오기 승인이 필요해요. 버튼을 눌러 허용해 주세요.",rate_limited:"요청이 많아요. 잠시 후 다시 불러와 주세요."};
 var CW_AT=0;
+// COROS 체중은 잰 날짜를 주지 않아요. 오늘 같은 체중이 있으면 건너뛰고, 어제 같은 체중이 있으면 오늘 잰 게 맞는지 물어봐요.
+function sameKgOn(ds,kg){return (S.wlog[ds]||[]).some(function(x){return Math.abs(x.kg-kg)<0.05})}
+function cwLogNow(kg){var nt=Date.now();addWeight(nt,kg,"COROS");var e=(S.wlog[localDate(Math.floor(nt/1000))]||[]).filter(function(x){return x.t===nt})[0];if(e)e.tu=1}
+function corosWeightIn(kg){S.corosW=kg;
+  if(sameKgOn(T,kg))return "";
+  if(sameKgOn(addDays(T,-1),kg)){S.cwAsk={kg:kg,at:Date.now(),ds:T};return "COROS 체중 "+kg+"kg · 어제와 같은 체중이에요. 오늘 잰 체중인지 확인해 주세요"}
+  cwLogNow(kg);return "COROS 체중 "+kg+"kg 기록 · COROS는 잰 시각을 주지 않아요. 바디 탭 ✎로 고칠 수 있어요"}
+function cwAskCard(){var a=S.cwAsk;if(!a)return "";if(a.ds!==T){S.cwAsk=null;return ""}
+  return '<div class="card cwask" role="alert"><div class="cwask-h"><span class="cwask-i" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M6.6 12a5.4 5.4 0 0 1 10.8 0z" fill="currentColor" fill-opacity=".14"/><path d="M12 12l2.2-3"/></svg></span><div><b>COROS 체중 <span class="num">'+a.kg+'</span>kg</b><small>어제('+md(addDays(T,-1))+')에도 같은 체중이 있어요. 오늘 잰 체중인가요?</small></div></div><div class="cwask-b"><button type="button" class="btn" data-cwask="yes">네, 오늘 체중이에요</button><button type="button" class="btn ghost" data-cwask="no">아니요, 어제 체중</button></div></div>'}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-cwask]");if(!b||!S.cwAsk)return;var kg=S.cwAsk.kg;S.cwAsk=null;if(b.dataset.cwask==="yes"){cwLogNow(kg);toast("오늘 체중 "+kg+"kg을 기록했어요")}else toast("어제 체중이라 오늘은 기록하지 않았어요");save();keepIf()});
 async function corosWeightCheck(){if(S.watch!=="coros"||WS.busy||Date.now()-CW_AT<300000)return;CW_AT=Date.now();
   try{var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;if(!mcp)return;var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
-    if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");(function(){var e=(S.wlog[localDate(Math.floor(nt/1000))]||[]).filter(function(x){return x.t===nt})[0];if(e)e.tu=1})();S.corosW=kg;save();toast("COROS 체중 "+kg+"kg 기록 · COROS는 잰 시각을 주지 않아요. 바디 탭 ✎로 고칠 수 있어요");if(tab==="log")keep()}}}catch(e){}}
+    if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var rr=corosWeightIn(kg);save();if(rr)toast(rr);if(tab==="log"||tab==="today")keepIf()}}}catch(e){}}
 document.addEventListener("visibilitychange",function(){if(!document.hidden)corosWeightCheck()});
 async function watchSync(manual){
   if(S.watch==="freddy")return freddySync(manual);
@@ -2085,7 +2101,7 @@ async function watchSync(manual){
       if(rp)S.recov={pct:+rp[1],lv:rl?rl[1].trim():"",full:rf?rf[1].trim():"",at:Date.now(),date:T};
     }catch(e7){}
     var wmsg="";try{var ui=await mcp.callTool("COROS","queryUserInfo",{},{cache:false});var wm=payloadText(ui).match(/Weight:\s*([\d.]+)\s*kg/);
-      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var nt=Date.now();addWeight(nt,kg,"COROS");(function(){var e=(S.wlog[localDate(Math.floor(nt/1000))]||[]).filter(function(x){return x.t===nt})[0];if(e)e.tu=1})();wmsg=" · 체중 "+kg+"kg 기록";S.corosW=kg;toast("COROS 체중 "+kg+"kg 기록 · COROS는 잰 시각을 주지 않아요. 바디 탭 ✎로 고칠 수 있어요")}}}catch(e2){}
+      if(wm){var kg=Math.round(parseFloat(wm[1])*10)/10;if(kg>=30&&kg<=200&&S.corosW!==kg){var rr2=corosWeightIn(kg);if(rr2){wmsg=S.cwAsk?" · 체중 "+kg+"kg 확인 필요":" · 체중 "+kg+"kg 기록";toast(rr2)}}}}catch(e2){}
     WS.msg=(added?("러닝 "+added+"개를 새로 불러왔어요"+(auto?" · "+auto+"일 자동 체크":"")):"새 러닝 기록이 없어요")+wmsg+fmsg+".";
     save();pushShare();if(added)wxForRuns();if(auto)toast("⌚ 워치 기록으로 "+auto+"일 자동 완료");
   }catch(e){WS.err=ERRW[e&&e.code]||("불러오지 못했어요"+(e&&e.message?": "+e.message:"."));WS.msg=""}
@@ -3426,7 +3442,7 @@ function vToday(){
   var food=foodOf(sel,d);
   var dn=isDone(sel);
   var h="";
-  h+=authBar()+seasonCard()+startCard()+statusStrip();
+  h+=authBar()+seasonCard()+startCard()+statusStrip()+(sel===T?cwAskCard():'');
   if(before){h+='<div class="card" style="background:var(--navy);color:var(--navy-fg);border-color:var(--navy)"><div class="eyebrow" style="color:#cdc8ff">훈련 시작 전</div><div class="row between" style="margin-top:4px"><h2 style="color:inherit">11/9 (월) W1 시작</h2><b class="num" style="font-size:22px">D-'+(-tIdx)+'</b></div><div class="small" style="opacity:.8;margin-top:4px">미리 첫 주 훈련을 확인해 두세요. 날짜를 넘겨 다른 날도 기록할 수 있어요.</div></div>'}
   h+='<div class="daynav"><button id="prev" aria-label="이전 날"'+(i>0?'':' disabled')+'><em aria-hidden="true">‹</em>'+(i>0?(function(x){return '<span>'+md(x)+' ('+DOW[(d+6)%7]+')</span>'})(addDays(sel,-1)):'')+'</button><div class="mid"><span class="chip" style="background:transparent;color:'+phColor(w)+';padding:0">'+wn(w)+' · '+esc(W[w].lab)+'</span><b class="num">'+md(sel)+' ('+DOW[d]+')'+(sel===T?' · 오늘':'')+'</b></div><button id="next" aria-label="다음 날"'+(i<TOTAL-1?'':' disabled')+'>'+(i<TOTAL-1?'<span>'+md(addDays(sel,1))+' ('+DOW[(d+1)%7]+')</span>':'')+'<em aria-hidden="true">›</em></button></div>';
   h+='<div class="t2col"><div class="tcol">';
@@ -4103,7 +4119,7 @@ function vLog(){if(!WZU){var dk0=wDays();WZ=dk0.length&&(p(T)-p(dk0[0]))/864e5<2
   var WT=wtPlan();
   var keys=wDays().reverse(),ld=keys.length?wDay(keys[0]):null;
   var wk7=keys.filter(function(k){return k<=addDays(T,-6)})[0],wk7d=wk7?wDay(wk7):null,wdl=ld&&wk7d?Math.round((ld.avg-wk7d.avg)*10)/10:null,wgt=S.wgoal&&S.wgoal.target||(function(){var l=WT[WT.length-1];return l?Math.round((l[1]+l[2])/2*10)/10:null})(),wleft=ld&&wgt?Math.round((ld.avg-wgt)*10)/10:null;
-  var h='<div class="card wcard" id="wcard"><div class="whead" style="padding-right:0"><span class="wico wico-svg" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M6.6 12a5.4 5.4 0 0 1 10.8 0z" fill="currentColor" fill-opacity=".14"/><path d="M12 12l2.2-3"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><path d="M9 17h6" stroke-opacity=".5"/></svg></span><div style="flex:1;min-width:0"><h2>체중</h2><small>아침 공복 & 취침 직전 체중 기준</small></div><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
+  var h=cwAskCard()+'<div class="card wcard" id="wcard"><div class="whead" style="padding-right:0"><span class="wico wico-svg" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M6.6 12a5.4 5.4 0 0 1 10.8 0z" fill="currentColor" fill-opacity=".14"/><path d="M12 12l2.2-3"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><path d="M9 17h6" stroke-opacity=".5"/></svg></span><div style="flex:1;min-width:0"><h2>체중</h2><small>아침 공복 & 취침 직전 체중 기준</small></div><span class="segm" role="radiogroup" aria-label="그래프 범위"><button role="radio" aria-checked="'+(WZ==="4w")+'" data-wz="4w">4주</button><button role="radio" aria-checked="'+(WZ==="all")+'" data-wz="all">전체</button></span></div>';
   if(ld)h+='<div class="wthero"><div><small>최근 '+md(keys[0])+'</small><b class="num">'+ld.avg+'<i>kg</i></b>'+(wdl!=null?'<span class="wtdl '+(wdl<0?'ok':wdl>0?'bad':'')+'">'+(wdl<0?'▼':wdl>0?'▲':'±')+Math.abs(wdl)+'kg<small> · 1주 전보다</small></span>':'')+'</div>'+(wleft!=null?'<button type="button" class="wtchip wtgo'+(WTLO?' on':'')+'" data-wtl aria-expanded="'+WTLO+'">'+(wleft>0?'목표까지 −'+wleft+'kg':'🎉 목표 도달')+' <span aria-hidden="true">'+(WTLO?'⌃':'⌄')+'</span></button>':'')+'</div>'+(WTLO?wGoalTl(WT,ld):'');
   var tdn=(S.wlog[T]||[]).length,nowD=new Date();
   var WENT='<div class="went"><form id="wf" class="went-row"><span class="went-l">오늘 기록'+(tdn?'<small>'+tdn+'회 측정</small>':'')+'</span><div class="wstep"><button type="button" data-ws="-1" aria-label="0.1kg 빼기">−</button><input id="w-val" inputmode="decimal" aria-label="체중 kg" value="'+(ld?ld.avg:'')+'" placeholder="00.0"><em>kg</em><button type="button" data-ws="1" aria-label="0.1kg 더하기">+</button></div><button class="btn went-go" type="submit">기록</button></form>';
