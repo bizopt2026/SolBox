@@ -54,6 +54,8 @@ def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settin
     p = db.get(Proposal, pid)
     if p is None:
         return "deleted"
+    if p.active_job_id != input.get("_job_id"):
+        return "superseded"  # 더 이상 이 제안 건의 현재 작업이 아니면 결과를 쓰지 않는다
     cleaned = clean_directions(db, p, out, settings.knowledge_dir)
     if len(cleaned) < 2:
         raise ClaudeError("bad_output", "제안 방향을 충분히 만들지 못했습니다.")

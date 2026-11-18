@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models import AIJob, Proposal, Solution, User
@@ -39,10 +39,10 @@ def check_sources(knowledge_dir: Path, sources: list[str]) -> tuple[list[str], l
     missing: list[str] = []
     for source in sources:
         rel = source.strip().replace("\\", "/")
-        parts = PurePosixPath(rel).parts
+        parts = PurePosixPath(rel).parts  # `./` 와 중복 `/` 는 여기서 정리된다
         usable = (
             rel != "" and "\x00" not in rel
-            and not rel.startswith("/") and not PureWindowsPath(rel).is_absolute() and ":" not in parts[0]
+            and not rel.startswith("/") and not PureWindowsPath(rel).is_absolute() and not any(":" in part for part in parts)
             and ".." not in parts
         )
         if usable:
@@ -51,7 +51,7 @@ def check_sources(knowledge_dir: Path, sources: list[str]) -> tuple[list[str], l
                 usable = target.is_relative_to(root) and target.is_file()
             except (OSError, ValueError):
                 usable = False
-        (found if usable else missing).append(rel if usable else source)
+        (found if usable else missing).append(PurePosixPath(rel).as_posix() if usable else source)
     return found, missing
 
 
@@ -88,19 +88,19 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
 
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:
     """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다."""
-    from app.ai.queue import enqueue  # 지연 임포트: 대기열이 처리기 모듈을 불러온다
-
     db.refresh(p)
     if p.active_job is not None and p.active_job.status in ("pending", "running"):
         return None
-    previous = p.active_job_id
-    job = enqueue(db, kind, {"proposal_id": p.id, **(extra or {})}, user.id)
+    pid, previous = p.id, p.active_job_id
+    db.rollback()  # 읽기 트랜잭션을 끝내고 쓰기를 새로 시작한다
+    # 작업은 커밋 전에는 워커에게 보이지 않는다. 같은 트랜잭션에서 조건부 UPDATE 로 자리를 잡고, 졌으면 되돌린다.
+    job = AIJob(kind=kind, input={"proposal_id": pid, **(extra or {})}, requester_id=user.id, priority=0, status="pending")
+    db.add(job)
+    db.flush()
     same = Proposal.active_job_id.is_(None) if previous is None else Proposal.active_job_id == previous
-    claimed = db.execute(update(Proposal).where(Proposal.id == p.id, same).values(active_job_id=job.id))
-    if claimed.rowcount != 1:  # 다른 요청이 먼저 잡았다. 우리 작업은 거둔다.
+    claimed = db.execute(update(Proposal).where(Proposal.id == pid, same).values(active_job_id=job.id))
+    if claimed.rowcount != 1:  # 다른 요청이 먼저 잡았다.
         db.rollback()
-        db.execute(delete(AIJob).where(AIJob.id == job.id, AIJob.status == "pending"))
-        db.commit()
         return None
     db.commit()
     db.refresh(p)

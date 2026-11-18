@@ -164,12 +164,17 @@ def select_direction(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
+    job = proposal.active_job
+    if job is not None and job.status in ("pending", "running"):
+        return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
     i = _parse_id(index)
     directions = proposal.directions or []
     if i is None or i >= len(directions):
         raise HTTPException(status_code=400, detail="없는 방향입니다.")
     chosen = directions[i]
     solutions = [s for sid in (x.get("solution_id") for x in chosen.get("solutions", [])) if (s := db.get(Solution, sid))]
+    if not solutions:
+        raise HTTPException(status_code=400, detail="선택한 방향의 솔루션이 더 이상 없습니다. 방향을 다시 만드세요.")
     proposal.selected_index = i
     proposal.status = "refining"
     proposal.solutions = solutions

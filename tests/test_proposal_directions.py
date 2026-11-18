@@ -121,8 +121,8 @@ def test_check_sources_rejects_traversal(tmp_path):
 def test_check_sources_rejects_other_oddities(tmp_path):
     (tmp_path / "a").mkdir()
     (tmp_path / "a" / "x.md").write_text("x", encoding="utf-8")
-    ok, bad = check_sources(tmp_path, ["a", "", "C:/x.md", "a/../a/x.md", "a/x.md"])
-    assert ok == ["a/x.md"] and bad == ["a", "", "C:/x.md", "a/../a/x.md"]
+    ok, bad = check_sources(tmp_path, ["a", "", "C:/x.md", "a/../a/x.md", "a/x.md", "./a/x.md", "a//x.md", "a/b:c.md"])
+    assert ok == ["a/x.md", "a/x.md", "a/x.md"] and bad == ["a", "", "C:/x.md", "a/../a/x.md", "a/b:c.md"]
 
 
 def test_second_request_while_running_is_ignored(user_client, db, settings):
@@ -248,3 +248,73 @@ def test_proposal_deleted_while_job_runs(app, user_client, db, settings, fake_cl
     _run(app, settings)
     job = db.query(AIJob).one()
     assert job.status == "done" and job.result == "deleted"
+
+
+def test_loser_of_race_leaves_no_job(app, db, settings):
+    p, *_ = make_proposal_world(db, settings)
+    user = make_user(db, "t2")
+    with app.state.session_factory() as s1, app.state.session_factory() as s2:
+        p1, p2 = s1.get(Proposal, p.id), s2.get(Proposal, p.id)
+        u1, u2 = s1.get(type(user), user.id), s2.get(type(user), user.id)
+        assert p1.active_job_id is None and p2.active_job_id is None  # 둘 다 낡은 값을 들고 있다
+        assert start_job(s1, p1, "proposal_directions", u1) is not None
+        s2.refresh = lambda *_a, **_k: None  # 낡은 상태 그대로 경쟁하게 한다
+        assert start_job(s2, p2, "proposal_directions", u2) is None
+    assert db.query(AIJob).count() == 1
+
+
+def test_superseded_job_does_not_write(app, user_client, db, settings, fake_claude):
+    p, c, b, s1, s2, s3 = make_proposal_world(db, settings)
+    _set(fake_claude, good_directions(s1, s2))
+    user_client.post(f"/proposals/{p.id}/directions")
+    other = enqueue(db, "proposal_directions", {"proposal_id": p.id}, None)
+    db.refresh(p)
+    p.active_job_id = other.id
+    db.commit()
+    _run(app, settings)  # 첫 작업은 더 이상 현재 작업이 아니다
+    db.refresh(p)
+    assert p.directions == [] and p.status == "new" and p.active_job_id == other.id
+    assert db.query(AIJob).filter_by(result="superseded").count() == 1
+
+
+def test_select_refused_while_job_active(user_client, db, settings):
+    p, s1, s2 = _with_directions(db, settings)
+    user_client.post(f"/proposals/{p.id}/directions")
+    r = user_client.post(f"/proposals/{p.id}/select", data={"index": "0"}, follow_redirects=False)
+    assert r.status_code == 303 and "notice=busy" in r.headers["location"]
+    db.refresh(p)
+    assert p.selected_index is None and p.status == "directions"
+
+
+def test_select_with_vanished_solutions(user_client, db, settings):
+    p, s1, s2 = _with_directions(db, settings)
+    p.directions = [{**p.directions[0], "solutions": [{"solution_id": 9999, "name": "x", "role": ""}]}] + p.directions[1:]
+    db.commit()
+    r = user_client.post(f"/proposals/{p.id}/select", data={"index": "0"})
+    assert r.status_code == 400 and "솔루션이 더 이상 없습니다" in r.text
+    db.refresh(p)
+    assert p.selected_index is None
+
+
+def test_regeneration_clears_solutions(app, user_client, db, settings, fake_claude):
+    p, s1, s2 = _with_directions(db, settings)
+    user_client.post(f"/proposals/{p.id}/select", data={"index": "0"})
+    db.refresh(p)
+    assert len(p.solutions) == 2
+    _set(fake_claude, good_directions(s1, s2))
+    user_client.post(f"/proposals/{p.id}/directions")
+    _run(app, settings)
+    db.refresh(p)
+    assert p.solutions == []
+
+
+def test_delete_proposal_with_failed_job(app, admin_client, db, settings, fake_claude):
+    p, *_ = make_proposal_world(db, settings)
+    pid = p.id
+    fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)
+    admin_client.post(f"/proposals/{pid}/directions")
+    _run(app, settings)
+    r = admin_client.post(f"/proposals/{pid}/delete", follow_redirects=False)
+    assert r.status_code == 303
+    db.expire_all()
+    assert db.get(Proposal, pid) is None
