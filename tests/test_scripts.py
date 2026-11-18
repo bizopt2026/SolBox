@@ -33,3 +33,16 @@ def test_remove_paths_do_not_throw():
     assert "Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue" in auto
     fw = (root / "open_firewall.ps1").read_text(encoding="utf-8-sig")
     assert "ValidateRange(1, 65535)" in fw
+
+
+def test_firewall_port_is_optional_only_with_remove():
+    fw = (Path(__file__).parent.parent / "scripts" / "open_firewall.ps1").read_text(encoding="utf-8-sig")
+    assert "Mandatory" not in fw
+    assert '-not $Remove -and -not $PSBoundParameters.ContainsKey("Port")' in fw
+
+
+def test_run_server_has_log_dir_and_rotation():
+    run = (Path(__file__).parent.parent / "scripts" / "run_server.ps1").read_text(encoding="utf-8-sig")
+    assert '[string]$LogDir = ""' in run
+    assert '(Get-Item $logFile).Length -gt 10MB' in run
+    assert 'Move-Item -Force -Path $logFile -Destination "$logFile.1"' in run
