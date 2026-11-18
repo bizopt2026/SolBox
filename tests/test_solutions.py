@@ -69,3 +69,20 @@ def test_delete_solution_keeps_activities(admin_client, db, settings):   # Revie
     db.expire_all()
     assert db.get(Solution, sid) is None and db.get(Activity, aid) is not None
     assert not (settings.knowledge_dir / "solutions" / str(sid)).exists()
+
+
+def _partner_md(settings, p):
+    return (settings.knowledge_dir / "partners" / f"{p.id}.md").read_text(encoding="utf-8")
+
+
+def test_partner_card_follows_solution_create_rename_move_delete(admin_client, db, settings):
+    p1 = Partner(name="P1"); p2 = Partner(name="P2"); db.add_all([p1, p2]); db.commit()
+    admin_client.post("/solutions", data={"name": "알파", "partner_id": str(p1.id)})
+    s = db.query(Solution).one()
+    assert "알파" in _partner_md(settings, p1)
+    admin_client.post(f"/solutions/{s.id}", data={"name": "베타", "partner_id": str(p1.id)})
+    assert "베타" in _partner_md(settings, p1) and "알파" not in _partner_md(settings, p1)
+    admin_client.post(f"/solutions/{s.id}", data={"name": "베타", "partner_id": str(p2.id)})
+    assert "베타" not in _partner_md(settings, p1) and "베타" in _partner_md(settings, p2)
+    admin_client.post(f"/solutions/{s.id}/delete")
+    assert "베타" not in _partner_md(settings, p2)

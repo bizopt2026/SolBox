@@ -116,3 +116,10 @@ def test_delete_by_non_owner_forbidden(user_client, admin_client, db):
     a = db.query(Activity).one()
     assert user_client.post(f"/activities/{a.id}/delete").status_code == 403
     assert db.query(Activity).count() == 1
+
+
+def test_memo_file_with_other_extension_rejected(user_client, db):
+    r = user_client.post("/activities/raw", data={"raw_text": "메모"},
+                         files={"memo_file": ("m.pdf", b"%PDF", "application/pdf")})
+    assert r.status_code == 400 and "텍스트 파일(.txt, .md)만 올릴 수 있습니다." in r.text
+    assert db.query(Activity).count() == 0

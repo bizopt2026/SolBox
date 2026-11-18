@@ -92,3 +92,13 @@ def test_empty_draft_fields_keep_existing_values(app, user_client, db, settings,
     _run(app, settings)
     page = user_client.get(url).text
     assert "기존 소개" in page and "기존 설명" in page and "새태그" in page
+
+
+def test_empty_draft_tags_keep_existing_tags(app, user_client, db, settings, fake_claude):
+    s = Solution(name="A", tags="기존태그"); db.add(s); db.commit()
+    _upload(user_client, s)
+    fake_claude.set(mode="ok", result='{"summary": "새 소개", "description": "", "tags": []}')
+    url = user_client.post(f"/solutions/{s.id}/draft", follow_redirects=False).headers["location"]
+    _run(app, settings)
+    page = user_client.get(url).text
+    assert 'value="기존태그"' in page

@@ -190,3 +190,19 @@ def test_requires_login(client):
     assert client.post("/solutions/1/files", files=[("files", ("a.txt", b"x", "text/plain"))],
                        follow_redirects=False).status_code == 303
     assert client.get("/files/1/download", follow_redirects=False).status_code == 303
+
+
+def test_change_kind_keeps_text_copy_when_reextraction_fails(user_client, db, settings, monkeypatch):
+    from app import extract
+    from app.routers import files as files_router
+
+    s = _solution(db)
+    user_client.post(f"/solutions/{s.id}/files", files=[("files", ("a.txt", b"hi", "text/plain"))])
+    f = db.query(SolutionFile).one()
+    copy = settings.knowledge_dir / "solutions" / str(s.id) / "files" / f"{f.id}-a.txt.md"
+    before = copy.read_text(encoding="utf-8")
+    monkeypatch.setattr(files_router, "extract_text", lambda path: extract.ExtractResult(status="failed", text=""))
+    r = user_client.post(f"/files/{f.id}/kind", data={"kind": "spec"}, follow_redirects=False)
+    assert r.status_code == 303
+    db.refresh(f)
+    assert f.extract_status == "ok" and copy.read_text(encoding="utf-8") == before

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -23,6 +24,7 @@ from app.security import can_delete, require_user
 router = APIRouter(prefix="/activities")
 
 MEMO_REQUIRED = "메모를 입력하세요."
+BAD_MEMO_FILE = "텍스트 파일(.txt, .md)만 올릴 수 있습니다."
 LINK_TYPES = {  # 연결 종류: (모델, Activity 관계 이름)
     "solution": (Solution, "solutions"),
     "customer": (Customer, "customers"),
@@ -36,6 +38,8 @@ def read_memo(raw_text: str, memo_file: UploadFile | None) -> str:
     """입력창 글과 파일 내용을 빈 줄 하나로 이어 붙인다. 둘 다 비면 400."""
     parts = [raw_text.strip()]
     if memo_file is not None and memo_file.filename:
+        if Path(memo_file.filename).suffix.lower() not in (".txt", ".md"):
+            raise HTTPException(status_code=400, detail=BAD_MEMO_FILE)
         parts.append(decode_text(memo_file.file.read()).strip())
     text = "\n\n".join(p for p in parts if p)
     if not text:
@@ -214,8 +218,8 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     )
     try:
         text = read_memo(raw_text, memo_file)
-    except HTTPException:
-        return _form_page(request, db, submitted, activity, MEMO_REQUIRED)
+    except HTTPException as e:
+        return _form_page(request, db, submitted, activity, e.detail)
     old = _linked(activity) if activity is not None else []
     if activity is None:
         activity = Activity(created_by_id=user.id, raw_text=text)
@@ -260,8 +264,8 @@ def save_raw(
 ):
     try:
         text = read_memo(raw_text, memo_file)
-    except HTTPException:
-        return render(request, "activities/new.html", status_code=400, error=MEMO_REQUIRED, raw_text=raw_text)
+    except HTTPException as e:
+        return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     activity = Activity(
         kind="meeting", date=date.today(), title=_first_line(text), raw_text=text, summary_md="",
         follow_ups=[], demand_signals=[], created_by_id=user.id,
@@ -307,8 +311,8 @@ def start_draft(
 ):
     try:
         text = read_memo(raw_text, memo_file)
-    except HTTPException:
-        return render(request, "activities/new.html", status_code=400, error=MEMO_REQUIRED, raw_text=raw_text)
+    except HTTPException as e:
+        return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     job = enqueue(db, DRAFT_KIND, {"raw_text": text}, user.id)
     return RedirectResponse(f"/activities/draft/{job.id}", status_code=303)
 

@@ -116,8 +116,10 @@ def change_kind(
         raise HTTPException(status_code=400, detail=BAD_KIND)
     f.kind = kind
     db.commit()
-    if f.extract_status == "ok":  # 사본 첫 줄에 종류 이름이 들어 있다
-        mirror.write_file_text(f, file_markdown(f, extract_text(_stored_path(request, f)).text))
+    if f.extract_status == "ok":  # 사본 첫 줄에 종류 이름이 들어 있다. 다시 읽기에 실패하면 기존 사본을 그대로 둔다
+        result = extract_text(_stored_path(request, f))
+        if result.status == "ok":
+            mirror.write_file_text(f, file_markdown(f, result.text))
     mirror.sync(f.solution)
     return RedirectResponse(f"/solutions/{f.solution_id}", status_code=303)
 

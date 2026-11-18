@@ -104,6 +104,8 @@ def create(
     db.add(solution)
     db.commit()
     mirror.sync(solution)
+    if solution.partner:
+        mirror.sync(solution.partner)
     return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
 
 
@@ -158,7 +160,7 @@ def edit_form(
     # AI 가 비워 보낸 칸은 기존 값을 그대로 둔다
     form.update(summary=draft.summary.strip() or form["summary"],
                 description=draft.description.strip() or form["description"],
-                tags=_normalize_tags(",".join(draft.tags)))
+                tags=_normalize_tags(",".join(draft.tags)) or form["tags"])
     return _form_page(request, db, form, solution, drafted=True)
 
 
@@ -190,10 +192,14 @@ def update(
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
     if error:
         return _form_page(request, db, values, solution, error)
+    old_partner = solution.partner
     for field, value in values.items():
         setattr(solution, field, value)
     db.commit()
     mirror.sync(solution)
+    db.refresh(solution)
+    for partner in {p.id: p for p in (old_partner, solution.partner) if p is not None}.values():
+        mirror.sync(partner)
     return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
 
 
@@ -205,9 +211,12 @@ def delete(
 ):
     solution = get_deletable_or_404(db, Solution, solution_id, user)
     activities = activities_linked_to(db, Activity.solutions, solution)
+    partner = solution.partner
     mirror.remove(solution)
     shutil.rmtree(request.app.state.settings.uploads_dir / "solutions" / str(solution.id), ignore_errors=True)
     db.delete(solution)
     db.commit()
     resync_activities(db, mirror, activities)
+    if partner is not None:
+        mirror.sync(partner)
     return RedirectResponse("/solutions", status_code=303)

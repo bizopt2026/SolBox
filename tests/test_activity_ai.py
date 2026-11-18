@@ -185,3 +185,10 @@ def test_handler_releases_db_transaction_before_running_cli(db, settings):
 
     HANDLERS["activity_structure"](db, {"raw_text": "메모"}, SpyRunner(), settings)
     assert seen == [False]
+
+
+def test_pending_draft_page_offers_save_raw_only(app, user_client, db, fake_claude):
+    r = user_client.post("/activities/draft", data={"raw_text": "기다리기 싫은 메모"}, follow_redirects=False)
+    page = user_client.get(r.headers["location"]).text
+    assert 'action="/activities/raw"' in page and "기다리지 않고 원문만 저장" in page
+    assert 'name="raw_text"' in page and "기다리기 싫은 메모" in page
