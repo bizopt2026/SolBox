@@ -12,7 +12,7 @@ from app import labels
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.main import render
-from app.models import Business, Customer, Proposal, Solution, User
+from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
 from app.proposals import candidate_solutions, display_title, start_job
 from app.routers._common import get_deletable_or_404, get_or_404, search_by_name
 from app.security import can_delete, require_user
@@ -20,6 +20,8 @@ from app.security import can_delete, require_user
 router = APIRouter(prefix="/proposals")
 CUSTOMER_REQUIRED = "고객을 선택하세요."
 BUSINESS_MISMATCH = "선택한 고객의 사업이 아닙니다."
+NO_DIRECTION = "먼저 제안 방향을 선택하세요."
+EMPTY_MESSAGE = "메시지를 입력하세요."
 NOTICES = {"busy": "이미 AI 작업이 진행 중입니다."}
 
 
@@ -119,11 +121,18 @@ def detail(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
+    return _detail_page(request, db, proposal, user, notice=NOTICES.get(notice))
+
+
+def _detail_page(
+    request: Request, db: Session, proposal: Proposal, user: User, notice: str | None = None,
+    status_code: int = 200, **extra,
+):
     return render(
-        request, "proposals/detail.html", proposal=proposal, title=display_title(proposal),
+        request, "proposals/detail.html", status_code=status_code, proposal=proposal, title=display_title(proposal),
         candidates=candidate_solutions(db, proposal), extra_candidates=_extra_candidates(db),
-        notice=NOTICES.get(notice), can_delete=can_delete(user, proposal),
-        position=_position(db, proposal),
+        notice=notice, can_delete=can_delete(user, proposal),
+        position=_position(db, proposal), **extra,
     )
 
 
@@ -140,13 +149,15 @@ def status(
     proposal = get_or_404(db, Proposal, proposal_id)
     job = proposal.active_job
     if job is not None and job.status in ("pending", "running"):
-        return render(request, "proposals/_status.html", proposal=proposal, position=_position(db, proposal))
+        return render(request, "proposals/_status.html", proposal=proposal, job=job, position=_position(db, proposal))
     return Response("작업이 끝났습니다.", headers={"HX-Redirect": f"/proposals/{proposal.id}"})
 
 
-def _start(db: Session, proposal: Proposal, kind: str, user: User, extra: dict | None = None) -> RedirectResponse:
+def _start(
+    db: Session, proposal: Proposal, kind: str, user: User, extra: dict | None = None, anchor: str = "",
+) -> RedirectResponse:
     started = start_job(db, proposal, kind, user, extra)
-    suffix = "" if started else "?notice=busy"
+    suffix = anchor if started else "?notice=busy"
     return RedirectResponse(f"/proposals/{proposal.id}{suffix}", status_code=303)
 
 
@@ -182,6 +193,53 @@ def select_direction(
         proposal.title = chosen.get("title", "")
     db.commit()
     return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
+
+
+def _has_selection(p: Proposal) -> bool:
+    return p.selected_index is not None and 0 <= p.selected_index < len(p.directions or [])
+
+
+def _is_busy(p: Proposal) -> bool:
+    return p.active_job is not None and p.active_job.status in ("pending", "running")
+
+
+@router.post("/{proposal_id}/chat")
+def chat(
+    proposal_id: int, request: Request, message: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    if not _has_selection(proposal):
+        raise HTTPException(status_code=400, detail=NO_DIRECTION)
+    text = message.strip()
+    if not text:
+        return _detail_page(request, db, proposal, user, status_code=400, chat_error=EMPTY_MESSAGE)
+    if _is_busy(proposal):
+        return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
+    pid = proposal.id
+    message_row = ProposalMessage(proposal_id=pid, role="user", content=text)
+    db.add(message_row)
+    db.commit()  # start_job 이 트랜잭션을 되돌리므로 메시지를 먼저 확정한다
+    if start_job(db, proposal, "proposal_chat", user) is None:  # 그 사이 다른 요청이 먼저 작업을 잡았다. 메시지를 거둔다.
+        db.delete(db.get(ProposalMessage, message_row.id))
+        db.commit()
+        return RedirectResponse(f"/proposals/{pid}?notice=busy", status_code=303)
+    return RedirectResponse(f"/proposals/{pid}#chat", status_code=303)
+
+
+@router.post("/{proposal_id}/chat/retry")
+def chat_retry(
+    proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    job = proposal.active_job
+    last = proposal.messages[-1] if proposal.messages else None
+    if (
+        not _has_selection(proposal) or job is None or job.kind != "proposal_chat" or job.status != "failed"
+        or last is None or last.role != "user"
+    ):
+        raise HTTPException(status_code=400, detail="다시 시도할 수 있는 대화 작업이 없습니다.")
+    return _start(db, proposal, "proposal_chat", user, anchor="#chat")
 
 
 @router.post("/{proposal_id}/target")

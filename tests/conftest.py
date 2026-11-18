@@ -121,3 +121,19 @@ def make_proposal_world(db, settings):
     for obj in (c, b, s1, s2, s3):
         mirror.sync(obj)
     return p, c, b, s1, s2, s3
+
+
+def refining_proposal(db, settings):
+    """방향 둘을 저장하고 첫 번째(전력비 절감 패키지)를 선택해 구체화 단계가 된 제안 건."""
+    p, c, b, s1, s2, s3 = make_proposal_world(db, settings)
+    p.directions = [
+        {"title": "전력비 절감 패키지", "summary": "", "effects": [], "needs_check": [], "rationale": [],
+         "solutions": [{"solution_id": s1.id, "name": s1.name, "role": ""}, {"solution_id": s2.id, "name": s2.name, "role": ""}]},
+        {"title": "조명 단독 교체", "summary": "", "effects": [], "needs_check": [], "rationale": [],
+         "solutions": [{"solution_id": s2.id, "name": s2.name, "role": ""}]},
+    ]
+    p.selected_index = 0
+    p.status = "refining"
+    p.solutions = [s1, s2]
+    db.commit()
+    return p

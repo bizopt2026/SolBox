@@ -1,0 +1,21 @@
+{% if proposal.selected_index is not none and proposal.directions and proposal.selected_index < proposal.directions | length %}
+{% set job = proposal.active_job %}
+{% set busy = job is not none and job.status in ("pending", "running") %}
+<div class="chat-list">
+  {% for m in proposal.messages %}
+  <div class="chat-msg {{ m.role }}"><span class="chat-who">{{ "사용자" if m.role == "user" else "AI" }}</span>{{ m.content }}</div>
+  {% else %}
+  <p class="muted">선택한 방향에 대해 범위, 강조점, 솔루션 추가·제외를 말해 보세요.</p>
+  {% endfor %}
+</div>
+{% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
+{% if not busy %}
+<form method="post" action="/proposals/{{ proposal.id }}/chat" class="stack">
+  <label>메시지<textarea name="message" rows="3" required></textarea></label>
+  <div><button type="submit">보내기</button></div>
+</form>
+{# 제안서 만들기 버튼 자리 (구성안 단계에서 채운다) #}
+{% endif %}
+{% else %}
+<p class="muted">제안 방향을 선택하면 대화로 구체화할 수 있습니다.</p>
+{% endif %}
