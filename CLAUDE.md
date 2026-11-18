@@ -6,7 +6,7 @@
 - `app/` 코드. `routers/` 화면·API, `ai/` AI 작업(대기열 `queue.py`, 실행기 `runner.py`, 처리기, `prompts/`), `templates/`, `static/`
 - `app/research.py` 리서치, `scheduler.py` 주간 조사·일일 작업, `backup.py` 백업, `certs.py` 인증서, `system.py` 점검, `cli.py` 명령줄, `migrate.py` 컬럼 자동 추가
 - `tests/` pytest (가짜 CLI `tests/fake_claude.py`), `scripts/` Windows PowerShell 스크립트, `docs/` 문서
-- 운영 데이터는 저장소 밖 `data_dir` (`app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`)
+- 운영 데이터는 `data_dir` (기본은 저장소 안 `<저장소>/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`
 
 ## 실행·테스트
 - 설치 `pip install -e ".[dev]"`, 설정 `config.example.toml` → `config.toml` (저장소에 올리지 않는다)

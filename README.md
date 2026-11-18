@@ -12,7 +12,7 @@
 프로젝트 폴더에서 PowerShell을 열고 아래 명령을 하나씩 실행합니다.
 
 ```powershell
-pip install -e .
+python -m pip install -e .
 ```
 
 ## 설정 파일 만들기
@@ -76,6 +76,25 @@ python -m app
 - 관리 → 시스템에서 버전, 데이터 폴더, 최근 백업, AI 작업 수를 보고 "AI 연결 확인"과 "지금 백업"을 쓸 수 있습니다.
 - 명령: `python -m app.cli check`(설치 점검), `make-cert --host <주소>`(HTTPS 인증서), `backup`, `backup --verify <폴더>`.
 - 설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결은 [docs/운영가이드.md](docs/운영가이드.md), 서버 PC로 옮기는 작업은 [docs/서버이관_Claude용.md](docs/서버이관_Claude용.md) 를 보세요. `scripts/` 의 PowerShell 스크립트는 아직 Windows 에서 실행 확인이 안 됐습니다.
+- PowerShell 스크립트는 Windows 10/11 의 기본 실행 정책(Restricted)에서 막히므로 항상 `powershell -ExecutionPolicy Bypass -File .\scripts\<이름>.ps1 <인자>` 로 실행합니다 (저장소 폴더에서).
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\run_server.ps1
+  ```
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\install_autostart.ps1
+  ```
+
+  `install_autostart.ps1` 은 서버를 실행할 Windows 계정으로 실행합니다 (등록에 권한이 더 필요하다는 "액세스가 거부되었습니다" 가 나오면 같은 계정으로 관리자 PowerShell 을 새로 열어 다시 실행). 방화벽 규칙은 **관리자 PowerShell(새 세션이므로 저장소 폴더로 다시 이동)** 에서 만들고 지웁니다.
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\open_firewall.ps1 -Port 8443
+  ```
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\open_firewall.ps1 -Port 8443 -Remove
+  ```
 
 ## knowledge 폴더 다시 만들기
 
@@ -88,14 +107,14 @@ python -m app.cli rebuild-knowledge
 ## 테스트 실행
 
 ```powershell
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
 ```powershell
 python -m pytest -q
 ```
 
-(`[dev]` 항목이 없다면 `pip install pytest httpx` 로 대신합니다.)
+(`[dev]` 항목이 없다면 `python -m pip install pytest httpx` 로 대신합니다.)
 
 ## 실제 Claude CLI 수동 확인 목록
 

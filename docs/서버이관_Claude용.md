@@ -6,6 +6,7 @@
 - 단계 순서대로 진행합니다. 각 단계는 ① 명령 ② 성공으로 볼 출력 ③ 실패 시 볼 곳으로 되어 있습니다. 성공 출력이 확인되기 전에는 다음 단계로 넘어가지 않습니다.
 - 각 명령은 PowerShell 에서 **하나씩** 실행하고 출력을 확인합니다.
 - 주소·포트·경로는 아래 `$` 변수 자리에 사람과 정한 값을 넣습니다. 이 문서의 주소(10.231.0.5, 10.231.1.254)와 포트 8443은 예시입니다.
+- **스크립트 실행 정책:** Windows 10/11 클라이언트는 기본이 Restricted 라서 `.ps1` 을 그냥 실행할 수 없습니다. 이 문서의 스크립트는 모두 `powershell -ExecutionPolicy Bypass -File .\scripts\<이름>.ps1 <인자>` 로 실행합니다 (그 실행에만 적용되고 PC 설정은 바꾸지 않습니다).
 - `scripts\*.ps1` 3개는 Linux에서 작성되어 **Windows 실행 검증이 안 된 상태**입니다. 실행 전에 내용을 읽고, 실패하면 고쳐서 쓰고, **고친 내용을 저장소에 반영**(커밋하고 사람에게 알림)하세요.
 
 ## 0. 사람에게 먼저 물을 것 (아무것도 바꾸기 전에)
@@ -35,7 +36,9 @@ Get-NetTCPConnection -LocalPort 8443 -ErrorAction SilentlyContinue | Select-Obje
 
 ## 하지 말 것
 
-- 기존 `data` 폴더를 **백업 없이** 삭제하거나 덮어쓰지 않는다 (먼저 폴더째 복사해 둔다).
+- 기존 `data` 폴더를 **백업 없이** 삭제하거나 덮어쓰지 않는다 (먼저 폴더 이름을 바꿔 둔다). 이미 있는 `data` 안으로 다른 `data` 를 복사해 섞지 않는다.
+- 이미 있는 설치 폴더(저장소 복제본)를 삭제하지 않는다. `app.db-wal`, `app.db-shm` 파일을 지우지 않는다.
+- 비밀번호를 명령줄 인자(`--password`)나 파일에 적지 않는다.
 - `secret_key`, 비밀번호, `server.key`, `config.toml` 을 저장소에 커밋하거나 채팅에 그대로 출력하지 않는다.
 - **사람 확인 없이** 443 포트(또는 정한 포트)를 쓰는 다른 프로그램을 중지하지 않는다.
 - 사람이 정하지 않은 주소·포트를 임의로 정하지 않는다.
@@ -79,17 +82,38 @@ claude -p "확인이라고만 답하세요"
 
 ## 2. 코드 받기와 설치
 
+먼저 `$Repo` 폴더가 이미 있는지 확인한다 (Claude Code 가 이미 저장소 복제본 안에서 실행 중일 수 있다).
+
+```powershell
+Test-Path "$Repo\.git"
+```
+- `False` 면 새로 받는다:
+
 ```powershell
 git clone -b $Branch https://github.com/bizopt2026/bizopt2026 $Repo
 ```
 - 성공: `$Repo` 폴더가 생기고 오류 없이 끝난다. 실패 시: 네트워크·권한 오류 문구를 사람에게 보여 준다.
+- `True`(이미 복제본이다) 면 폴더를 지우거나 다시 받지 말고 갱신한다. 작업 중인 변경이 있으면(`git status`) 사람에게 알린다.
+
+```powershell
+git -C $Repo fetch
+```
+
+```powershell
+git -C $Repo checkout $Branch
+```
+
+```powershell
+git -C $Repo pull
+```
+- 성공: 오류 없이 끝나고 `git -C $Repo status` 가 `$Branch` 브랜치를 가리킨다. 실패 시: 충돌·로컬 변경 문구를 사람에게 보여 준다 (임의로 `reset --hard` 하지 않는다).
 
 ```powershell
 cd $Repo
 ```
 
 ```powershell
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 - 성공: `Successfully installed solbox-...` 로 끝난다. 실패 시: 오류 문구를 읽고 해당 패키지 설치 문제를 해결한다. 회사 프록시가 막으면 사람에게 알린다.
 
@@ -141,12 +165,18 @@ python -m app.cli make-cert --host $ServerHost
 - 성공: "인증서를 만들었습니다" 와 `ssl_certfile = "..."`, `ssl_keyfile = "..."` 두 줄. 이 두 줄을 `config.toml` 에 넣는다.
 - 실패 시: "이미 있는 파일입니다" 면 기존 인증서의 주소가 맞는지 확인하고, 틀리면 `--overwrite` 를 붙인다.
 
-방화벽 (관리자 권한 PowerShell 에서 실행. 권한이 없으면 사람에게 관리자 PowerShell 을 열도록 요청한다):
+방화벽 (**관리자 권한 PowerShell** 이 필요하다. 권한이 없으면 사람에게 관리자 PowerShell 을 열도록 요청한다. 관리자 PowerShell 은 **새 세션**이므로 먼저 `cd $Repo` 로 저장소 폴더에 가고, 위 "변수 설정" 블록을 다시 실행한다):
 
 ```powershell
-.\scripts\open_firewall.ps1 -Port $Port
+cd $Repo
+```
+
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\open_firewall.ps1 -Port $Port
 ```
 - 성공: "방화벽 규칙 'SolutionBox' 을 추가했습니다".
+- 규칙을 지우려면 (관리자 PowerShell, 필요할 때만): `powershell -ExecutionPolicy Bypass -File .\scripts\open_firewall.ps1 -Port $Port -Remove`
 - 확인: 아래 명령에 `SolutionBox` 규칙이 `Enabled: True` 로 나온다.
 
 ```powershell
@@ -154,12 +184,13 @@ Get-NetFirewallRule -DisplayName SolutionBox | Select-Object DisplayName, Enable
 ```
 - 실패 시: 스크립트 오류 문구를 읽고 고친다. 규칙이 있는데 접속이 안 되면 `Get-NetConnectionProfile` 로 네트워크 프로필(공용 여부)을 사람에게 보여 준다.
 
-자동 시작 등록 (이 스크립트는 로그온 때 시작하는 작업을 만든다):
+자동 시작 등록 (이 스크립트는 로그온 때 시작하는 작업을 만든다). **서버를 실행할 Windows 계정으로**, 일반(관리자 아닌) PowerShell 에서 실행한다. 스크립트가 `$env:USERNAME` 계정을 작업 소유자로 등록하기 때문이다. 방화벽 단계의 관리자 창에서 실행하지 않는다 (다른 계정이 소유자가 될 수 있다).
 
 ```powershell
-.\scripts\install_autostart.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install_autostart.ps1
 ```
 - 성공: "작업 'SolutionBox' 을 등록했습니다".
+- "액세스가 거부되었습니다" 가 나오면 등록에 권한이 더 필요한 PC이다. **같은 계정으로** PowerShell 을 관리자 권한으로 새로 열고(`cd $Repo` 와 변수 블록을 다시 실행) 같은 명령을 다시 실행한다.
 - 확인:
 
 ```powershell
@@ -171,20 +202,32 @@ Get-ScheduledTask -TaskName SolutionBox | Select-Object TaskName, State
 
 ## 5. 데이터 옮기기 (0단계에서 옮기기로 한 경우만)
 
-1. **사람에게 로컬 PC(예: 10.231.0.5)의 서버를 멈추도록 요청**하고, 멈췄다고 확인받는다 (실행 창 `Ctrl+C`).
-2. 서버 PC에 이미 `data` 가 있으면 먼저 폴더째 복사해 둔다.
+1. **사람에게 로컬 PC(예: 10.231.0.5)의 서버를 멈추도록 요청**하고, 멈췄다고 확인받는다. 직접 실행했다면 실행 창에서 `Ctrl+C`, 자동 시작을 썼다면 (창이 숨겨져 `Ctrl+C` 가 안 된다) 사람에게 그 PC의 PowerShell 에서 아래 두 명령(포트는 그 PC의 `config.toml` 값)을 실행하고 결과를 알려 달라고 요청한다.
 
 ```powershell
-Copy-Item -Recurse -Path "$Repo\data" -Destination "$Repo\data-before-migration"
+Stop-ScheduledTask -TaskName SolutionBox
 ```
-- 성공: `data-before-migration` 폴더가 생긴다. `data` 가 아직 없으면 이 명령은 건너뛴다.
-
-3. 전달받은 로컬 PC의 `data` 폴더 전체를 `data_dir` 로 복사한다 (`app.db`, `uploads`, `decks` 가 있는지 확인).
 
 ```powershell
-Get-ChildItem "$Repo\data" | Select-Object Name
+Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 ```
-- 성공: `app.db`, `uploads`, `decks` 가 보인다. 실패 시: 복사 위치(폴더가 한 겹 더 들어갔는지)를 확인한다. `app.db-wal`, `app.db-shm` 파일이 있으면 로컬 서버가 완전히 멈췄는지 사람에게 재확인한다.
+- 성공: 아무것도 출력되지 않는다 (그 PC의 포트에서 서버가 내려갔다). 계속 나오면 `OwningProcess` 를 `Get-Process -Id` 로 확인해 사람에게 보이고, 사람이 확인한 뒤에만 종료한다.
+
+   이 서버 PC에 자동 시작 작업이 이미 있어 서버가 돌고 있다면 같은 방법으로 멈춘다 (나중에 다시 시작은 `Start-ScheduledTask -TaskName SolutionBox`).
+
+2. 서버 PC에 이미 `data` 가 있으면 **이름을 바꿔 둔다.** 지우거나 그 안에 복사하지 않는다. 이름을 바꾸면 `data` 가 없는 상태가 되어 두 설치가 섞이지 않고, 옛 `app.db-wal`·`app.db-shm` 이 새 `app.db` 옆에 남아 DB 를 망가뜨리는 일도 막는다.
+
+```powershell
+Rename-Item "$Repo\data" "data-before-migration-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+```
+- 성공: `data-before-migration-<날짜시각>` 폴더가 생기고 `data` 는 없다. `data` 가 아직 없으면 이 명령은 건너뛴다. 실패 시(파일이 사용 중): 서버가 아직 돌고 있는지 확인한다.
+
+3. 전달받은 로컬 PC의 `data` 폴더 전체를 `$Repo\data` 로 복사한다 (대상이 없으므로 폴더째 복사가 된다). `app.db`, `uploads`, `decks` 가 있는지 확인한다. `app.db-wal`, `app.db-shm` 이 있으면 `app.db` 와 **함께** 복사하고 지우지 않는다.
+
+```powershell
+Get-ChildItem "$Repo\data" -Force | Select-Object Name
+```
+- 성공: `app.db`, `uploads`, `decks` 가 보인다 (`app.db-wal`, `app.db-shm` 은 있었다면 같이 보인다). 실패 시: 복사 위치(폴더가 한 겹 더 들어갔는지)를 확인한다. `-wal`·`-shm` 파일이 있으면 로컬 서버가 완전히 멈췄는지 사람에게 재확인한다.
 
 4. 사본 폴더를 DB 기준으로 다시 만든다.
 
@@ -205,16 +248,23 @@ python -m pytest -q -W error
 ```
 - 성공: 마지막 줄이 `N passed` 이고 failed·error·warning 이 없다. 실패 시: 실패한 테스트 이름과 메시지를 사람에게 보고하고 임의로 테스트를 고치지 않는다.
 
-관리자 계정이 없으면 만든다 (옮긴 `data` 에 이미 있으면 건너뛴다. 비밀번호는 사람이 입력한다):
+관리자 계정이 없으면 만든다 (옮긴 `data` 에 이미 있으면 건너뛴다). 이 명령은 비밀번호를 입력창(getpass)으로 두 번 받는데, 에이전트의 셸은 그 입력창에 답할 수 없다. **사람에게 자기 터미널(서버 PC의 PowerShell)에서 `cd $Repo` 후 아래 명령을 직접 실행하도록 요청한다.** `--password` 를 명령줄에 붙이거나 비밀번호를 파일에 적지 않는다.
 
 ```powershell
 python -m app.cli create-admin --username admin --name 관리자
 ```
+- 성공: "관리자 계정을 만들었습니다: admin". 사람이 끝났다고 알려 줄 때까지 기다린다.
 
 서버를 시작한다 (자동 시작 작업으로):
 
 ```powershell
 Start-ScheduledTask -TaskName SolutionBox
+```
+
+서버가 뜰 때까지 약 10초 기다린 뒤 확인한다.
+
+```powershell
+Start-Sleep -Seconds 10
 ```
 
 ```powershell
