@@ -8,8 +8,10 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import AppSetting, ResearchRun
-from app.research import Schedule, get_schedule, start_run
+from sqlalchemy import func
+
+from app.models import AppSetting, ResearchRun, ResearchTopic
+from app.research import LAST_SLOT_KEY, Schedule, get_schedule, start_run
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +66,16 @@ def research_due(db: Session, now: datetime) -> datetime | None:
         return None
     if db.query(ResearchRun.id).filter(ResearchRun.slot == slot).first() is not None:
         return None
+    last = db.get(AppSetting, LAST_SLOT_KEY)  # 지운 실행의 예정 시각도 다시 돌지 않게 기억해 둔다
+    if last is not None:
+        try:
+            if slot <= datetime.fromisoformat(last.value):
+                return None
+        except ValueError:
+            pass
+    earliest = db.query(func.min(ResearchTopic.created_at)).filter(ResearchTopic.is_active.is_(True)).scalar()
+    if earliest is not None and earliest > slot:
+        return None  # 예정 시각에 사용 중인 주제가 없었다: 이번 주는 건너뛰고 다음 예정 시각이나 수동 실행을 기다린다
     return slot
 
 
@@ -75,7 +87,7 @@ def _run_research(app, now: datetime) -> bool:
         try:
             run = start_run(db, "schedule", None, slot=slot)
         except ValueError:
-            # 주제가 없다: 조용히 건너뛴다. 주제가 생기면(6일 안이면) 다음 점검 때 이 예정 시각의 조사를 시작한다.
+            # 주제가 없다: 조용히 건너뛴다. 예정 시각 전부터 있던 주제가 다시 사용 중이 되면 다음 점검 때 시작한다.
             db.rollback()
             if slot not in _WARNED_SLOTS:
                 _WARNED_SLOTS.add(slot)

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SCHEDULE_KEY = "research_schedule"
+LAST_SLOT_KEY = "research_last_slot"  # 예약으로 시작한 가장 최근 예정 시각 (ISO)
 
 
 @dataclass
@@ -163,6 +164,12 @@ def start_run(db: Session, trigger: str, requester_id: int | None, slot: datetim
     if slot is not None and db.query(ResearchRun.id).filter(ResearchRun.slot == slot, ResearchRun.id != run.id).first() is not None:
         db.rollback()  # 같은 예정 시각을 이미 누가 맡았다.
         return None
+    if slot is not None:  # 실행을 지워도 이 예정 시각은 다시 돌지 않는다
+        marker = db.get(AppSetting, LAST_SLOT_KEY)
+        if marker is None:
+            db.add(AppSetting(key=LAST_SLOT_KEY, value=slot.isoformat()))
+        elif marker.value < slot.isoformat():
+            marker.value = slot.isoformat()
     for area in areas:
         report = ResearchReport(run_id=run.id, kind="area", area=area, status="pending")
         db.add(report)

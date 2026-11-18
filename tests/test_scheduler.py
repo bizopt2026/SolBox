@@ -7,9 +7,17 @@ from app import scheduler
 from app.models import AppSetting, ResearchRun
 from app.research import Schedule, set_schedule, start_run
 from app.scheduler import latest_slot, tick
+from app.models import ResearchTopic
 from tests.conftest import make_topics
 
 MON = Schedule(True, 0, 6, 0)
+
+
+def old_topics(db, created=datetime(2026, 11, 1, 9, 0)):
+    """슬롯보다 먼저 만든 주제 (조사 대상)."""
+    make_topics(db)
+    db.query(ResearchTopic).update({"created_at": created})
+    db.commit()
 
 
 def test_latest_slot():
@@ -19,7 +27,7 @@ def test_latest_slot():
 
 
 def test_catches_up_once_after_downtime(app, db, settings):
-    make_topics(db)
+    old_topics(db)
     tue = datetime(2026, 11, 17, 9, 0)
     assert tick(app, tue) == ["research"]
     run = db.query(ResearchRun).one()
@@ -30,21 +38,21 @@ def test_catches_up_once_after_downtime(app, db, settings):
 
 
 def test_too_old_slot_is_skipped(app, db):
-    make_topics(db)
+    old_topics(db)
     assert tick(app, datetime(2026, 11, 22, 23, 0)) == []  # 월요일로부터 6일 17시간
     assert db.query(ResearchRun).count() == 0
     assert tick(app, datetime(2026, 11, 22, 6, 0)) == ["research"]  # 정확히 6일
 
 
 def test_disabled_schedule(app, db):
-    make_topics(db)
+    old_topics(db)
     set_schedule(db, Schedule(False, 0, 6, 0))
     assert tick(app, datetime(2026, 11, 17, 9, 0)) == []
     assert db.query(ResearchRun).count() == 0
 
 
 def test_manual_run_does_not_consume_slot(app, db):
-    make_topics(db)
+    old_topics(db)
     manual = start_run(db, "manual", None)
     manual.status = "done"
     db.commit()
@@ -56,7 +64,7 @@ def test_manual_run_does_not_consume_slot(app, db):
 
 
 def test_busy_run_retries_next_tick(app, db):
-    make_topics(db)
+    old_topics(db)
     busy = start_run(db, "manual", None)
     now = datetime(2026, 11, 17, 9, 0)
     assert tick(app, now) == []
@@ -75,10 +83,54 @@ def test_no_topics_skips_slot_silently_and_catches_up_later(app, db, caplog, mon
         assert tick(app, now + timedelta(minutes=1)) == []
     assert len([r for r in caplog.records if "주제가 없습니다" in r.getMessage()]) == 1  # 예정 시각당 한 번
     assert db.query(ResearchRun).count() == 0  # 빈 실패 실행을 만들지 않는다
-    make_topics(db)  # 주제를 나중에 추가하면 다음 점검에서 따라잡는다
+    old_topics(db, created=datetime(2026, 11, 15, 9, 0))  # 슬롯 전에 있던 주제가 나중에 보이게 된 경우만 따라잡는다
     assert tick(app, now + timedelta(minutes=2)) == ["research"]
     run = db.query(ResearchRun).one()
     assert run.slot == datetime(2026, 11, 16, 6, 0) and len(run.reports) >= 1
+
+
+def test_topics_created_after_slot_do_not_trigger_catch_up(app, db):
+    make_topics(db)
+    db.query(ResearchTopic).update({"created_at": datetime(2026, 11, 16, 6, 0, 1)})  # 슬롯 1초 뒤
+    db.commit()
+    now = datetime(2026, 11, 17, 9, 0)
+    assert tick(app, now) == []
+    assert db.query(ResearchRun).count() == 0
+    assert tick(app, datetime(2026, 11, 23, 6, 0)) == ["research"]  # 다음 슬롯에는 돈다
+
+
+def test_topic_created_exactly_at_slot_counts(app, db):
+    old_topics(db, created=datetime(2026, 11, 16, 6, 0))
+    assert tick(app, datetime(2026, 11, 17, 9, 0)) == ["research"]
+
+
+def test_inactive_topics_do_not_count_for_catch_up(app, db):
+    old_topics(db)
+    db.query(ResearchTopic).update({"is_active": False})
+    db.add(ResearchTopic(name="새 주제", keywords="", area="tech", created_at=datetime(2026, 11, 17, 8, 0)))
+    db.commit()
+    assert tick(app, datetime(2026, 11, 17, 9, 0)) == []
+
+
+def test_deleted_scheduled_run_is_not_rerun(app, db):
+    old_topics(db)
+    tue = datetime(2026, 11, 17, 9, 0)
+    assert tick(app, tue) == ["research"]
+    run = db.query(ResearchRun).one()
+    run.status = "done"
+    db.commit()
+    db.delete(run)  # 관리자가 이번 주 예약 실행을 지웠다
+    db.commit()
+    assert tick(app, tue + timedelta(minutes=1)) == []
+    assert db.query(ResearchRun).count() == 0
+    assert db.get(AppSetting, "research_last_slot").value == "2026-11-16T06:00:00"
+    assert tick(app, datetime(2026, 11, 23, 6, 0)) == ["research"]  # 다음 주 슬롯은 돈다
+
+
+def test_manual_run_does_not_store_last_slot(app, db):
+    old_topics(db)
+    start_run(db, "manual", None)
+    assert db.get(AppSetting, "research_last_slot") is None
 
 
 def test_run_without_reports_still_renders(app, db, admin_client):
@@ -91,7 +143,7 @@ def test_run_without_reports_still_renders(app, db, admin_client):
 
 
 def test_concurrent_ticks_create_one_run(app, db):
-    make_topics(db)
+    old_topics(db)
     now = datetime(2026, 11, 17, 9, 0)
     barrier = threading.Barrier(2)
     results = []
@@ -109,7 +161,7 @@ def test_concurrent_ticks_create_one_run(app, db):
 
 
 def test_start_run_refuses_taken_slot(app, db):
-    make_topics(db)
+    old_topics(db)
     slot = datetime(2026, 11, 16, 6, 0)
     first = start_run(db, "schedule", None, slot=slot)
     first.status = "done"
