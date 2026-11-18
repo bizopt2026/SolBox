@@ -1,4 +1,5 @@
 import threading
+import time
 
 import pytest
 
@@ -87,3 +88,12 @@ def test_stream_missing_binary(settings):
     with pytest.raises(ClaudeError) as e:
         r.run_stream("x", on_text=lambda t: None)
     assert e.value.kind == "not_installed"
+
+
+def test_stream_deadline_holds_even_if_grandchild_keeps_stdout_open(settings, fake_claude):
+    fake_claude.set(mode="stream", chunks=["가"], chunk_delay_s=30, orphan_s=12)
+    start = time.monotonic()
+    with pytest.raises(ClaudeError) as e:
+        _runner(settings).run_stream("x", on_text=lambda t: None, timeout_s=1)
+    assert e.value.kind == "timeout"
+    assert time.monotonic() - start < 6

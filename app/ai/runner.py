@@ -8,7 +8,9 @@ import shutil
 import signal
 import subprocess
 import sys
+import queue
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -161,7 +163,9 @@ class ClaudeRunner:
             ["--output-format", "stream-json", "--verbose", "--include-partial-messages"], allowed_tools
         )
         stderr_parts: list[str] = []
-        timed_out = threading.Event()
+        timed_out = False
+        lines: queue.Queue = queue.Queue()
+        deadline = time.monotonic() + timeout_s
 
         def write_prompt() -> None:
             try:
@@ -182,23 +186,40 @@ class ClaudeRunner:
             except (OSError, ValueError):
                 pass
 
-        def on_deadline() -> None:
-            if proc.poll() is None:
-                timed_out.set()
-                _kill_tree(proc)
+        def read_stdout() -> None:
+            # 손자 프로세스가 파이프를 쥐고 있어도 본 루프가 마감 시각에 멈출 수 있게 줄을 큐로 넘긴다.
+            try:
+                for line in proc.stdout:
+                    lines.put(line)
+            except (OSError, ValueError):
+                pass
+            finally:
+                lines.put(None)
+                try:
+                    proc.stdout.close()
+                except (OSError, ValueError):
+                    pass
 
         writer = threading.Thread(target=write_prompt, name="claude-stdin", daemon=True)
         err_reader = threading.Thread(target=drain_stderr, name="claude-stderr", daemon=True)
-        timer = threading.Timer(timeout_s, on_deadline)
-        timer.daemon = True
-        threads = [writer, err_reader]
+        out_reader = threading.Thread(target=read_stdout, name="claude-stdout", daemon=True)
+        threads = [writer, err_reader, out_reader]
         accumulated = ""
         result_line: dict | None = None
         try:
-            writer.start()
-            err_reader.start()
-            timer.start()
-            for line in proc.stdout:
+            for t in threads:
+                t.start()
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                try:
+                    line = lines.get(timeout=min(remaining, 1.0))
+                except queue.Empty:
+                    continue
+                if line is None:
+                    break
                 try:
                     data = json.loads(line)
                 except ValueError:
@@ -219,20 +240,25 @@ class ClaudeRunner:
                             on_text(accumulated)
                         except Exception:  # noqa: BLE001 - 콜백 오류로 실행을 멈추지 않는다
                             log.exception("on_text 콜백 오류")
-            proc.wait()
+            if not timed_out:
+                try:
+                    proc.wait(timeout=max(deadline - time.monotonic(), 1.0))
+                except subprocess.TimeoutExpired:
+                    timed_out = True
         except BaseException:
             _kill_tree(proc)
             raise
         finally:
-            timer.cancel()
-            if proc.poll() is None:
+            if timed_out or proc.poll() is None:
                 _kill_tree(proc)
             for t in threads:
-                if t.is_alive():
-                    t.join(timeout=5)
-            _reap(proc)
+                t.join(timeout=1 if timed_out else 5)
+            if out_reader.is_alive():
+                proc.wait()  # 읽는 중인 파이프는 닫지 않는다. 손자가 끝나면 읽기 스레드도 저절로 끝난다.
+            else:
+                _reap(proc)
 
-        if timed_out.is_set():
+        if timed_out:
             raise ClaudeError("timeout", f"{timeout_s}초 안에 끝나지 않았습니다.")
 
         stderr = "".join(stderr_parts)

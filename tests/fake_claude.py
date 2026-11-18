@@ -1,6 +1,7 @@
 """테스트용 가짜 claude CLI. FAKE_CLAUDE_CONTROL 이 가리키는 JSON 파일대로 동작한다."""
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -11,6 +12,9 @@ def emit(obj) -> None:
 
 
 def run_stream_mode(control: dict, result: str) -> int:
+    if control.get("orphan_s"):  # 새 세션에서 표준 출력을 쥔 채 오래 사는 손자 프로세스 (프로세스 그룹 kill 을 피한다)
+        subprocess.Popen([sys.executable, "-c", f"import time; time.sleep({control['orphan_s']})"],
+                         start_new_session=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     chunks = control.get("chunks", [])
     fail_after = control.get("stream_fail_after")
     if control.get("noise_lines"):
