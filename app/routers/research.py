@@ -34,17 +34,18 @@ def run_status(run_id: int, request: Request, user: User = Depends(require_user)
     if run is None:
         raise HTTPException(status_code=404, detail="조사 실행을 찾을 수 없습니다.")
     rows = []
-    for r in (r for r in run.reports if r.kind == "area"):
+    for r in run.reports:
         job = db.get(AIJob, r.job_id) if r.job_id else None
         position = queue_position(db, job) if job is not None else 0
-        rows.append({"report": r, "area": RESEARCH_AREAS.get(r.area, r.area), "job": job, "position": position})
+        label = RESEARCH_AREAS.get(r.area, r.area) if r.kind == "area" else "발굴 방향 제안"
+        rows.append({"report": r, "area": label, "job": job, "position": position})
     return render(request, "research/_run_status.html", run=run, rows=rows)
 
 
 @router.post("/reports/{report_id}/retry")
 def retry_report(report_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     report = db.get(ResearchReport, report_id)
-    if report is None or report.kind != "area":
+    if report is None:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
     if report.status != "failed":
         raise HTTPException(status_code=400, detail="실패한 보고서만 다시 시도할 수 있습니다.")
@@ -54,8 +55,9 @@ def retry_report(report_id: int, admin: User = Depends(require_admin), db: Sessi
         if other is not None:  # 조사는 한 번에 하나만 돈다.
             return RedirectResponse(f"{ADMIN_PAGE}?notice=busy", status_code=303)
     rid, run_id = report.id, run.id
+    job_kind = "research_area" if report.kind == "area" else "research_suggest"
     db.rollback()  # 쓰기를 새로 시작한다
-    job = AIJob(kind="research_area", input={"report_id": rid}, requester_id=admin.id, priority=10, status="pending")
+    job = AIJob(kind=job_kind, input={"report_id": rid}, requester_id=admin.id, priority=10, status="pending")
     db.add(job)
     db.flush()
     claimed = db.execute(update(ResearchReport).where(ResearchReport.id == rid, ResearchReport.status == "failed")

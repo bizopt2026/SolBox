@@ -16,6 +16,7 @@ AREA = {"title": "11월 3주 기술 동향", "trends": [
     {"headline": "출처 없는 동향", "sources": [{"url": "javascript:alert(1)"}, {"url": ""}, {"url": "https://bad host/x"}]},
     {"headline": "", "summary": "제목 없음"}], "insights": ["설비 운영 고객에 제안 기회"]}
 AREA_JSON = json.dumps(AREA, ensure_ascii=False)
+SUGGEST_JSON = json.dumps({"suggestions": [{"title": "제안"}]}, ensure_ascii=False)
 
 
 def _drain(app, settings):
@@ -117,9 +118,17 @@ def test_all_areas_fail_run_failed(app, admin_client, db, settings, fake_claude)
 
 def test_all_areas_done_run_done(app, admin_client, db, settings, fake_claude):
     make_topics(db)
-    fake_claude.set(mode="ok", result=AREA_JSON)
+    fake_claude.set(mode="ok", result=[AREA_JSON, AREA_JSON, SUGGEST_JSON])
     run = _run_all(app, admin_client, db, settings)
     assert run.status == "done" and run.finished_at is not None
+
+
+def test_areas_done_but_suggest_fails_run_partial(app, admin_client, db, settings, fake_claude):
+    make_topics(db)
+    fake_claude.set(mode="ok", result=AREA_JSON)  # 제안 작업은 분야 모양 응답을 받아 실패한다
+    run = _run_all(app, admin_client, db, settings)
+    assert run.status == "partial" and run.finished_at is not None
+    assert [r.status for r in run.reports if r.kind == "suggest"] == ["failed"]
 
 
 def test_second_run_while_running_is_refused(admin_client, db):
@@ -164,7 +173,7 @@ def test_start_run_without_topics_raises(db):
 
 def test_retry_failed_area(app, admin_client, db, settings, fake_claude):
     make_topics(db)
-    fake_claude.set(mode="ok", result=[AREA_JSON, "JSON 아님", "JSON 아님"])
+    fake_claude.set(mode="ok", result=[AREA_JSON, "JSON 아님", "JSON 아님", SUGGEST_JSON])
     run = _run_all(app, admin_client, db, settings)
     failed = next(r for r in run.reports if r.status == "failed")
     old_job = failed.job_id
@@ -282,8 +291,7 @@ def test_source_without_url_does_not_fail_area(app, admin_client, db, settings, 
     data = {"trends": [{"headline": "동향", "sources": [{"title": "주소 없음"}, {"url": "https://a.kr/x"}]}]}
     fake_claude.set(mode="ok", result=json.dumps(data, ensure_ascii=False))
     run = _run_all(app, admin_client, db, settings)
-    assert run.status == "done"
-    assert run.reports[0].trends[0]["sources"] == [{"title": "", "url": "https://a.kr/x"}]
+    assert run.reports[0].status == "done" and run.reports[0].trends[0]["sources"] == [{"title": "", "url": "https://a.kr/x"}]
 
 
 def test_restart_recovers_stuck_run(app, admin_client, db, settings):

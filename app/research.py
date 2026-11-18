@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -11,10 +12,11 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.labels import ERROR_KINDS, RESEARCH_AREAS
-from app.models import AIJob, AppSetting, ResearchReport, ResearchRun, ResearchTopic
+from app.models import AIJob, AppSetting, ResearchReport, ResearchRun, ResearchTopic, Solution
+from app.proposals import check_sources
 
 if TYPE_CHECKING:
-    from app.ai.research_tasks import AreaOut
+    from app.ai.research_tasks import AreaOut, SuggestOut
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +72,7 @@ def active_topics(db: Session) -> dict[str, list[ResearchTopic]]:
 
 
 URL_MAX = 2000
-MAX_TRENDS, MAX_INSIGHTS = 10, 7
+MAX_TRENDS, MAX_INSIGHTS, MAX_SUGGESTIONS = 10, 7, 7
 NO_SOURCE_NOTE = "출처 링크 없음, 확인 필요"
 NO_TOPICS_MESSAGE = "사용 중인 리서치 주제가 없습니다."
 
@@ -117,6 +119,26 @@ def clean_area(out: AreaOut) -> dict:
     return {"title": out.title.strip(), "trends": trends[:MAX_TRENDS], "insights": insights[:MAX_INSIGHTS]}
 
 
+def clean_suggestions(db: Session, out: SuggestOut, knowledge_dir: Path) -> dict:
+    """AI 가 만든 발굴 방향 제안을 저장할 모양으로 다듬는다 (없는 솔루션·출처 걸러내기, 개수 제한)."""
+    wanted = {i for s in out.suggestions for i in s.solution_ids}
+    existing = {i for (i,) in db.query(Solution.id).filter(Solution.id.in_(wanted)).all()} if wanted else set()
+    suggestions = []
+    for s in out.suggestions:
+        title = s.title.strip()
+        if not title:
+            continue
+        ids = list(dict.fromkeys(i for i in s.solution_ids if i in existing))
+        kind = s.kind if s.kind in ("new", "push") else "new"
+        if kind == "push" and not ids:
+            kind = "new"
+        sources, _missing = check_sources(knowledge_dir, s.sources)
+        suggestions.append({"kind": kind, "title": title, "detail": s.detail.strip(), "reason": s.reason.strip(),
+                            "solution_ids": ids, "sources": list(dict.fromkeys(sources))})
+    insights = [i.strip() for i in out.insights if i.strip()]
+    return {"suggestions": suggestions[:MAX_SUGGESTIONS], "insights": insights[:MAX_INSIGHTS]}
+
+
 def start_run(db: Session, trigger: str, requester_id: int | None, slot: datetime | None = None) -> ResearchRun | None:
     """조사 실행을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 만들어진다."""
     areas = {area: [t.id for t in items] for area, items in active_topics(db).items()}
@@ -144,8 +166,8 @@ def start_run(db: Session, trigger: str, requester_id: int | None, slot: datetim
 
 
 def sync_failed_reports(db: Session, run_id: int) -> None:
-    """작업이 실패한 분야 보고서를 failed 로 맞추고 안내문을 채운다."""
-    reports = db.query(ResearchReport).filter_by(run_id=run_id, kind="area", status="pending").all()
+    """작업이 실패한 보고서(분야·제안)를 failed 로 맞추고 안내문을 채운다."""
+    reports = db.query(ResearchReport).filter_by(run_id=run_id, status="pending").all()
     for r in reports:
         job = db.get(AIJob, r.job_id) if r.job_id else None
         if job is None or job.status != "failed":
@@ -156,7 +178,9 @@ def sync_failed_reports(db: Session, run_id: int) -> None:
 
 
 def advance_run(db: Session, run_id: int) -> None:
-    """분야 보고서가 모두 끝났으면 실행을 마감한다. 이미 마감된 실행에는 아무것도 하지 않는다."""
+    """분야 보고서가 모두 끝나면 제안 작업을 한 번만 만들고, 제안까지 끝나면 실행을 마감한다.
+
+    이미 마감된 실행에는 아무것도 하지 않는다. 마감된 실행에서 분야를 다시 시도해도 제안은 다시 만들지 않는다."""
     db.rollback()
     run = db.get(ResearchRun, run_id)
     if run is None or run.status != "running":
@@ -167,9 +191,34 @@ def advance_run(db: Session, run_id: int) -> None:
     if not areas or any(r.status not in ("done", "failed") for r in areas):
         return
     done = sum(r.status == "done" for r in areas)
-    # 3단계 Task 5: done > 0 이면 여기서 제안 작업을 시작하고 마감은 그 작업이 한다.
-    status = "failed" if done == 0 else "done" if done == len(areas) else "partial"
-    _close_run(db, run_id, status)
+    suggest = next((r for r in run.reports if r.kind == "suggest"), None)
+    if suggest is None:
+        if done == 0:
+            _close_run(db, run_id, "failed")
+            return
+        suggest = _start_suggest(db, run)
+    if suggest is None or suggest.status not in ("done", "failed"):
+        return
+    _close_run(db, run_id, "done" if done == len(areas) and suggest.status == "done" else "partial")
+
+
+def _start_suggest(db: Session, run: ResearchRun) -> ResearchReport | None:
+    """제안 보고서와 작업을 만든다. 동시에 불러도 하나만 남는다 (먼저 flush 한 쪽이 쓰기 잠금을 잡는다)."""
+    run_id, requester_id = run.id, run.requester_id
+    db.rollback()
+    report = ResearchReport(run_id=run_id, kind="suggest", status="pending")
+    db.add(report)
+    db.flush()
+    first = db.query(ResearchReport.id).filter_by(run_id=run_id, kind="suggest").order_by(ResearchReport.id).first()
+    if first is None or first[0] != report.id:
+        db.rollback()
+        return db.query(ResearchReport).filter_by(run_id=run_id, kind="suggest").first()
+    job = AIJob(kind="research_suggest", input={"report_id": report.id}, requester_id=requester_id, priority=10, status="pending")
+    db.add(job)
+    db.flush()
+    report.job_id = job.id
+    db.commit()
+    return report
 
 
 def recover_runs(db: Session) -> int:

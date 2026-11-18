@@ -185,3 +185,28 @@ def make_topics(db):
         ResearchTopic(name="전기요금 정책", keywords="", area="policy"),
     ])
     db.commit()
+
+
+def make_research_world(db, settings):
+    """제안 작업 시험용 세계: 주제, boxed 솔루션 하나, 고객과 최근 활동(수요 단서), 그 지식 사본."""
+    from datetime import date, timedelta
+    from types import SimpleNamespace
+
+    from app.knowledge import KnowledgeMirror
+    from app.models import Activity, Customer, Solution
+
+    make_topics(db)
+    s1 = Solution(name="AI 공조 최적제어", stage="boxed", summary="공조 전력 절감")
+    customer = Customer(name="한빛병원")
+    db.add_all([s1, customer])
+    db.flush()
+    activity = Activity(kind="meeting", date=date.today() - timedelta(days=10), title="한빛병원 미팅", raw_text="전기요금 부담 논의",
+                        demand_signals=[{"customer": "한빛병원", "content": "전기요금 절감 요청"}])
+    activity.solutions = [s1]
+    activity.customers = [customer]
+    db.add(activity)
+    db.commit()
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    for obj in (s1, customer, activity):
+        mirror.sync(obj)
+    return SimpleNamespace(s1=s1, customer=customer, activity=activity)

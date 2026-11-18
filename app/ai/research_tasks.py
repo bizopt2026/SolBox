@@ -9,18 +9,21 @@ from pathlib import Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.ai.runner import WEB_TOOLS, ClaudeError, ClaudeRunner
+from app.ai.runner import DEFAULT_TOOLS, WEB_TOOLS, ClaudeError, ClaudeRunner
 from app.ai.tasks import AFTER_JOB, HANDLERS, load_prompt, run_json
 from app.config import Settings
-from app.labels import RESEARCH_AREAS
-from app.models import ResearchReport, ResearchRun, ResearchTopic
-from app.research import advance_run, clean_area
+from app.knowledge import KnowledgeMirror
+from app.labels import RESEARCH_AREAS, STAGES
+from app.models import Activity, ResearchReport, ResearchRun, ResearchTopic, Solution
+from app.research import advance_run, clean_area, clean_suggestions
 
 log = logging.getLogger(__name__)
 
 TOPICS_OPEN, TOPICS_CLOSE = "<<<TOPICS", "TOPICS>>>"
 EMPTY_RESULT = "조사 결과가 비어 있습니다."
 RECENT_DAYS, MAX_DAYS = 7, 30
+ACTIVITY_DAYS, MAX_ACTIVITIES = 60, 100
+EMPTY_SUGGEST = "발굴 방향 제안이 비어 있습니다."
 
 
 class SourceLink(BaseModel):
@@ -37,6 +40,20 @@ class Trend(BaseModel):
 class AreaOut(BaseModel):
     title: str = ""
     trends: list[Trend]
+    insights: list[str] = []
+
+
+class Suggestion(BaseModel):
+    kind: str = "new"
+    title: str
+    detail: str = ""
+    reason: str = ""
+    solution_ids: list[int] = []
+    sources: list[str] = []
+
+
+class SuggestOut(BaseModel):
+    suggestions: list[Suggestion]
     insights: list[str] = []
 
 
@@ -85,7 +102,59 @@ def _research_area(db: Session, input: dict, runner: ClaudeRunner, settings: Set
     report.status = "done"
     report.error = ""
     db.commit()
+    _write_copy(db, report, settings)
     advance_run(db, report.run_id)
+    return ""
+
+
+def _write_copy(db: Session, report: ResearchReport, settings: Settings) -> None:
+    """보고서가 done 이 되면 지식 폴더에 사본을 쓴다. 사본을 못 써도 보고서는 유효하다."""
+    try:
+        KnowledgeMirror(settings.knowledge_dir).sync(report)
+    except OSError:
+        log.exception("보고서 %s 사본 쓰기 실패", report.id)
+
+
+def _research_suggest(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
+    report = db.get(ResearchReport, input.get("report_id"))
+    if report is None or report.run is None:
+        return ""
+    report_id, run_id = report.id, report.run_id
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    areas = [r for r in report.run.reports if r.kind == "area" and r.status == "done"]
+    if not areas:
+        raise ClaudeError("bad_output", "제안할 분야 보고서가 없습니다.")
+    copies = []
+    for r in areas:
+        if not mirror.path_for(r).is_file():
+            _write_copy(db, r, settings)
+        copies.append(f"- {RESEARCH_AREAS.get(r.area, r.area)}: `{mirror.rel_path(r)}`")
+    solutions = db.query(Solution).filter_by(stage="boxed").order_by(Solution.id).all()
+    since = date.today() - timedelta(days=ACTIVITY_DAYS)
+    activities = (db.query(Activity).filter(Activity.date >= since).order_by(Activity.date.desc(), Activity.id.desc())
+                  .limit(MAX_ACTIVITIES).all())
+    prompt = load_prompt(
+        "research_suggest", today=date.today().isoformat(), reports="\n".join(copies),
+        solutions="\n".join(f"- id {s.id}: {s.name} ({STAGES.get(s.stage, s.stage)}, `{mirror.rel_path(s)}`)" for s in solutions) or "- (없음)",
+        activities="\n".join(f"- {a.date.isoformat()} {a.title or '(제목 없음)'} (`{mirror.rel_path(a)}`)" for a in activities) or "- (없음)",
+        days=ACTIVITY_DAYS,
+    )
+    out = run_json(db, runner, prompt, SuggestOut, settings, allowed_tools=DEFAULT_TOOLS,
+                   timeout_s=settings.research_timeout_s)  # 작업 폴더는 지식 폴더(러너 기본값), 웹 도구 없음
+    cleaned = clean_suggestions(db, out, settings.knowledge_dir)
+    if not cleaned["suggestions"]:
+        raise ClaudeError("bad_output", EMPTY_SUGGEST)
+    report = db.get(ResearchReport, report_id)  # 긴 실행 동안 지워졌을 수 있다.
+    if report is None or db.get(ResearchRun, run_id) is None:
+        return ""
+    report.title = "발굴 방향 제안"
+    report.suggestions = cleaned["suggestions"]
+    report.insights = cleaned["insights"]
+    report.status = "done"
+    report.error = ""
+    db.commit()
+    _write_copy(db, report, settings)
+    advance_run(db, run_id)
     return ""
 
 
@@ -97,3 +166,5 @@ def _after_area(db: Session, input: dict) -> None:
 
 HANDLERS["research_area"] = _research_area
 AFTER_JOB["research_area"] = _after_area
+HANDLERS["research_suggest"] = _research_suggest
+AFTER_JOB["research_suggest"] = _after_area  # 입력이 같은 모양({"report_id"})이라 같은 후처리를 쓴다

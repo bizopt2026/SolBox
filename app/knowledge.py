@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import Request
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import labels
 from app.extract import extract_text
-from app.models import Activity, Business, Customer, Partner, Solution, SolutionFile
+from app.models import Activity, Business, Customer, Partner, ResearchReport, Solution, SolutionFile
 
 _UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
 
@@ -60,7 +61,13 @@ class KnowledgeMirror:
             return f"activities/{year}/{obj.id}.md"
         if isinstance(obj, SolutionFile):
             return f"solutions/{obj.solution_id}/files/{obj.id}-{safe_name(obj.original_name)}.md"
+        if isinstance(obj, ResearchReport):
+            day = (obj.created_at or datetime.now()).date().isoformat()
+            return f"research/{day}-{obj.area if obj.kind == 'area' else 'suggest'}-{obj.id}.md"
         raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}")
+
+    def rel_path(self, obj) -> str:
+        return self._rel(obj)
 
     def path_for(self, obj) -> Path:
         return self.root / self._rel(obj)
@@ -83,6 +90,7 @@ class KnowledgeMirror:
             Business: self._business,
             Partner: self._partner,
             Activity: self._activity,
+            ResearchReport: self._report,
         }.get(type(obj))
         if render is None:
             raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}")
@@ -110,6 +118,8 @@ class KnowledgeMirror:
         for model in (Solution, Customer, Business, Partner, Activity):
             for obj in db.scalars(select(model).order_by(model.id)):
                 self.sync(obj)
+        for report in db.scalars(select(ResearchReport).where(ResearchReport.status == "done").order_by(ResearchReport.id)):
+            self.sync(report)
         for f in db.scalars(select(SolutionFile).order_by(SolutionFile.id)):
             result = extract_text(Path(uploads_dir) / "solutions" / str(f.solution_id) / f.stored_name)
             f.extract_status = result.status
@@ -213,6 +223,34 @@ class KnowledgeMirror:
         ]
         out += _section("수요 단서", "\n".join(signals))
         return out + _section("원문", a.raw_text)
+
+    def _report(self, r: ResearchReport) -> list[str]:
+        is_area = r.kind == "area"
+        out = [f"# {r.title or ('리서치 보고서' if is_area else '발굴 방향 제안')}", ""]
+        out += _lines(
+            _item("분야", labels.RESEARCH_AREAS.get(r.area, r.area)) if is_area else _item("종류", "발굴 방향 제안"),
+            _item("작성일", r.created_at.date().isoformat() if r.created_at else ""),
+        )
+        if is_area:
+            out += ["", "## 동향"]
+            for t in r.trends or []:
+                out += ["", f"### {t.get('headline', '')}"]
+                if t.get("summary"):
+                    out += ["", t["summary"]]
+                links = [f"- [{s.get('title') or s.get('url', '')}]({s.get('url', '')})" for s in t.get("sources", [])]
+                out += ([""] + links) if links else ["", "- 출처 링크 없음, 확인 필요"]
+        else:
+            out += ["", "## 발굴 방향 제안"]
+            for sug in r.suggestions or []:
+                kind = labels.SUGGESTION_KINDS.get(sug.get("kind"), sug.get("kind", ""))
+                out += ["", f"### [{kind}] {sug.get('title', '')}", ""]
+                out += _lines(
+                    _item("내용", sug.get("detail")),
+                    _item("이유", sug.get("reason")),
+                    _item("대상 솔루션 id", ", ".join(str(i) for i in sug.get("solution_ids", []))),
+                    _item("근거", ", ".join(sug.get("sources", []))),
+                )
+        return out + _section("시사점", "\n".join(f"- {i}" for i in r.insights or []))
 
 
 def get_mirror(request: Request) -> KnowledgeMirror:
