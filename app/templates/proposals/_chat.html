@@ -6,7 +6,7 @@
   {% if proposal.chat_from_id is not none and loop.first and m.id <= proposal.chat_from_id %}
   <p class="chat-divider muted">이전 방향에서 나눈 대화 (새 방향에는 반영되지 않습니다)</p>
   {% endif %}
-  <div class="chat-msg {{ m.role }}{% if proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %} old{% endif %}"><span class="chat-who">{{ "사용자" if m.role == "user" else "AI" }}</span>{{ m.content }}</div>
+  <div class="chat-msg {{ m.role }}{% if proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %} old{% endif %}"><span class="chat-who">{{ "사용자" if m.role == "user" else "AI" }}</span>{% if m.role == "user" %}{{ m.content }}{% else %}<div class="md">{{ m.content | md }}</div>{% endif %}</div>
   {% else %}
   <p class="muted">선택한 방향에 대해 범위, 강조점, 솔루션 추가·제외를 말해 보세요.</p>
   {% endfor %}

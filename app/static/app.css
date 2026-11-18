@@ -37,7 +37,8 @@ dd { margin:0; white-space:pre-wrap; }
 .stages li strong { margin-left:6px; }
 .overdue { color:var(--err); font-weight:600; }
 .chat-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
-.chat-msg, .job-status .chat-msg { white-space:pre-wrap; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:8px; }
+.chat-msg.user { white-space:pre-wrap; }
+.chat-msg, .job-status .chat-msg { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:8px; }
 .chat-msg.user { background:#f0f4fa; }
 .chat-who { display:block; font-size:12px; color:var(--muted); margin-bottom:2px; }
 .slide-card.needs-check { border-color:var(--err); border-width:2px; }
@@ -53,3 +54,11 @@ dd { margin:0; white-space:pre-wrap; }
 .card dl + form, .card ul + form { margin-top:14px; }
 #chat form + form { margin-top:14px; }
 #directions .stack + form { margin-top:4px; }
+
+.md p, .md ul, .md ol { margin:4px 0; }
+.md ul, .md ol { padding-left:22px; }
+.md h4, .md h5, .md h6 { margin:8px 0 2px; font-size:15px; }
+.md h6 { font-size:14px; }
+.md code { background:#f3f3f3; padding:0 4px; border-radius:3px; font-size:.92em; }
+.md > :first-child { margin-top:0; }
+.md > :last-child { margin-bottom:0; }

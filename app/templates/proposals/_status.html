@@ -2,5 +2,5 @@
 <div id="proposal-status" class="job-status" role="status"
   hx-get="/proposals/{{ proposal.id }}/status" hx-trigger="every {{ '1s' if chat_running else '2s' }}" hx-swap="outerHTML">
   {% if proposal.active_job.status == "pending" %}AI 대기 {{ position }}번째{% else %}AI가 작성 중입니다…{% endif %}
-  {% if chat_running and job.result %}<div class="chat-msg assistant">{{ job.result }}</div>{% endif %}
+  {% if chat_running and job.result %}<div class="chat-msg assistant"><div class="md">{{ job.result | md }}</div></div>{% endif %}
 </div>

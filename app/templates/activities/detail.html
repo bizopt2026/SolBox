@@ -15,7 +15,7 @@
   </dl>
 </section>
 {% if activity.summary_md %}
-<section class="card"><h2>정리</h2><div style="white-space: pre-wrap">{{ activity.summary_md }}</div></section>
+<section class="card"><h2>정리</h2><div class="md">{{ activity.summary_md | md }}</div></section>
 {% endif %}
 <section class="card">
   <h2>후속 조치</h2>
