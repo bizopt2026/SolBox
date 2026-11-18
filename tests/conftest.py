@@ -39,3 +39,36 @@ def db(app):
 @pytest.fixture
 def client(app):
     return TestClient(app)
+
+
+def make_user(db, username, role="user", password="pw1234", name=None):
+    from app.models import User
+    from app.security import hash_password
+
+    user = User(
+        username=username,
+        name=name or username,
+        password_hash=hash_password(password),
+        role=role,
+    )
+    db.add(user)
+    db.commit()
+    return user
+
+
+def _logged_in_client(app, db, username, role):
+    make_user(db, username, role=role)
+    c = TestClient(app)
+    r = c.post("/login", data={"username": username, "password": "pw1234"}, follow_redirects=False)
+    assert r.status_code == 303
+    return c
+
+
+@pytest.fixture
+def user_client(app, db):
+    return _logged_in_client(app, db, "kim", "user")
+
+
+@pytest.fixture
+def admin_client(app, db):
+    return _logged_in_client(app, db, "admin", "admin")

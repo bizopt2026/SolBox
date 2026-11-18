@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · 솔루션 박스</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+{% if user %}
+<header class="topbar">
+  <a class="brand" href="/">솔루션 박스</a>
+  <nav>
+    <a href="/">홈</a>
+    <a href="/solutions">솔루션</a>
+    <a href="/customers">고객</a>
+    <a href="/businesses">기존 사업</a>
+    <a href="/partners">파트너</a>
+    <a href="/activities">활동 기록</a>
+    {% if user.role == "admin" %}<a href="/admin/users">관리</a>{% endif %}
+  </nav>
+  <form class="logout" method="post" action="/logout">
+    <span>{{ user.name or user.username }}</span>
+    <button type="submit">로그아웃</button>
+  </form>
+</header>
+{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
