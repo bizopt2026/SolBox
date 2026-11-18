@@ -248,3 +248,21 @@ def test_two_column_boxes_have_equal_height(tmp_path):
     assert len(boxes) == 2 and boxes[0].height == boxes[1].height
     bodies = [sh for sh in prs.slides[0].shapes if sh.has_text_frame and ("긴 항목" in sh.text_frame.text or "짧음" in sh.text_frame.text)]
     assert len(bodies) == 2 and bodies[0].height == bodies[1].height
+
+
+def test_table_stays_in_body_with_long_key_message(tmp_path):
+    from app.deck import BODY_BOTTOM, BODY_H, _table_row_heights
+    long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다"
+    rows, n = [], 0
+    while True:  # 핵심 메시지 없이는 11pt 로 꼭 들어가는 가장 큰 표
+        cand = rows + [["가나다 " * 12, "x"]]
+        if sum(_table_row_heights(["a", "b"], cand, 11)) > BODY_H or len(cand) > 8:
+            break
+        rows = cand
+    assert rows
+    for message in ("", long):
+        build_deck({"title": "t", "slides": [{"kind": "table", "title": "표", "key_message": message, "columns": ["a", "b"], "rows": rows}]}, tmp_path / "k.pptx")
+        prs = Presentation(tmp_path / "k.pptx")
+        for slide in prs.slides:
+            for t in [sh for sh in slide.shapes if getattr(sh, "has_table", False) and sh.has_table]:
+                assert (t.top + sum(r.height for r in t.table.rows)) <= Inches(BODY_BOTTOM) + 10

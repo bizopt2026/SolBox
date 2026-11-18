@@ -82,3 +82,10 @@ def test_activity_summary_rendered(user_client, db):
     db.commit()
     page = user_client.get(f"/activities/{a.id}").text
     assert "<h5>논의</h5>" in page and "<li>전력비 &lt;b&gt;x&lt;/b&gt;</li>" in page
+
+
+def test_loose_lists_stay_one_list():
+    assert str(md("1. a\n\n2. b\n\n3. c")) == "<ol><li>a</li><li>b</li><li>c</li></ol>"
+    assert str(md("- a\n\n- b")) == "<ul><li>a</li><li>b</li></ul>"
+    assert str(md("- a\n\n1. b")) == "<ul><li>a</li></ul><ol><li>b</li></ol>"
+    assert str(md("- a\n\n문단")) == "<ul><li>a</li></ul><p>문단</p>"

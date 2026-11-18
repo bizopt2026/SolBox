@@ -123,7 +123,7 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
     """종류별로 {"matched": [id...], "new": [이름...], "ambiguous": [{"name", "candidates": [id...]}]}.
 
     정규형이 같으면 연결, 아니면 한쪽이 다른 쪽에 포함되는 등록 항목이 정확히 하나일 때 연결한다.
-    후보가 여럿이면 자동 연결도 새 등록 제안도 하지 않고 ambiguous 로 돌려준다. 2자 미만 이름은 연결하지 않는다."""
+    후보가 여럿이면 자동 연결도 새 등록 제안도 하지 않고 ambiguous 로 돌려준다. 2자 미만 이름은 연결하지 않고, 3자 미만 등록명(AI, KT 등)은 포함 비교에 쓰지 않는다(완전 일치만)."""
     result = {}
     for rel, model in _MENTION_MODELS.items():
         registered = [(o.id, normalize_name(o.name)) for o in db.scalars(select(model).order_by(model.id))]
@@ -142,7 +142,7 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
             else:
                 found = [i for i, k in registered if k == key][:1]
                 if not found:
-                    found = [i for i, k in registered if key in k or k in key]
+                    found = [i for i, k in registered if len(k) >= 3 and (key in k or k in key)]
             if len(found) == 1:
                 if found[0] not in matched:
                     matched.append(found[0])

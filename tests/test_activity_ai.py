@@ -236,3 +236,10 @@ def test_draft_page_shows_ambiguous_hint(app, user_client, db, settings, fake_cl
     assert "여러 항목과 비슷합니다: 한빛병원, 한빛의원" in page
     assert f'<option value="{a.id}" selected' not in page and f'<option value="{b.id}" selected' not in page
     assert 'name="new_customers" value="한빛"' not in page
+
+
+def test_short_registered_names_match_exactly_only(db):
+    s = Solution(name="AI"); k = Customer(name="KT"); db.add_all([s, k]); db.commit()
+    out = match_mentions(db, Mentions(solutions=["AI", "AI 공조 최적제어"], customers=["KT 엔지니어링"]))
+    assert out["solutions"] == {"matched": [s.id], "new": ["AI 공조 최적제어"], "ambiguous": []}
+    assert out["customers"] == {"matched": [], "new": ["KT 엔지니어링"], "ambiguous": []}

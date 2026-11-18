@@ -98,6 +98,15 @@ def _message_style(message: str) -> tuple[int, int]:
     return pt, _est_lines(message, pt, CONTENT_W - 0.1)
 
 
+def _message_shift(slide: dict) -> float:
+    """핵심 메시지가 여러 줄일 때 본문이 내려가는 만큼(인치)."""
+    message = _clean(slide.get("key_message"))
+    if not message:
+        return 0.0
+    pt, lines = _message_style(message)
+    return (lines - 1) * _line_h(pt)
+
+
 def _table_font(columns: list, rows: list) -> int:
     return 11 if len(columns) > 6 else 16 if len(columns) <= 4 and len(rows) <= 6 else 14
 
@@ -115,26 +124,27 @@ def _table_row_heights(columns: list, rows: list, pt: float) -> list[float]:
     return heights
 
 
-def _fit_table_font(columns: list, rows: list) -> tuple[int, list[float]]:
+def _fit_table_font(columns: list, rows: list, avail: float = BODY_H) -> tuple[int, list[float]]:
     """처음 글자 크기에서 표가 본문 영역을 넘으면 16 → 14 → 12 → 11 로 내린다."""
     start = _table_font(columns, rows)
     sizes = [s for s in (16, 14, 12, 11) if s <= start] or [11]
     for pt in sizes:
         heights = _table_row_heights(columns, rows, pt)
-        if sum(heights) <= BODY_H:
+        if sum(heights) <= avail:
             return pt, heights
     return sizes[-1], _table_row_heights(columns, rows, sizes[-1])
 
 
-def _table_chunks(columns: list, rows: list) -> list[list]:
+def _table_chunks(columns: list, rows: list, first_shift: float = 0.0) -> list[list]:
     """표 행을 장별로 나눈다. 장당 MAX_TABLE_ROWS 행 이하이고, 가장 작은 글자(11pt)로도 본문 영역에 들어가게 한다."""
     chunks, current, used = [], [], 0.0
+    budget = BODY_H - first_shift  # 첫 장만 핵심 메시지가 여러 줄이면 그만큼 좁다
     head = _table_row_heights(columns, [], 11)[0]
     for row in rows:
         h = _table_row_heights(columns, [row], 11)[1]
-        if current and (len(current) >= MAX_TABLE_ROWS or head + used + h > BODY_H):
+        if current and (len(current) >= MAX_TABLE_ROWS or head + used + h > budget):
             chunks.append(current)
-            current, used = [], 0.0
+            current, used, budget = [], 0.0, BODY_H
         current.append(row)
         used += h
     return chunks + [current] if current or not chunks else chunks
@@ -153,7 +163,7 @@ def paginate(slide: dict) -> list[dict]:
     """
     kind = slide.get("kind")
     if kind == "table":
-        parts = [{"rows": c} for c in _table_chunks(_list(slide, "columns"), _list(slide, "rows"))]
+        parts = [{"rows": c} for c in _table_chunks(_list(slide, "columns"), _list(slide, "rows"), _message_shift(slide))]
     elif kind == "two_column":
         left, right = _chunks(_list(slide, "left"), MAX_COLUMN_ITEMS), _chunks(_list(slide, "right"), MAX_COLUMN_ITEMS)
         count = max(len(left), len(right))
@@ -367,7 +377,7 @@ def _draw_table(slide, data: dict):
     columns, rows = _list(data, "columns"), _list(data, "rows")
     top = _header(slide, data)
     count = len(columns)
-    size, heights = _fit_table_font(columns, rows)
+    size, heights = _fit_table_font(columns, rows, BODY_BOTTOM - top)
     frame = slide.shapes.add_table(len(rows) + 1, count, Inches(MARGIN), Inches(top), Inches(CONTENT_W), Inches(sum(heights)))
     table = frame.table
     for c in range(count):

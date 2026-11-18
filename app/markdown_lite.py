@@ -44,11 +44,19 @@ def render_markdown(text: str) -> Markup:
             items.clear()
         list_tag = ""
 
-    for raw in lines:
+    def continues_list(start: int) -> bool:
+        """빈 줄 다음 첫 줄이 지금 목록과 같은 종류의 항목이면 목록을 이어 간다 (항목 사이에 빈 줄이 있는 목록)."""
+        for nxt in lines[start:]:
+            if nxt.strip():
+                return nxt[0] not in " \t" and bool((_BULLET if list_tag == "ul" else _NUMBER).fullmatch(nxt.rstrip()))
+        return False
+
+    for n, raw in enumerate(lines):
         line = raw.rstrip()
         if not line.strip():
             flush_para()
-            flush_list()
+            if not (items and continues_list(n + 1)):
+                flush_list()
             continue
         if items and line[0] in " \t":  # 목록 항목 아래 들여쓴 줄은 그 항목에 이어 붙는다
             items[-1] += "<br>" + _inline(line.strip())
