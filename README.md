@@ -31,7 +31,7 @@ copy config.example.toml config.toml
   ```
 - `data_dir`: 데이터(`app.db`, `uploads/`, `knowledge/`, `decks/`)를 저장할 폴더. 상대 경로는 `config.toml` 이 있는 폴더 기준입니다. Windows 경로는 `data_dir = "C:/solbox/data"` 처럼 `/` 로 쓰거나 `data_dir = 'C:\solbox\data'` 처럼 작은따옴표로 감싸세요 (큰따옴표 안의 `\` 는 오류가 납니다).
 - `host`, `port`: 기본은 `127.0.0.1`, `8443` 입니다. 다른 PC에서도 접속하게 하려면 `host = "0.0.0.0"` 으로 바꿉니다.
-- `ssl_certfile`, `ssl_keyfile`: 인증서와 키 파일 경로. 둘 다 적으면 HTTPS로, 적지 않으면 HTTP로 열립니다.
+- `ssl_certfile`, `ssl_keyfile`: 인증서와 키 파일 경로. 둘 다 적으면 HTTPS로, 적지 않으면 HTTP로 열립니다. 자체 서명 인증서는 `python -m app.cli make-cert --host <접속 주소>` 로 만들고, 출력되는 두 줄을 넣습니다.
 
 ## 관리자 계정 만들기
 
@@ -69,6 +69,13 @@ python -m app
 5. "PPT 만들기"로 파일을 만들고 내려받습니다. 구성안을 고치면 "구성안이 바뀌었습니다. 다시 생성하세요." 가 보이니 다시 만드세요. 구성안 수정과 PPT 만들기에는 AI가 필요 없습니다.
 
 만든 PPT는 `data_dir` 아래 `decks/` 에 저장되고, 제안 건을 지우면 함께 지워집니다.
+
+## 3단계: 리서치와 서버 운영
+
+- 관리 → 리서치 설정에서 주제와 실행 주기를 정하면 매주 시장·기술·정책 웹 조사와 발굴 방향 제안이 만들어지고, "리서치" 메뉴에서 봅니다.
+- 관리 → 시스템에서 버전, 데이터 폴더, 최근 백업, AI 작업 수를 보고 "AI 연결 확인"과 "지금 백업"을 쓸 수 있습니다.
+- 명령: `python -m app.cli check`(설치 점검), `make-cert --host <주소>`(HTTPS 인증서), `backup`, `backup --verify <폴더>`.
+- 설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결은 [docs/운영가이드.md](docs/운영가이드.md), 서버 PC로 옮기는 작업은 [docs/서버이관_Claude용.md](docs/서버이관_Claude용.md) 를 보세요. `scripts/` 의 PowerShell 스크립트는 아직 Windows 에서 실행 확인이 안 됐습니다.
 
 ## knowledge 폴더 다시 만들기
 

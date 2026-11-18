@@ -5,12 +5,13 @@ import argparse
 import getpass
 from pathlib import Path
 
-from app import backup
+from app import backup, certs
 from app.config import load_settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
 from app.models import User
 from app.security import hash_password
+from app.system import folder_size, human_size, run_checks
 
 
 def create_admin(session_factory, username: str, name: str, password: str) -> None:
@@ -19,18 +20,6 @@ def create_admin(session_factory, username: str, name: str, password: str) -> No
             raise SystemExit(f"이미 있는 아이디입니다: {username}")
         db.add(User(username=username, name=name, password_hash=hash_password(password), role="admin"))
         db.commit()
-
-
-def _human_size(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n} B"  # pragma: no cover
-
-
-def _folder_size(path: Path) -> int:
-    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file() and not f.is_symlink())
 
 
 def _backup_command(verify_folder: str | None) -> None:
@@ -48,7 +37,34 @@ def _backup_command(verify_folder: str | None) -> None:
         path = backup.run_backup(settings)
     except FileNotFoundError:
         raise SystemExit(f"데이터베이스 파일이 없습니다: {settings.db_path}") from None
-    print(f"백업했습니다: {path} ({_human_size(_folder_size(path))})")
+    print(f"백업했습니다: {path} ({human_size(folder_size(path))})")
+
+
+def _make_cert_command(hosts: list[str], out: str, overwrite: bool) -> None:
+    try:
+        crt, key = certs.make_self_signed(Path(out), hosts, overwrite=overwrite)
+    except FileExistsError as e:
+        raise SystemExit(f"이미 있는 파일입니다: {e}\n덮어쓰려면 --overwrite 를 붙이세요.") from None
+    except ValueError as e:
+        raise SystemExit(str(e)) from None
+    print(f"인증서를 만들었습니다: {crt}")
+    print("config.toml 에 아래 두 줄을 넣으세요.")
+    print(f'ssl_certfile = "{crt.resolve().as_posix()}"')
+    print(f'ssl_keyfile = "{key.resolve().as_posix()}"')
+
+
+def _check_command() -> None:
+    problems = 0
+    for name, problem, detail in run_checks(load_settings):
+        if problem is None:
+            print(f"{name}: 정상" + (f" ({detail})" if detail else ""))
+        else:
+            problems += 1
+            print(f"{name}: 문제: {problem}")
+    if problems:
+        print(f"문제가 {problems}개 있습니다.")
+        raise SystemExit(1)
+    print("모두 정상입니다.")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -61,7 +77,18 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("rebuild-knowledge", help="knowledge 폴더를 DB 기준으로 다시 만들기")
     p = sub.add_parser("backup", help="app.db, uploads, decks 를 백업 폴더에 복사하기")
     p.add_argument("--verify", metavar="폴더", help="백업을 만들지 않고 이 백업 폴더를 점검한다")
+    p = sub.add_parser("make-cert", help="자체 서명 HTTPS 인증서 만들기")
+    p.add_argument("--host", action="append", required=True, help="접속 주소(IP 또는 이름). 여러 번 쓸 수 있고 첫 항목이 대표 이름이 된다")
+    p.add_argument("--out", default="certs", help="저장할 폴더 (기본 certs)")
+    p.add_argument("--overwrite", action="store_true", help="이미 있는 인증서를 덮어쓴다")
+    sub.add_parser("check", help="설치 상태 점검 (서버를 띄우거나 데이터를 바꾸지 않는다)")
     args = parser.parse_args(argv)
+    if args.cmd == "make-cert":
+        _make_cert_command(args.host, args.out, args.overwrite)
+        return
+    if args.cmd == "check":
+        _check_command()
+        return
     if args.cmd == "backup":
         _backup_command(args.verify)
         return

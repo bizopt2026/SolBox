@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}시스템{% endblock %}
+{% block content %}
+<h1>시스템</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<table style="margin-bottom:1.25rem">
+  <tbody>
+    <tr><th>버전</th><td>{{ version }}</td></tr>
+    <tr><th>데이터 폴더</th><td>{{ data_dir }} ({{ data_size }})</td></tr>
+    <tr><th>최근 백업</th><td>
+      {% if last_backup %}{{ last_backup.created_at.strftime("%Y-%m-%d %H:%M") }} — {{ last_backup.path }}
+      {% else %}백업 없음{% endif %}
+      <br><small>백업 폴더: {{ backup_dir }}</small>
+    </td></tr>
+    <tr><th>AI 작업</th><td>대기 {{ pending }}건, 진행 {{ running }}건</td></tr>
+    <tr><th>다음 조사 예정</th><td>
+      {% if next_run %}{{ next_run.strftime("%Y-%m-%d %H:%M") }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
+    </td></tr>
+    <tr><th>최근 AI 오류</th><td>
+      {% if last_failed %}{{ last_failed.finished_at.strftime("%Y-%m-%d %H:%M") if last_failed.finished_at else "" }} {{ last_failed.kind }}: {{ failed_text }}
+      {% else %}없음{% endif %}
+    </td></tr>
+  </tbody>
+</table>
+
+<section class="card">
+<h2>AI 연결 확인</h2>
+<form method="post" action="/admin/system/ai-check" style="margin-bottom:.75rem"><button type="submit">AI 연결 확인</button></form>
+{% include "admin/_ai_check.html" %}
+</section>
+
+<section class="card">
+<h2>백업</h2>
+<form method="post" action="/admin/system/backup" style="margin-bottom:.75rem"><button type="submit">지금 백업</button></form>
+</section>
+{% endblock %}

@@ -1,7 +1,9 @@
 """FastAPI 앱 생성."""
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -22,6 +24,24 @@ from app.migrate import add_missing_columns
 from app.security import LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
+LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_BACKUPS = 5
+
+
+def _open_log_file(settings: Settings) -> tuple[logging.Logger, RotatingFileHandler, int]:
+    """앱·대기열·스케줄러 로그(`app.*`)를 data_dir/logs/app.log 에 쓰는 처리기를 붙인다."""
+    log_dir = settings.data_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(
+        log_dir / "app.log", maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUPS, encoding="utf-8"
+    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger = logging.getLogger("app")
+    previous_level = logger.level
+    logger.addHandler(handler)
+    if logger.getEffectiveLevel() > logging.INFO:
+        logger.setLevel(logging.INFO)
+    return logger, handler, previous_level
 
 
 def render(request: Request, template: str, status_code: int = 200, **ctx) -> HTMLResponse:
@@ -58,6 +78,8 @@ def create_app(settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # 로그 파일은 서버가 도는 동안만 연다 (끝나면 처리기를 떼고 파일을 닫는다).
+        logger, handler, previous_level = _open_log_file(settings)
         with app.state.session_factory() as db:
             fail_stale_running(db)
             recover_runs(db)
@@ -68,6 +90,9 @@ def create_app(settings: Settings) -> FastAPI:
         finally:
             scheduler.stop(app)
             stop_workers(app)
+            logger.removeHandler(handler)
+            handler.close()
+            logger.setLevel(previous_level)
 
     app = FastAPI(title="솔루션 박스", lifespan=lifespan)
     app.state.settings = settings

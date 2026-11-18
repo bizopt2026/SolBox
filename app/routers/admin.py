@@ -1,16 +1,21 @@
 """사용자 관리 (관리자 전용)."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app import backup, scheduler
+from app.ai.queue import enqueue
 from app.db import get_db
 from app.main import render
-from app.labels import RESEARCH_AREAS, WEEKDAYS
+from app.labels import ERROR_KINDS, RESEARCH_AREAS, WEEKDAYS
 from app.models import AIJob, ResearchRun, ResearchTopic, User
 from app.research import Schedule, get_schedule, set_schedule
 from app.security import hash_password, require_admin
+from app.system import app_version, folder_size, human_size
 
 router = APIRouter(prefix="/admin")
 
@@ -201,3 +206,77 @@ def save_schedule(
         )
     set_schedule(db, Schedule(enabled=enabled is not None, weekday=day, hour=hh, minute=mm))
     return RedirectResponse("/admin/research", status_code=303)
+
+
+PING_KIND = "ai_ping"
+
+
+def _ping_state(db: Session) -> dict:
+    job = db.query(AIJob).filter_by(kind=PING_KIND).order_by(AIJob.id.desc()).first()
+    if job is None:
+        return {"state": "none"}
+    if job.status in ("pending", "running"):
+        return {"state": "waiting"}
+    if job.status == "done":
+        return {"state": "ok", "at": job.finished_at}
+    text = ERROR_KINDS.get(job.error_kind, ERROR_KINDS["unknown"])
+    if job.error_kind == "bad_output" and job.error:
+        text = job.error
+    return {"state": "failed", "text": text, "at": job.finished_at}
+
+
+def _system_page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
+    s = request.app.state.settings
+    now = datetime.now()
+    schedule = get_schedule(db)
+    next_run = None
+    if schedule.enabled:
+        next_run = scheduler.latest_slot(schedule, now) + timedelta(days=7)
+    last_failed = (
+        db.query(AIJob).filter(AIJob.status == "failed", AIJob.kind != PING_KIND).order_by(AIJob.id.desc()).first()
+    )
+    return render(
+        request,
+        "admin/system.html",
+        status_code=status_code,
+        version=app_version(),
+        data_dir=s.data_dir,
+        data_size=human_size(folder_size(s.data_dir)),
+        last_backup=backup.latest(s.backup_dir),
+        backup_dir=s.backup_dir,
+        pending=db.query(AIJob).filter_by(status="pending").count(),
+        running=db.query(AIJob).filter_by(status="running").count(),
+        schedule=schedule,
+        next_run=next_run,
+        last_failed=last_failed,
+        failed_text=ERROR_KINDS.get(last_failed.error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
+        ping=_ping_state(db),
+        error=error,
+    )
+
+
+@router.get("/system")
+def system_page(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return _system_page(request, db)
+
+
+@router.get("/system/ai-check/status")
+def ai_check_status(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return render(request, "admin/_ai_check.html", ping=_ping_state(db))
+
+
+@router.post("/system/ai-check")
+def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(("pending", "running"))).first()
+    if waiting is None:  # 한 번에 하나만 확인한다
+        enqueue(db, PING_KIND, {}, admin.id)
+    return RedirectResponse("/admin/system", status_code=303)
+
+
+@router.post("/system/backup")
+def manual_backup(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    try:
+        backup.run_backup(request.app.state.settings)
+    except (OSError, ValueError) as e:
+        return _system_page(request, db, f"백업하지 못했습니다: {e}", 500)
+    return RedirectResponse("/admin/system", status_code=303)
