@@ -1,6 +1,7 @@
 """제안 건 도우미."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
 MAX_DIRECTIONS = 3
 SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
 MAX_STEPS = 5
+MAX_SLIDES = 14
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
@@ -127,6 +129,69 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
         from app.ai.proposal_tasks import Slide  # 순환 참조를 피해 늦게 불러온다
         slides.insert(0, Slide(kind="cover", title=title).model_dump())
     return {"title": title, "slides": slides}
+
+
+def _lines(text: str) -> list[str]:
+    return [line.strip() for line in str(text or "").splitlines() if line.strip()]
+
+
+def _cells(line: str) -> list[str]:
+    return [c.strip() for c in line.split("|")]
+
+
+def slide_from_form(kind: str, form) -> dict:
+    """편집 폼 값을 슬라이드 dict 로 바꾼다. 그 종류에 속한 칸만 읽고 나머지는 비운다. 종류가 틀리면 ValueError."""
+    if kind not in SLIDE_KINDS:
+        raise ValueError(kind)
+    from app.ai.proposal_tasks import Slide  # 순환 참조를 피해 늦게 불러온다
+
+    def text(name: str) -> str:
+        return str(form.get(name) or "").strip()
+
+    s = Slide(kind=kind).model_dump()
+    s["title"], s["key_message"] = text("title"), text("key_message")
+    s["sources"], s["needs_check"] = _lines(form.get("sources")), _lines(form.get("needs_check"))
+    if kind == "cover":
+        s["subtitle"] = text("subtitle")
+    elif kind == "bullets":
+        s["bullets"] = _lines(form.get("bullets"))
+    elif kind == "two_column":
+        s["left_title"], s["right_title"] = text("left_title"), text("right_title")
+        s["left"], s["right"] = _lines(form.get("left")), _lines(form.get("right"))
+    elif kind == "table":
+        columns = [c for c in _cells(str(form.get("columns") or "").replace("\n", " ")) if c]
+        rows = [_cells(line) for line in _lines(form.get("rows"))]
+        s["columns"] = columns
+        s["rows"] = [(row + [""] * len(columns))[: len(columns)] for row in rows if any(row)] if columns else []
+    elif kind == "steps":
+        steps = []
+        for line in _lines(form.get("steps")):
+            name, _, detail = line.partition(":")
+            if name.strip():
+                steps.append({"name": name.strip(), "detail": detail.strip()})
+        s["steps"] = steps[:MAX_STEPS]
+    return s
+
+
+def slide_to_form(slide: dict) -> dict:
+    """슬라이드 dict 를 편집 폼에 보일 문자열로 바꾼다 (slide_from_form 의 역변환)."""
+    out = {k: slide.get(k, "") for k in ("title", "key_message", "subtitle", "left_title", "right_title")}
+    for key in ("bullets", "left", "right", "sources", "needs_check"):
+        out[key] = "\n".join(slide.get(key) or [])
+    out["columns"] = " | ".join(slide.get("columns") or [])
+    out["rows"] = "\n".join(" | ".join(row) for row in slide.get("rows") or [])
+    out["steps"] = "\n".join(f"{st['name']}: {st['detail']}" if st["detail"] else st["name"] for st in slide.get("steps") or [])
+    return out
+
+
+def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
+    """구성안의 장 목록을 저장한다. 저장 시각은 늘 이전보다 커진다."""
+    now = datetime.now()
+    if p.outline_updated_at is not None and now <= p.outline_updated_at:
+        now = p.outline_updated_at + timedelta(microseconds=1)
+    p.outline = {**(p.outline or {}), "slides": slides}
+    p.outline_updated_at = now
+    db.commit()
 
 
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:

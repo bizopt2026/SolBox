@@ -139,6 +139,24 @@ def refining_proposal(db, settings):
     return p
 
 
+def outlined_proposal(db, settings):
+    """구성안(8장)이 저장된 제안 건. 2번 장에 확인 필요 항목과 출처가 있다."""
+    from datetime import datetime
+
+    from app.ai.proposal_tasks import Outline
+    from app.proposals import clean_outline
+
+    p = refining_proposal(db, settings)
+    outline = clean_outline(Outline.model_validate(sample_outline(8)), settings.knowledge_dir)
+    outline["slides"][2]["needs_check"] = ["절감률 수치"]
+    outline["slides"][2]["sources"] = ["solutions/1/card.md"]
+    p.outline = outline
+    p.status = "outlined"
+    p.outline_updated_at = datetime.now()
+    db.commit()
+    return p
+
+
 def sample_outline(n=8):
     """AI 가 돌려주는 모양의 구성안 dict (Outline 으로 검증된다). 첫 장 cover, 마지막 장 closing, n >= 6 이면 여섯 종류를 모두 쓴다."""
     middle = [

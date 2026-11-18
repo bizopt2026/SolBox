@@ -40,3 +40,9 @@ dd { margin:0; white-space:pre-wrap; }
 .chat-msg, .job-status .chat-msg { white-space:pre-wrap; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:8px; }
 .chat-msg.user { background:#f0f4fa; }
 .chat-who { display:block; font-size:12px; color:var(--muted); margin-bottom:2px; }
+.slide-card.needs-check { border-color:var(--err); border-width:2px; }
+.badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; background:#eef2ff; color:var(--accent); }
+.badge.warn { background:#fef3f2; color:var(--err); }
+.slide-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.slide-head .spacer { flex:1; }
+.slide-form [hidden] { display:none !important; }

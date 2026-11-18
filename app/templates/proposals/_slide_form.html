@@ -1,0 +1,37 @@
+{# card: {index, slide, form}. 종류에 맞는 칸만 보이고, 서버도 그 종류의 칸만 읽는다. #}
+{% set f = card.form %}
+<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}" class="stack slide-form">
+  <label>종류
+    <select name="kind" class="kind-select">
+      {% if card.index == 0 %}
+      <option value="cover" selected>{{ slide_kinds["cover"] }}</option>
+      {% else %}
+      {% for k, name in slide_kinds.items() if k != "cover" %}
+      <option value="{{ k }}"{% if k == card.slide.kind %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+      {% endif %}
+    </select>
+  </label>
+  <label>제목<input type="text" name="title" value="{{ f.title }}"></label>
+  <label>핵심 메시지<input type="text" name="key_message" value="{{ f.key_message }}"></label>
+  <label data-kinds="cover">부제<input type="text" name="subtitle" value="{{ f.subtitle }}"></label>
+  <label data-kinds="bullets">글머리 (한 줄에 하나)<textarea name="bullets" rows="4">{{ f.bullets }}</textarea></label>
+  <div data-kinds="two_column" class="stack">
+    <label>왼쪽 제목<input type="text" name="left_title" value="{{ f.left_title }}"></label>
+    <label>왼쪽 (한 줄에 하나)<textarea name="left" rows="4">{{ f.left }}</textarea></label>
+    <label>오른쪽 제목<input type="text" name="right_title" value="{{ f.right_title }}"></label>
+    <label>오른쪽 (한 줄에 하나)<textarea name="right" rows="4">{{ f.right }}</textarea></label>
+  </div>
+  <div data-kinds="table" class="stack">
+    <label>열 이름 (<code>|</code> 로 구분)<input type="text" name="columns" value="{{ f.columns }}"></label>
+    <label>행 (한 줄에 한 행, 칸은 <code>|</code> 로 구분)<textarea name="rows" rows="4">{{ f.rows }}</textarea></label>
+    <p class="muted">표 칸 안에는 <code>|</code> 를 쓸 수 없습니다.</p>
+  </div>
+  <div data-kinds="steps" class="stack">
+    <label>단계 (한 줄에 <code>단계 이름: 설명</code>, 최대 5단계)<textarea name="steps" rows="4">{{ f.steps }}</textarea></label>
+    <p class="muted">단계 이름 안에는 <code>:</code> 를 쓸 수 없습니다. 설명에는 쓸 수 있습니다.</p>
+  </div>
+  <label>출처 (한 줄에 하나, 입력한 그대로 저장됩니다)<textarea name="sources" rows="2">{{ f.sources }}</textarea></label>
+  <label>확인 필요 (한 줄에 하나)<textarea name="needs_check" rows="2">{{ f.needs_check }}</textarea></label>
+  <div><button type="submit">저장</button></div>
+</form>
