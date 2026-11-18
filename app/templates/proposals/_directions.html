@@ -1,6 +1,7 @@
 {% set job = proposal.active_job %}
 {% set busy = job is not none and job.status in ("pending", "running") %}
 {% set directions = proposal.directions or [] %}
+{% set confirm_change = "return confirm('방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다. 계속할까요?')" if proposal.outline else "" %}
 {% if directions %}
 <div class="stack">
   {% for d in directions %}
@@ -24,7 +25,7 @@
       {% endif %}
     </dl>
     {% if proposal.selected_index != loop.index0 %}
-    <form method="post" action="/proposals/{{ proposal.id }}/select">
+    <form method="post" action="/proposals/{{ proposal.id }}/select"{% if confirm_change and proposal.selected_index is not none %} onsubmit="{{ confirm_change }}"{% endif %}>
       <input type="hidden" name="index" value="{{ loop.index0 }}">
       <button type="submit">이 방향으로 구체화</button>
     </form>
@@ -36,7 +37,7 @@
 <p class="muted">아직 만든 방향이 없습니다.</p>
 {% endif %}
 {% if not busy %}
-<form method="post" action="/proposals/{{ proposal.id }}/directions">
+<form method="post" action="/proposals/{{ proposal.id }}/directions"{% if confirm_change %} onsubmit="{{ confirm_change }}"{% endif %}>
   <button type="submit">{% if directions %}방향 다시 만들기{% else %}방향 만들기{% endif %}</button>
 </form>
 {% endif %}

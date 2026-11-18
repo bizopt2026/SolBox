@@ -18,7 +18,7 @@ from app.deck import build_deck
 from app.knowledge import safe_name
 from app.main import render
 from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
-from app.proposals import candidate_solutions, display_title, start_job
+from app.proposals import candidate_solutions, display_title, reset_for_new_direction, start_job
 from app.routers._common import get_deletable_or_404, get_or_404, search_by_name
 from app.security import can_delete, require_user
 
@@ -179,7 +179,7 @@ def make_directions(
 
 @router.post("/{proposal_id}/select")
 def select_direction(
-    proposal_id: int, index: str = Form(""),
+    proposal_id: int, request: Request, index: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
@@ -194,6 +194,8 @@ def select_direction(
     solutions = [s for sid in (x.get("solution_id") for x in chosen.get("solutions", [])) if (s := db.get(Solution, sid))]
     if not solutions:
         raise HTTPException(status_code=400, detail="선택한 방향의 솔루션이 더 이상 없습니다. 방향을 다시 만드세요.")
+    if proposal.selected_index is not None and proposal.selected_index != i:
+        reset_for_new_direction(proposal, request.app.state.settings.decks_dir)
     proposal.selected_index = i
     proposal.status = "refining"
     proposal.solutions = solutions

@@ -46,3 +46,5 @@ dd { margin:0; white-space:pre-wrap; }
 .slide-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .slide-head .spacer { flex:1; }
 .slide-form [hidden] { display:none !important; }
+.chat-msg.old { opacity:.55; background:#f6f6f6; }
+.chat-divider { font-size:13px; margin:4px 0 0; }

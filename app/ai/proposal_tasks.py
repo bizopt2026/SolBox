@@ -14,7 +14,7 @@ from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
 from app.models import AIJob, Proposal, ProposalMessage
-from app.proposals import candidate_solutions, clean_directions, clean_outline
+from app.proposals import candidate_solutions, clean_directions, clean_outline, reset_for_new_direction
 
 
 log = logging.getLogger(__name__)
@@ -102,6 +102,7 @@ def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settin
     cleaned = clean_directions(db, p, out, settings.knowledge_dir)
     if len(cleaned) < 2:
         raise ClaudeError("bad_output", "제안 방향을 충분히 만들지 못했습니다.")
+    reset_for_new_direction(p, settings.decks_dir)
     p.directions = cleaned
     p.selected_index = None
     p.solutions = []
@@ -133,6 +134,14 @@ def _partial_writer(bind, job_id: int):
     return on_text
 
 
+def _recent_messages(db: Session, p: Proposal) -> list[ProposalMessage]:
+    """현재 방향에서 나눈 최근 대화 (방향이 바뀌기 전의 대화는 뺀다), 오래된 것부터."""
+    stmt = select(ProposalMessage).where(ProposalMessage.proposal_id == p.id)
+    if p.chat_from_id is not None:
+        stmt = stmt.where(ProposalMessage.id > p.chat_from_id)
+    return list(db.scalars(stmt.order_by(ProposalMessage.id.desc()).limit(CHAT_HISTORY_LIMIT)))[::-1]
+
+
 def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     p = db.get(Proposal, input.get("proposal_id"))
     if p is None:
@@ -142,10 +151,7 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
     if i is None or not 0 <= i < len(directions):
         raise ClaudeError("bad_output", "먼저 제안 방향을 선택하세요.")
     direction = directions[i]
-    recent = list(db.scalars(
-        select(ProposalMessage).where(ProposalMessage.proposal_id == p.id)
-        .order_by(ProposalMessage.id.desc()).limit(CHAT_HISTORY_LIMIT)
-    ))[::-1]
+    recent = _recent_messages(db, p)
     conversation = "\n\n".join(
         f"[{ROLE_LABELS.get(m.role, m.role)}]\n" + (m.content or "").replace(CHAT_CLOSE, "CHAT> >>").replace(CHAT_OPEN, "<<< CHAT")
         for m in recent
@@ -194,10 +200,7 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     if i is None or not 0 <= i < len(directions):
         raise ClaudeError("bad_output", "먼저 제안 방향을 선택하세요.")
     direction = directions[i]
-    recent = list(db.scalars(
-        select(ProposalMessage).where(ProposalMessage.proposal_id == p.id)
-        .order_by(ProposalMessage.id.desc()).limit(CHAT_HISTORY_LIMIT)
-    ))[::-1]
+    recent = _recent_messages(db, p)
     conversation = "\n\n".join(f"[{ROLE_LABELS.get(m.role, m.role)}]\n{_material(m.content or '')}" for m in recent)
     instruction = str(input.get("instruction") or "").strip()
     prompt = load_prompt(

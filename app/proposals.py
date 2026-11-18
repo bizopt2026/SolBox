@@ -200,6 +200,16 @@ def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
     db.commit()
 
 
+def reset_for_new_direction(p: Proposal, decks_dir: Path) -> None:
+    """방향이 바뀌었을 때 구성안과 만든 제안서를 지우고, 이전 대화는 새 방향에 반영되지 않게 선을 긋는다. 커밋은 호출자가 한다."""
+    deck = decks_dir / str(p.id) / p.deck_name if p.deck_name else None
+    p.outline, p.outline_updated_at = None, None
+    p.deck_name, p.deck_built_at = "", None
+    p.chat_from_id = p.messages[-1].id if p.messages else None
+    if deck is not None:
+        deck.unlink(missing_ok=True)
+
+
 def deck_is_stale(p: Proposal) -> bool:
     """만든 PPT 보다 구성안이 나중에 바뀌었으면 True."""
     return p.deck_built_at is not None and p.outline_updated_at is not None and p.outline_updated_at > p.deck_built_at

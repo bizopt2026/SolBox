@@ -191,6 +191,7 @@ class Proposal(Stamped, Base):
     deck_name: Mapped[str] = mapped_column(String, default="")
     deck_built_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+    chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 현재 방향의 것이 아니다
 
     customer: Mapped[Customer] = relationship(back_populates="proposals")
     business: Mapped[Business | None] = relationship(back_populates="proposals")
