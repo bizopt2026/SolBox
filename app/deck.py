@@ -4,7 +4,9 @@
 """
 
 import copy
+import math
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -37,7 +39,6 @@ NUM_X, NUM_Y, NUM_W, NUM_H = 11.9, 6.95, 0.85, 0.35
 COVER_BAND_Y, COVER_BAND_H = 2.1, 3.1
 COLUMN_GAP = 0.4
 STEP_GAP = 0.55
-TABLE_ROW_H = 0.5
 
 # --- 넘침 규칙 ---
 MAX_BULLETS_PER_SLIDE = 10
@@ -63,6 +64,82 @@ def _list(slide: dict, key: str) -> list:
     return list(value) if isinstance(value, (list, tuple)) else []
 
 
+# ---------------------------------------------------------------- 줄 수 어림
+
+LINE_SPACING = 1.25  # 글자 크기에 곱해 한 줄 높이를 어림한다
+_SAFETY = 1.08       # 글꼴마다 폭이 달라 넉넉히 잡는다
+
+
+def _char_em(ch: str) -> float:
+    if ch == " ":
+        return 0.32
+    if unicodedata.east_asian_width(ch) in ("W", "F"):
+        return 1.0
+    return 0.6
+
+
+def _est_lines(text, pt: float, width_in: float) -> int:
+    """`text` 가 폭 `width_in`(인치) 에 `pt` 크기로 들어갈 때 줄 수를 어림한다. 줄바꿈 문자는 새 줄이다."""
+    avail = max(width_in, 0.5) * 72 / pt
+    total = 0
+    for line in _clean(text).split("\n"):
+        em = sum(_char_em(ch) for ch in line) * _SAFETY
+        total += max(1, math.ceil(em / avail))
+    return total
+
+
+def _line_h(pt: float) -> float:
+    return pt * LINE_SPACING / 72
+
+
+def _message_style(message: str) -> tuple[int, int]:
+    """핵심 메시지의 (글자 크기, 줄 수)."""
+    pt = 18 if len(message) <= 70 else 16
+    return pt, _est_lines(message, pt, CONTENT_W - 0.1)
+
+
+def _table_font(columns: list, rows: list) -> int:
+    return 11 if len(columns) > 6 else 16 if len(columns) <= 4 and len(rows) <= 6 else 14
+
+
+def _table_row_heights(columns: list, rows: list, pt: float) -> list[float]:
+    """머리글 + 각 행의 높이(인치). 칸 안 글이 줄바꿈되는 만큼 키운다."""
+    count = max(len(columns), 1)
+    cell_w = CONTENT_W / count - 0.2
+    base = _line_h(pt) + 0.3
+    heights = []
+    for r, cells in enumerate([columns, *rows]):
+        cells = list(cells) if isinstance(cells, (list, tuple)) else [cells]
+        lines = max([_est_lines(c, pt, cell_w) for c in cells[:count]] or [1])
+        heights.append(max(base, lines * _line_h(pt) + 0.2))
+    return heights
+
+
+def _fit_table_font(columns: list, rows: list) -> tuple[int, list[float]]:
+    """처음 글자 크기에서 표가 본문 영역을 넘으면 16 → 14 → 12 → 11 로 내린다."""
+    start = _table_font(columns, rows)
+    sizes = [s for s in (16, 14, 12, 11) if s <= start] or [11]
+    for pt in sizes:
+        heights = _table_row_heights(columns, rows, pt)
+        if sum(heights) <= BODY_H:
+            return pt, heights
+    return sizes[-1], _table_row_heights(columns, rows, sizes[-1])
+
+
+def _table_chunks(columns: list, rows: list) -> list[list]:
+    """표 행을 장별로 나눈다. 장당 MAX_TABLE_ROWS 행 이하이고, 가장 작은 글자(11pt)로도 본문 영역에 들어가게 한다."""
+    chunks, current, used = [], [], 0.0
+    head = _table_row_heights(columns, [], 11)[0]
+    for row in rows:
+        h = _table_row_heights(columns, [row], 11)[1]
+        if current and (len(current) >= MAX_TABLE_ROWS or head + used + h > BODY_H):
+            chunks.append(current)
+            current, used = [], 0.0
+        current.append(row)
+        used += h
+    return chunks + [current] if current or not chunks else chunks
+
+
 # ---------------------------------------------------------------- 나누기
 
 def _chunks(items: list, size: int) -> list[list]:
@@ -76,7 +153,7 @@ def paginate(slide: dict) -> list[dict]:
     """
     kind = slide.get("kind")
     if kind == "table":
-        parts = [{"rows": c} for c in _chunks(_list(slide, "rows"), MAX_TABLE_ROWS)]
+        parts = [{"rows": c} for c in _table_chunks(_list(slide, "columns"), _list(slide, "rows"))]
     elif kind == "two_column":
         left, right = _chunks(_list(slide, "left"), MAX_COLUMN_ITEMS), _chunks(_list(slide, "right"), MAX_COLUMN_ITEMS)
         count = max(len(left), len(right))
@@ -184,16 +261,22 @@ def _rect(slide, x, y, w, h, fill, *, line=None, shape=MSO_SHAPE.RECTANGLE):
 
 # ---------------------------------------------------------------- 그리기
 
-def _header(slide, data: dict, *, key_message=True):
+def _header(slide, data: dict, *, key_message=True) -> float:
+    """제목과 핵심 메시지를 그리고 본문이 시작할 y(인치)를 돌려준다. 핵심 메시지가 여러 줄이면 그만큼 내려간다."""
     title = _clean(data.get("title"))
     size = 28 if len(title) <= 30 else 24 if len(title) <= 45 else 20
     box = _textbox(slide, MARGIN, TITLE_Y, CONTENT_W, TITLE_H, anchor=MSO_ANCHOR.MIDDLE)
     _write(box.text_frame.paragraphs[0], title, size, bold=True, color=ACCENT)
     _rect(slide, MARGIN + 0.05, TITLE_Y + TITLE_H + 0.03, 1.2, 0.05, ACCENT)
     message = _clean(data.get("key_message"))
+    body_y = BODY_Y
     if key_message and message:
-        box = _textbox(slide, MARGIN, MSG_Y + 0.08, CONTENT_W, MSG_H, anchor=MSO_ANCHOR.MIDDLE)
-        _write(box.text_frame.paragraphs[0], message, 18 if len(message) <= 70 else 16, bold=True)
+        pt, lines = _message_style(message)
+        msg_h = MSG_H + (lines - 1) * _line_h(pt)
+        box = _textbox(slide, MARGIN, MSG_Y + 0.08, CONTENT_W, msg_h, anchor=MSO_ANCHOR.MIDDLE)
+        _write(box.text_frame.paragraphs[0], message, pt, bold=True)
+        body_y = BODY_Y + (lines - 1) * _line_h(pt)
+    return body_y
 
 
 def _draw_cover(slide, data: dict, customer_name: str, today: date):
@@ -218,11 +301,11 @@ def _draw_cover(slide, data: dict, customer_name: str, today: date):
 
 def _draw_bullets(slide, data: dict):
     items = _list(data, "bullets")
-    _header(slide, data)
+    top = _header(slide, data)
     if not items:
         return
     size = _shrink_if_long(items, 20 if len(items) <= 7 else 16)
-    box = _textbox(slide, MARGIN, BODY_Y, CONTENT_W, BODY_H, fit=True)
+    box = _textbox(slide, MARGIN, top, CONTENT_W, BODY_BOTTOM - top, fit=True)
     _fill_bullets(box.text_frame, items, size, gap=10 if size >= 20 else 6)
 
 
@@ -250,38 +333,47 @@ def _draw_closing(slide, data: dict):
         _write(p, message, 22 if len(message) <= 60 else 18, bold=True, color=ACCENT)
 
 
+def _column_size(items: list) -> float:
+    return _shrink_if_long(items, 18 if len(items) <= 5 else 16)
+
+
+def _column_need(items: list, width: float) -> float:
+    """한쪽 상자에 항목을 다 담는 데 필요한 높이(머리띠 포함)."""
+    size = _column_size(items)
+    text_w = width - 0.3 - 0.1 - size * 1.1 / 72
+    return 0.75 + sum(_est_lines(i, size, text_w) * _line_h(size) + 6 / 72 for i in items) + 0.15
+
+
 def _draw_two_column(slide, data: dict):
-    _header(slide, data)
+    top = _header(slide, data)
     width = (CONTENT_W - COLUMN_GAP) / 2
-    longest = max(len(_list(data, "left")), len(_list(data, "right")))
-    height = min(BODY_H, max(3.0, 1.5 + 0.55 * longest))
-    for i, side in enumerate(("left", "right")):
+    sides = {side: _list(data, side) for side in ("left", "right")}
+    room = BODY_BOTTOM - top
+    height = min(room, max(3.0, *(_column_need(items, width) for items in sides.values())))
+    for i, side in enumerate(("left", "right")):  # 두 상자는 더 큰 쪽 높이로 맞춘다
         x = MARGIN + i * (width + COLUMN_GAP)
-        items = _list(data, side)
-        size = _shrink_if_long(items, 18 if len(items) <= 5 else 16)
-        _rect(slide, x, BODY_Y, width, height, STRIPE, line=LINE)
-        _rect(slide, x, BODY_Y, width, 0.6, ACCENT)
-        head = _textbox(slide, x + 0.15, BODY_Y, width - 0.3, 0.6, anchor=MSO_ANCHOR.MIDDLE)
+        items = sides[side]
+        size = _column_size(items)
+        _rect(slide, x, top, width, height, STRIPE, line=LINE)
+        _rect(slide, x, top, width, 0.6, ACCENT)
+        head = _textbox(slide, x + 0.15, top, width - 0.3, 0.6, anchor=MSO_ANCHOR.MIDDLE)
         _write(head.text_frame.paragraphs[0], data.get(f"{side}_title"), 18, bold=True, color=WHITE)
         if items:
-            body = _textbox(slide, x + 0.15, BODY_Y + 0.75, width - 0.3, height - 0.9, fit=True)
+            body = _textbox(slide, x + 0.15, top + 0.75, width - 0.3, height - 0.9, fit=True)
             _fill_bullets(body.text_frame, items, size, gap=6)
 
 
 def _draw_table(slide, data: dict):
     columns, rows = _list(data, "columns"), _list(data, "rows")
-    _header(slide, data)
+    top = _header(slide, data)
     count = len(columns)
-    size = 11 if count > 6 else 14
-    flat = [c for c in columns] + [c for r in rows for c in (r if isinstance(r, (list, tuple)) else [r])]
-    size = _shrink_if_long(flat, size)
-    row_h = TABLE_ROW_H if size >= 14 else 0.45
-    frame = slide.shapes.add_table(len(rows) + 1, count, Inches(MARGIN), Inches(BODY_Y), Inches(CONTENT_W), Inches(row_h * (len(rows) + 1)))
+    size, heights = _fit_table_font(columns, rows)
+    frame = slide.shapes.add_table(len(rows) + 1, count, Inches(MARGIN), Inches(top), Inches(CONTENT_W), Inches(sum(heights)))
     table = frame.table
     for c in range(count):
         table.columns[c].width = Emu(int(Inches(CONTENT_W) / count))
     for r in range(len(rows) + 1):
-        table.rows[r].height = Inches(row_h)
+        table.rows[r].height = Inches(heights[r])
         cells = columns if r == 0 else rows[r - 1]
         cells = list(cells) if isinstance(cells, (list, tuple)) else [cells]
         for c in range(count):
@@ -297,13 +389,13 @@ def _draw_table(slide, data: dict):
 
 def _draw_steps(slide, data: dict):
     steps = [s for s in _list(data, "steps") if isinstance(s, dict)]
-    _header(slide, data)
+    shift = _header(slide, data) - BODY_Y
     n = len(steps)
     width = (CONTENT_W - STEP_GAP * (n - 1)) / n
     name_size = 18 if n <= 4 else 16
     detail_texts = [s.get("detail") or "" for s in steps]
     detail_size = _shrink_if_long(detail_texts, 16 if n <= 4 else 14)
-    top, name_h, detail_h = BODY_Y + 0.4, 1.0, 2.9
+    top, name_h, detail_h = BODY_Y + shift + 0.4, 1.0, 2.9 - shift
     for i, step in enumerate(steps):
         x = MARGIN + i * (width + STEP_GAP)
         _rect(slide, x, top, width, name_h, ACCENT)

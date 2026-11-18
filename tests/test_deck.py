@@ -92,7 +92,7 @@ def test_table_font_size_by_column_count(tmp_path):
     narrow = {"kind": "table", "title": "좁은 표", "columns": ["a", "b"], "rows": [["1", "2"]]}
     build_deck({"title": "t", "slides": [wide, narrow]}, tmp_path / "w.pptx"); prs = Presentation(tmp_path / "w.pptx")
     assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 11
-    assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 14
+    assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 16  # 4열 이하, 6행 이하
 
 
 def test_two_column_overflow(tmp_path):
@@ -189,3 +189,62 @@ def test_open_in_default_dir_creates_parent(tmp_path):
     out = tmp_path / "a" / "b" / "deck.pptx"
     build_deck(outline(6, tmp_path), out)
     assert out.exists()
+
+
+def _table_size(tmp_path, columns, rows):
+    build_deck({"title": "t", "slides": [{"kind": "table", "title": "표", "columns": columns, "rows": rows}]}, tmp_path / "ts.pptx")
+    prs = Presentation(tmp_path / "ts.pptx")
+    cells = [c for row in tables(prs.slides[0])[0].rows for c in row.cells]
+    return {r.font.size.pt for c in cells for p in c.text_frame.paragraphs for r in p.runs}
+
+
+def test_table_font_16_small_14_larger_and_steps_down_when_tall(tmp_path):
+    cols4 = ["a", "b", "c", "d"]
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 6) == {16}
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 7) == {14}
+    assert _table_size(tmp_path, cols4 + ["e"], [["1"] * 5] * 2) == {14}
+    assert _table_size(tmp_path, [f"c{i}" for i in range(7)], [["1"] * 7]) == {11}
+    tall = [["가나다 " * 40, "x"]] * 5  # 긴 칸: 16pt 로는 본문 영역을 넘으므로 글자를 줄인다
+    assert max(_table_size(tmp_path, ["a", "b"], tall)) < 16
+
+
+def test_long_table_cells_paginate_before_overflowing(tmp_path):
+    from app.deck import BODY_H, _table_row_heights
+    rows = [["가나다 " * 60, "x"] for _ in range(8)]
+    pages = paginate({"kind": "table", "title": "표", "columns": ["a", "b"], "rows": rows})
+    assert len(pages) > 1 and sum(len(p["rows"]) for p in pages) == 8
+    for p in pages:
+        assert sum(_table_row_heights(p["columns"], p["rows"], 11)) <= BODY_H or len(p["rows"]) == 1
+
+
+def _body_top(slide, needle):
+    return min(sh.top for sh in slide.shapes if sh.has_text_frame and needle in sh.text_frame.text)
+
+
+def test_body_top_lower_when_key_message_wraps(tmp_path):
+    short = "짧은 핵심 메시지입니다"
+    long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다"
+    slides = []
+    for kind, extra in (("bullets", {"bullets": ["본문항목"]}), ("two_column", {"left_title": "L", "left": ["본문항목"], "right_title": "R", "right": ["x"]}),
+                        ("table", {"columns": ["a", "b"], "rows": [["본문항목", "y"]]}), ("steps", {"steps": [{"name": "본문항목", "detail": "d"}]})):
+        slides += [{"kind": kind, "title": "t", "key_message": short, **extra}, {"kind": kind, "title": "t", "key_message": long, **extra}]
+    build_deck({"title": "t", "slides": slides}, tmp_path / "m.pptx")
+    prs = Presentation(tmp_path / "m.pptx")
+    for i in range(0, 8, 2):
+        def top(slide):
+            tops = [sh.top for sh in slide.shapes if (sh.has_text_frame and "본문항목" in sh.text_frame.text) or getattr(sh, "has_table", False) and sh.has_table
+                    or (sh.shape_type == 1 and sh.top > Inches(2))]
+            return min(tops)
+        assert top(prs.slides[i + 1]) > top(prs.slides[i]) + Inches(0.2), slides[i]["kind"]
+    assert min(sh.top for sh in prs.slides[0].shapes if sh.has_text_frame and "본문항목" in sh.text_frame.text) == Inches(2.2)
+
+
+def test_two_column_boxes_have_equal_height(tmp_path):
+    o = {"kind": "two_column", "title": "비교", "key_message": "m", "left_title": "L", "right_title": "R",
+         "left": ["긴 항목입니다 " * 8] * 5, "right": ["짧음"]}
+    build_deck({"title": "t", "slides": [o]}, tmp_path / "e.pptx")
+    prs = Presentation(tmp_path / "e.pptx")
+    boxes = [sh for sh in prs.slides[0].shapes if sh.shape_type == 1 and sh.width > Inches(5) and sh.height > Inches(1)]
+    assert len(boxes) == 2 and boxes[0].height == boxes[1].height
+    bodies = [sh for sh in prs.slides[0].shapes if sh.has_text_frame and ("긴 항목" in sh.text_frame.text or "짧음" in sh.text_frame.text)]
+    assert len(bodies) == 2 and bodies[0].height == bodies[1].height
