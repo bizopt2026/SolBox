@@ -24,6 +24,8 @@
 - 출처 링크는 `http://` 또는 `https://` 로 시작하는 것만 저장한다. 화면에서는 `target="_blank" rel="noopener noreferrer"` 로 연다.
 - 기존 DB의 데이터를 잃지 않는다. 구조를 바꾸기 전에 DB 파일을 복사해 둔다.
 - 백업 기본값: 매일 02:00, 14일 보관, 위치 `data_dir` 옆 `backups/`.
+- **운영 순서 (사용자 결정):** 먼저 사용자의 로컬 PC(10.231.0.5)에서 운영해 보고, 서버 PC(10.231.1.254) 이관은 맨 마지막에 검토한다. 서버 이관은 **서버 PC에 설치된 Claude Code가 수행**한다. 따라서 포트·인증서 주소·자동 시작은 모두 설정과 명령 인자로 바꿀 수 있어야 하고(주소를 코드에 박지 않는다), 이관 문서는 Claude Code가 읽고 단계별로 실행·검증할 수 있게 쓴다.
+- 기본 포트는 8443이다. 443 사용 여부와 서버 PC 자동 로그온 정책은 이관 때 서버의 Claude Code가 사람에게 확인한다.
 
 ## Review Focus
 
@@ -541,7 +543,7 @@ def test_backup_dir_default_and_relative(tmp_path): ...
 ### Task 9: HTTPS 인증서, 서버 실행·자동 시작 스크립트, 시스템 점검, 운영 가이드
 
 **Files:**
-- Create: `app/certs.py`, `scripts/run_server.ps1`, `scripts/install_autostart.ps1`, `scripts/open_firewall.ps1`, `docs/운영가이드.md`, `app/templates/admin/system.html`
+- Create: `app/certs.py`, `scripts/run_server.ps1`, `scripts/install_autostart.ps1`, `scripts/open_firewall.ps1`, `docs/운영가이드.md`, `docs/서버이관_Claude용.md`, `CLAUDE.md`, `app/templates/admin/system.html`
 - Modify: `app/cli.py` (`make-cert`, `check`), `app/routers/admin.py`, `app/main.py` (로그 파일), `pyproject.toml` (`cryptography`), `README.md`, `config.example.toml`
 - Test: `tests/test_certs.py`, `tests/test_admin_system.py`
 
@@ -556,6 +558,18 @@ def test_backup_dir_default_and_relative(tmp_path): ...
   - `scripts/install_autostart.ps1`: 작업 스케줄러에 "SolutionBox" 작업을 등록한다. 트리거는 **해당 Windows 계정 로그온 시**, 동작은 `powershell -ExecutionPolicy Bypass -File scripts\run_server.ps1`, 창 숨김. `-Remove` 로 삭제. (Claude CLI 로그인이 Windows 계정별이므로 서비스 계정이 아니라 로그인한 계정으로 돌린다. 운영 가이드에 서버 PC 자동 로그온 설정을 안내한다.)
   - `scripts/open_firewall.ps1 -Port 443`: 인바운드 TCP 규칙 "SolutionBox" 추가 (관리자 권한 필요).
   - `docs/운영가이드.md` (한국어, PowerShell 명령은 한 블록에 하나씩): ① 서버 PC 준비물(Python, Claude CLI 설치·로그인, Git 또는 zip) ② 설치 ③ `config.toml` (host `0.0.0.0`, port, secret_key, 인증서) ④ 인증서 만들기와 직원 PC에서 경고 넘기기/인증서 신뢰 등록 ⑤ 방화벽 ⑥ 자동 시작과 자동 로그온 ⑦ 사용자 PC에서 쓰던 데이터 옮기기(`data` 폴더 복사) ⑧ 백업 위치와 복원 절차 ⑨ 업데이트 방법(코드 교체 → 서버 재시작, DB는 자동 보정) ⑩ 문제 해결(`python -m app.cli check`, 로그 위치, AI 연결 확인, 포트 충돌) ⑪ 리서치 주제·주기 설정
+
+  - `CLAUDE.md` (저장소 루트, Claude Code가 세션 시작 때 읽는 파일): 프로젝트 한 줄 소개, 폴더 구조, 실행·테스트 명령, 꼭 지킬 규칙(DB가 원본·지식 폴더는 사본, AI 도구 분리, 한국어 UI, 데이터는 `data_dir` 아래), 설계·계획 문서 위치, 운영 문서 위치. 60줄 이내.
+  - `docs/서버이관_Claude용.md`: 서버 PC의 Claude Code에게 주는 작업 지시서. 형식은 번호 붙은 단계이고, 단계마다 ① 실행할 명령 ② 성공으로 볼 출력 ③ 실패 시 볼 곳을 적는다. 내용:
+    1. 시작 전에 **사람에게 물을 것**: 접속 주소와 포트(443을 다른 프로그램이 쓰는지 `Get-NetTCPConnection -LocalPort 443` 로 먼저 확인하고 결과를 보여 줄 것), 서버 PC 자동 로그온 가능 여부, 로컬 PC(10.231.0.5)에서 쓰던 `data` 폴더를 옮길지, 백업 위치
+    2. 준비물 확인 (Python 버전, `claude --version`, Claude CLI 로그인 상태)
+    3. 코드 받기와 설치, `config.toml` 작성 (`host = "0.0.0.0"`, 정한 포트, 새 `secret_key`)
+    4. 인증서 (`make-cert --host <서버 IP>`), 방화벽, 자동 시작 등록 — PowerShell 스크립트는 **Linux에서 만들어져 실행 검증이 안 된 상태**이므로 실행 전에 내용을 읽고, 실패하면 고쳐서 쓰고 고친 내용을 저장소에 반영할 것
+    5. 데이터 옮기기 (로컬 PC 서버를 멈춘 뒤 `data` 폴더 복사 → 서버에서 `rebuild-knowledge`)
+    6. 검증 (`python -m app.cli check`, `pytest`, 브라우저로 로그인, 관리자 화면 "AI 연결 확인", 다른 PC에서 접속, 재부팅 뒤 자동 시작, `backup` 과 `--verify`)
+    7. 끝난 뒤 사람에게 보고할 것 (접속 주소, 관리자 계정 안내, 백업 위치, 남은 문제)
+    하지 말 것: 기존 `data` 폴더 삭제·덮어쓰기 전에 백업 없이 진행, `secret_key`·비밀번호를 저장소에 커밋, 사람 확인 없이 443 포트를 쓰는 다른 프로그램 중지.
+  - `docs/운영가이드.md` 의 ①~⑥은 로컬 PC(10.231.0.5)에서 먼저 운영하는 경우를 기준으로 쓰고(다른 직원이 접속하게 하려면 `host = "0.0.0.0"`, `make-cert --host 10.231.0.5`, 방화벽), 서버 이관은 `docs/서버이관_Claude용.md` 를 가리킨다.
 
 - **PowerShell 스크립트는 이 환경(Linux)에서 실행해 볼 수 없다.** 문법 점검만 가능한 범위에서 하고(가능하면 `pwsh` 설치를 시도), 보고서와 운영 가이드에 "Windows에서 실행 확인 필요" 를 분명히 적는다. 스크립트는 짧고 단순하게 유지한다.
 
