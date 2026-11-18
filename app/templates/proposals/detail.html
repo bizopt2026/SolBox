@@ -3,8 +3,20 @@
 {% block content %}
 <h1>{{ title }}</h1>
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
-{# AI 작업 상태 조각이 들어갈 자리 (뒤 Task 가 채운다) #}
-<div id="ai-status">{% include "proposals/_status.html" ignore missing %}</div>
+{% set job = proposal.active_job %}
+<div id="ai-status">
+  {% if job is not none and job.status in ("pending", "running") %}
+    {% include "proposals/_status.html" %}
+  {% elif job is not none and job.status == "failed" %}
+    {% set retry_paths = {"proposal_directions": "directions"} %}
+    <div class="error" role="alert">
+      <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+      {% if job.kind in retry_paths %}
+      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit">다시 시도</button></form>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
 <div class="row">
   <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
   {% if can_delete %}

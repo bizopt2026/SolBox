@@ -146,3 +146,6 @@ def stop_workers(app, join_timeout: float = 5.0) -> None:
     stop.set()
     for t in getattr(app.state, "worker_threads", []):
         t.join(timeout=join_timeout)
+
+
+from app.ai import proposal_tasks  # noqa: E402,F401  (처리기 등록용)

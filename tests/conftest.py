@@ -98,3 +98,26 @@ def fake_claude(tmp_path, monkeypatch):
     control = tmp_path / "fake_claude_control.json"
     monkeypatch.setenv("FAKE_CLAUDE_CONTROL", str(control))
     return FakeClaude(control)
+
+
+def make_proposal_world(db, settings):
+    """제안 건 시험용 세계: 고객·사업, 박스 등록 솔루션 둘과 수요조사 솔루션 하나, 지식 사본, 제안 건."""
+    from app.knowledge import KnowledgeMirror
+    from app.models import Business, Customer, Proposal, Solution
+
+    c = Customer(name="한빛병원")
+    db.add(c)
+    db.flush()
+    b = Business(name="설비 유지보수", customer_id=c.id)
+    s1 = Solution(name="AI 에너지 절감", stage="boxed", summary="전력 절감")
+    s2 = Solution(name="스마트 조명", stage="boxed", summary="조명")
+    s3 = Solution(name="안전 관제", stage="survey", summary="안전")
+    db.add_all([b, s1, s2, s3])
+    db.flush()
+    p = Proposal(customer_id=c.id, business_id=b.id, request_memo="에너지 절감 쪽으로")
+    db.add(p)
+    db.commit()
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    for obj in (c, b, s1, s2, s3):
+        mirror.sync(obj)
+    return p, c, b, s1, s2, s3

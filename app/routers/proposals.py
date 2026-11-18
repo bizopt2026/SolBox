@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import shutil
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import labels
+from app.ai.queue import queue_position
 from app.db import get_db
 from app.main import render
 from app.models import Business, Customer, Proposal, Solution, User
-from app.proposals import candidate_solutions, display_title
+from app.proposals import candidate_solutions, display_title, start_job
 from app.routers._common import get_deletable_or_404, get_or_404, search_by_name
 from app.security import can_delete, require_user
 
@@ -108,6 +109,7 @@ def create(
     )
     db.add(proposal)
     db.commit()
+    start_job(db, proposal, "proposal_directions", user)
     return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
 
 
@@ -121,7 +123,60 @@ def detail(
         request, "proposals/detail.html", proposal=proposal, title=display_title(proposal),
         candidates=candidate_solutions(db, proposal), extra_candidates=_extra_candidates(db),
         notice=NOTICES.get(notice), can_delete=can_delete(user, proposal),
+        position=_position(db, proposal),
     )
+
+
+def _position(db: Session, proposal: Proposal) -> int:
+    job = proposal.active_job
+    return queue_position(db, job) if job is not None else 0
+
+
+@router.get("/{proposal_id}/status")
+def status(
+    proposal_id: int, request: Request,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    job = proposal.active_job
+    if job is not None and job.status in ("pending", "running"):
+        return render(request, "proposals/_status.html", proposal=proposal, position=_position(db, proposal))
+    return Response("작업이 끝났습니다.", headers={"HX-Redirect": f"/proposals/{proposal.id}"})
+
+
+def _start(db: Session, proposal: Proposal, kind: str, user: User, extra: dict | None = None) -> RedirectResponse:
+    started = start_job(db, proposal, kind, user, extra)
+    suffix = "" if started else "?notice=busy"
+    return RedirectResponse(f"/proposals/{proposal.id}{suffix}", status_code=303)
+
+
+@router.post("/{proposal_id}/directions")
+def make_directions(
+    proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    return _start(db, proposal, "proposal_directions", user)
+
+
+@router.post("/{proposal_id}/select")
+def select_direction(
+    proposal_id: int, index: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    i = _parse_id(index)
+    directions = proposal.directions or []
+    if i is None or i >= len(directions):
+        raise HTTPException(status_code=400, detail="없는 방향입니다.")
+    chosen = directions[i]
+    solutions = [s for sid in (x.get("solution_id") for x in chosen.get("solutions", [])) if (s := db.get(Solution, sid))]
+    proposal.selected_index = i
+    proposal.status = "refining"
+    proposal.solutions = solutions
+    if not proposal.title:
+        proposal.title = chosen.get("title", "")
+    db.commit()
+    return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
 
 
 @router.post("/{proposal_id}/target")

@@ -1,10 +1,18 @@
 """제안 건 도우미."""
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING
+
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.models import Proposal, Solution
+from app.models import AIJob, Proposal, Solution, User
+
+if TYPE_CHECKING:
+    from app.ai.proposal_tasks import DirectionsOut
+
+MAX_DIRECTIONS = 3
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
@@ -22,3 +30,78 @@ def display_title(p: Proposal) -> str:
     if p.business is not None:
         return f"{p.customer.name} · {p.business.name} 제안"
     return f"{p.customer.name} 제안"
+
+
+def check_sources(knowledge_dir: Path, sources: list[str]) -> tuple[list[str], list[str]]:
+    """출처 경로를 (존재하는 것, 존재하지 않는 것) 으로 나눈다. 지식 폴더 밖을 가리키는 경로는 없는 것으로 본다."""
+    root = Path(knowledge_dir).resolve()
+    found: list[str] = []
+    missing: list[str] = []
+    for source in sources:
+        rel = source.strip().replace("\\", "/")
+        parts = PurePosixPath(rel).parts
+        usable = (
+            rel != "" and "\x00" not in rel
+            and not rel.startswith("/") and not PureWindowsPath(rel).is_absolute() and ":" not in parts[0]
+            and ".." not in parts
+        )
+        if usable:
+            try:
+                target = (root / rel).resolve()
+                usable = target.is_relative_to(root) and target.is_file()
+            except (OSError, ValueError):
+                usable = False
+        (found if usable else missing).append(rel if usable else source)
+    return found, missing
+
+
+def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_dir: Path) -> list[dict]:
+    """AI 가 만든 방향을 저장용 목록으로 바꾼다. 후보에 없는 솔루션과 확인되지 않은 출처는 빼고 `needs_check` 에 남긴다."""
+    names = {s.id: s.name for s in candidate_solutions(db, p)}
+    cleaned: list[dict] = []
+    for d in out.directions:
+        needs_check = [n for n in d.needs_check if n.strip()]
+        solutions: list[dict] = []
+        unknown = False
+        for sol in d.solutions:
+            if sol.solution_id not in names:
+                unknown = True
+            elif all(x["solution_id"] != sol.solution_id for x in solutions):
+                solutions.append({"solution_id": sol.solution_id, "name": names[sol.solution_id], "role": sol.role})
+        if unknown:
+            needs_check.append("후보에 없는 솔루션이 언급됨")
+        if not solutions:
+            continue
+        rationale: list[dict] = []
+        for ev in d.rationale:
+            found, missing = check_sources(knowledge_dir, ev.sources)
+            needs_check.extend(f"출처 확인 불가: {m}" for m in missing)
+            if not found:
+                needs_check.append(f"근거 자료 없음: {ev.text}")
+            rationale.append({"text": ev.text, "sources": found})
+        cleaned.append({
+            "title": d.title, "summary": d.summary, "solutions": solutions, "rationale": rationale,
+            "effects": list(d.effects), "needs_check": needs_check,
+        })
+    return cleaned[:MAX_DIRECTIONS]
+
+
+def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:
+    """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다."""
+    from app.ai.queue import enqueue  # 지연 임포트: 대기열이 처리기 모듈을 불러온다
+
+    db.refresh(p)
+    if p.active_job is not None and p.active_job.status in ("pending", "running"):
+        return None
+    previous = p.active_job_id
+    job = enqueue(db, kind, {"proposal_id": p.id, **(extra or {})}, user.id)
+    same = Proposal.active_job_id.is_(None) if previous is None else Proposal.active_job_id == previous
+    claimed = db.execute(update(Proposal).where(Proposal.id == p.id, same).values(active_job_id=job.id))
+    if claimed.rowcount != 1:  # 다른 요청이 먼저 잡았다. 우리 작업은 거둔다.
+        db.rollback()
+        db.execute(delete(AIJob).where(AIJob.id == job.id, AIJob.status == "pending"))
+        db.commit()
+        return None
+    db.commit()
+    db.refresh(p)
+    return job
