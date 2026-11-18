@@ -44,12 +44,17 @@ def render_markdown(text: str) -> Markup:
             items.clear()
         list_tag = ""
 
+    next_text = [-1] * (len(lines) + 1)  # 각 줄 이후 첫 비어 있지 않은 줄의 번호 (뒤에서 한 번만 훑는다)
+    for k in range(len(lines) - 1, -1, -1):
+        next_text[k] = k if lines[k].strip() else next_text[k + 1]
+
     def continues_list(start: int) -> bool:
         """빈 줄 다음 첫 줄이 지금 목록과 같은 종류의 항목이면 목록을 이어 간다 (항목 사이에 빈 줄이 있는 목록)."""
-        for nxt in lines[start:]:
-            if nxt.strip():
-                return nxt[0] not in " \t" and bool((_BULLET if list_tag == "ul" else _NUMBER).fullmatch(nxt.rstrip()))
-        return False
+        k = next_text[start]
+        if k < 0:
+            return False
+        nxt = lines[k]
+        return nxt[0] not in " \t" and bool((_BULLET if list_tag == "ul" else _NUMBER).fullmatch(nxt.rstrip()))
 
     for n, raw in enumerate(lines):
         line = raw.rstrip()

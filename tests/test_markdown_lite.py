@@ -89,3 +89,12 @@ def test_loose_lists_stay_one_list():
     assert str(md("- a\n\n- b")) == "<ul><li>a</li><li>b</li></ul>"
     assert str(md("- a\n\n1. b")) == "<ul><li>a</li></ul><ol><li>b</li></ol>"
     assert str(md("- a\n\n문단")) == "<ul><li>a</li></ul><p>문단</p>"
+
+
+def test_many_blank_lines_before_item_is_fast():
+    for text, expect in (("- a" + "\n" * 40000 + "- b", "<ul><li>a</li><li>b</li></ul>"),
+                         ("1. a" + "\n" * 40000 + "2. b", "<ol><li>a</li><li>b</li></ol>")):
+        t = time.perf_counter()
+        out = str(md(text))
+        assert time.perf_counter() - t < 1.0
+        assert out == expect
