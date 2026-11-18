@@ -25,6 +25,17 @@ JOB_STATUSES = {
     "failed": "실패",
 }
 
+JOB_KINDS = {
+    "activity_structure": "활동 기록 AI 정리",
+    "solution_draft": "솔루션 소개 초안",
+    "proposal_directions": "제안 방향 만들기",
+    "proposal_chat": "제안 채팅 답변",
+    "proposal_outline": "제안서 구성안 만들기",
+    "research_area": "리서치 분야 조사",
+    "research_suggest": "리서치 발굴 방향 제안",
+    "ai_ping": "AI 연결 확인",
+}
+
 ERROR_KINDS = {
     "not_installed": "Claude CLI가 설치되어 있지 않습니다. 서버에 설치되어 있는지 확인해 주세요.",
     "auth": "Claude 로그인이 필요합니다. 서버에서 Claude에 다시 로그인해 주세요.",

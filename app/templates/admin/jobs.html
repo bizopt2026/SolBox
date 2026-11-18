@@ -8,7 +8,7 @@
   {% for j in jobs %}
     <tr>
       <td>{{ j.id }}</td>
-      <td>{{ j.kind }}</td>
+      <td>{{ labels.JOB_KINDS.get(j.kind, j.kind) }}</td>
       <td>{{ labels.JOB_STATUSES.get(j.status, j.status) }}</td>
       <td>{{ requesters.get(j.requester_id, "-") }}</td>
       <td>{{ j.created_at.strftime("%Y-%m-%d %H:%M") if j.created_at else "" }}</td>

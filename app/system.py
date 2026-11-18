@@ -85,6 +85,8 @@ def _check_db(settings: Settings) -> Check:
 def _check_knowledge(settings: Settings) -> Check:
     if settings.knowledge_dir.is_dir():
         return ("지식 폴더", None, str(settings.knowledge_dir))
+    if not settings.data_dir.exists() or not settings.db_path.exists():  # 처음 설치: 처음 실행할 때 만들어진다
+        return ("지식 폴더", None, "아직 없음. 처음 실행할 때 만들어집니다")
     return ("지식 폴더", f"{settings.knowledge_dir} 가 없습니다. python -m app.cli rebuild-knowledge 로 만드세요.", "")
 
 
@@ -127,6 +129,8 @@ def _check_port(settings: Settings) -> Check:
         if sys.platform != "win32":  # Windows 에서는 이 옵션이 이중 사용을 허용해 버린다
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((settings.host, settings.port))
+    except PermissionError:
+        return ("포트", f"포트 {settings.port}을 열 권한이 없습니다 (1024 미만 포트는 관리자 권한 필요).", "")
     except OSError as e:
         if isinstance(e, socket.gaierror):
             return ("포트", f"주소 {settings.host} 를 쓸 수 없습니다 ({e}).", "")

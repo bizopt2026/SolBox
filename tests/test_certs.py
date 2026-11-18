@@ -140,3 +140,85 @@ def test_cli_check_missing_config_and_certificate(tmp_path, monkeypatch, capsys)
     with pytest.raises(SystemExit):
         cli.main(["check"])
     assert any("인증서" in line and "문제" in line for line in capsys.readouterr().out.splitlines())
+
+
+@pytest.mark.parametrize("bad", ["http://10.0.0.1", "10.0.0.1:8443", "a b", "host/x", "한글.local", "-x.local"])
+def test_make_self_signed_rejects_bad_hosts(tmp_path, bad):
+    with pytest.raises(ValueError) as e:
+        make_self_signed(tmp_path, [bad])
+    assert "접속 주소" in str(e.value)
+    assert not list(tmp_path.iterdir())
+
+
+def test_cli_make_cert_bad_host_is_korean_error(tmp_path):
+    with pytest.raises(SystemExit) as e:
+        cli.main(["make-cert", "--host", "10.0.0.1:8443", "--out", str(tmp_path / "c")])
+    assert "접속 주소" in str(e.value)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX 권한")
+def test_key_file_is_private(tmp_path):
+    _, key = make_self_signed(tmp_path, ["127.0.0.1"])
+    assert key.stat().st_mode & 0o777 == 0o600
+    _, key = make_self_signed(tmp_path, ["127.0.0.1"], overwrite=True)
+    assert key.stat().st_mode & 0o777 == 0o600
+
+
+def test_failed_write_leaves_nothing(tmp_path, monkeypatch):
+    import os as _os
+
+    real = _os.replace
+    calls = []
+
+    def flaky(src, dst):
+        calls.append(dst)
+        if len(calls) == 2:
+            raise OSError("디스크 오류")
+        return real(src, dst)
+
+    monkeypatch.setattr("app.certs.os.replace", flaky)
+    with pytest.raises(OSError):
+        make_self_signed(tmp_path, ["127.0.0.1"])
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_pyproject_requires_recent_cryptography():
+    from pathlib import Path
+
+    assert '"cryptography>=42"' in (Path(__file__).parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_cli_check_fresh_install_is_ok(tmp_path, monkeypatch, capsys):
+    _write_config(tmp_path, monkeypatch, f"port = {_free_port()}\n" f'claude_cmd = ["{sys.executable.replace(chr(92), "/")}"]\n')
+    cli.main(["check"])  # data_dir 이 아직 없다
+    out = capsys.readouterr().out
+    assert "문제" not in out and "지식 폴더: 정상 (아직 없음" in out
+
+
+def test_cli_check_flags_missing_knowledge_when_data_exists(tmp_path, monkeypatch, capsys):
+    import sqlite3
+
+    (tmp_path / "data").mkdir()
+    sqlite3.connect(tmp_path / "data" / "app.db").close()
+    _write_config(tmp_path, monkeypatch, f"port = {_free_port()}\n" f'claude_cmd = ["{sys.executable.replace(chr(92), "/")}"]\n')
+    with pytest.raises(SystemExit):
+        cli.main(["check"])
+    assert any("지식 폴더" in line and "문제" in line for line in capsys.readouterr().out.splitlines())
+
+
+def test_cli_check_port_permission_error(tmp_path, monkeypatch, capsys):
+    from app import system
+
+    class Boom:
+        def __init__(self, *a): pass
+        def setsockopt(self, *a): pass
+        def bind(self, addr): raise PermissionError("denied")
+        def close(self): pass
+
+    monkeypatch.setattr(system.socket, "socket", Boom)
+    _write_config(tmp_path, monkeypatch, 'port = 443\n')
+    with pytest.raises(SystemExit):
+        cli.main(["check"])
+    out = capsys.readouterr().out
+    assert "포트 443을 열 권한이 없습니다 (1024 미만 포트는 관리자 권한 필요)" in out
+    assert "다른 프로그램" not in out

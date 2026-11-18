@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ipaddress
+import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -18,6 +20,27 @@ def _san_entry(host: str) -> x509.GeneralName:
         return x509.DNSName(host)
 
 
+_DNS_NAME = re.compile(r"^[A-Za-z0-9.-]+$")
+
+
+def _check_host(host: str) -> None:
+    """IP 주소이거나 영문·숫자·점·하이픈으로 된 이름만 허용한다."""
+    try:
+        ipaddress.ip_address(host)
+        return
+    except ValueError:
+        pass
+    if not _DNS_NAME.match(host) or host.startswith(("-", ".")):
+        raise ValueError(f"접속 주소가 올바르지 않습니다: {host!r} (IP 주소 또는 영문·숫자·점·하이픈으로 된 이름만 쓸 수 있습니다. 포트나 http:// 는 빼세요.)")
+
+
+def _write_private(path: Path, data: bytes) -> None:
+    """처음부터 소유자만 읽고 쓰는 권한(0o600)으로 만든다."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+
+
 def make_self_signed(
     out_dir: Path, hosts: list[str], days: int = 3650, overwrite: bool = False
 ) -> tuple[Path, Path]:
@@ -25,6 +48,8 @@ def make_self_signed(
     hosts = [h.strip() for h in hosts if h and h.strip()]
     if not hosts:
         raise ValueError("접속 주소(IP 또는 이름)가 하나 이상 필요합니다.")
+    for h in hosts:
+        _check_host(h)
     out_dir = Path(out_dir)
     crt_path, key_path = out_dir / "server.crt", out_dir / "server.key"
     if not overwrite:
@@ -48,16 +73,26 @@ def make_self_signed(
         .sign(key, hashes.SHA256())
     )
     out_dir.mkdir(parents=True, exist_ok=True)
-    crt_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    key_path.write_bytes(
-        key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.TraditionalOpenSSL,
-            serialization.NoEncryption(),
-        )
+    crt_pem = cert.public_bytes(serialization.Encoding.PEM)
+    key_pem = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()
     )
+    # 임시 이름으로 먼저 쓰고 한꺼번에 바꿔 놓는다. 중간에 실패하면 임시 파일을 지워 반쪽 인증서가 남지 않게 한다.
+    tmp_crt, tmp_key = out_dir / "server.crt.tmp", out_dir / "server.key.tmp"
     try:
-        key_path.chmod(0o600)
-    except OSError:
-        pass
+        for tmp in (tmp_crt, tmp_key):
+            tmp.unlink(missing_ok=True)
+        _write_private(tmp_key, key_pem)
+        tmp_crt.write_bytes(crt_pem)
+        had_key = key_path.exists()
+        os.replace(tmp_key, key_path)
+        try:
+            os.replace(tmp_crt, crt_path)
+        except OSError:
+            if not had_key:
+                key_path.unlink(missing_ok=True)  # 키만 남지 않게 한다
+            raise
+    finally:
+        for tmp in (tmp_crt, tmp_key):
+            tmp.unlink(missing_ok=True)
     return crt_path, key_path

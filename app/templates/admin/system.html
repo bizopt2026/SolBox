@@ -17,7 +17,7 @@
       {% if next_run %}{{ next_run.strftime("%Y-%m-%d %H:%M") }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
     </td></tr>
     <tr><th>최근 AI 오류</th><td>
-      {% if last_failed %}{{ last_failed.finished_at.strftime("%Y-%m-%d %H:%M") if last_failed.finished_at else "" }} {{ last_failed.kind }}: {{ failed_text }}
+      {% if last_failed %}{{ last_failed.finished_at.strftime("%Y-%m-%d %H:%M") if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
       {% else %}없음{% endif %}
     </td></tr>
   </tbody>
@@ -26,6 +26,7 @@
 <section class="card">
 <h2>AI 연결 확인</h2>
 <form method="post" action="/admin/system/ai-check" style="margin-bottom:.75rem"><button type="submit">AI 연결 확인</button></form>
+<p class="muted"><small>다른 AI 작업이 진행 중이면 그 작업이 끝난 뒤에 확인합니다.</small></p>
 {% include "admin/_ai_check.html" %}
 </section>
 

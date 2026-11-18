@@ -88,3 +88,20 @@ def test_log_file_written(settings):
     assert "로그 시험 줄" in log_file.read_text(encoding="utf-8")
     assert not [h for h in logging.getLogger("app").handlers if getattr(h, "baseFilename", None) == str(log_file)]
     app.state.engine.dispose()
+
+
+def test_job_kind_labels_cover_all_handlers():
+    from app.ai import queue  # noqa: F401  (처리기 등록)
+    from app.ai.tasks import HANDLERS
+    from app.labels import JOB_KINDS
+
+    assert set(HANDLERS) <= set(JOB_KINDS)
+
+
+def test_system_and_jobs_pages_use_korean_job_names(admin_client, db):
+    db.add(AIJob(kind="research_area", input={}, status="failed", error_kind="auth", finished_at=datetime.now()))
+    db.commit()
+    for url in ("/admin/system", "/admin/jobs"):
+        text = admin_client.get(url).text
+        assert "리서치 분야 조사" in text and "research_area" not in text
+    assert "다른 AI 작업이 진행 중이면" in admin_client.get("/admin/system").text
