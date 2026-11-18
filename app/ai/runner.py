@@ -9,13 +9,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_TOOLS = ["Read", "Glob", "Grep"]
+DEFAULT_TOOLS = ("Read", "Glob", "Grep")
 
 # (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다.
 _CLASSIFY = [
-    ("auth", ("login", "authenticat", "unauthorized", "401")),
-    ("limit", ("usage limit", "rate limit", "quota", "429")),
-    ("network", ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out")),
+    ("auth", ("login", "authenticat", "unauthorized", "401", "oauth", "token has expired", "expired")),
+    ("limit", ("usage limit", "rate limit", "quota", "429", "limit reached", "hit your limit")),
+    ("network", ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out",
+                "connection error", "fetch failed", "econnreset", "etimedout")),
 ]
 
 
@@ -78,14 +79,15 @@ class ClaudeRunner:
         self,
         prompt: str,
         *,
-        allowed_tools: list[str] = DEFAULT_TOOLS,
+        allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
         timeout_s: int = 600,
     ) -> str:
         exe = shutil.which(self.cmd[0])
         if exe is None:
             raise ClaudeError("not_installed", f"Claude CLI를 찾을 수 없습니다: {self.cmd[0]}")
         argv = [exe, *self.cmd[1:], "-p", "--output-format", "json",
-                "--allowedTools", ",".join(allowed_tools)]
+                "--allowedTools", ",".join(allowed_tools),
+                "--tools", ",".join(allowed_tools), "--strict-mcp-config"]
         self.cwd.mkdir(parents=True, exist_ok=True)
         popen_kwargs: dict = {}
         if sys.platform == "win32":

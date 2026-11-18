@@ -11,13 +11,24 @@ def test_run_returns_result_and_sends_prompt_via_stdin(settings, fake_claude):
     assert r.run("프롬프트 본문") == "안녕하세요"
     call = fake_claude.calls()[0]
     assert call["stdin"] == "프롬프트 본문" and "프롬프트 본문" not in call["argv"]
-    assert call["argv"][-5:] == ["-p", "--output-format", "json", "--allowedTools", "Read,Glob,Grep"]
+    assert call["argv"][-8:] == [
+        "-p", "--output-format", "json", "--allowedTools", "Read,Glob,Grep",
+        "--tools", "Read,Glob,Grep", "--strict-mcp-config",
+    ]
     assert Path(call["cwd"]).resolve() == settings.knowledge_dir.resolve()
 
 
 @pytest.mark.parametrize("stderr,kind", [
     ("Please run /login to authenticate", "auth"),
     ("Claude usage limit reached", "limit"),
+    ("5-hour limit reached", "limit"),
+    ("You hit your limit", "limit"),
+    ("OAuth error", "auth"),
+    ("token has expired", "auth"),
+    ("Connection error", "network"),
+    ("fetch failed", "network"),
+    ("read ECONNRESET", "network"),
+    ("connect ETIMEDOUT", "network"),
     ("getaddrinfo ENOTFOUND api.anthropic.com", "network"),
     ("something odd", "unknown"),
 ])
