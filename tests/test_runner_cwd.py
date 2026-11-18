@@ -78,3 +78,27 @@ def test_settings_defaults(tmp_path):
     assert s.research_timeout_s == 1800
     assert s.research_work_dir == s.data_dir / "research_work"
     assert runner_mod.WEB_TOOLS == ("WebSearch", "WebFetch")
+
+
+@pytest.mark.parametrize("tools", [
+    ("Read WebFetch",), (" Read", "WebFetch"), ("read", "WebFetch"), ("Read(*)", "WebFetch"),
+    ("WebFetch", "Bash"), ("WebFetch", "Edit"), ("Bash",), ("WebFetch ",), ("Read,WebFetch",),
+])
+def test_guard_rejects_unknown_or_malformed_tools(settings, tools):
+    with pytest.raises(ValueError):
+        assert_tool_separation(tools)
+    with pytest.raises(ValueError, match="허용되지 않은 도구입니다|함께"):
+        ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run("x", allowed_tools=tools)
+
+
+def test_guard_message_names_tool():
+    with pytest.raises(ValueError, match="허용되지 않은 도구입니다: Bash"):
+        assert_tool_separation(("Bash",))
+
+
+@pytest.mark.parametrize("tools", ["Read,WebFetch", "Read", None, ("Read", 1), {"Read"}])
+def test_guard_type_errors(settings, tools):
+    with pytest.raises(TypeError):
+        assert_tool_separation(tools)
+    with pytest.raises(TypeError):
+        ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run("x", allowed_tools=tools)

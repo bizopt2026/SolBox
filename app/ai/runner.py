@@ -16,9 +16,10 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-DEFAULT_TOOLS = ("Read", "Glob", "Grep")
+# 허용 도구 목록은 보안 경계다. FILE_TOOLS 나 WEB_TOOLS 에 도구를 더하면 경계가 넓어진다.
+FILE_TOOLS = ("Read", "Glob", "Grep")
 WEB_TOOLS = ("WebSearch", "WebFetch")
-FILE_TOOLS = DEFAULT_TOOLS
+DEFAULT_TOOLS = FILE_TOOLS
 
 # (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다.
 _CLASSIFY = [
@@ -40,9 +41,13 @@ class ClaudeError(Exception):
 
 
 def assert_tool_separation(allowed_tools: tuple[str, ...] | list[str]) -> None:
-    """웹 도구와 파일 도구는 한 작업에 함께 줄 수 없다."""
-    tools = set(allowed_tools)
-    if tools & set(WEB_TOOLS) and tools & set(FILE_TOOLS):
+    """도구 이름은 FILE_TOOLS 또는 WEB_TOOLS 와 정확히 같아야 하고, 두 종류를 섞을 수 없다."""
+    if not isinstance(allowed_tools, (tuple, list)) or not all(isinstance(t, str) for t in allowed_tools):
+        raise TypeError("allowed_tools 는 문자열의 tuple 또는 list 여야 합니다.")
+    for name in allowed_tools:
+        if name not in FILE_TOOLS and name not in WEB_TOOLS:
+            raise ValueError(f"허용되지 않은 도구입니다: {name}")
+    if any(t in WEB_TOOLS for t in allowed_tools) and any(t in FILE_TOOLS for t in allowed_tools):
         raise ValueError("웹 도구와 파일 도구를 함께 쓸 수 없습니다.")
 
 
