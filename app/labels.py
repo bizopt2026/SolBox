@@ -51,3 +51,11 @@ SLIDE_KINDS = {
     "steps": "단계",
     "closing": "마무리",
 }
+
+RESEARCH_AREAS = {"market": "시장", "tech": "기술", "policy": "정책"}
+
+SUGGESTION_KINDS = {"new": "새로 찾을 솔루션", "push": "기존 솔루션 밀기"}
+
+RUN_STATUSES = {"running": "진행", "done": "완료", "partial": "일부 실패", "failed": "실패"}
+
+WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}

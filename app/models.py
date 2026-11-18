@@ -214,3 +214,55 @@ class ProposalMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
 
     proposal: Mapped[Proposal] = relationship(back_populates="messages")
+
+
+class ResearchTopic(Stamped, Base):
+    __tablename__ = "research_topics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    keywords: Mapped[str] = mapped_column(String, default="")
+    area: Mapped[str] = mapped_column(String)  # market / tech / policy
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class ResearchRun(Base):
+    __tablename__ = "research_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slot: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # 예약 실행이 맡은 예정 시각
+    trigger: Mapped[str] = mapped_column(String)  # schedule / manual
+    status: Mapped[str] = mapped_column(String, default="running")  # running / done / partial / failed
+    requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    reports: Mapped[list[ResearchReport]] = relationship(
+        back_populates="run", cascade="all, delete-orphan", order_by="ResearchReport.id"
+    )
+
+
+class ResearchReport(Base):
+    __tablename__ = "research_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("research_runs.id"))
+    kind: Mapped[str] = mapped_column(String)  # area / suggest
+    area: Mapped[str] = mapped_column(String, default="")
+    title: Mapped[str] = mapped_column(String, default="")
+    trends: Mapped[list] = mapped_column(JSON, default=list)
+    insights: Mapped[list] = mapped_column(JSON, default=list)
+    suggestions: Mapped[list] = mapped_column(JSON, default=list)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending / done / failed
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+    run: Mapped[ResearchRun] = relationship(back_populates="reports")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[dict | None] = mapped_column(JSON, nullable=True)

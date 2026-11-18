@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}리서치 설정{% endblock %}
+{% block content %}
+<h1>리서치 설정</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{# 지금 조사 버튼과 최근 실행 목록은 다음 단계에서 이 자리에 들어온다. #}
+{% include "research/_admin_runs.html" ignore missing %}
+
+<section class="card">
+  <h2>실행 주기</h2>
+  <form method="post" action="/admin/research/schedule" class="row">
+    <label><input type="checkbox" name="enabled" value="on" {% if schedule.enabled %}checked{% endif %}> 자동 실행</label>
+    <label>요일
+      <select name="weekday">
+        {% for code, text in weekdays.items() %}<option value="{{ code }}" {% if schedule.weekday == code %}selected{% endif %}>{{ text }}요일</option>{% endfor %}
+      </select>
+    </label>
+    <label>시 <input type="number" name="hour" min="0" max="23" value="{{ schedule.hour }}" required></label>
+    <label>분 <input type="number" name="minute" min="0" max="59" value="{{ schedule.minute }}" required></label>
+    <button type="submit">저장</button>
+  </form>
+  <p class="muted">서버 PC의 현지 시각 기준입니다.</p>
+</section>
+
+<section class="card">
+  <h2>주제 추가</h2>
+  <form method="post" action="/admin/research/topics" class="row">
+    <label>주제 <input name="name" maxlength="100" required></label>
+    <label>키워드 <input name="keywords" maxlength="500" placeholder="쉼표로 구분"></label>
+    <label>분야
+      <select name="area">
+        {% for code, text in areas.items() %}<option value="{{ code }}">{{ text }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">추가</button>
+  </form>
+</section>
+
+{% for code, text in areas.items() %}
+<h2>{{ text }}</h2>
+{% if by_area[code] %}
+<table>
+  <thead><tr><th>주제</th><th>키워드</th><th>분야</th><th>사용</th><th></th></tr></thead>
+  <tbody>
+  {% for t in by_area[code] %}
+    {% set f = "t" ~ t.id %}
+    <tr>
+      <td><form id="{{ f }}" method="post" action="/admin/research/topics/{{ t.id }}"></form><input form="{{ f }}" name="name" value="{{ t.name }}" maxlength="100" required></td>
+      <td><input form="{{ f }}" name="keywords" value="{{ t.keywords }}" maxlength="500"></td>
+      <td>
+        <select form="{{ f }}" name="area">
+          {% for c, label in areas.items() %}<option value="{{ c }}" {% if t.area == c %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </td>
+      <td><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}></td>
+      <td>
+        <button form="{{ f }}" type="submit">저장</button>
+        <form method="post" action="/admin/research/topics/{{ t.id }}/delete" style="display:inline" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit">삭제</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">등록된 주제가 없습니다.</p>
+{% endif %}
+{% endfor %}
+{% endblock %}
