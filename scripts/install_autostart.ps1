@@ -1,4 +1,4 @@
-# 작업 스케줄러에 "SolutionBox" 작업을 등록한다: 현재 Windows 계정으로 로그온할 때 서버를 시작한다.
+﻿# 작업 스케줄러에 "SolutionBox" 작업을 등록한다: 현재 Windows 계정으로 로그온할 때 서버를 시작한다.
 # (Claude CLI 로그인이 Windows 계정별이므로 서비스 계정이 아니라 로그인한 계정으로 돌린다.)
 # 주의: Linux에서 작성되어 실행 검증이 되지 않았습니다. 처음 실행할 때 내용을 확인하세요.
 param(
@@ -10,8 +10,13 @@ $ErrorActionPreference = "Stop"
 $taskName = "SolutionBox"
 
 if ($Remove) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-    Write-Host "작업 '$taskName' 을 삭제했습니다."
+    # 작업이 없어도 오류로 끝내지 않는다
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+        Write-Host "작업 '$taskName' 을 삭제했습니다."
+    } else {
+        Write-Host "작업 '$taskName' 이 등록되어 있지 않습니다. 할 일이 없습니다."
+    }
     return
 }
 

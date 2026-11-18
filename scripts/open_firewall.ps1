@@ -1,7 +1,7 @@
-# 솔루션 박스 포트를 Windows 방화벽에서 연다 (인바운드 TCP, 규칙 이름 "SolutionBox"). 관리자 권한이 필요하다.
+﻿# 솔루션 박스 포트를 Windows 방화벽에서 연다 (인바운드 TCP, 규칙 이름 "SolutionBox"). 관리자 권한이 필요하다.
 # 주의: Linux에서 작성되어 실행 검증이 되지 않았습니다. 처음 실행할 때 내용을 확인하세요.
 param(
-    [Parameter(Mandatory = $true)][int]$Port,   # config.toml 의 port 와 같은 값
+    [Parameter(Mandatory = $true)][ValidateRange(1, 65535)][int]$Port,   # config.toml 의 port 와 같은 값
     [switch]$Remove                              # 규칙을 삭제한다
 )
 $ErrorActionPreference = "Stop"
@@ -14,10 +14,15 @@ if (-not (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([S
 }
 
 # 같은 이름의 규칙이 있으면 먼저 지운다 (포트를 바꿔 다시 실행해도 규칙이 하나만 남는다)
-Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+$existing = @(Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)
+if ($existing.Count -gt 0) { $existing | Remove-NetFirewallRule }
 
 if ($Remove) {
-    Write-Host "방화벽 규칙 '$ruleName' 을 삭제했습니다."
+    if ($existing.Count -gt 0) {
+        Write-Host "방화벽 규칙 '$ruleName' 을 삭제했습니다."
+    } else {
+        Write-Host "방화벽 규칙 '$ruleName' 이 없었습니다. 할 일이 없습니다."
+    }
     return
 }
 

@@ -43,6 +43,16 @@ Get-NetTCPConnection -LocalPort 8443 -ErrorAction SilentlyContinue | Select-Obje
 - 로컬 PC의 서버를 사람 확인 없이 멈추거나 로컬의 `data` 를 지우지 않는다.
 - 테스트나 점검을 건너뛰고 "됐다"고 보고하지 않는다.
 
+## 변수 설정 (0단계의 답을 받은 직후)
+
+아래 명령 블록들은 `$ServerHost`, `$Port`, `$Branch`, `$Repo`, `$BackupDir` 변수를 씁니다. **모든 명령 블록은 같은 PowerShell 세션에서 실행**하세요 (세션을 새로 열었다면 이 블록을 다시 실행하거나, 값을 명령에 직접 적어 넣습니다). 값은 0단계에서 사람과 정한 것으로 바꿉니다. 아래는 예시입니다.
+
+```powershell
+$ServerHost = "10.231.1.254"; $Port = 8443; $Branch = "main"; $Repo = "C:\solbox"; $BackupDir = "D:\solbox-backups"
+```
+
+- 성공: 오류 없이 끝난다. `Write-Host "$ServerHost : $Port"` 로 값이 맞는지 확인한다.
+
 ## 1. 준비물 확인
 
 ```powershell
@@ -114,6 +124,14 @@ python -m app.cli check
 Get-Content scripts\run_server.ps1, scripts\install_autostart.ps1, scripts\open_firewall.ps1 -Encoding UTF8
 ```
 - 성공: 내용이 한글 깨짐 없이 보인다. 이상한 점이 있으면 실행 전에 고친다.
+
+세 스크립트가 UTF-8 BOM으로 저장돼 있는지 확인한다 (BOM이 없으면 Windows PowerShell 5.1 이 한글을 잘못 읽어 오류가 난다).
+
+```powershell
+Get-ChildItem scripts\*.ps1 | ForEach-Object { "{0}: BOM={1}" -f $_.Name, (([IO.File]::ReadAllBytes($_.FullName)[0..2] -join ",") -eq "239,187,191") }
+```
+- 성공: 세 파일 모두 `BOM=True`.
+- 실패 시: `BOM=False` 인 파일은 UTF-8 BOM으로 다시 저장한 뒤(`$t = Get-Content <파일> -Raw -Encoding UTF8; [IO.File]::WriteAllText("<절대경로>", $t, (New-Object Text.UTF8Encoding $true))`) 이 수정을 저장소에 반영한다.
 
 인증서 만들기 (`$ServerHost` 는 0단계에서 정한 주소; 이름으로도 접속하면 `--host` 를 더 붙인다):
 
