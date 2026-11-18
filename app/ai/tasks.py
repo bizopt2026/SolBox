@@ -9,6 +9,7 @@ import re
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import TypeVar
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -20,11 +21,13 @@ from app.config import Settings
 from app.labels import ACTIVITY_KINDS
 from app.models import Business, Customer, Partner, Solution
 
+T = TypeVar("T", bound=BaseModel)
 Handler = Callable[[Session, dict, ClaudeRunner, Settings], str]
 
 HANDLERS: dict[str, Handler] = {}
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
+NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료 파일이 없습니다."
 MEMO_OPEN, MEMO_CLOSE = "<<<MEMO", "MEMO>>>"
 
 
@@ -32,6 +35,18 @@ def load_prompt(name: str, **values) -> str:
     """`prompts/<name>.md` 를 읽어 `{{키}}` 를 값으로 바꾼다. 한 번에 바꾸므로 값 안의 `{{...}}` 는 다시 바뀌지 않는다."""
     text = (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8")
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(values.get(m.group(1), m.group(0))), text)
+
+
+def run_json(runner: ClaudeRunner, prompt: str, model: type[T], settings: Settings) -> T:
+    """프롬프트를 실행해 JSON 을 `model` 로 검증한다. 형식 오류(bad_output)면 한 번만 다시 시도한다."""
+    for attempt in (1, 2):
+        text = runner.run(prompt, timeout_s=settings.ai_timeout_s)
+        try:
+            return parse_json_output(text, model)
+        except ClaudeError as e:
+            if e.kind != "bad_output" or attempt == 2:
+                raise
+    raise ClaudeError("bad_output")  # 도달하지 않는다
 
 
 class FollowUpDraft(BaseModel):
@@ -132,16 +147,27 @@ def _structure_activity(db: Session, input: dict, runner: ClaudeRunner, settings
         solutions=_name_list(db, Solution), customers=_name_list(db, Customer),
         businesses=_name_list(db, Business), partners=_name_list(db, Partner),
     )
-    for attempt in (1, 2):
-        text = runner.run(prompt, timeout_s=settings.ai_timeout_s)
-        try:
-            draft = parse_json_output(text, ActivityDraft)
-        except ClaudeError as e:
-            if e.kind != "bad_output" or attempt == 2:
-                raise
-            continue
-        return normalize_draft(draft, date.today()).model_dump_json()
-    raise ClaudeError("bad_output")  # 도달하지 않는다
+    draft = run_json(runner, prompt, ActivityDraft, settings)
+    return normalize_draft(draft, date.today()).model_dump_json()
+
+
+class SolutionDraft(BaseModel):
+    summary: str = ""
+    description: str = ""
+    tags: list[str] = []
+
+
+def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
+    solution = db.get(Solution, input.get("solution_id"))
+    if solution is None:
+        raise ClaudeError("unknown", "솔루션을 찾을 수 없습니다.")
+    folder = f"solutions/{solution.id}/files"
+    texts = settings.knowledge_dir / "solutions" / str(solution.id) / "files"
+    if not texts.is_dir() or not any(texts.glob("*.md")):
+        raise ClaudeError("bad_output", NO_READABLE_FILES)
+    prompt = load_prompt("solution_draft", solution_name=solution.name, folder=f"{folder}/")
+    return run_json(runner, prompt, SolutionDraft, settings).model_dump_json()
 
 
 HANDLERS["activity_structure"] = _structure_activity
+HANDLERS["solution_draft"] = _draft_solution

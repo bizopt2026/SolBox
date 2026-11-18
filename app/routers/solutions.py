@@ -8,10 +8,12 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app import labels
+from app.ai.queue import enqueue, queue_position
+from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Activity, Partner, Solution, User
+from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
     resync_activities, search_by_name,
@@ -25,11 +27,12 @@ BAD_PARTNER = "존재하지 않는 파트너입니다."
 
 
 def _form_page(
-    request: Request, db: Session, form: dict, solution: Solution | None = None, error: str | None = None
+    request: Request, db: Session, form: dict, solution: Solution | None = None, error: str | None = None,
+    **extra,
 ):
     return render(
         request, "solutions/form.html", status_code=400 if error else 200,
-        form=form, solution=solution, partners=search_by_name(db, Partner), error=error,
+        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, **extra,
     )
 
 
@@ -109,12 +112,52 @@ def detail(solution_id: int, request: Request, user: User = Depends(require_user
     return detail_page(request, db, user, get_or_404(db, Solution, solution_id))
 
 
+DRAFT_KIND = "solution_draft"
+BAD_DRAFT_JOB = "이 솔루션의 AI 초안 작업이 아닙니다."
+
+
+def _draft_job(db: Session, solution: Solution, raw: str, user: User) -> AIJob:
+    job = db.get(AIJob, int(raw)) if raw.isdigit() else None
+    if (job is None or job.kind != DRAFT_KIND or (job.input or {}).get("solution_id") != solution.id
+            or job.requester_id != user.id):
+        raise HTTPException(status_code=400, detail=BAD_DRAFT_JOB)
+    return job
+
+
+@router.post("/{solution_id}/draft")
+def start_draft(solution_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    solution = get_or_404(db, Solution, solution_id)
+    job = enqueue(db, DRAFT_KIND, {"solution_id": solution.id}, user.id)
+    return RedirectResponse(f"/solutions/{solution.id}/edit?draft_job={job.id}", status_code=303)
+
+
 @router.get("/{solution_id}/edit")
-def edit_form(solution_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def edit_form(
+    solution_id: int, request: Request, draft_job: str = "",
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
     solution = get_or_404(db, Solution, solution_id)
     form = {f: getattr(solution, f) for f in FIELDS}
     form["partner_id"] = solution.partner_id or ""
-    return _form_page(request, db, form, solution)
+    if not draft_job:
+        return _form_page(request, db, form, solution)
+    job = _draft_job(db, solution, draft_job, user)
+    next_url = f"/solutions/{solution.id}/edit?draft_job={job.id}"
+    if job.status in ("pending", "running"):
+        return _form_page(request, db, form, solution, job=job, position=queue_position(db, job), next=next_url)
+    draft = None
+    if job.status == "done":
+        try:
+            draft = SolutionDraft.model_validate_json(job.result)
+        except ValueError:
+            draft = None
+    if draft is None:
+        kind = job.error_kind if job.status == "failed" else "bad_output"
+        message = job.error if job.error == NO_READABLE_FILES else labels.ERROR_KINDS.get(kind, labels.ERROR_KINDS["unknown"])
+        return _form_page(request, db, form, solution, draft_error=message)
+    form.update(summary=draft.summary.strip(), description=draft.description.strip(),
+                tags=_normalize_tags(",".join(draft.tags)))
+    return _form_page(request, db, form, solution, drafted=True)
 
 
 @router.post("/{solution_id}/stage")

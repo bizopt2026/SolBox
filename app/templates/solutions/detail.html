@@ -27,6 +27,9 @@
 <section class="card">
   <h2>자료 파일</h2>
   {% include "solutions/_files.html" ignore missing %}
+  {% if solution.files %}
+  <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">AI로 소개 초안 만들기</button></form>
+  {% endif %}
 </section>
 {{ activity_list(activities) }}
 <p><a href="/solutions">&larr; 목록</a></p>

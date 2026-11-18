@@ -3,6 +3,16 @@
 {% block content %}
 <h1>솔루션 {{ "수정" if solution else "등록" }}</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if job %}
+<section class="card">{% include "jobs/_status.html" %}</section>
+{% else %}
+{% if drafted %}<p class="notice" role="status">AI 초안입니다. 확인 후 저장하세요.</p>{% endif %}
+{% if draft_error %}
+<div class="card" role="alert">
+  <p class="error">{{ draft_error }}</p>
+  <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">다시 시도</button></form>
+</div>
+{% endif %}
 <form method="post" action="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}" class="card stack">
     <label>이름 (필수) <input name="name" value="{{ form.name }}"></label>
     <label>한 줄 소개 <input name="summary" value="{{ form.summary }}"></label>
@@ -26,4 +36,5 @@
       <a href="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}">취소</a>
     </div>
 </form>
+{% endif %}
 {% endblock %}
