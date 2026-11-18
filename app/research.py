@@ -152,6 +152,9 @@ def start_run(db: Session, trigger: str, requester_id: int | None, slot: datetim
     if other is not None:
         db.rollback()
         return None
+    if slot is not None and db.query(ResearchRun.id).filter(ResearchRun.slot == slot, ResearchRun.id != run.id).first() is not None:
+        db.rollback()  # 같은 예정 시각을 이미 누가 맡았다.
+        return None
     for area in areas:
         report = ResearchReport(run_id=run.id, kind="area", area=area, status="pending")
         db.add(report)

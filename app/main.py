@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import labels, models  # noqa: F401  (모델을 메타데이터에 등록)
+from app import labels, models, scheduler  # noqa: F401  (모델을 메타데이터에 등록)
 from app.ai.queue import fail_stale_running, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
@@ -62,9 +62,11 @@ def create_app(settings: Settings) -> FastAPI:
             fail_stale_running(db)
             recover_runs(db)
         start_workers(app)
+        scheduler.start(app)
         try:
             yield
         finally:
+            scheduler.stop(app)
             stop_workers(app)
 
     app = FastAPI(title="솔루션 박스", lifespan=lifespan)

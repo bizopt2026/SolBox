@@ -17,6 +17,7 @@ def settings(tmp_path):
         data_dir=tmp_path / "data",
         secret_key="test",
         ai_worker_enabled=False,
+        scheduler_enabled=False,
         claude_cmd=[sys.executable, str(FAKE_CLAUDE)],
     )
 

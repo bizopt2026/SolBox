@@ -1,0 +1,145 @@
+import threading
+from datetime import datetime, timedelta
+
+import pytest
+
+from app import scheduler
+from app.models import AppSetting, ResearchRun
+from app.research import Schedule, set_schedule, start_run
+from app.scheduler import latest_slot, tick
+from tests.conftest import make_topics
+
+MON = Schedule(True, 0, 6, 0)
+
+
+def test_latest_slot():
+    assert latest_slot(MON, datetime(2026, 11, 16, 6, 0)) == datetime(2026, 11, 16, 6, 0)  # 월요일 정각
+    assert latest_slot(MON, datetime(2026, 11, 16, 5, 59)) == datetime(2026, 11, 9, 6, 0)
+    assert latest_slot(MON, datetime(2026, 11, 18, 10, 0)) == datetime(2026, 11, 16, 6, 0)
+
+
+def test_catches_up_once_after_downtime(app, db, settings):
+    make_topics(db)
+    tue = datetime(2026, 11, 17, 9, 0)
+    assert tick(app, tue) == ["research"]
+    run = db.query(ResearchRun).one()
+    assert run.slot == datetime(2026, 11, 16, 6, 0) and run.trigger == "schedule"
+    assert tick(app, tue + timedelta(minutes=1)) == []  # 같은 주에 두 번 돌지 않는다
+    db.expire_all()
+    assert db.query(ResearchRun).count() == 1
+
+
+def test_too_old_slot_is_skipped(app, db):
+    make_topics(db)
+    assert tick(app, datetime(2026, 11, 22, 23, 0)) == []  # 월요일로부터 6일 17시간
+    assert db.query(ResearchRun).count() == 0
+    assert tick(app, datetime(2026, 11, 22, 6, 0)) == ["research"]  # 정확히 6일
+
+
+def test_disabled_schedule(app, db):
+    make_topics(db)
+    set_schedule(db, Schedule(False, 0, 6, 0))
+    assert tick(app, datetime(2026, 11, 17, 9, 0)) == []
+    assert db.query(ResearchRun).count() == 0
+
+
+def test_manual_run_does_not_consume_slot(app, db):
+    make_topics(db)
+    manual = start_run(db, "manual", None)
+    manual.status = "done"
+    db.commit()
+    assert tick(app, datetime(2026, 11, 16, 6, 0)) == ["research"]
+    db.expire_all()
+    runs = db.query(ResearchRun).order_by(ResearchRun.id).all()
+    assert [r.trigger for r in runs] == ["manual", "schedule"]
+    assert runs[1].slot == datetime(2026, 11, 16, 6, 0)
+
+
+def test_busy_run_retries_next_tick(app, db):
+    make_topics(db)
+    busy = start_run(db, "manual", None)
+    now = datetime(2026, 11, 17, 9, 0)
+    assert tick(app, now) == []
+    busy.status = "done"
+    db.commit()
+    assert tick(app, now + timedelta(minutes=1)) == ["research"]
+
+
+def test_no_topics_marks_slot_failed_once(app, db):
+    now = datetime(2026, 11, 17, 9, 0)
+    assert tick(app, now) == []
+    run = db.query(ResearchRun).one()
+    assert (run.trigger, run.status, run.slot) == ("schedule", "failed", datetime(2026, 11, 16, 6, 0))
+    assert run.finished_at is not None and run.reports == []
+    assert tick(app, now + timedelta(minutes=1)) == []
+    db.expire_all()
+    assert db.query(ResearchRun).count() == 1
+
+
+def test_run_without_reports_renders(app, db, admin_client):
+    tick(app, datetime(2026, 11, 17, 9, 0))  # 주제 없음 -> 빈 failed 실행
+    run = db.query(ResearchRun).one()
+    assert admin_client.get("/research").status_code == 200
+    assert admin_client.get(f"/research/runs/{run.id}").status_code == 200
+    assert admin_client.get("/admin/research").status_code == 200
+
+
+def test_concurrent_ticks_create_one_run(app, db):
+    make_topics(db)
+    now = datetime(2026, 11, 17, 9, 0)
+    barrier = threading.Barrier(2)
+    results = []
+
+    def go():
+        barrier.wait()
+        results.append(tick(app, now))
+
+    threads = [threading.Thread(target=go) for _ in range(2)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sorted(results) == [[], ["research"]]
+    db.expire_all()
+    assert db.query(ResearchRun).count() == 1
+
+
+def test_start_run_refuses_taken_slot(app, db):
+    make_topics(db)
+    slot = datetime(2026, 11, 16, 6, 0)
+    first = start_run(db, "schedule", None, slot=slot)
+    first.status = "done"
+    db.commit()
+    assert start_run(db, "schedule", None, slot=slot) is None
+    assert db.query(ResearchRun).count() == 1
+
+
+def test_daily_jobs_once_per_day_after_two(app, db, monkeypatch):
+    calls = []
+    monkeypatch.setattr(scheduler, "DAILY_JOBS", [lambda app: calls.append(1), lambda app: 1 / 0, lambda app: calls.append(2)])
+    set_schedule(db, Schedule(False, 0, 6, 0))
+    assert tick(app, datetime(2026, 11, 18, 1, 59)) == []
+    assert tick(app, datetime(2026, 11, 18, 2, 0)) == ["daily"] and calls == [1, 2]
+    assert tick(app, datetime(2026, 11, 18, 15, 0)) == []
+    assert tick(app, datetime(2026, 11, 19, 2, 5)) == ["daily"]
+    db.expire_all()
+    assert db.get(AppSetting, "daily_last_run").value == "2026-11-19"
+
+
+def test_tick_survives_exceptions(app, monkeypatch):
+    def boom(db, now):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(scheduler, "research_due", boom)
+    assert tick(app, datetime(2026, 11, 17, 9, 0)) == []
+
+
+def test_start_stop_thread(app, settings):
+    settings.scheduler_enabled = False
+    scheduler.start(app)
+    assert app.state.scheduler_thread is None
+    settings.scheduler_enabled = True
+    scheduler.start(app)
+    assert app.state.scheduler_thread.is_alive()
+    started = datetime.now()
+    scheduler.stop(app)
+    assert not app.state.scheduler_thread.is_alive()
+    assert (datetime.now() - started).total_seconds() < 3

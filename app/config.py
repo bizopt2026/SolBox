@@ -20,6 +20,7 @@ class Settings:
     ai_timeout_s: int = 600
     research_timeout_s: int = 1800
     ai_worker_enabled: bool = True
+    scheduler_enabled: bool = True
     max_upload_mb: int = 100
 
     @property

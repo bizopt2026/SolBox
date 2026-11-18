@@ -32,5 +32,8 @@ research_timeout_s = 1800
 # AI 작업 처리기 사용 여부
 ai_worker_enabled = true
 
+# 앱 안의 스케줄러(주간 리서치, 일일 작업) 사용 여부
+scheduler_enabled = true
+
 # 업로드 파일 최대 크기(MB)
 max_upload_mb = 100
