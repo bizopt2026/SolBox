@@ -17,9 +17,32 @@ CHECK_INTERVAL_S = 60
 MAX_SLOT_AGE = timedelta(days=6)  # 이보다 오래된 예정 시각은 건너뛴다 (다음 주 예정이 하루도 안 남았다)
 DAILY_HOUR = 2
 DAILY_KEY = "daily_last_run"
+ATTEMPT_KEY = "daily_last_attempt"
+RETRY_AFTER = timedelta(hours=1)  # 실패한 일일 작업은 이 간격 이상 두고 다시 한다
 
 # 하루에 한 번(02:00 이후) 차례로 부르는 작업. 백업 등이 여기에 들어간다.
 DAILY_JOBS: list[Callable[[object], None]] = []
+
+
+def _backup_job(app) -> None:
+    from app import backup
+
+    backup.run_backup(app.state.settings)
+
+
+def register_default_jobs() -> None:
+    """운영에서 쓰는 일일 작업(백업)을 등록한다. 여러 번 불러도 한 번만 등록된다."""
+    if _backup_job not in DAILY_JOBS:
+        DAILY_JOBS.append(_backup_job)
+
+
+def _set_setting(db: Session, key: str, value: str) -> None:
+    row = db.get(AppSetting, key)
+    if row is None:
+        db.add(AppSetting(key=key, value=value))
+    else:
+        row.value = value
+    db.commit()
 
 
 def latest_slot(s: Schedule, now: datetime) -> datetime:
@@ -64,19 +87,28 @@ def _run_daily(app, now: datetime) -> bool:
         return False
     today = now.date().isoformat()
     with app.state.session_factory() as db:
-        row = db.get(AppSetting, DAILY_KEY)
-        if row is not None and row.value == today:
+        last_run = db.get(AppSetting, DAILY_KEY)
+        if last_run is not None and last_run.value == today:
             return False
-        if row is None:
-            db.add(AppSetting(key=DAILY_KEY, value=today))
-        else:
-            row.value = today
-        db.commit()
+        attempt = db.get(AppSetting, ATTEMPT_KEY)
+        if attempt is not None:
+            try:
+                age = now - datetime.fromisoformat(attempt.value)
+            except ValueError:
+                age = RETRY_AFTER
+            if timedelta(0) <= age < RETRY_AFTER:
+                return False
+        _set_setting(db, ATTEMPT_KEY, now.isoformat())
+    failed = False
     for job in list(DAILY_JOBS):
         try:
             job(app)
         except Exception:
+            failed = True
             log.exception("일일 작업 실패: %s", getattr(job, "__name__", job))
+    if not failed:  # 실패한 날은 표시를 남기지 않아 한 시간 뒤 다시 한다
+        with app.state.session_factory() as db:
+            _set_setting(db, DAILY_KEY, today)
     return True
 
 
@@ -106,6 +138,7 @@ def start(app) -> None:
     app.state.scheduler_stop = threading.Event()
     if not app.state.settings.scheduler_enabled:
         return
+    register_default_jobs()
     t = threading.Thread(target=_loop, args=(app, app.state.scheduler_stop), name="scheduler", daemon=True)
     t.start()
     app.state.scheduler_thread = t

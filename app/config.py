@@ -22,6 +22,12 @@ class Settings:
     ai_worker_enabled: bool = True
     scheduler_enabled: bool = True
     max_upload_mb: int = 100
+    backup_dir: Path | None = None
+    backup_keep_days: int = 14
+
+    def __post_init__(self) -> None:
+        if self.backup_dir is None:
+            self.backup_dir = self.data_dir.parent / "backups"
 
     @property
     def db_path(self) -> Path:
@@ -74,4 +80,15 @@ def load_settings(path: Path | None = None) -> Settings:
     if not data_dir.is_absolute():
         data_dir = path.resolve().parent / data_dir
     raw["data_dir"] = data_dir
+    if "backup_dir" in raw:
+        backup_dir = Path(raw["backup_dir"])
+        if not backup_dir.is_absolute():
+            backup_dir = path.resolve().parent / backup_dir
+        raw["backup_dir"] = backup_dir
+        resolved = backup_dir.resolve()
+        for sub in ("uploads", "decks"):
+            if resolved.is_relative_to((data_dir / sub).resolve()):
+                raise SystemExit(
+                    f"'backup_dir' 는 data_dir 안의 {sub} 폴더 안에 둘 수 없습니다 (백업이 자기 자신을 복사하게 됩니다): {backup_dir}"
+                )
     return Settings(**raw)

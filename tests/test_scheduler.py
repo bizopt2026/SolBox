@@ -114,7 +114,7 @@ def test_start_run_refuses_taken_slot(app, db):
 
 def test_daily_jobs_once_per_day_after_two(app, db, monkeypatch):
     calls = []
-    monkeypatch.setattr(scheduler, "DAILY_JOBS", [lambda app: calls.append(1), lambda app: 1 / 0, lambda app: calls.append(2)])
+    monkeypatch.setattr(scheduler, "DAILY_JOBS", [lambda app: calls.append(1), lambda app: calls.append(2)])
     set_schedule(db, Schedule(False, 0, 6, 0))
     assert tick(app, datetime(2026, 11, 18, 1, 59)) == []
     assert tick(app, datetime(2026, 11, 18, 2, 0)) == ["daily"] and calls == [1, 2]
@@ -122,6 +122,60 @@ def test_daily_jobs_once_per_day_after_two(app, db, monkeypatch):
     assert tick(app, datetime(2026, 11, 19, 2, 5)) == ["daily"]
     db.expire_all()
     assert db.get(AppSetting, "daily_last_run").value == "2026-11-19"
+
+
+def test_failed_daily_job_is_retried_after_an_hour(app, db, monkeypatch):
+    calls = []
+    state = {"fail": True}
+
+    def flaky(app):
+        calls.append("flaky")
+        if state["fail"]:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(scheduler, "DAILY_JOBS", [lambda app: calls.append("ok"), flaky])
+    set_schedule(db, Schedule(False, 0, 6, 0))
+    t0 = datetime(2026, 11, 18, 2, 0)
+    assert tick(app, t0) == ["daily"] and calls == ["ok", "flaky"]
+    db.expire_all()
+    assert db.get(AppSetting, "daily_last_run") is None  # 실패하면 오늘 한 것으로 치지 않는다
+    assert db.get(AppSetting, "daily_last_attempt").value == t0.isoformat()
+    assert tick(app, t0 + timedelta(minutes=59)) == [] and len(calls) == 2  # 한 시간이 지나기 전엔 다시 하지 않는다
+    state["fail"] = False
+    assert tick(app, t0 + timedelta(hours=1)) == ["daily"] and len(calls) == 4
+    db.expire_all()
+    assert db.get(AppSetting, "daily_last_run").value == "2026-11-18"
+    assert tick(app, t0 + timedelta(hours=3)) == [] and len(calls) == 4  # 성공했으니 하루 한 번
+
+
+def test_failed_daily_job_keeps_retrying_hourly(app, db, monkeypatch):
+    calls = []
+
+    def always(app):
+        calls.append(1)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(scheduler, "DAILY_JOBS", [always])
+    set_schedule(db, Schedule(False, 0, 6, 0))
+    t0 = datetime(2026, 11, 18, 2, 0)
+    for i, expected in ((0, ["daily"]), (30, []), (61, ["daily"]), (100, []), (125, ["daily"])):
+        assert tick(app, t0 + timedelta(minutes=i)) == expected
+    assert len(calls) == 3
+
+
+def test_default_jobs_registered_once_by_start(app, settings, monkeypatch):
+    settings.scheduler_enabled = True
+    monkeypatch.setattr(scheduler, "_loop", lambda app, stop: None)
+    scheduler.start(app)
+    scheduler.start(app)
+    assert len(scheduler.DAILY_JOBS) == 1
+    ran = []
+    from app import backup
+
+    monkeypatch.setattr(backup, "run_backup", lambda s: ran.append(s))
+    scheduler.DAILY_JOBS[0](app)
+    assert ran == [settings]
+    scheduler.stop(app)
 
 
 def test_tick_survives_exceptions(app, monkeypatch):
@@ -132,11 +186,12 @@ def test_tick_survives_exceptions(app, monkeypatch):
     assert tick(app, datetime(2026, 11, 17, 9, 0)) == []
 
 
-def test_start_stop_thread(app, settings):
+def test_start_stop_thread(app, settings, monkeypatch):
     settings.scheduler_enabled = False
     scheduler.start(app)
     assert app.state.scheduler_thread is None
     settings.scheduler_enabled = True
+    monkeypatch.setattr(scheduler, "tick", lambda app, now: [])  # 실제 점검(백업 포함)은 하지 않는다
     scheduler.start(app)
     assert app.state.scheduler_thread.is_alive()
     started = datetime.now()

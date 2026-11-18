@@ -35,5 +35,12 @@ ai_worker_enabled = true
 # 앱 안의 스케줄러(주간 리서치, 일일 작업) 사용 여부
 scheduler_enabled = true
 
+# 백업을 저장할 폴더. 생략하면 data_dir 와 같은 위치의 backups 폴더.
+# data_dir 안의 uploads, decks 폴더 안에는 둘 수 없다. 상대 경로는 이 설정 파일이 있는 폴더 기준이다.
+# backup_dir = "backups"
+
+# 백업을 보관할 일수 (가장 최근 백업 하나는 이보다 오래돼도 남긴다)
+backup_keep_days = 14
+
 # 업로드 파일 최대 크기(MB)
 max_upload_mb = 100

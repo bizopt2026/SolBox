@@ -11,6 +11,14 @@ from app.main import create_app
 FAKE_CLAUDE = Path(__file__).parent / "fake_claude.py"
 
 
+@pytest.fixture(autouse=True)
+def _no_daily_jobs(monkeypatch):
+    """일일 작업 목록은 테스트마다 비운 채로 시작한다 (백업 등은 scheduler.start 가 등록한다)."""
+    from app import scheduler
+
+    monkeypatch.setattr(scheduler, "DAILY_JOBS", [])
+
+
 @pytest.fixture
 def settings(tmp_path):
     return Settings(
