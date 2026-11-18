@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import threading
+from collections.abc import Callable
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 DEFAULT_TOOLS = ("Read", "Glob", "Grep")
 
@@ -60,7 +65,7 @@ def _reap(proc: subprocess.Popen) -> None:
     """죽인 프로세스를 회수한다. 손자 프로세스가 파이프를 쥐고 있어도 멈추지 않는다."""
     try:
         proc.communicate(timeout=5)
-    except subprocess.TimeoutExpired:
+    except (subprocess.TimeoutExpired, ValueError):
         for pipe in (proc.stdin, proc.stdout, proc.stderr):
             try:
                 if pipe is not None:
@@ -75,17 +80,16 @@ class ClaudeRunner:
         self.cmd = list(cmd)
         self.cwd = Path(cwd)
 
-    def run(
+    def _spawn(
         self,
-        prompt: str,
-        *,
-        allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
-        timeout_s: int = 600,
-    ) -> str:
+        output_args: list[str],
+        allowed_tools: tuple[str, ...] | list[str],
+    ) -> subprocess.Popen:
+        """공통 명령 구성과 프로세스 시작. 실패는 ClaudeError 로 돌려준다."""
         exe = shutil.which(self.cmd[0])
         if exe is None:
             raise ClaudeError("not_installed", f"Claude CLI를 찾을 수 없습니다: {self.cmd[0]}")
-        argv = [exe, *self.cmd[1:], "-p", "--output-format", "json",
+        argv = [exe, *self.cmd[1:], "-p", *output_args,
                 "--allowedTools", ",".join(allowed_tools),
                 "--tools", ",".join(allowed_tools), "--strict-mcp-config"]
         self.cwd.mkdir(parents=True, exist_ok=True)
@@ -95,7 +99,7 @@ class ClaudeRunner:
         else:
             popen_kwargs["start_new_session"] = True
         try:
-            proc = subprocess.Popen(
+            return subprocess.Popen(
                 argv, cwd=self.cwd, text=True, encoding="utf-8", errors="replace",
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 **popen_kwargs,
@@ -104,6 +108,15 @@ class ClaudeRunner:
             raise ClaudeError("not_installed", str(e)) from e
         except OSError as e:
             raise ClaudeError("unknown", str(e)[-500:]) from e
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
+        timeout_s: int = 600,
+    ) -> str:
+        proc = self._spawn(["--output-format", "json"], allowed_tools)
 
         try:
             stdout, stderr = proc.communicate(prompt, timeout=timeout_s)
@@ -134,3 +147,98 @@ class ClaudeRunner:
         if data is not None and isinstance(data.get("result"), str):
             raw = data["result"] + "\n" + stderr
         raise ClaudeError(classify_error(raw), raw.strip()[-500:])
+
+    def run_stream(
+        self,
+        prompt: str,
+        *,
+        on_text: Callable[[str], None],
+        allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
+        timeout_s: int = 600,
+    ) -> str:
+        """stream-json 으로 실행한다. 받은 텍스트를 누적해 on_text(누적)을 부르고 최종 결과 텍스트를 돌려준다."""
+        proc = self._spawn(
+            ["--output-format", "stream-json", "--verbose", "--include-partial-messages"], allowed_tools
+        )
+        stderr_parts: list[str] = []
+        timed_out = threading.Event()
+
+        def write_prompt() -> None:
+            try:
+                proc.stdin.write(prompt)
+                proc.stdin.flush()
+            except (OSError, ValueError):
+                pass  # 프로세스가 입력을 다 읽기 전에 끝났다. 결과 분류는 종료 상태로 한다.
+            finally:
+                try:
+                    proc.stdin.close()
+                except (OSError, ValueError):
+                    pass
+
+        def drain_stderr() -> None:
+            try:
+                for chunk in iter(lambda: proc.stderr.read(4096), ""):
+                    stderr_parts.append(chunk)
+            except (OSError, ValueError):
+                pass
+
+        def on_deadline() -> None:
+            if proc.poll() is None:
+                timed_out.set()
+                _kill_tree(proc)
+
+        writer = threading.Thread(target=write_prompt, name="claude-stdin", daemon=True)
+        err_reader = threading.Thread(target=drain_stderr, name="claude-stderr", daemon=True)
+        timer = threading.Timer(timeout_s, on_deadline)
+        timer.daemon = True
+        threads = [writer, err_reader]
+        accumulated = ""
+        result_line: dict | None = None
+        try:
+            writer.start()
+            err_reader.start()
+            timer.start()
+            for line in proc.stdout:
+                try:
+                    data = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(data, dict):
+                    continue
+                kind = data.get("type")
+                if kind == "result":
+                    result_line = data
+                elif kind == "stream_event":
+                    event = data.get("event")
+                    delta = event.get("delta") if isinstance(event, dict) else None
+                    if (isinstance(event, dict) and event.get("type") == "content_block_delta"
+                            and isinstance(delta, dict) and delta.get("type") == "text_delta"
+                            and isinstance(delta.get("text"), str)):
+                        accumulated += delta["text"]
+                        try:
+                            on_text(accumulated)
+                        except Exception:  # noqa: BLE001 - 콜백 오류로 실행을 멈추지 않는다
+                            log.exception("on_text 콜백 오류")
+            proc.wait()
+        except BaseException:
+            _kill_tree(proc)
+            raise
+        finally:
+            timer.cancel()
+            if proc.poll() is None:
+                _kill_tree(proc)
+            for t in threads:
+                if t.is_alive():
+                    t.join(timeout=5)
+            _reap(proc)
+
+        if timed_out.is_set():
+            raise ClaudeError("timeout", f"{timeout_s}초 안에 끝나지 않았습니다.")
+
+        stderr = "".join(stderr_parts)
+        result = result_line.get("result") if result_line is not None else None
+        if (proc.returncode == 0 and result_line is not None
+                and not result_line.get("is_error") and isinstance(result, str)):
+            return result
+        raw = (result if isinstance(result, str) else "") + "\n" + stderr
+        raise ClaudeError(classify_error(raw), raw.strip()[-500:] or "Claude 가 결과 없이 끝났습니다.")

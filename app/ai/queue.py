@@ -103,7 +103,7 @@ def process_next(session_factory: sessionmaker[Session], runner: ClaudeRunner, s
         if handler is None:
             raise ValueError(f"알 수 없는 작업 종류: {kind}")
         with session_factory() as db:
-            result = handler(db, job_input, runner, settings)
+            result = handler(db, {**job_input, "_job_id": job_id}, runner, settings)
     except ClaudeError as e:
         _finish(session_factory, job_id, status="failed", error_kind=e.kind, error=e.message)
     except Exception as e:  # noqa: BLE001 - 어떤 처리기 오류도 작업 실패로 기록한다

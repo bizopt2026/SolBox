@@ -6,6 +6,36 @@ import time
 from pathlib import Path
 
 
+def emit(obj) -> None:
+    print(obj if isinstance(obj, str) else json.dumps(obj, ensure_ascii=False), flush=True)
+
+
+def run_stream_mode(control: dict, result: str) -> int:
+    chunks = control.get("chunks", [])
+    fail_after = control.get("stream_fail_after")
+    if control.get("noise_lines"):
+        emit("not json at all")
+        emit({"type": "system", "subtype": "init"})
+        emit({"type": "stream_event", "event": {"type": "message_start"}})
+    for i, text in enumerate(chunks):
+        if fail_after is not None and i >= fail_after:
+            sys.stderr.write(control.get("stderr", ""))
+            sys.stderr.flush()
+            return control.get("exit_code", 1)
+        emit({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0,
+                                                 "delta": {"type": "text_delta", "text": text}}})
+        time.sleep(control.get("chunk_delay_s", 0))
+    if fail_after is not None:
+        sys.stderr.write(control.get("stderr", ""))
+        sys.stderr.flush()
+        return control.get("exit_code", 1)
+    if not control.get("no_result"):
+        final = control["result"] if "result" in control else "".join(chunks)
+        emit({"type": "result", "subtype": "success", "is_error": bool(control.get("result_is_error")),
+              "result": final})
+    return control.get("exit_code", 0)
+
+
 def main() -> int:
     sys.stdin.reconfigure(encoding="utf-8")
     sys.stdout.reconfigure(encoding="utf-8")
@@ -34,6 +64,8 @@ def main() -> int:
     elif mode == "error":
         sys.stderr.write(control.get("stderr", ""))
         return control.get("exit_code", 1)
+    elif mode == "stream":
+        return run_stream_mode(control, result)
     elif mode == "is_error":
         print(json.dumps({"type": "result", "is_error": True, "result": result}, ensure_ascii=False))
         return control.get("exit_code", 0)

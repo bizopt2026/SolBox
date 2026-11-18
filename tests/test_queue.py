@@ -254,3 +254,13 @@ def test_status_redirects_when_failed_and_encodes_non_ascii(user_client, db):
     r = user_client.get(f"/jobs/{j.id}/status", params={"next": "/a?q=한글&x=1"})
     assert r.status_code == 200
     assert r.headers["HX-Redirect"] == "/a?q=%ED%95%9C%EA%B8%80&x=1"
+
+
+def test_handler_receives_job_id(app, db, settings, monkeypatch):
+    got = {}
+    monkeypatch.setitem(HANDLERS, "probe", lambda db, inp, r, s: got.update(inp) or "ok")
+    job = enqueue(db, "probe", {"a": 1}, None)
+    process_next(app.state.session_factory, app.state.runner, settings)
+    assert got == {"a": 1, "_job_id": job.id}
+    db.refresh(job)
+    assert job.input == {"a": 1}
