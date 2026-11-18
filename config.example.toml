@@ -26,6 +26,9 @@ ai_concurrency = 1
 # AI 작업 제한 시간(초)
 ai_timeout_s = 600
 
+# 웹 리서치 작업 제한 시간(초)
+research_timeout_s = 1800
+
 # AI 작업 처리기 사용 여부
 ai_worker_enabled = true
 

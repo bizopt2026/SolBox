@@ -18,6 +18,7 @@ class Settings:
     claude_cmd: list[str] = field(default_factory=lambda: ["claude"])
     ai_concurrency: int = 1
     ai_timeout_s: int = 600
+    research_timeout_s: int = 1800
     ai_worker_enabled: bool = True
     max_upload_mb: int = 100
 
@@ -32,6 +33,10 @@ class Settings:
     @property
     def knowledge_dir(self) -> Path:
         return self.data_dir / "knowledge"
+
+    @property
+    def research_work_dir(self) -> Path:
+        return self.data_dir / "research_work"
 
     @property
     def decks_dir(self) -> Path:

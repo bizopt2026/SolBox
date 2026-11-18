@@ -17,6 +17,8 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 DEFAULT_TOOLS = ("Read", "Glob", "Grep")
+WEB_TOOLS = ("WebSearch", "WebFetch")
+FILE_TOOLS = DEFAULT_TOOLS
 
 # (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다.
 _CLASSIFY = [
@@ -35,6 +37,13 @@ class ClaudeError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+def assert_tool_separation(allowed_tools: tuple[str, ...] | list[str]) -> None:
+    """웹 도구와 파일 도구는 한 작업에 함께 줄 수 없다."""
+    tools = set(allowed_tools)
+    if tools & set(WEB_TOOLS) and tools & set(FILE_TOOLS):
+        raise ValueError("웹 도구와 파일 도구를 함께 쓸 수 없습니다.")
 
 
 def classify_error(text: str) -> str:
@@ -86,15 +95,18 @@ class ClaudeRunner:
         self,
         output_args: list[str],
         allowed_tools: tuple[str, ...] | list[str],
+        cwd: Path | None = None,
     ) -> subprocess.Popen:
         """공통 명령 구성과 프로세스 시작. 실패는 ClaudeError 로 돌려준다."""
+        assert_tool_separation(allowed_tools)
+        work_dir = Path(cwd) if cwd is not None else self.cwd
         exe = shutil.which(self.cmd[0])
         if exe is None:
             raise ClaudeError("not_installed", f"Claude CLI를 찾을 수 없습니다: {self.cmd[0]}")
         argv = [exe, *self.cmd[1:], "-p", *output_args,
                 "--allowedTools", ",".join(allowed_tools),
                 "--tools", ",".join(allowed_tools), "--strict-mcp-config"]
-        self.cwd.mkdir(parents=True, exist_ok=True)
+        work_dir.mkdir(parents=True, exist_ok=True)
         popen_kwargs: dict = {}
         if sys.platform == "win32":
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -102,7 +114,7 @@ class ClaudeRunner:
             popen_kwargs["start_new_session"] = True
         try:
             return subprocess.Popen(
-                argv, cwd=self.cwd, text=True, encoding="utf-8", errors="replace",
+                argv, cwd=work_dir, text=True, encoding="utf-8", errors="replace",
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 **popen_kwargs,
             )
@@ -117,8 +129,9 @@ class ClaudeRunner:
         *,
         allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
         timeout_s: int = 600,
+        cwd: Path | None = None,
     ) -> str:
-        proc = self._spawn(["--output-format", "json"], allowed_tools)
+        proc = self._spawn(["--output-format", "json"], allowed_tools, cwd)
 
         try:
             stdout, stderr = proc.communicate(prompt, timeout=timeout_s)
@@ -157,10 +170,11 @@ class ClaudeRunner:
         on_text: Callable[[str], None],
         allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
         timeout_s: int = 600,
+        cwd: Path | None = None,
     ) -> str:
         """stream-json 으로 실행한다. 받은 텍스트를 누적해 on_text(누적)을 부르고 최종 결과 텍스트를 돌려준다."""
         proc = self._spawn(
-            ["--output-format", "stream-json", "--verbose", "--include-partial-messages"], allowed_tools
+            ["--output-format", "stream-json", "--verbose", "--include-partial-messages"], allowed_tools, cwd
         )
         stderr_parts: list[str] = []
         timed_out = False
