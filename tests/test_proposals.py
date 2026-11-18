@@ -92,7 +92,7 @@ def test_create_with_extra_solutions(user_client, db):
     user_client.post("/proposals", data={"customer_id": c.id, "extra_solution_ids": [s.id, 9999]})
     p = db.query(Proposal).one()
     assert p.extra_solution_ids == [s.id]
-    assert [x.id for x in p.solutions] == [s.id]
+    assert p.solutions == []  # 방향을 고를 때 채워진다
 
 
 def test_candidate_solutions_boxed_plus_extra(db):
@@ -118,7 +118,30 @@ def test_update_target(user_client, db):
     assert [x.id for x in candidate_solutions(db, p)] == [s.id]
     user_client.post(f"/proposals/{p.id}/target", data={"request_memo": "비움"})
     db.refresh(p)
-    assert p.extra_solution_ids == [] and p.solutions == []
+    assert p.extra_solution_ids == []
+
+
+def test_update_target_keeps_direction_solutions_and_boxed_extras(user_client, db):
+    c, _ = _customer_business(db)
+    chosen = Solution(name="방향솔루션", stage="boxed")
+    was_extra = Solution(name="이제박스", stage="boxed")
+    db.add_all([chosen, was_extra]); db.flush()
+    p = Proposal(customer_id=c.id, solutions=[chosen], extra_solution_ids=[was_extra.id])
+    db.add(p); db.commit()
+    user_client.post(f"/proposals/{p.id}/target", data={"request_memo": "수정"})
+    db.refresh(p)
+    assert [s.id for s in p.solutions] == [chosen.id]
+    assert p.extra_solution_ids == [was_extra.id]
+
+
+def test_non_ascii_digit_ids_do_not_crash(user_client, db):
+    c, _ = _customer_business(db)
+    assert user_client.post("/proposals", data={"customer_id": "²"}).status_code == 400
+    assert user_client.post("/proposals", data={"customer_id": str(c.id), "business_id": "²"}).status_code == 400
+    r = user_client.post("/proposals", data={"customer_id": str(c.id), "extra_solution_ids": ["²", "1" * 30]},
+                         follow_redirects=False)
+    assert r.status_code == 303
+    assert db.query(Proposal).one().extra_solution_ids == []
 
 
 def test_busy_notice(user_client, db):
@@ -212,7 +235,7 @@ def test_customer_detail_lists_proposals_and_new_link(user_client, db):
     t = user_client.get(f"/customers/{c.id}").text
     assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}" in t
     t = user_client.get(f"/businesses/{b.id}").text
-    assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}&amp;business_id={b.id}" in t.replace("&business_id", "&amp;business_id")
+    assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}&amp;business_id={b.id}" in t
 
 
 def test_solution_detail_lists_proposals(user_client, db):

@@ -22,12 +22,19 @@ BUSINESS_MISMATCH = "선택한 고객의 사업이 아닙니다."
 NOTICES = {"busy": "이미 AI 작업이 진행 중입니다."}
 
 
+def _parse_id(raw: str) -> int | None:
+    """ASCII 숫자만 담긴 짧은 문자열이면 정수로, 아니면 None."""
+    raw = raw.strip()
+    return int(raw) if raw.isascii() and raw.isdigit() and len(raw) <= 9 else None
+
+
 def _solution_ids(db: Session, raw: list[str]) -> list[int]:
     """폼에서 온 솔루션 번호 중 실제로 있는 것만, 중복 없이 입력 순서대로."""
     ids: list[int] = []
     for r in raw:
-        if r.strip().isdigit() and int(r) not in ids and db.get(Solution, int(r)) is not None:
-            ids.append(int(r))
+        sid = _parse_id(r)
+        if sid is not None and sid not in ids and db.get(Solution, sid) is not None:
+            ids.append(sid)
     return ids
 
 
@@ -84,18 +91,19 @@ def create(
         "customer_id": customer_id.strip(), "business_id": business_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
     }
-    customer = db.get(Customer, int(form["customer_id"])) if form["customer_id"].isdigit() else None
+    cid = _parse_id(form["customer_id"])
+    customer = db.get(Customer, cid) if cid is not None else None
     if customer is None:
         return _new_page(request, db, form, CUSTOMER_REQUIRED)
     business = None
     if form["business_id"]:
-        business = db.get(Business, int(form["business_id"])) if form["business_id"].isdigit() else None
+        bid = _parse_id(form["business_id"])
+        business = db.get(Business, bid) if bid is not None else None
         if business is None or business.customer_id != customer.id:
             return _new_page(request, db, form, BUSINESS_MISMATCH)
     proposal = Proposal(
         customer_id=customer.id, business_id=business.id if business else None,
         request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"],
-        solutions=[db.get(Solution, i) for i in form["extra_solution_ids"]],
         created_by_id=user.id,
     )
     db.add(proposal)
@@ -124,9 +132,13 @@ def update_target(
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
     ids = _solution_ids(db, extra_solution_ids)
+    # 폼에는 박스 등록이 아닌 솔루션만 나온다. 그 사이 박스에 등록된 기존 선택은 그대로 둔다.
+    for sid in proposal.extra_solution_ids or []:
+        solution = db.get(Solution, sid)
+        if solution is not None and solution.stage == "boxed" and sid not in ids:
+            ids.append(sid)
     proposal.request_memo = request_memo.strip()
     proposal.extra_solution_ids = ids
-    proposal.solutions = [db.get(Solution, i) for i in ids]
     db.commit()
     return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
 
