@@ -1,0 +1,13 @@
+<label>요청 메모
+  <textarea name="request_memo" rows="4" placeholder="고객이 요청한 내용, 강조할 점 등">{{ memo }}</textarea>
+</label>
+<details>
+  <summary>박스 등록이 아닌 솔루션도 포함하기</summary>
+  {% if extra_candidates %}
+  <div class="stack">
+    {% for s in extra_candidates %}
+    <label><span><input type="checkbox" name="extra_solution_ids" value="{{ s.id }}" {{ "checked" if s.id in selected_ids }}> {{ s.name }} <span class="muted">({{ labels.STAGES.get(s.stage, s.stage) }})</span></span></label>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted">포함할 수 있는 다른 솔루션이 없습니다.</p>{% endif %}
+</details>

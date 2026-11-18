@@ -42,6 +42,7 @@ def detail_page(request: Request, db: Session, user: User, solution: Solution, n
         solution=solution, notice=notice,
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
         activities=newest_first(activities_linked_to(db, Activity.solutions, solution)),
+        proposals=sorted(solution.proposals, key=lambda p: p.updated_at, reverse=True),
         can_delete=can_delete(user, solution),
     )
 

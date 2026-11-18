@@ -82,6 +82,7 @@ def detail(business_id: int, request: Request, user: User = Depends(require_user
     return render(
         request, "businesses/detail.html", business=business,
         activities=newest_first(activities_linked_to(db, Activity.businesses, business)),
+        proposals=sorted(business.proposals, key=lambda p: p.updated_at, reverse=True),
         can_delete=can_delete(user, business),
     )
 

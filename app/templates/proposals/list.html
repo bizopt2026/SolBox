@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}제안{% endblock %}
+{% block content %}
+<h1>제안</h1>
+<form method="get" action="/proposals" class="row">
+  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
+  <label>상태
+    <select name="status">
+      <option value="">전체</option>
+      {% for code, name in labels.PROPOSAL_STATUSES.items() %}
+      <option value="{{ code }}" {{ "selected" if code == status }}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">검색</button>
+  <a href="/proposals/new">+ 제안 만들기</a>
+</form>
+{% if proposals %}
+<table>
+  <thead><tr><th>제안</th><th>고객</th><th>상태</th><th>수정</th></tr></thead>
+  <tbody>
+  {% for p in proposals %}
+    <tr>
+      <td><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a></td>
+      <td><a href="/customers/{{ p.customer_id }}">{{ p.customer.name }}</a></td>
+      <td>{{ labels.PROPOSAL_STATUSES.get(p.status, p.status) }}</td>
+      <td>{{ p.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">{{ "검색 결과가 없습니다." if (q or status) else "등록된 제안 건이 없습니다." }}</p>{% endif %}
+{% endblock %}

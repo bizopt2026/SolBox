@@ -36,6 +36,13 @@ activity_customers = _link_table("activity_customers", "customer", "customers")
 activity_businesses = _link_table("activity_businesses", "business", "businesses")
 activity_partners = _link_table("activity_partners", "partner", "partners")
 
+proposal_solutions = Table(
+    "proposal_solutions",
+    Base.metadata,
+    Column("proposal_id", ForeignKey("proposals.id", ondelete="CASCADE"), primary_key=True),
+    Column("solution_id", ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -71,6 +78,7 @@ class Customer(Stamped, Base):
     memo: Mapped[str] = mapped_column(String, default="")
 
     businesses: Mapped[list[Business]] = relationship(back_populates="customer")
+    proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
 
 
 class Business(Stamped, Base):
@@ -85,6 +93,7 @@ class Business(Stamped, Base):
     memo: Mapped[str] = mapped_column(String, default="")
 
     customer: Mapped[Customer] = relationship(back_populates="businesses")
+    proposals: Mapped[list[Proposal]] = relationship(back_populates="business")
 
 
 class Solution(Stamped, Base):
@@ -106,6 +115,9 @@ class Solution(Stamped, Base):
     )
     activities: Mapped[list[Activity]] = relationship(
         secondary=activity_solutions, back_populates="solutions"
+    )
+    proposals: Mapped[list[Proposal]] = relationship(
+        secondary=proposal_solutions, back_populates="solutions"
     )
 
 
@@ -160,3 +172,44 @@ class AIJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Proposal(Stamped, Base):
+    __tablename__ = "proposals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String, default="")
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    business_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id"), nullable=True)
+    request_memo: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String, default="new")
+    extra_solution_ids: Mapped[list] = mapped_column(JSON, default=list)
+    directions: Mapped[list] = mapped_column(JSON, default=list)
+    selected_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    outline: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    outline_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deck_name: Mapped[str] = mapped_column(String, default="")
+    deck_built_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+
+    customer: Mapped[Customer] = relationship(back_populates="proposals")
+    business: Mapped[Business | None] = relationship(back_populates="proposals")
+    solutions: Mapped[list[Solution]] = relationship(
+        secondary=proposal_solutions, back_populates="proposals"
+    )
+    messages: Mapped[list[ProposalMessage]] = relationship(
+        back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalMessage.id"
+    )
+    active_job: Mapped[AIJob | None] = relationship(foreign_keys=[active_job_id])
+
+
+class ProposalMessage(Base):
+    __tablename__ = "proposal_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proposal_id: Mapped[int] = mapped_column(ForeignKey("proposals.id"))
+    role: Mapped[str] = mapped_column(String)  # user / assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+    proposal: Mapped[Proposal] = relationship(back_populates="messages")

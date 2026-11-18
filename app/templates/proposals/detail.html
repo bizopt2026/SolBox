@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
+{# AI 작업 상태 조각이 들어갈 자리 (뒤 Task 가 채운다) #}
+<div id="ai-status">{% include "proposals/_status.html" ignore missing %}</div>
+<div class="row">
+  <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
+  {% if can_delete %}
+  <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
+    <button type="submit">삭제</button>
+  </form>
+  {% endif %}
+</div>
+<section class="card">
+  <h2>대상</h2>
+  <dl>
+    <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
+    <dt>기존 사업</dt><dd>{% if proposal.business %}<a href="/businesses/{{ proposal.business_id }}">{{ proposal.business.name }}</a>{% endif %}</dd>
+    <dt>요청 메모</dt><dd>{{ proposal.request_memo }}</dd>
+    <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">박스에 등록된 솔루션이 없습니다.</span>{% endfor %}</dd>
+  </dl>
+  <details>
+    <summary>대상 수정</summary>
+    <form method="post" action="/proposals/{{ proposal.id }}/target" class="stack">
+      {% set memo = proposal.request_memo %}{% set selected_ids = proposal.extra_solution_ids %}
+      {% include "proposals/_target_fields.html" %}
+      <div><button type="submit">저장</button></div>
+    </form>
+  </details>
+</section>
+{# 아래 네 구역은 뒤 Task 들이 partial 만 추가해 채운다 #}
+<section class="card" id="directions">
+  <h2>제안 방향</h2>
+  {% include "proposals/_directions.html" ignore missing %}
+</section>
+<section class="card" id="chat">
+  <h2>대화로 구체화</h2>
+  {% include "proposals/_chat.html" ignore missing %}
+</section>
+<section class="card" id="outline">
+  <h2>슬라이드 구성안</h2>
+  {% include "proposals/_outline.html" ignore missing %}
+</section>
+<section class="card" id="deck">
+  <h2>제안서</h2>
+  {% include "proposals/_deck.html" ignore missing %}
+</section>
+<p><a href="/proposals">&larr; 목록</a></p>
+{% endblock %}

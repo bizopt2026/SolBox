@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_actions %}
+{% from "_macros.html" import activity_list, detail_actions, proposal_list %}
 {% block title %}{{ business.name }}{% endblock %}
 {% block content %}
 <h1>{{ business.name }}</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {{ detail_actions("/businesses", business, can_delete) }}
 <section class="card"><dl><dt>고객</dt><dd><a href="/customers/{{ business.customer_id }}">{{ business.customer.name }}</a></dd><dt>기간</dt><dd>{{ business.period }}</dd><dt>상태</dt><dd>{{ business.status }}</dd><dt>설명</dt><dd>{{ business.description }}</dd><dt>메모</dt><dd>{{ business.memo }}</dd></dl></section>
+{{ proposal_list(proposals, "/proposals/new?customer_id=" ~ business.customer_id ~ "&business_id=" ~ business.id) }}
 {{ activity_list(activities) }}
 <p><a href="/businesses">&larr; 목록</a></p>
 {% endblock %}

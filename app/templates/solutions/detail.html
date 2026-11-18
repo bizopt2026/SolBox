@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_actions %}
+{% from "_macros.html" import activity_list, detail_actions, proposal_list %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
 <h1>{{ solution.name }}</h1>
@@ -31,6 +31,7 @@
   <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">AI로 소개 초안 만들기</button></form>
   {% endif %}
 </section>
+{{ proposal_list(proposals, heading="이 솔루션이 들어간 제안 건") }}
 {{ activity_list(activities) }}
 <p><a href="/solutions">&larr; 목록</a></p>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_actions %}
+{% from "_macros.html" import activity_list, detail_actions, proposal_list %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
 <h1>{{ customer.name }}</h1>
@@ -12,6 +12,7 @@
   {% else %}<p class="muted">등록된 사업이 없습니다.</p>{% endif %}
   <a href="/businesses/new?customer_id={{ customer.id }}">+ 사업 등록</a>
 </section>
+{{ proposal_list(proposals, "/proposals/new?customer_id=" ~ customer.id) }}
 {{ activity_list(activities) }}
 <p><a href="/customers">&larr; 목록</a></p>
 {% endblock %}

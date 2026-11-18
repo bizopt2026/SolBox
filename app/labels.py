@@ -34,3 +34,20 @@ ERROR_KINDS = {
     "bad_output": "AI가 예상하지 못한 형식으로 답했습니다. 다시 시도해 주세요.",
     "unknown": "알 수 없는 오류가 발생했습니다. 잠시 뒤에 다시 시도해 주세요.",
 }
+
+PROPOSAL_STATUSES = {
+    "new": "대상 지정",
+    "directions": "방향 검토",
+    "refining": "구체화",
+    "outlined": "구성안",
+    "deck": "제안서 완료",
+}
+
+SLIDE_KINDS = {
+    "cover": "표지",
+    "bullets": "글머리",
+    "two_column": "2단 비교",
+    "table": "표",
+    "steps": "단계",
+    "closing": "마무리",
+}
