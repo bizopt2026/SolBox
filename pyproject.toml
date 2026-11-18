@@ -29,7 +29,7 @@ dev = ["pytest", "httpx"]
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["templates/**/*", "static/**/*"]
+app = ["templates/**/*", "static/**/*", "ai/prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

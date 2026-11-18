@@ -71,6 +71,9 @@
     {% for name in f.new_names[rel] %}
     <label><input type="checkbox" name="new_{{ rel }}" value="{{ name }}" checked> {{ name }} 새로 등록</label>
     {% endfor %}
+    {% for name in (f.new_candidates or {}).get(rel, []) %}
+    <label><input type="checkbox" name="new_{{ rel }}" value="{{ name }}"> {{ name }} 새로 등록</label>
+    {% endfor %}
     <label>직접 추가 <input name="new_{{ rel }}" placeholder="새로 등록할 {{ title }} 이름"></label>
   </div>
   {% endfor %}

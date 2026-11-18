@@ -5,15 +5,18 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
+from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app import labels
+from app.ai.queue import enqueue, queue_position
+from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
 from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Activity, Business, Customer, Partner, Solution, User
+from app.models import AIJob, Activity, Business, Customer, Partner, Solution, User
 from app.routers._common import get_deletable_or_404, get_or_404, newest_first
 from app.security import can_delete, require_user
 
@@ -130,7 +133,8 @@ def blank_values() -> dict:
         "kind": "meeting", "date": date.today().isoformat(), "title": "", "raw_text": "", "summary_md": "",
         "follow_ups": [], "demand_signals": [],
         "selected": {t: [] for t in LINK_TYPES},
-        "new_names": {t: [] for t in NEW_TYPES},
+        "new_names": {t: [] for t in NEW_TYPES},        # 체크된 채로 보이는 새 이름
+        "new_candidates": {t: [] for t in NEW_TYPES},   # 체크 해제로 보이는 새 이름 후보 (AI 초안)
     }
 
 
@@ -162,7 +166,11 @@ def _submitted_values(
         "follow_ups": [{"task": t, "owner": o, "due": d, "done": False} for t, o, d in _rows(fu_task, fu_owner, fu_due)],
         "demand_signals": [{"customer": c, "content": t} for c, t in _rows(ds_customer, ds_content)],
         "selected": {t: [int(i) for i in v if i.strip().isdigit()] for t, v in ids.items()},
-        "new_names": {"solutions": new_solutions, "customers": new_customers, "partners": new_partners},
+        "new_names": {
+            rel: [n.strip() for n in names if n.strip()]
+            for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners))
+        },
+        "new_candidates": {t: [] for t in NEW_TYPES},
     }
 
 
@@ -262,6 +270,79 @@ def save_raw(
     db.commit()
     mirror.sync(activity)
     return RedirectResponse(f"/activities/{activity.id}", status_code=303)
+
+
+DRAFT_KIND = "activity_structure"
+
+
+def _draft_job(db: Session, job_id: int, user: User) -> AIJob:
+    job = get_or_404(db, AIJob, job_id)
+    if job.kind != DRAFT_KIND:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    if job.requester_id != user.id:
+        raise HTTPException(status_code=403, detail="본인이 요청한 초안만 볼 수 있습니다.")
+    return job
+
+
+def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
+    """AI 초안을 정리 폼 값으로 바꾼다. 새 이름은 체크 해제 후보로 둔다."""
+    d = normalize_draft(d, date.today())
+    found = match_mentions(db, d.mentions)
+    values = blank_values()
+    values.update(
+        kind=d.kind, date=d.date, title=d.title, raw_text=raw_text, summary_md=draft_summary_md(d),
+        follow_ups=[{**f.model_dump(), "done": False} for f in d.follow_ups if f.task.strip()],
+        demand_signals=[s.model_dump() for s in d.demand_signals if s.content.strip()],
+        selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
+                  "business": found["businesses"]["matched"], "partner": found["partners"]["matched"]},
+        new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
+    )
+    return values
+
+
+@router.post("/draft")
+def start_draft(
+    request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    try:
+        text = read_memo(raw_text, memo_file)
+    except HTTPException:
+        return render(request, "activities/new.html", status_code=400, error=MEMO_REQUIRED, raw_text=raw_text)
+    job = enqueue(db, DRAFT_KIND, {"raw_text": text}, user.id)
+    return RedirectResponse(f"/activities/draft/{job.id}", status_code=303)
+
+
+@router.get("/draft/{job_id}")
+def draft_page(job_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    job = _draft_job(db, job_id, user)
+    raw_text = str((job.input or {}).get("raw_text", ""))
+    ctx = dict(job=job, raw_text=raw_text, next=f"/activities/draft/{job.id}", f=None, choices=None, error_kind="")
+    if job.status in ("pending", "running"):
+        return render(request, "activities/draft.html", position=queue_position(db, job), **ctx)
+    draft = None
+    if job.status == "done":
+        try:
+            draft = ActivityDraft.model_validate_json(job.result)
+        except ValidationError:
+            draft = None
+    ctx["choices"] = _choices(db)
+    if draft is None:
+        values = blank_values()
+        values["raw_text"] = raw_text
+        ctx["error_kind"] = job.error_kind if job.status == "failed" else "bad_output"
+        return render(request, "activities/draft.html", position=0, f=values, **{k: v for k, v in ctx.items() if k != "f"})
+    return render(request, "activities/draft.html", position=0, f=draft_values(db, draft, raw_text),
+                  **{k: v for k, v in ctx.items() if k != "f"})
+
+
+@router.post("/draft/{job_id}/retry")
+def retry_draft(job_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    job = _draft_job(db, job_id, user)
+    if job.status != "failed":
+        raise HTTPException(status_code=400, detail="실패한 작업만 다시 시도할 수 있습니다.")
+    new = enqueue(db, DRAFT_KIND, dict(job.input or {}), user.id, job.priority)
+    return RedirectResponse(f"/activities/draft/{new.id}", status_code=303)
 
 
 def _form_params(
