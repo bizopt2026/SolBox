@@ -20,12 +20,12 @@
 {% endmacro %}
 
 {% macro detail_actions(path, obj, can_delete) %}
-<p class="row">
+<div class="row">
   <a href="{{ path }}/{{ obj.id }}/edit">수정</a>
   {% if can_delete %}
   <form method="post" action="{{ path }}/{{ obj.id }}/delete" onsubmit="return confirm('삭제할까요?')">
     <button type="submit">삭제</button>
   </form>
   {% endif %}
-</p>
+</div>
 {% endmacro %}

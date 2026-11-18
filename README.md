@@ -25,8 +25,11 @@ copy config.example.toml config.toml
 
 메모장 등으로 `config.toml` 을 열어 다음을 확인합니다.
 
-- `secret_key`: **반드시 길고 무작위한 값으로 바꾸세요.** 기본값 `change-me` 그대로 쓰면 로그인 세션을 누구나 위조할 수 있습니다.
-- `data_dir`: 데이터(`app.db`, `uploads/`, `knowledge/`)를 저장할 폴더. 상대 경로는 `config.toml` 이 있는 폴더 기준입니다.
+- `secret_key`: **반드시 길고 무작위한 값으로 바꾸세요.** 비어 있거나 `change-me` 그대로면 서버가 시작되지 않습니다. 아래 명령으로 만들 수 있습니다.
+  ```powershell
+  python -c "import secrets; print(secrets.token_urlsafe(32))"
+  ```
+- `data_dir`: 데이터(`app.db`, `uploads/`, `knowledge/`)를 저장할 폴더. 상대 경로는 `config.toml` 이 있는 폴더 기준입니다. Windows 경로는 `data_dir = "C:/solbox/data"` 처럼 `/` 로 쓰거나 `data_dir = 'C:\solbox\data'` 처럼 작은따옴표로 감싸세요 (큰따옴표 안의 `\` 는 오류가 납니다).
 - `host`, `port`: 기본은 `127.0.0.1`, `8443` 입니다. 다른 PC에서도 접속하게 하려면 `host = "0.0.0.0"` 으로 바꿉니다.
 - `ssl_certfile`, `ssl_keyfile`: 인증서와 키 파일 경로. 둘 다 적으면 HTTPS로, 적지 않으면 HTTP로 열립니다.
 
@@ -35,8 +38,10 @@ copy config.example.toml config.toml
 처음 한 번, 관리자 계정을 만듭니다. 아이디·이름·비밀번호는 원하는 값으로 바꾸세요.
 
 ```powershell
-python -m app.cli create-admin --username admin --name 관리자 --password 원하는비밀번호
+python -m app.cli create-admin --username admin --name 관리자
 ```
+
+비밀번호는 실행하면 입력창에서 두 번 물어봅니다 (화면에 보이지 않습니다).
 
 일반 사용자는 관리자로 로그인한 뒤 화면 위쪽 "관리 → 사용자"에서 추가합니다.
 
@@ -77,7 +82,7 @@ python -m pytest -q
 
 자동 테스트는 가짜 CLI로 돌립니다. 실제 PC에 설치한 Claude CLI로는 아래를 한 번 직접 확인하세요.
 
-1. `claude --help` 에 `-p`, `--output-format`, `--allowedTools` 가 있는지 확인합니다. 이름이 다르면 `app/ai/runner.py` 의 명령 구성을 맞춥니다.
+1. `claude --help` 에 `-p`, `--output-format`, `--allowedTools`, `--tools`, `--strict-mcp-config` 가 모두 있는지 확인합니다. 이름이 다르면 `app/ai/runner.py` 의 명령 구성을 맞춥니다.
 2. 활동 기록에 메모를 붙여 넣고 "AI로 정리" → 초안이 나오고 저장되는지 확인합니다.
 3. 솔루션에 자료 파일을 올리고 "AI로 소개 초안 만들기" → 초안이 채워지는지 확인합니다.
 4. 두 브라우저에서 동시에 요청 → 한쪽에 "AI 대기 2번째" 가 보이는지 확인합니다.

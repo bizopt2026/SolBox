@@ -45,8 +45,13 @@ def load_settings(path: Path | None = None) -> Settings:
     path = Path(path)
     if not path.is_file():
         raise SystemExit(f"설정 파일을 찾을 수 없습니다: {path}")
-    with path.open("rb") as f:
-        raw = tomllib.load(f)
+    try:
+        raw = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+    except tomllib.TOMLDecodeError as e:
+        raise SystemExit(
+            f"설정 파일을 읽을 수 없습니다: {path} ({e})\n"
+            "Windows 경로는 C:/solbox/data 처럼 / 로 쓰거나 'C:\\solbox\\data' 처럼 작은따옴표로 감싸세요."
+        ) from None
     known = {f.name for f in fields(Settings)}
     unknown = set(raw) - known
     if unknown:
@@ -54,6 +59,11 @@ def load_settings(path: Path | None = None) -> Settings:
     for key in ("data_dir", "secret_key"):
         if key not in raw:
             raise SystemExit(f"설정 파일에 '{key}' 값이 없습니다: {path}")
+    if str(raw["secret_key"]).strip() in ("", "change-me"):
+        raise SystemExit(
+            f"설정 파일의 'secret_key' 를 길고 무작위한 값으로 바꾸세요: {path}\n"
+            'python -c "import secrets; print(secrets.token_urlsafe(32))" 로 만들 수 있습니다.'
+        )
     data_dir = Path(raw["data_dir"])
     if not data_dir.is_absolute():
         data_dir = path.resolve().parent / data_dir

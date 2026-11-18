@@ -37,9 +37,12 @@ def load_prompt(name: str, **values) -> str:
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(values.get(m.group(1), m.group(0))), text)
 
 
-def run_json(runner: ClaudeRunner, prompt: str, model: type[T], settings: Settings) -> T:
-    """프롬프트를 실행해 JSON 을 `model` 로 검증한다. 형식 오류(bad_output)면 한 번만 다시 시도한다."""
+def run_json(db: Session, runner: ClaudeRunner, prompt: str, model: type[T], settings: Settings) -> T:
+    """프롬프트를 실행해 JSON 을 `model` 로 검증한다. 형식 오류(bad_output)면 한 번만 다시 시도한다.
+
+    CLI 는 오래 걸리므로 실행 전에 `db` 의 읽기 트랜잭션을 끝낸다 (호출자는 DB 읽기를 먼저 마쳐야 한다)."""
     for attempt in (1, 2):
+        db.rollback()
         text = runner.run(prompt, timeout_s=settings.ai_timeout_s)
         try:
             return parse_json_output(text, model)
@@ -147,7 +150,7 @@ def _structure_activity(db: Session, input: dict, runner: ClaudeRunner, settings
         solutions=_name_list(db, Solution), customers=_name_list(db, Customer),
         businesses=_name_list(db, Business), partners=_name_list(db, Partner),
     )
-    draft = run_json(runner, prompt, ActivityDraft, settings)
+    draft = run_json(db, runner, prompt, ActivityDraft, settings)
     return normalize_draft(draft, date.today()).model_dump_json()
 
 
@@ -166,7 +169,7 @@ def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Se
     if not texts.is_dir() or not any(texts.glob("*.md")):
         raise ClaudeError("bad_output", NO_READABLE_FILES)
     prompt = load_prompt("solution_draft", solution_name=solution.name, folder=f"{folder}/")
-    return run_json(runner, prompt, SolutionDraft, settings).model_dump_json()
+    return run_json(db, runner, prompt, SolutionDraft, settings).model_dump_json()
 
 
 HANDLERS["activity_structure"] = _structure_activity

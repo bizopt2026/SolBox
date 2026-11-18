@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import labels, models  # noqa: F401  (모델을 메타데이터에 등록)
@@ -32,6 +33,17 @@ def _login_required_handler(request: Request, exc: LoginRequired) -> Response:
     if request.headers.get("HX-Request"):
         return Response(status_code=401, headers={"HX-Redirect": "/login"})
     return RedirectResponse("/login", status_code=303)
+
+
+def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
+    """HTTPException 을 브라우저에는 한국어 오류 화면으로, HTMX 요청에는 짧은 글로 돌려준다."""
+    message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
+    if request.headers.get("HX-Request"):
+        return PlainTextResponse(message, status_code=exc.status_code, headers=exc.headers)
+    response = render(request, "error.html", status_code=exc.status_code, message=message)
+    for key, value in (exc.headers or {}).items():
+        response.headers[key] = value
+    return response
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -61,10 +73,11 @@ def create_app(settings: Settings) -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
-        same_site="strict",
+        same_site="lax",
         https_only=bool(settings.ssl_certfile),
     )
     app.add_exception_handler(LoginRequired, _login_required_handler)
+    app.add_exception_handler(StarletteHTTPException, _http_error_handler)
 
     static_dir = APP_DIR / "static"
     templates_dir = APP_DIR / "templates"

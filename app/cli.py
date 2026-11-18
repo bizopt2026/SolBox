@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 
 from app.config import load_settings
 from app.db import Base, make_engine, make_session_factory
@@ -24,9 +25,17 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("create-admin", help="관리자 계정 만들기")
     p.add_argument("--username", required=True)
     p.add_argument("--name", required=True)
-    p.add_argument("--password", required=True)
+    p.add_argument("--password", help="생략하면 입력창에서 두 번 입력받는다")
     sub.add_parser("rebuild-knowledge", help="knowledge 폴더를 DB 기준으로 다시 만들기")
     args = parser.parse_args(argv)
+
+    password = None
+    if args.cmd == "create-admin":
+        password = args.password
+        if password is None:
+            password = getpass.getpass("비밀번호: ")
+            if password != getpass.getpass("비밀번호 확인: "):
+                raise SystemExit("비밀번호가 일치하지 않습니다.")
 
     settings = load_settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -39,7 +48,7 @@ def main(argv: list[str] | None = None) -> None:
                 KnowledgeMirror(settings.knowledge_dir).rebuild_all(db, settings.uploads_dir)
             print(f"knowledge 폴더를 다시 만들었습니다: {settings.knowledge_dir}")
         else:
-            create_admin(session_factory, args.username, args.name, args.password)
+            create_admin(session_factory, args.username, args.name, password)
             print(f"관리자 계정을 만들었습니다: {args.username}")
     finally:
         engine.dispose()

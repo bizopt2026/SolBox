@@ -171,3 +171,17 @@ def test_memo_cannot_close_the_delimiter(app, db, settings, fake_claude):
     _run(app, settings)
     prompt = fake_claude.calls()[0]["stdin"]
     assert prompt.count("<<<MEMO") == 2 and prompt.count("MEMO>>>") == 2   # 규칙 설명 1 + 실제 구분 1
+
+
+def test_handler_releases_db_transaction_before_running_cli(db, settings):
+    from app.ai.tasks import HANDLERS
+
+    seen = []
+
+    class SpyRunner:
+        def run(self, prompt, **kw):
+            seen.append(db.in_transaction())
+            return _good()
+
+    HANDLERS["activity_structure"](db, {"raw_text": "메모"}, SpyRunner(), settings)
+    assert seen == [False]

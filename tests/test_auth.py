@@ -68,3 +68,23 @@ def test_create_admin_cli_helper(app, db):
 
     create_admin(app.state.session_factory, "root", "루트", "pw1234")
     assert db.query(User).filter_by(username="root").one().role == "admin"
+
+
+def test_session_cookie_is_samesite_lax(client, db):
+    make_user(db, "kim", password="pw1234")
+    r = client.post("/login", data={"username": "kim", "password": "pw1234"}, follow_redirects=False)
+    assert "samesite=lax" in r.headers["set-cookie"].lower()
+
+
+def test_http_errors_render_korean_html_page_for_browsers(user_client):
+    r = user_client.get("/admin/users", headers={"accept": "text/html"})
+    assert r.status_code == 403
+    assert r.headers["content-type"].startswith("text/html")
+    assert '<a href="/">' in r.text and "솔루션 박스" in r.text
+    assert "관리자" in r.text  # 403 의 안내 문구를 그대로 보여 준다
+
+
+def test_http_errors_are_plain_text_for_htmx(user_client):
+    r = user_client.get("/admin/users", headers={"HX-Request": "true"})
+    assert r.status_code == 403
+    assert r.headers["content-type"].startswith("text/plain") and "관리자" in r.text
