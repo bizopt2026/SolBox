@@ -155,7 +155,9 @@ def edit_form(
         kind = job.error_kind if job.status == "failed" else "bad_output"
         message = job.error if job.error == NO_READABLE_FILES else labels.ERROR_KINDS.get(kind, labels.ERROR_KINDS["unknown"])
         return _form_page(request, db, form, solution, draft_error=message)
-    form.update(summary=draft.summary.strip(), description=draft.description.strip(),
+    # AI 가 비워 보낸 칸은 기존 값을 그대로 둔다
+    form.update(summary=draft.summary.strip() or form["summary"],
+                description=draft.description.strip() or form["description"],
                 tags=_normalize_tags(",".join(draft.tags)))
     return _form_page(request, db, form, solution, drafted=True)
 

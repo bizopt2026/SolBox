@@ -18,7 +18,12 @@
     <a href="/businesses">기존 사업</a>
     <a href="/partners">파트너</a>
     <a href="/activities">활동 기록</a>
-    {% if user.role == "admin" %}<a href="/admin/users">관리</a>{% endif %}
+    {% if user.role == "admin" %}
+    <details class="menu"><summary>관리</summary>
+      <a href="/admin/users">사용자</a>
+      <a href="/admin/jobs">AI 작업</a>
+    </details>
+    {% endif %}
   </nav>
   <form class="logout" method="post" action="/logout">
     <span>{{ user.name or user.username }}</span>

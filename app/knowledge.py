@@ -7,9 +7,10 @@ from pathlib import Path
 
 from fastapi import Request
 from sqlalchemy import select
-from sqlalchemy.orm import object_session
+from sqlalchemy.orm import Session, object_session
 
 from app import labels
+from app.extract import extract_text
 from app.models import Activity, Business, Customer, Partner, Solution, SolutionFile
 
 _UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
@@ -19,6 +20,11 @@ def safe_name(name: str) -> str:
     """파일 이름에 쓸 수 없는 글자를 `_` 로 바꾸고 80자로 자른다."""
     cleaned = _UNSAFE.sub("_", name).strip(" .")[:80].strip(" .")
     return cleaned or "file"
+
+
+def file_markdown(f: SolutionFile, text: str) -> str:
+    """자료 파일에서 뽑은 본문을 사본 형식으로 만든다."""
+    return f"# {f.original_name} ({labels.FILE_KINDS.get(f.kind, f.kind)})\n\n{text}\n"
 
 
 def _item(label: str, value) -> str | None:
@@ -96,6 +102,20 @@ class KnowledgeMirror:
 
     def remove_file_text(self, f: SolutionFile) -> None:
         self.path_for(f).unlink(missing_ok=True)
+
+    def rebuild_all(self, db: Session, uploads_dir: Path) -> None:
+        """사본 폴더를 비우고 DB 의 모든 항목과 자료 텍스트를 새로 쓴다."""
+        shutil.rmtree(self.root, ignore_errors=True)
+        self.root.mkdir(parents=True, exist_ok=True)
+        for model in (Solution, Customer, Business, Partner, Activity):
+            for obj in db.scalars(select(model).order_by(model.id)):
+                self.sync(obj)
+        for f in db.scalars(select(SolutionFile).order_by(SolutionFile.id)):
+            result = extract_text(Path(uploads_dir) / "solutions" / str(f.solution_id) / f.stored_name)
+            f.extract_status = result.status
+            if result.status == "ok":
+                self.write_file_text(f, file_markdown(f, result.text))
+        db.commit()
 
     # ----- 항목별 본문 -----
     def _activity_log(self, activities: list[Activity]) -> list[str]:

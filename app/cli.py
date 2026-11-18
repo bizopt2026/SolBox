@@ -5,6 +5,7 @@ import argparse
 
 from app.config import load_settings
 from app.db import Base, make_engine, make_session_factory
+from app.knowledge import KnowledgeMirror
 from app.models import User
 from app.security import hash_password
 
@@ -24,14 +25,24 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--username", required=True)
     p.add_argument("--name", required=True)
     p.add_argument("--password", required=True)
+    sub.add_parser("rebuild-knowledge", help="knowledge 폴더를 DB 기준으로 다시 만들기")
     args = parser.parse_args(argv)
 
     settings = load_settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
-    create_admin(make_session_factory(engine), args.username, args.name, args.password)
-    print(f"관리자 계정을 만들었습니다: {args.username}")
+    session_factory = make_session_factory(engine)
+    try:
+        if args.cmd == "rebuild-knowledge":
+            with session_factory() as db:
+                KnowledgeMirror(settings.knowledge_dir).rebuild_all(db, settings.uploads_dir)
+            print(f"knowledge 폴더를 다시 만들었습니다: {settings.knowledge_dir}")
+        else:
+            create_admin(session_factory, args.username, args.name, args.password)
+            print(f"관리자 계정을 만들었습니다: {args.username}")
+    finally:
+        engine.dispose()
 
 
 if __name__ == "__main__":

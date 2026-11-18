@@ -27,3 +27,12 @@ td input[type=text], td input:not([type]), td input[type=password], td select { 
 dl { display:grid; grid-template-columns:100px 1fr; gap:6px 12px; margin:0; }
 dt { color:var(--muted); }
 dd { margin:0; white-space:pre-wrap; }
+.topbar .menu { position:relative; }
+.topbar .menu summary { cursor:pointer; padding:4px 2px; }
+.topbar .menu[open] > a { display:block; position:relative; z-index:2; background:#fff; padding:6px 12px; border:1px solid var(--line); border-bottom:0; }
+.topbar .menu[open] > a:last-child { border-bottom:1px solid var(--line); }
+.topbar .menu[open] > a:first-of-type { margin-top:4px; }
+.stages { list-style:none; padding:0; display:flex; flex-wrap:wrap; gap:12px; }
+.stages li a { display:block; padding:8px 14px; border:1px solid var(--line); border-radius:6px; background:#fff; text-decoration:none; color:var(--fg); }
+.stages li strong { margin-left:6px; }
+.overdue { color:var(--err); font-weight:600; }

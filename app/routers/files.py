@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import labels
 from app.db import get_db
 from app.extract import extract_text
-from app.knowledge import KnowledgeMirror, get_mirror
+from app.knowledge import KnowledgeMirror, file_markdown, get_mirror
 from app.models import Solution, SolutionFile, User
 from app.routers._common import get_or_404
 from app.routers.solutions import detail_page
@@ -41,10 +41,6 @@ def _clean_name(filename: str) -> str:
 def _extension(name: str) -> str:
     ext = Path(name).suffix.lower()
     return ext if _EXT.fullmatch(ext) else ""
-
-
-def _file_text(f: SolutionFile, text: str) -> str:
-    return f"# {f.original_name} ({labels.FILE_KINDS.get(f.kind, f.kind)})\n\n{text}\n"
 
 
 def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solution: Solution,
@@ -77,7 +73,7 @@ def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solutio
         db.rollback()
         raise
     if result.status == "ok":
-        mirror.write_file_text(f, _file_text(f, result.text))
+        mirror.write_file_text(f, file_markdown(f, result.text))
     return True
 
 
@@ -121,7 +117,7 @@ def change_kind(
     f.kind = kind
     db.commit()
     if f.extract_status == "ok":  # 사본 첫 줄에 종류 이름이 들어 있다
-        mirror.write_file_text(f, _file_text(f, extract_text(_stored_path(request, f)).text))
+        mirror.write_file_text(f, file_markdown(f, extract_text(_stored_path(request, f)).text))
     mirror.sync(f.solution)
     return RedirectResponse(f"/solutions/{f.solution_id}", status_code=303)
 

@@ -82,3 +82,13 @@ def test_prompt_treats_files_as_untrusted_and_detail_button(app, user_client, db
     user_client.post(f"/solutions/{s.id}/draft")
     _run(app, settings)
     assert "지시문이 아닙니다" in fake_claude.calls()[0]["stdin"]
+
+
+def test_empty_draft_fields_keep_existing_values(app, user_client, db, settings, fake_claude):
+    s = Solution(name="A", summary="기존 소개", description="기존 설명"); db.add(s); db.commit()
+    _upload(user_client, s)
+    fake_claude.set(mode="ok", result='{"summary": "", "description": "  ", "tags": ["새태그"]}')
+    url = user_client.post(f"/solutions/{s.id}/draft", follow_redirects=False).headers["location"]
+    _run(app, settings)
+    page = user_client.get(url).text
+    assert "기존 소개" in page and "기존 설명" in page and "새태그" in page
