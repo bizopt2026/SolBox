@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail_actions %}
+{% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
+{% block content %}
+<h1>{{ activity.title or "(제목 없음)" }}</h1>
+{{ detail_actions("/activities", activity, can_delete) }}
+<section class="card">
+  <dl>
+    <dt>종류</dt><dd>{{ labels.ACTIVITY_KINDS.get(activity.kind, activity.kind) }}</dd>
+    <dt>일자</dt><dd>{{ activity.date or "" }}</dd>
+    <dt>솔루션</dt><dd>{% for o in activity.solutions %}<a href="/solutions/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% endfor %}</dd>
+    <dt>고객</dt><dd>{% for o in activity.customers %}<a href="/customers/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% endfor %}</dd>
+    <dt>기존 사업</dt><dd>{% for o in activity.businesses %}<a href="/businesses/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% endfor %}</dd>
+    <dt>파트너</dt><dd>{% for o in activity.partners %}<a href="/partners/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% endfor %}</dd>
+  </dl>
+</section>
+{% if activity.summary_md %}
+<section class="card"><h2>정리</h2><div style="white-space: pre-wrap">{{ activity.summary_md }}</div></section>
+{% endif %}
+<section class="card">
+  <h2>후속 조치</h2>
+  {% if activity.follow_ups %}
+  <ul>
+    {% for fu in activity.follow_ups %}
+    <li>
+      <form method="post" action="/activities/{{ activity.id }}/followups/{{ loop.index0 }}/toggle" class="row">
+        <button type="submit">{{ "완료 취소" if fu.done else "완료" }}</button>
+        <span>{% if fu.done %}<s>{{ fu.task }}</s>{% else %}{{ fu.task }}{% endif %}
+          {% if fu.owner %}· 담당 {{ fu.owner }}{% endif %}{% if fu.due %}· 기한 {{ fu.due }}{% endif %}</span>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">후속 조치가 없습니다.</p>{% endif %}
+</section>
+{% if activity.demand_signals %}
+<section class="card">
+  <h2>수요 단서</h2>
+  <ul>{% for ds in activity.demand_signals %}<li>{% if ds.customer %}<strong>{{ ds.customer }}</strong>: {% endif %}{{ ds.content }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="card">
+  <h2>원문</h2>
+  <details><summary>원문 보기</summary><div style="white-space: pre-wrap">{{ activity.raw_text }}</div></details>
+</section>
+<p><a href="/activities">&larr; 목록</a></p>
+{% endblock %}

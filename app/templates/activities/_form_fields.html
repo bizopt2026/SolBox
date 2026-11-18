@@ -1,0 +1,91 @@
+{# 정리 폼 필드. 컨텍스트: f (값 묶음: kind, date, title, raw_text, summary_md, follow_ups, demand_signals,
+   selected{solution,customer,business,partner: id 목록}, new_names{solutions,customers,partners: 이름 목록}),
+   choices (연결 후보: solution, customer, business, partner 목록). #}
+{% set fus = f.follow_ups or [] %}
+{% set dss = f.demand_signals or [] %}
+<label>종류
+  <select name="kind">
+    {% for code, name in labels.ACTIVITY_KINDS.items() %}<option value="{{ code }}" {{ "selected" if f.kind == code }}>{{ name }}</option>{% endfor %}
+  </select>
+</label>
+<label>일자 <input type="date" name="date" value="{{ f.date }}"></label>
+<label>제목 <input name="title" value="{{ f.title }}"></label>
+<label>원문 메모 (필수) <textarea name="raw_text" rows="10">{{ f.raw_text }}</textarea></label>
+<label>정리본 <textarea name="summary_md" rows="10">{{ f.summary_md }}</textarea></label>
+
+<fieldset>
+  <legend>후속 조치</legend>
+  <div id="fu-rows">
+    {% for fu in fus %}
+    <div class="row fu-row">
+      <label>할 일 <input name="fu_task" value="{{ fu.task }}"></label>
+      <label>담당 <input name="fu_owner" value="{{ fu.owner }}"></label>
+      <label>기한 <input type="date" name="fu_due" value="{{ fu.due }}"></label>
+      <label><input type="checkbox" name="fu_done" value="{{ loop.index0 }}" {{ "checked" if fu.done }}> 완료</label>
+    </div>
+    {% endfor %}
+    <div class="row fu-row">
+      <label>할 일 <input name="fu_task"></label>
+      <label>담당 <input name="fu_owner"></label>
+      <label>기한 <input type="date" name="fu_due"></label>
+      <label><input type="checkbox" name="fu_done" value="{{ fus|length }}"> 완료</label>
+    </div>
+  </div>
+  <button type="button" data-add-row="fu-rows">+ 후속 조치 추가</button>
+</fieldset>
+
+<fieldset>
+  <legend>수요 단서</legend>
+  <div id="ds-rows">
+    {% for ds in dss %}
+    <div class="row ds-row">
+      <label>고객 <input name="ds_customer" value="{{ ds.customer }}"></label>
+      <label>내용 <input name="ds_content" value="{{ ds.content }}"></label>
+    </div>
+    {% endfor %}
+    <div class="row ds-row">
+      <label>고객 <input name="ds_customer"></label>
+      <label>내용 <input name="ds_content"></label>
+    </div>
+  </div>
+  <button type="button" data-add-row="ds-rows">+ 수요 단서 추가</button>
+</fieldset>
+
+<fieldset>
+  <legend>연결</legend>
+  {% for key, title, field in (("solution", "솔루션", "solution_ids"), ("customer", "고객", "customer_ids"), ("business", "기존 사업", "business_ids"), ("partner", "파트너", "partner_ids")) %}
+  <label>{{ title }}
+    <select name="{{ field }}" multiple size="5">
+      {% for o in choices[key] %}<option value="{{ o.id }}" {{ "selected" if o.id in f.selected[key] }}>{{ o.name }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endfor %}
+</fieldset>
+
+<fieldset>
+  <legend>새로 등록</legend>
+  <p class="muted">아직 등록되지 않은 이름은 이름만 가진 항목으로 만들어 연결합니다.</p>
+  {% for rel, title in (("solutions", "솔루션"), ("customers", "고객"), ("partners", "파트너")) %}
+  <div class="stack">
+    <strong>{{ title }}</strong>
+    {% for name in f.new_names[rel] %}
+    <label><input type="checkbox" name="new_{{ rel }}" value="{{ name }}" checked> {{ name }} 새로 등록</label>
+    {% endfor %}
+    <label>직접 추가 <input name="new_{{ rel }}" placeholder="새로 등록할 {{ title }} 이름"></label>
+  </div>
+  {% endfor %}
+</fieldset>
+
+<script>
+document.querySelectorAll("[data-add-row]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var box = document.getElementById(btn.dataset.addRow);
+    var rows = box.children;
+    var copy = rows[rows.length - 1].cloneNode(true);
+    copy.querySelectorAll("input").forEach(function (i) {
+      if (i.type === "checkbox") { i.checked = false; i.value = rows.length; } else { i.value = ""; }
+    });
+    box.appendChild(copy);
+  });
+});
+</script>

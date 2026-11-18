@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}활동 기록 등록{% endblock %}
+{% block content %}
+<h1>활동 기록 등록</h1>
+<p class="muted">미팅·통화 메모를 붙여 넣거나 텍스트 파일(.txt, .md)을 선택하세요.</p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="/activities/raw" enctype="multipart/form-data" class="card stack">
+  <label>메모 <textarea name="raw_text" rows="16">{{ raw_text }}</textarea></label>
+  <label>텍스트 파일 <input type="file" name="memo_file" accept=".txt,.md"></label>
+  <div class="row">
+    <button type="submit" formaction="/activities/draft">AI로 정리</button>
+    <button type="submit">원문만 저장</button>
+    <a href="/activities">취소</a>
+  </div>
+</form>
+{% endblock %}
