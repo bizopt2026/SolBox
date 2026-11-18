@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.config import Settings
+from app.system import open_readonly
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +117,11 @@ def prune(backup_dir: Path, keep_days: int, now: datetime) -> list[Path]:
     removed: list[Path] = []
     for stamp, p in found[:-1]:  # 마지막(가장 최근)은 나이와 무관하게 남긴다
         if now - stamp > timedelta(days=keep_days):
-            shutil.rmtree(p)
+            try:
+                shutil.rmtree(p)
+            except OSError:
+                log.warning("오래된 백업을 지우지 못했습니다: %s", p, exc_info=True)  # 나머지는 계속 지운다
+                continue
             removed.append(p)
     return removed
 
@@ -132,7 +137,7 @@ def verify(backup_path: Path) -> list[str]:
         problems.append("app.db 가 없습니다.")
     else:
         try:
-            conn = sqlite3.connect(f"{db_file.resolve().as_uri()}?mode=ro", uri=True)
+            conn = open_readonly(db_file)
             try:
                 result = [r[0] for r in conn.execute("PRAGMA integrity_check")]
             finally:

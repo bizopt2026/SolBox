@@ -84,13 +84,24 @@ def make_self_signed(
             tmp.unlink(missing_ok=True)
         _write_private(tmp_key, key_pem)
         tmp_crt.write_bytes(crt_pem)
-        had_key = key_path.exists()
+        old_key = key_path.read_bytes() if key_path.is_file() else None
         os.replace(tmp_key, key_path)
         try:
             os.replace(tmp_crt, crt_path)
         except OSError:
-            if not had_key:
-                key_path.unlink(missing_ok=True)  # 키만 남지 않게 한다
+            # 키만 새것이면 인증서와 짝이 맞지 않는다: 옛 키를 되돌리고, 되돌리지 못하면 둘 다 지워 알린다.
+            try:
+                if old_key is None:
+                    key_path.unlink(missing_ok=True)
+                else:
+                    restore = out_dir / "server.key.tmp"
+                    restore.unlink(missing_ok=True)
+                    _write_private(restore, old_key)
+                    os.replace(restore, key_path)
+            except OSError:
+                key_path.unlink(missing_ok=True)
+                crt_path.unlink(missing_ok=True)
+                raise OSError("인증서를 바꾸지 못했고 옛 키도 되돌리지 못해 두 파일을 모두 지웠습니다. 다시 만드세요.") from None
             raise
     finally:
         for tmp in (tmp_crt, tmp_key):

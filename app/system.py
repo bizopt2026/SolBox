@@ -39,6 +39,22 @@ def app_version() -> str:
         return "알 수 없음"
 
 
+def sqlite_target(path: Path) -> str:
+    """SQLite 에 넘길 경로. file: URI 로 바꾸지 않는다 (UNC 경로는 URI 로 만들면 SQLite 가 거부한다)."""
+    return str(path)
+
+
+def open_readonly(path: Path, timeout: float = 5) -> sqlite3.Connection:
+    """쓰지 못하는 연결로 연다. 파일이 있는지는 부른 쪽이 먼저 확인해야 한다."""
+    conn = sqlite3.connect(sqlite_target(path), timeout=timeout)
+    try:
+        conn.execute("PRAGMA query_only=ON")
+    except sqlite3.Error:
+        conn.close()
+        raise
+    return conn
+
+
 Check = tuple[str, str | None, str]  # (항목, 문제 내용 또는 None, 덧붙일 설명)
 
 
@@ -72,7 +88,7 @@ def _check_db(settings: Settings) -> Check:
     if not path.is_file():
         return ("데이터베이스", None, "아직 없음. 처음 실행할 때 만들어집니다")
     try:
-        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, timeout=5)
+        conn = open_readonly(path)
         try:
             conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
         finally:
@@ -130,7 +146,7 @@ def _check_port(settings: Settings) -> Check:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((settings.host, settings.port))
     except PermissionError:
-        return ("포트", f"포트 {settings.port}을 열 권한이 없습니다 (1024 미만 포트는 관리자 권한 필요).", "")
+        return ("포트", f"포트 {settings.port}을 열 수 없습니다 (다른 프로그램이 쓰고 있거나 권한이 없습니다).", "")
     except OSError as e:
         if isinstance(e, socket.gaierror):
             return ("포트", f"주소 {settings.host} 를 쓸 수 없습니다 ({e}).", "")

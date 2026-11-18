@@ -78,6 +78,20 @@ def test_manual_backup_button(admin_client, settings):
     assert "백업 없음" not in admin_client.get("/admin/system").text
 
 
+def test_manual_backup_database_error_shows_message(admin_client, monkeypatch):
+    import sqlite3
+
+    from app import backup
+
+    def boom(settings):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(backup, "run_backup", boom)
+    r = admin_client.post("/admin/system/backup", follow_redirects=False)
+    assert r.status_code != 303 and r.status_code < 500
+    assert "백업하지 못했습니다" in r.text and "database is locked" in r.text
+
+
 def test_log_file_written(settings):
     app = create_app(settings)
     from fastapi.testclient import TestClient

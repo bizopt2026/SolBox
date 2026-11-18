@@ -9,6 +9,7 @@ from app import backup, certs
 from app.config import load_settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
+from app.migrate import add_missing_columns
 from app.models import User
 from app.security import hash_password
 from app.system import folder_size, human_size, run_checks
@@ -105,6 +106,7 @@ def main(argv: list[str] | None = None) -> None:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
+    add_missing_columns(engine, settings.db_path)
     session_factory = make_session_factory(engine)
     try:
         if args.cmd == "rebuild-knowledge":

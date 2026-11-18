@@ -229,7 +229,9 @@ def test_cli_backup_and_verify(cfg, capsys):
     cli.main(["backup"])
     out = capsys.readouterr().out
     folders = list((cfg.parent / "backups").iterdir())
-    assert len(folders) == 1 and str(folders[0]) in out and "백업" in out and "KB" in out or "MB" in out or " B" in out
+    assert len(folders) == 1
+    assert str(folders[0]) in out and "백업" in out
+    assert any(unit in out for unit in (" B", " KB", " MB"))
     cli.main(["backup", "--verify", str(folders[0])])
     assert "이상 없음" in capsys.readouterr().out
     (folders[0] / "app.db").write_bytes(b"junk" * 500)
@@ -269,3 +271,53 @@ def test_backup_dir_inside_data_dir_rules(tmp_path):
         with pytest.raises(SystemExit) as e:
             load_settings(_config(tmp_path, f'backup_dir = "../d/{sub}"\n'))
         assert "백업" in str(e.value)
+
+
+def test_readonly_target_is_never_a_file_uri():
+    from pathlib import PureWindowsPath
+
+    from app.system import sqlite_target
+
+    for path in (PureWindowsPath(r"\\server\share\b\app.db"), PureWindowsPath(r"Z:\backups\app.db")):
+        target = sqlite_target(path)
+        assert not target.startswith("file:") and "file://" not in target
+
+
+def test_verify_opens_database_without_uri(app, settings, monkeypatch):
+    path = run_backup(settings, NOW)
+    seen = []
+    real = sqlite3.connect
+
+    def spy(target, *a, **kw):
+        seen.append((target, kw))
+        return real(target, *a, **kw)
+
+    monkeypatch.setattr(backup.sqlite3, "connect", spy)
+    assert verify(path) == []
+    assert seen and all(not str(t).startswith("file:") and not kw.get("uri") for t, kw in seen)
+
+
+def test_verify_does_not_modify_the_backup(app, settings):
+    path = run_backup(settings, NOW)
+    before = (path / "app.db").read_bytes()
+    assert verify(path) == []
+    assert (path / "app.db").read_bytes() == before
+    assert sorted(p.name for p in path.iterdir()) == ["app.db", "backup.json", "decks", "uploads"]
+
+
+def test_prune_continues_after_a_failing_folder(tmp_path, monkeypatch, caplog):
+    for n in ("20260901-020000", "20260902-020000", "20260903-020000", "20261117-020000"):
+        (tmp_path / n).mkdir()
+    real = shutil.rmtree
+
+    def flaky(p, *a, **kw):
+        if str(p).endswith("20260901-020000"):
+            raise PermissionError("사용 중")
+        return real(p, *a, **kw)
+
+    monkeypatch.setattr(backup.shutil, "rmtree", flaky)
+    with caplog.at_level("WARNING", logger="app.backup"):
+        removed = prune(tmp_path, 14, datetime(2026, 11, 18, 3, 0))
+    assert [p.name for p in removed] == ["20260902-020000", "20260903-020000"]
+    assert (tmp_path / "20260901-020000").exists()
+    assert "20260901-020000" in caplog.text

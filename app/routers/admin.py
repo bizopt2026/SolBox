@@ -1,6 +1,7 @@
 """사용자 관리 (관리자 전용)."""
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -277,6 +278,6 @@ def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)
 def manual_backup(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     try:
         backup.run_backup(request.app.state.settings)
-    except (OSError, ValueError) as e:
-        return _system_page(request, db, f"백업하지 못했습니다: {e}", 500)
+    except (OSError, ValueError, sqlite3.Error) as e:
+        return _system_page(request, db, f"백업하지 못했습니다: {e}")
     return RedirectResponse("/admin/system", status_code=303)

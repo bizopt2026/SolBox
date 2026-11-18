@@ -182,6 +182,27 @@ def test_failed_write_leaves_nothing(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_overwrite_failure_after_key_replaced_restores_old_pair(tmp_path, monkeypatch):
+    crt, key = make_self_signed(tmp_path, ["127.0.0.1"])
+    old_crt, old_key = crt.read_bytes(), key.read_bytes()
+    import os as _os
+
+    real = _os.replace
+    calls = []
+
+    def flaky(src, dst):
+        calls.append(str(dst))
+        if str(dst).endswith("server.crt"):
+            raise OSError("디스크 오류")
+        return real(src, dst)
+
+    monkeypatch.setattr("app.certs.os.replace", flaky)
+    with pytest.raises(OSError):
+        make_self_signed(tmp_path, ["127.0.0.1"], overwrite=True)
+    assert crt.read_bytes() == old_crt and key.read_bytes() == old_key  # 짝이 맞는 옛 파일 그대로
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["server.crt", "server.key"]
+
+
 def test_pyproject_requires_recent_cryptography():
     from pathlib import Path
 
@@ -220,5 +241,4 @@ def test_cli_check_port_permission_error(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         cli.main(["check"])
     out = capsys.readouterr().out
-    assert "포트 443을 열 권한이 없습니다 (1024 미만 포트는 관리자 권한 필요)" in out
-    assert "다른 프로그램" not in out
+    assert "포트 443을 열 수 없습니다 (다른 프로그램이 쓰고 있거나 권한이 없습니다)" in out
