@@ -194,7 +194,8 @@ def test_status_fragment_visible_to_other_user_and_redirects_when_done(app, user
     _run(app, settings)
     r = other.get(f"/proposals/{p.id}/status")
     assert r.headers["HX-Redirect"] == f"/proposals/{p.id}"
-    assert other.get("/proposals/9999/status").status_code == 404
+    gone = other.get("/proposals/9999/status")  # 지워진 제안 건: 404 를 되풀이하지 않고 목록으로 보낸다
+    assert gone.status_code == 200 and gone.headers["HX-Redirect"] == "/proposals"
 
 
 def _with_directions(db, settings):

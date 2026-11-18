@@ -27,6 +27,10 @@ CUSTOMER_REQUIRED = "고객을 선택하세요."
 BUSINESS_MISMATCH = "선택한 고객의 사업이 아닙니다."
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
 EMPTY_MESSAGE = "메시지를 입력하세요."
+MAX_MESSAGE, MAX_INSTRUCTION, MAX_MEMO = 4000, 500, 2000
+TOO_LONG_MESSAGE = f"메시지는 {MAX_MESSAGE}자까지 보낼 수 있습니다."
+TOO_LONG_INSTRUCTION = f"추가 지시는 {MAX_INSTRUCTION}자까지 쓸 수 있습니다."
+TOO_LONG_MEMO = f"요청 메모는 {MAX_MEMO}자까지 쓸 수 있습니다."
 DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
 DECK_FAILED = "제안서 파일을 만들지 못했습니다."
 PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -102,6 +106,8 @@ def create(
         "customer_id": customer_id.strip(), "business_id": business_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
     }
+    if len(form["request_memo"]) > MAX_MEMO:
+        return _new_page(request, db, form, TOO_LONG_MEMO)
     cid = _parse_id(form["customer_id"])
     customer = db.get(Customer, cid) if cid is not None else None
     if customer is None:
@@ -154,7 +160,9 @@ def status(
     proposal_id: int, request: Request,
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    proposal = get_or_404(db, Proposal, proposal_id)
+    proposal = db.get(Proposal, proposal_id)
+    if proposal is None:  # 그 사이 지워졌다. 조회를 멈추고 목록으로 보낸다.
+        return Response("제안 건이 없습니다.", headers={"HX-Redirect": "/proposals"})
     job = proposal.active_job
     if job is not None and job.status in ("pending", "running"):
         return render(request, "proposals/_status.html", proposal=proposal, job=job, position=_position(db, proposal))
@@ -224,15 +232,20 @@ def chat(
     text = message.strip()
     if not text:
         return _detail_page(request, db, proposal, user, status_code=400, chat_error=EMPTY_MESSAGE)
+    if len(text) > MAX_MESSAGE:
+        return _detail_page(request, db, proposal, user, status_code=400, chat_error=TOO_LONG_MESSAGE)
     if _is_busy(proposal):
         return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
     pid = proposal.id
     message_row = ProposalMessage(proposal_id=pid, role="user", content=text)
     db.add(message_row)
     db.commit()  # start_job 이 트랜잭션을 되돌리므로 메시지를 먼저 확정한다
+    message_id = message_row.id
     if start_job(db, proposal, "proposal_chat", user) is None:  # 그 사이 다른 요청이 먼저 작업을 잡았다. 메시지를 거둔다.
-        db.delete(db.get(ProposalMessage, message_row.id))
-        db.commit()
+        leftover = db.get(ProposalMessage, message_id)
+        if leftover is not None:  # 제안 건이 그 사이 지워졌으면 메시지도 이미 없다
+            db.delete(leftover)
+            db.commit()
         return RedirectResponse(f"/proposals/{pid}?notice=busy", status_code=303)
     return RedirectResponse(f"/proposals/{pid}#chat", status_code=303)
 
@@ -260,6 +273,8 @@ def make_outline(
     proposal = get_or_404(db, Proposal, proposal_id)
     if not _has_selection(proposal):
         raise HTTPException(status_code=400, detail=NO_DIRECTION)
+    if len(instruction.strip()) > MAX_INSTRUCTION:
+        raise HTTPException(status_code=400, detail=TOO_LONG_INSTRUCTION)
     return _start(db, proposal, "proposal_outline", user, {"instruction": instruction.strip()}, anchor="#outline")
 
 
@@ -305,7 +320,7 @@ def download(
     path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name if p.deck_name else None
     if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
-    disposition = "attachment; filename*=UTF-8''" + quote(safe_name(display_title(p)) + ".pptx")
+    disposition = f'attachment; filename="proposal-{p.id}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + ".pptx")
     return FileResponse(path, media_type=PPTX_TYPE, headers={"Content-Disposition": disposition})
 
 
@@ -316,6 +331,8 @@ def update_target(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
+    if len(request_memo.strip()) > MAX_MEMO:
+        raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
     ids = _solution_ids(db, extra_solution_ids)
     # 폼에는 박스 등록이 아닌 솔루션만 나온다. 그 사이 박스에 등록된 기존 선택은 그대로 둔다.
     for sid in proposal.extra_solution_ids or []:

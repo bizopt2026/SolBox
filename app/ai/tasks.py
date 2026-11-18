@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from datetime import date
@@ -21,6 +22,7 @@ from app.config import Settings
 from app.labels import ACTIVITY_KINDS
 from app.models import Business, Customer, Partner, Solution
 
+log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 Handler = Callable[[Session, dict, ClaudeRunner, Settings], str]
 
@@ -29,6 +31,7 @@ HANDLERS: dict[str, Handler] = {}
 PROMPT_DIR = Path(__file__).parent / "prompts"
 NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료 파일이 없습니다."
 MEMO_OPEN, MEMO_CLOSE = "<<<MEMO", "MEMO>>>"
+BAD_OUTPUT_MESSAGE = "AI 응답 형식이 올바르지 않습니다. 다시 시도하세요."
 
 
 def load_prompt(name: str, **values) -> str:
@@ -47,8 +50,11 @@ def run_json(db: Session, runner: ClaudeRunner, prompt: str, model: type[T], set
         try:
             return parse_json_output(text, model)
         except ClaudeError as e:
-            if e.kind != "bad_output" or attempt == 2:
+            if e.kind != "bad_output":
                 raise
+            log.warning("AI 응답 형식 오류 (시도 %s): %s", attempt, e.message)
+            if attempt == 2:
+                raise ClaudeError("bad_output", BAD_OUTPUT_MESSAGE) from e
     raise ClaudeError("bad_output")  # 도달하지 않는다
 
 

@@ -17,6 +17,7 @@ MAX_DIRECTIONS = 3
 SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
 MAX_STEPS = 5
 MAX_SLIDES = 14
+NO_COLUMNS = "표의 열 이름을 입력하세요."
 NO_SOURCE_NOTE = "근거 자료 없음: 내용 확인 필요"
 
 
@@ -167,8 +168,11 @@ def slide_from_form(kind: str, form) -> dict:
     elif kind == "table":
         columns = [c for c in _cells(str(form.get("columns") or "").replace("\n", " ")) if c]
         rows = [_cells(line) for line in _lines(form.get("rows"))]
+        rows = [row for row in rows if any(row)]
+        if rows and not columns:
+            raise ValueError(NO_COLUMNS)
         s["columns"] = columns
-        s["rows"] = [(row + [""] * len(columns))[: len(columns)] for row in rows if any(row)] if columns else []
+        s["rows"] = [(row + [""] * len(columns))[: len(columns)] for row in rows]
     elif kind == "steps":
         steps = []
         for line in _lines(form.get("steps")):
@@ -197,6 +201,8 @@ def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
         now = p.outline_updated_at + timedelta(microseconds=1)
     p.outline = {**(p.outline or {}), "slides": slides}
     p.outline_updated_at = now
+    if p.status == "deck":
+        p.status = "outlined"  # 만든 제안서가 구성안과 달라졌다. 다시 만들어야 하는 건으로 되돌린다
     db.commit()
 
 

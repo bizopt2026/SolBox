@@ -74,7 +74,10 @@ def save_slide(
     if (index == 0) != (kind == "cover"):
         raise HTTPException(status_code=400, detail="표지는 첫 장만 쓸 수 있고, 첫 장은 표지여야 합니다.")
     values = locals()
-    slides[index] = slide_from_form(kind, {name: values[name] for name in FIELDS})
+    try:
+        slides[index] = slide_from_form(kind, {name: values[name] for name in FIELDS})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
     save_outline(db, p, slides)
     return _back(p, index)
 

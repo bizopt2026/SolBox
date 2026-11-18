@@ -31,7 +31,8 @@ def test_build_and_download(user_client, db, settings):
     d = user_client.get(f"/proposals/{p.id}/deck")
     assert d.content[:2] == b"PK"
     assert d.headers["content-type"] == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    assert d.headers["content-disposition"] == "attachment; filename*=UTF-8''" + quote(safe_name(display_title(p)) + ".pptx")
+    assert d.headers["content-disposition"] == (
+        f'attachment; filename="proposal-{p.id}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + ".pptx"))
 
 
 def test_build_back_to_outline(user_client, db, settings):
