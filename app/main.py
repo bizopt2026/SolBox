@@ -17,6 +17,7 @@ from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
+from app.migrate import add_missing_columns
 from app.security import LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
@@ -52,6 +53,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
+    add_missing_columns(engine, settings.db_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
