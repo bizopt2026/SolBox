@@ -19,9 +19,9 @@
     <h2>{{ s.title or "(제목 없음)" }}</h2>
     <span class="spacer"></span>
     {% if not busy %}
-    {% if card.index > 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="위로">&uarr;</button></form>{% endif %}
-    {% if card.index > 0 and card.index < cards | length - 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="아래로">&darr;</button></form>{% endif %}
-    {% if card.index > 0 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/delete" onsubmit="return confirm('이 슬라이드를 지울까요?')"><button type="submit">삭제</button></form>{% endif %}
+    {% if card.index > 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="위로" class="small">&uarr;</button></form>{% endif %}
+    {% if card.index > 0 and card.index < cards | length - 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="아래로" class="small">&darr;</button></form>{% endif %}
+    {% if card.index > 0 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/delete" onsubmit="return confirm('이 슬라이드를 지울까요?')"><button type="submit" class="small danger">삭제</button></form>{% endif %}
     {% endif %}
   </div>
   {% if s.key_message %}<p><strong>{{ s.key_message }}</strong></p>{% endif %}

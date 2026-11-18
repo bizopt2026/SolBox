@@ -29,17 +29,20 @@
 <form method="get" action="{{ path }}" class="row">
   <label>검색 <input type="search" name="q" value="{{ q }}"></label>
   <button type="submit">검색</button>
-  <a href="{{ path }}/new">+ 등록</a>
+  <a class="button primary" href="{{ path }}/new">+ 등록</a>
 </form>
 {% endmacro %}
 
-{% macro detail_actions(path, obj, can_delete) %}
-<div class="row">
-  <a href="{{ path }}/{{ obj.id }}/edit">수정</a>
-  {% if can_delete %}
-  <form method="post" action="{{ path }}/{{ obj.id }}/delete" onsubmit="return confirm('삭제할까요?')">
-    <button type="submit">삭제</button>
-  </form>
-  {% endif %}
+{% macro detail_head(title, path, obj, can_delete) %}
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  <div class="actions">
+    <a class="button" href="{{ path }}/{{ obj.id }}/edit">수정</a>
+    {% if can_delete %}
+    <form method="post" action="{{ path }}/{{ obj.id }}/delete" onsubmit="return confirm('삭제할까요?')">
+      <button type="submit" class="danger">삭제</button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 {% endmacro %}

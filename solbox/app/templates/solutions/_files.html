@@ -21,7 +21,7 @@
       <td>
         {% if can_delete_files[f.id] %}
         <form method="post" action="/files/{{ f.id }}/delete" onsubmit="return confirm('파일을 삭제할까요?')">
-          <button type="submit">삭제</button>
+          <button type="submit" class="small danger">삭제</button>
         </form>
         {% endif %}
       </td>
@@ -39,5 +39,5 @@
       {% endfor %}
     </select>
   </label>
-  <button type="submit">올리기</button>
+  <button type="submit" class="primary">올리기</button>
 </form>

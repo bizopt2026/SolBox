@@ -8,7 +8,7 @@
   {% else %}
   <form method="post" action="/research/runs/{{ run.id }}/candidate" class="inline-form">
     <input type="hidden" name="source" value="suggestion"><input type="hidden" name="report_id" value="{{ suggest.id }}"><input type="hidden" name="index" value="{{ s.index }}">
-    <button type="submit" class="secondary">후보 등록</button>
+    <button type="submit" class="small">후보 등록</button>
   </form>
   {% endif %}
 </li>

@@ -1,7 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<h1>{{ title }}</h1>
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  {% if can_delete %}
+  <div class="actions">
+    <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
+      <button type="submit" class="danger">삭제</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
 {% set job = proposal.active_job %}
 <div id="ai-status">
@@ -19,11 +28,6 @@
 </div>
 <div class="row status-row">
   <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
-  {% if can_delete %}
-  <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
-    <button type="submit">삭제</button>
-  </form>
-  {% endif %}
 </div>
 <section class="card">
   <h2>대상</h2>
@@ -38,7 +42,7 @@
     <form method="post" action="/proposals/{{ proposal.id }}/target" class="stack">
       {% set memo = proposal.request_memo %}{% set selected_ids = proposal.extra_solution_ids %}
       {% include "proposals/_target_fields.html" %}
-      <div><button type="submit">저장</button></div>
+      <div><button type="submit" class="primary">저장</button></div>
     </form>
   </details>
 </section>

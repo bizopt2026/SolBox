@@ -16,8 +16,19 @@ h2 { font-size:17px; margin:0 0 12px; }
 .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
 label { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); }
 input, select, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; color:var(--fg); background:#fff; }
-button { font:inherit; padding:6px 14px; border:1px solid var(--accent); border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
-.logout button { background:#fff; color:var(--accent); }
+button, .button { display:inline-block; font:inherit; line-height:1.5; padding:6px 14px; border:1px solid var(--accent); border-radius:6px; background:#fff; color:var(--accent); cursor:pointer; text-decoration:none; }
+button:hover, .button:hover { background:#eef2ff; }
+button.primary, .button.primary { background:var(--accent); color:#fff; }
+button.primary:hover, .button.primary:hover { background:#1e40af; }
+button.danger, .button.danger { background:#fff; color:var(--err); border-color:var(--err); }
+button.danger:hover, .button.danger:hover { background:#fef3f2; }
+button.small, .button.small { padding:2px 10px; font-size:13px; }
+button.linklike { padding:0; border:0; background:none; text-decoration:underline; }
+button:disabled { opacity:.5; cursor:default; }
+.page-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.page-head h1 { margin:0; }
+.page-head .actions { display:flex; align-items:center; gap:8px; }
+.page-head .actions form { margin:0; }
 table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:8px; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
 th { font-size:13px; color:var(--muted); background:#fafbfc; }
@@ -67,6 +78,6 @@ dd { margin:0; white-space:pre-wrap; }
 .trend { padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:#fafbfc; }
 .trend .sources { margin:4px 0; padding-left:20px; }
 .inline-form { margin:6px 0 0; }
-button.secondary { background:#fff; color:var(--accent); padding:2px 10px; font-size:13px; }
-button.danger { background:#fff; color:var(--err); border-color:var(--err); }
+.cell-actions { display:flex; align-items:center; gap:8px; }
+.cell-actions form { margin:0; }
 .row + table, .row + p { margin-top:16px; }

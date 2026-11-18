@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_actions, proposal_list %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
-<h1>{{ solution.name }}</h1>
-{{ detail_actions("/solutions", solution, can_delete) }}
+{{ detail_head(solution.name, "/solutions", solution, can_delete) }}
 <section class="card">
   <h2>기본 정보</h2>
   <dl>

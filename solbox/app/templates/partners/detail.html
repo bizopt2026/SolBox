@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_actions %}
+{% from "_macros.html" import activity_list, detail_head %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
-<h1>{{ partner.name }}</h1>
+{{ detail_head(partner.name, "/partners", partner, can_delete) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-{{ detail_actions("/partners", partner, can_delete) }}
 <section class="card"><dl><dt>연락처</dt><dd>{{ partner.contact }}</dd><dt>소개</dt><dd>{{ partner.description }}</dd><dt>메모</dt><dd>{{ partner.memo }}</dd></dl></section>
 <section class="card">
   <h2>솔루션</h2>

@@ -15,7 +15,7 @@
         {% for code, text in roles.items() %}<option value="{{ code }}">{{ text }}</option>{% endfor %}
       </select>
     </label>
-    <button type="submit">추가</button>
+    <button type="submit" class="primary">추가</button>
   </form>
 </section>
 
@@ -34,7 +34,7 @@
       </td>
       <td><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if u.is_active %}checked{% endif %}></td>
       <td><input form="{{ f }}" type="password" name="password" autocomplete="new-password" placeholder="변경할 때만 입력"></td>
-      <td><button form="{{ f }}" type="submit">저장</button></td>
+      <td><button form="{{ f }}" type="submit" class="small">저장</button></td>
     </tr>
   {% endfor %}
   </tbody>

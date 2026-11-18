@@ -22,6 +22,6 @@
   </label>
   {% set memo = form.request_memo %}{% set selected_ids = form.extra_solution_ids %}
   {% include "proposals/_target_fields.html" %}
-  <div class="row"><button type="submit">만들기</button> <a href="/proposals">취소</a></div>
+  <div class="row"><button type="submit" class="primary">만들기</button> <a href="/proposals">취소</a></div>
 </form>
 {% endblock %}

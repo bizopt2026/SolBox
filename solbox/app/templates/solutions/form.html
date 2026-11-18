@@ -32,7 +32,7 @@
     <label>적용 가능 유형 <input name="applicable_types" value="{{ form.applicable_types }}"></label>
     <label>태그 (쉼표로 구분) <input name="tags" value="{{ form.tags }}"></label>
     <div class="row">
-      <button type="submit">저장</button>
+      <button type="submit" class="primary">저장</button>
       <a href="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}">취소</a>
     </div>
 </form>

@@ -27,7 +27,7 @@
     {% if proposal.selected_index != loop.index0 %}
     <form method="post" action="/proposals/{{ proposal.id }}/select"{% if confirm_change and proposal.selected_index is not none %} onsubmit="{{ confirm_change }}"{% endif %}>
       <input type="hidden" name="index" value="{{ loop.index0 }}">
-      <button type="submit">이 방향으로 구체화</button>
+      <button type="submit" class="primary">이 방향으로 구체화</button>
     </form>
     {% endif %}
   </article>

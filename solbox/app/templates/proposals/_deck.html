@@ -21,7 +21,7 @@
 {% else %}
   <form method="post" action="/proposals/{{ proposal.id }}/deck">
     {% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
-    <button type="submit">{{ "다시 만들기" if proposal.deck_name else "PPT 만들기" }}</button>
+    <button type="submit"{% if not proposal.deck_name %} class="primary"{% endif %}>{{ "다시 만들기" if proposal.deck_name else "PPT 만들기" }}</button>
   </form>
 {% endif %}
 </div>

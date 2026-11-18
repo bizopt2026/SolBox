@@ -9,7 +9,7 @@
     <label>연락처 <input name="contact" value="{{ form.contact }}"></label>
     <label>메모 <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
     <div class="row">
-      <button type="submit">저장</button>
+      <button type="submit" class="primary">저장</button>
       <a href="{{ "/customers/" ~ customer.id if customer else "/customers" }}">취소</a>
     </div>
 </form>
