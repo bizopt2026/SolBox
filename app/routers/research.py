@@ -1,10 +1,9 @@
 """웹 리서치: 지금 조사, 실행 상태, 실패한 분야 다시 시도 (보고서 화면은 다음 단계)."""
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.ai.queue import queue_position
@@ -54,10 +53,16 @@ def retry_report(report_id: int, admin: User = Depends(require_admin), db: Sessi
         other = db.query(ResearchRun.id).filter(ResearchRun.status == "running", ResearchRun.id != run.id).first()
         if other is not None:  # 조사는 한 번에 하나만 돈다.
             return RedirectResponse(f"{ADMIN_PAGE}?notice=busy", status_code=303)
-    job = AIJob(kind="research_area", input={"report_id": report.id}, requester_id=admin.id, priority=10, status="pending")
+    rid, run_id = report.id, run.id
+    db.rollback()  # 쓰기를 새로 시작한다
+    job = AIJob(kind="research_area", input={"report_id": rid}, requester_id=admin.id, priority=10, status="pending")
     db.add(job)
     db.flush()
-    report.job_id, report.status, report.error = job.id, "pending", ""
-    run.status, run.finished_at = "running", None
+    claimed = db.execute(update(ResearchReport).where(ResearchReport.id == rid, ResearchReport.status == "failed")
+                         .values(job_id=job.id, status="pending", error=""))
+    if claimed.rowcount != 1:  # 다른 요청이 먼저 다시 시도했다.
+        db.rollback()
+        return RedirectResponse(ADMIN_PAGE, status_code=303)
+    db.execute(update(ResearchRun).where(ResearchRun.id == run_id).values(status="running", finished_at=None))
     db.commit()
     return RedirectResponse(ADMIN_PAGE, status_code=303)

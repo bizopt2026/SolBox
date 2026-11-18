@@ -17,6 +17,7 @@ from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
+from app.research import recover_runs
 from app.migrate import add_missing_columns
 from app.security import LoginRequired
 
@@ -59,6 +60,7 @@ def create_app(settings: Settings) -> FastAPI:
     async def lifespan(app: FastAPI):
         with app.state.session_factory() as db:
             fail_stale_running(db)
+            recover_runs(db)
         start_workers(app)
         try:
             yield

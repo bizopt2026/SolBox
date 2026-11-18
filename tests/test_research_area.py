@@ -263,3 +263,85 @@ def test_normal_user_cannot_run(user_client, db):
     assert user_client.post("/research/run").status_code == 403
     assert user_client.post("/research/reports/1/retry").status_code == 403
     assert db.query(ResearchRun).count() == 0
+
+
+@pytest.mark.parametrize("url", ["https://user:pw@a.kr/", "https://a.kr/\x85x", "https://a.kr/​x",
+    "https://a.kr/‮x", "https://a.kr/⁦x", "https://a.kr/﻿x"])
+def test_clean_url_rejects_credentials_and_invisible(url):
+    assert clean_url(url) is None
+
+
+def test_clean_url_length_boundary():
+    base = "https://a.kr/"
+    assert clean_url(base + "x" * (2000 - len(base))) is not None
+    assert clean_url(base + "x" * (2001 - len(base))) is None
+
+
+def test_source_without_url_does_not_fail_area(app, admin_client, db, settings, fake_claude):
+    make_topics(db)
+    data = {"trends": [{"headline": "동향", "sources": [{"title": "주소 없음"}, {"url": "https://a.kr/x"}]}]}
+    fake_claude.set(mode="ok", result=json.dumps(data, ensure_ascii=False))
+    run = _run_all(app, admin_client, db, settings)
+    assert run.status == "done"
+    assert run.reports[0].trends[0]["sources"] == [{"title": "", "url": "https://a.kr/x"}]
+
+
+def test_restart_recovers_stuck_run(app, admin_client, db, settings):
+    from app.ai.queue import fail_stale_running
+    from app.research import recover_runs
+
+    make_topics(db)
+    admin_client.post("/research/run")
+    db.query(AIJob).update({"status": "running"})
+    db.commit()
+    fail_stale_running(db)
+    assert recover_runs(db) == 1
+    db.expire_all()
+    run = db.query(ResearchRun).one()
+    assert run.status == "failed" and run.finished_at is not None
+    assert all(r.status == "failed" and r.error for r in run.reports)
+    assert admin_client.post(f"/research/reports/{run.reports[0].id}/retry", follow_redirects=False).status_code == 303
+    db.expire_all()
+    assert db.query(ResearchRun).one().status == "running"
+
+
+def test_concurrent_retries_create_one_job(app, admin_client, db, settings, fake_claude):
+    make_topics(db)
+    fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)
+    run = _run_all(app, admin_client, db, settings)
+    rid = run.reports[0].id
+    before = db.query(AIJob).count()
+    barrier = threading.Barrier(6)
+
+    def go():
+        with app.state.session_factory() as s:
+            from app.models import User
+            from app.routers.research import retry_report
+            admin = s.query(User).filter_by(username="admin").one()
+            barrier.wait()
+            retry_report(rid, admin, s)
+
+    threads = [threading.Thread(target=go) for _ in range(6)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert db.query(AIJob).count() == before + 1
+
+
+def test_retry_refused_while_another_run_running(app, admin_client, db, settings, fake_claude):
+    make_topics(db)
+    fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)
+    run = _run_all(app, admin_client, db, settings)
+    rid = run.reports[0].id
+    admin_client.post("/research/run")
+    r = admin_client.post(f"/research/reports/{rid}/retry", follow_redirects=False)
+    assert r.headers["location"] == "/admin/research?notice=busy"
+    db.expire_all()
+    assert db.get(ResearchReport, rid).status == "failed"
+
+
+def test_retry_button_only_for_admin(app, admin_client, user_client, db, settings, fake_claude):
+    make_topics(db)
+    fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)
+    run = _run_all(app, admin_client, db, settings)
+    assert "/retry" in admin_client.get(f"/research/runs/{run.id}/status").text
+    assert "/retry" not in user_client.get(f"/research/runs/{run.id}/status").text

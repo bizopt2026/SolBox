@@ -25,7 +25,7 @@ RECENT_DAYS, MAX_DAYS = 7, 30
 
 class SourceLink(BaseModel):
     title: str = ""
-    url: str
+    url: str = ""
 
 
 class Trend(BaseModel):

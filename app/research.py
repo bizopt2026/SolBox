@@ -75,18 +75,24 @@ NO_SOURCE_NOTE = "출처 링크 없음, 확인 필요"
 NO_TOPICS_MESSAGE = "사용 중인 리서치 주제가 없습니다."
 
 
+_INVISIBLE = {*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2066, 0x206A), 0xFEFF}
+
+
 def clean_url(url: str) -> str | None:
     """http(s) 주소만 돌려준다. 공백·제어문자가 있거나 호스트가 없거나 너무 길면 None."""
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")) or len(url) > URL_MAX:
         return None
-    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in url):
+    if any(ch.isspace() or ord(ch) < 32 or 127 <= ord(ch) <= 159 or ord(ch) in _INVISIBLE for ch in url):
         return None
     try:
-        host = urlsplit(url).hostname
+        parts = urlsplit(url)
+        host = parts.hostname
     except ValueError:
         return None
-    return url if host else None
+    if not host or parts.username is not None or parts.password is not None:
+        return None
+    return url
 
 
 def clean_area(out: AreaOut) -> dict:
@@ -164,6 +170,18 @@ def advance_run(db: Session, run_id: int) -> None:
     # 3단계 Task 5: done > 0 이면 여기서 제안 작업을 시작하고 마감은 그 작업이 한다.
     status = "failed" if done == 0 else "done" if done == len(areas) else "partial"
     _close_run(db, run_id, status)
+
+
+def recover_runs(db: Session) -> int:
+    """시작할 때 진행 중으로 남은 실행을 마저 진행시킨다 (재시작으로 끊긴 작업이 있어도 실행이 멈춰 있지 않게)."""
+    ids = [i for (i,) in db.query(ResearchRun.id).filter_by(status="running").all()]
+    for run_id in ids:
+        try:
+            advance_run(db, run_id)
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            log.exception("조사 실행 %s 복구 실패", run_id)
+    return len(ids)
 
 
 def _close_run(db: Session, run_id: int, status: str) -> None:
