@@ -1,0 +1,191 @@
+from datetime import date
+
+import pytest
+from pptx import Presentation
+from pptx.util import Inches
+
+from app.ai.proposal_tasks import Outline
+from app.deck import build_deck, paginate
+from app.proposals import clean_outline
+from tests.conftest import sample_outline
+
+FONT = "맑은 고딕"
+A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+
+
+def outline(n, tmp_path):
+    return clean_outline(Outline.model_validate(sample_outline(n)), tmp_path)
+
+
+def _frames(slide):
+    for sh in slide.shapes:
+        if sh.has_text_frame:
+            yield sh.text_frame
+        if getattr(sh, "has_table", False) and sh.has_table:
+            for row in sh.table.rows:
+                for cell in row.cells:
+                    yield cell.text_frame
+
+
+def texts(slide):
+    return "\n".join(tf.text for tf in _frames(slide))
+
+
+def notes(slide):
+    return slide.notes_slide.notes_text_frame.text if slide.has_notes_slide else ""
+
+
+def tables(slide):
+    return [sh.table for sh in slide.shapes if getattr(sh, "has_table", False) and sh.has_table]
+
+
+def test_builds_all_six_kinds(tmp_path):
+    out = tmp_path / "d" / "deck.pptx"
+    n = build_deck(outline(8, tmp_path), out, customer_name="한빛병원", today=date(2026, 11, 18))
+    prs = Presentation(out)
+    assert n == len(prs.slides) == 8
+    assert (prs.slide_width, prs.slide_height) == (Inches(13.333), Inches(7.5))
+    assert "한빛병원" in texts(prs.slides[0]) and "2026. 11. 18." in texts(prs.slides[0])
+    assert "전력비 절감 제안" in texts(prs.slides[0])
+    assert "솔루션 구성" in texts(prs.slides[3]) and tables(prs.slides[3])
+    assert "착수" in texts(prs.slides[4]) and "3개월" in texts(prs.slides[4])
+    assert "감사합니다" in texts(prs.slides[7])
+
+
+def test_sources_and_needs_check_only_in_notes(tmp_path):
+    o = {"title": "제안", "slides": [{"kind": "cover", "title": "제안"},
+         {"kind": "bullets", "title": "효과", "key_message": "절감", "bullets": ["전력비 절감"],
+          "sources": ["solutions/1/card.md"], "needs_check": ["절감률 수치"]},
+         {"kind": "bullets", "title": "노트 없음", "bullets": ["x"]}]}
+    build_deck(o, tmp_path / "a.pptx"); prs = Presentation(tmp_path / "a.pptx")
+    body, note = texts(prs.slides[1]), notes(prs.slides[1])
+    assert "solutions/1/card.md" not in body and "절감률 수치" not in body
+    assert "[출처]" in note and "solutions/1/card.md" in note and "[확인 필요]" in note and "절감률 수치" in note
+    assert not prs.slides[2].has_notes_slide
+
+
+def test_bullets_overflow_splits(tmp_path):
+    o = {"title": "t", "slides": [{"kind": "cover", "title": "t"},
+         {"kind": "bullets", "title": "목록", "key_message": "핵심", "bullets": [f"항목 {i}" for i in range(15)], "needs_check": ["확인"]}]}
+    build_deck(o, tmp_path / "b.pptx"); prs = Presentation(tmp_path / "b.pptx")
+    assert len(prs.slides) == 3
+    assert "항목 9" in texts(prs.slides[1]) and "항목 10" in texts(prs.slides[2]) and "목록 (2)" in texts(prs.slides[2])
+    assert "핵심" in texts(prs.slides[1]) and "핵심" not in texts(prs.slides[2])
+    assert "확인" in notes(prs.slides[1]) and not prs.slides[2].has_notes_slide
+
+
+def test_table_overflow_repeats_header(tmp_path):
+    rows = [[f"솔루션{i}", f"역할{i}"] for i in range(20)]
+    o = {"title": "t", "slides": [{"kind": "cover", "title": "t"},
+         {"kind": "table", "title": "표", "columns": ["이름", "역할"], "rows": rows}]}
+    build_deck(o, tmp_path / "t.pptx"); prs = Presentation(tmp_path / "t.pptx")
+    assert len(prs.slides) == 4
+    for i in (1, 2, 3):
+        t = tables(prs.slides[i])[0]
+        assert [c.text for c in t.rows[0].cells] == ["이름", "역할"]
+    assert len(tables(prs.slides[1])[0].rows) == 9 and len(tables(prs.slides[3])[0].rows) == 5
+    assert "표 (3)" in texts(prs.slides[3]) and "솔루션19" in texts(prs.slides[3])
+
+
+def test_table_font_size_by_column_count(tmp_path):
+    wide = {"kind": "table", "title": "넓은 표", "columns": [f"c{i}" for i in range(7)], "rows": [[str(i) for i in range(7)]]}
+    narrow = {"kind": "table", "title": "좁은 표", "columns": ["a", "b"], "rows": [["1", "2"]]}
+    build_deck({"title": "t", "slides": [wide, narrow]}, tmp_path / "w.pptx"); prs = Presentation(tmp_path / "w.pptx")
+    assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 11
+    assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 14
+
+
+def test_two_column_overflow(tmp_path):
+    o = {"title": "t", "slides": [{"kind": "two_column", "title": "비교", "key_message": "m",
+         "left_title": "현재", "left": [f"왼{i}" for i in range(12)], "right_title": "제안", "right": ["오1"]}]}
+    build_deck(o, tmp_path / "c.pptx"); prs = Presentation(tmp_path / "c.pptx")
+    assert len(prs.slides) == 2
+    assert "왼7" in texts(prs.slides[0]) and "왼8" not in texts(prs.slides[0])
+    assert "왼8" in texts(prs.slides[1]) and "왼11" in texts(prs.slides[1]) and "비교 (2)" in texts(prs.slides[1])
+    assert "오1" in texts(prs.slides[0])
+
+
+def test_very_long_text_does_not_fail(tmp_path):
+    long = "전력비를 줄이는 방법" * 60
+    o = {"title": "t", "slides": [{"kind": "bullets", "title": "긴 글", "bullets": [long, "짧음"]}]}
+    build_deck(o, tmp_path / "l.pptx"); prs = Presentation(tmp_path / "l.pptx")
+    assert long in texts(prs.slides[0])
+    sizes = {r.font.size.pt for tf in _frames(prs.slides[0]) for p in tf.paragraphs for r in p.runs if r.text in (long, "짧음")}
+    assert sizes == {16}  # 20pt 에서 두 단계(4pt) 줄인다
+
+
+def test_bullet_font_sizes(tmp_path):
+    def size_for(n):
+        o = {"title": "t", "slides": [{"kind": "bullets", "title": "목록", "bullets": [f"b{i}" for i in range(n)]}]}
+        build_deck(o, tmp_path / f"s{n}.pptx"); prs = Presentation(tmp_path / f"s{n}.pptx")
+        return {r.font.size.pt for tf in _frames(prs.slides[0]) for p in tf.paragraphs for r in p.runs if r.text == "b0"}
+    assert size_for(7) == {20} and size_for(8) == {16} and size_for(10) == {16}
+
+
+def test_font_is_malgun_gothic(tmp_path):
+    out = tmp_path / "f.pptx"
+    build_deck(outline(8, tmp_path), out, customer_name="한빛병원")
+    prs = Presentation(out)
+    seen = 0
+    for slide in prs.slides:
+        for tf in _frames(slide):
+            for p in tf.paragraphs:
+                for r in p.runs:
+                    seen += 1
+                    assert r.font.name == FONT
+                    ea = r._r.find(f"{A_NS}rPr/{A_NS}ea")
+                    assert ea is not None and ea.get("typeface") == FONT
+    assert seen > 20
+
+
+def test_page_numbers_skip_cover(tmp_path):
+    out = tmp_path / "p.pptx"
+    build_deck(outline(8, tmp_path), out)
+    prs = Presentation(out)
+    assert not any(sh.has_text_frame and sh.text_frame.text.strip() == "1" for sh in prs.slides[0].shapes)
+    for i in range(1, 8):
+        nums = [sh.text_frame.text for sh in prs.slides[i].shapes if sh.has_text_frame and sh.text_frame.text.strip() == str(i + 1)]
+        assert nums == [str(i + 1)]
+
+
+def test_empty_outline_raises(tmp_path):
+    with pytest.raises(ValueError):
+        build_deck({"title": "t", "slides": []}, tmp_path / "x.pptx")
+    with pytest.raises(ValueError):
+        build_deck({"title": "t"}, tmp_path / "x.pptx")
+
+
+def test_special_characters(tmp_path):
+    title = "A & B <c> \"d\" 'e'\n둘째 줄 😀 \x00\x0b끝"
+    o = {"title": "t", "slides": [{"kind": "cover", "title": title}, {"kind": "bullets", "title": title, "key_message": title, "bullets": [title, "줄\n바꿈"],
+         "sources": [title], "needs_check": [title]},
+         {"kind": "table", "title": title, "columns": [title], "rows": [[title]]},
+         {"kind": "steps", "title": title, "steps": [{"name": title, "detail": title}]}]}
+    build_deck(o, tmp_path / "s.pptx", customer_name=title)
+    prs = Presentation(tmp_path / "s.pptx")
+    assert len(prs.slides) == 4
+    assert "A & B <c>" in texts(prs.slides[1]) and "😀" in texts(prs.slides[1])
+    assert "\x00" not in texts(prs.slides[1]) and "둘째 줄 😀 끝" in texts(prs.slides[1])  # 제어문자는 빠지고 줄바꿈은 남는다
+
+
+def test_degenerate_slides_fall_back(tmp_path):
+    o = {"title": "t", "slides": [{"kind": "table", "title": "빈 표", "key_message": "메시지"},
+         {"kind": "steps", "title": "빈 단계", "key_message": "메시지2"},
+         {"kind": "mystery", "title": "모름"}, {"kind": "bullets"}]}
+    n = build_deck(o, tmp_path / "e.pptx"); prs = Presentation(tmp_path / "e.pptx")
+    assert n == len(prs.slides) == 4
+    assert "빈 표" in texts(prs.slides[0]) and "메시지" in texts(prs.slides[0])
+    assert "메시지2" in texts(prs.slides[1])
+
+
+def test_paginate_never_empty():
+    pages = paginate({"kind": "bullets"})
+    assert len(pages) == 1 and pages[0]["kind"] == "bullets"
+    assert len(paginate({"kind": "table", "title": "t", "columns": ["a"], "rows": [["1"]] * 17})) == 3
+    assert paginate({"kind": "cover", "title": "t"})[0]["title"] == "t"
+
+
+def test_open_in_default_dir_creates_parent(tmp_path):
+    out = tmp_path / "a" / "b" / "deck.pptx"
+    build_deck(outline(6, tmp_path), out)
+    assert out.exists()
