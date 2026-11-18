@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import activity_list, detail_actions %}
+{% block title %}{{ solution.name }}{% endblock %}
+{% block content %}
+<h1>{{ solution.name }}</h1>
+{{ detail_actions("/solutions", solution, can_delete) }}
+<section class="card">
+  <h2>기본 정보</h2>
+  <dl>
+    <dt>한 줄 소개</dt><dd>{{ solution.summary }}</dd>
+    <dt>상세 설명</dt><dd>{{ solution.description }}</dd>
+    <dt>파트너</dt><dd>{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% endif %}</dd>
+    <dt>활용 방향</dt><dd>{{ solution.usage_direction }}</dd>
+    <dt>적용 가능 유형</dt><dd>{{ solution.applicable_types }}</dd>
+    <dt>태그</dt><dd>{{ solution.tags }}</dd>
+  </dl>
+</section>
+<section class="card">
+  <h2>발굴 단계</h2>
+  <p>현재 단계: <strong>{{ labels.STAGES.get(solution.stage, solution.stage) }}</strong></p>
+  <form method="post" action="/solutions/{{ solution.id }}/stage" class="row">
+    {% for code, name in labels.STAGES.items() %}
+    <button type="submit" name="stage" value="{{ code }}" {{ "disabled" if code == solution.stage }}>{{ name }}</button>
+    {% endfor %}
+  </form>
+</section>
+<section class="card">
+  <h2>자료 파일</h2>
+  {% include "solutions/_files.html" ignore missing %}
+</section>
+{{ activity_list(activities) }}
+<p><a href="/solutions">&larr; 목록</a></p>
+{% endblock %}
