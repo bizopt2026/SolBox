@@ -1,4 +1,6 @@
-# 솔루션 박스 (CLAUDE.md)
+# 솔루션 박스 (solbox/CLAUDE.md)
+
+이 저장소는 앱마다 폴더를 나눠 관리한다. 솔루션 박스는 `solbox/` 폴더이고, 아래 경로와 명령은 모두 `solbox/` 기준이다 (명령은 `solbox/` 안에서 실행).
 
 사내 한국어 웹 앱. 솔루션 발굴(접수→태핑→수요조사→박스 등록), 고객·파트너·활동 기록, AI 제안서(PPT), 주간 웹 리서치를 한곳에서 다룬다. FastAPI + SQLAlchemy 2 + SQLite + Jinja2/HTMX. AI는 Claude CLI(`claude -p`)를 호출한다.
 
@@ -6,7 +8,7 @@
 - `app/` 코드. `routers/` 화면·API, `ai/` AI 작업(대기열 `queue.py`, 실행기 `runner.py`, 처리기, `prompts/`), `templates/`, `static/`
 - `app/research.py` 리서치, `scheduler.py` 주간 조사·일일 작업, `backup.py` 백업, `certs.py` 인증서, `system.py` 점검, `cli.py` 명령줄, `migrate.py` 컬럼 자동 추가
 - `tests/` pytest (가짜 CLI `tests/fake_claude.py`), `scripts/` Windows PowerShell 스크립트, `docs/` 문서
-- 운영 데이터는 `data_dir` (기본은 저장소 안 `<저장소>/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`
+- 운영 데이터는 `data_dir` (기본은 `solbox/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`
 
 ## 실행·테스트
 - 설치 `pip install -e ".[dev]"`, 설정 `config.example.toml` → `config.toml` (저장소에 올리지 않는다)
