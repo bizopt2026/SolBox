@@ -1,6 +1,8 @@
 """솔루션 화면과 발굴 단계."""
 from __future__ import annotations
 
+import shutil
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -31,10 +33,11 @@ def _form_page(
     )
 
 
-def _detail_page(request: Request, db: Session, user: User, solution: Solution):
+def detail_page(request: Request, db: Session, user: User, solution: Solution, notice: str | None = None):
     return render(
         request, "solutions/detail.html",
-        solution=solution,
+        solution=solution, notice=notice,
+        can_delete_files={f.id: can_delete(user, f) for f in solution.files},
         activities=newest_first(activities_linked_to(db, Activity.solutions, solution)),
         can_delete=can_delete(user, solution),
     )
@@ -103,7 +106,7 @@ def create(
 
 @router.get("/{solution_id}")
 def detail(solution_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return _detail_page(request, db, user, get_or_404(db, Solution, solution_id))
+    return detail_page(request, db, user, get_or_404(db, Solution, solution_id))
 
 
 @router.get("/{solution_id}/edit")
@@ -151,13 +154,14 @@ def update(
 
 @router.post("/{solution_id}/delete")
 def delete(
-    solution_id: int,
+    solution_id: int, request: Request,
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     solution = get_deletable_or_404(db, Solution, solution_id, user)
     activities = activities_linked_to(db, Activity.solutions, solution)
     mirror.remove(solution)
+    shutil.rmtree(request.app.state.settings.uploads_dir / "solutions" / str(solution.id), ignore_errors=True)
     db.delete(solution)
     db.commit()
     resync_activities(db, mirror, activities)

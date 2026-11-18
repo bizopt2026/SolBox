@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+
 
 @dataclass
 class ExtractResult:
@@ -25,24 +27,34 @@ def _plain(path: Path) -> str:
     return decode_text(path.read_bytes())
 
 
+def _pptx_shape_parts(shapes) -> list[str]:
+    """도형의 텍스트와 표를 모은다. 그룹 도형은 안쪽까지 들어간다."""
+    parts: list[str] = []
+    for shape in shapes:
+        if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+            parts += _pptx_shape_parts(shape.shapes)
+            continue
+        if shape.has_text_frame and shape.text_frame.text.strip():
+            parts.append(shape.text_frame.text)
+        if getattr(shape, "has_table", False) and shape.has_table:
+            for row in shape.table.rows:
+                cells = [c.text for c in row.cells if c.text.strip()]
+                if cells:
+                    parts.append(" | ".join(cells))
+    return parts
+
+
 def _pptx(path: Path) -> str:
     from pptx import Presentation
 
     parts: list[str] = []
     for number, slide in enumerate(Presentation(str(path)).slides, start=1):
         parts.append(f"## 슬라이드 {number}")
-        for shape in slide.shapes:
-            if shape.has_text_frame and shape.text_frame.text.strip():
-                parts.append(shape.text_frame.text)
-            if getattr(shape, "has_table", False) and shape.has_table:
-                for row in shape.table.rows:
-                    cells = [c.text for c in row.cells if c.text.strip()]
-                    if cells:
-                        parts.append(" | ".join(cells))
+        parts += _pptx_shape_parts(slide.shapes)
         if slide.has_notes_slide:
-            notes = slide.notes_slide.notes_text_frame.text
-            if notes.strip():
-                parts.append(f"[노트] {notes}")
+            frame = slide.notes_slide.notes_text_frame
+            if frame is not None and frame.text.strip():
+                parts.append(f"[노트] {frame.text}")
     return "\n".join(parts)
 
 
@@ -69,8 +81,10 @@ def _xlsx(path: Path) -> str:
             parts.append(f"## {ws.title}")
             for row in ws.iter_rows(values_only=True):
                 cells = ["" if v is None else str(v) for v in row]
-                if any(c.strip() for c in cells):
-                    parts.append(" | ".join(cells).rstrip(" |"))
+                while cells and not cells[-1].strip():
+                    cells.pop()
+                if cells:
+                    parts.append(" | ".join(cells))
         return "\n".join(parts)
     finally:
         wb.close()

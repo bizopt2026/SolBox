@@ -81,3 +81,46 @@ def test_uppercase_extension(tmp_path):
     p = tmp_path / "NOTE.TXT"
     p.write_text("hello", encoding="utf-8")
     assert extract_text(p) == ExtractResult("ok", "hello")
+
+
+def test_pptx_group_shape_text_is_extracted(tmp_path):
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    group = slide.shapes.add_group_shape()
+    group.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1)).text_frame.text = "그룹 안 글상자"
+    inner = group.shapes.add_group_shape()
+    inner.shapes.add_textbox(Inches(1), Inches(3), Inches(3), Inches(1)).text_frame.text = "중첩 그룹 글상자"
+    p = tmp_path / "g.pptx"
+    prs.save(p)
+    r = extract_text(p)
+    assert r.status == "ok"
+    assert "그룹 안 글상자" in r.text and "중첩 그룹 글상자" in r.text
+
+
+def test_pptx_notes_slide_without_body_placeholder(tmp_path):
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "제목만"
+    notes = slide.notes_slide
+    for ph in list(notes.placeholders):
+        if ph.placeholder_format.type is not None and "BODY" in str(ph.placeholder_format.type):
+            ph._element.getparent().remove(ph._element)
+    assert notes.notes_text_frame is None
+    p = tmp_path / "n.pptx"
+    prs.save(p)
+    r = extract_text(p)
+    assert r.status == "ok" and "제목만" in r.text
+
+
+def test_xlsx_drops_trailing_empty_cells_only(tmp_path):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "표"
+    ws.append(["전력", 220, None, None])
+    ws.append(["열", None, "끝 |"])
+    ws.append([None, "뒤"])
+    p = tmp_path / "t.xlsx"
+    wb.save(p)
+    wb.close()
+    lines = extract_text(p).text.splitlines()
+    assert lines[1:] == ["전력 | 220", "열 |  | 끝 |", " | 뒤"]

@@ -59,7 +59,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.templates = Jinja2Templates(directory=templates_dir)
 
-    from app.routers import admin, auth, businesses, customers, partners, solutions  # 지연 임포트: 라우터가 render 를 쓴다
+    from app.routers import admin, auth, businesses, customers, files, partners, solutions  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
     app.include_router(admin.router)
@@ -67,4 +67,5 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(customers.router)
     app.include_router(businesses.router)
     app.include_router(solutions.router)
+    app.include_router(files.router)
     return app
