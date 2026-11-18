@@ -33,6 +33,16 @@ def _item(label: str, value) -> str | None:
     return f"- {label}: {text}" if text else None
 
 
+def _inline(text) -> str:
+    """웹에서 온 글을 한 줄로 만든다: 줄바꿈·탭은 공백 하나로, 링크를 깨는 대괄호는 뺀다."""
+    return re.sub(r"\s+", " ", str(text or "")).replace("[", "").replace("]", "").strip()
+
+
+def _quote(text: str) -> list[str]:
+    """여러 줄 글을 인용문으로 만든다. 웹에서 온 글이 제목 줄로 시작할 수 없다."""
+    return [f"> {line}".rstrip() for line in str(text).strip().splitlines()]
+
+
 def _lines(*items: str | None) -> list[str]:
     return [i for i in items if i]
 
@@ -234,11 +244,11 @@ class KnowledgeMirror:
         if is_area:
             out += ["", "## 동향"]
             for t in r.trends or []:
-                out += ["", f"### {t.get('headline', '')}"]
-                if t.get("summary"):
-                    out += ["", t["summary"]]
+                out += ["", f"### {_inline(t.get('headline'))}"]
+                if str(t.get("summary") or "").strip():
+                    out += [""] + _quote(t["summary"])
                 links = [
-                    f"- [{s.get('title') or s.get('url', '')}]({s.get('url', '')})"
+                    f"- [{_inline(s.get('title')) or _inline(s.get('url'))}]({s.get('url', '')})"
                     + ("" if s.get("opened", True) else " (검색 결과 링크, 본문 미확인)")
                     for s in t.get("sources", [])
                 ]
@@ -254,7 +264,7 @@ class KnowledgeMirror:
                     _item("대상 솔루션 id", ", ".join(str(i) for i in sug.get("solution_ids", []))),
                     _item("근거", ", ".join(sug.get("sources", []))),
                 )
-        return out + _section("시사점", "\n".join(f"- {i}" for i in r.insights or []))
+        return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
 def get_mirror(request: Request) -> KnowledgeMirror:

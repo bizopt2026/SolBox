@@ -236,3 +236,30 @@ def test_delete_run_removes_mirrors(app, admin_client, db, settings, fake_claude
     for r in run.reports:
         mirror.remove(r)
     assert list((settings.knowledge_dir / "research").iterdir()) == []
+
+
+def test_report_mirror_neutralises_web_text(app, db, settings):
+    run = ResearchRun(trigger="manual", status="done")
+    db.add(run)
+    db.flush()
+    report = ResearchReport(
+        run_id=run.id, kind="area", area="tech", status="done", title="보고서",
+        trends=[{
+            "headline": "첫 줄\n# 가짜 제목\t[x]",
+            "summary": "# 요약이 제목처럼\n## 둘째 줄\n\n셋째",
+            "sources": [{"title": "[링크]\n제목", "url": "https://example.com/a"}],
+            "needs_check": [],
+        }],
+        insights=["시사점\n## 가짜", "[대괄호] 줄"],
+    )
+    db.add(report)
+    db.commit()
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    mirror.sync(report)
+    body = (settings.knowledge_dir / mirror.rel_path(report)).read_text(encoding="utf-8")
+    lines = body.splitlines()
+    assert "### 첫 줄 # 가짜 제목 x" in lines
+    assert "> # 요약이 제목처럼" in lines and "> ## 둘째 줄" in lines and ">" in lines and "> 셋째" in lines
+    assert "- [링크 제목](https://example.com/a)" in lines
+    assert "- 시사점 ## 가짜" in lines and "- 대괄호 줄" in lines
+    assert not [ln for ln in lines if ln.startswith("#") and ln not in ("# 보고서", "## 동향", "### 첫 줄 # 가짜 제목 x", "## 시사점")]
