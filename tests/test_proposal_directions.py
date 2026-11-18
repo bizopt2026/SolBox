@@ -318,3 +318,15 @@ def test_delete_proposal_with_failed_job(app, admin_client, db, settings, fake_c
     assert r.status_code == 303
     db.expire_all()
     assert db.get(Proposal, pid) is None
+
+
+def test_direction_without_rationale_needs_check(app, user_client, db, settings, fake_claude):
+    p, c, b, s1, s2, s3 = make_proposal_world(db, settings)
+    data = good_directions(s1, s2)
+    data["directions"][1]["rationale"] = []
+    user_client.post(f"/proposals/{p.id}/directions")
+    _set(fake_claude, data)
+    _run(app, settings)
+    db.refresh(p)
+    assert "근거 자료 없음" in p.directions[1]["needs_check"]
+    assert "근거 자료 없음" not in p.directions[0]["needs_check"]

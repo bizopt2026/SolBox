@@ -9,7 +9,7 @@ from app import labels
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
-from app.proposals import MAX_SLIDES, display_title, save_outline, slide_from_form, slide_to_form
+from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, display_title, save_outline, slide_from_form, slide_to_form
 from app.routers._common import get_or_404
 from app.security import require_user
 
@@ -119,6 +119,6 @@ def add_slide(
     p, slides = _load_for_edit(db, proposal_id, n if n is not None else len(p.outline["slides"]))
     if len(slides) >= MAX_SLIDES:
         raise HTTPException(status_code=400, detail=f"슬라이드는 {MAX_SLIDES}장까지 만들 수 있습니다.")
-    slides.insert(n + 1, slide_from_form("bullets", {"title": "새 슬라이드"}))
+    slides.insert(n + 1, slide_from_form("bullets", {"title": "새 슬라이드", "needs_check": NO_SOURCE_NOTE}))
     save_outline(db, p, slides)
     return _back(p, n + 1)

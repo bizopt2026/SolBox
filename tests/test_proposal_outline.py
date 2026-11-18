@@ -114,3 +114,36 @@ def test_failed_outline_offers_retry(app, user_client, db, settings, fake_claude
     _run(app, settings)
     assert f'action="/proposals/{p.id}/outline"' in user_client.get(f"/proposals/{p.id}").text
     assert "다시 시도" in user_client.get(f"/proposals/{p.id}").text
+
+
+def test_unsourced_content_slide_gets_needs_check(tmp_path):
+    (tmp_path / "solutions").mkdir()
+    (tmp_path / "solutions" / "card.md").write_text("x", encoding="utf-8")
+    raw = Outline(title="제안", slides=[
+        Slide(kind="cover", title="제안"),
+        Slide(kind="bullets", title="근거 없음", bullets=["a"]),
+        Slide(kind="bullets", title="출처 있음", bullets=["a"], sources=["solutions/card.md"]),
+        Slide(kind="bullets", title="확인 필요만", bullets=["a"], needs_check=["수치"]),
+        Slide(kind="bullets", title="없는 출처", bullets=["a"], sources=["nope.md"]),
+        Slide(kind="closing", title="감사합니다")])
+    out = clean_outline(raw, tmp_path)["slides"]
+    assert out[0]["needs_check"] == [] and out[5]["needs_check"] == []
+    assert out[1]["needs_check"] == ["근거 자료 없음: 내용 확인 필요"]
+    assert out[2]["needs_check"] == [] and out[3]["needs_check"] == ["수치"]
+    assert out[4]["needs_check"] == ["출처 확인 불가: nope.md"]
+
+
+def test_clean_outline_kind_is_case_insensitive(tmp_path):
+    raw = Outline(title="제안", slides=[Slide(kind=" Cover ", title="제안"), Slide(kind="Bullets", title="a", needs_check=["x"]),
+                                        Slide(kind="TWO_COLUMN", title="b", needs_check=["x"])])
+    assert [s["kind"] for s in clean_outline(raw, tmp_path)["slides"]] == ["cover", "bullets", "two_column"]
+
+
+def test_prompts_carry_source_rules():
+    from pathlib import Path
+    prompts = Path(__file__).parent.parent / "app" / "ai" / "prompts"
+    outline = (prompts / "proposal_outline.md").read_text(encoding="utf-8")
+    assert "대화나 방향 JSON 에만 있는 수치" in outline and "모든 내용 장에는 `sources` 나 `needs_check`" in outline
+    assert "방향의 `needs_check`" in outline
+    assert "근거 자료가 뒷받침하지 않는 수치는 `effects` 에 쓰지 마세요" in (prompts / "proposal_directions.md").read_text(encoding="utf-8")
+    assert "(사용자 제시, 확인 필요)" in (prompts / "proposal_chat.md").read_text(encoding="utf-8")

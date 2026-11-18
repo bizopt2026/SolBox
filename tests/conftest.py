@@ -148,8 +148,10 @@ def outlined_proposal(db, settings):
 
     p = refining_proposal(db, settings)
     outline = clean_outline(Outline.model_validate(sample_outline(8)), settings.knowledge_dir)
+    for slide in outline["slides"][1:-1]:  # 내용 장은 모두 출처가 있고, 확인 필요는 2번 장에만 있다
+        slide["needs_check"] = []
+        slide["sources"] = ["solutions/1/card.md"]
     outline["slides"][2]["needs_check"] = ["절감률 수치"]
-    outline["slides"][2]["sources"] = ["solutions/1/card.md"]
     p.outline = outline
     p.status = "outlined"
     p.outline_updated_at = datetime.now()

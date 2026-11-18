@@ -144,3 +144,11 @@ def test_edit_blocked_while_job_running(user_client, db, settings):
         assert r.status_code == 400 and "AI 작업이 끝난 뒤 수정하세요." in r.text
     assert [s["title"] for s in _slides(db, p)] == before
     assert user_client.get(base).status_code == 200
+
+
+def test_added_blank_slide_needs_check(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    user_client.post(f"/proposals/{p.id}/outline/slides", data={"after": "1"})
+    db.refresh(p)
+    assert p.outline["slides"][2]["title"] == "새 슬라이드"
+    assert p.outline["slides"][2]["needs_check"] == ["근거 자료 없음: 내용 확인 필요"]

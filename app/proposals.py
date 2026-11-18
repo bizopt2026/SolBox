@@ -17,6 +17,7 @@ MAX_DIRECTIONS = 3
 SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
 MAX_STEPS = 5
 MAX_SLIDES = 14
+NO_SOURCE_NOTE = "근거 자료 없음: 내용 확인 필요"
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
@@ -83,6 +84,8 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
             if not found:
                 needs_check.append(f"근거 자료 없음: {ev.text}")
             rationale.append({"text": ev.text, "sources": found})
+        if not d.rationale:
+            needs_check.append("근거 자료 없음")
         cleaned.append({
             "title": d.title, "summary": d.summary, "solutions": solutions, "rationale": rationale,
             "effects": list(d.effects), "needs_check": needs_check,
@@ -101,6 +104,7 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
         s = raw.model_dump()
         for key in ("kind", "title", "key_message", "subtitle", "left_title", "right_title"):
             s[key] = s[key].strip()
+        s["kind"] = s["kind"].lower()
         for key in ("bullets", "left", "right", "needs_check"):
             s[key] = _strip_list(s[key])
         if s["kind"] not in SLIDE_KINDS:
@@ -123,6 +127,8 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
         found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
         s["sources"] = found
         s["needs_check"] = s["needs_check"] + [f"출처 확인 불가: {m}" for m in missing]
+        if s["kind"] not in ("cover", "closing") and not s["sources"] and not s["needs_check"]:
+            s["needs_check"] = [NO_SOURCE_NOTE]
         slides.append(s)
     title = out.title.strip()
     if not slides or slides[0]["kind"] != "cover":
