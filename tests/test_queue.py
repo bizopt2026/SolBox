@@ -4,7 +4,7 @@ import pytest
 
 from app import labels
 from app.ai.queue import (
-    enqueue, fail_stale_running, process_next, queue_position, start_workers, stop_workers,
+    _claim_next, enqueue, fail_stale_running, process_next, queue_position, start_workers, stop_workers,
 )
 from app.ai.tasks import HANDLERS
 from app.models import AIJob, User
@@ -190,3 +190,67 @@ def test_admin_jobs_page(user_client, admin_client, db):
     assert user_client.get("/admin/jobs").status_code == 403
     r = admin_client.get("/admin/jobs")
     assert r.status_code == 200 and "echo" in r.text and labels.ERROR_KINDS["auth"] in r.text
+
+
+def test_concurrent_claims_never_duplicate(app, db):
+    ids = {enqueue(db, "echo", {}, None).id for _ in range(6)}
+    n = 8
+    barrier = threading.Barrier(n)
+    claimed, errors = [], []
+
+    def worker():
+        barrier.wait()
+        try:
+            while (c := _claim_next(app.state.session_factory)) is not None:
+                claimed.append(c[0])
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+    assert sorted(claimed) == sorted(ids)
+
+
+def test_finish_is_retried_when_db_fails(app, db, settings, monkeypatch):
+    import app.ai.queue as q
+
+    monkeypatch.setattr(q, "FINISH_RETRY_SLEEP_S", 0)
+    monkeypatch.setitem(HANDLERS, "ok", lambda db, inp, runner, s: "r")
+    job = enqueue(db, "ok", {}, None)
+    real, calls = q._finish_once, []
+
+    def flaky(sf, job_id, **values):
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("database is locked")
+        real(sf, job_id, **values)
+
+    monkeypatch.setattr(q, "_finish_once", flaky)
+    assert _run(app, settings) is True
+    db.refresh(job)
+    assert job.status == "done" and len(calls) == 3
+
+
+def test_finish_failure_does_not_raise(app, db, settings, monkeypatch):
+    import app.ai.queue as q
+
+    monkeypatch.setattr(q, "FINISH_RETRY_SLEEP_S", 0)
+    monkeypatch.setitem(HANDLERS, "ok", lambda db, inp, runner, s: "r")
+    enqueue(db, "ok", {}, None)
+    monkeypatch.setattr(q, "_finish_once", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("locked")))
+    assert _run(app, settings) is True
+
+
+def test_status_redirects_when_failed_and_encodes_non_ascii(user_client, db):
+    j = _job(db, _kim(db), "failed", error_kind="limit")
+    r = user_client.get(f"/jobs/{j.id}/status?next=/activities/draft/3")
+    assert r.headers["HX-Redirect"] == "/activities/draft/3"
+    j.status = "done"
+    db.commit()
+    r = user_client.get(f"/jobs/{j.id}/status", params={"next": "/a?q=한글&x=1"})
+    assert r.status_code == 200
+    assert r.headers["HX-Redirect"] == "/a?q=%ED%95%9C%EA%B8%80&x=1"

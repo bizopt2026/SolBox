@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from datetime import datetime
 
 from sqlalchemy import and_, func, or_, select, update
@@ -16,6 +17,8 @@ from app.models import AIJob
 log = logging.getLogger(__name__)
 
 IDLE_SLEEP_S = 1.0
+FINISH_RETRIES = 5
+FINISH_RETRY_SLEEP_S = 0.5
 
 
 def enqueue(db: Session, kind: str, input: dict, requester_id: int | None, priority: int = 0) -> AIJob:
@@ -72,10 +75,22 @@ def _claim_next(session_factory: sessionmaker[Session]) -> tuple[int, str, dict]
                 return row.id, row.kind, dict(row.input or {})
 
 
-def _finish(session_factory: sessionmaker[Session], job_id: int, **values) -> None:
+def _finish_once(session_factory: sessionmaker[Session], job_id: int, **values) -> None:
     with session_factory() as db:
         db.execute(update(AIJob).where(AIJob.id == job_id).values(finished_at=datetime.now(), **values))
         db.commit()
+
+
+def _finish(session_factory: sessionmaker[Session], job_id: int, **values) -> None:
+    """결과 기록이 일시적으로(DB 잠금 등) 실패해도 몇 번 다시 시도한다. 끝내 실패해도 예외를 밖으로 내지 않는다."""
+    for attempt in range(1, FINISH_RETRIES + 1):
+        try:
+            _finish_once(session_factory, job_id, **values)
+            return
+        except Exception:  # noqa: BLE001
+            log.exception("AI 작업 %s 결과 기록 실패 (%s/%s)", job_id, attempt, FINISH_RETRIES)
+            if attempt < FINISH_RETRIES:
+                time.sleep(FINISH_RETRY_SLEEP_S)
 
 
 def process_next(session_factory: sessionmaker[Session], runner: ClaudeRunner, settings: Settings) -> bool:

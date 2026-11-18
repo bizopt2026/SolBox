@@ -1,6 +1,8 @@
 """AI 작업 상태 조각과 재시도."""
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -35,8 +37,8 @@ def status(job_id: int, request: Request, next: str | None = None,
     job = _job_for(db, job_id, user)
     target = _safe_next(next)
     response = render(request, "jobs/_status.html", job=job, position=queue_position(db, job), next=target)
-    if target and job.status == "done":
-        response.headers["HX-Redirect"] = target
+    if target and job.status in ("done", "failed"):
+        response.headers["HX-Redirect"] = quote(target, safe="/?=&%#:@+,;~")
     return response
 
 
