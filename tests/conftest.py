@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -72,3 +73,28 @@ def user_client(app, db):
 @pytest.fixture
 def admin_client(app, db):
     return _logged_in_client(app, db, "admin", "admin")
+
+
+class FakeClaude:
+    """tests/fake_claude.py 를 조종하는 제어 파일 도우미."""
+
+    def __init__(self, control: Path):
+        self.control = control
+        self.set()
+
+    def set(self, **keys):
+        self.control.write_text(json.dumps(keys), encoding="utf-8")
+
+    def calls(self) -> list[dict]:
+        log = Path(str(self.control) + ".calls.jsonl")
+        if not log.exists():
+            return []
+        lines = log.read_text(encoding="utf-8").splitlines()
+        return [json.loads(line) for line in lines if line.strip()]
+
+
+@pytest.fixture
+def fake_claude(tmp_path, monkeypatch):
+    control = tmp_path / "fake_claude_control.json"
+    monkeypatch.setenv("FAKE_CLAUDE_CONTROL", str(control))
+    return FakeClaude(control)
