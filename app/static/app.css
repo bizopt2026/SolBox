@@ -48,3 +48,8 @@ dd { margin:0; white-space:pre-wrap; }
 .slide-form [hidden] { display:none !important; }
 .chat-msg.old { opacity:.55; background:#f6f6f6; }
 .chat-divider { font-size:13px; margin:4px 0 0; }
+.status-row { align-items:center; margin-bottom:16px; }
+#ai-status:not(:empty) { margin-bottom:12px; }
+.card dl + form, .card ul + form { margin-top:14px; }
+#chat form + form { margin-top:14px; }
+#directions .stack + form { margin-top:4px; }

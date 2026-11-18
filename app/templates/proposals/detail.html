@@ -17,7 +17,7 @@
     </div>
   {% endif %}
 </div>
-<div class="row">
+<div class="row status-row">
   <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
   {% if can_delete %}
   <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
