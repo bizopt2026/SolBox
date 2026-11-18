@@ -10,12 +10,13 @@ from sqlalchemy.orm import Session
 from app import labels
 from app.db import get_db
 from app.main import render
-from app.models import AIJob, Activity, Solution, User
+from app.models import AIJob, Activity, Proposal, Solution, User
 from app.routers._common import newest_first
 from app.security import require_user
 
 router = APIRouter()
 RECENT_LIMIT = 10
+OPEN_PROPOSAL_LIMIT = 5
 FOLLOW_UP_DAYS = 14
 AI_PROBLEMS = ("not_installed", "auth", "limit", "network")
 
@@ -58,11 +59,17 @@ def ai_problem(db: Session) -> str | None:
     return None
 
 
+def open_proposals(db: Session) -> list[Proposal]:
+    """아직 제안서를 끝내지 않은 제안 건, 최근 수정순."""
+    stmt = select(Proposal).where(Proposal.status != "deck")
+    return list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc()).limit(OPEN_PROPOSAL_LIMIT)))
+
+
 @router.get("/")
 def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     recent = newest_first(db.scalars(select(Activity)))[:RECENT_LIMIT]
     return render(
         request, "home.html",
         recent=recent, follow_ups=upcoming_follow_ups(db, date.today()),
-        stages=stage_counts(db), ai_problem=ai_problem(db),
+        stages=stage_counts(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
     )

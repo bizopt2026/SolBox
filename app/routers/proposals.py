@@ -1,16 +1,21 @@
 """제안 건 화면."""
 from __future__ import annotations
 
+import secrets
 import shutil
+from datetime import date, datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import labels
 from app.ai.queue import queue_position
 from app.db import get_db
+from app.deck import build_deck
+from app.knowledge import safe_name
 from app.main import render
 from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
 from app.proposals import candidate_solutions, display_title, start_job
@@ -22,6 +27,9 @@ CUSTOMER_REQUIRED = "고객을 선택하세요."
 BUSINESS_MISMATCH = "선택한 고객의 사업이 아닙니다."
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
 EMPTY_MESSAGE = "메시지를 입력하세요."
+DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
+DECK_FAILED = "제안서 파일을 만들지 못했습니다."
+PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 NOTICES = {"busy": "이미 AI 작업이 진행 중입니다."}
 
 
@@ -251,6 +259,52 @@ def make_outline(
     if not _has_selection(proposal):
         raise HTTPException(status_code=400, detail=NO_DIRECTION)
     return _start(db, proposal, "proposal_outline", user, {"instruction": instruction.strip()}, anchor="#outline")
+
+
+@router.post("/{proposal_id}/deck")
+def build(
+    proposal_id: int, request: Request, back: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    p = get_or_404(db, Proposal, proposal_id)
+    if not p.outline or not p.outline.get("slides"):
+        raise HTTPException(status_code=400, detail="구성안이 없습니다.")
+    if _is_busy(p):
+        raise HTTPException(status_code=400, detail=DECK_BUSY)
+    folder = request.app.state.settings.decks_dir / str(p.id)
+    now = datetime.now()
+    name = f"deck-{now:%Y%m%d-%H%M%S}-{secrets.token_hex(3)}.pptx"
+    temp, final = folder / f"{name}.tmp", folder / name
+    old_name = p.deck_name
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        build_deck(p.outline, temp, customer_name=p.customer.name, today=date.today())
+        temp.replace(final)
+        p.deck_name, p.deck_built_at, p.status = name, now, "deck"
+        db.commit()
+    except Exception:
+        db.rollback()
+        temp.unlink(missing_ok=True)
+        final.unlink(missing_ok=True)
+        db.refresh(p)
+        return _detail_page(request, db, p, user, status_code=400, deck_error=DECK_FAILED)
+    if old_name and old_name != name:
+        (folder / old_name).unlink(missing_ok=True)
+    suffix = "/outline#deck" if back == "outline" else "#deck"
+    return RedirectResponse(f"/proposals/{p.id}{suffix}", status_code=303)
+
+
+@router.get("/{proposal_id}/deck")
+def download(
+    proposal_id: int, request: Request,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    p = get_or_404(db, Proposal, proposal_id)
+    path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name if p.deck_name else None
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
+    disposition = "attachment; filename*=UTF-8''" + quote(safe_name(display_title(p)) + ".pptx")
+    return FileResponse(path, media_type=PPTX_TYPE, headers={"Content-Disposition": disposition})
 
 
 @router.post("/{proposal_id}/target")

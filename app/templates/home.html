@@ -14,6 +14,18 @@
 </section>
 
 <section class="card">
+  <h2>진행 중인 제안 건</h2>
+  {% if proposals %}
+  <ul>
+    {% for p in proposals %}
+    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> · {{ p.customer.name }} <span class="badge">{{ labels.PROPOSAL_STATUSES.get(p.status, p.status) }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
+  <p><a href="/proposals">제안 건 목록</a> · <a href="/proposals/new">+ 제안 건 만들기</a></p>
+</section>
+
+<section class="card">
   <h2>후속 조치 (기한 14일 이내)</h2>
   {% if follow_ups %}
   <ul>

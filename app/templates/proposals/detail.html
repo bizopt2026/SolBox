@@ -42,7 +42,6 @@
     </form>
   </details>
 </section>
-{# 아래 네 구역은 뒤 Task 들이 partial 만 추가해 채운다 #}
 <section class="card" id="directions">
   <h2>제안 방향</h2>
   {% include "proposals/_directions.html" ignore missing %}
@@ -57,7 +56,7 @@
 </section>
 <section class="card" id="deck">
   <h2>제안서</h2>
-  {% include "proposals/_deck.html" ignore missing %}
+  {% include "proposals/_deck.html" %}
 </section>
 <p><a href="/proposals">&larr; 목록</a></p>
 {% endblock %}

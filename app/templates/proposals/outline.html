@@ -3,7 +3,10 @@
 {% block content %}
 <p><a href="/proposals/{{ proposal.id }}">&larr; {{ title }}</a></p>
 <h1>구성안 검토·수정</h1>
-{% include "proposals/_deck.html" ignore missing %}
+<section class="card" id="deck">
+  <h2>제안서</h2>
+  {% include "proposals/_deck.html" %}
+</section>
 {% if busy %}<p class="error" role="alert">AI 작업이 진행 중입니다. 끝난 뒤에 수정하세요.</p>{% endif %}
 <p class="muted">{{ cards | length }}장{% if proposal.outline_updated_at %} · 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</p>
 {% for card in cards %}

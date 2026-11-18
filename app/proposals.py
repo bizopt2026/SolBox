@@ -194,6 +194,11 @@ def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
     db.commit()
 
 
+def deck_is_stale(p: Proposal) -> bool:
+    """만든 PPT 보다 구성안이 나중에 바뀌었으면 True."""
+    return p.deck_built_at is not None and p.outline_updated_at is not None and p.outline_updated_at > p.deck_built_at
+
+
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:
     """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다."""
     db.refresh(p)

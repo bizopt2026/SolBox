@@ -85,9 +85,10 @@ def create_app(settings: Settings) -> FastAPI:
     templates_dir.mkdir(exist_ok=True)
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.templates = Jinja2Templates(directory=templates_dir)
-    from app.proposals import display_title
+    from app.proposals import deck_is_stale, display_title
 
     app.state.templates.env.globals["display_title"] = display_title
+    app.state.templates.env.globals["deck_is_stale"] = deck_is_stale
     app.state.templates.env.globals["labels"] = labels  # 매크로에서도 쓴다
 
     from app.routers import activities, admin, auth, businesses, customers, files, home, jobs, partners, proposal_outline, proposals, solutions  # 지연 임포트: 라우터가 render 를 쓴다
