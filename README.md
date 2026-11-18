@@ -23,6 +23,8 @@ python -m pip install -e .
 copy config.example.toml config.toml
 ```
 
+(이미 `config.toml` 이 있으면 복사하지 마세요. 덮어써서 `secret_key` 와 `data_dir` 를 잃습니다. 있는지 먼저 확인합니다: `Test-Path config.toml` 이 `True` 면 그 파일을 그대로 씁니다.)
+
 메모장 등으로 `config.toml` 을 열어 다음을 확인합니다.
 
 - `secret_key`: **반드시 길고 무작위한 값으로 바꾸세요.** 비어 있거나 `change-me` 그대로면 서버가 시작되지 않습니다. 아래 명령으로 만들 수 있습니다.

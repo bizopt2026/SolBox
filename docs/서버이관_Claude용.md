@@ -119,6 +119,19 @@ python -m pip install -e ".[dev]"
 
 ## 3. config.toml 작성
 
+먼저 `config.toml` 이 이미 있는지 확인한다 (이미 있는 복제본이면 있을 수 있다).
+
+```powershell
+Test-Path config.toml
+```
+- `True` 면 **복사하지 않는다** (덮어쓰면 `secret_key`·`data_dir` 를 잃는다). 키 이름만 보여 주고(값은 출력하지 않는다, 특히 `secret_key`) 사람에게 기존 파일을 유지할지 묻는다.
+
+```powershell
+Get-Content config.toml -Encoding UTF8 | Where-Object { $_ -match '^\s*[A-Za-z_]+\s*=' -and $_ -notmatch '^\s*secret_key' }
+```
+- 성공: `secret_key` 줄을 뺀 설정 줄이 보인다. 사람이 유지하겠다고 하면 아래 복사와 `secret_key` 새로 만들기는 건너뛰고 필요한 값만 고친다.
+- `False` 면 복사한다:
+
 ```powershell
 copy config.example.toml config.toml
 ```

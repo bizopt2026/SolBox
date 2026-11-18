@@ -204,6 +204,11 @@ class ClaudeRunner:
                     stderr_parts.append(chunk)
             except (OSError, ValueError):
                 pass
+            finally:
+                try:
+                    proc.stderr.close()  # 읽기 스레드가 끝나면서 스스로 닫는다
+                except (OSError, ValueError):
+                    pass
 
         def read_stdout() -> None:
             # 손자 프로세스가 파이프를 쥐고 있어도 본 루프가 마감 시각에 멈출 수 있게 줄을 큐로 넘긴다.
@@ -273,7 +278,13 @@ class ClaudeRunner:
             for t in threads:
                 t.join(timeout=1 if timed_out else 5)
             if out_reader.is_alive():
-                proc.wait()  # 읽는 중인 파이프는 닫지 않는다. 손자가 끝나면 읽기 스레드도 저절로 끝난다.
+                # 읽는 중인 파이프는 여기서 닫지 않는다. 손자가 끝나 읽기 스레드가 끝나면 스레드가 stdout·stderr 를 스스로 닫는다.
+                proc.wait()
+                if not writer.is_alive():
+                    try:
+                        proc.stdin.close()
+                    except (OSError, ValueError):
+                        pass
             else:
                 _reap(proc)
 
