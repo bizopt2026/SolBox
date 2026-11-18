@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.main import render
-from app.models import User
+from app.models import AIJob, User
 from app.security import hash_password, require_admin
 
 router = APIRouter(prefix="/admin")
@@ -73,3 +73,10 @@ def update_user(
         target.password_hash = hash_password(password)
     db.commit()
     return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.get("/jobs")
+def jobs_page(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    jobs = db.query(AIJob).order_by(AIJob.id.desc()).limit(100).all()
+    requesters = {u.id: u.name or u.username for u in db.query(User).all()}
+    return render(request, "admin/jobs.html", jobs=jobs, requesters=requesters)

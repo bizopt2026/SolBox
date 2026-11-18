@@ -43,7 +43,7 @@ def _kill_tree(proc: subprocess.Popen) -> None:
         if sys.platform == "win32":
             subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                capture_output=True, check=False,
+                capture_output=True, check=False, timeout=10,
             )
         else:
             os.killpg(proc.pid, signal.SIGKILL)
@@ -53,6 +53,20 @@ def _kill_tree(proc: subprocess.Popen) -> None:
         proc.kill()
     except OSError:
         pass
+
+
+def _reap(proc: subprocess.Popen) -> None:
+    """죽인 프로세스를 회수한다. 손자 프로세스가 파이프를 쥐고 있어도 멈추지 않는다."""
+    try:
+        proc.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        for pipe in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if pipe is not None:
+                    pipe.close()
+            except OSError:
+                pass
+        proc.wait()
 
 
 class ClaudeRunner:
@@ -93,11 +107,11 @@ class ClaudeRunner:
             stdout, stderr = proc.communicate(prompt, timeout=timeout_s)
         except subprocess.TimeoutExpired:
             _kill_tree(proc)
-            proc.communicate()  # 회수해서 파이프와 프로세스를 정리한다
+            _reap(proc)
             raise ClaudeError("timeout", f"{timeout_s}초 안에 끝나지 않았습니다.") from None
         except BaseException:
             _kill_tree(proc)
-            proc.communicate()
+            _reap(proc)
             raise
 
         stdout, stderr = stdout or "", stderr or ""
