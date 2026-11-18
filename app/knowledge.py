@@ -237,7 +237,11 @@ class KnowledgeMirror:
                 out += ["", f"### {t.get('headline', '')}"]
                 if t.get("summary"):
                     out += ["", t["summary"]]
-                links = [f"- [{s.get('title') or s.get('url', '')}]({s.get('url', '')})" for s in t.get("sources", [])]
+                links = [
+                    f"- [{s.get('title') or s.get('url', '')}]({s.get('url', '')})"
+                    + ("" if s.get("opened", True) else " (검색 결과 링크, 본문 미확인)")
+                    for s in t.get("sources", [])
+                ]
                 out += ([""] + links) if links else ["", "- 출처 링크 없음, 확인 필요"]
         else:
             out += ["", "## 발굴 방향 제안"]

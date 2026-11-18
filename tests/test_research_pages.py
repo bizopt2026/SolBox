@@ -165,3 +165,33 @@ def test_delete_running_run_is_400(admin_client, db):
 
 def test_nav_has_research_for_everyone(user_client):
     assert 'href="/research"' in user_client.get("/").text
+
+
+def test_unopened_links_are_labelled_old_ones_are_not(user_client, db, settings):
+    run = finished_run(db, settings)
+    tech = next(r for r in run.reports if r.area == "tech")
+    tech.trends = [{"headline": "동향", "summary": "", "needs_check": ["본문을 열어 확인하지 못함"], "sources": [
+        {"title": "검색만", "url": "https://example.com/s", "opened": False},
+        {"title": "열어 봄", "url": "https://example.com/o", "opened": True},
+        {"title": "옛 기록", "url": "https://example.com/old"}]}]
+    db.commit()
+    page = user_client.get(f"/research/runs/{run.id}").text
+    assert page.count("검색 결과 링크 (본문 미확인)") == 1
+    assert page.index("검색만") < page.index("검색 결과 링크 (본문 미확인)") < page.index("열어 봄")
+    assert "본문을 열어 확인하지 못함" in page
+
+
+def test_unopened_links_are_labelled_in_knowledge_copy(db, settings):
+    from app.knowledge import KnowledgeMirror
+
+    run = finished_run(db, settings)
+    tech = next(r for r in run.reports if r.area == "tech")
+    tech.trends = [{"headline": "동향", "summary": "", "needs_check": [], "sources": [
+        {"title": "검색만", "url": "https://example.com/s", "opened": False},
+        {"title": "열어 봄", "url": "https://example.com/o", "opened": True}]}]
+    db.commit()
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    mirror.sync(tech)
+    text = mirror.path_for(tech).read_text(encoding="utf-8")
+    assert "[검색만](https://example.com/s) (검색 결과 링크, 본문 미확인)" in text
+    assert "[열어 봄](https://example.com/o)\n" in text + "\n"

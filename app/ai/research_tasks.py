@@ -29,6 +29,7 @@ EMPTY_SUGGEST = "발굴 방향 제안이 비어 있습니다."
 class SourceLink(BaseModel):
     title: str = ""
     url: str = ""
+    opened: bool = False  # 모델이 실제로 페이지 본문을 열었을 때만 true
 
 
 class Trend(BaseModel):

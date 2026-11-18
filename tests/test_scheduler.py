@@ -65,20 +65,26 @@ def test_busy_run_retries_next_tick(app, db):
     assert tick(app, now + timedelta(minutes=1)) == ["research"]
 
 
-def test_no_topics_marks_slot_failed_once(app, db):
+def test_no_topics_skips_slot_silently_and_catches_up_later(app, db, caplog, monkeypatch):
+    from app import scheduler
+
+    monkeypatch.setattr(scheduler, "_WARNED_SLOTS", set())
     now = datetime(2026, 11, 17, 9, 0)
-    assert tick(app, now) == []
+    with caplog.at_level("WARNING", logger="app.scheduler"):
+        assert tick(app, now) == []
+        assert tick(app, now + timedelta(minutes=1)) == []
+    assert len([r for r in caplog.records if "주제가 없습니다" in r.getMessage()]) == 1  # 예정 시각당 한 번
+    assert db.query(ResearchRun).count() == 0  # 빈 실패 실행을 만들지 않는다
+    make_topics(db)  # 주제를 나중에 추가하면 다음 점검에서 따라잡는다
+    assert tick(app, now + timedelta(minutes=2)) == ["research"]
     run = db.query(ResearchRun).one()
-    assert (run.trigger, run.status, run.slot) == ("schedule", "failed", datetime(2026, 11, 16, 6, 0))
-    assert run.finished_at is not None and run.reports == []
-    assert tick(app, now + timedelta(minutes=1)) == []
-    db.expire_all()
-    assert db.query(ResearchRun).count() == 1
+    assert run.slot == datetime(2026, 11, 16, 6, 0) and len(run.reports) >= 1
 
 
-def test_run_without_reports_renders(app, db, admin_client):
-    tick(app, datetime(2026, 11, 17, 9, 0))  # 주제 없음 -> 빈 failed 실행
-    run = db.query(ResearchRun).one()
+def test_run_without_reports_still_renders(app, db, admin_client):
+    run = ResearchRun(trigger="schedule", status="failed", slot=datetime(2026, 11, 16, 6, 0), finished_at=datetime(2026, 11, 17, 9, 0))
+    db.add(run)  # 옛 DB 에 남아 있을 수 있는 보고서 없는 실행
+    db.commit()
     assert admin_client.get("/research").status_code == 200
     assert admin_client.get(f"/research/runs/{run.id}").status_code == 200
     assert admin_client.get("/admin/research").status_code == 200

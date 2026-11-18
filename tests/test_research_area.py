@@ -12,7 +12,7 @@ from app.research import clean_url, start_run
 from tests.conftest import make_topics
 
 AREA = {"title": "11월 3주 기술 동향", "trends": [
-    {"headline": "AI 공조 제어 확산", "summary": "병원 적용 증가", "sources": [{"title": "기사", "url": "https://example.com/a"}, {"url": "https://example.com/a"}]},
+    {"headline": "AI 공조 제어 확산", "summary": "병원 적용 증가", "sources": [{"title": "기사", "url": "https://example.com/a", "opened": True}, {"url": "https://example.com/a"}]},
     {"headline": "출처 없는 동향", "sources": [{"url": "javascript:alert(1)"}, {"url": ""}, {"url": "https://bad host/x"}]},
     {"headline": "", "summary": "제목 없음"}], "insights": ["설비 운영 고객에 제안 기회"]}
 AREA_JSON = json.dumps(AREA, ensure_ascii=False)
@@ -74,7 +74,7 @@ def test_links_are_cleaned(app, admin_client, db, settings, fake_claude):
     rep = db.query(ResearchReport).filter_by(status="done").first()
     assert rep.title == "11월 3주 기술 동향" and rep.insights == ["설비 운영 고객에 제안 기회"]
     assert [t["headline"] for t in rep.trends] == ["AI 공조 제어 확산", "출처 없는 동향"]
-    assert rep.trends[0]["sources"] == [{"title": "기사", "url": "https://example.com/a"}] and rep.trends[0]["needs_check"] == []
+    assert rep.trends[0]["sources"] == [{"title": "기사", "url": "https://example.com/a", "opened": True}] and rep.trends[0]["needs_check"] == []
     assert rep.trends[1]["sources"] == [] and rep.trends[1]["needs_check"] == ["출처 링크 없음, 확인 필요"]
 
 
@@ -291,7 +291,7 @@ def test_source_without_url_does_not_fail_area(app, admin_client, db, settings, 
     data = {"trends": [{"headline": "동향", "sources": [{"title": "주소 없음"}, {"url": "https://a.kr/x"}]}]}
     fake_claude.set(mode="ok", result=json.dumps(data, ensure_ascii=False))
     run = _run_all(app, admin_client, db, settings)
-    assert run.reports[0].status == "done" and run.reports[0].trends[0]["sources"] == [{"title": "", "url": "https://a.kr/x"}]
+    assert run.reports[0].status == "done" and run.reports[0].trends[0]["sources"] == [{"title": "", "url": "https://a.kr/x", "opened": False}]
 
 
 def test_restart_recovers_stuck_run(app, admin_client, db, settings):
@@ -353,3 +353,30 @@ def test_retry_button_only_for_admin(app, admin_client, user_client, db, setting
     run = _run_all(app, admin_client, db, settings)
     assert "/retry" in admin_client.get(f"/research/runs/{run.id}/status").text
     assert "/retry" not in user_client.get(f"/research/runs/{run.id}/status").text
+
+
+def test_clean_area_opened_flags_and_notes():
+    from app.ai.research_tasks import AreaOut
+    from app.research import clean_area
+
+    out = AreaOut.model_validate({"trends": [
+        {"headline": "열어 봄", "sources": [{"url": "https://a.kr/1", "opened": True}, {"url": "https://a.kr/2"}]},
+        {"headline": "검색 결과만", "sources": [{"url": "https://a.kr/3"}, {"url": "https://a.kr/3", "opened": False}]},
+        {"headline": "링크 없음", "sources": []},
+        {"headline": "중복은 열어 본 쪽이 이김", "sources": [{"url": "https://a.kr/4"}, {"url": "https://a.kr/4", "opened": True}]},
+    ]})
+    t = clean_area(out)["trends"]
+    assert [s["opened"] for s in t[0]["sources"]] == [True, False] and t[0]["needs_check"] == []
+    assert t[1]["sources"] == [{"title": "", "url": "https://a.kr/3", "opened": False}]
+    assert t[1]["needs_check"] == ["본문을 열어 확인하지 못함"]
+    assert t[2]["needs_check"] == ["출처 링크 없음, 확인 필요"]
+    assert t[3]["sources"][0]["opened"] is True and t[3]["needs_check"] == []
+
+
+def test_area_prompt_asks_for_opened_flag(app, admin_client, db, settings, fake_claude):
+    make_topics(db)
+    fake_claude.set(mode="ok", result=AREA_JSON)
+    admin_client.post("/research/run")
+    process_next(app.state.session_factory, app.state.runner, settings)
+    stdin = fake_claude.calls()[0]["stdin"]
+    assert '"opened"' in stdin and "검색 결과" in stdin

@@ -21,6 +21,8 @@ ATTEMPT_KEY = "daily_last_attempt"
 RETRY_AFTER = timedelta(hours=1)  # 실패한 일일 작업은 이 간격 이상 두고 다시 한다
 
 # 하루에 한 번(02:00 이후) 차례로 부르는 작업. 백업 등이 여기에 들어간다.
+_WARNED_SLOTS: set[datetime] = set()  # 주제가 없어 건너뛴 예정 시각 (프로세스마다 한 번만 기록한다)
+
 DAILY_JOBS: list[Callable[[object], None]] = []
 
 
@@ -73,11 +75,11 @@ def _run_research(app, now: datetime) -> bool:
         try:
             run = start_run(db, "schedule", None, slot=slot)
         except ValueError:
-            # 주제가 없다: 같은 예정 시각을 다시 시도하지 않도록 빈 실패 실행을 남긴다.
-            log.warning("예약 리서치를 건너뜁니다: 사용 중인 주제가 없습니다.")
+            # 주제가 없다: 조용히 건너뛴다. 주제가 생기면(6일 안이면) 다음 점검 때 이 예정 시각의 조사를 시작한다.
             db.rollback()
-            db.add(ResearchRun(trigger="schedule", status="failed", slot=slot, finished_at=now))
-            db.commit()
+            if slot not in _WARNED_SLOTS:
+                _WARNED_SLOTS.add(slot)
+                log.warning("예약 리서치를 건너뜁니다: 사용 중인 주제가 없습니다 (예정 %s).", slot)
             return False
         return run is not None
 

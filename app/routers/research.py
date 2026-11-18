@@ -14,7 +14,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.labels import RESEARCH_AREAS
 from app.main import render
 from app.models import AIJob, ResearchReport, ResearchRun, Solution, User
-from app.research import clean_url, start_run
+from app.research import UNOPENED_LABEL, clean_url, start_run
 from app.security import require_admin, require_user
 
 router = APIRouter(prefix="/research")
@@ -36,7 +36,8 @@ def _trend_view(trend: dict) -> dict:
     for s in trend.get("sources") or []:
         url = s.get("url", "") if isinstance(s, dict) else ""
         title = s.get("title", "") if isinstance(s, dict) else ""
-        sources.append({"title": title or url, "url": url, **_link(url)})
+        opened = s.get("opened", True) if isinstance(s, dict) else True  # 옛 기록은 열어 본 것으로 본다
+        sources.append({"title": title or url, "url": url, "opened": bool(opened), **_link(url)})
     return {**trend, "sources": sources}
 
 
@@ -121,7 +122,8 @@ def register_candidate(
         for s in item.get("sources") or []:
             url = clean_url(s.get("url", ""))
             if url:
-                lines.append(f"- {s.get('title') or url}: {url}")
+                note = "" if s.get("opened", True) else f" ({UNOPENED_LABEL})"
+                lines.append(f"- {s.get('title') or url}: {url}{note}")
     day = report.run.started_at.date().isoformat()
     lines += ["", f"리서치({day})에서 등록"]
     solution = Solution(name=(name.strip() or "리서치 후보")[:NAME_MAX], summary=summary.strip(),

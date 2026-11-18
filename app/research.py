@@ -74,6 +74,8 @@ def active_topics(db: Session) -> dict[str, list[ResearchTopic]]:
 URL_MAX = 2000
 MAX_TRENDS, MAX_INSIGHTS, MAX_SUGGESTIONS = 10, 7, 7
 NO_SOURCE_NOTE = "출처 링크 없음, 확인 필요"
+UNOPENED_NOTE = "본문을 열어 확인하지 못함"
+UNOPENED_LABEL = "검색 결과 링크 (본문 미확인)"
 NO_TOPICS_MESSAGE = "사용 중인 리서치 주제가 없습니다."
 
 
@@ -104,17 +106,23 @@ def clean_area(out: AreaOut) -> dict:
         headline = t.headline.strip()
         if not headline:
             continue
-        sources, seen = [], set()
+        by_url: dict[str, dict] = {}
         for s in t.sources:
             url = clean_url(s.url)
-            if url is None or url in seen:
+            if url is None:
                 continue
-            seen.add(url)
-            sources.append({"title": s.title.strip(), "url": url})
-        trends.append({
-            "headline": headline, "summary": t.summary.strip(), "sources": sources,
-            "needs_check": [] if sources else [NO_SOURCE_NOTE],
-        })
+            if url in by_url:
+                by_url[url]["opened"] = by_url[url]["opened"] or bool(s.opened)
+                continue
+            by_url[url] = {"title": s.title.strip(), "url": url, "opened": bool(s.opened)}
+        sources = list(by_url.values())
+        if not sources:
+            needs_check = [NO_SOURCE_NOTE]
+        elif not any(s["opened"] for s in sources):
+            needs_check = [UNOPENED_NOTE]
+        else:
+            needs_check = []
+        trends.append({"headline": headline, "summary": t.summary.strip(), "sources": sources, "needs_check": needs_check})
     insights = [i.strip() for i in out.insights if i.strip()]
     return {"title": out.title.strip(), "trends": trends[:MAX_TRENDS], "insights": insights[:MAX_INSIGHTS]}
 
