@@ -16,7 +16,7 @@ from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, search_by_name,
+    resync_activities, resync_related, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -198,8 +198,10 @@ def update(
     db.commit()
     mirror.sync(solution)
     db.refresh(solution)
-    for partner in {p.id: p for p in (old_partner, solution.partner) if p is not None}.values():
-        mirror.sync(partner)
+    resync_related(db, mirror, solution)  # 새 파트너 사본과 활동 기록
+    if old_partner is not None and old_partner.id != solution.partner_id:  # 옛 파트너 사본
+        db.refresh(old_partner)
+        mirror.sync(old_partner)
     return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
 
 

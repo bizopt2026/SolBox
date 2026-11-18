@@ -11,7 +11,7 @@ from app.main import render
 from app.models import Activity, Partner, User
 from app.routers._common import (
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, search_by_name,
+    resync_activities, resync_related, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -84,6 +84,7 @@ def update(
         setattr(partner, field, value)
     db.commit()
     mirror.sync(partner)
+    resync_related(db, mirror, partner)
     return RedirectResponse(f"/partners/{partner.id}", status_code=303)
 
 

@@ -8,7 +8,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, User
+from app.models import Activity, Business, Customer, Partner, Solution, User
 from app.security import ensure_can_delete
 
 T = TypeVar("T")
@@ -59,6 +59,23 @@ def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Act
     for a in activities:
         db.refresh(a)
         mirror.sync(a)
+
+
+def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
+    """`obj` 의 이름이 적히는 다른 사본(상위·하위 항목, 연결된 활동 기록)을 다시 쓴다."""
+    if isinstance(obj, Customer):
+        related = [*obj.businesses, *activities_linked_to(db, Activity.customers, obj)]
+    elif isinstance(obj, Business):
+        related = [obj.customer, *activities_linked_to(db, Activity.businesses, obj)]
+    elif isinstance(obj, Partner):
+        related = [*obj.solutions, *activities_linked_to(db, Activity.partners, obj)]
+    elif isinstance(obj, Solution):
+        related = [*([obj.partner] if obj.partner else []), *activities_linked_to(db, Activity.solutions, obj)]
+    else:
+        return
+    for item in related:
+        db.refresh(item)
+        mirror.sync(item)
 
 
 def newest_first(activities) -> list[Activity]:

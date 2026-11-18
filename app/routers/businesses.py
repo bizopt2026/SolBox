@@ -11,7 +11,7 @@ from app.main import render
 from app.models import Activity, Business, Customer, User
 from app.routers._common import (
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, search_by_name,
+    resync_activities, resync_related, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -110,9 +110,10 @@ def update(
     db.commit()
     db.refresh(business)
     mirror.sync(business)
-    for customer in {old_customer, business.customer}:  # 고객 사본의 사업 목록
-        db.refresh(customer)
-        mirror.sync(customer)
+    resync_related(db, mirror, business)  # 새 고객 사본의 사업 목록과 활동 기록
+    if old_customer.id != business.customer_id:  # 옛 고객 사본의 사업 목록
+        db.refresh(old_customer)
+        mirror.sync(old_customer)
     return RedirectResponse(f"/businesses/{business.id}", status_code=303)
 
 
