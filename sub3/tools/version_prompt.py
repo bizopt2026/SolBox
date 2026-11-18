@@ -35,8 +35,22 @@ def version_commits():
     return out
 
 
+PREFIX = None
+
+
 def app_at(rev):
-    return git('show', rev + ':' + APP) if rev else open(os.path.join(ROOT, APP), encoding='utf-8').read()
+    """rev 시점의 앱 파일. 저장소 안 폴더 위치가 바뀌어도(sub3/ 이동 전 커밋 포함) 찾아요."""
+    global PREFIX
+    if not rev:
+        return open(os.path.join(ROOT, APP), encoding='utf-8').read()
+    if PREFIX is None:
+        PREFIX = git('rev-parse', '--show-prefix').strip()
+    for pth in (PREFIX + APP, APP):
+        try:
+            return subprocess.check_output(['git', '-C', ROOT, 'show', rev + ':' + pth], stderr=subprocess.DEVNULL).decode('utf-8')
+        except subprocess.CalledProcessError:
+            pass
+    raise SystemExit('%s 시점의 %s를 찾지 못했어요' % (rev, APP))
 
 
 def version_of(src):
