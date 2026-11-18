@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solbox"
+version = "0.1.0"
+description = "솔루션 박스"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy>=2.0",
+    "jinja2",
+    "pwdlib[argon2]",
+    "python-multipart",
+    "pydantic>=2",
+    "pypdf",
+    "python-pptx",
+    "python-docx",
+    "openpyxl",
+    "itsdangerous",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["templates/**/*", "static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
