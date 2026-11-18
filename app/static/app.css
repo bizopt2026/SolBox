@@ -69,3 +69,4 @@ dd { margin:0; white-space:pre-wrap; }
 .inline-form { margin:6px 0 0; }
 button.secondary { background:#fff; color:var(--accent); padding:2px 10px; font-size:13px; }
 button.danger { background:#fff; color:var(--err); border-color:var(--err); }
+.row + table, .row + p { margin-top:16px; }
