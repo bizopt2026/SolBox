@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 from app.models import AIJob, Proposal, Solution, User
 
 if TYPE_CHECKING:
-    from app.ai.proposal_tasks import DirectionsOut
+    from app.ai.proposal_tasks import DirectionsOut, Outline
 
 MAX_DIRECTIONS = 3
+SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
+MAX_STEPS = 5
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
@@ -84,6 +86,47 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
             "effects": list(d.effects), "needs_check": needs_check,
         })
     return cleaned[:MAX_DIRECTIONS]
+
+
+def _strip_list(items: list[str]) -> list[str]:
+    return [x for x in (i.strip() for i in items) if x]
+
+
+def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
+    """AI 구성안을 저장용 dict 로 바꾼다. 종류·표·단계·출처를 규칙에 맞게 고치고 빈 항목을 버린다."""
+    slides: list[dict] = []
+    for raw in out.slides:
+        s = raw.model_dump()
+        for key in ("kind", "title", "key_message", "subtitle", "left_title", "right_title"):
+            s[key] = s[key].strip()
+        for key in ("bullets", "left", "right", "needs_check"):
+            s[key] = _strip_list(s[key])
+        if s["kind"] not in SLIDE_KINDS:
+            s["kind"] = "bullets"
+        if s["kind"] == "cover" and slides:
+            s["kind"] = "bullets"  # 표지는 맨 앞 한 장만
+        s["columns"] = _strip_list(s["columns"])
+        rows = [[c.strip() for c in row] for row in s["rows"]]
+        rows = [row for row in rows if any(row)]
+        if s["kind"] == "table" and not s["columns"]:
+            s["kind"] = "bullets"
+            s["bullets"] = s["bullets"] + [" / ".join(c for c in row if c) for row in rows]
+        if s["kind"] == "table":
+            n = len(s["columns"])
+            s["rows"] = [(row + [""] * n)[:n] for row in rows]
+        else:
+            s["columns"], s["rows"] = [], []
+        steps = [{"name": st["name"].strip(), "detail": st["detail"].strip()} for st in s["steps"]]
+        s["steps"] = [st for st in steps if st["name"]][:MAX_STEPS]
+        found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
+        s["sources"] = found
+        s["needs_check"] = s["needs_check"] + [f"출처 확인 불가: {m}" for m in missing]
+        slides.append(s)
+    title = out.title.strip()
+    if not slides or slides[0]["kind"] != "cover":
+        from app.ai.proposal_tasks import Slide  # 순환 참조를 피해 늦게 불러온다
+        slides.insert(0, Slide(kind="cover", title=title).model_dump())
+    return {"title": title, "slides": slides}
 
 
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:

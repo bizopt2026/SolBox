@@ -14,7 +14,9 @@
   <label>메시지<textarea name="message" rows="3" required></textarea></label>
   <div><button type="submit">보내기</button></div>
 </form>
-{# 제안서 만들기 버튼 자리 (구성안 단계에서 채운다) #}
+<form method="post" action="/proposals/{{ proposal.id }}/outline">
+  <button type="submit">제안서 만들기</button>
+</form>
 {% endif %}
 {% else %}
 <p class="muted">제안 방향을 선택하면 대화로 구체화할 수 있습니다.</p>

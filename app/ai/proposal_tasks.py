@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime
 
 from pydantic import BaseModel
 from sqlalchemy import select, update
@@ -13,7 +14,7 @@ from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
 from app.models import AIJob, Proposal, ProposalMessage
-from app.proposals import candidate_solutions, clean_directions
+from app.proposals import candidate_solutions, clean_directions, clean_outline
 
 
 log = logging.getLogger(__name__)
@@ -22,6 +23,8 @@ CHAT_HISTORY_LIMIT = 30
 CHAT_PARTIAL_INTERVAL_S = 0.5
 CHAT_OPEN, CHAT_CLOSE = "<<<CHAT", "CHAT>>>"
 ROLE_LABELS = {"user": "사용자", "assistant": "AI"}
+OUTLINE_OPEN, OUTLINE_CLOSE = "<<<MATERIAL", "MATERIAL>>>"
+OUTLINE_MIN_SLIDES, OUTLINE_MAX_SLIDES = 6, 14
 
 
 class Evidence(BaseModel):
@@ -45,6 +48,33 @@ class Direction(BaseModel):
 
 class DirectionsOut(BaseModel):
     directions: list[Direction]
+
+
+class Step(BaseModel):
+    name: str
+    detail: str = ""
+
+
+class Slide(BaseModel):
+    kind: str
+    title: str = ""
+    key_message: str = ""
+    subtitle: str = ""
+    bullets: list[str] = []
+    left_title: str = ""
+    left: list[str] = []
+    right_title: str = ""
+    right: list[str] = []
+    columns: list[str] = []
+    rows: list[list[str]] = []
+    steps: list[Step] = []
+    sources: list[str] = []
+    needs_check: list[str] = []
+
+
+class Outline(BaseModel):
+    title: str
+    slides: list[Slide]
 
 
 def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
@@ -149,3 +179,57 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
 
 
 HANDLERS["proposal_chat"] = _chat
+
+
+def _material(text: str) -> str:
+    return text.replace(OUTLINE_CLOSE, "MATERIAL> >>").replace(OUTLINE_OPEN, "<<< MATERIAL")
+
+
+def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
+    p = db.get(Proposal, input.get("proposal_id"))
+    if p is None:
+        return "deleted"
+    directions = p.directions or []
+    i = p.selected_index
+    if i is None or not 0 <= i < len(directions):
+        raise ClaudeError("bad_output", "먼저 제안 방향을 선택하세요.")
+    direction = directions[i]
+    recent = list(db.scalars(
+        select(ProposalMessage).where(ProposalMessage.proposal_id == p.id)
+        .order_by(ProposalMessage.id.desc()).limit(CHAT_HISTORY_LIMIT)
+    ))[::-1]
+    conversation = "\n\n".join(f"[{ROLE_LABELS.get(m.role, m.role)}]\n{_material(m.content or '')}" for m in recent)
+    instruction = str(input.get("instruction") or "").strip()
+    prompt = load_prompt(
+        "proposal_outline",
+        direction=json.dumps(direction, ensure_ascii=False, indent=2),
+        customer_path=f"customers/{p.customer_id}.md",
+        business_line=f"- 기존 사업 사본: `businesses/{p.business_id}.md`" if p.business_id else "- 기존 사업: 지정되지 않음",
+        solutions="\n".join(
+            f"- {s.get('name', '')} (`solutions/{s['solution_id']}/`)"
+            for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)
+        ) or "- (없음)",
+        conversation=conversation if conversation else "(없음)",
+        instruction=_material(instruction) if instruction else "(없음)",
+    )
+    pid, job_id = p.id, input.get("_job_id")
+    out = run_json(db, runner, prompt, Outline, settings)  # 읽기 트랜잭션은 여기서 끝난다
+    p = db.get(Proposal, pid)
+    if p is None:
+        return "deleted"
+    if p.active_job_id != job_id:
+        return "superseded"
+    outline = clean_outline(out, settings.knowledge_dir)
+    if not OUTLINE_MIN_SLIDES <= len(outline["slides"]) <= OUTLINE_MAX_SLIDES:
+        raise ClaudeError("bad_output", "슬라이드 수가 범위를 벗어났습니다.")
+    p.outline = outline
+    p.outline_updated_at = datetime.now()
+    p.status = "outlined"
+    if not p.title:
+        p.title = outline["title"]
+    p.active_job_id = None
+    db.commit()
+    return "ok"
+
+
+HANDLERS["proposal_outline"] = _outline

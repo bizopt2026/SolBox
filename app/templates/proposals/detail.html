@@ -8,7 +8,7 @@
   {% if job is not none and job.status in ("pending", "running") %}
     {% include "proposals/_status.html" %}
   {% elif job is not none and job.status == "failed" %}
-    {% set retry_paths = {"proposal_directions": "directions", "proposal_chat": "chat/retry"} %}
+    {% set retry_paths = {"proposal_directions": "directions", "proposal_chat": "chat/retry", "proposal_outline": "outline"} %}
     <div class="error" role="alert">
       <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
       {% if job.kind in retry_paths %}

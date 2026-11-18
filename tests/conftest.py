@@ -137,3 +137,19 @@ def refining_proposal(db, settings):
     p.solutions = [s1, s2]
     db.commit()
     return p
+
+
+def sample_outline(n=8):
+    """AI 가 돌려주는 모양의 구성안 dict (Outline 으로 검증된다). 첫 장 cover, 마지막 장 closing, n >= 6 이면 여섯 종류를 모두 쓴다."""
+    middle = [
+        {"kind": "bullets", "title": "고객 현황과 과제", "key_message": "전력비가 부담입니다.", "bullets": ["전력비 증가", "노후 설비"]},
+        {"kind": "two_column", "title": "제안 개요", "left_title": "현재", "left": ["수동 운영"], "right_title": "제안", "right": ["자동 제어"]},
+        {"kind": "table", "title": "솔루션 구성", "columns": ["솔루션", "역할"], "rows": [["에너지 관리", "절감"], ["조명 제어", "교체"]]},
+        {"kind": "steps", "title": "추진 일정", "steps": [{"name": "착수", "detail": "1개월"}, {"name": "구축", "detail": "3개월"}]},
+    ]
+    k = 0
+    while len(middle) < n - 2:
+        k += 1
+        middle.append({"kind": "bullets", "title": f"상세 {k}", "key_message": "핵심입니다.", "bullets": [f"내용 {k}"]})
+    slides = [{"kind": "cover", "title": "전력비 절감 제안", "subtitle": "고객사 귀중"}] + middle[: max(n - 2, 0)] + [{"kind": "closing", "title": "감사합니다"}]
+    return {"title": "전력비 절감 제안", "slides": slides[:n]}

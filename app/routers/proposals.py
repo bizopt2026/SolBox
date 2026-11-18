@@ -242,6 +242,17 @@ def chat_retry(
     return _start(db, proposal, "proposal_chat", user, anchor="#chat")
 
 
+@router.post("/{proposal_id}/outline")
+def make_outline(
+    proposal_id: int, instruction: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    proposal = get_or_404(db, Proposal, proposal_id)
+    if not _has_selection(proposal):
+        raise HTTPException(status_code=400, detail=NO_DIRECTION)
+    return _start(db, proposal, "proposal_outline", user, {"instruction": instruction.strip()}, anchor="#outline")
+
+
 @router.post("/{proposal_id}/target")
 def update_target(
     proposal_id: int,
