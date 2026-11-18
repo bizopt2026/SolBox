@@ -1,0 +1,24 @@
+<section class="card">
+  <h2>조사 실행</h2>
+  {% if request.query_params.get("notice") == "busy" %}<p class="error" role="alert">이미 조사가 진행 중입니다.</p>
+  {% elif request.query_params.get("notice") == "no_topics" %}<p class="error" role="alert">사용 중인 리서치 주제가 없습니다.</p>{% endif %}
+  <form method="post" action="/research/run"><button type="submit">지금 조사</button></form>
+  {% if runs %}
+  <table>
+    <thead><tr><th>시작</th><th>방식</th><th>상태</th></tr></thead>
+    <tbody>
+    {% for run in runs %}
+      <tr>
+        <td>{{ run.started_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ "예약" if run.trigger == "schedule" else "수동" }}</td>
+        <td>
+          {% if run.status == "running" %}진행 중
+            <div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>
+          {% else %}{{ labels.RUN_STATUSES.get(run.status, run.status) }}{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">아직 조사 기록이 없습니다.</p>{% endif %}
+</section>

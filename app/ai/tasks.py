@@ -28,6 +28,8 @@ T = TypeVar("T", bound=BaseModel)
 Handler = Callable[[Session, dict, ClaudeRunner, Settings], str]
 
 HANDLERS: dict[str, Handler] = {}
+# 작업이 끝난 뒤(성공·실패 모두) 새 세션으로 부르는 후처리. 모양: (db, input) -> None.
+AFTER_JOB: dict[str, Callable[[Session, dict], None]] = {}
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
 NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료 파일이 없습니다."

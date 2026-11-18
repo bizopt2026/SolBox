@@ -173,3 +173,15 @@ def sample_outline(n=8):
         middle.append({"kind": "bullets", "title": f"상세 {k}", "key_message": "핵심입니다.", "bullets": [f"내용 {k}"]})
     slides = [{"kind": "cover", "title": "전력비 절감 제안", "subtitle": "고객사 귀중"}] + middle[: max(n - 2, 0)] + [{"kind": "closing", "title": "감사합니다"}]
     return {"title": "전력비 절감 제안", "slides": slides[:n]}
+
+
+def make_topics(db):
+    """리서치 시험용 주제: 기술 둘, 정책 하나 (시장 없음)."""
+    from app.models import ResearchTopic
+
+    db.add_all([
+        ResearchTopic(name="건물 에너지 관리", keywords="BEMS, AI 공조", area="tech"),
+        ResearchTopic(name="설비 예지보전", keywords="", area="tech"),
+        ResearchTopic(name="전기요금 정책", keywords="", area="policy"),
+    ])
+    db.commit()

@@ -93,6 +93,17 @@ def _finish(session_factory: sessionmaker[Session], job_id: int, **values) -> No
                 time.sleep(FINISH_RETRY_SLEEP_S)
 
 
+def _after_job(session_factory: sessionmaker[Session], kind: str, job_input: dict) -> None:
+    hook = tasks.AFTER_JOB.get(kind)
+    if hook is None:
+        return
+    try:
+        with session_factory() as db:
+            hook(db, job_input)
+    except Exception:  # noqa: BLE001 - 후처리 오류는 작업 결과에 영향을 주지 않는다
+        log.exception("AI 작업 후처리 오류 (%s)", kind)
+
+
 def process_next(session_factory: sessionmaker[Session], runner: ClaudeRunner, settings: Settings) -> bool:
     claimed = _claim_next(session_factory)
     if claimed is None:
@@ -111,6 +122,7 @@ def process_next(session_factory: sessionmaker[Session], runner: ClaudeRunner, s
         _finish(session_factory, job_id, status="failed", error_kind="unknown", error=str(e)[-500:])
     else:
         _finish(session_factory, job_id, status="done", result=result or "")
+    _after_job(session_factory, kind, job_input)
     return True
 
 
@@ -149,3 +161,4 @@ def stop_workers(app, join_timeout: float = 5.0) -> None:
 
 
 from app.ai import proposal_tasks  # noqa: E402,F401  (처리기 등록용)
+from app.ai import research_tasks  # noqa: E402,F401  (처리기 등록용)
