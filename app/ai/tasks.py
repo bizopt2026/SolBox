@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -112,25 +113,44 @@ _MENTION_MODELS = {
 }
 
 
+def normalize_name(name: str) -> str:
+    """이름 비교용 정규형: NFKC, 대소문자 무시, 공백·문장부호·기호를 모두 없앤다 (모든 문자의 글자·숫자·결합 문자는 남긴다)."""
+    folded = unicodedata.normalize("NFKC", name).casefold()
+    return "".join(ch for ch in folded if unicodedata.category(ch)[0] in "LNM")
+
+
 def match_mentions(db: Session, mentions: Mentions) -> dict:
-    """종류별로 {"matched": [id...], "new": [이름...]}. 이름 비교는 앞뒤 공백·대소문자를 무시한 완전 일치."""
+    """종류별로 {"matched": [id...], "new": [이름...], "ambiguous": [{"name", "candidates": [id...]}]}.
+
+    정규형이 같으면 연결, 아니면 한쪽이 다른 쪽에 포함되는 등록 항목이 정확히 하나일 때 연결한다.
+    후보가 여럿이면 자동 연결도 새 등록 제안도 하지 않고 ambiguous 로 돌려준다. 2자 미만 이름은 연결하지 않는다."""
     result = {}
     for rel, model in _MENTION_MODELS.items():
-        existing = {o.name.strip().casefold(): o.id for o in db.scalars(select(model).order_by(model.id))}
+        registered = [(o.id, normalize_name(o.name)) for o in db.scalars(select(model).order_by(model.id))]
+        registered = [(i, k) for i, k in registered if len(k) >= 2]
         matched: list[int] = []
         new: list[str] = []
+        ambiguous: list[dict] = []
         seen: set[str] = set()
         for name in getattr(mentions, rel):
-            key = name.strip().casefold()
+            key = normalize_name(name)
             if not key or key in seen:
                 continue
             seen.add(key)
-            if key in existing:
-                if existing[key] not in matched:
-                    matched.append(existing[key])
+            if len(key) < 2:
+                found: list[int] = []
+            else:
+                found = [i for i, k in registered if k == key][:1]
+                if not found:
+                    found = [i for i, k in registered if key in k or k in key]
+            if len(found) == 1:
+                if found[0] not in matched:
+                    matched.append(found[0])
+            elif found:
+                ambiguous.append({"name": name.strip(), "candidates": found})
             elif rel != "businesses":
                 new.append(name.strip())
-        result[rel] = {"matched": matched, "new": new}
+        result[rel] = {"matched": matched, "new": new, "ambiguous": ambiguous}
     return result
 
 

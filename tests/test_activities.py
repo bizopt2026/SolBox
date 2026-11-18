@@ -123,3 +123,13 @@ def test_memo_file_with_other_extension_rejected(user_client, db):
                          files={"memo_file": ("m.pdf", b"%PDF", "application/pdf")})
     assert r.status_code == 400 and "텍스트 파일(.txt, .md)만 올릴 수 있습니다." in r.text
     assert db.query(Activity).count() == 0
+
+
+def test_new_names_reuse_normalized_existing(user_client, db):
+    c = Customer(name="한빛병원"); db.add(c); db.commit()
+    user_client.post("/activities", data={"raw_text": "원문", "title": "t", "kind": "meeting", "date": "2026-11-10",
+                                          "new_customers": ["한빛병원 ", "한빛 병원", "한빛", "(한빛병원)"]})
+    names = sorted(x.name for x in db.query(Customer))
+    assert names == ["한빛", "한빛병원"]
+    assert [x.name for x in db.query(Activity).one().customers] == ["한빛병원", "한빛"] or \
+        sorted(x.name for x in db.query(Activity).one().customers) == ["한빛", "한빛병원"]

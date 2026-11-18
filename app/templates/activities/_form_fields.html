@@ -59,6 +59,9 @@
       {% for o in choices[key] %}<option value="{{ o.id }}" {{ "selected" if o.id in f.selected[key] }}>{{ o.name }}</option>{% endfor %}
     </select>
   </label>
+  {% for amb in (f.ambiguous or {}).get(key, []) %}
+  <p class="muted ambiguous-hint">“{{ amb.name }}”: 여러 항목과 비슷합니다: {{ amb.candidates | join(", ") }} — 위 목록에서 맞는 항목을 직접 선택하세요.</p>
+  {% endfor %}
   {% endfor %}
 </fieldset>
 

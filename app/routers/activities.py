@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import labels
 from app.ai.queue import enqueue, queue_position
-from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
+from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -105,11 +105,13 @@ def _pick(db: Session, model, ids: list[str]) -> list:
 
 
 def _find_or_create(db: Session, model, names: list[str], user: User) -> list:
-    """이름만 가진 항목을 만든다. 같은 이름(대소문자·앞뒤 공백 무시)이 있으면 그것을 쓴다."""
-    existing = {o.name.strip().casefold(): o for o in db.scalars(select(model))}
+    """이름만 가진 항목을 만든다. 같은 이름(공백·문장부호·대소문자 무시, 완전 일치만)이 있으면 그것을 쓴다."""
+    existing: dict[str, object] = {}
+    for o in db.scalars(select(model).order_by(model.id)):
+        existing.setdefault(normalize_name(o.name), o)
     result = []
     for name in names:
-        key = name.strip().casefold()
+        key = normalize_name(name)
         if not key:
             continue
         if key not in existing:
@@ -288,6 +290,12 @@ def _draft_job(db: Session, job_id: int, user: User) -> AIJob:
     return job
 
 
+def _ambiguous_view(db: Session, model, items: list[dict]) -> list[dict]:
+    """모호한 이름의 후보 id 를 화면에 보일 이름으로 바꾼다."""
+    return [{"name": i["name"], "candidates": [o.name for c in i["candidates"] if (o := db.get(model, c)) is not None]}
+            for i in items]
+
+
 def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
     """AI 초안을 정리 폼 값으로 바꾼다. 새 이름은 체크 해제 후보로 둔다."""
     d = normalize_draft(d, date.today())
@@ -300,6 +308,7 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
         selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
                   "business": found["businesses"]["matched"], "partner": found["partners"]["matched"]},
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
+        ambiguous={t: _ambiguous_view(db, model, found[rel]["ambiguous"]) for t, (model, rel) in LINK_TYPES.items()},
     )
     return values
 

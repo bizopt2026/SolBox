@@ -60,10 +60,10 @@ def test_match_mentions_case_insensitive_and_new(db):
     db.add_all([s, c, b]); db.commit()
     m = Mentions(solutions=["  ai 에너지 절감 "], customers=["한빛병원"], partners=["그린테크"], businesses=["없는사업"])
     out = match_mentions(db, m)
-    assert out["solutions"] == {"matched": [s.id], "new": []}
-    assert out["customers"] == {"matched": [c.id], "new": []}
-    assert out["partners"] == {"matched": [], "new": ["그린테크"]}
-    assert out["businesses"] == {"matched": [], "new": []}
+    assert out["solutions"] == {"matched": [s.id], "new": [], "ambiguous": []}
+    assert out["customers"] == {"matched": [c.id], "new": [], "ambiguous": []}
+    assert out["partners"] == {"matched": [], "new": ["그린테크"], "ambiguous": []}
+    assert out["businesses"] == {"matched": [], "new": [], "ambiguous": []}
     assert match_mentions(db, Mentions(businesses=["사업a"]))["businesses"]["matched"] == [b.id]
 
 
@@ -192,3 +192,47 @@ def test_pending_draft_page_offers_save_raw_only(app, user_client, db, fake_clau
     page = user_client.get(r.headers["location"]).text
     assert 'action="/activities/raw"' in page and "기다리지 않고 원문만 저장" in page
     assert 'name="raw_text"' in page and "기다리기 싫은 메모" in page
+
+
+def test_match_mentions_real_case_links_by_containment(db):
+    s = Solution(name="(예시) AI 공조 최적제어"); db.add(s); db.commit()
+    out = match_mentions(db, Mentions(solutions=["AI 공조 최적제어"]))["solutions"]
+    assert out == {"matched": [s.id], "new": [], "ambiguous": []}
+    out = match_mentions(db, Mentions(solutions=["(예시) AI 공조 최적제어 시스템 도입"]))["solutions"]
+    assert out["matched"] == [s.id]
+
+
+def test_match_mentions_ambiguous_lists_candidates_not_new(db):
+    a = Customer(name="한빛병원"); b = Customer(name="한빛의원"); db.add_all([a, b]); db.commit()
+    out = match_mentions(db, Mentions(customers=["한빛"]))["customers"]
+    assert out == {"matched": [], "new": [], "ambiguous": [{"name": "한빛", "candidates": [a.id, b.id]}]}
+
+
+def test_match_mentions_short_and_punctuation_variants(db):
+    c = Customer(name="한빛병원"); s = Solution(name="A"); db.add_all([c, s]); db.commit()
+    out = match_mentions(db, Mentions(customers=["한"], solutions=["A", "a"]))
+    assert out["customers"] == {"matched": [], "new": ["한"], "ambiguous": []}
+    assert out["solutions"]["matched"] == [] and out["solutions"]["new"] == ["A"]
+    for variant in ("한빛 병원", " 한빛병원 ", "한빛-병원", "（한빛병원）", "한빛병원."):
+        assert match_mentions(db, Mentions(customers=[variant]))["customers"]["matched"] == [c.id], variant
+    out = match_mentions(db, Mentions(customers=["한빛병원", "한빛 병원"]))["customers"]
+    assert out["matched"] == [c.id]
+
+
+def test_match_mentions_containment_does_not_cross_types(db):
+    c = Customer(name="한빛병원"); db.add(c); db.commit()
+    out = match_mentions(db, Mentions(solutions=["한빛병원"], partners=["한빛병원"]))
+    assert out["solutions"] == {"matched": [], "new": ["한빛병원"], "ambiguous": []}
+    assert out["partners"]["matched"] == [] and out["partners"]["new"] == ["한빛병원"]
+
+
+def test_draft_page_shows_ambiguous_hint(app, user_client, db, settings, fake_claude):
+    a = Customer(name="한빛병원"); b = Customer(name="한빛의원"); db.add_all([a, b]); db.commit()
+    d = {**GOOD, "mentions": {"solutions": [], "customers": ["한빛"], "partners": [], "businesses": []}}
+    fake_claude.set(mode="ok", result=json.dumps(d, ensure_ascii=False))
+    url = user_client.post("/activities/draft", data={"raw_text": "메모"}, follow_redirects=False).headers["location"]
+    _run(app, settings)
+    page = user_client.get(url).text
+    assert "여러 항목과 비슷합니다: 한빛병원, 한빛의원" in page
+    assert f'<option value="{a.id}" selected' not in page and f'<option value="{b.id}" selected' not in page
+    assert 'name="new_customers" value="한빛"' not in page
