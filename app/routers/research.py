@@ -1,22 +1,150 @@
-"""웹 리서치: 지금 조사, 실행 상태, 실패한 분야 다시 시도 (보고서 화면은 다음 단계)."""
+"""웹 리서치: 실행 목록·상세, 솔루션 후보 등록, 지금 조사, 실행 상태, 실패한 분야 다시 시도, 실행 삭제."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from urllib.parse import urlsplit
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.ai.queue import queue_position
 from app.db import get_db
+from app.knowledge import KnowledgeMirror, get_mirror
 from app.labels import RESEARCH_AREAS
 from app.main import render
-from app.models import AIJob, ResearchReport, ResearchRun, User
-from app.research import start_run
+from app.models import AIJob, ResearchReport, ResearchRun, Solution, User
+from app.research import clean_url, start_run
 from app.security import require_admin, require_user
 
 router = APIRouter(prefix="/research")
 
 ADMIN_PAGE = "/admin/research"
+LIST_LIMIT = 50
+NAME_MAX = 80
+RUNNING_DELETE = "진행 중인 조사는 삭제할 수 없습니다."
+
+
+def _link(url: str) -> dict:
+    """화면에 낼 출처 주소. 안전한 http(s) 주소가 아니면 `href` 를 비워 글자만 보이게 한다."""
+    safe = clean_url(url) if isinstance(url, str) else None
+    return {"href": safe, "host": urlsplit(safe).hostname if safe else ""}
+
+
+def _trend_view(trend: dict) -> dict:
+    sources = []
+    for s in trend.get("sources") or []:
+        url = s.get("url", "") if isinstance(s, dict) else ""
+        title = s.get("title", "") if isinstance(s, dict) else ""
+        sources.append({"title": title or url, "url": url, **_link(url)})
+    return {**trend, "sources": sources}
+
+
+def _search_text(run: ResearchRun) -> str:
+    parts: list[str] = []
+    for r in run.reports:
+        parts.append(r.title or "")
+        for t in r.trends or []:
+            parts += [t.get("headline", ""), t.get("summary", "")]
+        parts += [str(i) for i in r.insights or []]
+        parts += [s.get("title", "") for s in r.suggestions or []]
+    return "\n".join(parts).lower()
+
+
+def run_summary(run: ResearchRun) -> dict:
+    done = [r for r in run.reports if r.kind == "area" and r.status == "done"]
+    insights = [i for r in done for i in r.insights or []]
+    return {
+        "run": run,
+        "counts": [(RESEARCH_AREAS.get(r.area, r.area), len(r.trends or [])) for r in done],
+        "insight": insights[0] if insights else "",
+    }
+
+
+@router.get("")
+def list_runs(request: Request, q: str = "", area: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    runs = db.query(ResearchRun).order_by(ResearchRun.started_at.desc(), ResearchRun.id.desc()).all()
+    q = q.strip()
+    if area in RESEARCH_AREAS:
+        runs = [r for r in runs if any(rep.kind == "area" and rep.area == area for rep in r.reports)]
+    else:
+        area = ""
+    if q:
+        runs = [r for r in runs if q.lower() in _search_text(r)]
+    return render(request, "research/list.html", items=[run_summary(r) for r in runs[:LIST_LIMIT]], q=q, area=area)
+
+
+@router.get("/runs/{run_id}")
+def run_page(run_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    run = db.get(ResearchRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="조사 실행을 찾을 수 없습니다.")
+    suggest = next((r for r in run.reports if r.kind == "suggest" and r.status == "done"), None)
+    suggestions = []
+    for index, s in enumerate(suggest.suggestions if suggest else []):
+        ids = [i for i in s.get("solution_ids") or [] if isinstance(i, int)]
+        solutions = [x for x in (db.get(Solution, i) for i in ids) if x is not None]
+        suggestions.append({**s, "index": index, "solutions": solutions})
+    areas = []
+    for r in run.reports:
+        if r.kind != "area":
+            continue
+        trends = [{**_trend_view(t), "index": i} for i, t in enumerate(r.trends or [])]
+        areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends})
+    return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas)
+
+
+@router.post("/runs/{run_id}/candidate")
+def register_candidate(
+    run_id: int, source: str = Form(""), report_id: int = Form(...), index: int = Form(...),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    if source not in ("suggestion", "trend"):
+        raise HTTPException(status_code=400, detail="알 수 없는 등록 종류입니다.")
+    report = db.get(ResearchReport, report_id)
+    wanted_kind = "suggest" if source == "suggestion" else "area"
+    if report is None or report.run_id != run_id or report.kind != wanted_kind or report.status != "done":
+        raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    items = report.suggestions if source == "suggestion" else report.trends
+    if not 0 <= index < len(items or []):
+        raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
+    item = items[index]
+    lines: list[str] = []
+    if source == "suggestion":
+        name, summary = item.get("title", ""), item.get("reason", "")
+        lines += [x for x in (item.get("detail", ""), f"근거: {summary}" if summary else "") if x]
+        lines += [f"- {p}" for p in item.get("sources") or []]
+    else:
+        name, summary = item.get("headline", ""), item.get("summary", "")
+        lines += [x for x in (summary,) if x]
+        for s in item.get("sources") or []:
+            url = clean_url(s.get("url", ""))
+            if url:
+                lines.append(f"- {s.get('title') or url}: {url}")
+    day = report.run.started_at.date().isoformat()
+    lines += ["", f"리서치({day})에서 등록"]
+    solution = Solution(name=(name.strip() or "리서치 후보")[:NAME_MAX], summary=summary.strip(),
+                        description="\n".join(lines), stage="intake", created_by_id=user.id)
+    db.add(solution)
+    db.commit()
+    mirror.sync(solution)
+    return RedirectResponse(f"/solutions/{solution.id}/edit", status_code=303)
+
+
+@router.post("/runs/{run_id}/delete")
+def delete_run(run_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db),
+               mirror: KnowledgeMirror = Depends(get_mirror)):
+    run = db.get(ResearchRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="조사 실행을 찾을 수 없습니다.")
+    if run.status == "running":
+        raise HTTPException(status_code=400, detail=RUNNING_DELETE)
+    for report in list(run.reports):  # 사본 경로는 보고서 행에서 나오므로 지우기 전에 먼저 지운다
+        mirror.remove(report)
+    db.delete(run)
+    db.commit()
+    return RedirectResponse("/research", status_code=303)
 
 
 @router.post("/run")

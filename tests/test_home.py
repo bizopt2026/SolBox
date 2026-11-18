@@ -74,3 +74,37 @@ def test_admin_menu_links(admin_client, user_client):
     page = admin_client.get("/").text
     assert 'href="/admin/jobs"' in page and 'href="/admin/users"' in page
     assert 'href="/admin/jobs"' not in user_client.get("/").text
+
+
+def test_home_latest_research(user_client, db, settings):
+    from app.models import ResearchRun
+    from app.routers.home import latest_research
+    from tests.conftest import finished_run
+
+    assert latest_research(db) is None
+    assert "아직 리서치 결과가 없습니다." in user_client.get("/").text
+    db.add(ResearchRun(trigger="manual", status="running")); db.commit()
+    assert latest_research(db) is None  # 진행 중인 실행은 건너뛴다
+    run = finished_run(db, settings)
+    data = latest_research(db)
+    assert data["run"].id == run.id
+    assert data["insights"] == ["설비 운영 고객에 제안 기회"]
+    assert [s["title"] for s in data["suggestions"]] == ["수요반응(DR) 솔루션 발굴", "AI 공조를 병원 고객에 우선 제안"]
+    page = user_client.get("/").text
+    assert "최신 리서치" in page and "설비 운영 고객에 제안 기회" in page and "수요반응(DR) 솔루션 발굴" in page
+    assert f'href="/research/runs/{run.id}"' in page
+
+
+def test_latest_research_caps(db, settings):
+    from app.models import ResearchReport, ResearchRun
+    from app.routers.home import latest_research
+
+    run = ResearchRun(trigger="manual", status="done", finished_at=datetime.now())
+    db.add(run); db.flush()
+    db.add(ResearchReport(run_id=run.id, kind="area", area="tech", status="done", insights=[f"시사점{i}" for i in range(4)]))
+    db.add(ResearchReport(run_id=run.id, kind="area", area="market", status="done", insights=[f"시장{i}" for i in range(4)]))
+    db.add(ResearchReport(run_id=run.id, kind="suggest", status="done", suggestions=[
+        {"kind": "new", "title": f"제안{i}", "detail": "", "reason": "", "solution_ids": [], "sources": []} for i in range(5)]))
+    db.commit()
+    data = latest_research(db)
+    assert len(data["insights"]) == 5 and len(data["suggestions"]) == 3

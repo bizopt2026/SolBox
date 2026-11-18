@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app import labels
 from app.db import get_db
 from app.main import render
-from app.models import AIJob, Activity, Proposal, Solution, User
+from app.models import AIJob, Activity, Proposal, ResearchRun, Solution, User
 from app.routers._common import newest_first
 from app.security import require_user
 
@@ -18,6 +18,7 @@ router = APIRouter()
 RECENT_LIMIT = 10
 OPEN_PROPOSAL_LIMIT = 5
 FOLLOW_UP_DAYS = 14
+LATEST_INSIGHTS, LATEST_SUGGESTIONS = 5, 3
 AI_PROBLEMS = ("not_installed", "auth", "limit", "network")
 
 
@@ -65,11 +66,24 @@ def open_proposals(db: Session) -> list[Proposal]:
     return list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc()).limit(OPEN_PROPOSAL_LIMIT)))
 
 
+def latest_research(db: Session) -> dict | None:
+    """가장 최근에 마감된 조사 실행의 시사점(5개)과 발굴 방향 제안(3개). 없으면 None."""
+    stmt = select(ResearchRun).where(ResearchRun.status.in_(("done", "partial")))
+    run = db.scalars(stmt.order_by(ResearchRun.finished_at.desc(), ResearchRun.id.desc())).first()
+    if run is None:
+        return None
+    done = [r for r in run.reports if r.status == "done"]
+    insights = [i for r in done if r.kind == "area" for i in r.insights or []]
+    insights += [i for r in done if r.kind == "suggest" for i in r.insights or []]
+    suggestions = [s for r in done if r.kind == "suggest" for s in r.suggestions or []]
+    return {"run": run, "insights": insights[:LATEST_INSIGHTS], "suggestions": suggestions[:LATEST_SUGGESTIONS]}
+
+
 @router.get("/")
 def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     recent = newest_first(db.scalars(select(Activity)))[:RECENT_LIMIT]
     return render(
         request, "home.html",
         recent=recent, follow_ups=upcoming_follow_ups(db, date.today()),
-        stages=stage_counts(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
+        stages=stage_counts(db), research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
     )

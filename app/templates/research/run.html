@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}리서치 {{ run.started_at.strftime("%Y-%m-%d") }}{% endblock %}
+{% block content %}
+<p><a href="/research">&larr; 리서치 목록</a></p>
+<h1>리서치 {{ run.started_at.strftime("%Y-%m-%d") }} <span class="badge {{ 'warn' if run.status in ('partial', 'failed') }}">{{ labels.RUN_STATUSES.get(run.status, run.status) }}</span></h1>
+<p class="muted">AI가 웹에서 수집한 내용입니다. 링크를 열어 확인하세요.</p>
+{% if run.status == "running" %}
+<section class="card"><h2>조사 진행</h2>
+  <div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>
+</section>
+{% endif %}
+
+{% if suggest %}
+<section class="card">
+  <h2>발굴 방향 제안</h2>
+  {% if suggestions %}<ul class="trends">{% for s in suggestions %}{% include "research/_suggestion.html" %}{% endfor %}</ul>
+  {% else %}<p class="muted">제안이 없습니다.</p>{% endif %}
+  {% if suggest.insights %}<h3>시사점</h3><ul>{% for i in suggest.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+
+{% for a in areas %}{% set report = a.report %}
+<section class="card">
+  <h2>{{ a.name }}{% if report.title %} · {{ report.title }}{% endif %}</h2>
+  {% if report.status == "done" %}
+    {% if a.trends %}<ul class="trends">{% for t in a.trends %}{% include "research/_trend.html" %}{% endfor %}</ul>
+    {% else %}<p class="muted">동향이 없습니다.</p>{% endif %}
+    {% if report.insights %}<h3>시사점</h3><ul>{% for i in report.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+  {% elif report.status == "failed" %}
+    <p class="error">조사하지 못했습니다. {{ report.error }}</p>
+    {% if user.role == "admin" %}<form method="post" action="/research/reports/{{ report.id }}/retry"><button type="submit">다시 조사</button></form>{% endif %}
+  {% else %}<p class="muted">조사 중입니다.</p>{% endif %}
+</section>
+{% endfor %}
+
+{% if user.role == "admin" and run.status != "running" %}
+<form method="post" action="/research/runs/{{ run.id }}/delete" onsubmit="return confirm('이 조사 결과를 삭제할까요?')"><button type="submit" class="danger">이 조사 삭제</button></form>
+{% endif %}
+{% endblock %}

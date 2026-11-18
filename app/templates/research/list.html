@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}리서치{% endblock %}
+{% block content %}
+<h1>리서치</h1>
+<form method="get" action="/research" class="row">
+  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
+  <label>분야
+    <select name="area">
+      <option value="">전체</option>
+      {% for code, name in labels.RESEARCH_AREAS.items() %}<option value="{{ code }}" {{ "selected" if code == area }}>{{ name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">검색</button>
+</form>
+{% if items %}
+<table>
+  <thead><tr><th>조사 일자</th><th>상태</th><th>분야별 동향</th><th>대표 시사점</th></tr></thead>
+  <tbody>
+  {% for item in items %}
+    {% set run = item.run %}
+    <tr>
+      <td><a href="/research/runs/{{ run.id }}">{{ run.started_at.strftime("%Y-%m-%d") }}</a></td>
+      <td>
+        <span class="badge {{ 'warn' if run.status in ('partial', 'failed') }}">{{ labels.RUN_STATUSES.get(run.status, run.status) }}</span>
+        {% if run.status == "running" %}<div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
+      </td>
+      <td>{% for name, count in item.counts %}{{ name }} {{ count }}건{{ ", " if not loop.last }}{% else %}<span class="muted">-</span>{% endfor %}</td>
+      <td>{{ item.insight }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">{{ "검색 결과가 없습니다." if q or area else "아직 리서치 결과가 없습니다." }}</p>{% endif %}
+{% endblock %}

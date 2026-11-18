@@ -210,3 +210,41 @@ def make_research_world(db, settings):
     for obj in (s1, customer, activity):
         mirror.sync(obj)
     return SimpleNamespace(s1=s1, customer=customer, activity=activity)
+
+
+def finished_run(db, settings):
+    """끝난(partial) 조사 실행: 기술 분야 보고서(done), 정책 분야 보고서(failed), 제안 보고서(done)와 지식 사본."""
+    from datetime import datetime
+
+    from app.knowledge import KnowledgeMirror
+    from app.models import ResearchReport, ResearchRun
+
+    world = make_research_world(db, settings)
+    run = ResearchRun(trigger="manual", status="partial", finished_at=datetime.now())
+    db.add(run)
+    db.flush()
+    tech = ResearchReport(
+        run_id=run.id, kind="area", area="tech", status="done", title="기술 동향 보고",
+        trends=[
+            {"headline": "AI 공조 제어 확산", "summary": "병원 적용 증가",
+             "sources": [{"title": "기사", "url": "https://example.com/a"}], "needs_check": []},
+            {"headline": "출처 없는 동향", "summary": "", "sources": [], "needs_check": ["출처 링크 없음, 확인 필요"]},
+        ],
+        insights=["설비 운영 고객에 제안 기회"],
+    )
+    policy = ResearchReport(run_id=run.id, kind="area", area="policy", status="failed", error="조사 결과가 비어 있습니다.")
+    suggest = ResearchReport(
+        run_id=run.id, kind="suggest", status="done", title="발굴 방향 제안",
+        suggestions=[
+            {"kind": "new", "title": "수요반응(DR) 솔루션 발굴", "detail": "DR 사업자 탐색", "reason": "전기요금 정책 변화",
+             "solution_ids": [], "sources": ["activities/2026/1.md"]},
+            {"kind": "push", "title": "AI 공조를 병원 고객에 우선 제안", "detail": "병원 중심", "reason": "병원 수요",
+             "solution_ids": [world.s1.id], "sources": []},
+        ],
+    )
+    db.add_all([tech, policy, suggest])
+    db.commit()
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    for r in (tech, suggest):
+        mirror.sync(r)
+    return run

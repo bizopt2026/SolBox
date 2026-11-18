@@ -14,6 +14,16 @@
 </section>
 
 <section class="card">
+  <h2>최신 리서치</h2>
+  {% if research %}
+  <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
+  {% if research.insights %}<h3>시사점</h3><ul>{% for i in research.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+  {% if research.suggestions %}<h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endif %}
+  {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
+  <p><a href="/research">리서치 목록</a></p>
+</section>
+
+<section class="card">
   <h2>진행 중인 제안 건</h2>
   {% if proposals %}
   <ul>
