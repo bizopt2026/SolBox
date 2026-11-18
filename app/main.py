@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app import labels, models  # noqa: F401  (모델을 메타데이터에 등록)
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
+from app.knowledge import KnowledgeMirror
 from app.security import LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
@@ -41,6 +42,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = make_session_factory(engine)
+    app.state.mirror = KnowledgeMirror(settings.knowledge_dir)
 
     app.add_middleware(
         SessionMiddleware,
