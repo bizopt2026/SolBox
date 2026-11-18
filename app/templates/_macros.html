@@ -1,0 +1,31 @@
+{% macro activity_list(activities) %}
+<section class="card">
+  <h2>활동 기록</h2>
+  {% if activities %}
+  <ul>
+    {% for a in activities %}
+    <li>{{ a.date or "날짜 없음" }} <a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">연결된 활동 기록이 없습니다.</p>{% endif %}
+</section>
+{% endmacro %}
+
+{% macro search_box(path, q) %}
+<form method="get" action="{{ path }}" class="row">
+  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
+  <button type="submit">검색</button>
+  <a href="{{ path }}/new">+ 등록</a>
+</form>
+{% endmacro %}
+
+{% macro detail_actions(path, obj, can_delete) %}
+<p class="row">
+  <a href="{{ path }}/{{ obj.id }}/edit">수정</a>
+  {% if can_delete %}
+  <form method="post" action="{{ path }}/{{ obj.id }}/delete" onsubmit="return confirm('삭제할까요?')">
+    <button type="submit">삭제</button>
+  </form>
+  {% endif %}
+</p>
+{% endmacro %}

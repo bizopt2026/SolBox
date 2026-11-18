@@ -23,3 +23,7 @@ th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);
 th { font-size:13px; color:var(--muted); background:#fafbfc; }
 td input[type=text], td input:not([type]), td input[type=password], td select { width:100%; }
 .error { color:var(--err); margin:0 0 12px; }
+.muted { color:var(--muted); }
+dl { display:grid; grid-template-columns:100px 1fr; gap:6px 12px; margin:0; }
+dt { color:var(--muted); }
+dd { margin:0; white-space:pre-wrap; }

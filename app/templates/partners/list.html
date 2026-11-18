@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_box %}
+{% block title %}파트너{% endblock %}
+{% block content %}
+<h1>파트너</h1>
+{{ search_box("/partners", q) }}
+{% if partners %}
+<table>
+  <thead><tr><th>이름</th><th>연락처</th><th>솔루션 수</th></tr></thead>
+  <tbody>
+  {% for p in partners %}
+    <tr><td><a href="/partners/{{ p.id }}">{{ p.name }}</a></td><td>{{ p.contact }}</td><td>{{ p.solutions | length }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">{{ "검색 결과가 없습니다." if q else "등록된 항목이 없습니다." }}</p>{% endif %}
+{% endblock %}

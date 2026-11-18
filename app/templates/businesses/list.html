@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_box %}
+{% block title %}기존 사업{% endblock %}
+{% block content %}
+<h1>기존 사업</h1>
+{{ search_box("/businesses", q) }}
+{% if businesses %}
+<table>
+  <thead><tr><th>사업명</th><th>고객</th><th>기간</th><th>상태</th></tr></thead>
+  <tbody>
+  {% for b in businesses %}
+    <tr><td><a href="/businesses/{{ b.id }}">{{ b.name }}</a></td><td><a href="/customers/{{ b.customer_id }}">{{ b.customer.name }}</a></td><td>{{ b.period }}</td><td>{{ b.status }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">{{ "검색 결과가 없습니다." if q else "등록된 항목이 없습니다." }}</p>{% endif %}
+{% endblock %}
