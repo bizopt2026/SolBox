@@ -1508,8 +1508,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.6.3",APP_RELEASED="2026-11-19";
+var APP_VERSION="1.6.4",APP_RELEASED="2026-11-19";
 var VLOG=[
+ ["1.6.4","2026-11-19","계획 거리 기준 미달 날 점수","계획 거리의 80%에 못 미친 날은 바로 점수를 매기지 않고, 오늘 강도(RPE)를 직접 입력하면 0점으로 기록해요. RPE를 넣기 전에는 '기준 미달 · RPE를 입력하면 점수' 안내가 보여요."],
  ["1.6.3","2026-11-19","두 번 이상 나눠 뛴 날 점수","포인트 훈련을 워치에서 두 번 이상 나눠 기록한 날, 첫 번째 기록의 랩만 보고 점수를 매기던 문제를 고쳤어요. 이제 그날 모든 기록의 랩을 합쳐 본 구간 페이스·반복 편차·심박을 평가해요."],
  ["1.6.2","2026-11-19","계획보다 짧게 뛴 날도 자동 점수","워치 기록이 계획 거리의 80%에 못 미치면 완료로 잡히지 않아 점수가 나오지 않던 문제를 고쳤어요. 이제 워치 기록이 들어오면 거리와 상관없이 자동 완료되고, 모자란 거리는 거리 점수에서만 깎여요."],
  ["1.6.1","2026-11-19","freddy 체중 읽기 수정 · HRV 한국어","freddy가 주는 체중 형식(날짜별 줄 + 잰 시각)을 읽지 못하던 문제를 고쳤어요. 체중계 앱과 COROS가 같은 체중을 몇 분 차이로 함께 기록하면 하나만 남기고, 시각 없이 들어왔던 COROS 체중은 freddy 기록으로 바꿔요. freddy에 데이터가 없을 때 안내 문구를 정확하게 바꾸고, 수면 HRV 상태(Above normal 등)를 한국어로 보여줘요."],
@@ -3137,6 +3138,8 @@ function dayScore0(ds){
   var why=[],km=r.w?r.w.km:(parseFloat(r.km)||null),plan=t[2]||0;
   if(km==null||!plan)return{s:null,b:4,why:["거리 기록이 없어 점수를 매기지 않았어요"],noData:true};
   var ratio=km/plan,dp=Math.round(30*Math.pow(Math.min(1,ratio),1.5)),easy=t[0]==="e"||t[0]==="c";
+  if(ratio<0.8){var pct=Math.round(ratio*100),man=r.rpe!=null&&r.rpe!==""&&r.rpeSrc!=="watch";
+    return man?{s:0,b:band(0),short:true,why:["계획 거리의 "+pct+"% · 기준(80%) 미달이라 0점이에요"]}:{s:null,b:4,short:true,why:["계획 거리의 "+pct+"% · 기준(80%) 미달이에요. 오늘 강도(RPE)를 직접 입력하면 점수를 매겨요(기준 미달은 0점)"]}}
   if(ratio>1.35&&easy){dp=Math.max(0,dp-5);why.push("거리 "+Math.round(ratio*100)+"% · 이지 날 너무 많이 뜀 "+dp+"/30")}else why.push("거리 "+Math.round(ratio*100)+"% "+dp+"/30");
   var q=0,qn=[];
   if(easy){var z=ZONES.filter(function(x){return x.k===(t[0]==="c"?"lsd":"e")})[0],cap=z.hr?HR(z.hr):null;
