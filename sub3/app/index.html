@@ -1508,8 +1508,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.6.0",APP_RELEASED="2026-11-19";
+var APP_VERSION="1.6.1",APP_RELEASED="2026-11-19";
 var VLOG=[
+ ["1.6.1","2026-11-19","freddy 체중 읽기 수정 · HRV 한국어","freddy가 주는 체중 형식(날짜별 줄 + 잰 시각)을 읽지 못하던 문제를 고쳤어요. 체중계 앱과 COROS가 같은 체중을 몇 분 차이로 함께 기록하면 하나만 남기고, 시각 없이 들어왔던 COROS 체중은 freddy 기록으로 바꿔요. freddy에 데이터가 없을 때 안내 문구를 정확하게 바꾸고, 수면 HRV 상태(Above normal 등)를 한국어로 보여줘요."],
  ["1.6.0","2026-11-19","체중 가져오는 곳 고르기 (freddy)","바디 탭 체중 카드에서 체중 가져오는 곳을 자동·COROS·freddy·끄기 중에 고를 수 있어요. freddy를 고르면 워치를 COROS로 연결해 두어도 가민 커넥트·애플 건강 등의 체중을 잰 시각 그대로 불러와요. 앱을 열 때 자동으로, ↻로 바로 불러올 수 있어요."],
  ["1.5.19","2026-11-17","COROS 체중 중복 방지","COROS에서 새 체중을 가져올 때 오늘 이미 같은 체중이 있으면 등록하지 않고, 어제 같은 체중이 있으면 '오늘 잰 체중인가요?'를 물어본 뒤 '네'를 누를 때만 오늘 체중으로 기록해요."],
  ["1.5.18","2026-11-16","오늘 탭 요약 줄 이름표 없애기","요약 줄의 '목표·워치·날씨·컨디션' 이름표를 없애고 아이콘과 한 줄 값만 보여줘요. 목표는 숫자만, 날씨는 아이콘과 기온, 워치는 '연동 방금', 컨디션은 '컨디션 좋음'처럼 표시해요."],
@@ -2008,16 +2009,24 @@ function parseFreddyWeights(text){var out=[];
     var d2=typeof o.date==="string"&&/^\d{4}-\d{2}-\d{2}/.test(o.date)?o.date.slice(0,10):date;
     Object.keys(o).forEach(function(k){var v=o[k];if(typeof v==="number"&&/weight|bodymass|body_mass|^value$|^num_?value$|^val$/i.test(k)&&!/lean|fat|goal|bmi|muscle|bone|water|percent/i.test(k)){var kg=fwKg(v,o.unit||o.units||"",k),tm=fwTime(o,d2);if(kg&&tm)out.push({kg:kg,t:typeof tm==="number"?tm:null,day:tm.day||null})}
       else if(v&&typeof v==="object")walk(v,d2)})})(b,null)});
+  if(!out.length){var cd=null;String(text||"").split("\n").forEach(function(l){var hd=l.match(/^\s*(\d{4}-\d{2}-\d{2}):\s*$/);if(hd){cd=hd[1];return}
+    var m=cd&&l.match(/^\s*([A-Za-z][\w.]*)\s*:\s*(\d[\d.]*)\s*(kg|lbs?|g)\b[^@\n]*@\s*(\d{1,2}):(\d{2})(?:\s*UTC\s*([+-])(\d{1,2}):?(\d{2}))?(?:.*\(([^)]*)\))?/i);
+    if(!m||!/weight|body_?mass/i.test(m[1])||/lean|fat|bmi/i.test(m[1]))return;var kg=fwKg(parseFloat(m[2]),m[3],m[1]);if(!kg)return;var a=cd.split("-"),t;
+    if(m[6]){var off=(m[6]==="-"?-1:1)*((+m[7])*60+(+m[8]));t=Date.UTC(+a[0],a[1]-1,+a[2],+m[4],+m[5])-off*60000}else t=new Date(+a[0],a[1]-1,+a[2],+m[4],+m[5]).getTime();
+    var dev=m[9]?m[9].split("·").pop().trim():"";out.push({kg:kg,t:t,day:cd,dev:dev})})}
   if(!out.length)String(text||"").split("\n").forEach(function(l){var dm=l.match(/(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2}))?/);if(!dm||!/weight|body_?mass/i.test(l))return;var vm=l.match(/(?:weight|mass)[\w.]*\s*[:=]\s*(\d[\d.,]*)\s*([a-zA-Z]*)/i);if(!vm)return;
     var kg=fwKg(parseFloat(vm[1].replace(/,/g,"")),vm[2],"");if(!kg)return;var a=dm[1].split("-");out.push({kg:kg,t:dm[2]?new Date(+a[0],a[1]-1,+a[2],+dm[2],+dm[3]).getTime():null,day:dm[1]})});
   return out}
-function addWeightsImported(list,src){var added=0;list.forEach(function(w){var ms=w.t,tu=false;if(!ms&&w.day){var a=w.day.split("-");ms=new Date(+a[0],a[1]-1,+a[2],7,0).getTime();tu=true}if(!ms)return;
+function dedupeWeights(list){var o=list.slice().sort(function(a,b){return (a.t||0)-(b.t||0)}),keep=[];o.forEach(function(w){if(w.t&&keep.some(function(k){return k.t&&(Math.abs(k.t-w.t)<40*60000&&Math.abs(k.kg-w.kg)<0.15||/coros/i.test(w.dev||"")&&!/coros/i.test(k.dev||"")&&w.t-k.t>=0&&w.t-k.t<3*3600000&&Math.abs(k.kg-w.kg)<0.05)}))return;keep.push(w)});return keep}
+function addWeightsImported(list,src){var added=0;list=dedupeWeights(list);list.forEach(function(w){var ms=w.t,tu=false;if(!ms&&w.day){var a=w.day.split("-");ms=new Date(+a[0],a[1]-1,+a[2],7,0).getTime();tu=true}if(!ms)return;
     var ds=localDate(Math.floor(ms/1000)),arr=S.wlog[ds]||[];if(arr.some(function(x){return Math.abs(x.t-ms)<10*60000&&Math.abs(x.kg-w.kg)<0.15||(x.src===src&&Math.abs(x.kg-w.kg)<0.05&&(tu||x.tu))}))return;
     addWeight(ms,w.kg,src);if(tu){var e=S.wlog[ds].filter(function(x){return x.t===ms&&x.src===src})[0];if(e)e.tu=1}added++});return added}
 async function freddyWeightSync(mcp,lm,CC,provs){var names=freddyWeightNames(lm);fdiag("체중 항목 "+names.length+"개: "+names.join(", "));if(!names.length)return 0;
   try{var q=await mcp.callTool("freddy","query_metrics",{metrics:names,start:addDays(T,-364),end:T,include_raw:true},{cache:CC}),qt=allText(q),ws=parseFreddyWeights(qt);
     fdiag("체중 query_metrics 응답 "+qt.length+"자 · 읽은 체중 "+ws.length+"개 · 앞부분: "+qt.replace(/\s+/g," ").slice(0,300));
-    var src=provs&&provs.length===1?(provs[0]==="GARMIN"?"Garmin":provs[0]==="APPLE_HEALTH"?"애플 건강":provs[0]):"freddy";return addWeightsImported(ws,src)}catch(e){fdiag("체중 조회 실패: "+(e&&(e.code||e.message)));return 0}}
+    var src=provs&&provs.length===1?(provs[0]==="GARMIN"?"Garmin":provs[0]==="APPLE_HEALTH"?"애플 건강":provs[0]):"freddy";
+    var n=addWeightsImported(ws,src),rm=0;ws.forEach(function(w){if(!w.t)return;var ds=localDate(Math.floor(w.t/1000)),arr=S.wlog[ds];if(!arr)return;var b=arr.length;S.wlog[ds]=arr.filter(function(x){return !(x.src==="COROS"&&x.tu&&Math.abs(x.kg-w.kg)<0.15)});rm+=b-S.wlog[ds].length;if(!S.wlog[ds].length)delete S.wlog[ds]});
+    if(rm)fdiag("시각 없던 COROS 체중 "+rm+"개를 freddy 기록으로 바꿨어요");return n}catch(e){fdiag("체중 조회 실패: "+(e&&(e.code||e.message)));return 0}}
 async function freddySync(manual){
   if(WS.busy)return;WS.busy=true;WS.err="";WS.msg="freddy에서 불러오는 중…";FRED.diag=[];fdiag("시각 "+new Date().toLocaleString("ko-KR")+" · 앱 "+(typeof APPV!=="undefined"?APPV:""));keepIf();
   var step="연결";
@@ -2055,6 +2064,7 @@ async function freddySync(manual){
   finally{WS.busy=false;keepIf()}
 }
 var ERRWF={server_not_connected:"freddy가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 freddy를 연결한 뒤 다시 불러와 주세요.",needs_reauth:"freddy 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 다시 연결해 주세요.",not_in_manifest:"이 앱의 freddy 사용을 허용하지 않았어요. 앱 권한에서 freddy를 허용해 주세요.",approval_required:"freddy 불러오기 승인이 필요해요. 버튼을 눌러 허용해 주세요.",rate_limited:"요청이 많아요. 잠시 후 다시 불러와 주세요."};
+function hrvKo(ev){ev=String(ev||"");if(/above|high/i.test(ev))return "평소보다 높음";if(/below|low|poor/i.test(ev))return "평소보다 낮음";if(/unbalanced/i.test(ev))return "불균형";if(/normal|balanced/i.test(ev))return "정상";return ev}
 var CW_AT=0;
 // 체중 가져오는 곳: auto(워치 연결을 따라감) · coros(프로필 체중, 시각 없음) · freddy(가민·애플 건강 등, 잰 시각 그대로) · off(직접 입력만)
 function wSrc(){var v=S.wSrc||"auto";if(v==="auto")return S.watch==="freddy"?"freddy":S.watch==="coros"?"coros":"off";return v}
@@ -2066,7 +2076,7 @@ async function freddyWeightOnly(manual){if(FW.busy||wSrc()!=="freddy"||S.watch==
     if(manual)provs.forEach(function(pv){mcp.callTool("freddy","sync_source",{provider:pv},{cache:false}).catch(function(){})});
     var lm=allText(await mcp.callTool("freddy","list_metrics",{},{cache:CC}));
     for(var i=0;i<provs.length;i++){try{lm+="\nSource: "+provs[i]+"\n"+allText(await mcp.callTool("freddy","list_metrics",{provider:provs[i].toLowerCase().replace(/_/g,"-")},{cache:CC}))}catch(e2){}}
-    if(!freddyWeightNames(lm).length){FW.msg=/hydrating|still syncing/i.test(lm)?"freddy가 아직 처음 동기화 중이에요. 잠시 뒤 다시 불러와 주세요.":"freddy에 체중 기록이 아직 없어요. 가민 커넥트·애플 건강 등 연결한 앱에 체중이 들어오면 불러와요.";FW.at=Date.now();return}
+    if(!freddyWeightNames(lm).length){FW.msg=/hydrating|still syncing/i.test(lm)?"freddy가 아직 처음 동기화 중이에요. 잠시 뒤 다시 불러와 주세요.":/No health data/i.test(lm)?"freddy에 연결된 곳에서 아직 받은 데이터가 없어요. 체중이 기록되는 앱(애플 건강 등)을 freddy에 연결하고, 일시 중지된 연결이 없는지 확인해 주세요.":"freddy에 체중 항목이 없어요. 체중계·COROS 앱의 체중이 애플 건강(또는 연결한 앱)에 들어오는지 확인해 주세요.";FW.at=Date.now();return}
     var n=await freddyWeightSync(mcp,lm,CC,provs);FW.at=Date.now();S.fwAt=FW.at;FW.msg=n?"체중 "+n+"개를 잰 시각 그대로 불러왔어요":"새 체중이 없어요";if(n){save();toast("freddy 체중 "+n+"개를 잰 시각 그대로 불러왔어요")}}
   catch(e){FW.err="freddy 체중을 불러오지 못했어요"+(e&&e.message?" ("+e.message+")":"")}
   finally{FW.busy=false;save();keepIf()}}
@@ -3068,7 +3078,7 @@ function readyCard(ds,t){
   var hrvN={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"},ldN={Optimized:'적정',Maintaining:'유지',Recovery:'회복',Overreaching:'과부하',Detraining:'부족',Excessive:'과다'};
   var tile=function(lb,v,u,sub,bad){return '<div class="rdt'+(bad?' bad':'')+'"><small>'+lb+'</small><b class="num">'+v+(v!=='—'&&u?'<i>'+u+'</i>':'')+'</b><span>'+sub+'</span></div>'};
   h+='<div class="rdg">'+tile("안정시 심박",R.r||'—','bpm',R.b?(R.diff!=null?(R.diff>0?'▲':R.diff<0?'▼':'±')+Math.abs(R.diff)+' · 평소 '+R.b:'평소 '+R.b):'7일 쌓이면 비교',R.diff!=null&&R.diff>=3)
-    +tile("수면 HRV",R.h?R.h.avg:'—','ms',R.h?(hrvN[R.h.ev]||esc(R.h.ev))+' · '+R.h.lo+'~'+R.h.hi:'COROS 연동 시',R.h&&/Low|Poor/.test(R.h.ev))
+    +tile("수면 HRV",R.h?R.h.avg:'—','ms',R.h?esc(hrvKo(R.h.ev))+' · '+R.h.lo+'~'+R.h.hi:'COROS 연동 시',R.h&&/low|poor|below/i.test(R.h.ev))
     +tile("회복률",R.rc?R.rc.pct:'—','%',R.rc?(R.rc.full?'완전 회복 '+esc(R.rc.full):'COROS'):'COROS 연동 시',R.rc&&R.rc.pct<50)
     +tile("훈련 부하",R.ld?R.ld.r:'—','',R.ld?(ldN[R.ld.c]||esc(R.ld.c)):'COROS 연동 시',R.ld&&/Overreaching|Excessive/.test(R.ld.c))+'</div>';
   h+='<div class="kvr rdsl"><span class="kl">어젯밤 잠은?</span><span class="kin"><span class="mseg" role="radiogroup" aria-label="수면 상태">'+[["좋음","😴 좋음"],["보통","😐 보통"],["나쁨","😣 나쁨"]].map(function(x){return '<button type="button" role="radio" aria-checked="'+(R.sq===x[0])+'" data-sq="'+x[0]+'">'+x[1]+'</button>'}).join("")+'</span></span></div>';
@@ -4094,8 +4104,8 @@ function bodyKpis(ld){
     var ov=st?ld.avg-st[2]:(g?ld.avg-g:null);if(ov!=null)wc=SCOL[ov<=0?5:ov<=0.5?4:ov<=1?3:ov<=2?2:1]}
   if(r){var rk=Object.keys(S.rhr||{}).sort().slice(-15,-1),ra=0;rk.forEach(function(d){ra+=S.rhr[d]});
     if(rk.length>=3){ra=ra/rk.length;var df=Math.round(r-ra);rc=SCOL[df<=0?5:df<=1?4:df<=2?3:df<=4?2:1];rs='평소 '+(df?'<small class="dlt" style="color:'+(df<0?'var(--ok)':'var(--bad)')+'">'+(df>0?'▲':'▼')+Math.abs(df)+'</small>':'<small class="dlt">±0</small>')}}
-  if(hv&&hv.avg){if(hv.lo)hc=SCOL[hv.avg>=hv.lo?5:hv.avg>=hv.lo*0.95?3:1];else if(hv.ev)hc=SCOL[/Low|Poor/.test(hv.ev)?2:/Unbalanced/.test(hv.ev)?3:5]}
-  var bi=["wt","rhr","hrv","diet"].indexOf(BODYV);return '<div class="bkgrid bseg" role="tablist" aria-label="바디 지표" style="--bi:'+Math.max(0,bi)+'"><span class="bind" aria-hidden="true"></span>'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표까지 <small class="dlt" style="color:var(--accent)">▼'+(Math.round((ld.avg-g)*10)/10)+'</small>':'목표 달성 🎉'):(g?'목표 '+g+'kg':'목표 미입력'),wc)+t("rhr","안정시 심박",r||"—","bpm",r?rs:'눌러서 시작',rc)+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?({Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"}[hv.ev]||esc(hv.ev)):'눌러서 시작',hc)+t("diet","식단 점수",dl?dl[1]:"—","",(function(){var c=carbLoad(T);return c&&!c.off?'🍝 카보로딩 D-'+c.left:dl?wn(dl[0])+' 평균':'눌러서 시작'})(),dl?SCOL[band(dl[1])]:null)+'</div>'}
+  if(hv&&hv.avg){if(hv.lo)hc=SCOL[hv.avg>=hv.lo?5:hv.avg>=hv.lo*0.95?3:1];else if(hv.ev)hc=SCOL[/low|poor|below/i.test(hv.ev)?2:/Unbalanced/.test(hv.ev)?3:5]}
+  var bi=["wt","rhr","hrv","diet"].indexOf(BODYV);return '<div class="bkgrid bseg" role="tablist" aria-label="바디 지표" style="--bi:'+Math.max(0,bi)+'"><span class="bind" aria-hidden="true"></span>'+t("wt","체중",ld?ld.avg:"—","kg",ld&&g?(ld.avg-g>0?'목표까지 <small class="dlt" style="color:var(--accent)">▼'+(Math.round((ld.avg-g)*10)/10)+'</small>':'목표 달성 🎉'):(g?'목표 '+g+'kg':'목표 미입력'),wc)+t("rhr","안정시 심박",r||"—","bpm",r?rs:'눌러서 시작',rc)+t("hrv","수면 HRV",hv&&hv.avg?hv.avg:"—","ms",hv&&hv.ev?esc(hrvKo(hv.ev)):'눌러서 시작',hc)+t("diet","식단 점수",dl?dl[1]:"—","",(function(){var c=carbLoad(T);return c&&!c.off?'🍝 카보로딩 D-'+c.left:dl?wn(dl[0])+' 평균':'눌러서 시작'})(),dl?SCOL[band(dl[1])]:null)+'</div>'}
 function bodyTrends(){
   var h='<div class="card" id="bt"><div class="row between"><h2>몸 상태 추이</h2><span class="small muted">'+(S.watch==="coros"?'COROS 자동':'직접 기록')+'</span></div>';
   var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(k){var x=S.hrv[k];if(x&&x.avg){hv[k]=x.avg;hb=x}});
@@ -4121,13 +4131,13 @@ function bodyPanel(k){
     return h+'</div>'}
   if(k==="hrv"){var hv={},hb=null;Object.keys(S.hrv||{}).forEach(function(d){var x=S.hrv[d];if(x&&x.avg){hv[d]=x.avg;hb=x}});var ks2=Object.keys(hv).sort().slice(-7).reverse();
     var EV={Normal:"정상",Low:"낮음",High:"높음",Balanced:"정상",Unbalanced:"불균형",Poor:"낮음"};
-    var hk=Object.keys(hv).sort(),lk2=hk[hk.length-1],lx=lk2?S.hrv[lk2]:null,bad=lx&&/Low|Poor/.test(lx.ev),mid=lx&&/Unbalanced/.test(lx.ev);
+    var hk=Object.keys(hv).sort(),lk2=hk[hk.length-1],lx=lk2?S.hrv[lk2]:null,bad=lx&&/low|poor|below/i.test(lx.ev),mid=lx&&/Unbalanced/.test(lx.ev);
     var h2='<div class="card"><div class="whead" style="padding-right:0"><span class="wico wico-svg wico-hrv" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.6A8 8 0 1 1 9.4 4.5a6.4 6.4 0 0 0 10.1 10.1z"/><path d="M16 4.5v3M14.5 6h3" stroke-width="1.5"/></svg></span><div style="flex:1;min-width:0"><h2>수면 HRV</h2><small>잠자는 동안 심박 변이 · COROS</small></div></div>';
     if(lx){var pos=lx.lo&&lx.hi?Math.max(0,Math.min(100,Math.round((lx.avg-(lx.lo-10))/((lx.hi+10)-(lx.lo-10))*100))):null,blo=lx.lo?Math.round(10/((lx.hi+10)-(lx.lo-10))*100):0,bw=lx.lo?Math.round((lx.hi-lx.lo)/((lx.hi+10)-(lx.lo-10))*100):0;
-      h2+='<div class="wthero hvhero"><div><small>최근 '+md(lk2)+'</small><b class="num">'+lx.avg+'<i>ms</i></b></div><span class="rhst '+(bad?'bad':mid?'mid':'ok')+'">'+esc(EV[lx.ev]||lx.ev||'')+(bad?' · 강도 낮추기':mid?' · 주의':' · 좋음')+'</span>'+(pos!=null?'<div class="hvgauge"><span class="hvband" style="left:'+blo+'%;width:'+bw+'%"></span><i style="left:'+pos+'%"></i></div><div class="hvlbl"><span>낮음</span><span>정상 '+lx.lo+'~'+lx.hi+'</span><span>높음</span></div>':'')+'</div>'}
+      h2+='<div class="wthero hvhero"><div><small>최근 '+md(lk2)+'</small><b class="num">'+lx.avg+'<i>ms</i></b></div><span class="rhst '+(bad?'bad':mid?'mid':'ok')+'">'+esc(hrvKo(lx.ev))+(bad?' · 강도 낮추기':mid?' · 주의':' · 좋음')+'</span>'+(pos!=null?'<div class="hvgauge"><span class="hvband" style="left:'+blo+'%;width:'+bw+'%"></span><i style="left:'+pos+'%"></i></div><div class="hvlbl"><span>낮음</span><span>정상 '+lx.lo+'~'+lx.hi+'</span><span>높음</span></div>':'')+'</div>'}
     h2+='<div style="margin-top:8px">'+trendSvg(hv,'ms','var(--s5)',hb&&hb.lo,hb&&hb.hi,false,bodyRange())+'</div>';
     if(ks2.length){var vv=ks2.map(function(d){return S.hrv[d].avg}),lo3=Math.min.apply(null,vv)-5,hi3=Math.max.apply(null,vv)+1;
-      h2+='<div class="wlsth">최근 7일</div><div class="rhlist">'+ks2.map(function(d){var x=S.hrv[d],c=/Low|Poor/.test(x.ev)?'bad':/Unbalanced/.test(x.ev)?'mid':'';return '<div class="'+c+'"><span class="num">'+md(d)+' <small>'+DOW[(new Date(d+"T00:00:00").getDay()+6)%7]+'</small></span><span class="rhbar hv"><u style="width:'+Math.max(8,Math.round((x.avg-lo3)/Math.max(1,hi3-lo3)*100))+'%"></u></span><b class="num">'+x.avg+'</b><em>'+esc(EV[x.ev]||x.ev||"")+'</em></div>'}).join("")+'</div>'+info('음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.','읽는 법')}
+      h2+='<div class="wlsth">최근 7일</div><div class="rhlist">'+ks2.map(function(d){var x=S.hrv[d],c=/low|poor|below/i.test(x.ev)?'bad':/Unbalanced/.test(x.ev)?'mid':'';return '<div class="'+c+'"><span class="num">'+md(d)+' <small>'+DOW[(new Date(d+"T00:00:00").getDay()+6)%7]+'</small></span><span class="rhbar hv"><u style="width:'+Math.max(8,Math.round((x.avg-lo3)/Math.max(1,hi3-lo3)*100))+'%"></u></span><b class="num">'+x.avg+'</b><em>'+esc(EV[x.ev]||x.ev||"")+'</em></div>'}).join("")+'</div>'+info('음영은 COROS가 정한 내 정상 범위예요. 범위 아래로 며칠 이어지면 강도를 낮추는 게 좋아요.','읽는 법')}
     else h2+=emptyAct('아직 기록이 없어요. 수면 HRV는 COROS를 연결하면 매일 아침 불러와요.',[[S.watch==="coros"?'지금 불러오기':'COROS 연결하기','watch']]);
     return h2+'</div>'}
   // diet
