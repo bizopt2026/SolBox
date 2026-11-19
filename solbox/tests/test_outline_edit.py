@@ -95,7 +95,7 @@ def test_delete_move_add_rules(user_client, db, settings):
     assert user_client.post(f"{base}/0/move", data={"dir": "down"}).status_code == 400
     assert user_client.post(f"{base}/2/move", data={"dir": "sideways"}).status_code == 400
     r = user_client.post(f"{base}", data={"after": "3"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].endswith("?open=4#slide-4")
+    assert r.status_code == 303 and r.headers["location"].endswith("?open=4&renumber=1#slide-4")
     slides = _slides(db, p)
     assert len(slides) == 9 and slides[4]["title"] == "새 슬라이드" and slides[4]["kind"] == "bullets"
     assert user_client.post(f"{base}/4/delete").status_code == 200
@@ -190,11 +190,11 @@ def test_redirects_open_the_touched_slide(user_client, db, settings):
     base = f"/proposals/{p.id}/outline/slides"
     loc = lambda r: r.headers["location"]
     r = user_client.post(f"{base}/3/move", data={"dir": "up"}, follow_redirects=False)
-    assert loc(r) == f"/proposals/{p.id}/outline?open=2#slide-2"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=2&renumber=1#slide-2"
     r = user_client.post(f"{base}/3/delete", follow_redirects=False)
-    assert loc(r) == f"/proposals/{p.id}/outline?open=3#slide-3"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=3&renumber=1#slide-3"
     r = user_client.post(f"{base}/6/delete", follow_redirects=False)  # 마지막 장이면 이전 장
-    assert loc(r) == f"/proposals/{p.id}/outline?open=5#slide-5"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=5&renumber=1#slide-5"
 
 
 def test_check_all_route(user_client, db, settings):

@@ -101,17 +101,20 @@
       var ids = slideCards.filter(function (c) { return c.open; }).map(function (c) { return c.id; });
       try { sessionStorage.setItem(OPEN_KEY, JSON.stringify(ids)); } catch (e) { /* 기억은 선택 사항 */ }
     };
-    // 저장·이동 뒤(?open=)에는 번호가 바뀌었을 수 있으니 서버가 정한 상태에서 다시 시작한다
-    if (location.search.indexOf("open=") < 0) {
+    // 기억해 둔 장을 다시 펼친다. 장 번호가 바뀐 처리(이동·삭제·추가, ?renumber=1)는 기억을 버리고 서버가 연 장만 남긴다
+    var params = new URLSearchParams(location.search);
+    if (!params.has("renumber")) {
       try {
         var saved = JSON.parse(sessionStorage.getItem(OPEN_KEY) || "[]");
         slideCards.forEach(function (c) { if (saved.indexOf(c.id) >= 0) c.open = true; });
       } catch (e) { /* 저장소를 못 쓰면 서버가 정한 상태 그대로 */ }
     }
     saveOpen();
-    // 주소의 ?open= 은 한 번 쓰고 지운다. 새로고침하면 기억해 둔 상태를 따른다
-    if (location.search.indexOf("open=") >= 0) {
-      try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) { /* 그대로 둔다 */ }
+    // 주소의 ?open=, ?renumber= 는 한 번 쓰고 지운다. 새로고침하면 기억해 둔 상태를 따른다
+    if (params.has("open") || params.has("renumber")) {
+      params.delete("open"); params.delete("renumber");
+      var rest = params.toString();
+      try { history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (e) { /* 그대로 둔다 */ }
     }
     slideCards.forEach(function (c) { c.addEventListener("toggle", saveOpen); });
     document.querySelectorAll(".toggle-slides").forEach(function (box) {

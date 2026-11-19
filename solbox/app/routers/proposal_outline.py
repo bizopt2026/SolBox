@@ -39,9 +39,10 @@ def _load_for_edit(db: Session, proposal_id: int, index: int | None = None) -> t
     return p, slides
 
 
-def _back(p: Proposal, index: int) -> RedirectResponse:
-    """처리 뒤 방금 만진 장이 펼쳐진 채로 구성안 화면으로 돌려보낸다."""
-    return RedirectResponse(f"/proposals/{p.id}/outline?open={index}#slide-{index}", status_code=303)
+def _back(p: Proposal, index: int, renumber: bool = False) -> RedirectResponse:
+    """처리 뒤 방금 만진 장이 펼쳐진 채로 구성안 화면으로 돌려보낸다. 장 번호가 바뀐 처리는 renumber=1 을 붙인다."""
+    flag = "&renumber=1" if renumber else ""
+    return RedirectResponse(f"/proposals/{p.id}/outline?open={index}{flag}#slide-{index}", status_code=303)
 
 
 @router.get("")
@@ -136,7 +137,7 @@ def delete_slide(
         raise HTTPException(status_code=400, detail="표지는 지울 수 없습니다.")
     del slides[index]
     save_outline(db, p, slides)
-    return _back(p, min(index, len(slides) - 1))
+    return _back(p, min(index, len(slides) - 1), renumber=True)
 
 
 @router.post("/slides/{index}/move")
@@ -152,7 +153,7 @@ def move_slide(
         raise HTTPException(status_code=400, detail="더 옮길 수 없습니다.")
     slides[index], slides[target] = slides[target], slides[index]
     save_outline(db, p, slides)
-    return _back(p, target)
+    return _back(p, target, renumber=True)
 
 
 @router.post("/slides")
@@ -168,4 +169,4 @@ def add_slide(
         raise HTTPException(status_code=400, detail=f"슬라이드는 {MAX_SLIDES}장까지 만들 수 있습니다.")
     slides.insert(n + 1, slide_from_form("bullets", {"title": "새 슬라이드", "needs_check": NO_SOURCE_NOTE}))
     save_outline(db, p, slides)
-    return _back(p, n + 1)
+    return _back(p, n + 1, renumber=True)

@@ -91,8 +91,6 @@ a.chip:hover { border-color:var(--accent); }
 .chip-kind { color:var(--muted); margin-right:6px; padding-right:6px; border-right:1px solid var(--line); }
 .chip.raw { font-family:ui-monospace, monospace; font-size:12px; }
 .field-note { margin:-6px 0 0; font-size:13px; }
-.slide-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.slide-head .spacer { flex:1; }
 .chat-msg.old { opacity:.55; background:#f6f6f6; }
 .chat-divider { font-size:13px; margin:4px 0 0; }
 .status-row { align-items:center; margin-bottom:16px; }
@@ -268,7 +266,7 @@ details.formsec[open] > summary { margin-bottom:12px; }
 .stepbar .busy-label { margin-left:4px; font-size:12px; font-weight:400; }
 
 /* 구성안: 접히는 슬라이드 카드 */
-.slide-card { padding:0; margin-bottom:8px; }
+.slide-card { padding:0; margin-bottom:8px; scroll-margin-top:68px; }
 .slide-card > .slide-summary { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:10px 16px; cursor:pointer; list-style:none; }
 .slide-card > .slide-summary::-webkit-details-marker { display:none; }
 .slide-card > .slide-summary::before { content:"\25B8"; color:var(--muted); width:12px; flex:none; }
@@ -305,7 +303,6 @@ details.formsec[open] > summary { margin-bottom:12px; }
 .dir-solutions li { display:flex; gap:6px; align-items:baseline; min-width:0; }
 .dir-solutions li a { flex:none; max-width:60%; }
 .dir-role { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.dir-card dl { grid-template-columns:80px 1fr; margin:0; }
 .card.dir-card > form { margin-top:auto; padding-top:2px; }
 .dir-card .primary { padding:4px 14px; }
 .dir-count { font-size:13px; }
@@ -313,7 +310,7 @@ details.dir-more > summary { cursor:pointer; color:var(--accent); }
 details.dir-more[open] > summary { margin-bottom:8px; }
 .source-list { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:4px; }
 sup a { padding:0 2px; text-decoration:none; font-weight:600; }
-.section:has(> .dir-rebuild) { position:relative; }
+.section[data-rebuild] { position:relative; }
 @media (min-width: 901px) {
   .section > .dir-rebuild { position:absolute; top:14px; right:20px; margin:0; }
 }
@@ -333,6 +330,7 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
   .pager a { padding:0 8px; }
   summary:not(.slide-summary) { padding-top:7px; padding-bottom:7px; }
   .section > summary { padding-top:0; padding-bottom:0; min-height:36px; align-items:center; }
+  .checklist li, .followups li { min-height:36px; }
   button.tick, button.check { position:relative; }
   button.tick::after, button.check::after { content:""; position:absolute; inset:-6px; }
 }

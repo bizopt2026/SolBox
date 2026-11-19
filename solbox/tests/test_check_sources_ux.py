@@ -369,3 +369,37 @@ def test_directions_grid_before_selection_and_flat_after(user_client, db, settin
     page = user_client.get(f"/proposals/{p.id}").text
     assert 'class="dir-grid"' not in page and "다른 방향 1개 보기" in page
     assert re.search(r'<details class="dir-more" open>', page)
+
+
+def test_direction_full_summary_and_roles_inside_details(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    long = "아주 긴 요약 " * 30
+    role = "아주 긴 역할 설명 " * 20
+    d = dict(p.directions[0], summary=long.strip(), solutions=[{"solution_id": 1, "name": "솔", "role": role.strip()}])
+    p.directions = [d, p.directions[1]]
+    p.selected_index, p.status = None, "directions"
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    body = re.search(r'<details class="dir-more">(.*?)</details>', page, re.S).group(1)
+    assert long.strip() in body and role.strip() in body and "<dt>요약</dt>" in body and "<dt>조합 솔루션</dt>" in body
+    assert f'title="{long.strip()}"' in page
+
+
+def test_slide_summary_shows_both_counts(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    slides = [dict(s) for s in p.outline["slides"]]
+    slides[1]["needs_check"] = ["근거 자료 없음: x", "값 a", "값 b"]
+    p.outline = {**p.outline, "slides": slides}
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}/outline").text
+    s = re.findall(r'<summary class="slide-summary">(.*?)</summary>', page, re.S)[1]
+    assert "근거 확인 1" in s and "확인 필요 2" in s
+
+
+def test_rebuild_button_class_only_with_directions(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    assert 'class="dir-rebuild"' in user_client.get(f"/proposals/{p.id}").text
+    p.directions, p.selected_index = [], None
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert 'class="dir-rebuild"' not in page and "방향 만들기" in page

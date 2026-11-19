@@ -38,8 +38,8 @@
 <div class="row status-row">
   <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
 </div>
-{% macro section(key, title) %}
-<details class="card section" id="{{ key }}"{% if open_key == key %} open{% endif %}>
+{% macro section(key, title, rebuild=False) %}
+<details class="card section" id="{{ key }}"{% if open_key == key %} open{% endif %}{% if rebuild %} data-rebuild{% endif %}>
   <summary><h2>{{ title }}</h2><span class="summary-line muted">{{ summaries[key] }}</span></summary>
   {{ caller() }}
 </details>
@@ -60,7 +60,7 @@
     </form>
   </details>
 {% endcall %}
-{% call section("directions", "제안 방향") %}
+{% call section("directions", "제안 방향", proposal.directions) %}
   {% include "proposals/_directions.html" ignore missing %}
 {% endcall %}
 {% call section("chat", "대화로 구체화") %}
