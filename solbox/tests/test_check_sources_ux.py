@@ -112,7 +112,7 @@ def test_outline_page_levels_and_summary(user_client, db, settings):
     db.commit()
     page = user_client.get(f"/proposals/{p.id}/outline").text
     text = re.sub(r"<[^>]+>", "", page)
-    assert "근거 확인 1장 · 확인 필요 2장 · 확인 끝 1장" in text
+    assert "근거 문제 1장 · 확인할 점 2장 · 확인 끝 1장" in text
     card = lambda i: re.search(rf'<details class="card slide-card([^"]*)" id="slide-{i}"', page).group(1)
     assert "check-evidence" in card(1) and "check-decide" in card(2) and "check-decide" in card(3) and "check" not in card(4)
     assert page.count('aria-label="확인함"') == 5 and page.count('aria-pressed="true"') == 1 and page.count('aria-pressed="false"') >= 4
@@ -311,7 +311,7 @@ def test_mixed_slide_shown_consistently(user_client, db, settings):
     p.outline = {**p.outline, "slides": slides}
     db.commit()
     text = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}/outline").text)
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in text and "근거 확인 0장 · 확인 필요 1장 · 확인 끝 0장" in text
+    assert "확인할 항목이 남은 장: 확인 필요 1장" in text and "근거 문제 0장 · 확인할 점 1장 · 확인 끝 0장" in text
     assert "check-decide" in re.search(r'<details class="card slide-card([^"]*)" id="slide-2"', user_client.get(f"/proposals/{p.id}/outline").text).group(1)
     assert section_summaries(p, [])["outline"] == "8장 · 확인 필요 1장"
     detail = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}").text)

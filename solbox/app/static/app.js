@@ -141,7 +141,8 @@
         .then(function (html) {
           var doc = new DOMParser().parseFromString(html, "text/html");
           var fresh = doc.getElementById(card.id);
-          if (!fresh) throw new Error("no card");
+          card = document.getElementById(card.id); // 응답을 기다리는 사이 다른 확인이 카드를 바꿨을 수 있어 바꿀 때 다시 찾는다
+          if (!fresh || !card) throw new Error("no card");
           var wasOpen = card.open;
           fresh.open = wasOpen;
           var pressed = document.querySelector(".remaining-toggle[aria-pressed=true]");
@@ -163,13 +164,18 @@
           saveOpen();
         });
     };
+    // 확인 요청은 하나씩 차례로 보낸다 (서버의 읽고-고치고-쓰기와 화면 바꾸기가 겹쳐 한 쪽 확인이 사라지지 않게)
+    var checkQueue = Promise.resolve();
     document.addEventListener("submit", function (e) {
       var form = e.target;
       if (!window.fetch || !window.DOMParser || !form.matches || !form.matches("form[data-ajax-check]")) return;
       e.preventDefault();
       var btn = form.querySelector("button");
       if (btn) btn.disabled = true;
-      swapChecked(form).catch(function () { form.submit(); }); // 안 되면 보통 제출로 되돌린다
+      var run = function () {
+        return swapChecked(form).catch(function () { form.submit(); }); // 안 되면 보통 제출로 되돌린다
+      };
+      checkQueue = checkQueue.then(run, run);
     });
   }
 
@@ -177,6 +183,7 @@
   function initSlideForms(root) {
     root.querySelectorAll(".slide-form").forEach(function (form) {
       var sel = form.querySelector(".kind-select");
+      if (!sel) return;
       var sync = function () {
         form.querySelectorAll("[data-kinds]").forEach(function (el) { el.hidden = el.dataset.kinds.split(" ").indexOf(sel.value) < 0; });
       };
@@ -203,17 +210,21 @@
     var key = card.id.replace(/^item-/, "");
     edit.addEventListener("toggle", function () {
       if (edit.open) return;
+      var summary = edit.querySelector("summary"), head = card.querySelector(".plan-title");
+      if (summary && head) summary.setAttribute("aria-label", head.textContent.trim() + " 고치기");
       card.querySelectorAll("[data-sum]").forEach(function (el) {
         if (el.dataset.sum === "line") { // 연락처 덧붙이기: 칸 값으로 덧붙일 줄을 다시 만든다
           var val = function (n) { var i = card.querySelector('[name="' + key + "__" + n + '"]'); return i ? i.value.replace(/\s+/g, " ").trim() : ""; };
           var parts = [[val("person"), val("role")].filter(Boolean).join(" "), val("phone"), val("email"), val("address"), val("note")].filter(Boolean);
           if (parts.length) el.textContent = parts.join(" · ") + (el.dataset.suffix ? " (" + el.dataset.suffix : "");
+          else if (el.dataset.empty) el.textContent = el.dataset.empty;
           return;
         }
         var input = card.querySelector('[name="' + key + "__" + el.dataset.sum + '"]');
         if (!input) return;
         var text = input.tagName === "SELECT" ? (input.selectedOptions[0] || {}).textContent : input.value;
         if (text && text.trim()) el.textContent = text.trim();
+        else if (el.dataset.empty) el.textContent = el.dataset.empty; // 칸을 비우면 처음 서버가 그린 자리 표시 글로
       });
     });
   });

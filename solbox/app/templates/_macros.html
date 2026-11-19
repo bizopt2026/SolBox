@@ -109,15 +109,15 @@
 {# 출처 한 건: `종류 · 이름` 칩 링크. 링크가 없으면 글자만. src 는 요청마다 만든 조회 함수(app.sources.SourceLookup). #}
 {% macro source_chip(src, path) %}{% set d = src(path) %}{% if d.url %}<a class="chip" href="{{ d.url }}">{% if d.kind %}<span class="chip-kind">{{ d.kind }}</span>{% endif %}{{ d.label }}</a>{% else %}<span class="chip raw">{{ d.label }}</span>{% endif %}{% endmacro %}
 
-{# 확인 필요 배지: 종류에 따라 빨강(근거 확인) / 노랑(확인 필요) #}
-{% macro check_badge(kind) %}<span class="badge {{ kind }}">{{ "근거 확인" if kind == "evidence" else "확인 필요" }}</span>{% endmacro %}
+{# 확인 필요 배지: 종류에 따라 빨강(근거 문제) / 노랑(확인할 점) #}
+{% macro check_badge(kind) %}<span class="badge {{ kind }}">{{ "근거 문제" if kind == "evidence" else "확인할 점" }}</span>{% endmacro %}
 
 {# 올리기 정리안 카드 머리: 종류 배지, 제목, 이 항목 제외 체크. card 는 intake.review_cards 의 한 항목.
    data-sum 은 고치기를 닫을 때 스크립트가 입력값으로 갱신하는 자리 (스크립트가 없으면 서버가 그린 값 그대로). #}
 {% macro plan_head(card) %}
 <div class="plan-head">
   <span class="badge plan-{{ card.item.kind }}">{{ labels.INTAKE_ITEM_KINDS.get(card.item.kind, card.item.kind) }}</span>
-  {% if card.brief %}<strong class="plan-title"{% if card.item.kind in ("activity", "new_solution", "new_customer", "new_partner", "add_contact") %} data-sum="{{ 'title' if card.item.kind == 'activity' else ('target' if card.item.kind == 'add_contact' else 'name') }}"{% endif %}>{{ card.brief.title }}</strong>{% endif %}
+  {% if card.brief %}<strong class="plan-title"{% if card.item.kind in ("activity", "new_solution", "new_customer", "new_partner", "add_contact") %} data-sum="{{ 'title' if card.item.kind == 'activity' else ('target' if card.item.kind == 'add_contact' else 'name') }}" data-empty="{{ '(제목 없음)' if card.item.kind == 'activity' else ('(대상을 고르세요)' if card.item.kind == 'add_contact' else '(이름 없음)') }}"{% endif %}>{{ card.brief.title }}</strong>{% endif %}
   {% if card.item.kind != "unplaced" %}<label class="check plan-skip"><input type="checkbox" name="skip_{{ card.item.key }}" value="on"{% if card.v.skip %} checked{% endif %}> 이 항목 제외</label>{% endif %}
 </div>
 {% endmacro %}

@@ -18,7 +18,7 @@
   {% endif %}
   {{ plan_meta(card) }}
   <details class="plan-edit"{% if card.open %} open{% endif %}>
-    <summary>고치기</summary>
+    <summary aria-label="{{ card.brief.title }} 고치기">고치기</summary>
     <div class="plan-edit-body">
       <div class="row">
         <label>종류
@@ -41,7 +41,7 @@
           <label>할 일 <input name="{{ k }}__fu_task" value="{{ row.task }}"></label>
           <label>담당 <input name="{{ k }}__fu_owner" value="{{ row.owner }}"></label>
           <label>기한 <input type="date" name="{{ k }}__fu_due" value="{{ row.due }}"></label>
-          {% if row.task | trim and row.task | trim in b.dup_tasks %}<p class="notice plan-dup" role="note">다른 항목에도 비슷한 할 일이 있습니다. 필요 없으면 이 칸을 비우세요.</p>{% endif %}
+          {% if row.task | trim and row.task | trim in b.dup_tasks %}{% set other = b.dup_of.get(row.task | trim) %}<p class="notice plan-dup" role="note">{% if other %}「{{ other }}」 {% else %}다른 {% endif %}항목에도 비슷한 할 일이 있습니다. 필요 없으면 이 칸을 비우세요.</p>{% endif %}
         </div>
         {% endfor %}
       </fieldset>

@@ -37,7 +37,7 @@ def test_cards_collapsed_with_summary_and_skip_outside_details(app, user_client,
     assert len(_cards(page)) == 3
     for card in _cards(page):
         head, edit = _split(card)
-        assert re.match(r'<details class="plan-edit"\s*>', edit) and "<summary>고치기</summary>" in edit
+        assert re.match(r'<details class="plan-edit"\s*>', edit) and re.search(r'<summary aria-label="[^"]+ 고치기">고치기</summary>', edit)
         assert 'name="skip_' in head and 'name="skip_' not in edit  # 제외 체크는 접어도 보인다
         assert "이렇게 정리한 이유" in head and "plan-" in head
     head, edit = _split(_card(page, "s1"))
@@ -264,9 +264,9 @@ def test_review_card_shows_dup_note_and_summary(app, user_client, db, settings):
     page = user_client.get(f"/intake/{it.id}").text
     head1, edit1 = _split(_card(page, "act1"))
     head2, edit2 = _split(_card(page, "act2"))
-    assert "비슷한 할 일" not in head1 and "다른 항목에도 비슷한 할 일이 있습니다" not in edit1
+    assert "비슷한 할 일" not in head1 and "항목에도 비슷한 할 일이 있습니다" not in edit1
     assert "비슷한 할 일 1건 확인" in head2 and "후속 조치 2" in head2
-    assert edit2.count("다른 항목에도 비슷한 할 일이 있습니다") == 1
+    assert edit2.count("「1차」 항목에도 비슷한 할 일이 있습니다") == 1
     assert 'name="act2__fu_task" value="견적서를 재송부"' in edit2  # 저절로 지우지 않는다
     # 칸을 비우고 다시 보내면 안내가 사라진다
     form = form_from_page(user_client, it)
@@ -274,7 +274,7 @@ def test_review_card_shows_dup_note_and_summary(app, user_client, db, settings):
     form["act2__summary_md"], form["act2__raw_text"] = [""], [""]
     page = _post(user_client, it, form).text
     head2, edit2 = _split(_card(page, "act2"))
-    assert "비슷한 할 일" not in head2 and "다른 항목에도" not in edit2
+    assert "비슷한 할 일" not in head2 and "항목에도 비슷한" not in edit2
 
 
 def test_prompt_dedupes_follow_ups_across_files():

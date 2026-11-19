@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app import labels
@@ -29,8 +30,15 @@ def _load(db: Session, proposal_id: int) -> Proposal:
     return p
 
 
+def _lock_proposal(db: Session, proposal_id: int) -> None:
+    """쓰기 잠금을 먼저 잡는다. 이 뒤에 읽어야 같은 건의 다른 수정이 끝난 값을 보고 고치므로, 동시에 누른 확인이 서로 덮어쓰지 않는다."""
+    db.execute(update(Proposal).where(Proposal.id == proposal_id).values(id=Proposal.id))
+
+
 def _load_for_edit(db: Session, proposal_id: int, index: int | None = None) -> tuple[Proposal, list[dict]]:
+    _lock_proposal(db, proposal_id)
     p = _load(db, proposal_id)
+    db.refresh(p)  # 잠금 전에 읽어 둔 값이 있어도 잠금 뒤의 값으로
     slides = [dict(s) for s in p.outline["slides"]]
     if index is not None and not 0 <= index < len(slides):
         raise HTTPException(status_code=404, detail="없는 슬라이드입니다.")

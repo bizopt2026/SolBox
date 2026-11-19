@@ -39,4 +39,3 @@ def get_db(request: Request) -> Iterator[Session]:
         yield session
     finally:
         session.close()
-        request.state.db_ref = None  # 닫힌 세션으로 메뉴 배지를 세지 않는다 (오류 화면은 배지 없이 그려진다)

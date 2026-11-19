@@ -49,15 +49,15 @@ def _open_log_file(settings: Settings) -> tuple[logging.Logger, RotatingFileHand
     return logger, handler, previous_level
 
 
-def _intake_ready_count(state, user) -> int:
-    """메뉴의 "올리기" 배지: 내 묶음 중 확인 대기 수. 로그인 화면(사용자·연결 없음)이거나 읽지 못하면 0. 쿼리는 COUNT 하나다."""
-    ref = getattr(state, "db_ref", None)
-    db = ref() if ref is not None else None
-    if db is None or user is None:
+def _intake_ready_count(session_factory, user) -> int:
+    """메뉴의 "올리기" 배지: 내 묶음 중 확인 대기 수. 요청 세션과 따로 짧은 세션을 열어 COUNT 하나만 세고 닫는다.
+    로그인 화면(사용자 없음)이거나 어떤 이유로든 읽지 못하면 0 (배지 때문에 화면이 깨지면 안 된다)."""
+    if user is None:
         return 0
     try:
-        return db.scalar(select(func.count()).select_from(Intake).where(Intake.status == "ready", Intake.created_by_id == user.id)) or 0
-    except Exception:  # noqa: BLE001 - 배지 때문에 화면이 깨지면 안 된다
+        with session_factory() as db:
+            return db.scalar(select(func.count()).select_from(Intake).where(Intake.status == "ready", Intake.created_by_id == user.id)) or 0
+    except Exception:  # noqa: BLE001
         return 0
 
 
@@ -65,7 +65,7 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
     """템플릿을 그린다. `user`, `labels` 는 항상 넣어 준다."""
     ctx.setdefault("user", getattr(request.state, "user", None))
     ctx.setdefault("labels", labels)
-    ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.state, ctx["user"]))
+    ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.app.state.session_factory, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 

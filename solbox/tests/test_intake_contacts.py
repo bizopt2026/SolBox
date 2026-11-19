@@ -171,13 +171,13 @@ def test_apply_skips_same_phone_or_email(app, user_client, db, settings):
     assert it.status == "applied"  # 한 항목뿐이어도 묶음은 끝난다 (결과에는 건너뜀 표시)
     assert it.result[0]["type"] == "skipped" and "이미 있는 연락처" in it.result[0]["reason"]
     assert "이미 있는 연락처" in user_client.get(f"/intake/{it.id}").text
-    p2 = Partner(name="둘째", contact="메일 SeoYeon@Hanbit.example")
+    p2 = Partner(name="둘째", contact="박서연 메일 SeoYeon@Hanbit.example")
     db.add(p2)
     db.commit()
     it2 = ready_bundle(db, settings, [CARD], contacts=[_contact(p2, phone="")])
     _apply(user_client, it2)
     db.expire_all()
-    assert db.get(Partner, p2.id).contact == "메일 SeoYeon@Hanbit.example"
+    assert db.get(Partner, p2.id).contact == "박서연 메일 SeoYeon@Hanbit.example"
 
 
 def test_same_card_twice_adds_once(app, user_client, db, settings):
@@ -237,8 +237,8 @@ def test_form_target_must_be_existing_record_of_right_type(app, user_client, db,
     form["ct1__phone"] = ["031-999-0000"]
     _apply(user_client, it, form)
     db.expire_all()
-    assert it.result[0]["type"] == "partner" and it.result[0]["id"] == p.id  # 없는 번호는 무시하고 정리안의 대상으로
-    assert db.get(Customer, c.id).contact == "" and "031-999-0000" in db.get(Partner, p.id).contact
+    assert it.result[0]["type"] == "skipped"  # 직접 고른 값이 없는 번호면 정리안의 대상으로 돌아가지 않고 건너뛴다
+    assert db.get(Customer, c.id).contact == "" and "031-999-0000" not in db.get(Partner, p.id).contact
 
 
 def test_form_cannot_change_target_type(app, user_client, db, settings):

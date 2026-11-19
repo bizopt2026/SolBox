@@ -4,13 +4,13 @@
 <section class="card plan-item" id="item-{{ k }}">
   {{ plan_head(card) }}
   <p class="plan-facts">
-    <span data-sum="summary">{{ b.summary or "한 줄 소개 없음" }}</span>
+    <span data-sum="summary" data-empty="한 줄 소개 없음">{{ b.summary or "한 줄 소개 없음" }}</span>
     · 파트너 {{ b.partner or "없음" }}
     {% if b.tags %}<span class="chips">{% for t in b.tags %}<span class="chip">{{ t }}</span>{% endfor %}</span>{% endif %}
   </p>
   {{ plan_meta(card) }}
   <details class="plan-edit"{% if card.open %} open{% endif %}>
-    <summary>고치기</summary>
+    <summary aria-label="{{ card.brief.title }} 고치기">고치기</summary>
     <div class="plan-edit-body">
       <label>이름 <input name="{{ k }}__name" value="{{ v.name }}"></label>
       <label>한 줄 소개 <input name="{{ k }}__summary" value="{{ v.summary }}"></label>

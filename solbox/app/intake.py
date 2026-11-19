@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps
-from sqlalchemy import select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
 from app import labels, transcribe
@@ -47,6 +47,7 @@ _KINDS = {
 }
 _IMAGE_ERRORS = (OSError, SyntaxError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f\u0085\u2028\u2029]+")
+_INVISIBLE = re.compile("[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")  # 폭 없는 글자와 글자 방향 제어 (글을 가리거나 뒤집는 데 쓰인다)
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _PHONE = re.compile(r"\+?\d[\d\-\s().]{5,}\d")
 
@@ -154,7 +155,7 @@ def work_dir(settings: Settings, intake: Intake) -> Path:
 
 def _flat(name: str) -> str:
     """줄바꿈·탭 같은 제어 문자를 공백 하나로 줄인다 (글 사본의 `# 이름` 줄과 파일목록 표가 깨지지 않게)."""
-    return _CONTROL.sub(" ", name).strip()
+    return _CONTROL.sub(" ", _INVISIBLE.sub("", name)).strip()
 
 
 def _copy_base(number: int, name: str, reserve: int = 5) -> str:
@@ -334,6 +335,7 @@ def _raw_text(settings: Settings | None, intake: Intake, number: int, f: IntakeF
 
 CONTACT_FIELDS = ("person", "role", "phone", "email", "address", "note")
 USABLE_CONTACT_FIELDS = ("person", "phone", "email", "address")  # 이 중 하나는 있어야 덧붙일 연락처다
+CONTACT_CAPS = {"person": 100, "role": 100, "phone": 100, "email": 100, "address": 200, "note": 200}  # 칸마다 글자 수 제한
 
 
 def _digits_only(text: str) -> str:
@@ -375,7 +377,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
     def add_contact(target_type: str, target_id: int, numbers: list[int], reason: str, **fields: str) -> None:
         item = {"kind": "add_contact", "reason": reason.strip(), "files": files_of(numbers), "target_type": target_type,
                 "target_id": target_id, "target_name": target_name_of[target_type][target_id],
-                **{f: fields.get(f, "").strip() for f in CONTACT_FIELDS}}
+                **{f: _flat(fields.get(f, ""))[:CONTACT_CAPS[f]].strip() for f in CONTACT_FIELDS}}
         if not any(item[f] for f in USABLE_CONTACT_FIELDS):
             return
         same = (target_type, target_id, normalize_name(item["person"]), _digits_only(item["phone"]), item["email"].lower())
@@ -640,6 +642,8 @@ PLAN_CHANGED = "정리안이 그 사이 바뀌었습니다."
 TARGET_GONE = "대상 솔루션이 삭제되어 자료를 추가하지 못했습니다."
 CONTACT_TARGET_GONE = {"partner": "대상 파트너가 삭제되어 연락처를 추가하지 못했습니다.",
                        "customer": "대상 고객이 삭제되어 연락처를 추가하지 못했습니다."}
+TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 자료를 추가하지 못했습니다. 대상을 다시 고르세요."
+CONTACT_TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 연락처를 추가하지 못했습니다. 대상을 다시 고르세요."
 CONTACT_EXISTS = "이미 있는 연락처"
 NO_CONTACT_FIELD = "담당자·전화·이메일·주소 중 하나는 입력하세요."
 _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "catalog")), ("spec", ("스펙", "spec", "사양", "규격", "datasheet")))
@@ -732,7 +736,8 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
     elif kind == "add_contact":
         v["target"] = text("target", item.get("target_id"))
         for field in CONTACT_FIELDS:
-            v[field] = text(field, item.get(field))
+            v[field] = _flat(text(field, item.get(field)))[:CONTACT_CAPS[field]]
+        v["target_ok"] = bool(fields and fields.flag(f"{key}__target_ok"))
     elif kind == "activity":
         d = item.get("draft") or {}
         fus = [f for f in d.get("follow_ups", []) if str(f.get("task", "")).strip()]
@@ -884,6 +889,9 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
         b["new_names"] = [n for rel in ("solutions", "customers", "partners") for n, on in v["new_options"][rel] if on]
         b["new_candidates"] = [n for rel in ("solutions", "customers", "partners") for n, on in v["new_options"][rel] if not on]
         dups = {str(d.get("task", "")).strip() for d in item.get("dup_follow_ups", [])}
+        titles = {i.get("key"): str((i.get("draft") or {}).get("title") or "").strip() or "(제목 없음)"
+                  for i in (intake.plan or {}).get("items", []) if i.get("kind") == "activity"}
+        b["dup_of"] = {str(d.get("task", "")).strip(): titles.get(d.get("of"), "") for d in item.get("dup_follow_ups", [])}
         b["dup_tasks"] = dups
         b["dup_count"] = sum(1 for r in v["fu_rows"] if r["task"].strip() in dups)
     elif kind == "new_solution":
@@ -899,7 +907,13 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
     elif kind == "add_contact":
         number = _digits(v["target"])
         target = db.get(CONTACT_MODELS[item["target_type"]], number) if number is not None else None
-        b["title"] = target.name if target is not None else "(대상을 고르세요)"
+        stored = item.get("target_name")
+        # 정리안을 만든 뒤 대상의 이름이 바뀌었으면 (또는 번호를 다른 기록이 물려받았으면) 같은 대상이라고 보여 주지 않는다
+        same_id = not str(v["target"]).strip() or number == item.get("target_id")
+        current = db.get(CONTACT_MODELS[item["target_type"]], item.get("target_id")) if same_id and item.get("target_id") is not None else None
+        b["target_changed"] = bool(current is not None and stored and normalize_name(stored) != normalize_name(current.name))
+        b["target_current"] = current.name if b["target_changed"] else ""
+        b["title"] = "(대상을 다시 고르세요)" if b["target_changed"] else target.name if target is not None else "(대상을 고르세요)"
         b["line"] = contact_line(v, _item_files(intake, item), date.today())
         b["type_label"] = "파트너" if item["target_type"] == "partner" else "고객"
     elif kind in ("new_customer", "new_partner"):
@@ -920,13 +934,14 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
     for item in (intake.plan or {}).get("items", []):
         v = item_values(item, fields, names)
         card = {"item": item, "v": v, "files": [(n, names.get(n, "")) for n in item.get("files", [])], "ambiguous": {},
-                "file_ids": {file_number(intake, f): f.id for f in intake.files}}
+                "file_ids": {file_number(intake, f): f.id for f in intake.files},
+                "file_status": {file_number(intake, f): f.read_status for f in intake.files}}
         if item["kind"] == "activity":
             for t, (model, rel) in records.LINK_TYPES.items():
                 card["ambiguous"][t] = records.ambiguous_view(db, model, item.get("ambiguous", {}).get(rel, []))
         if item["kind"] != "unplaced":
             card["brief"] = _brief(db, item, v, names, intake)
-            card["open"] = item_error(item, v) is not None or (
+            card["open"] = item_error(item, v) is not None or card["brief"].get("target_changed", False) or (
                 fields is not None and _signature(v) != _signature(item_values(item, None, names)))
         cards.append(card)
     return cards
@@ -1105,39 +1120,87 @@ def _extract_for_solutions(settings: Settings, intake: Intake, chosen: list[tupl
     return out
 
 
+def _phone_key(text: str) -> str:
+    """전화번호 비교용 숫자: 숫자만 남기고, 앞의 국가 번호 82 는 0 으로 (+82 10-1234-5678 = 010-1234-5678)."""
+    digits = _digits_only(text)
+    if digits.startswith("82") and len(digits) > 9:
+        digits = "0" + digits[2:].lstrip("0")
+    return digits
+
+
+def _phone_keys(text: str) -> set[str]:
+    """글 안의 전화번호들 (숫자 비교용). 전화 모양이 아니어도 5자리 이상 숫자 덩어리는 번호로 본다 (내선)."""
+    found = {_phone_key(m.group(0)) for m in _PHONE.finditer(text)}
+    found |= {m.group(0) for m in re.finditer(r"(?<![\d\-])\d{5,}(?![\d\-])", text)}
+    return {k for k in found if len(k) >= 5}
+
+
+def _email_keys(text: str) -> set[str]:
+    return {m.group(0).lower() for m in _EMAIL.finditer(text)}
+
+
 def _already_listed(existing: str, v: dict) -> bool:
-    """같은 전화(숫자만 비교)나 이메일(대소문자 무시)이 연락처 칸에 이미 있는가. 둘 다 없으면 같은 본문이 이미 있는가."""
-    phone, email = _digits_only(v["phone"]), v["email"].strip().lower()
-    if phone or email:
-        return bool((len(phone) >= 5 and phone in _digits_only(existing)) or (email and email in existing.lower()))
-    return contact_body(v).lower() in _flat(existing).lower()
+    """덧붙일 연락처가 이미 적혀 있는가. 새 연락처의 전화·이메일이 하나라도 있고 모두 이미 있으며(전화는 숫자만·국가 번호 맞춰,
+    이메일은 대소문자 무시·주소 전체 비교), 담당자 이름이 있으면 그 이름도 이미 적혀 있을 때만 그렇다.
+    전화·이메일이 하나도 없으면 같은 본문이 이미 있는지만 본다."""
+    phones = _phone_keys(v["phone"]) or ({_phone_key(v["phone"])} if len(_phone_key(v["phone"])) >= 5 else set())
+    emails = _email_keys(v["email"]) or ({v["email"].strip().lower()} if v["email"].strip() else set())
+    if not phones and not emails:
+        body = contact_body(v)
+        return bool(body) and body.lower() in _flat(existing).lower()
+    if not phones <= _phone_keys(existing) or not emails <= _email_keys(existing):
+        return False
+    person = re.sub(r"\s+", "", _flat(v.get("person", ""))).lower()
+    return not person or person in re.sub(r"\s+", "", _flat(existing)).lower()
+
+
+def _pick_target(run: _Run, model, raw, plan_id) -> tuple[int | None, bool]:
+    """대상 고르기: (번호, 정리안의 대상인가). 폼에 비지 않은 값이 있고 정리안의 번호와 다르면 직접 고른 것이라
+    같은 종류의 실제 기록일 때만 쓴다 (아니면 None: 정리안 대상으로 돌아가지 않고 건너뛴다). 폼에 값이 없거나 비어 있으면 정리안의 대상."""
+    text = str(raw if raw is not None else "").strip()
+    if text and _digits(text) != _digits(plan_id):
+        return run.existing_id(model, text), False
+    return run.existing_id(model, plan_id), True
+
+
+def _skip(run: _Run, kind: str, reason: str, files: list[dict], label: str = "") -> None:
+    title = f"{labels.INTAKE_ITEM_KINDS[kind]}: {label + ' — ' if label else ''}{reason}"
+    run.skipped.append({"type": "skipped", "id": None, "label": title, "reason": reason, "files": files})
 
 
 def _append_contact(run: _Run, item: dict, v: dict) -> None:
-    """연락처 덧붙이기: 대상의 연락처 칸 끝에 한 줄을 더한다. 기존 글은 바꾸지 않고, 같은 전화·이메일이 있으면 건너뛴다."""
+    """연락처 덧붙이기: 대상의 연락처 칸 끝에 한 줄을 더한다. 기존 글은 바꾸지 않고, 같은 전화·이메일이 있으면 건너뛴다.
+    읽기-수정-쓰기 사이에 다른 저장이 끼어도 한 줄도 잃지 않게, 쓰기 잠금을 먼저 잡고 다시 읽은 뒤 SQL 한 문장으로 덧붙인다."""
     model, db = CONTACT_MODELS[item["target_type"]], run.db
-    picked = run.existing_id(model, v["target"])
-    target = picked if picked != item.get("target_id") else None  # 정리안과 다르게 직접 고른 대상 (같은 종류의 등록된 기록만)
-    if target is None:
-        target = run.existing_id(model, item.get("target_id"))
-        stored = item.get("target_name")
-        # 번호를 다시 쓰는 다른 기록을 가리키게 된 경우(이름이 다름)는 대상이 사라진 것으로 본다
-        if target is not None and stored and normalize_name(stored) != normalize_name(db.get(model, target).name):
-            target = None
+    table = model.__table__
     files = [{"id": f.id, "name": f.original_name} for f in _item_files(run.intake, item)]
+    gone = CONTACT_TARGET_GONE[item["target_type"]]
+    target, from_plan = _pick_target(run, model, v["target"], item.get("target_id"))
     if target is None:
-        reason = CONTACT_TARGET_GONE[item["target_type"]]
-        run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_contact']}: {reason}",
-                            "reason": reason, "files": files})
+        _skip(run, "add_contact", gone, files)
+        return
+    # 쓰기 잠금: 이 문장 뒤의 읽기는 다른 저장이 이미 끝낸 값을 본다. 행이 없으면 그 사이 지워진 것이다
+    if db.execute(update(table).where(table.c.id == target).values(id=table.c.id)).rowcount != 1:
+        _skip(run, "add_contact", gone, files)
         return
     obj = db.get(model, target)
-    existing = obj.contact or ""
-    if _already_listed(existing, v):
-        run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_contact']}: {obj.name} — {CONTACT_EXISTS}",
-                            "reason": CONTACT_EXISTS, "files": files})
+    if obj is None:
+        _skip(run, "add_contact", gone, files)
+        return
+    db.refresh(obj)
+    stored = item.get("target_name")
+    # 번호를 다시 쓰는 다른 기록이거나 이름이 바뀐 기록을 정리안의 번호로 가리키게 된 경우 (사용자가 같은 대상이라고 확인했으면 쓴다)
+    if from_plan and not v.get("target_ok") and stored and normalize_name(stored) != normalize_name(obj.name):
+        _skip(run, "add_contact", CONTACT_TARGET_CHANGED, files)
+        return
+    if _already_listed(obj.contact or "", v):
+        _skip(run, "add_contact", CONTACT_EXISTS, files, obj.name)
         return
     line = contact_line(v, _item_files(run.intake, item), date.today())
-    obj.contact = (existing + ("" if not existing or existing.endswith("\n") else "\n") + line) if existing.strip() else line
+    col = table.c.contact
+    appended = case((func.trim(func.coalesce(col, ""), " \t\r\n") == "", line), else_=func.rtrim(col, "\r\n") + "\n" + line)
+    db.execute(update(table).where(table.c.id == target).values(contact=appended))
+    db.refresh(obj)  # 덧붙인 값을 읽어 와야 지식 사본이 새 값으로 써진다
     for f in _item_files(run.intake, item):
         if not f.target_type:
             f.target_type, f.target_id = item["target_type"], obj.id
@@ -1185,18 +1248,17 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     for item, v in chosen:
         if item["kind"] != "add_to_solution":
             continue
-        picked = run.existing_id(Solution, v["solution"])
-        target = picked if picked != item.get("solution_id") else None  # 정리안과 다르게 직접 고른 대상
-        if target is None:
-            target = run.existing_id(Solution, item.get("solution_id"))
+        target, from_plan = _pick_target(run, Solution, v["solution"], item.get("solution_id"))
+        reason = TARGET_GONE
+        if target is not None and from_plan:
+            current = db.get(Solution, target)
             stored = item.get("solution_name")
-            # 번호를 다시 쓰는 다른 솔루션을 가리키게 된 경우(이름이 다름)는 대상이 사라진 것으로 본다
-            if target is not None and stored and normalize_name(stored) != normalize_name(db.get(Solution, target).name):
-                target = None
+            # 번호를 다시 쓰는 다른 솔루션이거나 이름이 바뀐 경우는 대상이 바뀐 것으로 본다
+            if current is None or (stored and normalize_name(stored) != normalize_name(current.name)):
+                target, reason = None, TARGET_CHANGED
         if target is None:
             files = [{"id": run.by_number[n].id, "name": run.by_number[n].original_name} for n in item.get("files", []) if n in run.by_number]
-            run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_to_solution']}: {TARGET_GONE}",
-                                "reason": TARGET_GONE, "files": files})
+            _skip(run, "add_to_solution", reason, files)
             continue
         solution = db.get(Solution, target)
         made = run.attach(solution, item, v)

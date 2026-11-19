@@ -46,7 +46,7 @@ def create(
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
-    values = dict(name=name.strip(), contact=contact.strip(), description=description.strip(), memo=memo.strip())
+    values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, values, error=error)
     partner = Partner(**values, created_by_id=user.id)
@@ -80,7 +80,7 @@ def update(
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     partner = get_or_404(db, Partner, partner_id)
-    values = dict(name=name.strip(), contact=contact.strip(), description=description.strip(), memo=memo.strip())
+    values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, values, partner, error)
     for field, value in values.items():

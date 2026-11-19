@@ -9,7 +9,7 @@
   <thead><tr><th>이름</th><th>업종</th><th>연락처</th></tr></thead>
   <tbody>
   {% for c in pg.items %}
-    <tr><td><a href="/customers/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.industry }}</td><td>{{ c.contact }}</td></tr>
+    <tr><td><a href="/customers/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.industry }}</td><td>{% set lines = (c.contact or "").splitlines() | map("trim") | select | list %}{{ lines[0] if lines }}{% if lines | length > 1 %} <span class="muted">외 {{ lines | length - 1 }}줄</span>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table></div>

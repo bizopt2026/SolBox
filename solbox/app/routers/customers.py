@@ -62,7 +62,7 @@ def create(
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
-    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.strip(), memo=memo.strip())
+    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, values, error=error)
     customer = Customer(**values, created_by_id=user.id)
@@ -91,7 +91,7 @@ def update(
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     customer = get_or_404(db, Customer, customer_id)
-    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.strip(), memo=memo.strip())
+    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, values, customer, error)
     for field, value in values.items():

@@ -12,7 +12,7 @@
 <div class="outline-summary">
   <p class="muted">{{ cards | length }}장{% if proposal.outline_updated_at %} · 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</p>
   <p class="check-summary">
-    <span class="count-evidence">근거 확인 {{ summary.evidence }}장</span> · <span class="count-decide">확인 필요 {{ summary.decide }}장</span> · <span class="count-done">확인 끝 {{ summary.done }}장</span>
+    <span class="count-evidence">근거 문제 {{ summary.evidence }}장</span> · <span class="count-decide">확인할 점 {{ summary.decide }}장</span> · <span class="count-done">확인 끝 {{ summary.done }}장</span>
     <button type="button" class="small remaining-toggle" aria-pressed="false" hidden>남은 장만 보기</button>
   </p>
   <span class="toggle-slides" hidden>

@@ -190,7 +190,7 @@ def test_forged_form_cannot_change_structure(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     form.update({"s9__name": ["가짜"], "zz__kind": ["x"], "skip_zz": ["on"], "s1__files": ["1,2,3"], "s1__kind_99": ["spec"],
-                 "a1__solution": ["abc"], "s1__partner": ["99999"], "s1__kind_1": ["bogus"], "a1__kind_2": ["bogus"],
+                 "s1__partner": ["99999"], "s1__kind_1": ["bogus"], "a1__kind_2": ["bogus"],
                  "act1__solution_ids": [str(s1.id), "99999", "x"]})
     assert _apply(user_client, it, form).status_code == 303
     db.expire_all()
