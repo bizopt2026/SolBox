@@ -42,7 +42,7 @@
 {% for code, text in areas.items() %}
 <h2>{{ text }}</h2>
 {% if by_area[code] %}
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>주제</th><th>키워드</th><th>분야</th><th>사용</th><th></th></tr></thead>
   <tbody>
   {% for t in by_area[code] %}
@@ -63,7 +63,7 @@
     </tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% else %}
 <p class="muted">등록된 주제가 없습니다.</p>
 {% endif %}

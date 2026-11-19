@@ -14,14 +14,14 @@
   <button type="submit">검색</button>
 </form>
 {% if pg.items %}
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>일자</th><th>종류</th><th>제목</th></tr></thead>
   <tbody>
   {% for a in pg.items %}
     <tr><td>{{ a.date or "" }}</td><td>{{ labels.ACTIVITY_KINDS.get(a.kind, a.kind) }}</td><td><a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></td></tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {{ pager(pg, request) }}
 {% else %}{{ empty_list(q or kind, "아직 등록된 활동 기록이 없습니다.", "/activities/new") }}{% endif %}
 {% endblock %}

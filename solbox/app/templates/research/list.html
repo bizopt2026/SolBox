@@ -14,7 +14,7 @@
   <button type="submit">검색</button>
 </form>
 {% if pg.items %}
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>조사 일자</th><th>상태</th><th>분야별 동향</th><th>대표 시사점</th></tr></thead>
   <tbody>
   {% for item in pg.items %}
@@ -30,7 +30,7 @@
     </tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {{ pager(pg, request) }}
 {% else %}<p class="muted">{{ "조건에 맞는 항목이 없습니다." if q or area else "아직 리서치 결과가 없습니다." }}</p>{% endif %}
 {% endblock %}

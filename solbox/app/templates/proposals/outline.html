@@ -35,10 +35,10 @@
   </div>
   {% endif %}
   {% if s.kind == "table" and s.columns %}
-  <table>
+  <div class="tablewrap"><table>
     <thead><tr>{% for c in s.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
     <tbody>{% for row in s.rows %}<tr>{% for c in row %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-  </table>
+  </table></div>
   {% endif %}
   {% if s.kind == "steps" and s.steps %}<ol>{% for st in s.steps %}<li><strong>{{ st.name }}</strong>{% if st.detail %} — {{ st.detail }}{% endif %}</li>{% endfor %}</ol>{% endif %}
   <p><strong>출처</strong>

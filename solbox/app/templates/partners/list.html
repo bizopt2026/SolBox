@@ -5,14 +5,14 @@
 {{ list_head("파트너", pg, q, "/partners/new") }}
 {{ search_box("/partners", q) }}
 {% if pg.items %}
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>이름</th><th>연락처</th><th>솔루션 수</th></tr></thead>
   <tbody>
   {% for p in pg.items %}
     <tr><td><a href="/partners/{{ p.id }}">{{ p.name }}</a></td><td>{{ p.contact }}</td><td>{{ p.solutions | length }}</td></tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {{ pager(pg, request) }}
 {% else %}{{ empty_list(q, "아직 등록된 파트너가 없습니다.", "/partners/new") }}{% endif %}
 {% endblock %}

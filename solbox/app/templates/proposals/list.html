@@ -16,7 +16,7 @@
   <button type="submit">검색</button>
 </form>
 {% if pg.items %}
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>제안</th><th>고객</th><th>상태</th><th>수정</th></tr></thead>
   <tbody>
   {% for p in pg.items %}
@@ -28,7 +28,7 @@
     </tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {{ pager(pg, request) }}
 {% else %}{{ empty_list(q or status, "아직 등록된 제안 건이 없습니다.", "/proposals/new", "+ 제안 만들기") }}{% endif %}
 {% endblock %}

@@ -5,7 +5,7 @@
 {{ breadcrumb(("관리", None), ("시스템", None)) }}
 <h1>시스템</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
-<table>
+<div class="tablewrap"><table>
   <tbody>
     <tr><th>버전</th><td>{{ version }}</td></tr>
     <tr><th>데이터 폴더</th><td><code class="path">{{ data_dir }}</code> ({{ data_size }})</td></tr>
@@ -23,7 +23,7 @@
       {% else %}없음{% endif %}
     </td></tr>
   </tbody>
-</table>
+</table></div>
 
 <section class="card">
 <h2>AI 연결 확인</h2>

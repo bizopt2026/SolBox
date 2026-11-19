@@ -21,7 +21,7 @@
   </form>
 </section>
 
-<table>
+<div class="tablewrap"><table>
   <thead><tr><th>아이디</th><th>이름</th><th>권한</th><th>사용</th><th>새 비밀번호</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
@@ -40,5 +40,5 @@
     </tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}
