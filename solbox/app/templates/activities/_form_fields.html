@@ -101,19 +101,4 @@ document.querySelectorAll("[data-add-row]").forEach(function (btn) {
     box.appendChild(copy);
   });
 });
-document.querySelectorAll(".picker").forEach(function (box) {
-  var count = box.querySelector("[data-count]"), items = box.querySelectorAll(".picker-list label"), filter = box.querySelector(".picker-filter");
-  function update() {
-    var n = box.querySelectorAll(".picker-list input:checked").length;
-    count.textContent = n ? " · " + n + "개 선택" : "";
-  }
-  box.addEventListener("change", update);
-  if (filter) {
-    filter.hidden = false;
-    filter.addEventListener("input", function () {
-      var q = filter.value.trim().toLowerCase();
-      items.forEach(function (l) { l.hidden = q !== "" && l.textContent.toLowerCase().indexOf(q) < 0; });
-    });
-  }
-});
 </script>

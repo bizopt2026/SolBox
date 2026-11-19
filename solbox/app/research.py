@@ -259,28 +259,50 @@ def _close_run(db: Session, run_id: int, status: str) -> None:
     db.commit()
 
 
-_ID_REF = re.compile(r"(\(\s*)?(?<![A-Za-z0-9_])id\s*[:：]?\s*(\d{1,9})(?!\d)(\s*\))?", re.IGNORECASE)
+_ID_REF = re.compile(r"(\s*)(\(\s*)?(?<![A-Za-z0-9_])id\s*[:：]?\s*(\d{1,9})(?!\d)(\s*\))?", re.IGNORECASE)
+_LEADING_NOTE = re.compile(r"^\s*[\(\[][^)\]]*[\)\]]\s*")
+_TAIL_CHARS = 40
+
+
+def _names_it(before: str, name: str) -> bool:
+    """번호 바로 앞 글이 이미 그 솔루션 이름(또는 이름의 일부)을 말하고 있으면 True."""
+    from app.ai.tasks import normalize_name  # 순환 참조를 피해 늦게 불러온다
+
+    full = normalize_name(name)
+    core = normalize_name(_LEADING_NOTE.sub("", name)) or full
+    tail = normalize_name(before[-_TAIL_CHARS:])
+    if not tail or not core:
+        return False
+    if tail.endswith(core) or tail.endswith(full):
+        return True
+    words = before.rstrip().split()
+    for count in (2, 1):  # 이름을 줄여 쓴 경우: 앞 글의 마지막 한두 단어가 이름 안에 들어 있다
+        last = normalize_name("".join(words[-count:]))
+        if len(last) >= 3 and last in full:
+            return True
+    return False
 
 
 def humanize_ids(db: Session, text: str) -> str:
     """화면에 낼 글에서 `id 3`, `(id 3)`, `ID: 3` 꼴의 솔루션 번호를 그 솔루션 이름으로 바꾼다. 없는 번호는 그대로 둔다.
 
-    이름 바로 뒤에 붙은 `(id 3)` 는 이름이 겹치지 않게 그냥 지운다."""
+    번호 바로 앞에서 이미 그 솔루션 이름을 말하고 있으면 이름이 겹치지 않게 번호만 지운다."""
+    text = str(text or "")
     if not text:
         return text
     cache: dict[int, str | None] = {}
 
     def name_of(m: re.Match) -> str:
-        sid = int(m.group(2))
+        sid = int(m.group(3))
         if sid not in cache:
             solution = db.get(Solution, sid)
             cache[sid] = solution.name if solution is not None else None
         name = cache[sid]
         if name is None:
             return m.group(0)
-        opening, closing = m.group(1) or "", m.group(3) or ""
-        if opening and closing and m.string[: m.start()].rstrip().endswith(name):
+        space, opening, closing = m.group(1), m.group(2) or "", m.group(4) or ""
+        if bool(opening) == bool(closing) and _names_it(m.string[: m.start()], name):
             return ""
-        return f"{opening.strip() and '('}{name}{closing.strip() and ')'}"
+        return f"{space}{opening.strip() and '('}{name}{closing.strip() and ')'}"
 
     return _ID_REF.sub(name_of, text)

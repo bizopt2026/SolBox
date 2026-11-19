@@ -81,3 +81,49 @@ def test_proposal_target_uses_same_picker(user_client, db):
     db.commit()
     html = user_client.get("/proposals/new").text
     assert 'data-field="extra_solution_ids"' in html and html.count('name="extra_solution_ids"') == 3
+
+
+def test_filter_input_cannot_submit_or_post_a_value(user_client, db):
+    _make(db, 9)
+    html = user_client.get(f"/activities/{_new_activity(db, []).id}/edit").text
+    tag = re.search(r'<input type="search" class="picker-filter"[^>]*>', html).group(0)
+    assert "name=" not in tag and " hidden" in tag
+
+
+def _post_form(user_client, activity, **links):
+    data = {"kind": "meeting", "date": "2026-11-10", "title": "t", "raw_text": "원문", **links}
+    r = user_client.post(f"/activities/{activity.id}", data=data, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_saving_with_nothing_ticked_clears_links(user_client, db):
+    s = _make(db, 3)
+    a = _new_activity(db, [s[0], s[1]])
+    _post_form(user_client, a)
+    db.refresh(a)
+    assert a.solutions == [] and a.customers == [] and a.businesses == [] and a.partners == []
+
+
+def test_saving_a_mix_stores_exactly_the_ticked_links(user_client, db):
+    from app.models import Business, Partner
+    s = _make(db, 4)
+    c, c2 = Customer(name="고객1"), Customer(name="고객2")
+    p = Partner(name="파트너1")
+    db.add_all([c, c2, p])
+    db.flush()
+    b = Business(name="사업1", customer_id=c.id)
+    db.add(b)
+    db.commit()
+    a = _new_activity(db, [s[0]])
+    _post_form(user_client, a, solution_ids=[str(s[1].id), str(s[3].id)], customer_ids=[str(c2.id)],
+               business_ids=[str(b.id)], partner_ids=[str(p.id)])
+    db.refresh(a)
+    assert sorted(x.id for x in a.solutions) == sorted([s[1].id, s[3].id])
+    assert [x.id for x in a.customers] == [c2.id] and [x.id for x in a.businesses] == [b.id] and [x.id for x in a.partners] == [p.id]
+
+
+def test_proposal_target_page_includes_shared_script(user_client, db):
+    db.add(Solution(name="S", stage="survey"))
+    db.commit()
+    html = user_client.get("/proposals/new").text
+    assert 'src="/static/app.js"' in html and 'class="picker' in html and "data-count" in html

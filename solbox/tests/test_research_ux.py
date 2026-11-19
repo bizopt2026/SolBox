@@ -56,14 +56,20 @@ def test_trend_summary_shows_link_count_and_needs_check(user_client, db, setting
     assert "확인 필요" in summary
 
 
-def test_area_tabs(user_client, db, settings):
+def test_area_tabs_markup_has_no_roles_without_script(user_client, db, settings):
     run = finished_run(db, settings)
     page = user_client.get(f"/research/runs/{run.id}").text
-    tabs = re.search(r'<div class="tabs" role="tablist">(.*?)</div>', page, re.S).group(1)
-    assert 'href="#tech"' in tabs and "기술" in tabs and "2" in tabs
+    tabs = re.search(r'<div class="tabs">(.*?)</div>', page, re.S).group(1)
+    assert 'href="#tech"' in tabs and 'id="tab-tech"' in tabs and "기술" in tabs and "2" in tabs
     assert 'href="#policy"' in tabs and "실패" in tabs
-    assert tabs.count('aria-selected="true"') == 1 and 'href="#tech" role="tab" aria-selected="true"' in tabs
-    assert 'id="tech"' in page and 'id="policy"' in page
+    assert "role=" not in tabs and "aria-selected" not in tabs  # 역할은 스크립트가 붙인다
+    assert 'id="tech"' in page and 'id="policy"' in page and 'role="tabpanel"' not in page
+
+
+def test_page_loads_shared_script(user_client, db, settings):
+    page = user_client.get("/proposals/new").text
+    assert '<script src="/static/app.js" defer></script>' in page
+    assert user_client.get("/static/app.js").status_code == 200
 
 
 def test_insights_come_before_trends_in_area_panel(user_client, db, settings):
@@ -78,4 +84,55 @@ def test_humanize_ids_drops_reference_right_after_the_name(db):
     db.add(s)
     db.commit()
     assert humanize_ids(db, f"AI 공조(id {s.id})로 절감") == "AI 공조로 절감"
-    assert humanize_ids(db, f"AI 공조 (id {s.id}) 로") == "AI 공조  로"
+    assert humanize_ids(db, f"AI 공조 (id {s.id}) 로") == "AI 공조 로"
+
+
+def _example(db):
+    s = Solution(name="(예시) AI 공조 최적제어", stage="boxed")
+    db.add(s)
+    db.commit()
+    return s.id
+
+
+def test_humanize_ids_example_prefix_and_shortened_name(db):
+    n = _example(db)
+    assert humanize_ids(db, f"AI 공조 최적제어(id {n})로 절감") == "AI 공조 최적제어로 절감"
+    assert humanize_ids(db, f"공조 최적제어 (id {n}) 로") == "공조 최적제어 로"
+    assert humanize_ids(db, f"(예시) AI 공조 최적제어 (id {n})") == "(예시) AI 공조 최적제어"
+    assert humanize_ids(db, f"그래서 센서(id {n})를 민다") == f"그래서 센서((예시) AI 공조 최적제어)를 민다"
+
+
+def test_humanize_ids_unparenthesised_form(db):
+    n = _example(db)
+    assert humanize_ids(db, f"AI 공조 최적제어 id {n} 를 민다") == "AI 공조 최적제어 를 민다"
+    assert humanize_ids(db, f"솔루션 id {n} 를 민다") == "솔루션 (예시) AI 공조 최적제어 를 민다"
+    assert humanize_ids(db, f"ID: {n}") == "(예시) AI 공조 최적제어"
+
+
+def test_humanize_ids_tolerates_non_strings(db):
+    assert humanize_ids(db, None) == "" and humanize_ids(db, 5) == "5"
+
+
+def test_run_page_humanizes_insights(user_client, db, settings):
+    run = finished_run(db, settings)
+    sid = db.query(Solution).first().id
+    tech = db.query(ResearchReport).filter_by(run_id=run.id, area="tech").one()
+    sug = db.query(ResearchReport).filter_by(run_id=run.id, kind="suggest").one()
+    tech.insights, sug.insights = [f"솔루션 id {sid} 를 민다"], [f"ID: {sid} 우선"]
+    db.commit()
+    page = user_client.get(f"/research/runs/{run.id}").text
+    assert f"id {sid}" not in page and f"ID: {sid}" not in page and "AI 공조 최적제어 우선" in page
+
+
+def test_candidate_registration_hides_ids(user_client, db, settings):
+    run = finished_run(db, settings)
+    sid = db.query(Solution).first().id
+    sug = db.query(ResearchReport).filter_by(run_id=run.id, kind="suggest").one()
+    sug.suggestions = [{**sug.suggestions[0], "title": f"제안 id {sid}", "detail": f"(id {sid}) 를 본다", "reason": f"ID: {sid} 때문"}]
+    db.commit()
+    r = user_client.post(f"/research/runs/{run.id}/candidate", data={"source": "suggestion", "report_id": sug.id, "index": 0}, follow_redirects=False)
+    assert r.status_code == 303
+    new = db.query(Solution).order_by(Solution.id.desc()).first()
+    text = new.name + new.summary + new.description
+    assert f"id {sid}" not in text.lower() and f"id: {sid}" not in text.lower()
+    assert "AI 공조 최적제어" in new.name

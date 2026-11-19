@@ -16,7 +16,7 @@
 <nav class="stepbar" aria-label="제안 진행 단계">
   <ol>
     {% for st in steps %}
-    <li class="step {{ st.state }}">{% if st.href %}<a href="{{ st.href }}"{% if st.state == "current" %} aria-current="step"{% endif %}>{% if st.state == "done" %}<span aria-hidden="true">✓ </span><span class="sr-only">끝남: </span>{% endif %}{{ st.label }}</a>{% else %}<span aria-disabled="true">{{ st.label }}</span>{% endif %}</li>
+    <li class="step {{ st.state }}{{ ' busy' if st.busy }}">{% if st.href %}<a href="{{ st.href }}"{% if st.state == "current" %} aria-current="step"{% endif %}>{% if st.state == "done" %}<span aria-hidden="true">✓ </span><span class="sr-only">끝남: </span>{% endif %}{{ st.label }}{% if st.busy %}<span class="busy-label">진행 중</span>{% endif %}</a>{% else %}<span aria-disabled="true">{{ st.label }}</span>{% endif %}</li>
     {% endfor %}
   </ol>
 </nav>
@@ -72,22 +72,4 @@
 {% call section("deck", "제안서") %}
   {% include "proposals/_deck.html" %}
 {% endcall %}
-<script>
-(function () {
-  function reveal(id) {
-    var el = id && document.getElementById(id);
-    if (!el) return;
-    for (var d = el; d; d = d.parentElement) { if (d.tagName === "DETAILS") d.open = true; }
-    el.scrollIntoView();
-  }
-  function fromHash() { reveal(decodeURIComponent(location.hash.slice(1))); }
-  window.addEventListener("hashchange", fromHash);
-  document.querySelectorAll(".stepbar a").forEach(function (a) {
-    a.addEventListener("click", function (e) { e.preventDefault(); history.replaceState(null, "", a.getAttribute("href")); fromHash(); });
-  });
-  var bar = document.querySelector(".stepbar ol"), cur = bar && bar.querySelector(".current");
-  if (cur) bar.scrollLeft += cur.getBoundingClientRect().left - bar.getBoundingClientRect().left - (bar.clientWidth - cur.offsetWidth) / 2;
-  if (location.hash) fromHash();
-})();
-</script>
 {% endblock %}

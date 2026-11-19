@@ -143,3 +143,33 @@ def test_changing_direction_still_asks_for_confirmation(user_client, db, setting
     p = outlined_proposal(db, settings)
     html = user_client.get(f"/proposals/{p.id}").text
     assert html.count("방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다") >= 2  # 다른 방향 선택 + 방향 다시 만들기
+
+
+def test_step_bar_marks_running_later_step(db, settings):
+    p = refining_proposal(db, settings)
+    job = AIJob(kind="proposal_outline", input={"proposal_id": p.id}, status="running", priority=0)
+    db.add(job)
+    db.flush()
+    p.active_job_id = job.id
+    db.flush()
+    db.refresh(p)
+    steps = {s["key"]: s for s in step_states(p)}
+    assert steps["outline"]["busy"] and steps["outline"]["href"] == "#outline" and steps["chat"]["state"] == "current"
+    assert not steps["chat"]["busy"] and not steps["deck"]["busy"]
+
+
+def test_step_bar_shows_running_label(user_client, db, settings):
+    p = refining_proposal(db, settings)
+    job = AIJob(kind="proposal_outline", input={"proposal_id": p.id}, status="running", priority=0)
+    db.add(job)
+    db.flush()
+    p.active_job_id = job.id
+    db.commit()
+    html = user_client.get(f"/proposals/{p.id}").text
+    nav = re.search(r'<nav class="stepbar".*?</nav>', html, re.S).group(0)
+    assert nav.count("진행 중") == 1 and 'href="#outline"' in nav
+
+
+def test_detail_page_uses_shared_script_only(user_client, db, settings):
+    html = user_client.get(f"/proposals/{refining_proposal(db, settings).id}").text
+    assert '/static/app.js' in html and "decodeURIComponent" not in html

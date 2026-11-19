@@ -17,20 +17,20 @@
   <div class="section-head"><h2>발굴 방향 제안</h2>{% if suggestions %}{{ toggle_all("suggestions") }}{% endif %}</div>
   {% if suggestions %}<ul class="trends">{% for s in suggestions %}{% include "research/_suggestion.html" %}{% endfor %}</ul>
   {% else %}<p class="muted">제안이 없습니다.</p>{% endif %}
-  {% if suggest.insights %}<h3>시사점</h3><ul>{% for i in suggest.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+  {% if suggest_insights %}<h3>시사점</h3><ul>{% for i in suggest_insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
 </section>
 {% endif %}
 
 {% if areas %}
 <div class="area-tabs" id="area-tabs">
-  <div class="tabs" role="tablist">
-    {% for a in areas %}<a href="#{{ a.report.area }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ a.name }} <span class="count">{% if a.report.status == "failed" %}실패{% elif a.report.status == "done" %}{{ a.trends | length }}{% else %}조사 중{% endif %}</span></a>{% endfor %}
+  <div class="tabs">
+    {% for a in areas %}<a href="#{{ a.report.area }}" id="tab-{{ a.report.area }}">{{ a.name }} <span class="count">{% if a.report.status == "failed" %}실패{% elif a.report.status == "done" %}{{ a.trends | length }}{% else %}조사 중{% endif %}</span></a>{% endfor %}
   </div>
   {% for a in areas %}{% set report = a.report %}
-  <section class="card tabpanel" id="{{ report.area }}" role="tabpanel">
+  <section class="card tabpanel" id="{{ report.area }}">
     <div class="section-head"><h2>{{ a.name }}{% if report.title %} · {{ report.title }}{% endif %}</h2>{% if report.status == "done" and a.trends %}{{ toggle_all(report.area) }}{% endif %}</div>
     {% if report.status == "done" %}
-      {% if report.insights %}<h3>시사점</h3><ul>{% for i in report.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+      {% if a.insights %}<h3>시사점</h3><ul>{% for i in a.insights %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
       {% if a.trends %}<ul class="trends">{% for t in a.trends %}{% include "research/_trend.html" %}{% endfor %}</ul>
       {% else %}<p class="muted">동향이 없습니다.</p>{% endif %}
     {% elif report.status == "failed" %}
@@ -45,26 +45,4 @@
 {% if user.role == "admin" and run.status != "running" %}
 <form method="post" action="/research/runs/{{ run.id }}/delete" onsubmit="return confirm('이 조사 결과를 삭제할까요?')"><button type="submit" class="danger">이 조사 삭제</button></form>
 {% endif %}
-<script>
-(function () {
-  document.querySelectorAll(".toggle-all").forEach(function (box) {
-    box.hidden = false;
-    box.addEventListener("click", function (e) {
-      var b = e.target.closest("button"); if (!b) return;
-      document.getElementById(box.dataset.target).querySelectorAll("details.trend-card").forEach(function (d) { d.open = b.dataset.open === "1"; });
-    });
-  });
-  var wrap = document.getElementById("area-tabs");
-  if (!wrap) return;
-  var tabs = wrap.querySelectorAll("[role=tab]"), panels = wrap.querySelectorAll(".tabpanel");
-  function select(id) {
-    if (!id || !wrap.querySelector("#" + id + ".tabpanel")) id = panels[0].id;
-    tabs.forEach(function (t) { t.setAttribute("aria-selected", t.getAttribute("href") === "#" + id ? "true" : "false"); });
-    panels.forEach(function (p) { p.hidden = p.id !== id; });
-  }
-  tabs.forEach(function (t) { t.addEventListener("click", function (e) { e.preventDefault(); history.replaceState(null, "", t.getAttribute("href")); select(t.getAttribute("href").slice(1)); }); });
-  window.addEventListener("hashchange", function () { select(location.hash.slice(1)); });
-  select(location.hash.slice(1));
-})();
-</script>
 {% endblock %}

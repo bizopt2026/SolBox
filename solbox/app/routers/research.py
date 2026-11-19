@@ -95,8 +95,11 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
         if r.kind != "area":
             continue
         trends = [{**_trend_view(t), "index": i} for i, t in enumerate(r.trends or [])]
-        areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends})
-    return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas)
+        insights = [humanize_ids(db, i) for i in r.insights or []]
+        areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends, "insights": insights})
+    suggest_insights = [humanize_ids(db, i) for i in (suggest.insights if suggest else None) or []]
+    return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas,
+                  suggest_insights=suggest_insights)
 
 
 @router.post("/runs/{run_id}/candidate")
@@ -117,11 +120,11 @@ def register_candidate(
     item = items[index]
     lines: list[str] = []
     if source == "suggestion":
-        name, summary = item.get("title", ""), item.get("reason", "")
-        lines += [x for x in (item.get("detail", ""), f"근거: {summary}" if summary else "") if x]
+        name, summary = humanize_ids(db, item.get("title", "")), humanize_ids(db, item.get("reason", ""))
+        lines += [x for x in (humanize_ids(db, item.get("detail", "")), f"근거: {summary}" if summary else "") if x]
         lines += [f"- {p}" for p in item.get("sources") or []]
     else:
-        name, summary = item.get("headline", ""), item.get("summary", "")
+        name, summary = humanize_ids(db, item.get("headline", "")), humanize_ids(db, item.get("summary", ""))
         lines += [x for x in (summary,) if x]
         for s in item.get("sources") or []:
             url = clean_url(s.get("url", ""))

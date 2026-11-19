@@ -257,15 +257,27 @@ def _has_outline(p: Proposal) -> bool:
 
 
 def step_states(p: Proposal) -> list[dict]:
-    """단계 표시줄의 칸. state: done(끝남) / current(지금 할 단계) / todo(갈 수 있음) / locked(아직 못 감, 링크 없음)."""
+    """단계 표시줄의 칸. state: done(끝남) / current(지금 할 단계) / todo(갈 수 있음) / locked(아직 못 감, 링크 없음).
+
+    지금 단계가 아닌 단계의 AI 작업이 돌고 있으면 그 칸은 busy(진행 중)이고, 아직 못 가는 단계여도 링크가 걸린다."""
     keys = [k for k, _ in STEPS]
     current = keys.index(_STATUS_STEP.get(p.status, "directions"))
     reachable = {"target": True, "directions": True, "chat": _has_selection(p), "outline": _has_outline(p), "deck": _has_outline(p)}
+    working = open_section(p) if _job_running(p) else None
     steps = []
     for i, (key, label) in enumerate(STEPS):
         state = "done" if i < current else "current" if i == current else "todo" if reachable[key] else "locked"
-        steps.append({"key": key, "label": label, "state": state, "href": None if state == "locked" else f"#{key}"})
+        busy = working == key and i != current
+        steps.append({
+            "key": key, "label": label, "state": state, "busy": busy,
+            "href": None if state == "locked" and not busy else f"#{key}",
+        })
     return steps
+
+
+def _job_running(p: Proposal) -> bool:
+    job = p.active_job
+    return job is not None and job.status in ("pending", "running") and job.kind in _JOB_STEP
 
 
 def open_section(p: Proposal) -> str:
