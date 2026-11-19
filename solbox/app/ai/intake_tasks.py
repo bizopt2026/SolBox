@@ -119,6 +119,19 @@ class NewPartner(PlanItem):
     memo: Text = ""
 
 
+class Contact(PlanItem):
+    """이미 등록된 파트너·고객에 덧붙일 연락처 (명함 등). 기존 기록을 고치지 않고 연락처 칸에 한 줄을 더한다."""
+
+    target_type: Text = ""  # partner / customer
+    target_id: MaybeInt = None
+    person: Text = ""
+    role: Text = ""
+    phone: Text = ""
+    email: Text = ""
+    address: Text = ""
+    note: Text = ""
+
+
 class Unplaced(PlanItem):
     pass
 
@@ -129,6 +142,7 @@ class IntakePlanOut(BaseModel):
     activities: list[ActivityItem] = []
     customers: list[NewCustomer] = []
     partners: list[NewPartner] = []
+    contacts: list[Contact] = []
     unplaced: list[Unplaced] = []
 
     @model_validator(mode="before")
@@ -139,7 +153,8 @@ class IntakePlanOut(BaseModel):
             return data
         out = dict(data)
         for field, model in (("solutions", NewSolution), ("additions", AddToSolution), ("activities", ActivityItem),
-                             ("customers", NewCustomer), ("partners", NewPartner), ("unplaced", Unplaced)):
+                             ("customers", NewCustomer), ("partners", NewPartner), ("contacts", Contact),
+                             ("unplaced", Unplaced)):
             kept = []
             for d in data.get(field) if isinstance(data.get(field), list) else []:
                 if isinstance(d, model):
@@ -181,7 +196,8 @@ def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     note = (intake.note or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO").strip()
     prompt = load_prompt(
         "intake_analyze", today=date.today().isoformat(), note=note or "(없음)",
-        solutions=_names(db, Solution, with_id=True), customers=_names(db, Customer), partners=_names(db, Partner),
+        solutions=_names(db, Solution, with_id=True), customers=_names(db, Customer, with_id=True),
+        partners=_names(db, Partner, with_id=True),
     )
     # 파일 도구는 작업 폴더 안으로만 허용한다 (업로드 자료가 다른 파일을 읽게 시키는 것을 막는다)
     out = run_json(db, runner, prompt, IntakePlanOut, settings, cwd=folder, file_scope=True)  # 읽기 트랜잭션은 여기서 끝난다

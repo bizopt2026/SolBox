@@ -14,7 +14,6 @@
 </div>
 {% endif %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
-{% if has_audio and not transcriber_ready %}<p class="notice" role="note">음성 파일은 아직 받아쓰기를 지원하지 않습니다. 글자로 풀어 올려 주세요.</p>{% endif %}
 <section class="card">
   <dl>
     <dt>메모</dt><dd>{% if intake.note %}{{ intake.note }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
@@ -22,16 +21,18 @@
   </dl>
   <details class="file-list"{% if intake.status != "ready" %} open{% endif %}>
   <summary>올린 파일 {{ intake.files | length }}개{% if intake.status == "ready" %} (표로 보기){% endif %}</summary>
-  <div class="tablewrap"><table>
-    <thead><tr><th>번호</th><th>이름</th><th>종류</th><th>크기</th><th>읽기 상태</th><th></th></tr></thead>
+  <div class="tablewrap"><table class="file-table">
+    <thead><tr><th class="col-num">번호</th><th>이름</th><th>종류</th><th class="col-size">크기</th><th class="col-status">읽기 상태</th><th></th></tr></thead>
     <tbody>
     {% for f in intake.files %}
+      {% set audio_note = f.read_status == "needs_transcript" and intake.status not in ("applied", "discarded") %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ f.original_name }}</td>
+        <td class="col-num">{{ loop.index }}</td>
+        <td>{{ f.original_name }}
+          <span class="name-status"><span class="badge read-{{ f.read_status }}">{{ labels.READ_STATUSES.get(f.read_status, f.read_status) }}</span>{% if audio_note %} <span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% endif %}</span></td>
         <td>{{ labels.INTAKE_FILE_KINDS.get(f.kind, f.kind) }}</td>
-        <td>{% if f.size >= 1048576 %}{{ (f.size / 1024 / 1024)|round(2) }} MB{% elif f.size >= 1024 %}{{ (f.size / 1024)|round(1) }} KB{% else %}{{ f.size }} B{% endif %}</td>
-        <td><span class="badge read-{{ f.read_status }}">{{ labels.READ_STATUSES.get(f.read_status, f.read_status) }}</span></td>
+        <td class="col-size">{% if f.size >= 1048576 %}{{ (f.size / 1024 / 1024)|round(2) }} MB{% elif f.size >= 1024 %}{{ (f.size / 1024)|round(1) }} KB{% else %}{{ f.size }} B{% endif %}</td>
+        <td class="col-status"><span class="badge read-{{ f.read_status }}">{{ labels.READ_STATUSES.get(f.read_status, f.read_status) }}</span>{% if audio_note %}<br><span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% endif %}</td>
         <td><a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></td>
       </tr>
     {% endfor %}
@@ -83,6 +84,7 @@
   {% with item = card.item, v = card.v %}
   {% if item.kind == "new_solution" %}{% include "intake/_item_solution.html" %}
   {% elif item.kind == "add_to_solution" %}{% include "intake/_item_addition.html" %}
+  {% elif item.kind == "add_contact" %}{% include "intake/_item_contact.html" %}
   {% elif item.kind == "activity" %}{% include "intake/_item_activity.html" %}
   {% elif item.kind in ("new_customer", "new_partner") %}{% include "intake/_item_entity.html" %}
   {% else %}{% include "intake/_item_unplaced.html" %}{% endif %}

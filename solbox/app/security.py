@@ -1,6 +1,8 @@
 """비밀번호 해시, 로그인 확인, 권한 검사."""
 from __future__ import annotations
 
+import weakref
+
 from fastapi import Depends, HTTPException, Request
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
@@ -32,6 +34,7 @@ def require_user(request: Request, db: Session = Depends(get_db)) -> User:
         request.session.clear()
         raise LoginRequired()
     request.state.user = user
+    request.state.db_ref = weakref.ref(db)  # 메뉴 배지가 같은 연결로 센다 (`main.render`). 약한 참조라 세션 수명을 늘리지 않는다
     return user
 
 

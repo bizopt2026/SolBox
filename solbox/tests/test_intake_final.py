@@ -364,9 +364,11 @@ def test_registered_names_are_flattened_in_prompt(app, user_client, db, settings
     assert text.count("\n") == 0  # 이름 하나는 한 줄
 
 
-def test_audio_banner_only_when_transcriber_missing(app, user_client, db, settings, monkeypatch):
+def test_audio_note_only_when_transcriber_missing(app, user_client, db, settings, monkeypatch):
     it = _new_bundle(db, settings, name="회의.m4a")
-    assert "아직 받아쓰기를 지원하지 않습니다" in user_client.get(f"/intake/{it.id}").text
+    it.files[0].read_status = "needs_transcript"
+    db.commit()
+    assert "받아쓰기 필요 · 글자로 풀어 올려 주세요" in user_client.get(f"/intake/{it.id}").text
 
     class Ok(transcribe.Transcriber):
         def available(self):
@@ -376,7 +378,9 @@ def test_audio_banner_only_when_transcriber_missing(app, user_client, db, settin
             return "받아쓴 글"
 
     monkeypatch.setitem(transcribe.TRANSCRIBERS, "none", Ok)
-    assert "아직 받아쓰기를 지원하지 않습니다" not in user_client.get(f"/intake/{it.id}").text
+    it.files[0].read_status = "ok"  # 받아쓰기가 되면 읽은 파일이다 (안내는 "받아쓰기 필요" 상태일 때만)
+    db.commit()
+    assert "받아쓰기 필요 · 글자로" not in user_client.get(f"/intake/{it.id}").text
 
 
 def test_transcribe_error_message_is_logged(app, user_client, db, settings, monkeypatch, caplog):

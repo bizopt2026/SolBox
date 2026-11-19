@@ -47,6 +47,8 @@ _KINDS = {
 }
 _IMAGE_ERRORS = (OSError, SyntaxError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f\u0085\u2028\u2029]+")
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_PHONE = re.compile(r"\+?\d[\d\-\s().]{5,}\d")
 
 
 def clean_name(filename: str) -> str:
@@ -330,10 +332,29 @@ def _raw_text(settings: Settings | None, intake: Intake, number: int, f: IntakeF
     return body[:MAX_RAW_TEXT] or None
 
 
+CONTACT_FIELDS = ("person", "role", "phone", "email", "address", "note")
+USABLE_CONTACT_FIELDS = ("person", "phone", "email", "address")  # 이 중 하나는 있어야 덧붙일 연락처다
+
+
+def _digits_only(text: str) -> str:
+    return re.sub(r"\D", "", text or "")
+
+
+def split_contact(text: str) -> tuple[str, str, str]:
+    """한 줄 연락처 글에서 (전화, 이메일, 나머지)를 나눈다. 새 파트너·고객 항목을 연락처 덧붙이기로 바꿀 때 쓴다."""
+    text = str(text or "")
+    email = _EMAIL.search(text)
+    rest = text.replace(email.group(0), " ") if email else text
+    phone = _PHONE.search(rest)
+    rest = rest.replace(phone.group(0), " ") if phone else rest
+    rest = re.sub(r"\s+", " ", rest).strip(" \t·,/;|-")
+    return (phone.group(0).strip() if phone else ""), (email.group(0) if email else ""), rest
+
+
 def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, settings: Settings | None = None) -> dict:
     """AI 정리안을 저장용으로 검증·보정한다: `{"items": [...]}`.
 
-    항목 순서는 파트너, 고객, 새 솔루션, 솔루션에 추가, 활동, 정리하지 못한 파일. `settings` 가 있으면 활동의 원문을
+    항목 순서는 파트너, 고객, 새 솔루션, 솔루션에 추가, 연락처 추가, 활동, 정리하지 못한 파일. `settings` 가 있으면 활동의 원문을
     작업 폴더의 글 사본에서 읽는다 (없으면 정리본을 원문으로 쓴다)."""
     by_number = {file_number(intake, f): f for f in intake.files}
     readable = {n for n, f in by_number.items() if f.read_status == "ok"}
@@ -345,13 +366,34 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
     solutions = {normalize_name(s.name): s.id for s in db.scalars(select(Solution).order_by(Solution.id)) if normalize_name(s.name)}
     solution_ids = set(db.scalars(select(Solution.id)))
     solution_name_of = {s.id: s.name for s in db.scalars(select(Solution))}
-    customers = {normalize_name(c.name) for c in db.scalars(select(Customer))}
+    customer_rows = list(db.scalars(select(Customer).order_by(Customer.id)))
+    customers = {normalize_name(c.name): c.id for c in customer_rows if normalize_name(c.name)}
+    target_name_of = {"partner": {p.id: p.name for p in db.scalars(select(Partner))},
+                      "customer": {c.id: c.name for c in customer_rows}}
+    contacts: dict[tuple, dict] = {}
+
+    def add_contact(target_type: str, target_id: int, numbers: list[int], reason: str, **fields: str) -> None:
+        item = {"kind": "add_contact", "reason": reason.strip(), "files": files_of(numbers), "target_type": target_type,
+                "target_id": target_id, "target_name": target_name_of[target_type][target_id],
+                **{f: fields.get(f, "").strip() for f in CONTACT_FIELDS}}
+        if not any(item[f] for f in USABLE_CONTACT_FIELDS):
+            return
+        same = (target_type, target_id, normalize_name(item["person"]), _digits_only(item["phone"]), item["email"].lower())
+        if same in contacts:
+            _merge_into(contacts[same], item, ("role", "address", "note", "reason"))
+        else:
+            contacts[same] = item
     partners = {normalize_name(p.name): p.id for p in db.scalars(select(Partner).order_by(Partner.id)) if normalize_name(p.name)}
 
     new_partners: dict[str, dict] = {}
     for p in out.partners:
         key = normalize_name(p.name)
-        if not key or key in partners:
+        if not key:
+            continue
+        if key in partners:  # 이미 등록된 파트너: 연락처가 있으면 연락처 덧붙이기로 바꾼다 (없으면 버린다)
+            if p.contact.strip():
+                phone, email, rest = split_contact(p.contact)
+                add_contact("partner", partners[key], p.files, p.reason, phone=phone, email=email, note=rest)
             continue
         item = {"kind": "new_partner", "reason": p.reason.strip(), "files": files_of(p.files), "name": p.name.strip(),
                 "contact": p.contact.strip(), "description": p.description.strip(), "memo": p.memo.strip()}
@@ -363,7 +405,12 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
     new_customers: dict[str, dict] = {}
     for c in out.customers:
         key = normalize_name(c.name)
-        if not key or key in customers:
+        if not key:
+            continue
+        if key in customers:
+            if c.contact.strip():
+                phone, email, rest = split_contact(c.contact)
+                add_contact("customer", customers[key], c.files, c.reason, phone=phone, email=email, note=rest)
             continue
         item = {"kind": "new_customer", "reason": c.reason.strip(), "files": files_of(c.files), "name": c.name.strip(),
                 "industry": c.industry.strip(), "contact": c.contact.strip(), "memo": c.memo.strip()}
@@ -411,6 +458,11 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
         if a.solution_id in solution_ids:
             add_addition(a.solution_id, a.files, a.note, a.reason)
 
+    for c in out.contacts:
+        if c.target_type in target_name_of and c.target_id in target_name_of[c.target_type]:
+            add_contact(c.target_type, c.target_id, c.files, c.reason, person=c.person, role=c.role, phone=c.phone,
+                        email=c.email, address=c.address, note=c.note)
+
     activities: list[dict] = []
     for act in out.activities:
         if act.draft is None:  # 쓸 수 없는 초안은 그 항목만 버린다
@@ -433,8 +485,8 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
         })
 
     groups = [list(new_partners.values()), list(new_customers.values()), list(new_solutions.values()),
-              list(additions.values()), activities]
-    prefixes = ["p", "c", "s", "a", "act"]
+              list(additions.values()), list(contacts.values()), activities]
+    prefixes = ["p", "c", "s", "a", "ct", "act"]
     items: list[dict] = []
     for prefix, group in zip(prefixes, groups):
         for i, item in enumerate(group, 1):
@@ -579,13 +631,17 @@ def recover(db: Session) -> int:
 
 # ---- 정리안 확인과 저장 ----
 
-SAVEABLE_KINDS = ("new_partner", "new_customer", "new_solution", "add_to_solution", "activity")
+SAVEABLE_KINDS = ("new_partner", "new_customer", "new_solution", "add_to_solution", "add_contact", "activity")
 NOTHING_TO_SAVE = "저장할 항목이 없습니다."
 APPLY_FAILED = "저장하지 못했습니다. 아무것도 저장되지 않았으니 잠시 후 다시 저장해 주세요. 계속 안 되면 관리자에게 알려 주세요."
 APPLY_INTERRUPTED = "저장하는 도중 서버가 멈췄습니다. 아무것도 저장되지 않았으니 다시 저장해 주세요."
 SAVE_SUPERSEDED = "다른 저장이나 다시 정리가 먼저 시작되어 이 저장은 취소했습니다. 화면을 새로 고쳐 확인해 주세요."
 PLAN_CHANGED = "정리안이 그 사이 바뀌었습니다."
 TARGET_GONE = "대상 솔루션이 삭제되어 자료를 추가하지 못했습니다."
+CONTACT_TARGET_GONE = {"partner": "대상 파트너가 삭제되어 연락처를 추가하지 못했습니다.",
+                       "customer": "대상 고객이 삭제되어 연락처를 추가하지 못했습니다."}
+CONTACT_EXISTS = "이미 있는 연락처"
+NO_CONTACT_FIELD = "담당자·전화·이메일·주소 중 하나는 입력하세요."
 _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "catalog")), ("spec", ("스펙", "spec", "사양", "규격", "datasheet")))
 
 
@@ -673,6 +729,10 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
                  partner=text("partner", item.get("partner_id") or ""), partner_new=text("partner_new", item.get("partner_new")))
     elif kind == "add_to_solution":
         v["solution"] = text("solution", item.get("solution_id"))
+    elif kind == "add_contact":
+        v["target"] = text("target", item.get("target_id"))
+        for field in CONTACT_FIELDS:
+            v[field] = text(field, item.get(field))
     elif kind == "activity":
         d = item.get("draft") or {}
         fus = [f for f in d.get("follow_ups", []) if str(f.get("task", "")).strip()]
@@ -713,6 +773,8 @@ def item_error(item: dict, v: dict) -> str | None:
     label = labels.INTAKE_ITEM_KINDS.get(item["kind"], item["kind"])
     if item["kind"] in ("new_partner", "new_customer", "new_solution") and not v["name"].strip():
         return f"{label}: 이름을 입력하세요."
+    if item["kind"] == "add_contact" and not any(v[f].strip() for f in USABLE_CONTACT_FIELDS):
+        return f"{label}: {NO_CONTACT_FIELD}"
     if item["kind"] == "activity" and not v["raw_text"].strip() and not v["summary_md"].strip():
         return f"{label}: 메모(원문)나 정리본을 입력하세요."
     return None
@@ -768,7 +830,39 @@ def _signature(v: dict) -> dict:
     return sig
 
 
-def _brief(db: Session, item: dict, v: dict, names: dict[int, str]) -> dict:
+CONTACT_MODELS = {"partner": Partner, "customer": Customer}
+
+
+def contact_body(v: dict) -> str:
+    """덧붙일 연락처 줄의 본문: `담당자 직책 · 전화 · 이메일 · 주소 · 메모` (빈 칸은 건너뛰고, 줄바꿈은 공백으로)."""
+    who = " ".join(x for x in (_flat(v.get("person", "")), _flat(v.get("role", ""))) if x)
+    parts = [who] + [_flat(v.get(f, "")) for f in ("phone", "email", "address", "note")]
+    return " · ".join(p for p in parts if p)
+
+
+def contact_source(files: list[IntakeFile]) -> str:
+    """연락처 줄 끝에 적을 출처 말: 이름에 "명함" 이 든 파일이 있으면 명함, 아니면 파일 종류(사진·문서·음성)."""
+    if any("명함" in f.original_name for f in files):
+        return "명함"
+    kinds = list(dict.fromkeys(labels.INTAKE_FILE_KINDS.get(f.kind, "") for f in files))
+    return "·".join(k for k in kinds if k)
+
+
+def contact_line(v: dict, files: list[IntakeFile], today: date) -> str:
+    """대상의 연락처 칸에 덧붙일 한 줄. 본문이 비면 빈 글."""
+    body = contact_body(v)
+    if not body:
+        return ""
+    source = contact_source(files)
+    return f"{body} ({source + ', ' if source else ''}{today.isoformat()} 올리기)"
+
+
+def _item_files(intake: Intake, item: dict) -> list[IntakeFile]:
+    by_number = {file_number(intake, f): f for f in intake.files}
+    return [by_number[n] for n in item.get("files", []) if n in by_number]
+
+
+def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Intake) -> dict:
     """접힌 카드에 보일 요약."""
     from app import records
 
@@ -802,6 +896,12 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str]) -> dict:
         number = _digits(v["solution"])
         target = db.get(Solution, number) if number is not None else None
         b["title"] = target.name if target is not None else "(대상 솔루션을 고르세요)"
+    elif kind == "add_contact":
+        number = _digits(v["target"])
+        target = db.get(CONTACT_MODELS[item["target_type"]], number) if number is not None else None
+        b["title"] = target.name if target is not None else "(대상을 고르세요)"
+        b["line"] = contact_line(v, _item_files(intake, item), date.today())
+        b["type_label"] = "파트너" if item["target_type"] == "partner" else "고객"
     elif kind in ("new_customer", "new_partner"):
         b["title"] = v["name"].strip() or "(이름 없음)"
         b["contact"] = v["contact"].strip()
@@ -825,7 +925,7 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
             for t, (model, rel) in records.LINK_TYPES.items():
                 card["ambiguous"][t] = records.ambiguous_view(db, model, item.get("ambiguous", {}).get(rel, []))
         if item["kind"] != "unplaced":
-            card["brief"] = _brief(db, item, v, names)
+            card["brief"] = _brief(db, item, v, names, intake)
             card["open"] = item_error(item, v) is not None or (
                 fields is not None and _signature(v) != _signature(item_values(item, None, names)))
         cards.append(card)
@@ -963,7 +1063,7 @@ class _Run:
 
 
 def _item_title(item: dict, v: dict) -> str:
-    return str(v.get("title") or v.get("name") or item.get("solution_name") or "").strip()
+    return str(v.get("title") or v.get("name") or item.get("solution_name") or item.get("target_name") or "").strip()
 
 
 def _unsaved_files(intake: Intake, chosen: list[tuple[dict, dict]], fields: _Fields, names: dict[int, str]) -> list[dict]:
@@ -1003,6 +1103,46 @@ def _extract_for_solutions(settings: Settings, intake: Intake, chosen: list[tupl
                 continue
             out[f.id] = extract_text(stored_path(settings, f)) if f.kind == "document" else ExtractResult("unsupported", "")
     return out
+
+
+def _already_listed(existing: str, v: dict) -> bool:
+    """같은 전화(숫자만 비교)나 이메일(대소문자 무시)이 연락처 칸에 이미 있는가. 둘 다 없으면 같은 본문이 이미 있는가."""
+    phone, email = _digits_only(v["phone"]), v["email"].strip().lower()
+    if phone or email:
+        return bool((len(phone) >= 5 and phone in _digits_only(existing)) or (email and email in existing.lower()))
+    return contact_body(v).lower() in _flat(existing).lower()
+
+
+def _append_contact(run: _Run, item: dict, v: dict) -> None:
+    """연락처 덧붙이기: 대상의 연락처 칸 끝에 한 줄을 더한다. 기존 글은 바꾸지 않고, 같은 전화·이메일이 있으면 건너뛴다."""
+    model, db = CONTACT_MODELS[item["target_type"]], run.db
+    picked = run.existing_id(model, v["target"])
+    target = picked if picked != item.get("target_id") else None  # 정리안과 다르게 직접 고른 대상 (같은 종류의 등록된 기록만)
+    if target is None:
+        target = run.existing_id(model, item.get("target_id"))
+        stored = item.get("target_name")
+        # 번호를 다시 쓰는 다른 기록을 가리키게 된 경우(이름이 다름)는 대상이 사라진 것으로 본다
+        if target is not None and stored and normalize_name(stored) != normalize_name(db.get(model, target).name):
+            target = None
+    files = [{"id": f.id, "name": f.original_name} for f in _item_files(run.intake, item)]
+    if target is None:
+        reason = CONTACT_TARGET_GONE[item["target_type"]]
+        run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_contact']}: {reason}",
+                            "reason": reason, "files": files})
+        return
+    obj = db.get(model, target)
+    existing = obj.contact or ""
+    if _already_listed(existing, v):
+        run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_contact']}: {obj.name} — {CONTACT_EXISTS}",
+                            "reason": CONTACT_EXISTS, "files": files})
+        return
+    line = contact_line(v, _item_files(run.intake, item), date.today())
+    obj.contact = (existing + ("" if not existing or existing.endswith("\n") else "\n") + line) if existing.strip() else line
+    for f in _item_files(run.intake, item):
+        if not f.target_type:
+            f.target_type, f.target_id = item["target_type"], obj.id
+    run.remember("partners" if item["target_type"] == "partner" else "customers", obj)
+    run.result.append({"type": item["target_type"], "id": obj.id, "label": f"{obj.name} (연락처 추가)"})
 
 
 def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
@@ -1062,6 +1202,9 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         made = run.attach(solution, item, v)
         run.remember("solutions", solution)
         run.result.append({"type": "solution", "id": solution.id, "label": f"{solution.name} (자료 {made}개 추가)"})
+    for item, v in chosen:
+        if item["kind"] == "add_contact":
+            _append_contact(run, item, v)
 
     db.flush()
     for item, v in chosen:

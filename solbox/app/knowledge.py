@@ -65,7 +65,7 @@ def file_markdown(f: SolutionFile, text: str) -> str:
 
 def _item(label: str, value) -> str | None:
     text = "" if value is None else str(value).strip()
-    return f"- {label}: {text}" if text else None
+    return f"- {label}: " + text.replace("\n", "\n  ") if text else None
 
 
 def _inline(text) -> str:

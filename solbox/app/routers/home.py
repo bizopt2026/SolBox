@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, transcribe
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
@@ -101,5 +101,6 @@ def home(request: Request, user: User = Depends(require_user), db: Session = Dep
         recent=recent, follow_ups=upcoming_follow_ups(db, date.today()),
         intake=intake_summary(db, user), max_files=intake_lib.MAX_FILES,
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
+        transcriber_ready=transcribe.get(request.app.state.settings).available(),
         stages=stage_counts(db), research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
     )

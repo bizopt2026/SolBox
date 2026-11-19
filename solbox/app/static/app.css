@@ -337,15 +337,22 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 }
 
 /* 올리기 */
-.dropzone { display:flex; flex-direction:column; gap:8px; padding:16px; border:2px dashed var(--line); border-radius:8px; background:#fafbfc; }
-.dropzone.over { border-color:var(--accent); background:#eef2ff; }
-.dropzone input[type=file] { background:transparent; border:0; padding:0; max-width:100%; }
-.dropzone-hint { margin:0; font-size:13px; }
+.dropzone { display:flex; flex-direction:column; gap:8px; }
+.dropzone-area { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-height:168px; padding:28px 16px; text-align:center; border:2px dashed #98a2b3; border-radius:8px; background:#fafbfc; cursor:pointer; }
+.dropzone-compact .dropzone-area { min-height:112px; padding:18px 16px; }
+.dropzone-main { font-size:16px; font-weight:600; color:var(--fg); text-wrap:balance; }
+.dropzone-area { word-break:keep-all; }
+.dropzone-types { font-size:13px; color:var(--muted); }
+.dropzone-area:hover { border-color:var(--accent); }
+.dropzone.over .dropzone-area { border-style:solid; border-color:var(--accent); background:#eef2ff; }
+.dropzone-area:focus-within { border-color:var(--accent); outline:3px solid #c7d7fe; outline-offset:2px; }
+.dropzone input[type=file] { max-width:100%; margin-top:8px; background:transparent; border:0; padding:0; }
+.dropzone.enhanced input[type=file] { position:absolute; width:1px; height:1px; margin:0; opacity:0; overflow:hidden; pointer-events:none; }
 .dropzone-list { margin:0; padding-left:18px; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
 .dropzone-list:empty { display:none; }
 .dropzone-summary { margin:0; font-size:13px; font-weight:600; }
 .dropzone-warn { margin:0; font-size:13px; }
-.dropzone:focus-within { border-color:var(--accent); }
+.ai-down { margin:0; }
 .examples { margin:0 0 16px; padding-left:18px; color:var(--muted); font-size:14px; }
 .intake-pending { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
 .intake-pending > * { margin:0; }
@@ -403,3 +410,23 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 .badge.plan-unplaced { background:#eaecf0; color:#475467; }
 /* 올리기 확인 화면: 고정 저장 막대에 가려지지 않게 스크롤·포커스 이동 여유를 둔다 */
 html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
+
+/* 메뉴의 올리기 배지 (확인 대기 수) */
+.nav-badge { display:inline-block; margin-left:4px; min-width:18px; padding:0 5px; border-radius:9px; background:var(--accent); color:#fff; font-size:12px; font-weight:600; line-height:18px; text-align:center; vertical-align:1px; }
+
+/* 올린 파일 표: 음성 안내와 좁은 화면 */
+.file-note { font-size:13px; color:var(--decide); }
+.name-status { display:none; }
+@media (max-width: 480px) {
+  .col-num, .col-size, .col-status { display:none; }
+  .name-status { display:block; margin-top:4px; }
+  .name-status .file-note { display:block; margin-top:2px; }
+  .tablewrap > table.file-table { min-width:0; width:100%; }
+  .file-table td:nth-child(3), .file-table .button { white-space:nowrap; }
+  .file-table td, .file-table th { padding-left:8px; padding-right:8px; }
+}
+
+/* 좁은 화면에서 .row 가 세로로 쌓일 때 칸의 flex-basis(180px)가 높이가 되지 않게 한다 */
+@media (max-width: 900px) {
+  .plan-item .row > label { flex:none; }
+}

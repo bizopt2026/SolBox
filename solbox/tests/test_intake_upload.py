@@ -89,7 +89,7 @@ def test_audio_kept_with_needs_transcript(user_client, db, settings):
     assert (settings.uploads_dir / "intake" / str(it.id) / f.stored_name).read_bytes() == b"\x00\x01fake"
     assert not any(p.name != "파일목록.md" for p in (settings.intake_work_dir / str(it.id)).iterdir())
     page = user_client.get(r.headers["location"]).text
-    assert "음성 파일은 아직 받아쓰기를 지원하지 않습니다. 글자로 풀어 올려 주세요." in page
+    assert "받아쓰기 필요 · 글자로 풀어 올려 주세요" in page
 
 
 def test_other_kind_is_unsupported_but_kept(user_client, db, settings):

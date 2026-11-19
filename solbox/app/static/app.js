@@ -152,6 +152,12 @@
     edit.addEventListener("toggle", function () {
       if (edit.open) return;
       card.querySelectorAll("[data-sum]").forEach(function (el) {
+        if (el.dataset.sum === "line") { // 연락처 덧붙이기: 칸 값으로 덧붙일 줄을 다시 만든다
+          var val = function (n) { var i = card.querySelector('[name="' + key + "__" + n + '"]'); return i ? i.value.replace(/\s+/g, " ").trim() : ""; };
+          var parts = [[val("person"), val("role")].filter(Boolean).join(" "), val("phone"), val("email"), val("address"), val("note")].filter(Boolean);
+          if (parts.length) el.textContent = parts.join(" · ") + (el.dataset.suffix ? " (" + el.dataset.suffix : "");
+          return;
+        }
         var input = card.querySelector('[name="' + key + "__" + el.dataset.sum + '"]');
         if (!input) return;
         var text = input.tagName === "SELECT" ? (input.selectedOptions[0] || {}).textContent : input.value;
@@ -224,7 +230,6 @@
     var input = zone.querySelector('input[type="file"]');
     if (!input) return;
     var list = zone.querySelector(".dropzone-list");
-    var hint = zone.querySelector(".dropzone-hint");
     var summary = zone.querySelector(".dropzone-summary");
     var warn = zone.querySelector(".dropzone-warn");
     var maxFiles = parseInt(zone.getAttribute("data-max-files"), 10) || 0;
@@ -275,7 +280,7 @@
       show();
     };
     input.addEventListener("change", show);
-    if (hint) hint.hidden = false;
+    zone.classList.add("enhanced"); // 파일 입력칸은 감추고 영역 전체(label)를 누르게 한다
     ["dragenter", "dragover"].forEach(function (name) {
       zone.addEventListener(name, function (e) { e.preventDefault(); zone.classList.add("over"); });
     });

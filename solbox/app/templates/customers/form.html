@@ -8,7 +8,7 @@
 <form method="post" action="{{ "/customers/" ~ customer.id if customer else "/customers" }}" class="card stack">
     <label>이름 (필수) <input name="name" value="{{ form.name }}"></label>
     <label>업종 <input name="industry" value="{{ form.industry }}"></label>
-    <label>연락처 <input name="contact" value="{{ form.contact }}"></label>
+    <label>연락처 <textarea name="contact" rows="2">{{ form.contact }}</textarea></label>
     <label>메모 <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
     <div class="row">
       <button type="submit" class="primary">저장</button>

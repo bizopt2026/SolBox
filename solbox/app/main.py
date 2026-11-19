@@ -1,6 +1,7 @@
 """FastAPI 앱 생성."""
 from __future__ import annotations
 
+import functools
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
@@ -10,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -19,6 +21,7 @@ from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
+from app.models import Intake
 from app.intake import recover as recover_intakes
 from app.intake import recover_applying
 from app.research import recover_runs
@@ -46,10 +49,23 @@ def _open_log_file(settings: Settings) -> tuple[logging.Logger, RotatingFileHand
     return logger, handler, previous_level
 
 
+def _intake_ready_count(state, user) -> int:
+    """메뉴의 "올리기" 배지: 내 묶음 중 확인 대기 수. 로그인 화면(사용자·연결 없음)이거나 읽지 못하면 0. 쿼리는 COUNT 하나다."""
+    ref = getattr(state, "db_ref", None)
+    db = ref() if ref is not None else None
+    if db is None or user is None:
+        return 0
+    try:
+        return db.scalar(select(func.count()).select_from(Intake).where(Intake.status == "ready", Intake.created_by_id == user.id)) or 0
+    except Exception:  # noqa: BLE001 - 배지 때문에 화면이 깨지면 안 된다
+        return 0
+
+
 def render(request: Request, template: str, status_code: int = 200, **ctx) -> HTMLResponse:
     """템플릿을 그린다. `user`, `labels` 는 항상 넣어 준다."""
     ctx.setdefault("user", getattr(request.state, "user", None))
     ctx.setdefault("labels", labels)
+    ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.state, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 

@@ -19,6 +19,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Business, Customer, Intake, IntakeFile, Partner, Solution, User
 from app.routers._common import get_or_404, paginate
+from app.routers.home import ai_problem
 from app.security import require_user
 
 log = logging.getLogger(__name__)
@@ -78,8 +79,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
         )
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
-        skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
-        transcriber_ready=transcribe.get(request.app.state.settings).available(),
+        skipped=skipped or [],
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),
         not_saved=_result_of(intake, lambda t: t == "skipped"),
@@ -88,10 +88,16 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
     )
 
 
+def upload_context(request: Request, db: Session) -> dict:
+    """올리기 입력 영역(`_dropzone.html`)이 쓰는 값: 한도, 음성 받아쓰기 가능 여부, AI 사용 불가 안내."""
+    settings = request.app.state.settings
+    return dict(max_files=intake_lib.MAX_FILES, max_mb=settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
+                transcriber_ready=transcribe.get(settings).available(), ai_problem=ai_problem(db))
+
+
 @router.get("/new")
-def new_page(request: Request, user: User = Depends(require_user)):
-    return render(request, "intake/new.html", user=user, error="", note="", max_files=intake_lib.MAX_FILES,
-                  max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE)
+def new_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return render(request, "intake/new.html", user=user, error="", note="", **upload_context(request, db))
 
 
 @router.post("")
@@ -103,7 +109,7 @@ def create(
 
     def again(error: str):
         return render(request, "intake/new.html", status_code=400, user=user, error=error, note=note,
-                      max_files=intake_lib.MAX_FILES, max_mb=settings.max_upload_mb, max_note=intake_lib.MAX_NOTE)
+                      **upload_context(request, db))
 
     if len(note.strip()) > intake_lib.MAX_NOTE:
         return again(NOTE_TOO_LONG)

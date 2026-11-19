@@ -34,6 +34,7 @@ INTAKE_FILE_KINDS = {"document": "문서", "image": "사진", "audio": "음성",
 INTAKE_ITEM_KINDS = {
     "new_solution": "새 솔루션",
     "add_to_solution": "솔루션에 자료 추가",
+    "add_contact": "연락처 추가",
     "activity": "활동 기록",
     "new_customer": "새 고객",
     "new_partner": "새 파트너",

@@ -117,7 +117,7 @@
 {% macro plan_head(card) %}
 <div class="plan-head">
   <span class="badge plan-{{ card.item.kind }}">{{ labels.INTAKE_ITEM_KINDS.get(card.item.kind, card.item.kind) }}</span>
-  {% if card.brief %}<strong class="plan-title"{% if card.item.kind in ("activity", "new_solution", "new_customer", "new_partner") %} data-sum="{{ 'title' if card.item.kind == 'activity' else 'name' }}"{% endif %}>{{ card.brief.title }}</strong>{% endif %}
+  {% if card.brief %}<strong class="plan-title"{% if card.item.kind in ("activity", "new_solution", "new_customer", "new_partner", "add_contact") %} data-sum="{{ 'title' if card.item.kind == 'activity' else ('target' if card.item.kind == 'add_contact' else 'name') }}"{% endif %}>{{ card.brief.title }}</strong>{% endif %}
   {% if card.item.kind != "unplaced" %}<label class="check plan-skip"><input type="checkbox" name="skip_{{ card.item.key }}" value="on"{% if card.v.skip %} checked{% endif %}> 이 항목 제외</label>{% endif %}
 </div>
 {% endmacro %}
