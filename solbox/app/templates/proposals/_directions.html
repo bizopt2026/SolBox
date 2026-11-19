@@ -25,7 +25,7 @@
         {% endif %}
         {% if num.rationale %}
         <dt>맞는 이유</dt>
-        <dd><ul>{% for ev in num.rationale %}<li>{{ ev.text }}{% for n in ev.refs %}<sup><a href="#d{{ i }}-src-{{ n }}">{{ n }}</a></sup>{% endfor %}</li>{% endfor %}</ul></dd>
+        <dd><ul>{% for ev in num.rationale %}<li>{{ ev.text }}{% for n in ev.refs %}<sup><a href="#d{{ i }}-src-{{ n }}">{{ n }}</a></sup>{% endfor %}{% if not ev.refs %} <span class="badge evidence">출처 없음</span>{% endif %}</li>{% endfor %}</ul></dd>
         {% endif %}
         {% if d.effects %}
         <dt>기대 효과</dt>
@@ -63,7 +63,7 @@
   </details>
   {% endif %}
   {% else %}
-  <div class="dir-grid">{% for d in directions %}{{ card(d, loop.index0) }}{% endfor %}</div>
+  <div class="dir-grid" style="--cols:{{ [directions | length, 3] | min }}">{% for d in directions %}{{ card(d, loop.index0) }}{% endfor %}</div>
   {% endif %}
 </div>
 {% else %}

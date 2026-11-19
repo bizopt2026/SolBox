@@ -393,7 +393,7 @@ def test_slide_summary_shows_both_counts(user_client, db, settings):
     db.commit()
     page = user_client.get(f"/proposals/{p.id}/outline").text
     s = re.findall(r'<summary class="slide-summary">(.*?)</summary>', page, re.S)[1]
-    assert "근거 확인 1" in s and "확인 필요 2" in s
+    assert "근거 문제 1" in s and "확인할 점 2" in s
 
 
 def test_rebuild_button_class_only_with_directions(user_client, db, settings):

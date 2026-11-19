@@ -29,8 +29,8 @@
     <span class="badge">{{ slide_kinds.get(s.kind, s.kind) }}</span>
     <h2 class="slide-title">{{ s.title or "(제목 없음)" }}</h2>
     {% if s.key_message %}<span class="slide-msg muted">{{ s.key_message }}</span>{% endif %}
-    {% if st.evidence %}<span class="badge evidence">근거 확인 {{ st.evidence }}</span>{% endif %}
-    {% if st.decide %}<span class="badge decide">확인 필요 {{ st.decide }}</span>{% endif %}
+    {% if st.evidence %}<span class="badge evidence">근거 문제 {{ st.evidence }}</span>{% endif %}
+    {% if st.decide %}<span class="badge decide">확인할 점 {{ st.decide }}</span>{% endif %}
     {% if not st.evidence and not st.decide and st.done %}<span class="badge done">확인 끝</span>{% endif %}
   </summary>
   <div class="slide-body">
@@ -57,17 +57,21 @@
   </table></div>
   {% endif %}
   {% if s.kind == "steps" and s.steps %}<ol>{% for st in s.steps %}<li><strong>{{ st.name }}</strong>{% if st.detail %} — {{ st.detail }}{% endif %}</li>{% endfor %}</ol>{% endif %}
-  <p><strong>출처</strong>
-    {% if s.sources %}<span class="chips">{% for path in s.sources %}{{ source_chip(src, path) }}{% endfor %}</span>{% else %}<span class="muted">없음</span>{% endif %}</p>
+  <div class="slide-sources">
+    <strong>출처</strong>
+    {% if card.sources %}<ol class="source-list">{% for path in card.sources %}<li id="s{{ card.index }}-src-{{ loop.index }}">{{ source_chip(src, path) }}</li>{% endfor %}</ol>
+    {% elif s.kind in ("cover", "closing") %}<span class="muted">없음</span>
+    {% else %}<span class="badge evidence">출처 없음</span>{% endif %}
+  </div>
   {% if card.checks %}
   <div class="checks check-{{ st.level }}">
     <div class="checks-head">
       <strong>확인할 점</strong>
       {% if not busy %}
       {% if card.unchecked >= 2 %}
-      <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check-all"><input type="hidden" name="done" value="1"><button type="submit" class="small">이 장의 항목 모두 확인함</button></form>
+      <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check-all" data-ajax-check><input type="hidden" name="done" value="1"><button type="submit" class="small">이 장의 항목 모두 확인함</button></form>
       {% elif card.unchecked == 0 and card.checks | length >= 2 %}
-      <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check-all"><input type="hidden" name="done" value="0"><button type="submit" class="small linklike">확인 모두 취소</button></form>
+      <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check-all" data-ajax-check><input type="hidden" name="done" value="0"><button type="submit" class="small linklike">확인 모두 취소</button></form>
       {% endif %}
       {% endif %}
     </div>
@@ -75,7 +79,7 @@
       {% for it in card.checks %}
       <li class="{{ it.kind }}{% if it.checked %} done{% endif %}">
         {% if not busy %}
-        <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check" class="tick-form">
+        <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check" class="tick-form" data-ajax-check>
           <input type="hidden" name="item" value="{{ it.index }}"><input type="hidden" name="text" value="{{ it.text }}"><input type="hidden" name="done" value="{{ 0 if it.checked else 1 }}">
           <button type="submit" class="tick" aria-label="확인함" aria-pressed="{{ 'true' if it.checked else 'false' }}" title="{{ '확인함 취소' if it.checked else '확인함으로 표시' }}">{% if it.checked %}&#10003;{% endif %}</button>
         </form>
@@ -101,18 +105,4 @@
 </details>
 {% endfor %}
 {% if not can_add %}<p class="muted">슬라이드는 14장까지 만들 수 있습니다.</p>{% endif %}
-<script>
-(function () {
-  function sync(form) {
-    var kind = form.querySelector(".kind-select").value;
-    form.querySelectorAll("[data-kinds]").forEach(function (el) {
-      el.hidden = el.dataset.kinds.split(" ").indexOf(kind) < 0;
-    });
-  }
-  document.querySelectorAll(".slide-form").forEach(function (form) {
-    sync(form);
-    form.querySelector(".kind-select").addEventListener("change", function () { sync(form); });
-  });
-})();
-</script>
 {% endblock %}

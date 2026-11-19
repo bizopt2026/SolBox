@@ -116,6 +116,11 @@ def number_sources(direction: dict) -> dict:
     return {"rationale": rationale, "sources": order}
 
 
+def slide_sources(slide: dict) -> list[str]:
+    """한 장의 출처 경로. 같은 경로는 한 번만, 처음 나온 순서대로. 장 카드의 출처 번호가 이 순서를 따른다."""
+    return list(dict.fromkeys(x for x in slide.get("sources") or [] if isinstance(x, str)))
+
+
 def _strip_list(items: list[str]) -> list[str]:
     return [x for x in (i.strip() for i in items) if x]
 

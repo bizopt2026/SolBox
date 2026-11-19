@@ -164,10 +164,11 @@ def test_outline_cards_collapsed_by_default_and_open_param(user_client, db, sett
     p = outlined_proposal(db, settings)
     url = f"/proposals/{p.id}/outline"
     page = user_client.get(url).text
-    assert page.count('<details class="card slide-card') == 8 and not any(" open" in _card(page, i).group(1) for i in range(8))
+    assert page.count('<details class="card slide-card') == 8 and [i for i in range(8) if " open" in _card(page, i).group(1)] == [2]  # 확인할 점이 남은 첫 장만 열린다
     assert " open" in _card(user_client.get(url + "?open=3").text, 3).group(1)
-    for bad in ("x", "8", "-1", "99999999", ""):
-        assert " open" not in "".join(_card(user_client.get(url + f"?open={bad}").text, i).group(1) for i in range(8))
+    for bad in ("x", "8", "-1", "99999999", ""):  # 잘못된 값은 기본 규칙(첫 남은 장)으로
+        page = user_client.get(url + f"?open={bad}").text
+        assert [i for i in range(8) if " open" in _card(page, i).group(1)] == [2]
 
 
 def test_outline_summary_row_has_no_buttons_and_shows_status(user_client, db, settings):
@@ -181,8 +182,8 @@ def test_outline_summary_row_has_no_buttons_and_shows_status(user_client, db, se
     page = user_client.get(f"/proposals/{p.id}/outline").text
     summaries = re.findall(r"<summary class=\"slide-summary\">(.*?)</summary>", page, re.S)
     assert len(summaries) == 8 and not any("<button" in x or "<form" in x or "<a " in x for x in summaries)
-    assert "근거 확인 1" in summaries[1] and "확인 필요 2" in summaries[2] and "확인 끝" in summaries[3]
-    assert "badge" in summaries[4] and not re.search(r"확인 (필요|끝)|근거 확인", summaries[4])
+    assert "근거 문제 1" in summaries[1] and "확인할 점 2" in summaries[2] and "확인 끝" in summaries[3]
+    assert "badge" in summaries[4] and not re.search(r"확인할 점|확인 끝|근거 문제", summaries[4])
 
 
 def test_redirects_open_the_touched_slide(user_client, db, settings):

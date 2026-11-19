@@ -94,11 +94,11 @@
   });
 
   // 구성안: 모두 펼치기/접기, 펼친 장 기억
-  var slideCards = Array.prototype.slice.call(document.querySelectorAll("details.slide-card"));
-  if (slideCards.length) {
+  var getCards = function () { return Array.prototype.slice.call(document.querySelectorAll("details.slide-card")); };
+  if (getCards().length) {
     var OPEN_KEY = "solbox.outline.open." + location.pathname;
     var saveOpen = function () {
-      var ids = slideCards.filter(function (c) { return c.open; }).map(function (c) { return c.id; });
+      var ids = getCards().filter(function (c) { return c.open; }).map(function (c) { return c.id; });
       try { sessionStorage.setItem(OPEN_KEY, JSON.stringify(ids)); } catch (e) { /* 기억은 선택 사항 */ }
     };
     // 기억해 둔 장을 다시 펼친다. 장 번호가 바뀐 처리(이동·삭제·추가, ?renumber=1)는 기억을 버리고 서버가 연 장만 남긴다
@@ -106,7 +106,7 @@
     if (!params.has("renumber")) {
       try {
         var saved = JSON.parse(sessionStorage.getItem(OPEN_KEY) || "[]");
-        slideCards.forEach(function (c) { if (saved.indexOf(c.id) >= 0) c.open = true; });
+        getCards().forEach(function (c) { if (saved.indexOf(c.id) >= 0) c.open = true; });
       } catch (e) { /* 저장소를 못 쓰면 서버가 정한 상태 그대로 */ }
     }
     saveOpen();
@@ -116,13 +116,13 @@
       var rest = params.toString();
       try { history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (e) { /* 그대로 둔다 */ }
     }
-    slideCards.forEach(function (c) { c.addEventListener("toggle", saveOpen); });
+    document.addEventListener("toggle", function (e) { if (e.target.matches && e.target.matches("details.slide-card")) saveOpen(); }, true);
     document.querySelectorAll(".toggle-slides").forEach(function (box) {
       box.hidden = false;
       box.addEventListener("click", function (e) {
         var b = e.target.closest("button");
         if (!b) return;
-        slideCards.forEach(function (c) { c.open = b.dataset.open === "1"; });
+        getCards().forEach(function (c) { c.open = b.dataset.open === "1"; });
         saveOpen();
       });
     });
@@ -132,7 +132,59 @@
     };
     window.addEventListener("hashchange", revealSlide);
     revealSlide();
+
+    // 확인함 표시는 화면을 다시 불러오지 않고 그 장만 바꾼다. 장의 항목을 다 확인하면 접고 다음 남은 장을 연다
+    var swapChecked = function (form) {
+      var card = form.closest("details.slide-card");
+      return fetch(form.action, { method: "POST", credentials: "same-origin", body: new URLSearchParams(new FormData(form)) })
+        .then(function (r) { if (!r.ok) throw new Error("status " + r.status); return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, "text/html");
+          var fresh = doc.getElementById(card.id);
+          if (!fresh) throw new Error("no card");
+          var wasOpen = card.open;
+          fresh.open = wasOpen;
+          var pressed = document.querySelector(".remaining-toggle[aria-pressed=true]");
+          fresh.hidden = !!pressed && !fresh.dataset.remaining;
+          card.replaceWith(fresh);
+          [".count-evidence", ".count-decide", ".count-done"].forEach(function (sel) {
+            var from = doc.querySelector(sel), to = document.querySelector(sel);
+            if (from && to) to.textContent = from.textContent;
+          });
+          var deck = doc.getElementById("deck"), curDeck = document.getElementById("deck");
+          if (deck && curDeck) curDeck.innerHTML = deck.innerHTML;
+          initSlideForms(fresh);
+          if (!fresh.dataset.remaining && wasOpen) {
+            fresh.open = false;
+            var all = getCards(), at = all.indexOf(fresh);
+            var next = all.slice(at + 1).concat(all.slice(0, at)).filter(function (c) { return c.dataset.remaining; })[0];
+            if (next) { next.open = true; next.scrollIntoView({ block: "nearest" }); }
+          }
+          saveOpen();
+        });
+    };
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (!window.fetch || !window.DOMParser || !form.matches || !form.matches("form[data-ajax-check]")) return;
+      e.preventDefault();
+      var btn = form.querySelector("button");
+      if (btn) btn.disabled = true;
+      swapChecked(form).catch(function () { form.submit(); }); // 안 되면 보통 제출로 되돌린다
+    });
   }
+
+  // 구성안 편집 폼: 종류에 맞는 칸만 보인다
+  function initSlideForms(root) {
+    root.querySelectorAll(".slide-form").forEach(function (form) {
+      var sel = form.querySelector(".kind-select");
+      var sync = function () {
+        form.querySelectorAll("[data-kinds]").forEach(function (el) { el.hidden = el.dataset.kinds.split(" ").indexOf(sel.value) < 0; });
+      };
+      sync();
+      sel.addEventListener("change", sync);
+    });
+  }
+  initSlideForms(document);
 
   // 리서치 상세: 모두 펼치기/접기, 분야 탭
   document.querySelectorAll(".toggle-all").forEach(function (box) {

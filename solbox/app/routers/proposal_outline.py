@@ -9,7 +9,7 @@ from app import labels
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
-from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, check_items, display_title, outline_check_summary, keep_checked, save_outline, slide_check_state, slide_from_form, slide_to_form
+from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, check_items, display_title, outline_check_summary, keep_checked, slide_sources, save_outline, slide_check_state, slide_from_form, slide_to_form
 from app.routers._common import get_or_404
 from app.sources import SourceLookup
 from app.security import require_user
@@ -58,7 +58,9 @@ def outline_page(
     for i, s in enumerate(slides):
         checks = check_items(s.get("needs_check"), s.get("checked"))
         cards.append({"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s),
-                      "checks": checks, "unchecked": sum(1 for c in checks if not c["checked"])})
+                      "checks": checks, "unchecked": sum(1 for c in checks if not c["checked"]), "sources": slide_sources(s)})
+    if open_index is None:  # 고른 장이 없으면 확인할 점이 남은 첫 장만 펼쳐 위에서부터 처리하게 한다
+        open_index = next((c["index"] for c in cards if c["unchecked"]), None)
     return render(
         request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy, summary=outline_check_summary(p.outline), src=SourceLookup(db),
         can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
