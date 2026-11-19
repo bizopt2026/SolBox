@@ -71,7 +71,7 @@ def test_section_summaries(db, settings):
 def test_section_summaries_outline_and_deck(db, settings):
     p = outlined_proposal(db, settings)
     s = section_summaries(p, [])
-    assert s["outline"] == "8장 · 확인 필요 1장"
+    assert s["outline"] == "8장 · 확인할 점 1장"
     assert s["deck"] == "아직 만들지 않음"
     p.deck_name, p.deck_built_at = "a.pptx", datetime(2026, 5, 4, 9, 30)
     assert section_summaries(p, [])["deck"] == "마지막 생성 2026-05-04 09:30"

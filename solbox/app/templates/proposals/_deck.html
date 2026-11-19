@@ -7,7 +7,7 @@
 <div class="deck-box">
 {% if deck_error %}<p class="error" role="alert">{{ deck_error }}</p>{% endif %}
 {% if cs.open %}<p class="muted">확인할 항목이 남은 장: {{ check_summary_text(cs) }}</p>{% endif %}
-{% if cs.evidence %}<p class="error">근거 확인이 필요한 장이 {{ cs.evidence }}장 있습니다. 고객에게 보내기 전에 확인하세요.</p>{% endif %}
+{% if cs.evidence %}<p class="error">근거 문제가 남은 장이 {{ cs.evidence }}장 있습니다. 고객에게 보내기 전에 확인하세요.</p>{% endif %}
 <div class="row">
 {% if proposal.deck_name %}
   {% if deck_is_stale(proposal) %}

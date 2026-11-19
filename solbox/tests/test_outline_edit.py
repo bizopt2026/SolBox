@@ -14,7 +14,7 @@ def _slides(db, p):
 def test_outline_page_shows_sources_and_needs_check(user_client, db, settings):
     p = outlined_proposal(db, settings)
     page = user_client.get(f"/proposals/{p.id}/outline").text
-    assert "절감률 수치" in page and "solutions/1/card.md" in page and "확인 필요" in page
+    assert "절감률 수치" in page and "solutions/1/card.md" in page and "확인할 점" in page
     assert f"/proposals/{p.id}" in page and 'id="slide-7"' in page
 
 

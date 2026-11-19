@@ -87,7 +87,7 @@ def test_old_outline_without_checked_key_renders(user_client, db, settings):
     db.commit()
     page = user_client.get(f"/proposals/{p.id}/outline").text
     assert 'aria-label="확인함"' in page
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in re.sub(r"<[^>]+>", "", page)
+    assert "확인할 항목이 남은 장: 확인할 점 1장" in re.sub(r"<[^>]+>", "", page)
 
 
 def test_edit_drops_checked_for_removed_text(user_client, db, settings):
@@ -117,16 +117,16 @@ def test_outline_page_levels_and_summary(user_client, db, settings):
     assert "check-evidence" in card(1) and "check-decide" in card(2) and "check-decide" in card(3) and "check" not in card(4)
     assert page.count('aria-label="확인함"') == 5 and page.count('aria-pressed="true"') == 1 and page.count('aria-pressed="false"') >= 4
     assert "남은 장만 보기" in page and "고객에게 보내기 전에" in page
-    assert "근거 확인이 필요한 장이 1장 있습니다. 고객에게 보내기 전에 확인하세요." in page
-    assert "확인할 항목이 남은 장: 근거 확인 1장 · 확인 필요 2장" in text
-    assert section_summaries(p, [])["outline"] == "8장 · 근거 확인 1장 · 확인 필요 2장"
+    assert "근거 문제가 남은 장이 1장 있습니다. 고객에게 보내기 전에 확인하세요." in page
+    assert "확인할 항목이 남은 장: 근거 문제 1장 · 확인할 점 2장" in text
+    assert section_summaries(p, [])["outline"] == "8장 · 근거 문제 1장 · 확인할 점 2장"
 
 
 def test_detail_page_notice_counts_unchecked_only(user_client, db, settings):
     p = outlined_proposal(db, settings)
     user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     page = user_client.get(f"/proposals/{p.id}").text
-    assert "확인할 항목이 남은 장" not in page and "8장" in page and "확인 필요 0장" not in page
+    assert "확인할 항목이 남은 장" not in page and "8장" in page and "확인할 점 0장" not in page
 
 
 def test_direction_and_trend_colors(user_client, db, settings):
@@ -311,11 +311,11 @@ def test_mixed_slide_shown_consistently(user_client, db, settings):
     p.outline = {**p.outline, "slides": slides}
     db.commit()
     text = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}/outline").text)
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in text and "근거 문제 0장 · 확인할 점 1장 · 확인 끝 0장" in text
+    assert "확인할 항목이 남은 장: 확인할 점 1장" in text and "근거 문제 0장 · 확인할 점 1장 · 확인 끝 0장" in text
     assert "check-decide" in re.search(r'<details class="card slide-card([^"]*)" id="slide-2"', user_client.get(f"/proposals/{p.id}/outline").text).group(1)
-    assert section_summaries(p, [])["outline"] == "8장 · 확인 필요 1장"
+    assert section_summaries(p, [])["outline"] == "8장 · 확인할 점 1장"
     detail = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}").text)
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in detail and "8장 · 확인 필요 1장" in detail
+    assert "확인할 항목이 남은 장: 확인할 점 1장" in detail and "8장 · 확인할 점 1장" in detail
 
 
 # ---------------------------------------------------------------- 4묶음: 방향 카드와 출처 번호
@@ -363,7 +363,7 @@ def test_directions_grid_before_selection_and_flat_after(user_client, db, settin
     page = user_client.get(f"/proposals/{p.id}").text
     assert page.count('class="dir-grid"') == 1 and page.count("이 방향으로 구체화") == 2
     assert page.count("근거와 확인할 점 보기") == 2 and "근거 5건" not in page
-    assert "근거 3건 · 확인할 점 2건" in re.sub(r"<[^>]+>", "", page) and "근거 확인 1건" in page
+    assert "근거 3건 · 확인할 점 2건" in re.sub(r"<[^>]+>", "", page) and "근거 문제 1건" in page
     p.selected_index, p.status = 0, "refining"
     db.commit()
     page = user_client.get(f"/proposals/{p.id}").text

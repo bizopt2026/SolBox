@@ -115,8 +115,8 @@ def test_deck_refused_while_ai_busy(user_client, db, settings):
 
 def test_needs_check_notice(user_client, db, settings):
     p = outlined_proposal(db, settings)
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in user_client.get(f"/proposals/{p.id}").text
-    assert "확인할 항목이 남은 장: 확인 필요 1장" in user_client.get(f"/proposals/{p.id}/outline").text
+    assert "확인할 항목이 남은 장: 확인할 점 1장" in user_client.get(f"/proposals/{p.id}").text
+    assert "확인할 항목이 남은 장: 확인할 점 1장" in user_client.get(f"/proposals/{p.id}/outline").text
     slides = [dict(s, needs_check=[]) for s in p.outline["slides"]]
     p.outline = {**p.outline, "slides": slides}
     db.commit()

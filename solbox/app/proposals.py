@@ -252,8 +252,8 @@ def outline_check_summary(outline: dict | None) -> dict:
 
 
 def check_summary_text(cs: dict) -> str:
-    """"근거 확인 1장 · 확인 필요 2장" (0장인 부분은 뺀다). 남은 게 없으면 빈 글."""
-    return " · ".join(p for p in (f"근거 확인 {cs['evidence']}장" if cs["evidence"] else "", f"확인 필요 {cs['decide']}장" if cs["decide"] else "") if p)
+    """"근거 문제 1장 · 확인할 점 2장" (0장인 부분은 뺀다). 남은 게 없으면 빈 글."""
+    return " · ".join(p for p in (f"근거 문제 {cs['evidence']}장" if cs["evidence"] else "", f"확인할 점 {cs['decide']}장" if cs["decide"] else "") if p)
 
 
 def keep_checked(old: dict, new: dict) -> dict:
