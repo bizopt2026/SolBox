@@ -58,8 +58,8 @@
       <li class="{{ it.kind }}{% if it.checked %} done{% endif %}">
         {% if not busy %}
         <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/check" class="tick-form">
-          <input type="hidden" name="text" value="{{ it.text }}"><input type="hidden" name="done" value="{{ 0 if it.checked else 1 }}">
-          <button type="submit" class="tick" aria-label="{{ '확인함 취소' if it.checked else '확인함으로 표시' }}" aria-pressed="{{ 'true' if it.checked else 'false' }}" title="{{ '확인함 취소' if it.checked else '확인함으로 표시' }}">{% if it.checked %}&#10003;{% endif %}</button>
+          <input type="hidden" name="item" value="{{ it.index }}"><input type="hidden" name="text" value="{{ it.text }}"><input type="hidden" name="done" value="{{ 0 if it.checked else 1 }}">
+          <button type="submit" class="tick" aria-label="확인함" aria-pressed="{{ 'true' if it.checked else 'false' }}" title="{{ '확인함 취소' if it.checked else '확인함으로 표시' }}">{% if it.checked %}&#10003;{% endif %}</button>
         </form>
         {% endif %}
         {{ check_badge(it.kind) }} <span class="check-text">{{ it.text }}</span>

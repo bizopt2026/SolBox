@@ -12,7 +12,7 @@ from app.knowledge import KnowledgeMirror
 from app.models import Activity, Business, Customer, Partner, Proposal, ResearchReport, ResearchRun, Solution, SolutionFile
 from app.proposals import deck_is_stale, outline_check_summary, section_summaries, slide_check_state
 from app.sources import SourceLookup, describe_source
-from tests.conftest import finished_run, outlined_proposal
+from tests.conftest import finished_run, outlined_proposal, sample_outline
 
 EVIDENCE = ["근거 자료 없음: 내용 확인 필요", "출처 확인 불가: customers/9.md", "출처 링크 없음, 확인 필요", "본문을 열어 확인하지 못함", "후보에 없는 솔루션이 언급됨"]
 
@@ -50,19 +50,19 @@ def test_check_route_toggles_and_redirects(user_client, db, settings):
     p = outlined_proposal(db, settings)
     before = p.outline_updated_at
     url = f"/proposals/{p.id}/outline/slides/2/check"
-    r = user_client.post(url, data={"text": "절감률 수치", "done": "1"}, follow_redirects=False)
+    r = user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "1"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}/outline#slide-2"
     db.refresh(p)
     assert p.outline["slides"][2]["checked"] == ["절감률 수치"] and p.outline_updated_at > before
-    user_client.post(url, data={"text": "절감률 수치", "done": "1"})
+    user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "1"})
     db.refresh(p)
     assert p.outline["slides"][2]["checked"] == ["절감률 수치"]
-    user_client.post(url, data={"text": "절감률 수치", "done": "0"})
+    user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "0"})
     db.refresh(p)
     assert p.outline["slides"][2]["checked"] == []
-    assert user_client.post(url, data={"text": "없는 문구", "done": "1"}).status_code == 404
-    assert user_client.post(url, data={"text": "절감률 수치", "done": "x"}).status_code == 400
-    assert user_client.post(f"/proposals/{p.id}/outline/slides/99/check", data={"text": "a"}).status_code == 404
+    assert user_client.post(url, data={"item": "0", "text": "없는 문구", "done": "1"}).status_code == 404
+    assert user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "x"}).status_code == 400
+    assert user_client.post(f"/proposals/{p.id}/outline/slides/99/check", data={"item": "0", "text": "a"}).status_code == 404
 
 
 def test_check_marks_deck_stale_and_busy_is_rejected(user_client, db, settings):
@@ -72,12 +72,12 @@ def test_check_marks_deck_stale_and_busy_is_rejected(user_client, db, settings):
     p.deck_name, p.deck_built_at, p.status = "x.pptx", datetime.now(), "deck"
     p.outline_updated_at = p.deck_built_at.replace(microsecond=0)
     db.commit()
-    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"text": "절감률 수치", "done": "1"})
+    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     db.refresh(p)
     assert deck_is_stale(p) and p.status == "outlined"
     job = AIJob(kind="proposal_outline", input={}, status="running", priority=0)
     db.add(job); db.flush(); p.active_job_id = job.id; db.commit()
-    assert user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"text": "절감률 수치", "done": "0"}).status_code == 400
+    assert user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "0"}).status_code == 400
 
 
 def test_old_outline_without_checked_key_renders(user_client, db, settings):
@@ -86,13 +86,13 @@ def test_old_outline_without_checked_key_renders(user_client, db, settings):
     p.outline = {**p.outline, "slides": slides}
     db.commit()
     page = user_client.get(f"/proposals/{p.id}/outline").text
-    assert "확인함으로 표시" in page
-    assert "확인 필요 1장" in re.sub(r"<[^>]+>", "", page)
+    assert 'aria-label="확인함"' in page
+    assert "확인할 항목이 남은 장: 확인 필요 1장" in re.sub(r"<[^>]+>", "", page)
 
 
 def test_edit_drops_checked_for_removed_text(user_client, db, settings):
     p = outlined_proposal(db, settings)
-    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"text": "절감률 수치", "done": "1"})
+    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     base = {"kind": "bullets", "title": "t", "bullets": "a"}
     user_client.post(f"/proposals/{p.id}/outline/slides/2", data={**base, "needs_check": "절감률 수치\n새 항목"})
     db.refresh(p)
@@ -115,18 +115,18 @@ def test_outline_page_levels_and_summary(user_client, db, settings):
     assert "근거 확인 1장 · 확인 필요 2장 · 확인 끝 1장" in text
     card = lambda i: re.search(rf'<section class="card slide-card([^"]*)" id="slide-{i}"', page).group(1)
     assert "check-evidence" in card(1) and "check-decide" in card(2) and "check-decide" in card(3) and "check" not in card(4)
-    assert page.count('aria-label="확인함으로 표시"') == 4 and page.count('aria-label="확인함 취소"') == 1
+    assert page.count('aria-label="확인함"') == 5 and page.count('aria-pressed="true"') == 1 and page.count('aria-pressed="false"') >= 4
     assert "남은 장만 보기" in page and "고객에게 보내기 전에" in page
     assert "근거 확인이 필요한 장이 1장 있습니다. 고객에게 보내기 전에 확인하세요." in page
-    assert "확인 필요 항목이 3장에 남아 있습니다." in page
-    assert "확인 필요 3장" in section_summaries(p, [])["outline"]
+    assert "확인할 항목이 남은 장: 근거 확인 1장 · 확인 필요 2장" in text
+    assert section_summaries(p, [])["outline"] == "8장 · 근거 확인 1장 · 확인 필요 2장"
 
 
 def test_detail_page_notice_counts_unchecked_only(user_client, db, settings):
     p = outlined_proposal(db, settings)
-    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"text": "절감률 수치", "done": "1"})
+    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     page = user_client.get(f"/proposals/{p.id}").text
-    assert "확인 필요 항목이" not in page and "확인 필요 0장" in page
+    assert "확인할 항목이 남은 장" not in page and "8장" in page and "확인 필요 0장" not in page
 
 
 def test_direction_and_trend_colors(user_client, db, settings):
@@ -135,7 +135,7 @@ def test_direction_and_trend_colors(user_client, db, settings):
     db.commit()
     page = user_client.get(f"/proposals/{p.id}").text
     assert page.index("근거 자료 없음: x") < page.index("값 정하기")
-    assert 'class="evidence"' in page and 'class="decide"' in page and "확인함으로 표시" not in page
+    assert 'class="evidence"' in page and 'class="decide"' in page and 'aria-label="확인함"' not in page
 
 
 # ---------------------------------------------------------------- deck notes
@@ -156,7 +156,7 @@ def test_deck_notes_checked_and_labels(tmp_path):
 
 def test_deck_route_writes_names_and_checked(user_client, db, settings):
     p = outlined_proposal(db, settings)
-    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"text": "절감률 수치", "done": "1"})
+    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     assert user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False).status_code == 303
     db.refresh(p)
     notes = _notes(settings.decks_dir / str(p.id) / p.deck_name)
@@ -237,3 +237,82 @@ def test_research_page_shows_names(user_client, db, settings):
     run = finished_run(db, settings)
     page = user_client.get(f"/research/runs/{run.id}").text
     assert 'class="chip" href="/activities/1"' in page and ">activities/2026/1.md<" not in page
+
+
+# ---------------------------------------------------------------- polish round
+
+def test_direction_card_shows_source_chip_with_link(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    d = dict(p.directions[0], rationale=[{"text": "근거 문장", "sources": ["solutions/1/card.md"]}])
+    p.directions = [d, p.directions[1]]
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert re.search(r'<a class="chip" href="/solutions/1">', page)
+
+
+def test_check_requires_login(client, db, settings):
+    p = outlined_proposal(db, settings)
+    r = client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"}, follow_redirects=False)
+    assert r.status_code in (302, 303, 307) and "/login" in r.headers["location"]
+
+
+def test_check_is_by_position_and_handles_newlines(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    slides = [dict(s) for s in p.outline["slides"]]
+    slides[2]["needs_check"] = ["첫째", "둘째\n줄바꿈"]
+    p.outline = {**p.outline, "slides": slides}
+    db.commit()
+    url = f"/proposals/{p.id}/outline/slides/2/check"
+    assert user_client.post(url, data={"item": "0", "text": "둘째\n줄바꿈"}).status_code == 404  # 낡은 화면
+    assert user_client.post(url, data={"item": "x", "text": "첫째"}).status_code == 404
+    assert user_client.post(url, data={"item": "1", "text": "둘째\r\n줄바꿈"}, follow_redirects=False).status_code == 303
+    db.refresh(p)
+    assert p.outline["slides"][2]["checked"] == ["둘째\n줄바꿈"]
+
+
+def test_duplicate_needs_check_merged_on_save(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    base = {"kind": "bullets", "title": "t", "bullets": "a"}
+    user_client.post(f"/proposals/{p.id}/outline/slides/2", data={**base, "needs_check": "같은 것\n같은 것\n다른 것"})
+    db.refresh(p)
+    assert p.outline["slides"][2]["needs_check"] == ["같은 것", "다른 것"]
+
+
+def test_ai_checked_is_ignored_and_not_in_ai_schema():
+    from app.ai.proposal_tasks import Outline
+    assert "checked" not in str(Outline.model_json_schema())
+    raw = sample_outline(8)
+    raw["slides"][2]["needs_check"] = ["x"]
+    raw["slides"][2]["checked"] = ["x"]
+    from app.proposals import clean_outline
+    import pathlib
+    out = clean_outline(Outline.model_validate(raw), pathlib.Path("/nonexistent"))
+    assert all(s["checked"] == [] for s in out["slides"])
+
+
+def test_checked_follows_slide_on_move_and_delete(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치"})
+    r = user_client.post(f"/proposals/{p.id}/outline/slides/2/move", data={"dir": "up"}, follow_redirects=False)
+    assert r.status_code == 303, r.text
+    db.refresh(p)
+    hit = [i for i, s in enumerate(p.outline["slides"]) if s["checked"]]
+    assert hit == [1] and p.outline["slides"][1]["needs_check"] == ["절감률 수치"]
+    user_client.post(f"/proposals/{p.id}/outline/slides/3/delete")
+    db.refresh(p)
+    assert [i for i, s in enumerate(p.outline["slides"]) if s["checked"]] == [1]
+
+
+def test_mixed_slide_shown_consistently(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    slides = [dict(s) for s in p.outline["slides"]]
+    slides[2]["needs_check"] = ["값 정하기", "근거 자료 없음: y"]
+    slides[2]["checked"] = ["근거 자료 없음: y"]
+    p.outline = {**p.outline, "slides": slides}
+    db.commit()
+    text = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}/outline").text)
+    assert "확인할 항목이 남은 장: 확인 필요 1장" in text and "근거 확인 0장 · 확인 필요 1장 · 확인 끝 0장" in text
+    assert "check-decide" in re.search(r'<section class="card slide-card([^"]*)" id="slide-2"', user_client.get(f"/proposals/{p.id}/outline").text).group(1)
+    assert section_summaries(p, [])["outline"] == "8장 · 확인 필요 1장"
+    detail = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}").text)
+    assert "확인할 항목이 남은 장: 확인 필요 1장" in detail and "8장 · 확인 필요 1장" in detail

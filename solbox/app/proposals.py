@@ -99,6 +99,10 @@ def _strip_list(items: list[str]) -> list[str]:
     return [x for x in (i.strip() for i in items) if x]
 
 
+def _unique(items: list[str]) -> list[str]:
+    return list(dict.fromkeys(items))
+
+
 def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
     """AI 구성안을 저장용 dict 로 바꾼다. 종류·표·단계·출처를 규칙에 맞게 고치고 빈 항목을 버린다."""
     slides: list[dict] = []
@@ -129,7 +133,7 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
         s["checked"] = []  # AI 가 새로 만든 구성안은 확인한 항목이 없다
         found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
         s["sources"] = found
-        s["needs_check"] = s["needs_check"] + [checks.source_unverified(m) for m in missing]
+        s["needs_check"] = _unique(s["needs_check"] + [checks.source_unverified(m) for m in missing])
         if s["kind"] not in ("cover", "closing") and not s["sources"] and not s["needs_check"]:
             s["needs_check"] = [NO_SOURCE_NOTE]
         slides.append(s)
@@ -159,7 +163,7 @@ def slide_from_form(kind: str, form) -> dict:
 
     s = Slide(kind=kind).model_dump()
     s["title"], s["key_message"] = text("title"), text("key_message")
-    s["sources"], s["needs_check"] = _lines(form.get("sources")), _lines(form.get("needs_check"))
+    s["sources"], s["needs_check"] = _lines(form.get("sources")), _unique(_lines(form.get("needs_check")))
     if kind == "cover":
         s["subtitle"] = text("subtitle")
     elif kind == "bullets":
@@ -199,7 +203,7 @@ def slide_to_form(slide: dict) -> dict:
 def check_items(texts: list[str] | None, checked: list[str] | None = None) -> list[dict]:
     """"확인 필요" 문구를 화면용으로 바꾼다: 확인 안 한 근거 문제 → 확인 안 한 정할 값 → 확인한 것 순서(각각 원래 순서)."""
     done = set(checked or [])
-    items = [{"text": t, "kind": check_kind(t), "checked": t in done} for t in texts or [] if isinstance(t, str)]
+    items = [{"index": n, "text": t, "kind": check_kind(t), "checked": t in done} for n, t in enumerate(texts or []) if isinstance(t, str)]
     return sorted(items, key=lambda i: (i["checked"], i["kind"] != "evidence"))
 
 
@@ -219,6 +223,11 @@ def outline_check_summary(outline: dict | None) -> dict:
     decide = sum(1 for s in states if s["level"] == "decide")
     done = sum(1 for s in states if s["level"] == "clear" and s["done"])
     return {"evidence": evidence, "decide": decide, "done": done, "open": evidence + decide}
+
+
+def check_summary_text(cs: dict) -> str:
+    """"근거 확인 1장 · 확인 필요 2장" (0장인 부분은 뺀다). 남은 게 없으면 빈 글."""
+    return " · ".join(p for p in (f"근거 확인 {cs['evidence']}장" if cs["evidence"] else "", f"확인 필요 {cs['decide']}장" if cs["decide"] else "") if p)
 
 
 def keep_checked(old: dict, new: dict) -> dict:
@@ -340,7 +349,8 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
         chat = "대화 없음"
     if _has_outline(p):
         slides = p.outline["slides"]
-        outline = f"{len(slides)}장 · 확인 필요 {outline_check_summary(p.outline)['open']}장"
+        left = check_summary_text(outline_check_summary(p.outline))
+        outline = f"{len(slides)}장" + (f" · {left}" if left else "")
     else:
         outline = "아직 만들지 않음"
     deck = f"마지막 생성 {p.deck_built_at:%Y-%m-%d %H:%M}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"

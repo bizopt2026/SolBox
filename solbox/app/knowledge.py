@@ -28,7 +28,7 @@ REL_FORMATS = {
     "report": "research/{day}-{tag}-{id}.md",
 }
 _REL_FIELDS = {
-    "id": r"\d{1,18}", "solution_id": r"\d{1,18}", "year": r"\d{4}|undated", "day": r"\d{4}-\d{2}-\d{2}",
+    "id": r"[0-9]{1,18}", "solution_id": r"[0-9]{1,18}", "year": r"[0-9]{4}|undated", "day": r"[0-9]{4}-[0-9]{2}-[0-9]{2}",
     "tag": r"[^/-]+", "name": r"[^/]+",
 }
 

@@ -89,7 +89,7 @@ def save_slide(
 
 @router.post("/slides/{index}/check")
 def check_item(
-    proposal_id: int, index: int, text: str = Form(""), done: str = Form("1"),
+    proposal_id: int, index: int, item: str = Form(""), text: str = Form(""), done: str = Form("1"),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     """확인 필요 항목 하나를 확인함으로 표시하거나 되돌린다."""
@@ -97,8 +97,12 @@ def check_item(
     if done not in ("0", "1"):
         raise HTTPException(status_code=400, detail="확인 여부가 올바르지 않습니다.")
     slide = slides[index]
-    if text not in (slide.get("needs_check") or []):
+    notes = slide.get("needs_check") or []
+    n = int(item) if item.isascii() and item.isdigit() and len(item) <= 6 else -1
+    # 브라우저는 폼 값의 줄바꿈을 CRLF 로 보내므로 줄바꿈을 맞춰 비교한다
+    if not 0 <= n < len(notes) or notes[n].replace("\r\n", "\n") != text.replace("\r\n", "\n"):  # 화면이 낡았으면 엉뚱한 항목을 바꾸지 않는다
         raise HTTPException(status_code=404, detail="없는 확인 항목입니다.")
+    text = notes[n]
     checked = [t for t in slide.get("checked") or [] if t != text]
     slides[index] = {**slide, "checked": checked + [text] if done == "1" else checked}
     save_outline(db, p, slides)

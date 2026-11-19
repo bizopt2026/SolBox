@@ -58,12 +58,18 @@
   // 구성안: 확인이 남은 장만 보기
   document.querySelectorAll(".remaining-toggle").forEach(function (btn) {
     btn.hidden = false;
-    btn.addEventListener("click", function () {
-      var on = btn.getAttribute("aria-pressed") !== "true";
+    var KEY = "solbox.outline.remaining";
+    var apply = function (on) {
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.textContent = on ? "전체 보기" : "남은 장만 보기";
       document.querySelectorAll(".slide-card").forEach(function (c) { c.hidden = on && !c.dataset.remaining; });
+    };
+    btn.addEventListener("click", function () {
+      var on = btn.getAttribute("aria-pressed") !== "true";
+      apply(on);
+      try { sessionStorage.setItem(KEY, on ? "1" : "0"); } catch (e) { /* 기억은 선택 사항 */ }
     });
+    try { if (sessionStorage.getItem(KEY) === "1") apply(true); } catch (e) { /* 저장소를 못 쓰면 전체 보기 */ }
   });
 
   // 리서치 상세: 모두 펼치기/접기, 분야 탭
