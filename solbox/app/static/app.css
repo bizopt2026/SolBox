@@ -206,3 +206,34 @@ details.more[open] > summary { margin-bottom:8px; }
 .tabpanel h3 { margin:0 0 8px; font-size:15px; }
 .tabpanel .trends { margin-top:16px; }
 .tabpanel[hidden] { display:none; }
+
+/* 체크 상자 목록과 폼 구역 */
+.picker { border:0; padding:0; margin:0; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.picker legend { padding:0; margin-bottom:6px; font-size:13px; color:var(--muted); }
+.picker-filter { width:100%; max-width:320px; }
+.picker-list { display:flex; flex-direction:column; gap:2px; }
+.picker-list label, label.check { flex-direction:row; align-items:center; gap:6px; font-size:15px; color:var(--fg); padding:2px 0; }
+.picker-list label[hidden] { display:none; }
+.picker.scroll .picker-list { max-height:220px; overflow-y:auto; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+.formsec { display:flex; flex-direction:column; gap:12px; padding-top:16px; border-top:1px solid var(--line); min-width:0; }
+.formsec:first-child { padding-top:0; border-top:0; }
+.formsec h2 { margin:0; font-size:16px; }
+.formsec > textarea { width:100%; }
+details.formsec { display:block; }
+details.formsec > summary { cursor:pointer; list-style:none; }
+details.formsec > summary::-webkit-details-marker { display:none; }
+details.formsec > summary::before { content:"\25B8"; display:inline-block; width:14px; color:var(--muted); }
+details.formsec[open] > summary::before { content:"\25BE"; }
+details.formsec > summary h2 { display:inline; }
+details.formsec[open] > summary { margin-bottom:12px; }
+.formsec .grow { flex:1 1 240px; }
+.newnames { display:flex; flex-direction:column; gap:12px; }
+.newnames h3 { margin:0; font-size:15px; }
+.card.stack > .savebar { position:sticky; bottom:0; z-index:5; align-items:center; margin:8px -20px -20px; padding:12px 20px; background:#fff; border-top:1px solid var(--line); border-radius:0 0 8px 8px; }
+@media (max-width: 900px) {
+  .card.stack > .savebar { flex-direction:row; align-items:center; margin:8px -16px -16px; padding:10px 16px; }
+}
+.newnames p { margin:0; }
+@media (max-width: 900px) {
+  .formsec .grow { flex:none; }
+}

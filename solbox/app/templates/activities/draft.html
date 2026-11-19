@@ -26,8 +26,9 @@
 <p class="muted">AI가 만든 초안입니다. 내용을 확인하고 고친 뒤 저장하세요. 저장하기 전에는 아무것도 기록되지 않습니다. 새로 등록할 이름은 직접 체크하세요.</p>
 {% endif %}
 <form method="post" action="/activities" class="card stack">
+  {% set raw_collapsed = not error_kind %}
   {% include "activities/_form_fields.html" %}
-  <div class="row">
+  <div class="row savebar">
     <button type="submit" class="primary">저장</button>
     <a href="/activities">취소</a>
   </div>

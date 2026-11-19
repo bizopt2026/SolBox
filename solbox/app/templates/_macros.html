@@ -86,3 +86,22 @@
 
 {# 정보 목록(dl)의 값: 비었으면 흐린 "없음" #}
 {% macro val(v) %}{% if v %}{{ v }}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
+
+
+{# 체크 상자 목록. 선택된 항목이 위로 오고, 항목이 8개를 넘으면 걸러 보기 입력칸(스크립트가 켜 준다)과 스크롤 상자가 붙는다.
+   options 의 각 항목은 id, name (stage 가 있고 show_stage 가 참이면 단계 배지도). #}
+{% macro check_picker(field, title, options, selected, show_stage=False) %}
+{% set picked = options | selectattr("id", "in", selected) | list %}
+{% set rest = options | rejectattr("id", "in", selected) | list %}
+{% set many = options | length > 8 %}
+<fieldset class="picker{{ ' scroll' if many }}" data-field="{{ field }}">
+  <legend>{{ title }}<span class="picked-count muted" data-count>{% if picked %} · {{ picked | length }}개 선택{% endif %}</span></legend>
+  {% if many %}<input type="search" class="picker-filter" placeholder="이름으로 걸러 보기" aria-label="{{ title }} 걸러 보기" hidden>{% endif %}
+  <div class="picker-list">
+    {% for o in picked + rest %}
+    <label class="check"><input type="checkbox" name="{{ field }}" value="{{ o.id }}"{% if o.id in selected %} checked{% endif %}> <span>{{ o.name }}</span>{% if show_stage %} {{ stage_badge(o.stage) }}{% endif %}</label>
+    {% else %}<p class="muted">고를 수 있는 항목이 없습니다.</p>
+    {% endfor %}
+  </div>
+</fieldset>
+{% endmacro %}

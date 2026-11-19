@@ -8,7 +8,7 @@
 {% block form_intro %}{% endblock %}
 <form method="post" action="{{ "/activities/" ~ activity.id if activity else "/activities" }}" class="card stack">
   {% include "activities/_form_fields.html" %}
-  <div class="row">
+  <div class="row savebar">
     <button type="submit" class="primary">저장</button>
     <a href="{{ "/activities/" ~ activity.id if activity else "/activities" }}">취소</a>
   </div>
