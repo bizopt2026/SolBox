@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.labels import ERROR_KINDS, RESEARCH_AREAS
 from app.models import AIJob, AppSetting, ResearchReport, ResearchRun, ResearchTopic, Solution
+from app import checks
 from app.proposals import check_sources
 
 if TYPE_CHECKING:
@@ -75,8 +76,8 @@ def active_topics(db: Session) -> dict[str, list[ResearchTopic]]:
 
 URL_MAX = 2000
 MAX_TRENDS, MAX_INSIGHTS, MAX_SUGGESTIONS = 10, 7, 7
-NO_SOURCE_NOTE = "출처 링크 없음, 확인 필요"
-UNOPENED_NOTE = "본문을 열어 확인하지 못함"
+NO_SOURCE_NOTE = checks.NO_LINK_NOTE
+UNOPENED_NOTE = checks.UNOPENED
 UNOPENED_LABEL = "검색 결과 링크 (본문 미확인)"
 NO_TOPICS_MESSAGE = "사용 중인 리서치 주제가 없습니다."
 

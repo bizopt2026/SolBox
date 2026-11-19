@@ -55,6 +55,17 @@
     reveal(hashId());
   }
 
+  // 구성안: 확인이 남은 장만 보기
+  document.querySelectorAll(".remaining-toggle").forEach(function (btn) {
+    btn.hidden = false;
+    btn.addEventListener("click", function () {
+      var on = btn.getAttribute("aria-pressed") !== "true";
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.textContent = on ? "전체 보기" : "남은 장만 보기";
+      document.querySelectorAll(".slide-card").forEach(function (c) { c.hidden = on && !c.dataset.remaining; });
+    });
+  });
+
   // 리서치 상세: 모두 펼치기/접기, 분야 탭
   document.querySelectorAll(".toggle-all").forEach(function (box) {
     box.hidden = false;

@@ -1,3 +1,4 @@
+{% from "_macros.html" import source_chip, check_badge %}
 {% set job = proposal.active_job %}
 {% set busy = job is not none and job.status in ("pending", "running") %}
 {% set directions = proposal.directions or [] %}
@@ -11,7 +12,7 @@
       <dd>{% for s in d.solutions %}<a href="/solutions/{{ s.solution_id }}">{{ s.name }}</a>{% if s.role %} ({{ s.role }}){% endif %}{{ ", " if not loop.last }}{% endfor %}</dd>
       {% if d.rationale %}
       <dt>맞는 이유</dt>
-      <dd><ul>{% for ev in d.rationale %}<li>{{ ev.text }}{% if ev.sources %} <span class="muted">출처: {{ ev.sources | join(", ") }}</span>{% endif %}</li>{% endfor %}</ul></dd>
+      <dd><ul>{% for ev in d.rationale %}<li>{{ ev.text }}{% if ev.sources %} <span class="muted">출처:</span> <span class="chips">{% for path in ev.sources %}{{ source_chip(src, path) }}{% endfor %}</span>{% endif %}</li>{% endfor %}</ul></dd>
       {% endif %}
       {% if d.effects %}
       <dt>기대 효과</dt>
@@ -19,7 +20,7 @@
       {% endif %}
       {% if d.needs_check %}
       <dt>확인이 필요한 점</dt>
-      <dd><ul>{% for n in d.needs_check %}<li>{{ n }}</li>{% endfor %}</ul></dd>
+      <dd><ul class="checklist">{% for it in check_items(d.needs_check) %}<li class="{{ it.kind }}">{{ check_badge(it.kind) }}<span class="check-text">{{ it.text }}</span></li>{% endfor %}</ul></dd>
       {% endif %}
     </dl>
     {% if proposal.selected_index != i %}

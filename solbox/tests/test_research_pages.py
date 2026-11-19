@@ -57,7 +57,7 @@ def test_candidate_from_suggestion(user_client, db, settings):
     s = db.query(Solution).filter_by(name="수요반응(DR) 솔루션 발굴").one()
     assert r.headers["location"] == f"/solutions/{s.id}/edit" and s.stage == "intake" and "리서치(" in s.description
     assert s.summary == "전기요금 정책 변화" and s.created_by_id is not None
-    assert "- activities/2026/1.md" in s.description and "DR 사업자 탐색" in s.description
+    assert "- 한빛병원 미팅 (" in s.description and "activities/" not in s.description and "DR 사업자 탐색" in s.description
     assert (settings.knowledge_dir / "solutions" / str(s.id) / "card.md").exists()
 
 

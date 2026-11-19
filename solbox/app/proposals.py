@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
+from app import checks
+from app.checks import NO_EVIDENCE_NOTE as NO_SOURCE_NOTE, check_kind  # noqa: F401  (다른 곳에서 여기서 불러다 쓴다)
 from app.models import AIJob, Proposal, Solution, User
 
 if TYPE_CHECKING:
@@ -18,7 +20,6 @@ SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
 MAX_STEPS = 5
 MAX_SLIDES = 14
 NO_COLUMNS = "표의 열 이름을 입력하세요."
-NO_SOURCE_NOTE = "근거 자료 없음: 내용 확인 필요"
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
@@ -75,18 +76,18 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
             elif all(x["solution_id"] != sol.solution_id for x in solutions):
                 solutions.append({"solution_id": sol.solution_id, "name": names[sol.solution_id], "role": sol.role})
         if unknown:
-            needs_check.append("후보에 없는 솔루션이 언급됨")
+            needs_check.append(checks.UNKNOWN_SOLUTION_NOTE)
         if not solutions:
             continue
         rationale: list[dict] = []
         for ev in d.rationale:
             found, missing = check_sources(knowledge_dir, ev.sources)
-            needs_check.extend(f"출처 확인 불가: {m}" for m in missing)
+            needs_check.extend(checks.source_unverified(m) for m in missing)
             if not found:
-                needs_check.append(f"근거 자료 없음: {ev.text}")
+                needs_check.append(checks.no_evidence(ev.text))
             rationale.append({"text": ev.text, "sources": found})
         if not d.rationale:
-            needs_check.append("근거 자료 없음")
+            needs_check.append(checks.no_evidence())
         cleaned.append({
             "title": d.title, "summary": d.summary, "solutions": solutions, "rationale": rationale,
             "effects": list(d.effects), "needs_check": needs_check,
@@ -125,9 +126,10 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
             s["columns"], s["rows"] = [], []
         steps = [{"name": st["name"].strip(), "detail": st["detail"].strip()} for st in s["steps"]]
         s["steps"] = [st for st in steps if st["name"]][:MAX_STEPS]
+        s["checked"] = []  # AI 가 새로 만든 구성안은 확인한 항목이 없다
         found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
         s["sources"] = found
-        s["needs_check"] = s["needs_check"] + [f"출처 확인 불가: {m}" for m in missing]
+        s["needs_check"] = s["needs_check"] + [checks.source_unverified(m) for m in missing]
         if s["kind"] not in ("cover", "closing") and not s["sources"] and not s["needs_check"]:
             s["needs_check"] = [NO_SOURCE_NOTE]
         slides.append(s)
@@ -192,6 +194,37 @@ def slide_to_form(slide: dict) -> dict:
     out["rows"] = "\n".join(" | ".join(row) for row in slide.get("rows") or [])
     out["steps"] = "\n".join(f"{st['name']}: {st['detail']}" if st["detail"] else st["name"] for st in slide.get("steps") or [])
     return out
+
+
+def check_items(texts: list[str] | None, checked: list[str] | None = None) -> list[dict]:
+    """"확인 필요" 문구를 화면용으로 바꾼다: 확인 안 한 근거 문제 → 확인 안 한 정할 값 → 확인한 것 순서(각각 원래 순서)."""
+    done = set(checked or [])
+    items = [{"text": t, "kind": check_kind(t), "checked": t in done} for t in texts or [] if isinstance(t, str)]
+    return sorted(items, key=lambda i: (i["checked"], i["kind"] != "evidence"))
+
+
+def slide_check_state(slide: dict) -> dict:
+    """한 장의 확인 현황: 안 한 근거 문제·정할 값 개수, 확인한 개수, 카드에 쓸 단계(evidence / decide / clear)."""
+    items = check_items(slide.get("needs_check"), slide.get("checked"))
+    evidence = sum(1 for i in items if not i["checked"] and i["kind"] == "evidence")
+    decide = sum(1 for i in items if not i["checked"] and i["kind"] == "decide")
+    level = "evidence" if evidence else "decide" if decide else "clear"
+    return {"evidence": evidence, "decide": decide, "done": sum(1 for i in items if i["checked"]), "level": level}
+
+
+def outline_check_summary(outline: dict | None) -> dict:
+    """구성안 전체의 장 수: evidence(근거 확인이 남은 장), decide(정할 값만 남은 장), done(확인을 끝낸 장), open(남은 장 전체)."""
+    states = [slide_check_state(s) for s in (outline or {}).get("slides") or [] if isinstance(s, dict)]
+    evidence = sum(1 for s in states if s["level"] == "evidence")
+    decide = sum(1 for s in states if s["level"] == "decide")
+    done = sum(1 for s in states if s["level"] == "clear" and s["done"])
+    return {"evidence": evidence, "decide": decide, "done": done, "open": evidence + decide}
+
+
+def keep_checked(old: dict, new: dict) -> dict:
+    """고친 장에서 더 이상 없는 문구는 확인 목록에서도 뺀다."""
+    wanted = new.get("needs_check") or []
+    return {**new, "checked": [t for t in old.get("checked") or [] if t in wanted]}
 
 
 def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
@@ -307,7 +340,7 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
         chat = "대화 없음"
     if _has_outline(p):
         slides = p.outline["slides"]
-        outline = f"{len(slides)}장 · 확인 필요 {sum(1 for s in slides if s.get('needs_check'))}장"
+        outline = f"{len(slides)}장 · 확인 필요 {outline_check_summary(p.outline)['open']}장"
     else:
         outline = "아직 만들지 않음"
     deck = f"마지막 생성 {p.deck_built_at:%Y-%m-%d %H:%M}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"

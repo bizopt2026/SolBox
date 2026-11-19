@@ -105,3 +105,9 @@
   </div>
 </fieldset>
 {% endmacro %}
+
+{# 출처 한 건: `종류 · 이름` 칩 링크. 링크가 없으면 글자만. src 는 요청마다 만든 조회 함수(app.sources.SourceLookup). #}
+{% macro source_chip(src, path) %}{% set d = src(path) %}{% if d.url %}<a class="chip" href="{{ d.url }}">{% if d.kind %}<span class="chip-kind">{{ d.kind }}</span>{% endif %}{{ d.label }}</a>{% else %}<span class="chip raw">{{ d.label }}</span>{% endif %}{% endmacro %}
+
+{# 확인 필요 배지: 종류에 따라 빨강(근거 확인) / 노랑(확인 필요) #}
+{% macro check_badge(kind) %}<span class="badge {{ kind }}">{{ "근거 확인" if kind == "evidence" else "확인 필요" }}</span>{% endmacro %}

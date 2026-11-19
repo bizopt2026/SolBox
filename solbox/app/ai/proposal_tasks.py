@@ -70,6 +70,7 @@ class Slide(BaseModel):
     steps: list[Step] = []
     sources: list[str] = []
     needs_check: list[str] = []
+    checked: list[str] = []  # 확인을 끝낸 needs_check 문구. 옛 구성안에는 이 키가 없다
 
 
 class Outline(BaseModel):

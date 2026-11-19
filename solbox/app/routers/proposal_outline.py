@@ -9,8 +9,9 @@ from app import labels
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
-from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, display_title, save_outline, slide_from_form, slide_to_form
+from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, check_items, display_title, outline_check_summary, keep_checked, save_outline, slide_check_state, slide_from_form, slide_to_form
 from app.routers._common import get_or_404
+from app.sources import SourceLookup
 from app.security import require_user
 
 router = APIRouter(prefix="/proposals/{proposal_id}/outline")
@@ -51,9 +52,13 @@ def outline_page(
     p = _load(db, proposal_id)
     slides = p.outline["slides"]
     busy = p.active_job is not None and p.active_job.status in ("pending", "running")
-    cards = [{"index": i, "slide": s, "form": slide_to_form(s)} for i, s in enumerate(slides)]
+    cards = [
+        {"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s),
+         "checks": check_items(s.get("needs_check"), s.get("checked"))}
+        for i, s in enumerate(slides)
+    ]
     return render(
-        request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, busy=busy,
+        request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, busy=busy, summary=outline_check_summary(p.outline), src=SourceLookup(db),
         can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
     )
 
@@ -75,9 +80,27 @@ def save_slide(
         raise HTTPException(status_code=400, detail="표지는 첫 장만 쓸 수 있고, 첫 장은 표지여야 합니다.")
     values = locals()
     try:
-        slides[index] = slide_from_form(kind, {name: values[name] for name in FIELDS})
+        slides[index] = keep_checked(slides[index], slide_from_form(kind, {name: values[name] for name in FIELDS}))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
+    save_outline(db, p, slides)
+    return _back(p, index)
+
+
+@router.post("/slides/{index}/check")
+def check_item(
+    proposal_id: int, index: int, text: str = Form(""), done: str = Form("1"),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """확인 필요 항목 하나를 확인함으로 표시하거나 되돌린다."""
+    p, slides = _load_for_edit(db, proposal_id, index)
+    if done not in ("0", "1"):
+        raise HTTPException(status_code=400, detail="확인 여부가 올바르지 않습니다.")
+    slide = slides[index]
+    if text not in (slide.get("needs_check") or []):
+        raise HTTPException(status_code=404, detail="없는 확인 항목입니다.")
+    checked = [t for t in slide.get("checked") or [] if t != text]
+    slides[index] = {**slide, "checked": checked + [text] if done == "1" else checked}
     save_outline(db, p, slides)
     return _back(p, index)
 

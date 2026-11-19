@@ -15,6 +15,7 @@ from app import labels
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.deck import build_deck
+from app.sources import SourceLookup
 from app.knowledge import safe_name
 from app.main import render
 from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
@@ -153,7 +154,7 @@ def _detail_page(
         candidates=candidates, extra_candidates=_extra_candidates(db),
         notice=notice, can_delete=can_delete(user, proposal),
         position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
-        summaries=section_summaries(proposal, candidates), **extra,
+        summaries=section_summaries(proposal, candidates), src=SourceLookup(db), **extra,
     )
 
 
@@ -302,7 +303,9 @@ def build(
     old_name = p.deck_name
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        build_deck(p.outline, temp, customer_name=p.customer.name, today=date.today())
+        paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
+        build_deck(p.outline, temp, customer_name=p.customer.name, today=date.today(),
+                   source_labels=SourceLookup(db).labels(paths))
         temp.replace(final)
         p.deck_name, p.deck_built_at, p.status = name, now, "deck"
         db.commit()

@@ -18,6 +18,7 @@ from app.models import AIJob, ResearchReport, ResearchRun, Solution, User
 from app.research import UNOPENED_LABEL, clean_url, humanize_ids, start_run
 from app.routers._common import paginate
 from app.security import require_admin, require_user
+from app.sources import SourceLookup, describe_source
 
 router = APIRouter(prefix="/research")
 
@@ -99,7 +100,7 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
         areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends, "insights": insights})
     suggest_insights = [humanize_ids(db, i) for i in (suggest.insights if suggest else None) or []]
     return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas,
-                  suggest_insights=suggest_insights)
+                  suggest_insights=suggest_insights, src=SourceLookup(db))
 
 
 @router.post("/runs/{run_id}/candidate")
@@ -122,7 +123,7 @@ def register_candidate(
     if source == "suggestion":
         name, summary = humanize_ids(db, item.get("title", "")), humanize_ids(db, item.get("reason", ""))
         lines += [x for x in (humanize_ids(db, item.get("detail", "")), f"근거: {summary}" if summary else "") if x]
-        lines += [f"- {p}" for p in item.get("sources") or []]
+        lines += [f"- {describe_source(db, p)['label']}" for p in item.get("sources") or [] if isinstance(p, str)]
     else:
         name, summary = humanize_ids(db, item.get("headline", "")), humanize_ids(db, item.get("summary", ""))
         lines += [x for x in (summary,) if x]

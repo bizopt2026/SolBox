@@ -1,5 +1,5 @@
 [hidden] { display:none !important; }
-:root { --fg:#1f2933; --muted:#667085; --line:#d9dee5; --accent:#1d4ed8; --bg:#f6f7f9; --err:#b42318; }
+:root { --fg:#1f2933; --muted:#667085; --line:#d9dee5; --accent:#1d4ed8; --bg:#f6f7f9; --err:#b42318; --decide:#93370d; --decide-line:#dc6803; }
 * { box-sizing: border-box; }
 body { margin:0; font:15px/1.5 "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif; color:var(--fg); background:var(--bg); }
 .topbar { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:24px; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid var(--line); }
@@ -61,9 +61,36 @@ dd { margin:0; white-space:pre-wrap; }
 .chat-msg, .job-status .chat-msg { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; margin-top:8px; }
 .chat-msg.user { background:#f0f4fa; }
 .chat-who { display:block; font-size:12px; color:var(--muted); margin-bottom:2px; }
-.slide-card.needs-check { border-color:var(--err); border-width:2px; }
+.slide-card.check-evidence { border-color:var(--err); border-width:2px; }
+.slide-card.check-decide { border-color:var(--decide-line); border-width:2px; }
 .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; background:#eef2ff; color:var(--accent); }
 .badge.warn { background:#fef3f2; color:var(--err); }
+.badge.evidence { background:#fef3f2; color:var(--err); }
+.badge.decide { background:#fef0c7; color:var(--decide); }
+.checklist { list-style:none; padding:0; margin:6px 0 0; }
+.checklist li { display:flex; align-items:flex-start; gap:8px; padding:4px 0; }
+.checklist li .badge { flex:none; margin-top:2px; }
+.checklist .check-text { flex:1; min-width:0; }
+.checklist li.done .check-text { text-decoration:line-through; color:var(--muted); }
+.checklist li.done .badge { opacity:.55; }
+.checks { border:1px solid var(--line); border-left-width:4px; border-radius:6px; padding:8px 12px; margin:0 0 12px; background:#fff; }
+.checks.check-evidence { border-left-color:var(--err); }
+.checks.check-decide { border-left-color:var(--decide-line); }
+.checks.check-clear { border-left-color:var(--line); }
+.tick-form { display:inline-flex; margin:0; }
+button.tick { width:22px; height:22px; min-width:22px; padding:0; border-radius:4px; border:1.5px solid var(--muted); background:#fff; color:#fff; font-size:14px; line-height:1; flex:none; }
+button.tick[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
+.outline-summary { display:flex; flex-wrap:wrap; align-items:center; gap:4px 16px; margin:0 0 12px; }
+.outline-summary p { margin:0; }
+.check-summary .count-evidence { color:var(--err); font-weight:600; }
+.check-summary .count-decide { color:var(--decide); font-weight:600; }
+.check-summary button { margin-left:8px; }
+.chips { display:inline-flex; flex-wrap:wrap; gap:4px 6px; vertical-align:baseline; }
+.chip { display:inline-block; padding:1px 8px; border:1px solid var(--line); border-radius:10px; background:#f4f6fa; font-size:13px; color:var(--fg); text-decoration:none; overflow-wrap:anywhere; }
+a.chip:hover { border-color:var(--accent); }
+.chip-kind { color:var(--muted); margin-right:6px; padding-right:6px; border-right:1px solid var(--line); }
+.chip.raw { font-family:ui-monospace, monospace; font-size:12px; }
+.field-note { margin:-6px 0 0; font-size:13px; }
 .slide-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .slide-head .spacer { flex:1; }
 .chat-msg.old { opacity:.55; background:#f6f6f6; }
