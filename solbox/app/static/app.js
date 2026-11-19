@@ -8,6 +8,19 @@
     return h;
   }
 
+  // 좁은 화면 상단 메뉴: 현재 항목이 보이게 메뉴 안에서만 가로로 옮기고, 끝에 닿으면 끝 표시를 감춘다
+  var topNav = document.querySelector(".topbar nav");
+  if (topNav) {
+    var syncNav = function () { topNav.classList.toggle("at-end", topNav.scrollLeft + topNav.clientWidth >= topNav.scrollWidth - 2); };
+    var curItem = topNav.querySelector('[aria-current="page"]');
+    if (curItem && topNav.scrollWidth > topNav.clientWidth) {
+      topNav.scrollLeft += curItem.getBoundingClientRect().left - topNav.getBoundingClientRect().left - (topNav.clientWidth - curItem.offsetWidth) / 2;
+    }
+    topNav.addEventListener("scroll", syncNav);
+    window.addEventListener("resize", syncNav);
+    syncNav();
+  }
+
   // 체크 상자 목록: 선택 수 표시와 걸러 보기
   document.querySelectorAll(".picker").forEach(function (box) {
     var count = box.querySelector("[data-count]");

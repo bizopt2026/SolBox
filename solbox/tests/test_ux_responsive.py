@@ -35,3 +35,14 @@ def test_topbar_is_sticky_and_menu_closes_on_outside_click_and_escape(admin_clie
     assert re.search(r"\.topbar \{ position:sticky; top:0; z-index:10;", css)
     html = admin_client.get("/").text
     assert 'details.menu[open]' in html and '"Escape"' in html and 'addEventListener("click"' in html
+
+
+def test_narrow_menu_cue_and_tap_target_rules():
+    from app.main import APP_DIR
+    css = (APP_DIR / "static" / "app.css").read_text(encoding="utf-8")
+    js = (APP_DIR / "static" / "app.js").read_text(encoding="utf-8")
+    narrow = css[css.index("@media (max-width: 900px)"):]
+    assert ".topbar nav::after" in narrow and "linear-gradient" in narrow and ".topbar nav.at-end::after" in narrow
+    assert "min-height:36px" in css.split("좁은 화면: 누르는 곳은")[1]
+    menu_js = js.split("상단 메뉴")[1].split("체크 상자 목록")[0]
+    assert "topNav.scrollLeft" in menu_js and "scrollIntoView" not in menu_js

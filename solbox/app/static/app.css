@@ -161,6 +161,8 @@ pre { overflow-x:auto; max-width:100%; }
 .topbar nav { min-width:0; }
 
 @media (max-width: 900px) {
+  .topbar nav::after { content:""; position:sticky; right:0; flex:none; width:32px; margin-left:-32px; background:linear-gradient(to right, rgba(255,255,255,0), #fff 85%); pointer-events:none; }
+  .topbar nav.at-end::after { display:none; }
   .topbar { gap:12px; padding:0 16px; }
   .brand { white-space:nowrap; }
   .topbar nav { flex:1; overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; white-space:nowrap; scrollbar-width:none; }
@@ -319,3 +321,18 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 .dir-more dt { margin-top:8px; font-size:13px; }
 .dir-more dd ul { padding-left:18px; margin:0; }
 .dir-more .checklist { padding-left:0; }
+
+/* 좁은 화면: 누르는 곳은 높이 36px 이상 */
+@media (max-width: 900px) {
+  .brand { display:flex; align-items:center; min-height:36px; }
+  button:not(.tick):not(.check), .button { min-height:36px; }
+  button.linklike { display:inline-flex; align-items:center; }
+  .logout button { padding:3px 10px; }
+  .topbar .menu-list a { padding:9px 14px; }
+  .breadcrumb a, .pager a { display:inline-flex; align-items:center; min-height:36px; }
+  .pager a { padding:0 8px; }
+  summary:not(.slide-summary) { padding-top:7px; padding-bottom:7px; }
+  .section > summary { padding-top:0; padding-bottom:0; min-height:36px; align-items:center; }
+  button.tick, button.check { position:relative; }
+  button.tick::after, button.check::after { content:""; position:absolute; inset:-6px; }
+}
