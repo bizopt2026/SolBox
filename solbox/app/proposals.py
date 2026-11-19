@@ -240,3 +240,63 @@ def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | Non
     db.commit()
     db.refresh(p)
     return job
+
+
+STEPS = (("target", "대상"), ("directions", "방향"), ("chat", "구체화"), ("outline", "구성안"), ("deck", "제안서"))
+_STATUS_STEP = {"new": "directions", "directions": "directions", "refining": "chat", "outlined": "outline", "deck": "deck"}
+_JOB_STEP = {"proposal_directions": "directions", "proposal_chat": "chat", "proposal_outline": "outline"}
+RECENT_MESSAGES = 6
+
+
+def _has_selection(p: Proposal) -> bool:
+    return p.selected_index is not None and 0 <= p.selected_index < len(p.directions or [])
+
+
+def _has_outline(p: Proposal) -> bool:
+    return bool(p.outline and p.outline.get("slides"))
+
+
+def step_states(p: Proposal) -> list[dict]:
+    """단계 표시줄의 칸. state: done(끝남) / current(지금 할 단계) / todo(갈 수 있음) / locked(아직 못 감, 링크 없음)."""
+    keys = [k for k, _ in STEPS]
+    current = keys.index(_STATUS_STEP.get(p.status, "directions"))
+    reachable = {"target": True, "directions": True, "chat": _has_selection(p), "outline": _has_outline(p), "deck": _has_outline(p)}
+    steps = []
+    for i, (key, label) in enumerate(STEPS):
+        state = "done" if i < current else "current" if i == current else "todo" if reachable[key] else "locked"
+        steps.append({"key": key, "label": label, "state": state, "href": None if state == "locked" else f"#{key}"})
+    return steps
+
+
+def open_section(p: Proposal) -> str:
+    """처음부터 펼쳐 둘 구역. 진행 중인 AI 작업이 있으면 그 작업의 구역, 아니면 상태가 가리키는 구역."""
+    job = p.active_job
+    if job is not None and job.status in ("pending", "running") and job.kind in _JOB_STEP:
+        return _JOB_STEP[job.kind]
+    return _STATUS_STEP.get(p.status, "directions")
+
+
+def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]:
+    """접힌 구역에 보이는 한 줄 요약."""
+    who = p.customer.name + (f" · {p.business.name}" if p.business is not None else "")
+    names = [s.name for s in candidates]
+    shown = ", ".join(names[:3]) + (f" 외 {len(names) - 3}개" if len(names) > 3 else "")
+    target = f"{who} — 조합 솔루션 {shown}" if names else who
+    directions = p.directions or []
+    if _has_selection(p):
+        direction = f"선택한 방향: {directions[p.selected_index]['title']}"
+    else:
+        direction = f"방향 {len(directions)}개" if directions else "아직 만들지 않음"
+    if not _has_selection(p):
+        chat = "방향을 선택하면 시작할 수 있습니다"
+    elif p.messages:
+        chat = f"대화 {len(p.messages)}개 · 마지막 메시지 {p.messages[-1].created_at:%Y-%m-%d %H:%M}"
+    else:
+        chat = "대화 없음"
+    if _has_outline(p):
+        slides = p.outline["slides"]
+        outline = f"{len(slides)}장 · 확인 필요 {sum(1 for s in slides if s.get('needs_check'))}장"
+    else:
+        outline = "아직 만들지 않음"
+    deck = f"마지막 생성 {p.deck_built_at:%Y-%m-%d %H:%M}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"
+    return {"target": target, "directions": direction, "chat": chat, "outline": outline, "deck": deck}

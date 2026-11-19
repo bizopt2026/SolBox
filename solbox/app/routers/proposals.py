@@ -18,7 +18,10 @@ from app.deck import build_deck
 from app.knowledge import safe_name
 from app.main import render
 from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
-from app.proposals import candidate_solutions, display_title, reset_for_new_direction, start_job
+from app.proposals import (
+    candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
+    step_states,
+)
 from app.routers._common import get_deletable_or_404, get_or_404, paginate, search_by_name
 from app.security import can_delete, require_user
 
@@ -142,11 +145,15 @@ def _detail_page(
     request: Request, db: Session, proposal: Proposal, user: User, notice: str | None = None,
     status_code: int = 200, **extra,
 ):
+    candidates = candidate_solutions(db, proposal)
+    # 방금 실패한 폼이 들어 있는 구역은 열어 둔다
+    open_key = "chat" if extra.get("chat_error") else "deck" if extra.get("deck_error") else open_section(proposal)
     return render(
         request, "proposals/detail.html", status_code=status_code, proposal=proposal, title=display_title(proposal),
-        candidates=candidate_solutions(db, proposal), extra_candidates=_extra_candidates(db),
+        candidates=candidates, extra_candidates=_extra_candidates(db),
         notice=notice, can_delete=can_delete(user, proposal),
-        position=_position(db, proposal), **extra,
+        position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
+        summaries=section_summaries(proposal, candidates), **extra,
     )
 
 

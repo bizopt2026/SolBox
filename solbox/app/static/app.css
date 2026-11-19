@@ -162,3 +162,30 @@ pre { overflow-x:auto; max-width:100%; }
   dd ul { padding-left:18px; margin:0; }
 }
 .stagebar .step.current:disabled { opacity:1; cursor:default; }
+
+/* 제안 상세: 단계 표시줄과 접히는 구역 */
+.stepbar { position:sticky; top:52px; z-index:9; margin:0 0 16px; padding:8px 0; background:var(--bg); }
+.stepbar ol { list-style:none; margin:0; padding:0; display:flex; overflow-x:auto; scrollbar-width:none; }
+.stepbar ol::-webkit-scrollbar { display:none; }
+.stepbar .step { flex:1 0 auto; margin-left:-1px; border:1px solid var(--line); background:#fff; color:var(--muted); text-align:center; white-space:nowrap; }
+.stepbar .step:first-child { margin-left:0; border-radius:6px 0 0 6px; }
+.stepbar .step:last-child { border-radius:0 6px 6px 0; }
+.stepbar .step > a, .stepbar .step > span { display:block; padding:8px 14px; color:inherit; text-decoration:none; }
+.stepbar .step > a:hover { background:#f3f6fb; }
+.stepbar .step.done { background:#e0e9fb; border-color:#c3d3f5; color:#1e40af; }
+.stepbar .step.current { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; position:relative; }
+.stepbar .step.locked { background:#f2f4f7; color:#98a2b3; }
+.section { scroll-margin-top:112px; }
+.section > summary { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; cursor:pointer; list-style:none; }
+.section > summary::-webkit-details-marker { display:none; }
+.section > summary::before { content:"\25B8"; color:var(--muted); width:12px; flex:none; }
+.section[open] > summary::before { content:"\25BE"; }
+.section > summary h2 { margin:0; }
+.section > summary .summary-line { font-size:14px; min-width:0; overflow-wrap:anywhere; }
+.section[open] > summary .summary-line { display:none; }
+details.more > summary { cursor:pointer; color:var(--accent); }
+details.more[open] > summary { margin-bottom:8px; }
+@media (max-width: 900px) {
+  .section { scroll-margin-top:104px; }
+  .stepbar .step > a, .stepbar .step > span { padding:8px 12px; font-size:14px; }
+}
