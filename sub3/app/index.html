@@ -1508,8 +1508,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.6.1",APP_RELEASED="2026-11-19";
+var APP_VERSION="1.6.2",APP_RELEASED="2026-11-19";
 var VLOG=[
+ ["1.6.2","2026-11-19","계획보다 짧게 뛴 날도 자동 점수","워치 기록이 계획 거리의 80%에 못 미치면 완료로 잡히지 않아 점수가 나오지 않던 문제를 고쳤어요. 이제 워치 기록이 들어오면 거리와 상관없이 자동 완료되고, 모자란 거리는 거리 점수에서만 깎여요."],
  ["1.6.1","2026-11-19","freddy 체중 읽기 수정 · HRV 한국어","freddy가 주는 체중 형식(날짜별 줄 + 잰 시각)을 읽지 못하던 문제를 고쳤어요. 체중계 앱과 COROS가 같은 체중을 몇 분 차이로 함께 기록하면 하나만 남기고, 시각 없이 들어왔던 COROS 체중은 freddy 기록으로 바꿔요. freddy에 데이터가 없을 때 안내 문구를 정확하게 바꾸고, 수면 HRV 상태(Above normal 등)를 한국어로 보여줘요."],
  ["1.6.0","2026-11-19","체중 가져오는 곳 고르기 (freddy)","바디 탭 체중 카드에서 체중 가져오는 곳을 자동·COROS·freddy·끄기 중에 고를 수 있어요. freddy를 고르면 워치를 COROS로 연결해 두어도 가민 커넥트·애플 건강 등의 체중을 잰 시각 그대로 불러와요. 앱을 열 때 자동으로, ↻로 바로 불러올 수 있어요."],
  ["1.5.19","2026-11-17","COROS 체중 중복 방지","COROS에서 새 체중을 가져올 때 오늘 이미 같은 체중이 있으면 등록하지 않고, 어제 같은 체중이 있으면 '오늘 잰 체중인가요?'를 물어본 뒤 '네'를 누를 때만 오늘 체중으로 기록해요."],
@@ -1904,7 +1905,7 @@ function applyRuns(){
     var wr=0;rs.forEach(function(x){if(x.rpe&&x.rpe>wr)wr=x.rpe});if(wr&&(rec.rpe==null||rec.rpe===""||rec.rpeSrc==="watch")){rec.rpe=wr;rec.rpeSrc="watch"}
     var lastTs=0;rs.forEach(function(x){if(x.ts&&x.ts>lastTs)lastTs=x.ts});
     // auto-check unless the user unchecked this day AFTER the latest run came in
-    if(rec.done!==true&&t[0]!=="r"&&t[2]&&km>=0.8*t[2]&&!(rec.unck&&(!lastTs||rec.unck>=lastTs))){rec.done=true;rec.auto=true;delete rec.unck;auto++}
+    if(rec.done!==true&&t[0]!=="r"&&km>0&&!(rec.unck&&(!lastTs||rec.unck>=lastTs))){rec.done=true;rec.auto=true;delete rec.unck;auto++}
     S.days[d]=rec}
   return auto;
 }
@@ -2253,7 +2254,7 @@ function watchCard(){
   if(W0==="coros"){
     h+=syncBox()+stats();
     h+=steps(['claude.ai <b>설정 → 커넥터</b>에서 <b>COROS</b>를 내 계정으로 연결','위 <b>지금 불러오기</b>를 누르고 이 앱의 COROS 사용을 <b>허용</b>','그다음부터는 앱을 열 때마다 러닝·체중·안정시 심박·HRV를 자동으로 불러와요'],!S.watchAt);
-    h+='<p class="wnote">계획 거리의 80% 이상 뛴 날은 자동으로 완료돼요. 워치 없이 뛴 날은 오늘 탭 ✎ 직접 기록에 거리를 적으면 완료돼요. 체중은 COROS 프로필 체중이 바뀌면 그 시각으로 기록돼요.</p>'+foot();
+    h+='<p class="wnote">워치 기록이 들어오면 자동으로 완료되고 점수가 매겨져요(거리가 모자라면 거리 점수만 깎여요). 워치 없이 뛴 날은 오늘 탭 ✎ 직접 기록에 거리를 적으면 완료돼요. 체중은 COROS 프로필 체중이 바뀌면 그 시각으로 기록돼요.</p>'+foot();
   } else if(W0==="freddy"){
     h+=syncBox()+stats();
     h+=steps(['claude.ai <b>설정 → 커넥터</b>에서 <b>freddy</b>를 내 계정으로 연결','freddy에서 <b>가민 커넥트</b>나 <b>애플 건강</b>을 데이터 소스로 연결(애플워치·아이폰 러닝은 애플 건강으로 들어와요)','위 <b>지금 불러오기</b>를 누르고 이 앱의 freddy 사용을 <b>허용</b>'],!S.watchAt);
@@ -2264,7 +2265,7 @@ function watchCard(){
     h+='<label class="wdrop" for="w-file"><span aria-hidden="true">📤</span><b>'+(FI.busy?'읽는 중…':'기록 파일 선택')+'</b><small>GPX · TCX · FIT · ZIP · CSV · 여러 개 한꺼번에</small></label><input type="file" id="w-file" multiple accept=".gpx,.tcx,.fit,.csv,.zip,application/gpx+xml,application/zip,text/csv" style="position:absolute;width:1px;height:1px;opacity:0" '+(FI.busy?'disabled':'')+'>';
     h+=(FI.msg?'<div class="small" style="margin-top:8px;color:var(--ok)">'+esc(FI.msg)+'</div>':'')+(uploadDue()?'<div class="warn" style="margin-top:8px">⏰ 일요일 21:00이 지났어요. 지난주 기록을 올려 주세요. 마지막 가져오기: '+lastUp()+'</div>':'')+(FI.err?'<div class="small" style="margin-top:4px;color:var(--bad)">'+esc(FI.err)+'</div>':'');
     h+=stats()+'<details class="wsteps"><summary>파일 받는 방법</summary>'+fileGuide()+'</details>'+reminderBox();
-    h+='<p class="wnote">같은 러닝을 두 번 올려도 한 번만 들어가요. 계획 거리의 80% 이상 뛴 날은 자동으로 완료 체크돼요.</p>'+foot();
+    h+='<p class="wnote">같은 러닝을 두 번 올려도 한 번만 들어가요. 워치 기록이 들어오면 자동으로 완료되고 점수가 매겨져요.</p>'+foot();
   } else {
     h+='<p class="wnote" style="margin-top:12px">COROS는 COROS 계정으로, 가민·애플워치는 freddy 커넥터로 자동으로 가져와요. 커넥터 없이 기록 파일을 올릴 수도 있어요.</p>';
   }
