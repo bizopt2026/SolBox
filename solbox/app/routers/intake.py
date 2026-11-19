@@ -55,6 +55,13 @@ def _position(db: Session, intake: Intake) -> int:
     return queue_position(db, intake.job) if intake.job is not None else 0
 
 
+def _result_of(intake: Intake, wanted) -> list[dict]:
+    """저장 완료 묶음의 결과 중 종류가 맞는 것 (옛 묶음에는 저장하지 않은 파일 기록이 없다)."""
+    if intake.status != "applied":
+        return []
+    return [e for e in intake.result or [] if wanted(e.get("type"))]
+
+
 def detail_page(request: Request, user: User, intake: Intake, db: Session, notice: str = "",
                 skipped: list[str] | None = None, status_code: int = 200, form: FormData | None = None):
     ready = intake.status == "ready"
@@ -74,8 +81,9 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
         skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
-        saved=[e for e in intake.result or [] if e.get("type") != "skipped"] if intake.status == "applied" else [],
-        not_saved=[e for e in intake.result or [] if e.get("type") == "skipped"] if intake.status == "applied" else [],
+        saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),
+        not_saved=_result_of(intake, lambda t: t == "skipped"),
+        unsaved_files=_result_of(intake, lambda t: t == "unsaved"),
         **ctx,
     )
 

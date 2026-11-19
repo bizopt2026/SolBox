@@ -144,7 +144,9 @@ def test_skipped_items_not_created(app, user_client, db, settings):
     assert _apply(user_client, it, form).status_code == 303
     db.expire_all()
     assert db.query(Solution).filter_by(name="스마트 조명 제어").count() == 0 and db.query(Partner).count() == 0
-    assert [e["type"] for e in it.result] == ["solution", "activity"] and len(s1.files) == 1
+    # 제외한 항목의 파일(소개서.txt)은 "저장하지 않은 파일" 로 결과 끝에 남는다
+    assert [e["type"] for e in it.result] == ["solution", "activity", "unsaved"] and it.result[-1]["label"] == "소개서.txt"
+    assert len(s1.files) == 1
     assert [f.target_type for f in it.files] == ["", "solution", "activity"]
     assert db.query(Activity).one().solutions == [s1]
 

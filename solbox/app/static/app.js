@@ -141,9 +141,39 @@
       var b = e.target.closest("button");
       var target = document.getElementById(box.dataset.target);
       if (!b || !target) return;
-      target.querySelectorAll("details.trend-card").forEach(function (d) { d.open = b.dataset.open === "1"; });
+      target.querySelectorAll("details.trend-card, details.plan-edit").forEach(function (d) { d.open = b.dataset.open === "1"; });
     });
   });
+  // 올리기 확인 화면: 고치기를 닫을 때 요약 갱신, 제외 체크에 따라 저장 막대의 건수 갱신
+  document.querySelectorAll(".plan-item").forEach(function (card) {
+    var edit = card.querySelector("details.plan-edit");
+    if (!edit) return;
+    var key = card.id.replace(/^item-/, "");
+    edit.addEventListener("toggle", function () {
+      if (edit.open) return;
+      card.querySelectorAll("[data-sum]").forEach(function (el) {
+        var input = card.querySelector('[name="' + key + "__" + el.dataset.sum + '"]');
+        if (!input) return;
+        var text = input.tagName === "SELECT" ? (input.selectedOptions[0] || {}).textContent : input.value;
+        if (text && text.trim()) el.textContent = text.trim();
+      });
+    });
+  });
+  var planBar = document.querySelector(".plan-savebar");
+  if (planBar) {
+    var planForm = planBar.closest("form");
+    var planCount = function () {
+      var total = parseInt(planBar.dataset.total, 10) || 0;
+      var skipped = planForm.querySelectorAll(".plan-skip input:checked").length;
+      var saved = total - skipped;
+      planBar.querySelector("[data-save-button]").textContent = "이대로 저장 (" + saved + "건)";
+      planBar.querySelector("[data-save-count]").textContent = saved + "건 저장" + (skipped ? " · " + skipped + "건 제외" : "");
+    };
+    planForm.addEventListener("change", function (e) {
+      if (e.target.closest && e.target.closest(".plan-skip")) planCount();
+    });
+    planCount();
+  }
   var wrap = document.getElementById("area-tabs");
   if (wrap) {
     var tablist = wrap.querySelector(".tabs");

@@ -441,6 +441,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
             items.append({"kind": item["kind"], "key": f"{prefix}{i}", **{k: v for k, v in item.items() if k != "kind"}})
             used.update(item.get("files", []))
 
+    flag_similar_follow_ups(items)
     unused = [n for n in sorted(readable) if n not in used]
     unread = [n for n in sorted(by_number) if n not in readable]
     if unused or unread:
@@ -453,6 +454,59 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
             reasons.append("읽을 수 없는 파일 (" + ", ".join(states) + ")")
         items.append({"kind": "unplaced", "key": "u1", "reason": " · ".join(reasons), "files": unused + unread})
     return {"items": items}
+
+
+_PARTICLES = "을를은는이가의에로과와도"
+_PUNCT = re.compile(r"[^\w\s]")
+
+
+def _task_text(task: str) -> str:
+    return " ".join(_PUNCT.sub(" ", str(task or "").lower()).split())
+
+
+def _task_tokens(task: str) -> list[str]:
+    """할 일 글의 낱말 (끝의 조사 한 글자는 뗀다)."""
+    return [t[:-1] if len(t) >= 3 and t[-1] in _PARTICLES else t for t in _task_text(task).split()]
+
+
+def _same_token(a: str, b: str) -> bool:
+    return a == b or (min(len(a), len(b)) >= 3 and (a.startswith(b) or b.startswith(a)))
+
+
+def similar_tasks(a: dict, b: dict) -> bool:
+    """두 후속 조치가 같은 할 일로 보이는가: 정리한 글이 같거나, 기한이 같고 낱말이 대부분 겹친다."""
+    ta, tb = _task_text(a.get("task", "")), _task_text(b.get("task", ""))
+    if not ta or not tb:
+        return False
+    if ta == tb:
+        return True
+    due_a, due_b = str(a.get("due") or "").strip(), str(b.get("due") or "").strip()
+    if not due_a or due_a != due_b:
+        return False
+    wa, wb = _task_tokens(ta), _task_tokens(tb)
+    small, large = (wa, wb) if len(wa) <= len(wb) else (wb, wa)
+    if len(small) < 2:
+        return False
+    return sum(1 for t in small if any(_same_token(t, u) for u in large)) / len(small) >= 0.7
+
+
+def flag_similar_follow_ups(items: list[dict]) -> None:
+    """같은 묶음의 다른 활동 기록에 이미 있는 후속 조치와 비슷한 것을 뒤쪽 항목에 표시한다
+    (`dup_follow_ups: [{"row", "task", "of"}]`). 지우지는 않는다: 사용자가 확인 화면에서 고른다."""
+    seen: list[tuple[str, dict]] = []
+    for item in items:
+        if item.get("kind") != "activity":
+            continue
+        rows = (item.get("draft") or {}).get("follow_ups", [])
+        flagged = []
+        for i, row in enumerate(rows):
+            for key, other in seen:
+                if similar_tasks(row, other):
+                    flagged.append({"row": i, "task": str(row.get("task", "")), "of": key})
+                    break
+        if flagged:
+            item["dup_follow_ups"] = flagged
+        seen.extend((item["key"], row) for row in rows if str(row.get("task", "")).strip())
 
 
 # ---- 정리 시작·복구 ----
@@ -668,8 +722,96 @@ def _file_names(intake: Intake) -> dict[int, str]:
     return {file_number(intake, f): f.original_name for f in intake.files}
 
 
+_PLAIN_MD = [(re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"), (re.compile(r"(\*\*|__|`|~~)"), ""),
+             (re.compile(r"^\s*(#{1,6}|[-*+>]|\d+[.)])\s+"), "")]
+
+
+def plain_lines(md: str, count: int = 3) -> list[str]:
+    """마크다운 정리본의 앞 몇 줄을 기호 없는 글자로 (요약용). 제목 줄과 참석자 목록은 건너뛴다."""
+    lines: list[str] = []
+    skipping = False
+    for raw in str(md or "").splitlines():
+        if re.match(r"\s*#{1,6}\s", raw):
+            skipping = raw.lstrip("# \t").startswith("참석자")
+            continue
+        if skipping:
+            continue
+        line = raw
+        for pattern, repl in _PLAIN_MD:
+            line = pattern.sub(repl, line)
+        line = line.strip()
+        if line:
+            lines.append(line)
+        if len(lines) >= count:
+            break
+    return lines
+
+
+_SIG_SKIP = {"skip", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "selected", "new_names"}
+
+
+def _signature(v: dict) -> dict:
+    """사용자가 고쳤는지 비교할 값 (빈 줄·줄바꿈 방식·선택 순서 차이는 무시)."""
+    def norm(x):
+        return x.replace("\r\n", "\n") if isinstance(x, str) else x
+
+    sig = {}
+    for k, val in v.items():
+        if k in _SIG_SKIP:
+            continue
+        if k.endswith("_ids"):
+            sig[k] = sorted(str(x) for x in val)
+        elif k in ("fu_rows", "ds_rows"):
+            sig[k] = [tuple(norm(x) for x in r.values()) for r in val if any(x for x in r.values())]
+        else:
+            sig[k] = norm(val)
+    return sig
+
+
+def _brief(db: Session, item: dict, v: dict, names: dict[int, str]) -> dict:
+    """접힌 카드에 보일 요약."""
+    from app import records
+
+    kind = item["kind"]
+    b: dict = {"title": "", "facts": []}
+    if kind == "activity":
+        b["title"] = v["title"].strip() or "(제목 없음)"
+        b["date"], b["kind_label"] = v["date"], labels.ACTIVITY_KINDS.get(v["kind"], v["kind"])
+        b["lines"] = plain_lines(v["summary_md"])
+        b["fu_count"] = sum(1 for r in v["fu_rows"] if r["task"])
+        b["ds_count"] = sum(1 for r in v["ds_rows"] if r["content"])
+        linked = []
+        for t, (model, _) in records.LINK_TYPES.items():
+            for number in v["selected"][t]:
+                obj = db.get(model, number)
+                if obj is not None:
+                    linked.append(obj.name)
+        b["linked"] = linked
+        b["new_names"] = [n for rel in ("solutions", "customers", "partners") for n, on in v["new_options"][rel] if on]
+        b["new_candidates"] = [n for rel in ("solutions", "customers", "partners") for n, on in v["new_options"][rel] if not on]
+        dups = {str(d.get("task", "")).strip() for d in item.get("dup_follow_ups", [])}
+        b["dup_tasks"] = dups
+        b["dup_count"] = sum(1 for r in v["fu_rows"] if r["task"].strip() in dups)
+    elif kind == "new_solution":
+        b["title"] = v["name"].strip() or "(이름 없음)"
+        partner = db.get(Partner, int(v["partner"])) if str(v["partner"]).isdecimal() and len(str(v["partner"])) < 18 else None
+        b["partner"] = partner.name if partner is not None else v["partner_new"].strip()
+        b["summary"] = v["summary"].strip()
+        b["tags"] = [t.strip() for t in v["tags"].split(",") if t.strip()]
+    elif kind == "add_to_solution":
+        number = _digits(v["solution"])
+        target = db.get(Solution, number) if number is not None else None
+        b["title"] = target.name if target is not None else "(대상 솔루션을 고르세요)"
+    elif kind in ("new_customer", "new_partner"):
+        b["title"] = v["name"].strip() or "(이름 없음)"
+        b["contact"] = v["contact"].strip()
+        b["industry"] = v.get("industry", "").strip()
+    return b
+
+
 def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
-    """정리안 확인 화면의 항목 카드: `{"item", "v", "files": [(번호, 이름)], "ambiguous"}`. `form` 이 있으면 제출한 값을 유지한다."""
+    """정리안 확인 화면의 항목 카드: `{"item", "v", "files", "ambiguous", "brief", "open"}`. `form` 이 있으면 제출한 값을 유지한다.
+    `open` 은 고치기를 펼쳐 둘 카드 (저장할 수 없는 입력이거나, 제출한 값이 기본값과 다른 카드)."""
     from app import records
 
     fields = _Fields(form) if form is not None else None
@@ -682,6 +824,10 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
         if item["kind"] == "activity":
             for t, (model, rel) in records.LINK_TYPES.items():
                 card["ambiguous"][t] = records.ambiguous_view(db, model, item.get("ambiguous", {}).get(rel, []))
+        if item["kind"] != "unplaced":
+            card["brief"] = _brief(db, item, v, names)
+            card["open"] = item_error(item, v) is not None or (
+                fields is not None and _signature(v) != _signature(item_values(item, None, names)))
         cards.append(card)
     return cards
 
@@ -755,6 +901,7 @@ class _Run:
         self.by_number = {file_number(intake, f): f for f in intake.files}
         self.result: list[dict] = []
         self.skipped: list[dict] = []
+        self.unsaved: list[dict] = []  # 저장하지 않은 파일 (정리하지 못한 파일, 제외한 항목의 파일)
         self.known: dict[str, dict[str, object]] = {"solutions": {}, "customers": {}, "partners": {}}
         self.sync: list = []
         self.file_texts: list[tuple] = []
@@ -813,6 +960,34 @@ class _Run:
                 self.remember("partners", partner)
             return partner
         return None
+
+
+def _item_title(item: dict, v: dict) -> str:
+    return str(v.get("title") or v.get("name") or item.get("solution_name") or "").strip()
+
+
+def _unsaved_files(intake: Intake, chosen: list[tuple[dict, dict]], fields: _Fields, names: dict[int, str]) -> list[dict]:
+    """저장하지 않은 파일: 정리하지 못한 파일과, 제외한 항목에만 쓰인 파일. 확인 화면이 작업 폴더 없이 보여 줄 수 있게
+    저장 결과에 이름·이유·파일 번호를 적어 둔다."""
+    by_number = {file_number(intake, f): f for f in intake.files}
+    used = {n for item, _ in chosen for n in item.get("files", [])}
+    out: list[dict] = []
+    seen: set[int] = set()
+    for item in (intake.plan or {}).get("items", []):
+        if item["kind"] == "unplaced":
+            reason = str(item.get("reason") or "").strip() or NOT_PLACED
+        elif item["kind"] in SAVEABLE_KINDS and fields.flag(f"skip_{item['key']}"):
+            title = _item_title(item, item_values(item, fields, names))
+            reason = f"직접 제외한 항목 ({labels.INTAKE_ITEM_KINDS[item['kind']]}{': ' + title if title else ''})"
+        else:
+            continue
+        for n in item.get("files", []):
+            f = by_number.get(n)
+            if f is None or n in used or n in seen:
+                continue
+            seen.add(n)
+            out.append({"type": "unsaved", "id": None, "label": f.original_name, "reason": reason, "file_id": f.id})
+    return out
 
 
 def _extract_for_solutions(settings: Settings, intake: Intake, chosen: list[tuple[dict, dict]]) -> dict[int, ExtractResult]:
@@ -879,7 +1054,9 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             if target is not None and stored and normalize_name(stored) != normalize_name(db.get(Solution, target).name):
                 target = None
         if target is None:
-            run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_to_solution']}: {TARGET_GONE}"})
+            files = [{"id": run.by_number[n].id, "name": run.by_number[n].original_name} for n in item.get("files", []) if n in run.by_number]
+            run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_to_solution']}: {TARGET_GONE}",
+                                "reason": TARGET_GONE, "files": files})
             continue
         solution = db.get(Solution, target)
         made = run.attach(solution, item, v)
@@ -914,6 +1091,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         run.result.append({"type": "activity", "id": a.id, "label": a.title or "(제목 없음)"})
         run.sync.append(a)
     run.result.extend(run.skipped)
+    run.result.extend(run.unsaved)
 
 
 def _sync_knowledge(db: Session, mirror: KnowledgeMirror, run: _Run) -> None:
@@ -990,6 +1168,7 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         if intake.plan != plan:  # 선점 사이에 다시 정리되어 정리안이 바뀌었다
             raise NotReady
         run = _Run(db, settings, intake, user, extracted, copied)
+        run.unsaved = _unsaved_files(intake, chosen, fields, names)
         _create_records(run, chosen)
         # 끝내는 전환은 내 선점일 때만 된다: 그 사이 "다시 확인" 으로 풀렸거나 다른 저장·정리가 시작됐으면 모두 되돌린다
         done = db.execute(
