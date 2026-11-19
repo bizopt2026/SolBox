@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from app import intake as intake_lib
-from app import labels
+from app import labels, transcribe
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/intake")
 
 NOT_YOURS = "올린 사람과 관리자만 볼 수 있습니다."
 NOTE_TOO_LONG = f"메모는 {intake_lib.MAX_NOTE}자까지 쓸 수 있습니다."
-NOTICES = {"not_ready": "이미 저장했거나 저장할 수 없는 상태입니다."}
+NOTICES = {"not_ready": "이미 저장했거나 저장할 수 없는 상태입니다.", "superseded": intake_lib.SAVE_SUPERSEDED}
 CANNOT_DISCARD = "저장 중이거나 저장이 끝난 묶음은 버릴 수 없습니다."
 _ASCII_UNSAFE = re.compile(r'[^\x20-\x7e]|["\\%]')
 
@@ -72,6 +72,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
         skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
+        transcriber_ready=transcribe.get(request.app.state.settings).available(),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         saved=[e for e in intake.result or [] if e.get("type") != "skipped"] if intake.status == "applied" else [],
         not_saved=[e for e in intake.result or [] if e.get("type") == "skipped"] if intake.status == "applied" else [],
@@ -102,7 +103,11 @@ def create(
         intake, skipped = intake_lib.create_intake(db, settings, user, note, files)
     except ValueError as e:
         return again(str(e))
-    intake_lib.prepare_workdir(settings, intake)
+    try:
+        intake_lib.prepare_workdir(settings, intake)
+    except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 정리를 시작할 때 작업 폴더를 다시 준비한다
+        db.rollback()
+        log.exception("올리기 묶음 %s 작업 폴더 준비 실패", intake.id)
     try:
         intake_lib.start_analysis(db, intake, user)
     except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 상세 화면의 "정리 시작" 으로 다시 할 수 있다
@@ -181,6 +186,7 @@ def analyze(
                 return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
             intake.note = note.strip()
             db.commit()
+        intake_lib.ensure_workdir(request.app.state.settings, intake)  # 준비가 덜 끝난 묶음은 여기서 다시 준비한다
         intake_lib.start_analysis(db, intake, user)
     return RedirectResponse(f"/intake/{intake.id}", status_code=303)
 
@@ -195,6 +201,8 @@ def apply(
     intake = get_intake(db, user, intake_id)
     try:
         intake_lib.apply(db, request.app.state.settings, mirror, intake, user, form)
+    except intake_lib.Superseded:
+        return RedirectResponse(f"/intake/{intake.id}?notice=superseded", status_code=303)
     except intake_lib.NotReady:
         return RedirectResponse(f"/intake/{intake.id}?notice=not_ready", status_code=303)
     except ValueError as e:  # 입력 오류: 입력값을 그대로 둔 채 화면을 다시 보여 준다

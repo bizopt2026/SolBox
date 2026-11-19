@@ -17,11 +17,11 @@
 - 명령줄: `create-admin`, `rebuild-knowledge`, `backup`, `backup --verify <폴더>`, `make-cert`, `check`
 
 ## 올리기 구조
-- 파일을 한 번에 올리면(`Intake`, `IntakeFile`; `app/intake.py`, `routers/intake.py`) AI 작업 `intake_analyze`(`ai/intake_tasks.py`, 프롬프트 `prompts/intake_analyze.md`)가 정리안(`Intake.plan`)을 만들고, 사용자가 확인하면 `intake.apply` 가 `app/records.py` 의 공용 저장 로직으로 기록을 만든다. 상태: 올림 → 정리 중 → 확인 대기 → 저장 완료 / 실패 / 버림.
+- 파일을 한 번에 올리면(`Intake`, `IntakeFile`; `app/intake.py`, `routers/intake.py`) AI 작업 `intake_analyze`(`ai/intake_tasks.py`, 프롬프트 `prompts/intake_analyze.md`)가 정리안(`Intake.plan`)을 만들고, 사용자가 확인하면 `intake.apply` 가 `app/records.py` 의 공용 저장 로직으로 기록을 만든다. 상태: 올림 → 정리 중 → 확인 대기 → 저장 중(`applying`) → 저장 완료 / 실패 / 버림. 저장 중에는 선점마다 `Intake.apply_token` 이 붙고, 저장을 끝내거나 풀 수 있는 것은 그 토큰의 주인뿐이다 (오래 멈춘 저장을 "다시 확인" 으로 풀어도 옛 저장이 뒤늦게 끝나 두 번 저장되지 않게).
 - 음성 받아쓰기는 `app/transcribe.py` 의 연결 지점뿐이다 (설정 `transcriber`, 지금은 `none`: 음성은 "받아쓰기 필요"로 보관만).
 
 ## 꼭 지킬 규칙
-- 올리기 정리 작업의 작업 폴더는 `intake_work/<묶음 번호>/`(글 사본·줄인 사진·`파일목록.md`)이고 도구는 파일 도구(`DEFAULT_TOOLS`)뿐이다. 원본은 `uploads/intake/` 에 있고 실패·버림 뒤에도 지우지 않는다.
+- 올리기 정리 작업의 작업 폴더는 `intake_work/<묶음 번호>/`(글 사본·줄인 사진·`파일목록.md`)이고 도구는 파일 도구(`DEFAULT_TOOLS`)뿐이다. 이름만 쓴 `Read` 는 어느 경로든 허용이라 폴더 밖을 읽을 수 있으므로, 이 작업은 `run_json(..., file_scope=True)` 로 `Read(./**)`·`Glob(./**)`·`Grep(./**)` 만 허용해 실행한다 (실제 CLI 로 확인: 폴더 안 파일·PNG 는 읽고, `../`·절대 경로·폴더 밖으로 가는 심볼릭 링크는 거절). 다른 작업(지식 폴더 읽기)은 그대로다. 작업 폴더는 저장·버림 뒤에 지우고 실패한 묶음에는 "다시 정리"를 위해 남기며, 정리를 시작할 때 비었거나 읽기 상태가 비었거나 `failed` 이면 다시 준비한다. 원본은 `uploads/intake/` 에 있고 실패·버림 뒤에도 지우지 않는다 (자동 정리 없음: 디스크와 백업이 계속 커진다).
 - 올리기의 AI는 기록을 추가만 한다. 기존 기록을 고치거나 지우는 정리안 항목은 만들지 않는다.
 - 한 묶음은 한 번만 저장된다 (두 번 눌러도, 동시에 눌러도 기록이 한 벌만).
 - DB가 원본, `knowledge/` 는 사본이다. 저장·수정·삭제 뒤에는 커밋 후 사본을 갱신한다 (`KnowledgeMirror`).

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+import secrets
 import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -29,7 +30,7 @@ CHUNK = 1024 * 1024
 MAX_FILES = 20
 MAX_NOTE = 500
 MAX_IMAGE_SIDE = 2000
-MAX_IMAGE_PIXELS = 80_000_000  # 이보다 큰 사진은 열지 않고 읽지 못한 것으로 둔다
+MAX_IMAGE_PIXELS = 40_000_000  # 이보다 큰 사진은 열지 않고 읽지 못한 것으로 둔다
 MAX_COPY_NAME_BYTES = 150  # 작업 폴더 사본 이름의 UTF-8 바이트 상한 (파일 시스템 이름 길이 제한 대비)
 MAX_RAW_TEXT = 200_000
 MAX_TAGS = 5
@@ -201,7 +202,8 @@ def _transcribe_audio(f: IntakeFile, number: int, src: Path, folder: Path, trans
         return ""
     try:
         text = transcriber.transcribe(src).strip()
-    except transcribe.TranscribeError:
+    except transcribe.TranscribeError as e:
+        log.warning("음성 받아쓰기 실패 (%s): %s", f.original_name, e)
         text = ""
     if not text:
         f.read_status = "failed"
@@ -243,7 +245,7 @@ def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path, transcrib
 
 def prepare_workdir(settings: Settings, intake: Intake) -> None:
     """`intake_work/<id>/` 를 비우고 다시 만든다: 문서는 글 사본(.md), 사진은 줄인 사본, 파일목록.md.
-    한 파일의 사본을 쓰지 못해도(OSError) 그 파일만 읽지 못함으로 두고 나머지를 계속한다."""
+    한 파일의 사본을 만들지 못해도(어떤 오류든) 그 파일만 읽지 못함으로 두고 나머지를 계속한다."""
     folder = work_dir(settings, intake)
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True, exist_ok=True)
@@ -253,7 +255,8 @@ def prepare_workdir(settings: Settings, intake: Intake) -> None:
         number = file_number(intake, f)
         try:
             copy_name = _prepare_file(f, number, stored_path(settings, f), folder, transcriber)
-        except OSError:
+        except Exception:  # noqa: BLE001 - 파일 하나가 깨져도 묶음 전체의 준비를 멈추지 않는다
+            log.exception("올리기 묶음 %s 의 파일 %s 사본을 만들지 못했습니다", intake.id, f.id)
             f.read_status, copy_name = "failed", ""
         rows.append((number, f, copy_name))
     lines = ["# 파일 목록", "", "| 번호 | 원래 이름 | 종류 | 읽기 상태 | 사본 파일 |", "|---|---|---|---|---|"]
@@ -271,6 +274,27 @@ def prepare_workdir(settings: Settings, intake: Intake) -> None:
 
 def remove_workdir(settings: Settings, intake: Intake) -> None:
     shutil.rmtree(work_dir(settings, intake), ignore_errors=True)
+
+
+def needs_prepare(settings: Settings, intake: Intake) -> bool:
+    """작업 폴더 준비가 끝나지 않았거나(읽기 상태가 비었거나 읽지 못함) 파일목록이 없으면 True."""
+    if any(f.read_status in ("", "failed") for f in intake.files):
+        return True
+    return not (work_dir(settings, intake) / FILE_LIST_NAME).is_file()
+
+
+def ensure_workdir(settings: Settings, intake: Intake) -> None:
+    """정리를 시작하기 전에 필요하면 작업 폴더를 다시 준비한다 (일시적인 실패가 다음 시도에서 낫도록).
+    준비 자체가 실패해도 올리지 못하는 것은 아니므로 기록만 남긴다 (읽을 수 있는 파일이 없으면 정리 시작이 실패로 둔다)."""
+    if not needs_prepare(settings, intake):
+        return
+    try:
+        prepare_workdir(settings, intake)
+    except Exception:  # noqa: BLE001
+        session = object_session(intake)
+        if session is not None:
+            session.rollback()
+        log.exception("올리기 묶음 %s 작업 폴더 준비 실패", intake.id)
 
 
 # ---- 정리안 검증 ----
@@ -505,6 +529,7 @@ SAVEABLE_KINDS = ("new_partner", "new_customer", "new_solution", "add_to_solutio
 NOTHING_TO_SAVE = "저장할 항목이 없습니다."
 APPLY_FAILED = "저장하지 못했습니다. 아무것도 저장되지 않았으니 잠시 후 다시 저장해 주세요. 계속 안 되면 관리자에게 알려 주세요."
 APPLY_INTERRUPTED = "저장하는 도중 서버가 멈췄습니다. 아무것도 저장되지 않았으니 다시 저장해 주세요."
+SAVE_SUPERSEDED = "다른 저장이나 다시 정리가 먼저 시작되어 이 저장은 취소했습니다. 화면을 새로 고쳐 확인해 주세요."
 PLAN_CHANGED = "정리안이 그 사이 바뀌었습니다."
 TARGET_GONE = "대상 솔루션이 삭제되어 자료를 추가하지 못했습니다."
 _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "catalog")), ("spec", ("스펙", "spec", "사양", "규격", "datasheet")))
@@ -512,6 +537,10 @@ _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "c
 
 class NotReady(Exception):
     """확인 대기(ready) 상태가 아니거나 다른 요청이 먼저 저장을 시작했다."""
+
+
+class Superseded(NotReady):
+    """이 저장이 끝나기 전에 선점이 풀리거나 다른 저장·정리가 시작되어 이 저장을 취소했다."""
 
 
 class ApplyFailed(Exception):
@@ -657,17 +686,20 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
     return cards
 
 
-def _release_once(db: Session, intake_id: int, message: str) -> None:
-    db.execute(update(Intake).where(Intake.id == intake_id, Intake.status == "applying").values(status="ready", error=message))
+def _release_once(db: Session, intake_id: int, token: str, message: str) -> None:
+    db.execute(
+        update(Intake).where(Intake.id == intake_id, Intake.status == "applying", Intake.apply_token == token)
+        .values(status="ready", error=message, apply_token=None)
+    )
     db.commit()
 
 
-def _release(db: Session, intake_id: int, message: str) -> None:
-    """저장 중(applying)인 묶음을 다시 확인 대기로 돌린다 (오류 문구와 함께). 실패하면 한 번 더 해 보고, 그래도 안 되면 기록만 남긴다
-    (그 묶음은 화면의 "다시 확인" 이나 서버를 다시 시작할 때 풀린다)."""
+def _release(db: Session, intake_id: int, token: str, message: str) -> None:
+    """이 저장(token)이 선점한 묶음을 다시 확인 대기로 돌린다 (오류 문구와 함께). 그 사이 다른 저장이 선점했거나 다시 정리가 시작됐으면
+    건드리지 않는다. 실패하면 한 번 더 해 보고, 그래도 안 되면 기록만 남긴다 (그 묶음은 화면의 "다시 확인" 이나 서버를 다시 시작할 때 풀린다)."""
     for attempt in (1, 2):
         try:
-            _release_once(db, intake_id, message)
+            _release_once(db, intake_id, token, message)
             return
         except Exception:  # noqa: BLE001
             db.rollback()
@@ -685,7 +717,7 @@ def recheck_applying(db: Session, intake: Intake) -> bool:
     """오래 저장 중으로 남은 묶음을 확인 대기로 되돌린다. 조건부 UPDATE 라 그 사이 끝났거나 아직 새로운 저장은 건드리지 않는다."""
     result = db.execute(
         update(Intake).where(Intake.id == intake.id, Intake.status == "applying", Intake.updated_at < datetime.now() - APPLYING_STALE)
-        .values(status="ready", error=APPLY_INTERRUPTED)
+        .values(status="ready", error=APPLY_INTERRUPTED, apply_token=None)
     )
     db.commit()
     db.refresh(intake)
@@ -694,7 +726,7 @@ def recheck_applying(db: Session, intake: Intake) -> bool:
 
 def recover_applying(db: Session) -> int:
     """앱을 시작할 때 저장 중으로 남은 묶음을 확인 대기로 되돌린다. 저장은 한 번에 커밋되므로 그 묶음의 기록은 만들어지지 않았다."""
-    result = db.execute(update(Intake).where(Intake.status == "applying").values(status="ready", error=APPLY_INTERRUPTED))
+    result = db.execute(update(Intake).where(Intake.status == "applying").values(status="ready", error=APPLY_INTERRUPTED, apply_token=None))
     db.commit()
     return result.rowcount
 
@@ -934,8 +966,19 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         raise ValueError(NOTHING_TO_SAVE)
 
     intake_id = intake.id
+    # 느린 글 추출은 선점 전에 한다 (선점 구간을 짧게 두어 "다시 확인" 과 겹칠 일을 줄인다). 새 기록이 필요 없는 일이다.
+    try:
+        extracted = _extract_for_solutions(settings, intake, chosen)
+    except Exception as e:  # noqa: BLE001 - 아직 선점 전이라 되돌릴 것이 없다
+        db.rollback()
+        log.exception("올리기 묶음 %s 글 추출 실패", intake_id)
+        raise ApplyFailed(APPLY_FAILED) from e
     db.commit()  # 읽기 트랜잭션을 끝내고, 선점 UPDATE 를 짧은 쓰기 트랜잭션으로 한다
-    claimed = db.execute(update(Intake).where(Intake.id == intake_id, Intake.status == "ready").values(status="applying", error=""))
+    token = secrets.token_hex(16)
+    claimed = db.execute(
+        update(Intake).where(Intake.id == intake_id, Intake.status == "ready")
+        .values(status="applying", error="", apply_token=token)
+    )
     db.commit()
     if claimed.rowcount != 1:
         db.refresh(intake)
@@ -946,20 +989,28 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         db.refresh(intake)
         if intake.plan != plan:  # 선점 사이에 다시 정리되어 정리안이 바뀌었다
             raise NotReady
-        run = _Run(db, settings, intake, user, _extract_for_solutions(settings, intake, chosen), copied)
+        run = _Run(db, settings, intake, user, extracted, copied)
         _create_records(run, chosen)
-        intake.result = list(run.result)
-        intake.status, intake.applied_at, intake.error = "applied", datetime.now(), ""
+        # 끝내는 전환은 내 선점일 때만 된다: 그 사이 "다시 확인" 으로 풀렸거나 다른 저장·정리가 시작됐으면 모두 되돌린다
+        done = db.execute(
+            update(Intake).where(Intake.id == intake_id, Intake.status == "applying", Intake.apply_token == token)
+            .values(status="applied", result=list(run.result), applied_at=datetime.now(), error="", apply_token=None)
+        )
+        if done.rowcount != 1:
+            raise Superseded(SAVE_SUPERSEDED)
         db.commit()
     except BaseException as e:
-        db.rollback()
-        for path in copied:
+        for path in copied:  # 파일을 먼저 지운다 (rollback 이 실패해도 복사본이 남지 않게)
             path.unlink(missing_ok=True)
             try:
                 path.parent.rmdir()  # 새 솔루션의 빈 폴더 (자료가 남은 폴더는 그대로 둔다)
             except OSError:
                 pass
-        _release(db, intake_id, PLAN_CHANGED if isinstance(e, NotReady) else APPLY_FAILED)
+        db.rollback()
+        if isinstance(e, Superseded):
+            db.refresh(intake)  # 이 저장의 선점은 이미 없다. 다른 쪽의 상태를 건드리지 않는다
+            raise
+        _release(db, intake_id, token, PLAN_CHANGED if isinstance(e, NotReady) else APPLY_FAILED)
         db.refresh(intake)
         if isinstance(e, NotReady):
             raise

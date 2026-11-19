@@ -46,16 +46,17 @@ def load_prompt(name: str, **values) -> str:
 def run_json(
     db: Session, runner: ClaudeRunner, prompt: str, model: type[T], settings: Settings,
     *, allowed_tools: tuple[str, ...] | list[str] = DEFAULT_TOOLS,
-    timeout_s: int | None = None, cwd: Path | None = None,
+    timeout_s: int | None = None, cwd: Path | None = None, file_scope: bool = False,
 ) -> T:
     """프롬프트를 실행해 JSON 을 `model` 로 검증한다. 형식 오류(bad_output)면 한 번만 다시 시도한다.
 
     CLI 는 오래 걸리므로 실행 전에 `db` 의 읽기 트랜잭션을 끝낸다 (호출자는 DB 읽기를 먼저 마쳐야 한다)."""
     for attempt in (1, 2):
         db.rollback()
+        extra = {"file_scope": True} if file_scope else {}  # 다른 작업의 호출 모양은 그대로 둔다
         text = runner.run(
             prompt, allowed_tools=allowed_tools,
-            timeout_s=settings.ai_timeout_s if timeout_s is None else timeout_s, cwd=cwd,
+            timeout_s=settings.ai_timeout_s if timeout_s is None else timeout_s, cwd=cwd, **extra,
         )
         try:
             return parse_json_output(text, model)

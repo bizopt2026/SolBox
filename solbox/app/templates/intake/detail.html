@@ -14,7 +14,7 @@
 </div>
 {% endif %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
-{% if has_audio %}<p class="notice" role="note">음성 파일은 아직 받아쓰기를 지원하지 않습니다. 글자로 풀어 올려 주세요.</p>{% endif %}
+{% if has_audio and not transcriber_ready %}<p class="notice" role="note">음성 파일은 아직 받아쓰기를 지원하지 않습니다. 글자로 풀어 올려 주세요.</p>{% endif %}
 <section class="card">
   <dl>
     <dt>메모</dt><dd>{% if intake.note %}{{ intake.note }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
@@ -48,6 +48,9 @@
   <form method="post" action="/intake/{{ intake.id }}/analyze" class="stack">
     <div class="row"><button type="submit" class="primary">정리 시작</button></div>
   </form>
+  <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
+    <button type="submit" class="danger">이 묶음 버리기</button>
+  </form>
 </section>
 {% elif intake.status == "failed" %}
 <section class="card">
@@ -58,6 +61,9 @@
       <input type="text" name="note" value="{{ intake.note }}" maxlength="{{ max_note }}">
     </label>
     <div class="row"><button type="submit" class="primary">다시 정리</button></div>
+  </form>
+  <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
+    <button type="submit" class="danger">이 묶음 버리기</button>
   </form>
 </section>
 {% elif intake.status == "ready" %}

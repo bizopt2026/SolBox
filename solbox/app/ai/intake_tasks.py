@@ -155,8 +155,15 @@ class IntakePlanOut(BaseModel):
 
 def _names(db: Session, model, with_id: bool = False) -> str:
     rows = db.scalars(select(model).order_by(model.name))
-    lines = [f"- id {o.id}: {o.name}" if with_id else f"- {o.name}" for o in rows]
+    lines = [f"- id {o.id}: {intake_lib._flat(o.name)}" if with_id else f"- {intake_lib._flat(o.name)}" for o in rows]
     return "\n".join(lines) or "(없음)"
+
+
+def _drop(settings: Settings, intake: Intake) -> str:
+    """결과를 버리는 경우. 묶음이 버려졌거나 저장이 끝났으면 늦게 다시 생긴 작업 폴더도 지운다."""
+    if intake.status in ("discarded", "applied"):
+        intake_lib.remove_workdir(settings, intake)
+    return "superseded"
 
 
 def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
@@ -169,17 +176,20 @@ def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     folder = intake_lib.work_dir(settings, intake)
     if not (folder / intake_lib.FILE_LIST_NAME).is_file():  # 작업 폴더가 지워졌으면 원본으로 다시 만든다
         intake_lib.prepare_workdir(settings, intake)
+        if intake.status != "analyzing" or intake.job_id != job_id:  # 만드는 사이 버려졌거나 다시 정리가 시작되었다
+            return _drop(settings, intake)
     note = (intake.note or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO").strip()
     prompt = load_prompt(
         "intake_analyze", today=date.today().isoformat(), note=note or "(없음)",
         solutions=_names(db, Solution, with_id=True), customers=_names(db, Customer), partners=_names(db, Partner),
     )
-    out = run_json(db, runner, prompt, IntakePlanOut, settings, cwd=folder)  # 읽기 트랜잭션은 여기서 끝난다
+    # 파일 도구는 작업 폴더 안으로만 허용한다 (업로드 자료가 다른 파일을 읽게 시키는 것을 막는다)
+    out = run_json(db, runner, prompt, IntakePlanOut, settings, cwd=folder, file_scope=True)  # 읽기 트랜잭션은 여기서 끝난다
     intake = db.get(Intake, intake_id)
     if intake is None:
         return "deleted"
     if intake.status != "analyzing" or intake.job_id != job_id:
-        return "superseded"  # 그 사이 다시 정리가 시작되었다
+        return _drop(settings, intake)  # 그 사이 버려졌거나 다시 정리가 시작되었다
     plan = intake_lib.clean_plan(db, intake, out, date.today(), settings)
     saved = db.execute(
         update(Intake).where(Intake.id == intake_id, Intake.status == "analyzing", Intake.job_id == job_id)

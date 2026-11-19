@@ -181,12 +181,13 @@ class Intake(Stamped, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     note: Mapped[str] = mapped_column(String, default="")
-    status: Mapped[str] = mapped_column(String, default="uploaded")  # uploaded / analyzing / ready / applied / failed / discarded
+    status: Mapped[str] = mapped_column(String, default="uploaded")  # uploaded / analyzing / ready / applying(저장 중) / applied / failed / discarded
     plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result: Mapped[list] = mapped_column(JSON, default=list)  # 저장으로 만들어진 기록 [{"type", "id", "label"}]
     job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
     error: Mapped[str] = mapped_column(Text, default="")
     applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    apply_token: Mapped[str | None] = mapped_column(String, nullable=True)  # 저장 중(applying)인 선점의 정체. 그 선점만 저장을 끝내거나 풀 수 있다
 
     files: Mapped[list["IntakeFile"]] = relationship(
         back_populates="intake", cascade="all, delete-orphan", order_by="IntakeFile.id"

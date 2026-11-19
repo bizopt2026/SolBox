@@ -481,11 +481,11 @@ def test_release_is_retried_once(app, user_client, db, settings, monkeypatch):
     real = intake_lib._release_once
     calls = []
 
-    def flaky(db_, intake_id, message):
+    def flaky(db_, intake_id, token, message):
         calls.append(1)
         if len(calls) == 1:
             raise RuntimeError("locked")
-        return real(db_, intake_id, message)
+        return real(db_, intake_id, token, message)
 
     monkeypatch.setattr(intake_lib, "_release_once", flaky)
     assert _apply(user_client, it, form).status_code == 500
