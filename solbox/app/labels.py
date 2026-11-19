@@ -30,6 +30,15 @@ INTAKE_STATUSES = {
 
 INTAKE_FILE_KINDS = {"document": "문서", "image": "사진", "audio": "음성", "other": "기타"}
 
+INTAKE_ITEM_KINDS = {
+    "new_solution": "새 솔루션",
+    "add_to_solution": "솔루션에 자료 추가",
+    "activity": "활동 기록",
+    "new_customer": "새 고객",
+    "new_partner": "새 파트너",
+    "unplaced": "정리하지 못한 파일",
+}
+
 READ_STATUSES = {
     "ok": "읽음",
     "failed": "읽지 못함",
@@ -52,6 +61,7 @@ JOB_KINDS = {
     "proposal_outline": "제안서 구성안 만들기",
     "research_area": "리서치 분야 조사",
     "research_suggest": "리서치 발굴 방향 제안",
+    "intake_analyze": "올린 파일 정리",
     "ai_ping": "AI 연결 확인",
 }
 
@@ -64,6 +74,7 @@ JOB_EXPECTED = {
     "proposal_outline": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
     "research_suggest": "보통 1분 안에",
+    "intake_analyze": "보통 1분 안에",
     "ai_ping": "보통 10초 안에",
 }
 

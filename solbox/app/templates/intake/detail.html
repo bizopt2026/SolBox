@@ -13,6 +13,7 @@
   <ul>{% for s in skipped %}<li>{{ s }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
+{% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
 {% if has_audio %}<p class="notice" role="note">음성 파일은 아직 받아쓰기를 지원하지 않습니다. 글자로 풀어 올려 주세요.</p>{% endif %}
 <section class="card">
   <dl>
@@ -35,5 +36,43 @@
     </tbody>
   </table></div>
 </section>
+{% if intake.status == "analyzing" %}
+<section class="card" aria-label="정리 진행">
+  <h2>AI가 파일을 정리하고 있어요</h2>
+  {% set job = intake.job %}
+  {% include "intake/_status.html" %}
+</section>
+{% elif intake.status == "failed" %}
+<section class="card">
+  <h2>정리하지 못했어요</h2>
+  <p class="error" role="alert">{{ intake.error or labels.ERROR_KINDS["unknown"] }}</p>
+  <form method="post" action="/intake/{{ intake.id }}/analyze" class="stack">
+    <label><span>메모 (선택, {{ max_note }}자까지)</span>
+      <input type="text" name="note" value="{{ intake.note }}" maxlength="{{ max_note }}">
+    </label>
+    <div class="row"><button type="submit" class="primary">다시 정리</button></div>
+  </form>
+</section>
+{% elif intake.status == "ready" %}
+<section class="card">
+  <h2>정리안</h2>
+  {% if items | selectattr("kind", "ne", "unplaced") | list | length == 0 %}
+  <p class="muted">정리할 내용을 찾지 못했습니다.</p>
+  {% endif %}
+  <ul class="plan-list">
+  {% for item in items %}
+    <li class="plan-item">
+      <span class="badge plan-{{ item.kind }}">{{ labels.INTAKE_ITEM_KINDS.get(item.kind, item.kind) }}</span>
+      <strong>{% if item.kind == "add_to_solution" %}{{ solution_names.get(item.solution_id, "솔루션 " ~ item.solution_id) }}
+        {% elif item.kind == "activity" %}{{ item.draft.title }}
+        {% elif item.kind == "unplaced" %}파일 {{ item.files | length }}개
+        {% else %}{{ item.name }}{% endif %}</strong>
+      {% if item.reason %}<p>{{ item.reason }}</p>{% endif %}
+      {% if item.files %}<p class="muted">파일: {% for n in item.files %}{{ n }}번 {{ file_names.get(n, "") }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
 <p><a class="button" href="/intake/new">+ 더 올리기</a></p>
 {% endblock %}

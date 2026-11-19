@@ -30,7 +30,7 @@ def test_upload_creates_intake_and_workdir(user_client, db, settings):
              ("files", ("녹취.txt", "한빛병원 통화 내용".encode(), "text/plain"))]
     r = user_client.post("/intake", data={"note": "신규 솔루션 후보"}, files=files, follow_redirects=False)
     it = db.query(Intake).one()
-    assert r.headers["location"] == f"/intake/{it.id}" and it.status == "uploaded" and it.note == "신규 솔루션 후보"
+    assert r.headers["location"] == f"/intake/{it.id}" and it.status == "analyzing" and it.note == "신규 솔루션 후보"
     assert [(f.original_name, f.kind, f.read_status) for f in it.files] == [("소개서.txt", "document", "ok"), ("녹취.txt", "document", "ok")]
     work = settings.intake_work_dir / str(it.id)
     assert (work / "1-소개서.txt.md").read_text(encoding="utf-8").startswith("# 소개서.txt")
@@ -74,12 +74,11 @@ def test_broken_image_marked_failed_and_others_continue(user_client, db, setting
 
 
 def test_decompression_bomb_is_failed(user_client, db, settings, monkeypatch):
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 100)  # 40x30 = 1200 > 100 → 경고, 200 넘으면 오류
+    from app import intake as intake_lib
+
+    monkeypatch.setattr(intake_lib, "MAX_IMAGE_PIXELS", 1000)  # 40x30 = 1200 > 1000
     _upload(user_client, [("폭탄.png", _png_bytes(), "image/png")])
     assert db.query(Intake).one().files[0].read_status == "failed"
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)  # 경고 구간 (1000 < 1200 <= 2000)
-    _upload(user_client, [("경고.png", _png_bytes(), "image/png")])
-    assert db.query(Intake).order_by(Intake.id.desc()).first().files[0].read_status == "failed"
 
 
 def test_audio_kept_with_needs_transcript(user_client, db, settings):

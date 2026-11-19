@@ -5,15 +5,16 @@ import re
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import intake as intake_lib
 from app import labels
+from app.ai.queue import queue_position
 from app.db import get_db
 from app.main import render
-from app.models import Intake, IntakeFile, User
+from app.models import Intake, IntakeFile, Solution, User
 from app.routers._common import get_or_404, paginate
 from app.security import require_user
 
@@ -35,10 +36,19 @@ def get_intake(db: Session, user: User, intake_id: int) -> Intake:
     return intake
 
 
-def detail_page(request: Request, user: User, intake: Intake, notice: str = "", skipped: list[str] | None = None):
+def _position(db: Session, intake: Intake) -> int:
+    return queue_position(db, intake.job) if intake.job is not None else 0
+
+
+def detail_page(request: Request, user: User, intake: Intake, db: Session, notice: str = "",
+                skipped: list[str] | None = None, status_code: int = 200):
+    items = (intake.plan or {}).get("items", []) if intake.status == "ready" else []
+    solution_names = {s.id: s.name for s in db.scalars(select(Solution))} if items else {}
     return render(
-        request, "intake/detail.html", user=user, intake=intake, notice=notice, skipped=skipped or [],
-        has_audio=any(f.kind == "audio" for f in intake.files),
+        request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
+        skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
+        position=_position(db, intake), items=items, solution_names=solution_names,
+        file_names={i: f.original_name for i, f in enumerate(intake.files, 1)}, max_note=intake_lib.MAX_NOTE,
     )
 
 
@@ -66,9 +76,9 @@ def create(
     except ValueError as e:
         return again(str(e))
     intake_lib.prepare_workdir(settings, intake)
-    db.refresh(intake)
+    intake_lib.start_analysis(db, intake, user)
     if skipped:
-        return detail_page(request, user, intake, skipped=skipped)
+        return detail_page(request, user, intake, db, skipped=skipped)
     return RedirectResponse(f"/intake/{intake.id}", status_code=303)
 
 
@@ -103,4 +113,35 @@ def download(file_id: int, request: Request, user: User = Depends(require_user),
 
 @router.get("/{intake_id}")
 def detail(intake_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return detail_page(request, user, get_intake(db, user, intake_id))
+    return detail_page(request, user, get_intake(db, user, intake_id), db)
+
+
+@router.get("/{intake_id}/status")
+def status(intake_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """정리 중 안내 조각 (HTMX). 끝나면(정리 중이 아니게 되면) 상세 화면으로 보낸다."""
+    intake = db.get(Intake, intake_id)
+    if intake is None:  # 그 사이 지워졌다. 조회를 멈추고 목록으로 보낸다.
+        return Response("올린 묶음이 없습니다.", headers={"HX-Redirect": "/intake"})
+    _ensure_owner(user, intake)
+    if intake.status != "analyzing":
+        return Response("정리가 끝났습니다.", headers={"HX-Redirect": f"/intake/{intake.id}"})
+    return render(request, "intake/_status.html", intake=intake, job=intake.job, position=_position(db, intake))
+
+
+@router.post("/{intake_id}/analyze")
+def analyze(
+    intake_id: int, request: Request, note: str | None = Form(None),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """메모를 고치고 다시 정리한다."""
+    intake = get_intake(db, user, intake_id)
+    if intake.status in ("applied", "discarded"):
+        raise HTTPException(status_code=400, detail="이미 끝난 묶음은 다시 정리할 수 없습니다.")
+    if intake.status != "analyzing":
+        if note is not None:
+            if len(note.strip()) > intake_lib.MAX_NOTE:
+                return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
+            intake.note = note.strip()
+            db.commit()
+        intake_lib.start_analysis(db, intake, user)
+    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
