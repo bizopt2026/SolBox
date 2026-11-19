@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import stage_badge %}
 {% block title %}홈{% endblock %}
 {% block content %}
 <h1>홈</h1>
@@ -8,7 +9,7 @@
   <h2>발굴 단계별 솔루션</h2>
   <ul class="stages">
     {% for code, name, count in stages %}
-    <li><a href="/solutions?stage={{ code }}">{{ name }}<strong>{{ count }}</strong></a></li>
+    <li><a href="/solutions?stage={{ code }}">{{ stage_badge(code) }}<strong>{{ count }}</strong></a></li>
     {% endfor %}
   </ul>
 </section>

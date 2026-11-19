@@ -56,3 +56,5 @@
   </div>
 </div>
 {% endmacro %}
+
+{% macro stage_badge(code) %}<span class="badge stage-{{ code }}">{{ labels.STAGES.get(code, code) }}</span>{% endmacro %}
