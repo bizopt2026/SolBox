@@ -264,3 +264,30 @@ details.formsec[open] > summary { margin-bottom:12px; }
 }
 
 .stepbar .busy-label { margin-left:4px; font-size:12px; font-weight:400; }
+
+/* 구성안: 접히는 슬라이드 카드 */
+.slide-card { padding:0; margin-bottom:8px; }
+.slide-card > .slide-summary { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:10px 16px; cursor:pointer; list-style:none; }
+.slide-card > .slide-summary::-webkit-details-marker { display:none; }
+.slide-card > .slide-summary::before { content:"\25B8"; color:var(--muted); width:12px; flex:none; }
+.slide-card[open] > .slide-summary::before { content:"\25BE"; }
+.slide-card > .slide-summary:hover { background:#f8f9fb; border-radius:8px; }
+.slide-no { min-width:1.5em; }
+.slide-title { margin:0; font-size:15px; flex:0 1 auto; min-width:0; overflow-wrap:anywhere; }
+.slide-msg { flex:1 1 160px; min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.badge.done { background:#eaecf0; color:#475467; }
+.slide-card .slide-body { padding:4px 16px 16px; border-top:1px solid var(--line); margin-top:0; }
+.slide-card .slide-body > * { margin-top:0; margin-bottom:0; }
+.slide-card .slide-body > * + * { margin-top:var(--gap); }
+.slide-card .slide-body > .slide-actions { margin-top:8px; }
+.slide-actions { display:flex; justify-content:flex-end; align-items:center; gap:8px; }
+.slide-actions form { margin:0; }
+.checks-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; }
+.checks-head form { margin:0; }
+.outline-tools { margin:0 0 8px; }
+.outline-summary .toggle-slides { display:inline-flex; gap:6px; }
+@media (max-width: 900px) {
+  .slide-card > .slide-summary { padding:8px 12px; }
+  .slide-msg { flex-basis:100%; padding-left:22px; }
+  .slide-card .slide-body { padding:4px 12px 12px; }
+}

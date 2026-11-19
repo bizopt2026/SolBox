@@ -72,6 +72,40 @@
     try { if (sessionStorage.getItem(KEY) === "1") apply(true); } catch (e) { /* 저장소를 못 쓰면 전체 보기 */ }
   });
 
+  // 구성안: 모두 펼치기/접기, 펼친 장 기억
+  var slideCards = Array.prototype.slice.call(document.querySelectorAll("details.slide-card"));
+  if (slideCards.length) {
+    var OPEN_KEY = "solbox.outline.open." + location.pathname;
+    var saveOpen = function () {
+      var ids = slideCards.filter(function (c) { return c.open; }).map(function (c) { return c.id; });
+      try { sessionStorage.setItem(OPEN_KEY, JSON.stringify(ids)); } catch (e) { /* 기억은 선택 사항 */ }
+    };
+    // 저장·이동 뒤(?open=)에는 번호가 바뀌었을 수 있으니 서버가 정한 상태에서 다시 시작한다
+    if (location.search.indexOf("open=") < 0) {
+      try {
+        var saved = JSON.parse(sessionStorage.getItem(OPEN_KEY) || "[]");
+        slideCards.forEach(function (c) { if (saved.indexOf(c.id) >= 0) c.open = true; });
+      } catch (e) { /* 저장소를 못 쓰면 서버가 정한 상태 그대로 */ }
+    }
+    saveOpen();
+    slideCards.forEach(function (c) { c.addEventListener("toggle", saveOpen); });
+    document.querySelectorAll(".toggle-slides").forEach(function (box) {
+      box.hidden = false;
+      box.addEventListener("click", function (e) {
+        var b = e.target.closest("button");
+        if (!b) return;
+        slideCards.forEach(function (c) { c.open = b.dataset.open === "1"; });
+        saveOpen();
+      });
+    });
+    var revealSlide = function () {
+      var c = document.getElementById(hashId());
+      if (c && c.matches("details.slide-card")) c.open = true;
+    };
+    window.addEventListener("hashchange", revealSlide);
+    revealSlide();
+  }
+
   // 리서치 상세: 모두 펼치기/접기, 분야 탭
   document.querySelectorAll(".toggle-all").forEach(function (box) {
     box.hidden = false;

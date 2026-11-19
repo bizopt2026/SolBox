@@ -51,7 +51,7 @@ def test_check_route_toggles_and_redirects(user_client, db, settings):
     before = p.outline_updated_at
     url = f"/proposals/{p.id}/outline/slides/2/check"
     r = user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "1"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}/outline#slide-2"
+    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}/outline?open=2#slide-2"
     db.refresh(p)
     assert p.outline["slides"][2]["checked"] == ["절감률 수치"] and p.outline_updated_at > before
     user_client.post(url, data={"item": "0", "text": "절감률 수치", "done": "1"})
@@ -113,7 +113,7 @@ def test_outline_page_levels_and_summary(user_client, db, settings):
     page = user_client.get(f"/proposals/{p.id}/outline").text
     text = re.sub(r"<[^>]+>", "", page)
     assert "근거 확인 1장 · 확인 필요 2장 · 확인 끝 1장" in text
-    card = lambda i: re.search(rf'<section class="card slide-card([^"]*)" id="slide-{i}"', page).group(1)
+    card = lambda i: re.search(rf'<details class="card slide-card([^"]*)" id="slide-{i}"', page).group(1)
     assert "check-evidence" in card(1) and "check-decide" in card(2) and "check-decide" in card(3) and "check" not in card(4)
     assert page.count('aria-label="확인함"') == 5 and page.count('aria-pressed="true"') == 1 and page.count('aria-pressed="false"') >= 4
     assert "남은 장만 보기" in page and "고객에게 보내기 전에" in page
@@ -312,7 +312,7 @@ def test_mixed_slide_shown_consistently(user_client, db, settings):
     db.commit()
     text = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}/outline").text)
     assert "확인할 항목이 남은 장: 확인 필요 1장" in text and "근거 확인 0장 · 확인 필요 1장 · 확인 끝 0장" in text
-    assert "check-decide" in re.search(r'<section class="card slide-card([^"]*)" id="slide-2"', user_client.get(f"/proposals/{p.id}/outline").text).group(1)
+    assert "check-decide" in re.search(r'<details class="card slide-card([^"]*)" id="slide-2"', user_client.get(f"/proposals/{p.id}/outline").text).group(1)
     assert section_summaries(p, [])["outline"] == "8장 · 확인 필요 1장"
     detail = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}").text)
     assert "확인할 항목이 남은 장: 확인 필요 1장" in detail and "8장 · 확인 필요 1장" in detail

@@ -39,26 +39,27 @@ def _load_for_edit(db: Session, proposal_id: int, index: int | None = None) -> t
     return p, slides
 
 
-def _back(p: Proposal, index: int | None = None) -> RedirectResponse:
-    anchor = f"#slide-{index}" if index is not None else ""
-    return RedirectResponse(f"/proposals/{p.id}/outline{anchor}", status_code=303)
+def _back(p: Proposal, index: int) -> RedirectResponse:
+    """처리 뒤 방금 만진 장이 펼쳐진 채로 구성안 화면으로 돌려보낸다."""
+    return RedirectResponse(f"/proposals/{p.id}/outline?open={index}#slide-{index}", status_code=303)
 
 
 @router.get("")
 def outline_page(
-    proposal_id: int, request: Request,
+    proposal_id: int, request: Request, open: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     p = _load(db, proposal_id)
     slides = p.outline["slides"]
+    open_index = int(open) if open.isascii() and open.isdigit() and len(open) <= 6 and int(open) < len(slides) else None
     busy = p.active_job is not None and p.active_job.status in ("pending", "running")
-    cards = [
-        {"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s),
-         "checks": check_items(s.get("needs_check"), s.get("checked"))}
-        for i, s in enumerate(slides)
-    ]
+    cards = []
+    for i, s in enumerate(slides):
+        checks = check_items(s.get("needs_check"), s.get("checked"))
+        cards.append({"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s),
+                      "checks": checks, "unchecked": sum(1 for c in checks if not c["checked"])})
     return render(
-        request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, busy=busy, summary=outline_check_summary(p.outline), src=SourceLookup(db),
+        request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy, summary=outline_check_summary(p.outline), src=SourceLookup(db),
         can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
     )
 
@@ -109,6 +110,22 @@ def check_item(
     return _back(p, index)
 
 
+@router.post("/slides/{index}/check-all")
+def check_all(
+    proposal_id: int, index: int, done: str = Form("1"),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """한 장의 확인 항목을 모두 확인함으로 표시하거나 모두 비운다."""
+    p, slides = _load_for_edit(db, proposal_id, index)
+    if done not in ("0", "1"):
+        raise HTTPException(status_code=400, detail="확인 여부가 올바르지 않습니다.")
+    slide = slides[index]
+    notes = [t for t in slide.get("needs_check") or [] if isinstance(t, str)]
+    slides[index] = {**slide, "checked": list(dict.fromkeys(notes)) if done == "1" else []}
+    save_outline(db, p, slides)
+    return _back(p, index)
+
+
 @router.post("/slides/{index}/delete")
 def delete_slide(
     proposal_id: int, index: int,
@@ -119,7 +136,7 @@ def delete_slide(
         raise HTTPException(status_code=400, detail="표지는 지울 수 없습니다.")
     del slides[index]
     save_outline(db, p, slides)
-    return _back(p)
+    return _back(p, min(index, len(slides) - 1))
 
 
 @router.post("/slides/{index}/move")
