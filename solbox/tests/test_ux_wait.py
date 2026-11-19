@@ -44,10 +44,18 @@ def test_wait_detail_combines_expected_and_elapsed():
     assert labels.wait_detail(J, now) == ""
 
 
-def test_job_status_fragment_shows_expected_and_elapsed(user_client, db):
-    j = _job(db, "solution_draft", status="running", started_at=datetime.now() - timedelta(seconds=35))
+def test_job_status_fragment_shows_expected_and_elapsed(user_client, db, monkeypatch):
+    now = datetime(2026, 11, 18, 12, 0, 0)
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(labels, "datetime", FrozenDatetime)
+    j = _job(db, "solution_draft", status="running", started_at=now - timedelta(seconds=35))
     html = user_client.get(f"/jobs/{j.id}/status").text
-    assert "AI가 작성 중입니다…" in html and "보통 30초 안에 끝납니다 · 3" in html and "초 경과)" in html
+    assert "AI가 작성 중입니다… (보통 30초 안에 끝납니다 · 35초 경과)" in html
 
 
 def test_pending_job_explains_the_queue(user_client, db):

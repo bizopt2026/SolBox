@@ -1,7 +1,7 @@
 :root { --fg:#1f2933; --muted:#667085; --line:#d9dee5; --accent:#1d4ed8; --bg:#f6f7f9; --err:#b42318; }
 * { box-sizing: border-box; }
 body { margin:0; font:15px/1.5 "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif; color:var(--fg); background:var(--bg); }
-.topbar { display:flex; align-items:center; gap:24px; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid var(--line); }
+.topbar { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:24px; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid var(--line); }
 .brand { font-weight:700; color:var(--fg); text-decoration:none; }
 .topbar nav { display:flex; align-items:stretch; align-self:stretch; gap:16px; flex:1; }
 .topbar nav > a, .topbar .menu summary { display:flex; align-items:center; color:var(--fg); text-decoration:none; padding:0 2px; border-bottom:2px solid transparent; margin-bottom:-1px; }
@@ -111,7 +111,7 @@ dd { margin:0; white-space:pre-wrap; }
 .followups form { margin:0; }
 .fu-body { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; }
 .fu-task { font-weight:600; }
-button.check { width:22px; height:22px; padding:0; margin-top:1px; border:2px solid var(--accent); border-radius:5px; background:#fff; }
+button.check { width:24px; height:24px; min-width:24px; min-height:24px; padding:0; margin-top:1px; border:2px solid var(--accent); border-radius:5px; background:#fff; }
 button.check:hover { background:#dbeafe; }
 
 /* 간격: 카드 안 요소 사이와 구역 제목 위는 모두 16px */
@@ -161,3 +161,4 @@ pre { overflow-x:auto; max-width:100%; }
   dt:first-child { margin-top:0; }
   dd ul { padding-left:18px; margin:0; }
 }
+.stagebar .step.current:disabled { opacity:1; cursor:default; }

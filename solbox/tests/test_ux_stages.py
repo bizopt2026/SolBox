@@ -59,3 +59,22 @@ def test_extra_solution_choices_show_stage_badge(user_client, db):
     db.add(Customer(name="c"))
     db.commit()
     assert 'class="badge stage-survey"' in user_client.get("/proposals/new").text
+
+
+def test_current_step_is_disabled_and_same_stage_post_writes_nothing(user_client, db, settings):
+    s = _make(db, "survey")
+    html = user_client.get(f"/solutions/{s.id}").text
+    assert re.search(r'value="survey"[^>]*aria-current="step" disabled', html)
+    assert html.count("disabled") == 1
+    card = settings.knowledge_dir / "solutions" / str(s.id) / "card.md"
+    assert not card.exists()
+    r = user_client.post(f"/solutions/{s.id}/stage", data={"stage": "survey"}, follow_redirects=False)
+    assert r.status_code == 303 and not card.exists()  # 쓰기·사본 갱신 없음
+    user_client.post(f"/solutions/{s.id}/stage", data={"stage": "boxed"})
+    assert card.exists()
+
+
+def test_past_steps_carry_a_check_prefix(user_client, db):
+    s = _make(db, "survey")
+    html = user_client.get(f"/solutions/{s.id}").text
+    assert ">✓ 아이템 접수<" in html and ">✓ 사전 태핑<" in html and ">✓ 수요조사<" not in html

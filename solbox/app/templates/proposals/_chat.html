@@ -15,10 +15,10 @@
 {% if not busy %}
 <form method="post" action="/proposals/{{ proposal.id }}/chat" class="stack">
   <label>메시지<textarea name="message" rows="3" required></textarea></label>
-  <div><button type="submit" class="primary">보내기</button></div>
+  <div><button type="submit"{% if proposal.outline %} class="primary"{% endif %}>보내기</button></div>
 </form>
 <form method="post" action="/proposals/{{ proposal.id }}/outline">
-  <button type="submit">제안서 만들기</button>
+  <button type="submit"{% if not proposal.outline %} class="primary"{% endif %}>제안서 만들기</button>
 </form>
 {% endif %}
 {% else %}

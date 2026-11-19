@@ -28,3 +28,10 @@ def test_every_table_is_inside_a_tablewrap(admin_client, db, settings):
 def test_stylesheet_has_narrow_screen_rules(client):
     css = client.get("/static/app.css").text
     assert "@media (max-width: 900px)" in css and ".tablewrap" in css and "white-space:nowrap" in css
+
+
+def test_topbar_is_sticky_and_menu_closes_on_outside_click_and_escape(admin_client):
+    css = admin_client.get("/static/app.css").text
+    assert re.search(r"\.topbar \{ position:sticky; top:0; z-index:10;", css)
+    html = admin_client.get("/").text
+    assert 'details.menu[open]' in html and '"Escape"' in html and 'addEventListener("click"' in html

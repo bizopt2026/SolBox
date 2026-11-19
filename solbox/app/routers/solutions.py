@@ -174,9 +174,10 @@ def change_stage(
     solution = get_or_404(db, Solution, solution_id)
     if stage not in labels.STAGES:
         raise HTTPException(status_code=400, detail=BAD_STAGE)
-    solution.stage = stage
-    db.commit()
-    mirror.sync(solution)
+    if solution.stage != stage:  # 같은 단계로 바꾸는 요청은 쓰지 않는다
+        solution.stage = stage
+        db.commit()
+        mirror.sync(solution)
     return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
 
 

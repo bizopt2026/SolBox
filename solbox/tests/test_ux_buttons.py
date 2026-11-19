@@ -22,3 +22,29 @@ def test_forms_have_one_primary_button(user_client):
 
 def test_run_now_is_primary_on_research_settings(admin_client):
     assert 'class="primary">지금 조사' in admin_client.get("/admin/research").text
+
+
+def test_each_form_has_exactly_one_primary(user_client, db):
+    from app.models import Customer
+    s = Solution(name="S", created_by_id=1)
+    db.add_all([s, Customer(name="C")])
+    db.commit()
+    for url in ("/customers/new", f"/solutions/{s.id}/edit", "/activities/new", "/proposals/new"):
+        html = user_client.get(url).text
+        card = re.search(r'<form[^>]*class="card stack".*?</form>', html, re.S).group(0)
+        assert card.count('class="primary"') + card.count(' primary"') == 1, url
+    from fastapi.testclient import TestClient
+    login = TestClient(user_client.app).get("/login").text
+    assert login.count('class="primary"') == 1
+
+
+def test_chat_section_has_one_primary_before_and_after_outline(user_client, db, settings):
+    from tests.conftest import refining_proposal
+    p = refining_proposal(db, settings)
+    chat = lambda: re.search(r'<section class="card" id="chat">.*?</section>', user_client.get(f"/proposals/{p.id}").text, re.S).group(0)
+    before = chat()
+    assert before.count('class="primary"') == 1 and 'class="primary">제안서 만들기' in before
+    p.outline = {"title": "t", "slides": [{"kind": "cover", "title": "표지"}]}
+    db.commit()
+    after = chat()
+    assert after.count('class="primary"') == 1 and 'class="primary">보내기' in after

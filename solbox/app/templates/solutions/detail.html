@@ -23,10 +23,10 @@
   <form method="post" action="/solutions/{{ solution.id }}/stage" class="stagebar">
     <div class="steps">
       {% for code in flow %}
-      <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if loop.index0 == at %} aria-current="step"{% endif %}>{{ labels.STAGES[code] }}</button>
+      <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at }}{{ labels.STAGES[code] }}</button>
       {% endfor %}
     </div>
-    <button type="submit" name="stage" value="hold" class="step hold{{ ' current' if solution.stage == 'hold' }}"{% if solution.stage == "hold" %} aria-current="step"{% endif %}>{{ labels.STAGES["hold"] }}</button>
+    <button type="submit" name="stage" value="hold" class="step hold{{ ' current' if solution.stage == 'hold' }}"{% if solution.stage == "hold" %} aria-current="step" disabled{% endif %}>{{ labels.STAGES["hold"] }}</button>
   </form>
 </section>
 <section class="card">

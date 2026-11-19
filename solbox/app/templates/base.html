@@ -36,5 +36,14 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+<script>
+(function () {
+  function closeMenus(except) {
+    document.querySelectorAll("details.menu[open]").forEach(function (d) { if (d !== except) d.removeAttribute("open"); });
+  }
+  document.addEventListener("click", function (e) { closeMenus(e.target.closest("details.menu")); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(null); });
+})();
+</script>
 </body>
 </html>
