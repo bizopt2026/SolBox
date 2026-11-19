@@ -61,25 +61,59 @@
   </form>
 </section>
 {% elif intake.status == "ready" %}
-<section class="card">
-  <h2>정리안</h2>
-  {% if items | selectattr("kind", "ne", "unplaced") | list | length == 0 %}
-  <p class="muted">정리할 내용을 찾지 못했습니다.</p>
-  {% endif %}
-  <ul class="plan-list">
-  {% for item in items %}
-    <li class="plan-item">
-      <span class="badge plan-{{ item.kind }}">{{ labels.INTAKE_ITEM_KINDS.get(item.kind, item.kind) }}</span>
-      <strong>{% if item.kind == "add_to_solution" %}{{ solution_names.get(item.solution_id, "솔루션 " ~ item.solution_id) }}
-        {% elif item.kind == "activity" %}{{ item.draft.title }}
-        {% elif item.kind == "unplaced" %}파일 {{ item.files | length }}개
-        {% else %}{{ item.name }}{% endif %}</strong>
-      {% if item.reason %}<p>{{ item.reason }}</p>{% endif %}
-      {% if item.files %}<p class="muted">파일: {% for n in item.files %}{{ n }}번 {{ file_names.get(n, "") }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
-    </li>
+{% if intake.error %}<p class="error" role="alert">{{ intake.error }}</p>{% endif %}
+{% set saveable = cards | rejectattr("item.kind", "equalto", "unplaced") | list %}
+{% if saveable %}
+<p class="muted">AI가 제안한 정리안입니다. 고칠 곳을 고치고, 저장하지 않을 항목은 "이 항목 제외"를 체크한 뒤 한 번에 저장하세요. 저장하기 전에는 아무것도 등록되지 않습니다.</p>
+<form method="post" action="/intake/{{ intake.id }}/apply" class="stack plan-form">
+  {% for card in cards %}
+  {% with item = card.item, v = card.v %}
+  {% if item.kind == "new_solution" %}{% include "intake/_item_solution.html" %}
+  {% elif item.kind == "add_to_solution" %}{% include "intake/_item_addition.html" %}
+  {% elif item.kind == "activity" %}{% include "intake/_item_activity.html" %}
+  {% elif item.kind in ("new_customer", "new_partner") %}{% include "intake/_item_entity.html" %}
+  {% else %}{% include "intake/_item_unplaced.html" %}{% endif %}
+  {% endwith %}
   {% endfor %}
-  </ul>
+  <section class="card">
+    <div class="row"><button type="submit" class="primary">이대로 저장</button></div>
+  </section>
+</form>
+{% else %}
+<section class="card"><h2>정리안</h2><p class="muted">정리할 내용을 찾지 못했습니다.</p></section>
+{% for card in cards %}{% include "intake/_item_unplaced.html" %}{% endfor %}
+{% endif %}
+<section class="card">
+  <h2>다시 정리하거나 버리기</h2>
+  <form method="post" action="/intake/{{ intake.id }}/analyze" class="row">
+    <label class="grow"><span>메모 (선택, {{ max_note }}자까지)</span>
+      <input type="text" name="note" value="{{ intake.note }}" maxlength="{{ max_note }}">
+    </label>
+    <button type="submit">다시 정리</button>
+  </form>
+  <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
+    <button type="submit" class="danger">이 묶음 버리기</button>
+  </form>
 </section>
+{% elif intake.status == "applying" %}
+<section class="card" aria-label="저장 중"><h2>저장하고 있어요</h2><p class="muted">저장이 끝나면 이 화면에 만들어진 기록이 나타납니다. 잠시 뒤 새로 고침하세요.</p></section>
+{% elif intake.status == "applied" %}
+<section class="card">
+  <h2>저장한 기록</h2>
+  <ul>
+    {% for e in saved %}
+    <li>{{ {"partner": "파트너", "customer": "고객", "solution": "솔루션", "activity": "활동 기록"}.get(e.type, e.type) }}
+      <a href="/{{ {"partner": "partners", "customer": "customers", "solution": "solutions", "activity": "activities"}.get(e.type, e.type) }}/{{ e.id }}">{{ e.label }}</a></li>
+    {% else %}<li class="muted">만들어진 기록이 없습니다.</li>{% endfor %}
+  </ul>
+  {% if not_saved %}
+  <h3>저장하지 못한 항목</h3>
+  <ul>{% for e in not_saved %}<li class="error">{{ e.label }}</li>{% endfor %}</ul>
+  {% endif %}
+  <p class="muted">{% if intake.applied_at %}{{ intake.applied_at.strftime("%Y-%m-%d %H:%M") }}에 저장했습니다. {% endif %}올린 원본 파일은 위 표에서 내려받을 수 있습니다.</p>
+</section>
+{% elif intake.status == "discarded" %}
+<section class="card"><h2>버린 묶음입니다</h2><p class="muted">정리 결과는 저장하지 않았습니다. 올린 원본 파일은 남아 있어 위 표에서 내려받을 수 있습니다.</p></section>
 {% endif %}
 <p><a class="button" href="/intake/new">+ 더 올리기</a></p>
 {% endblock %}

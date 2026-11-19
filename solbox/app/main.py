@@ -20,6 +20,7 @@ from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
 from app.intake import recover as recover_intakes
+from app.intake import recover_applying
 from app.research import recover_runs
 from app.migrate import add_missing_columns
 from app.security import LoginRequired
@@ -93,6 +94,7 @@ def create_app(settings: Settings) -> FastAPI:
             fail_stale_running(db)
             recover_runs(db)
             recover_intakes(db)
+            recover_applying(db)
         start_workers(app)
         scheduler.start(app)
         try:

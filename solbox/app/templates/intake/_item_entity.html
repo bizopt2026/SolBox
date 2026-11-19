@@ -1,0 +1,15 @@
+{# 새 고객 · 새 파트너 카드. 컨텍스트: card #}
+{% from "_macros.html" import plan_head %}
+{% set k = card.item.key %}{% set v = card.v %}
+<section class="card plan-item" id="item-{{ k }}">
+  {{ plan_head(card) }}
+  <label>이름 <input name="{{ k }}__name" value="{{ v.name }}"></label>
+  {% if card.item.kind == "new_customer" %}
+  <label>업종 <input name="{{ k }}__industry" value="{{ v.industry }}"></label>
+  <label>연락처 <input name="{{ k }}__contact" value="{{ v.contact }}"></label>
+  {% else %}
+  <label>연락처 <input name="{{ k }}__contact" value="{{ v.contact }}"></label>
+  <label>소개 <textarea name="{{ k }}__description" rows="3">{{ v.description }}</textarea></label>
+  {% endif %}
+  <label>메모 <textarea name="{{ k }}__memo" rows="3">{{ v.memo }}</textarea></label>
+</section>

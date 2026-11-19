@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 from app import labels
 from app.db import get_db
 from app.extract import extract_text
-from app.intake import clean_name, extension, write_upload
+from app.intake import clean_name, write_upload
 from app.knowledge import KnowledgeMirror, file_markdown, get_mirror
 from app.models import Solution, SolutionFile, User
+from app.records import new_solution_file, solution_file_path
 from app.routers._common import get_or_404
 from app.routers.solutions import detail_page
 from app.security import ensure_can_delete, require_user
@@ -22,35 +23,27 @@ router = APIRouter()
 BAD_KIND = "알 수 없는 자료 종류입니다."
 
 
-def _upload_dir(request: Request, solution_id: int) -> Path:
-    return request.app.state.settings.uploads_dir / "solutions" / str(solution_id)
-
-
 def _stored_path(request: Request, f: SolutionFile) -> Path:
-    return _upload_dir(request, f.solution_id) / f.stored_name
+    return solution_file_path(request.app.state.settings, f)
 
 
 def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solution: Solution,
                  upload: UploadFile, name: str, kind: str, user: User, limit: int) -> bool:
     """파일 하나를 저장한다. 크기 제한을 넘으면 아무것도 남기지 않고 False."""
-    f = SolutionFile(solution_id=solution.id, original_name=name, kind=kind, created_by_id=user.id)
-    db.add(f)
-    db.flush()  # file_id 를 얻는다
-    f.stored_name = f"{f.id}{extension(name)}"
-    path = _stored_path(request, f)
+    saved = None
     try:
-        size = write_upload(upload, path, limit)
-        if size is None:
+        saved = new_solution_file(db, request.app.state.settings, solution, name, kind, user,
+                                  lambda path: write_upload(upload, path, limit))
+        if saved is None:
             db.rollback()
             return False
-        f.size = size
-        result = extract_text(path)
-        f.extract_status = result.status
         db.commit()
     except BaseException:
-        path.unlink(missing_ok=True)
+        if saved is not None:
+            _stored_path(request, saved[0]).unlink(missing_ok=True)
         db.rollback()
         raise
+    f, result = saved
     if result.status == "ok":
         mirror.write_file_text(f, file_markdown(f, result.text))
     return True

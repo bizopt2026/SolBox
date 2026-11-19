@@ -9,13 +9,15 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
 from app import intake as intake_lib
 from app import labels
 from app.ai.queue import queue_position
 from app.db import get_db
+from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Intake, IntakeFile, Solution, User
+from app.models import Activity, Business, Customer, Intake, IntakeFile, Partner, Solution, User
 from app.routers._common import get_or_404, paginate
 from app.security import require_user
 
@@ -24,12 +26,23 @@ router = APIRouter(prefix="/intake")
 
 NOT_YOURS = "올린 사람과 관리자만 볼 수 있습니다."
 NOTE_TOO_LONG = f"메모는 {intake_lib.MAX_NOTE}자까지 쓸 수 있습니다."
+NOTICES = {"not_ready": "이미 저장했거나 저장할 수 없는 상태입니다."}
+CANNOT_DISCARD = "저장 중이거나 저장이 끝난 묶음은 버릴 수 없습니다."
 _ASCII_UNSAFE = re.compile(r'[^\x20-\x7e]|["\\%]')
 
 
+def _is_owner(user: User, intake: Intake) -> bool:
+    return user.role == "admin" or intake.created_by_id == user.id
+
+
 def _ensure_owner(user: User, intake: Intake) -> None:
-    if user.role != "admin" and intake.created_by_id != user.id:
+    if not _is_owner(user, intake):
         raise HTTPException(status_code=403, detail=NOT_YOURS)
+
+
+async def read_form(request: Request) -> FormData:
+    """저장 폼 전체 (칸 이름이 정리안 항목마다 달라 고정된 매개변수로 받을 수 없다)."""
+    return await request.form()
 
 
 def get_intake(db: Session, user: User, intake_id: int) -> Intake:
@@ -43,14 +56,26 @@ def _position(db: Session, intake: Intake) -> int:
 
 
 def detail_page(request: Request, user: User, intake: Intake, db: Session, notice: str = "",
-                skipped: list[str] | None = None, status_code: int = 200):
-    items = (intake.plan or {}).get("items", []) if intake.status == "ready" else []
-    solution_names = {s.id: s.name for s in db.scalars(select(Solution))} if items else {}
+                skipped: list[str] | None = None, status_code: int = 200, form: FormData | None = None):
+    ready = intake.status == "ready"
+    ctx = {}
+    if ready:
+        ctx = dict(
+            cards=intake_lib.review_cards(db, intake, form),
+            choices={
+                "solution": list(db.scalars(select(Solution).order_by(Solution.name))),
+                "customer": list(db.scalars(select(Customer).order_by(Customer.name))),
+                "business": list(db.scalars(select(Business).order_by(Business.name))),
+                "partner": list(db.scalars(select(Partner).order_by(Partner.name))),
+            },
+        )
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
         skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
-        position=_position(db, intake), items=items, solution_names=solution_names,
-        file_names={i: f.original_name for i, f in enumerate(intake.files, 1)}, max_note=intake_lib.MAX_NOTE,
+        position=_position(db, intake), max_note=intake_lib.MAX_NOTE,
+        saved=[e for e in intake.result or [] if e.get("type") != "skipped"] if intake.status == "applied" else [],
+        not_saved=[e for e in intake.result or [] if e.get("type") == "skipped"] if intake.status == "applied" else [],
+        **ctx,
     )
 
 
@@ -106,7 +131,9 @@ def list_page(request: Request, status: str = "", page: str = "1",
 @router.get("/files/{file_id}/download")
 def download(file_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     f = get_or_404(db, IntakeFile, file_id)
-    _ensure_owner(user, f.intake)
+    if not _is_owner(user, f.intake):  # 활동 기록에 연결된 원본은 그 기록을 볼 수 있는 로그인 사용자 누구나 내려받는다
+        if not (f.target_type == "activity" and f.target_id is not None and db.get(Activity, f.target_id) is not None):
+            raise HTTPException(status_code=403, detail=NOT_YOURS)
     path = intake_lib.stored_path(request.app.state.settings, f)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
@@ -118,8 +145,9 @@ def download(file_id: int, request: Request, user: User = Depends(require_user),
 
 
 @router.get("/{intake_id}")
-def detail(intake_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return detail_page(request, user, get_intake(db, user, intake_id), db)
+def detail(intake_id: int, request: Request, notice: str = "",
+           user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return detail_page(request, user, get_intake(db, user, intake_id), db, notice=NOTICES.get(notice, ""))
 
 
 @router.get("/{intake_id}/status")
@@ -154,4 +182,32 @@ def analyze(
             intake.note = note.strip()
             db.commit()
         intake_lib.start_analysis(db, intake, user)
+    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+
+
+@router.post("/{intake_id}/apply")
+def apply(
+    intake_id: int, request: Request, form: FormData = Depends(read_form),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """정리안을 확인한 대로 저장한다. 한 묶음은 한 번만 저장된다."""
+    intake = get_intake(db, user, intake_id)
+    try:
+        intake_lib.apply(db, request.app.state.settings, mirror, intake, user, form)
+    except intake_lib.NotReady:
+        return RedirectResponse(f"/intake/{intake.id}?notice=not_ready", status_code=303)
+    except ValueError as e:  # 입력 오류: 입력값을 그대로 둔 채 화면을 다시 보여 준다
+        return detail_page(request, user, intake, db, notice=str(e), status_code=400, form=form)
+    except intake_lib.ApplyFailed:  # 오류 문구는 묶음에 적혀 확인 화면에 보인다
+        return detail_page(request, user, intake, db, status_code=500, form=form)
+    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+
+
+@router.post("/{intake_id}/discard")
+def discard(intake_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """묶음을 버린다. 올린 원본은 지우지 않는다."""
+    intake = get_intake(db, user, intake_id)
+    if not intake_lib.discard(db, request.app.state.settings, intake):
+        raise HTTPException(status_code=400, detail=CANNOT_DISCARD)
     return RedirectResponse(f"/intake/{intake.id}", status_code=303)

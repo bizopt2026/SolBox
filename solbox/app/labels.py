@@ -23,6 +23,7 @@ INTAKE_STATUSES = {
     "uploaded": "올림",
     "analyzing": "정리 중",
     "ready": "확인 대기",
+    "applying": "저장 중",
     "applied": "저장 완료",
     "failed": "실패",
     "discarded": "버림",
