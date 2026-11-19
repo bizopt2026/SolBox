@@ -42,6 +42,13 @@
   {% set job = intake.job %}
   {% include "intake/_status.html" %}
 </section>
+{% elif intake.status == "uploaded" %}
+<section class="card">
+  <h2>아직 정리를 시작하지 않았어요</h2>
+  <form method="post" action="/intake/{{ intake.id }}/analyze" class="stack">
+    <div class="row"><button type="submit" class="primary">정리 시작</button></div>
+  </form>
+</section>
 {% elif intake.status == "failed" %}
 <section class="card">
   <h2>정리하지 못했어요</h2>

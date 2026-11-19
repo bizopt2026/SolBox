@@ -394,14 +394,6 @@ def test_status_fragment(app, user_client, admin_client, db, settings, fake_clau
     assert r.headers["HX-Redirect"] == f"/intake/{it.id}" and "hx-get" not in r.text
 
 
-def test_status_when_job_failed_but_not_yet_recorded_keeps_polling(app, user_client, db):
-    it = _bundle(user_client, db, 1)
-    db.get(AIJob, it.job_id).status = "failed"
-    db.commit()
-    r = user_client.get(f"/intake/{it.id}/status")
-    assert "HX-Redirect" not in r.headers and "hx-get" in r.text
-
-
 def test_job_labels():
     from app import labels
 
@@ -485,3 +477,146 @@ def test_pixel_limit_rejects_big_images_without_warning_filters(app, user_client
     import inspect
 
     assert "catch_warnings" not in inspect.getsource(intake_lib)
+
+
+# ---- 리뷰 반영 1 ----
+
+def test_odd_ai_values_drop_items_not_the_analysis(app, user_client, db, settings, fake_claude):
+    s1, *_ = _world(db)
+    it = _bundle(user_client, db, 6)
+    odd = {
+        "solutions": [
+            {"name": None, "files": [1]},
+            {"name": "좋은 솔루션", "summary": 12, "tags": "조명", "files": "1,2", "reason": 7},
+            {"name": "파일 이상한 솔루션", "tags": ["a", None, 3], "files": [None, "2", "x", 2.0, True, 3]},
+            "문자열 항목",
+        ],
+        "additions": [{"solution_id": None, "files": [1]}, {"solution_id": "abc", "files": [1]},
+                      {"solution_id": str(s1.id), "files": [4], "note": None}],
+        "activities": [
+            {"draft": "그냥 글", "files": [5]},
+            {"draft": {"title": 123, "date": 20261117, "kind": None, "discussion": "논의", "mentions": "없음"}, "raw_from": "file3", "files": [5]},
+            {"draft": {"title": "정상 활동", "date": "2026-11-17", "discussion": ["내용"]}, "raw_from": "5", "files": {}},
+        ],
+        "customers": [{"name": None}, {"name": 5, "files": [6]}],
+        "partners": "없음",
+        "unplaced": [{"files": "x", "reason": None}, None],
+    }
+    fake_claude.set(mode="ok", result=json.dumps(odd, ensure_ascii=False))
+    _run(app, settings)
+    db.refresh(it)
+    assert it.status == "ready", it.error
+    items = it.plan["items"]
+    names = [(i["kind"], i.get("name") or i.get("draft", {}).get("title") or i.get("solution_id")) for i in items]
+    assert ("new_solution", "좋은 솔루션") in names and ("new_solution", "파일 이상한 솔루션") in names
+    assert ("add_to_solution", s1.id) in names and ("new_customer", "5") in names
+    assert ("activity", "123") in names and ("activity", "정상 활동") in names
+    assert not any(i["kind"] == "new_partner" for i in items)
+    assert len([i for i in items if i["kind"] == "new_solution"]) == 2 and len([i for i in items if i["kind"] == "activity"]) == 2
+    good = next(i for i in items if i.get("name") == "좋은 솔루션")
+    assert good["files"] == [] and good["summary"] == "12" and good["reason"] == "7" and good["tags"] == []  # 목록이 아닌 칸은 비운다
+    weird = next(i for i in items if i.get("name") == "파일 이상한 솔루션")
+    assert weird["files"] == [2, 3] and weird["tags"] == ["a"]
+    # 버려진 항목(이름 없는 솔루션 1번, 글만 있는 활동)의 파일은 어느 항목에도 안 쓰이면 unplaced 로 간다
+    assert items[-1]["kind"] == "unplaced" and items[-1]["files"] == [1]
+
+
+def test_non_object_output_items_are_tolerated(app, user_client, db, settings, fake_claude):
+    it = _bundle(user_client, db, 1)
+    fake_claude.set(mode="ok", result=json.dumps({"solutions": {"name": "x"}, "additions": None, "activities": 3}))
+    _run(app, settings)
+    db.refresh(it)
+    assert it.status == "ready" and _kinds(it.plan) == ["unplaced"]
+
+
+def test_raw_from_unreadable_file_not_added_to_files(app, user_client, db, settings):
+    _upload(user_client, [_txt("a.txt", "내용"), ("p.png", _png(), "image/png")])
+    it = db.query(Intake).one()
+    assert it.files[1].read_status == "ok"
+    plan = _clean(db, settings, it, activities=[
+        ActivityItem(draft=ActivityDraft(title="활동"), raw_from=2, files=[1]),
+        ActivityItem(draft=ActivityDraft(title="활동2"), raw_from=2, files=[]),
+    ])
+    assert plan["items"][0]["files"] == [1] and plan["items"][1]["files"] == []
+
+
+def test_start_analysis_error_keeps_bundle_and_redirects(app, user_client, db, settings, monkeypatch):
+    def boom(*a, **kw):
+        raise RuntimeError("db locked")
+
+    monkeypatch.setattr(intake_lib, "start_analysis", boom)
+    r = _upload(user_client, [_txt("a.txt", "x")])
+    it = db.query(Intake).one()
+    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}" and it.status == "uploaded"
+
+
+def test_uploaded_page_has_start_button(app, user_client, db):
+    it = _bundle(user_client, db, 1)
+    it.status = "uploaded"
+    db.commit()
+    page = user_client.get(f"/intake/{it.id}").text
+    assert f'action="/intake/{it.id}/analyze"' in page and "정리 시작" in page
+    assert user_client.post(f"/intake/{it.id}/analyze", data={}, follow_redirects=False).status_code == 303
+    db.refresh(it)
+    assert it.status == "analyzing"
+
+
+def test_status_self_heals_failed_job(app, user_client, db):
+    it = _bundle(user_client, db, 1)
+    job = db.get(AIJob, it.job_id)
+    job.status, job.error_kind, job.error = "failed", "network", "x"
+    db.commit()
+    r = user_client.get(f"/intake/{it.id}/status")
+    assert r.headers["HX-Redirect"] == f"/intake/{it.id}"
+    db.refresh(it)
+    assert it.status == "failed" and it.error == ERROR_KINDS["network"]
+
+
+def test_status_self_heal_does_not_clobber_newer_run(app, user_client, db):
+    it = _bundle(user_client, db, 1)
+    old = it.job_id
+    db.get(AIJob, old).status = "failed"
+    it.status = "failed"
+    db.commit()
+    user_client.post(f"/intake/{it.id}/analyze", data={}, follow_redirects=False)
+    db.refresh(it)
+    assert it.job_id != old and intake_lib.finish_failed_analysis(db, it.id) is False
+    db.refresh(it)
+    assert it.status == "analyzing"
+
+
+def test_status_missing_and_foreign_look_alike_for_non_owner(app, user_client, admin_client, db):
+    it = _bundle(user_client, db, 1)
+    make_user(db, "lee")
+    other = TestClient(app)
+    other.post("/login", data={"username": "lee", "password": "pw1234"})
+    a, b = other.get(f"/intake/{it.id}/status"), other.get("/intake/9999/status")
+    assert (a.status_code, a.text) == (b.status_code, b.text) and a.status_code == 403
+    assert admin_client.get("/intake/9999/status").headers["HX-Redirect"] == "/intake"
+
+
+def test_partial_image_copy_removed_on_save_failure(app, user_client, db, settings, monkeypatch):
+    real = Image.Image.save
+
+    def broken(self, fp, *a, **kw):
+        if not isinstance(fp, Path):
+            return real(self, fp, *a, **kw)
+        fp.write_bytes(b"partial")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Image.Image, "save", broken)
+    monkeypatch.setattr(Image.Image, "save", real)
+    data = _png()
+    monkeypatch.setattr(Image.Image, "save", broken)
+    _upload(user_client, [("a.png", data, "image/png")])
+    it = db.query(Intake).one()
+    assert it.files[0].read_status == "failed"
+    assert [p.name for p in (settings.intake_work_dir / str(it.id)).iterdir()] == ["파일목록.md"]
+    monkeypatch.setattr(Image.Image, "save", real)
+
+
+def test_prompt_says_name_lists_are_data(app, user_client, db, settings, fake_claude):
+    _bundle(user_client, db, 1)
+    fake_claude.set(mode="ok", result="{}")
+    _run(app, settings)
+    assert "이름 목록은 이름만 모아 둔 자료" in fake_claude.calls()[0]["stdin"]

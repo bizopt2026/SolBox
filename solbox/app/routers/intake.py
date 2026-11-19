@@ -1,6 +1,7 @@
 """올리기 화면: 파일 여러 개를 한 번에 올리고, 묶음 목록·상세·원본 내려받기."""
 from __future__ import annotations
 
+import logging
 import re
 from urllib.parse import quote
 
@@ -18,6 +19,7 @@ from app.models import Intake, IntakeFile, Solution, User
 from app.routers._common import get_or_404, paginate
 from app.security import require_user
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/intake")
 
 NOT_YOURS = "올린 사람과 관리자만 볼 수 있습니다."
@@ -76,7 +78,11 @@ def create(
     except ValueError as e:
         return again(str(e))
     intake_lib.prepare_workdir(settings, intake)
-    intake_lib.start_analysis(db, intake, user)
+    try:
+        intake_lib.start_analysis(db, intake, user)
+    except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 상세 화면의 "정리 시작" 으로 다시 할 수 있다
+        db.rollback()
+        log.exception("올리기 묶음 %s 정리 시작 실패", intake.id)
     if skipped:
         return detail_page(request, user, intake, db, skipped=skipped)
     return RedirectResponse(f"/intake/{intake.id}", status_code=303)
@@ -121,8 +127,12 @@ def status(intake_id: int, request: Request, user: User = Depends(require_user),
     """정리 중 안내 조각 (HTMX). 끝나면(정리 중이 아니게 되면) 상세 화면으로 보낸다."""
     intake = db.get(Intake, intake_id)
     if intake is None:  # 그 사이 지워졌다. 조회를 멈추고 목록으로 보낸다.
+        if user.role != "admin":  # 남의 묶음과 없는 묶음을 구별할 수 없게 같은 응답을 준다
+            raise HTTPException(status_code=403, detail=NOT_YOURS)
         return Response("올린 묶음이 없습니다.", headers={"HX-Redirect": "/intake"})
     _ensure_owner(user, intake)
+    if intake.status == "analyzing" and intake_lib.finish_failed_analysis(db, intake.id):
+        db.refresh(intake)  # 작업이 끝났는데 기록되지 않은 채 남은 묶음을 바로잡았다
     if intake.status != "analyzing":
         return Response("정리가 끝났습니다.", headers={"HX-Redirect": f"/intake/{intake.id}"})
     return render(request, "intake/_status.html", intake=intake, job=intake.job, position=_position(db, intake))

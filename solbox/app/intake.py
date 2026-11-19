@@ -181,7 +181,11 @@ def _shrink_image(src: Path, dest_base: Path) -> Path | None:
             img = img.convert("RGB")
             dest = dest_base.with_name(dest_base.name + ".jpg")
         img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
-        img.save(dest, "PNG" if has_alpha else "JPEG", **({} if has_alpha else {"quality": 88}))
+        try:
+            img.save(dest, "PNG" if has_alpha else "JPEG", **({} if has_alpha else {"quality": 88}))
+        except BaseException:
+            dest.unlink(missing_ok=True)  # 쓰다 만 사본을 남기지 않는다
+            raise
         return dest
     except _IMAGE_ERRORS:
         return None
@@ -358,12 +362,14 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
 
     activities: list[dict] = []
     for act in out.activities:
+        if act.draft is None:  # 쓸 수 없는 초안은 그 항목만 버린다
+            continue
         draft = normalize_draft(act.draft, today)
         numbers = files_of(act.files)
         raw = None
         if act.raw_from in readable:
             raw = _raw_text(settings, intake, act.raw_from, by_number[act.raw_from])
-            if act.raw_from not in numbers:
+            if raw is not None and act.raw_from not in numbers:
                 numbers.append(act.raw_from)
         summary = draft_summary_md(draft)
         matches = match_mentions(db, draft.mentions)
@@ -455,8 +461,8 @@ def finish_failed_analysis(db: Session, intake_id: int) -> bool:
     if intake is None or intake.status != "analyzing":
         return False
     job = db.get(AIJob, intake.job_id) if intake.job_id is not None else None
-    if job is None or job.status not in ("failed", "done"):
-        return False
+    if job is not None and job.status not in ("failed", "done"):
+        return False  # 아직 대기·진행 중이다 (작업이 없는 묶음은 멈춘 것이므로 아래에서 실패로 둔다)
     return _fail_analysis(db, intake_id, intake.job_id, job_failure_message(job))
 
 
