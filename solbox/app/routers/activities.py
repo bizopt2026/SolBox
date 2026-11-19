@@ -18,7 +18,7 @@ from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Business, Customer, Partner, Solution, User
-from app.routers._common import get_deletable_or_404, get_or_404, newest_first
+from app.routers._common import get_deletable_or_404, get_or_404, newest_first, paginate
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/activities")
@@ -240,7 +240,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
 
 @router.get("")
 def list_activities(
-    request: Request, q: str = "", kind: str = "", user: User = Depends(require_user), db: Session = Depends(get_db),
+    request: Request, q: str = "", kind: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     stmt = select(Activity)
     q = q.strip()
@@ -250,7 +250,7 @@ def list_activities(
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (Activity.title, Activity.raw_text, Activity.summary_md))))
     if kind in labels.ACTIVITY_KINDS:
         stmt = stmt.where(Activity.kind == kind)
-    return render(request, "activities/list.html", activities=newest_first(db.scalars(stmt)), q=q, kind=kind)
+    return render(request, "activities/list.html", pg=paginate(newest_first(db.scalars(stmt)), page), q=q, kind=kind)
 
 
 @router.get("/new")

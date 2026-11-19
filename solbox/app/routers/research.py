@@ -1,6 +1,7 @@
 """웹 리서치: 실행 목록·상세, 솔루션 후보 등록, 지금 조사, 실행 상태, 실패한 분야 다시 시도, 실행 삭제."""
 from __future__ import annotations
 
+from dataclasses import replace
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -15,12 +16,12 @@ from app.labels import RESEARCH_AREAS
 from app.main import render
 from app.models import AIJob, ResearchReport, ResearchRun, Solution, User
 from app.research import UNOPENED_LABEL, clean_url, start_run
+from app.routers._common import paginate
 from app.security import require_admin, require_user
 
 router = APIRouter(prefix="/research")
 
 ADMIN_PAGE = "/admin/research"
-LIST_LIMIT = 50
 NAME_MAX = 80
 RUNNING_DELETE = "진행 중인 조사는 삭제할 수 없습니다."
 
@@ -63,7 +64,7 @@ def run_summary(run: ResearchRun) -> dict:
 
 
 @router.get("")
-def list_runs(request: Request, q: str = "", area: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+def list_runs(request: Request, q: str = "", area: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db)):
     runs = db.query(ResearchRun).order_by(ResearchRun.started_at.desc(), ResearchRun.id.desc()).all()
     q = q.strip()
     if area in RESEARCH_AREAS:
@@ -72,7 +73,9 @@ def list_runs(request: Request, q: str = "", area: str = "", user: User = Depend
         area = ""
     if q:
         runs = [r for r in runs if q.lower() in _search_text(r)]
-    return render(request, "research/list.html", items=[run_summary(r) for r in runs[:LIST_LIMIT]], q=q, area=area)
+    pg = paginate(runs, page)
+    pg = replace(pg, items=[run_summary(r) for r in pg.items])
+    return render(request, "research/list.html", pg=pg, q=q, area=area)
 
 
 @router.get("/runs/{run_id}")

@@ -106,3 +106,6 @@ dd { margin:0; white-space:pre-wrap; }
 .stagebar .step.current { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; position:relative; }
 .stagebar .step.hold { flex:none; border-radius:6px; margin-left:0; }
 .stagebar .step.hold.current { background:#475467; border-color:#475467; }
+.count { margin-left:6px; font-size:14px; font-weight:400; color:var(--muted); }
+.pager { display:flex; justify-content:center; align-items:center; gap:12px; margin:16px 0; }
+.empty { padding:24px 0; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; }

@@ -113,7 +113,7 @@ def test_list_search_and_area_filter(user_client, db, settings):
     assert f'href="/research/runs/{run.id}"' in page and f'href="/research/runs/{old.id}"' not in page
     page = user_client.get("/research?area=market").text
     assert f'href="/research/runs/{old.id}"' in page and f'href="/research/runs/{run.id}"' not in page
-    assert "검색 결과가 없습니다." in user_client.get("/research?q=없는말").text
+    assert "조건에 맞는 항목이 없습니다." in user_client.get("/research?q=없는말").text
 
 
 def test_list_empty_and_running(user_client, db, settings):

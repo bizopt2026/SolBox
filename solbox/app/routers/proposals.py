@@ -19,7 +19,7 @@ from app.knowledge import safe_name
 from app.main import render
 from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
 from app.proposals import candidate_solutions, display_title, reset_for_new_direction, start_job
-from app.routers._common import get_deletable_or_404, get_or_404, search_by_name
+from app.routers._common import get_deletable_or_404, get_or_404, paginate, search_by_name
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
@@ -70,7 +70,7 @@ def _new_page(request: Request, db: Session, form: dict, error: str | None = Non
 
 @router.get("")
 def list_proposals(
-    request: Request, q: str = "", status: str = "",
+    request: Request, q: str = "", status: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     stmt = select(Proposal).join(Proposal.customer)
@@ -81,7 +81,7 @@ def list_proposals(
     if q:
         proposals = [p for p in proposals if q in display_title(p) or q in p.customer.name]
     return render(
-        request, "proposals/list.html", proposals=proposals, q=q,
+        request, "proposals/list.html", pg=paginate(proposals, page), q=q,
         status=status if status in labels.PROPOSAL_STATUSES else "",
     )
 

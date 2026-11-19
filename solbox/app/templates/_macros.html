@@ -29,8 +29,33 @@
 <form method="get" action="{{ path }}" class="row">
   <label>검색 <input type="search" name="q" value="{{ q }}"></label>
   <button type="submit">검색</button>
-  <a class="button primary" href="{{ path }}/new">+ 등록</a>
 </form>
+{% endmacro %}
+
+{# 목록 제목 줄: 제목 + 건수, 오른쪽 끝에 주 버튼. searching 이 참이면 "검색 결과 N건". #}
+{% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록") %}
+<div class="page-head">
+  <h1>{{ title }} <span class="count">{{ "검색 결과 " if searching else "" }}{{ pg.total }}건</span></h1>
+  {% if new_url %}<a class="button primary" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro empty_list(searching, text, new_url=None, new_label="+ 등록") %}
+{% if searching %}<p class="muted">조건에 맞는 항목이 없습니다.</p>
+{% else %}<div class="empty"><p class="muted">{{ text }}</p>{% if new_url %}<a class="button" href="{{ new_url }}">{{ new_label }}</a>{% endif %}</div>{% endif %}
+{% endmacro %}
+
+{% macro pager(pg, request) %}
+{% if pg.has_pages %}
+{% set keep = request.query_params.multi_items() | rejectattr(0, "equalto", "page") | list %}
+<nav class="pager" aria-label="페이지">
+  {% if pg.page > 1 %}<a href="{{ request.url.path }}?{{ (keep + [("page", pg.page - 1)]) | urlencode }}">이전</a>{% else %}<span class="muted">이전</span>{% endif %}
+  <span class="sep" aria-hidden="true">·</span>
+  <span>{{ pg.page }} / {{ pg.pages }}</span>
+  <span class="sep" aria-hidden="true">·</span>
+  {% if pg.page < pg.pages %}<a href="{{ request.url.path }}?{{ (keep + [("page", pg.page + 1)]) | urlencode }}">다음</a>{% else %}<span class="muted">다음</span>{% endif %}
+</nav>
+{% endif %}
 {% endmacro %}
 
 {# 화면 제목 위 경로. 앞 마디는 (이름, 주소), 마지막 마디는 (이름, None). 예: breadcrumb(("솔루션", "/solutions"), (solution.name, None)) #}
