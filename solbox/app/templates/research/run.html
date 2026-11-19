@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}리서치 {{ run.started_at.strftime("%Y-%m-%d") }}{% endblock %}
 {% block content %}
-<p><a href="/research">&larr; 리서치 목록</a></p>
+{{ breadcrumb(("리서치", "/research"), (run.started_at.strftime("%Y-%m-%d"), None)) }}
 <h1>리서치 {{ run.started_at.strftime("%Y-%m-%d") }} <span class="badge {{ 'warn' if run.status in ('partial', 'failed') }}">{{ labels.RUN_STATUSES.get(run.status, run.status) }}</span></h1>
 <p class="muted">AI가 웹에서 수집한 내용입니다. 링크를 열어 확인하세요.</p>
 {% if run.status == "running" %}

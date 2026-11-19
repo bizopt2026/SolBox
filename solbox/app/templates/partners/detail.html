@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head %}
+{% from "_macros.html" import activity_list, detail_head, breadcrumb %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
+{{ breadcrumb(("파트너", "/partners"), (partner.name, None)) }}
 {{ detail_head(partner.name, "/partners", partner, can_delete) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <section class="card"><dl><dt>연락처</dt><dd>{{ partner.contact }}</dd><dt>소개</dt><dd>{{ partner.description }}</dd><dt>메모</dt><dd>{{ partner.memo }}</dd></dl></section>
@@ -11,5 +12,4 @@
   {% else %}<p class="muted">연결된 솔루션이 없습니다.</p>{% endif %}
 </section>
 {{ activity_list(activities) }}
-<p><a href="/partners">&larr; 목록</a></p>
 {% endblock %}

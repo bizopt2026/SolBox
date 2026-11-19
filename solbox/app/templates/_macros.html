@@ -33,6 +33,16 @@
 </form>
 {% endmacro %}
 
+{# 화면 제목 위 경로. 앞 마디는 (이름, 주소), 마지막 마디는 (이름, None). 예: breadcrumb(("솔루션", "/solutions"), (solution.name, None)) #}
+{% macro breadcrumb() %}
+<nav class="breadcrumb" aria-label="경로">
+  {% for label, url in varargs %}
+  {% if not loop.first %}<span class="sep" aria-hidden="true">›</span>{% endif %}
+  {% if url %}<a href="{{ url }}">{{ label }}</a>{% else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ label }}</span>{% endif %}
+  {% endfor %}
+</nav>
+{% endmacro %}
+
 {% macro detail_head(title, path, obj, can_delete) %}
 <div class="page-head">
   <h1>{{ title }}</h1>

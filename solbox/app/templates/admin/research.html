@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}리서치 설정{% endblock %}
 {% block content %}
+{{ breadcrumb(("관리", None), ("리서치 설정", None)) }}
 <h1>리서치 설정</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -54,10 +56,10 @@
         </select>
       </td>
       <td><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}></td>
-      <td class="cell-actions">
+      <td><div class="cell-actions">
         <button form="{{ f }}" type="submit" class="small">저장</button>
         <form method="post" action="/admin/research/topics/{{ t.id }}/delete" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit" class="small danger">삭제</button></form>
-      </td>
+      </div></td>
     </tr>
   {% endfor %}
   </tbody>

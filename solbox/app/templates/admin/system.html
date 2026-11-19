@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}시스템{% endblock %}
 {% block content %}
+{{ breadcrumb(("관리", None), ("시스템", None)) }}
 <h1>시스템</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <table style="margin-bottom:1.25rem">

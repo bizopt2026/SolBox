@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
+{{ breadcrumb(("솔루션", "/solutions"), (solution.name, None)) }}
 {{ detail_head(solution.name, "/solutions", solution, can_delete) }}
 <section class="card">
   <h2>기본 정보</h2>
@@ -32,5 +33,4 @@
 </section>
 {{ proposal_list(proposals, heading="이 솔루션이 들어간 제안 건") }}
 {{ activity_list(activities) }}
-<p><a href="/solutions">&larr; 목록</a></p>
 {% endblock %}

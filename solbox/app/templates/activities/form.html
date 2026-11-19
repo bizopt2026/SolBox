@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}활동 기록 {{ "수정" if activity else "등록" }}{% endblock %}
 {% block content %}
+{% if activity %}{{ breadcrumb(("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), "/activities/" ~ activity.id), ("수정", None)) }}{% else %}{{ breadcrumb(("활동 기록", "/activities"), ("등록", None)) }}{% endif %}
 <h1>활동 기록 {{ "수정" if activity else "등록" }}</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% block form_intro %}{% endblock %}

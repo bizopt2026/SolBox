@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}구성안 · {{ title }}{% endblock %}
 {% block content %}
-<p><a href="/proposals/{{ proposal.id }}">&larr; {{ title }}</a></p>
+{{ breadcrumb(("제안", "/proposals"), (title, "/proposals/" ~ proposal.id), ("구성안", None)) }}
 <h1>구성안 검토·수정</h1>
 <section class="card" id="deck">
   <h2>제안서</h2>

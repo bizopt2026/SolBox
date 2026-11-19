@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
+{{ breadcrumb(("고객", "/customers"), (customer.name, None)) }}
 {{ detail_head(customer.name, "/customers", customer, can_delete) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <section class="card"><dl><dt>업종</dt><dd>{{ customer.industry }}</dd><dt>연락처</dt><dd>{{ customer.contact }}</dd><dt>메모</dt><dd>{{ customer.memo }}</dd></dl></section>
@@ -13,5 +14,4 @@
 </section>
 {{ proposal_list(proposals, "/proposals/new?customer_id=" ~ customer.id) }}
 {{ activity_list(activities) }}
-<p><a href="/customers">&larr; 목록</a></p>
 {% endblock %}

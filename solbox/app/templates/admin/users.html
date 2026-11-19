@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}사용자 관리{% endblock %}
 {% block content %}
+{{ breadcrumb(("관리", None), ("사용자", None)) }}
 <h1>사용자 관리</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 

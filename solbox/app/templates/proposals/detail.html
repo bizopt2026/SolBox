@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
+{{ breadcrumb(("제안", "/proposals"), (title, None)) }}
 <div class="page-head">
   <h1>{{ title }}</h1>
   {% if can_delete %}
@@ -62,5 +64,4 @@
   <h2>제안서</h2>
   {% include "proposals/_deck.html" %}
 </section>
-<p><a href="/proposals">&larr; 목록</a></p>
 {% endblock %}
