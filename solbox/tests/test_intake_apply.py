@@ -7,7 +7,7 @@ from PIL import Image
 
 from app import intake as intake_lib
 from app import records
-from app.models import Activity, Customer, Partner, Solution, SolutionFile, User
+from app.models import Activity, Customer, Intake, Partner, Solution, SolutionFile, User
 from tests.conftest import form_from_page, make_user, ready_bundle, ready_intake
 
 
@@ -431,3 +431,117 @@ def test_recover_applying(app, user_client, db, settings):
     assert intake_lib.recover_applying(db) == 1
     db.refresh(it)
     assert it.status == "ready" and intake_lib.recover_applying(db) == 0
+
+
+# ---- 리뷰 보완 ----
+
+def test_activity_detail_title_and_original_section_once(app, user_client, db, settings):
+    it, s1, c1 = ready_intake(db, settings)
+    _apply(user_client, it, form_from_page(user_client, it))
+    a = db.query(Activity).one()
+    page = user_client.get(f"/activities/{a.id}").text
+    title = page[page.index("<title>"):page.index("</title>")]
+    assert "<section" not in title and page.count("원본 파일</h2>") == 1
+
+
+def test_odd_digit_characters_do_not_crash(app, user_client, db, settings):
+    it, s1, c1 = ready_intake(db, settings)
+    form = form_from_page(user_client, it)
+    form["act1__solution_ids"] = ["²", str(s1.id)]
+    form["a1__solution"] = ["²"]
+    r = _apply(user_client, it, form)
+    assert r.status_code == 303
+    r = user_client.get(f"/intake/{it.id}")
+    assert r.status_code == 200
+
+
+def test_stuck_applying_can_be_rechecked(app, user_client, db, settings):
+    from datetime import datetime, timedelta
+
+    it, s1, c1 = ready_intake(db, settings)
+    it.status = "applying"
+    db.commit()
+    page = user_client.get(f"/intake/{it.id}").text
+    assert "다시 확인" not in page  # 방금 시작한 저장은 기다린다
+    assert user_client.post(f"/intake/{it.id}/recheck", follow_redirects=False).status_code == 303
+    db.expire_all()
+    assert it.status == "applying"
+    db.execute(Intake.__table__.update().where(Intake.id == it.id).values(updated_at=datetime.now() - timedelta(minutes=30)))
+    db.commit()
+    assert "다시 확인" in user_client.get(f"/intake/{it.id}").text
+    assert user_client.post(f"/intake/{it.id}/recheck", follow_redirects=False).status_code == 303
+    db.expire_all()
+    assert it.status == "ready"
+
+
+def test_release_is_retried_once(app, user_client, db, settings, monkeypatch):
+    it, s1, c1 = ready_intake(db, settings)
+    form = form_from_page(user_client, it)
+    monkeypatch.setattr(records, "apply_activity_fields", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    real = intake_lib._release_once
+    calls = []
+
+    def flaky(db_, intake_id, message):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("locked")
+        return real(db_, intake_id, message)
+
+    monkeypatch.setattr(intake_lib, "_release_once", flaky)
+    assert _apply(user_client, it, form).status_code == 500
+    db.expire_all()
+    assert len(calls) == 2 and it.status == "ready"
+
+
+def test_file_used_by_solution_and_activity_targets_activity(app, user_client, db, settings):
+    it = ready_bundle(
+        db, settings, [("통화.txt", "고객 통화 내용".encode())],
+        solutions=[{"name": "새 솔", "files": [1]}],
+        activities=[{"draft": {"title": "통화"}, "raw_from": 1, "files": [1]}],
+    )
+    _apply(user_client, it, form_from_page(user_client, it))
+    db.expire_all()
+    a = db.query(Activity).one()
+    assert (it.files[0].target_type, it.files[0].target_id) == ("activity", a.id)
+    assert db.query(SolutionFile).count() == 1  # 솔루션에는 자기 사본이 있다
+
+
+def test_addition_target_reused_id_is_skipped(app, user_client, db, settings):
+    it, s1, c1 = ready_intake(db, settings)
+    assert it.plan["items"][1]["solution_name"] == s1.name
+    form = form_from_page(user_client, it)
+    s1.name = "전혀 다른 솔루션"  # 번호가 다른 솔루션을 가리키게 된 경우
+    db.commit()
+    del form["a1__solution"]  # 사용자가 고르지 않았다
+    assert _apply(user_client, it, form).status_code == 303
+    db.expire_all()
+    assert "skipped" in [e["type"] for e in it.result] and len(s1.files) == 0
+    it2, s2, _ = ready_intake(db, settings)
+    form = form_from_page(user_client, it2)
+    s2.name = "또 다른 이름"
+    other = Solution(name="고른 솔루션")
+    db.add(other)
+    db.commit()
+    form["a1__solution"] = [str(other.id)]  # 직접 고른 대상은 그대로 쓴다
+    _apply(user_client, it2, form)
+    db.expire_all()
+    assert len(other.files) == 1
+
+
+def test_empty_title_falls_back_to_summary_line(app, user_client, db, settings):
+    it = ready_bundle(db, settings, [("a.txt", "가".encode())], activities=[{"draft": {"title": "x"}, "files": [1]}])
+    form = form_from_page(user_client, it)
+    form["act1__title"] = [""]
+    form["act1__raw_text"] = [""]
+    form["act1__summary_md"] = ["\n첫 줄 요약\n둘째"]
+    _apply(user_client, it, form)
+    assert db.query(Activity).one().title == "첫 줄 요약"
+
+
+def test_minimal_plan_items_render(app, user_client, db, settings):
+    it, s1, c1 = ready_intake(db, settings)
+    it.plan = {"items": [{"kind": k, "key": f"{k[:3]}{i}"} for i, k in enumerate(
+        ["new_solution", "add_to_solution", "activity", "new_customer", "new_partner", "unplaced"])]}
+    db.commit()
+    r = user_client.get(f"/intake/{it.id}")
+    assert r.status_code == 200

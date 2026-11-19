@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -297,6 +297,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
 
     solutions = {normalize_name(s.name): s.id for s in db.scalars(select(Solution).order_by(Solution.id)) if normalize_name(s.name)}
     solution_ids = set(db.scalars(select(Solution.id)))
+    solution_name_of = {s.id: s.name for s in db.scalars(select(Solution))}
     customers = {normalize_name(c.name) for c in db.scalars(select(Customer))}
     partners = {normalize_name(p.name): p.id for p in db.scalars(select(Partner).order_by(Partner.id)) if normalize_name(p.name)}
 
@@ -329,8 +330,8 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
 
     def add_addition(solution_id: int, numbers: list[int], note: str, reason: str) -> None:
         item = {"kind": "add_to_solution", "reason": reason.strip(), "files": files_of(numbers),
-                "solution_id": solution_id, "note": note.strip()}
-        if not item["files"]:
+                "solution_id": solution_id, "solution_name": solution_name_of.get(solution_id, ""), "note": note.strip()}
+        if not item.get("files", []):
             return
         if solution_id in additions:
             _merge_into(additions[solution_id], item, ("note", "reason"))
@@ -391,7 +392,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
     for prefix, group in zip(prefixes, groups):
         for i, item in enumerate(group, 1):
             items.append({"kind": item["kind"], "key": f"{prefix}{i}", **{k: v for k, v in item.items() if k != "kind"}})
-            used.update(item["files"])
+            used.update(item.get("files", []))
 
     unused = [n for n in sorted(readable) if n not in used]
     unread = [n for n in sorted(by_number) if n not in readable]
@@ -531,7 +532,7 @@ def guess_file_kind(name: str) -> str:
 
 def _digits(value) -> int | None:
     text = str(value if value is not None else "").strip()
-    return int(text) if text.isdigit() and len(text) < 19 else None
+    return int(text) if text.isascii() and text.isdecimal() and len(text) < 19 else None
 
 
 def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) -> dict:
@@ -549,31 +550,31 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
     v: dict = {"skip": bool(fields and fields.flag(f"skip_{key}"))}
     if kind in ("new_solution", "add_to_solution"):
         kinds = {}
-        for n in item["files"]:
+        for n in item.get("files", []):
             guessed = guess_file_kind(file_names.get(n, ""))
             picked = text(f"kind_{n}", guessed)
             kinds[n] = picked if picked in labels.FILE_KINDS else guessed
         v["kinds"] = kinds
     if kind == "new_partner":
-        v.update(name=text("name", item["name"]), contact=text("contact", item["contact"]),
-                 description=text("description", item["description"]), memo=text("memo", item["memo"]))
+        v.update(name=text("name", item.get("name")), contact=text("contact", item.get("contact")),
+                 description=text("description", item.get("description")), memo=text("memo", item.get("memo")))
     elif kind == "new_customer":
-        v.update(name=text("name", item["name"]), industry=text("industry", item["industry"]),
-                 contact=text("contact", item["contact"]), memo=text("memo", item["memo"]))
+        v.update(name=text("name", item.get("name")), industry=text("industry", item.get("industry")),
+                 contact=text("contact", item.get("contact")), memo=text("memo", item.get("memo")))
     elif kind == "new_solution":
-        v.update(name=text("name", item["name"]), summary=text("summary", item["summary"]),
-                 description=text("description", item["description"]), tags=text("tags", ", ".join(item["tags"])),
-                 partner=text("partner", item["partner_id"] or ""), partner_new=text("partner_new", item["partner_new"]))
+        v.update(name=text("name", item.get("name")), summary=text("summary", item.get("summary")),
+                 description=text("description", item.get("description")), tags=text("tags", ", ".join(item.get("tags") or [])),
+                 partner=text("partner", item.get("partner_id") or ""), partner_new=text("partner_new", item.get("partner_new")))
     elif kind == "add_to_solution":
-        v["solution"] = text("solution", item["solution_id"])
+        v["solution"] = text("solution", item.get("solution_id"))
     elif kind == "activity":
-        d = item["draft"]
+        d = item.get("draft") or {}
         fus = [f for f in d.get("follow_ups", []) if str(f.get("task", "")).strip()]
         dss = [x for x in d.get("demand_signals", []) if str(x.get("content", "")).strip()]
         matched = item.get("matched", {})
         v.update(
             kind=text("kind", d.get("kind")), date=text("date", d.get("date")), title=text("title", d.get("title")),
-            summary_md=text("summary_md", item["summary_md"]), raw_text=text("raw_text", item["raw_text"]),
+            summary_md=text("summary_md", item.get("summary_md")), raw_text=text("raw_text", item.get("raw_text")),
             fu_task=many("fu_task", [f.get("task", "") for f in fus]), fu_owner=many("fu_owner", [f.get("owner", "") for f in fus]),
             fu_due=many("fu_due", [f.get("due", "") for f in fus]),
             ds_customer=many("ds_customer", [x.get("customer", "") for x in dss]),
@@ -624,7 +625,8 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
     cards = []
     for item in (intake.plan or {}).get("items", []):
         v = item_values(item, fields, names)
-        card = {"item": item, "v": v, "files": [(n, names.get(n, "")) for n in item.get("files", [])], "ambiguous": {}}
+        card = {"item": item, "v": v, "files": [(n, names.get(n, "")) for n in item.get("files", [])], "ambiguous": {},
+                "file_ids": {file_number(intake, f): f.id for f in intake.files}}
         if item["kind"] == "activity":
             for t, (model, rel) in records.LINK_TYPES.items():
                 card["ambiguous"][t] = records.ambiguous_view(db, model, item.get("ambiguous", {}).get(rel, []))
@@ -632,10 +634,39 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
     return cards
 
 
-def _release(db: Session, intake_id: int, message: str) -> None:
-    """저장 중(applying)인 묶음을 다시 확인 대기로 돌린다 (오류 문구와 함께)."""
+def _release_once(db: Session, intake_id: int, message: str) -> None:
     db.execute(update(Intake).where(Intake.id == intake_id, Intake.status == "applying").values(status="ready", error=message))
     db.commit()
+
+
+def _release(db: Session, intake_id: int, message: str) -> None:
+    """저장 중(applying)인 묶음을 다시 확인 대기로 돌린다 (오류 문구와 함께). 실패하면 한 번 더 해 보고, 그래도 안 되면 기록만 남긴다
+    (그 묶음은 화면의 "다시 확인" 이나 서버를 다시 시작할 때 풀린다)."""
+    for attempt in (1, 2):
+        try:
+            _release_once(db, intake_id, message)
+            return
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            log.exception("올리기 묶음 %s 를 확인 대기로 되돌리지 못했습니다 (시도 %s)", intake_id, attempt)
+
+
+APPLYING_STALE = timedelta(minutes=5)
+
+
+def is_stale_applying(intake: Intake) -> bool:
+    return intake.status == "applying" and datetime.now() - intake.updated_at > APPLYING_STALE
+
+
+def recheck_applying(db: Session, intake: Intake) -> bool:
+    """오래 저장 중으로 남은 묶음을 확인 대기로 되돌린다. 조건부 UPDATE 라 그 사이 끝났거나 아직 새로운 저장은 건드리지 않는다."""
+    result = db.execute(
+        update(Intake).where(Intake.id == intake.id, Intake.status == "applying", Intake.updated_at < datetime.now() - APPLYING_STALE)
+        .values(status="ready", error=APPLY_INTERRUPTED)
+    )
+    db.commit()
+    db.refresh(intake)
+    return result.rowcount == 1
 
 
 def recover_applying(db: Session) -> int:
@@ -690,7 +721,7 @@ class _Run:
         from app import records
 
         made = 0
-        for number in item["files"]:
+        for number in item.get("files", []):
             f = self.by_number.get(number)
             if f is None or f.read_status != "ok" or (solution.id, f.id) in self.attached:
                 continue
@@ -736,7 +767,7 @@ def _extract_for_solutions(settings: Settings, intake: Intake, chosen: list[tupl
     for item, _ in chosen:
         if item["kind"] not in ("new_solution", "add_to_solution"):
             continue
-        for number in item["files"]:
+        for number in item.get("files", []):
             f = by_number.get(number)
             if f is None or f.read_status != "ok" or f.id in out:
                 continue
@@ -784,7 +815,14 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     for item, v in chosen:
         if item["kind"] != "add_to_solution":
             continue
-        target = run.existing_id(Solution, v["solution"]) or run.existing_id(Solution, item["solution_id"])
+        picked = run.existing_id(Solution, v["solution"])
+        target = picked if picked != item.get("solution_id") else None  # 정리안과 다르게 직접 고른 대상
+        if target is None:
+            target = run.existing_id(Solution, item.get("solution_id"))
+            stored = item.get("solution_name")
+            # 번호를 다시 쓰는 다른 솔루션을 가리키게 된 경우(이름이 다름)는 대상이 사라진 것으로 본다
+            if target is not None and stored and normalize_name(stored) != normalize_name(db.get(Solution, target).name):
+                target = None
         if target is None:
             run.skipped.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_to_solution']}: {TARGET_GONE}"})
             continue
@@ -814,9 +852,9 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             new_partners=v["new_names"]["new_partners"],
         )
         db.flush()
-        for number in item["files"]:
+        for number in item.get("files", []):
             f = run.by_number.get(number)
-            if f is not None and not f.target_type:
+            if f is not None:  # 활동 기록이 우선: 솔루션에는 자기 사본이 이미 있다
                 f.target_type, f.target_id = "activity", a.id
         run.result.append({"type": "activity", "id": a.id, "label": a.title or "(제목 없음)"})
         run.sync.append(a)
@@ -872,20 +910,19 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
     if not chosen:
         raise ValueError(NOTHING_TO_SAVE)
 
-    intake_id, user_id = intake.id, user.id
+    intake_id = intake.id
     db.commit()  # 읽기 트랜잭션을 끝내고, 선점 UPDATE 를 짧은 쓰기 트랜잭션으로 한다
     claimed = db.execute(update(Intake).where(Intake.id == intake_id, Intake.status == "ready").values(status="applying", error=""))
     db.commit()
     if claimed.rowcount != 1:
         db.refresh(intake)
         raise NotReady
-    db.refresh(intake)
-    if intake.plan != plan:  # 선점 사이에 다시 정리되어 정리안이 바뀌었다
-        _release(db, intake_id, PLAN_CHANGED)
-        raise NotReady
 
     copied: list[Path] = []
     try:
+        db.refresh(intake)
+        if intake.plan != plan:  # 선점 사이에 다시 정리되어 정리안이 바뀌었다
+            raise NotReady
         run = _Run(db, settings, intake, user, _extract_for_solutions(settings, intake, chosen), copied)
         _create_records(run, chosen)
         intake.result = list(run.result)
@@ -899,8 +936,10 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
                 path.parent.rmdir()  # 새 솔루션의 빈 폴더 (자료가 남은 폴더는 그대로 둔다)
             except OSError:
                 pass
-        _release(db, intake_id, APPLY_FAILED)
+        _release(db, intake_id, PLAN_CHANGED if isinstance(e, NotReady) else APPLY_FAILED)
         db.refresh(intake)
+        if isinstance(e, NotReady):
+            raise
         if isinstance(e, Exception):
             log.exception("올리기 묶음 %s 저장 실패", intake_id)
             raise ApplyFailed(APPLY_FAILED) from e

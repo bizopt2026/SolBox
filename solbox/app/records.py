@@ -111,7 +111,7 @@ def pick(db: Session, model, ids: list[str]) -> list:
     """id 문자열 목록에서 실제로 있는 항목만 (중복 없이) 고른다."""
     picked, seen = [], set()
     for raw in ids:
-        if not raw.strip().isdigit() or int(raw) in seen:
+        if not (raw.strip().isascii() and raw.strip().isdecimal()) or int(raw) in seen:
             continue
         seen.add(int(raw))
         if (obj := db.get(model, int(raw))) is not None:
@@ -160,7 +160,7 @@ def apply_activity_fields(
     a.kind = kind if kind in labels.ACTIVITY_KINDS else "other"
     a.date = parse_date(date_)
     a.raw_text = raw_text
-    a.title = title.strip() or first_line(raw_text)
+    a.title = title.strip() or first_line(raw_text) or first_line(summary_md)
     a.summary_md = summary_md.strip()
     a.follow_ups = follow_ups(fu_task, fu_owner, fu_due, fu_done)
     a.demand_signals = demand_signals(ds_customer, ds_content)

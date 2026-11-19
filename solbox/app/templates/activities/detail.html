@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import detail_head, breadcrumb, val %}
-{% block title %}{{ activity.title or "활동 기록" }}{% if originals %}
-<section class="card">
-  <h2>원본 파일</h2>
-  <ul>{% for f in originals %}<li>{{ f.original_name }} <a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></li>{% endfor %}</ul>
-</section>
-{% endif %}
-{% endblock %}
+{% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)) }}
 {{ detail_head(activity.title or "(제목 없음)", "/activities", activity, can_delete) }}

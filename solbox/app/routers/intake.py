@@ -72,7 +72,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
         skipped=skipped or [], has_audio=any(f.kind == "audio" for f in intake.files),
-        position=_position(db, intake), max_note=intake_lib.MAX_NOTE,
+        position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         saved=[e for e in intake.result or [] if e.get("type") != "skipped"] if intake.status == "applied" else [],
         not_saved=[e for e in intake.result or [] if e.get("type") == "skipped"] if intake.status == "applied" else [],
         **ctx,
@@ -210,4 +210,12 @@ def discard(intake_id: int, request: Request, user: User = Depends(require_user)
     intake = get_intake(db, user, intake_id)
     if not intake_lib.discard(db, request.app.state.settings, intake):
         raise HTTPException(status_code=400, detail=CANNOT_DISCARD)
+    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+
+
+@router.post("/{intake_id}/recheck")
+def recheck(intake_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """오래 저장 중으로 멈춘 묶음을 확인 대기로 되돌린다 (아직 저장 중인 묶음은 그대로 둔다)."""
+    intake = get_intake(db, user, intake_id)
+    intake_lib.recheck_applying(db, intake)
     return RedirectResponse(f"/intake/{intake.id}", status_code=303)
