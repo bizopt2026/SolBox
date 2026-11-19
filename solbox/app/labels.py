@@ -1,4 +1,5 @@
 """코드값과 화면에 보일 한국어 이름."""
+from datetime import datetime
 
 STAGES = {
     "intake": "아이템 접수",
@@ -36,6 +37,18 @@ JOB_KINDS = {
     "ai_ping": "AI 연결 확인",
 }
 
+# AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
+JOB_EXPECTED = {
+    "activity_structure": "보통 20초 안에",
+    "solution_draft": "보통 30초 안에",
+    "proposal_directions": "보통 1분 안에",
+    "proposal_chat": "보통 1분 안에",
+    "proposal_outline": "보통 1분 안에",
+    "research_area": "분야마다 1~2분",
+    "research_suggest": "보통 1분 안에",
+    "ai_ping": "보통 10초 안에",
+}
+
 ERROR_KINDS = {
     "not_installed": "Claude CLI가 설치되어 있지 않습니다. 서버에 설치되어 있는지 확인해 주세요.",
     "auth": "Claude 로그인이 필요합니다. 서버에서 Claude에 다시 로그인해 주세요.",
@@ -70,3 +83,22 @@ SUGGESTION_KINDS = {"new": "새로 찾을 솔루션", "push": "기존 솔루션 
 RUN_STATUSES = {"running": "진행", "done": "완료", "partial": "일부 실패", "failed": "실패"}
 
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
+
+
+def elapsed_text(started_at: datetime, now: datetime | None = None) -> str:
+    """"35초 경과", "1분 35초 경과" 처럼 시작 뒤 지난 시간."""
+    seconds = max(0, int(((now or datetime.now()) - started_at).total_seconds()))
+    minutes, rest = divmod(seconds, 60)
+    return (f"{minutes}분 {rest}초" if minutes and rest else f"{minutes}분" if minutes else f"{rest}초") + " 경과"
+
+
+def wait_detail(job, now: datetime | None = None) -> str:
+    """진행 중인 작업 옆에 붙일 안내: "(보통 1분 안에 끝납니다 · 35초 경과)". 시작 전이면 빈 글."""
+    if job.started_at is None:
+        return ""
+    expected = JOB_EXPECTED.get(job.kind, "")
+    parts = []
+    if expected:
+        parts.append(expected + " 끝납니다" if expected.endswith("안에") else expected)
+    parts.append(elapsed_text(job.started_at, now))
+    return "(" + " · ".join(parts) + ")"
