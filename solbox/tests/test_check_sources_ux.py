@@ -316,3 +316,56 @@ def test_mixed_slide_shown_consistently(user_client, db, settings):
     assert section_summaries(p, [])["outline"] == "8장 · 확인 필요 1장"
     detail = re.sub(r"<[^>]+>", "", user_client.get(f"/proposals/{p.id}").text)
     assert "확인할 항목이 남은 장: 확인 필요 1장" in detail and "8장 · 확인 필요 1장" in detail
+
+
+# ---------------------------------------------------------------- 4묶음: 방향 카드와 출처 번호
+
+def test_number_sources():
+    from app.proposals import number_sources
+    d = {"rationale": [
+        {"text": "가", "sources": ["a.md", "b.md"]},
+        {"text": "나", "sources": []},
+        {"text": "다", "sources": ["b.md", "c.md", "b.md"]},
+    ]}
+    assert number_sources(d) == {
+        "rationale": [{"text": "가", "refs": [1, 2]}, {"text": "나", "refs": []}, {"text": "다", "refs": [2, 3]}],
+        "sources": ["a.md", "b.md", "c.md"],
+    }
+    assert number_sources({}) == {"rationale": [], "sources": []}
+    assert number_sources({"rationale": [{"text": "x"}, "junk", {"text": "y", "sources": [5, "z.md"]}]})["sources"] == ["z.md"]
+
+
+def _two_source_direction(p):
+    return dict(p.directions[0], summary="한 줄 요약", effects=["효과 하나"], needs_check=["근거 자료 없음: 값", "값 정하기"], rationale=[
+        {"text": "첫 근거", "sources": ["solutions/1/card.md", "solutions/2/card.md"]},
+        {"text": "둘째 근거", "sources": ["solutions/1/card.md"]},
+        {"text": "셋째 근거", "sources": []},
+    ])
+
+
+def test_direction_card_numbers_sources_and_lists_them_once(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    p.directions = [_two_source_direction(p), p.directions[1]]
+    p.selected_index, p.status = None, "directions"
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert page.count('class="chip"') == 2 and '<ol class="source-list">' in page
+    assert '<sup><a href="#d0-src-1">1</a></sup>' in page and '<sup><a href="#d0-src-2">2</a></sup>' in page
+    assert page.count('<sup><a href="#d0-src-1">1</a></sup>') == 2 and 'id="d0-src-1"' in page and 'id="d0-src-2"' in page
+    assert re.search(r"셋째 근거(?!<sup)", page) and "출처:</span>" not in page
+
+
+def test_directions_grid_before_selection_and_flat_after(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    p.directions = [_two_source_direction(p), p.directions[1]]
+    p.selected_index, p.status = None, "directions"
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert page.count('class="dir-grid"') == 1 and page.count("이 방향으로 구체화") == 2
+    assert page.count("근거와 확인할 점 보기") == 2 and "근거 5건" not in page
+    assert "근거 3건 · 확인할 점 2건" in re.sub(r"<[^>]+>", "", page) and "근거 확인 1건" in page
+    p.selected_index, p.status = 0, "refining"
+    db.commit()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert 'class="dir-grid"' not in page and "다른 방향 1개 보기" in page
+    assert re.search(r'<details class="dir-more" open>', page)

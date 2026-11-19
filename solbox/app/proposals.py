@@ -95,6 +95,27 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
     return cleaned[:MAX_DIRECTIONS]
 
 
+def number_sources(direction: dict) -> dict:
+    """방향 카드의 출처에 번호를 붙인다. 같은 경로는 카드 안에서 같은 번호(처음 나온 순서).
+    `{"rationale": [{"text", "refs": [1, 2]}], "sources": [경로, ...]}` — 출처 없는 근거는 refs 가 빈 목록."""
+    order: list[str] = []
+    rationale = []
+    for ev in direction.get("rationale") or []:
+        if not isinstance(ev, dict):
+            continue
+        refs: list[int] = []
+        for path in ev.get("sources") or []:
+            if not isinstance(path, str):
+                continue
+            if path not in order:
+                order.append(path)
+            n = order.index(path) + 1
+            if n not in refs:
+                refs.append(n)
+        rationale.append({"text": ev.get("text") or "", "refs": refs})
+    return {"rationale": rationale, "sources": order}
+
+
 def _strip_list(items: list[str]) -> list[str]:
     return [x for x in (i.strip() for i in items) if x]
 

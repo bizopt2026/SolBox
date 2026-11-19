@@ -72,6 +72,14 @@
     try { if (sessionStorage.getItem(KEY) === "1") apply(true); } catch (e) { /* 저장소를 못 쓰면 전체 보기 */ }
   });
 
+  // 방향 카드: 출처 번호를 누르면 접힌 부분을 펼치고 그 출처로 이동한다
+  document.querySelectorAll(".dir-card sup a").forEach(function (a) {
+    a.addEventListener("click", function () {
+      var t = document.getElementById(a.getAttribute("href").slice(1));
+      for (var d = t; d; d = d.parentElement) { if (d.tagName === "DETAILS") d.open = true; }
+    });
+  });
+
   // 구성안: 모두 펼치기/접기, 펼친 장 기억
   var slideCards = Array.prototype.slice.call(document.querySelectorAll("details.slide-card"));
   if (slideCards.length) {
@@ -88,6 +96,10 @@
       } catch (e) { /* 저장소를 못 쓰면 서버가 정한 상태 그대로 */ }
     }
     saveOpen();
+    // 주소의 ?open= 은 한 번 쓰고 지운다. 새로고침하면 기억해 둔 상태를 따른다
+    if (location.search.indexOf("open=") >= 0) {
+      try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) { /* 그대로 둔다 */ }
+    }
     slideCards.forEach(function (c) { c.addEventListener("toggle", saveOpen); });
     document.querySelectorAll(".toggle-slides").forEach(function (box) {
       box.hidden = false;
