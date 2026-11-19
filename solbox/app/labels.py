@@ -19,6 +19,24 @@ ACTIVITY_KINDS = {
 
 FILE_KINDS = {"intro": "소개", "spec": "스펙", "related": "관련"}
 
+INTAKE_STATUSES = {
+    "uploaded": "올림",
+    "analyzing": "정리 중",
+    "ready": "확인 대기",
+    "applied": "저장 완료",
+    "failed": "실패",
+    "discarded": "버림",
+}
+
+INTAKE_FILE_KINDS = {"document": "문서", "image": "사진", "audio": "음성", "other": "기타"}
+
+READ_STATUSES = {
+    "ok": "읽음",
+    "failed": "읽지 못함",
+    "unsupported": "보관만 함",
+    "needs_transcript": "받아쓰기 필요",
+}
+
 JOB_STATUSES = {
     "pending": "대기",
     "running": "진행",

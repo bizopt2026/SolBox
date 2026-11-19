@@ -185,4 +185,35 @@
     window.addEventListener("hashchange", function () { select(hashId()); });
     select(ids.indexOf(hashId()) >= 0 ? hashId() : ids[0]);
   }
+  // 올리기: 고른 파일 이름을 보여 주고, 끌어다 놓은 파일을 입력칸에 담는다
+  document.querySelectorAll("[data-dropzone]").forEach(function (zone) {
+    var input = zone.querySelector('input[type="file"]');
+    var list = zone.querySelector(".dropzone-list");
+    var hint = zone.querySelector(".dropzone-hint");
+    if (!input) return;
+    var show = function () {
+      if (!list) return;
+      list.textContent = "";
+      Array.prototype.forEach.call(input.files, function (f) {
+        var li = document.createElement("li");
+        li.textContent = f.name;
+        list.appendChild(li);
+      });
+    };
+    input.addEventListener("change", show);
+    if (hint) hint.hidden = false;
+    ["dragenter", "dragover"].forEach(function (name) {
+      zone.addEventListener(name, function (e) { e.preventDefault(); zone.classList.add("over"); });
+    });
+    ["dragleave", "drop"].forEach(function (name) {
+      zone.addEventListener(name, function () { zone.classList.remove("over"); });
+    });
+    zone.addEventListener("drop", function (e) {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        show();
+      }
+    });
+  });
 })();

@@ -334,3 +334,21 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
   button.tick, button.check { position:relative; }
   button.tick::after, button.check::after { content:""; position:absolute; inset:-6px; }
 }
+
+/* 올리기 */
+.dropzone { display:flex; flex-direction:column; gap:8px; padding:16px; border:2px dashed var(--line); border-radius:8px; background:#fafbfc; }
+.dropzone.over { border-color:var(--accent); background:#eef2ff; }
+.dropzone input[type=file] { background:transparent; border:0; padding:0; max-width:100%; }
+.dropzone-hint { margin:0; font-size:13px; }
+.dropzone-list { margin:0; padding-left:18px; font-size:13px; color:var(--muted); }
+.dropzone-list:empty { display:none; }
+.notice { margin:0 0 16px; padding:10px 14px; border:1px solid #fedf89; border-radius:6px; background:#fffaeb; color:var(--decide); }
+.badge.intake-uploaded { background:#dbeafe; color:#1e40af; }
+.badge.intake-analyzing { background:#fef0c7; color:#93370d; }
+.badge.intake-ready { background:#ede9fe; color:#5b21b6; }
+.badge.intake-applied { background:#d1fadf; color:#05603a; }
+.badge.intake-failed { background:#fef3f2; color:var(--err); }
+.badge.intake-discarded { background:#eaecf0; color:#475467; }
+.badge.read-failed { background:#fef3f2; color:var(--err); }
+.badge.read-needs_transcript { background:#fef0c7; color:#93370d; }
+.badge.read-unsupported { background:#eaecf0; color:#475467; }

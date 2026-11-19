@@ -15,7 +15,7 @@
   {% set path = request.url.path if request else "/" %}
   {% set section = path.split("/")[1] %}
   <nav>
-    {% for href, name in (("", "홈"), ("solutions", "솔루션"), ("customers", "고객"), ("businesses", "기존 사업"), ("partners", "파트너"), ("proposals", "제안"), ("activities", "활동 기록"), ("research", "리서치")) %}
+    {% for href, name in (("intake", "올리기"), ("", "홈"), ("solutions", "솔루션"), ("customers", "고객"), ("businesses", "기존 사업"), ("partners", "파트너"), ("proposals", "제안"), ("activities", "활동 기록"), ("research", "리서치")) %}
     <a href="/{{ href }}"{% if section == href %} aria-current="page"{% endif %}>{{ name }}</a>
     {% endfor %}
     {% if user.role == "admin" %}

@@ -46,6 +46,10 @@ class Settings:
         return self.data_dir / "research_work"
 
     @property
+    def intake_work_dir(self) -> Path:
+        return self.data_dir / "intake_work"
+
+    @property
     def decks_dir(self) -> Path:
         return self.data_dir / "decks"
 

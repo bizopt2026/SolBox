@@ -19,6 +19,7 @@ dependencies = [
     "python-pptx",
     "python-docx",
     "openpyxl",
+    "Pillow>=10",
     "itsdangerous",
     "cryptography>=42",
 ]
