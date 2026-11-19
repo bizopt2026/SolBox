@@ -185,35 +185,78 @@
     window.addEventListener("hashchange", function () { select(hashId()); });
     select(ids.indexOf(hashId()) >= 0 ? hashId() : ids[0]);
   }
-  // 올리기: 고른 파일 이름을 보여 주고, 끌어다 놓은 파일을 입력칸에 담는다
+  // 올리기: 끌어다 놓은 파일을 같은 파일 입력칸에 더하고, 고른 파일 목록·개수·합계를 보여 준다. 없어도 파일 선택 버튼으로 올릴 수 있다.
+  function sizeText(bytes) {
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + "KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + "MB";
+  }
   document.querySelectorAll("[data-dropzone]").forEach(function (zone) {
     var input = zone.querySelector('input[type="file"]');
+    if (!input) return;
     var list = zone.querySelector(".dropzone-list");
     var hint = zone.querySelector(".dropzone-hint");
-    if (!input) return;
+    var summary = zone.querySelector(".dropzone-summary");
+    var warn = zone.querySelector(".dropzone-warn");
+    var maxFiles = parseInt(zone.getAttribute("data-max-files"), 10) || 0;
+    var maxMb = parseFloat(zone.getAttribute("data-max-mb")) || 0;
     var show = function () {
-      if (!list) return;
-      list.textContent = "";
-      Array.prototype.forEach.call(input.files, function (f) {
+      var files = Array.prototype.slice.call(input.files || []);
+      var total = 0;
+      var tooBig = [];
+      if (list) list.textContent = "";
+      files.forEach(function (f) {
+        total += f.size;
+        if (maxMb && f.size > maxMb * 1024 * 1024) tooBig.push(f.name);
+        if (!list) return;
         var li = document.createElement("li");
-        li.textContent = f.name;
+        li.textContent = f.name + " (" + sizeText(f.size) + ")";
         list.appendChild(li);
       });
+      if (summary) {
+        summary.hidden = files.length === 0;
+        summary.textContent = files.length ? files.length + "개 선택 · 합계 " + sizeText(total) : "";
+      }
+      var messages = [];
+      if (maxFiles && files.length > maxFiles) messages.push("한 번에 최대 " + maxFiles + "개까지 올릴 수 있어요. " + files.length + "개를 골랐으니 " + (files.length - maxFiles) + "개를 빼 주세요.");
+      if (tooBig.length) messages.push("파일 하나는 최대 " + maxMb + "MB까지예요. 너무 큰 파일: " + tooBig.join(", "));
+      if (warn) {
+        warn.hidden = messages.length === 0;
+        warn.textContent = messages.join(" ");
+      }
+    };
+    // 끌어다 놓은 파일은 이미 고른 파일에 더한다 (이름·크기·수정 시각이 같으면 한 번만)
+    var add = function (dropped) {
+      var merged;
+      try {
+        merged = new DataTransfer();
+        var seen = {};
+        Array.prototype.concat.call(Array.prototype.slice.call(input.files || []), Array.prototype.slice.call(dropped)).forEach(function (f) {
+          var key = f.name + "|" + f.size + "|" + f.lastModified;
+          if (seen[key]) return;
+          seen[key] = true;
+          merged.items.add(f);
+        });
+      } catch (err) {
+        input.files = dropped; // DataTransfer 를 쓸 수 없는 브라우저: 놓은 파일로 바꾼다
+        show();
+        return;
+      }
+      input.files = merged.files;
+      show();
     };
     input.addEventListener("change", show);
     if (hint) hint.hidden = false;
     ["dragenter", "dragover"].forEach(function (name) {
       zone.addEventListener(name, function (e) { e.preventDefault(); zone.classList.add("over"); });
     });
-    ["dragleave", "drop"].forEach(function (name) {
-      zone.addEventListener(name, function () { zone.classList.remove("over"); });
+    zone.addEventListener("dragleave", function (e) {
+      if (!e.relatedTarget || !zone.contains(e.relatedTarget)) zone.classList.remove("over");
     });
     zone.addEventListener("drop", function (e) {
       e.preventDefault();
-      if (e.dataTransfer && e.dataTransfer.files.length) {
-        input.files = e.dataTransfer.files;
-        show();
-      }
+      zone.classList.remove("over");
+      if (e.dataTransfer && e.dataTransfer.files.length) add(e.dataTransfer.files);
     });
+    show();
   });
 })();

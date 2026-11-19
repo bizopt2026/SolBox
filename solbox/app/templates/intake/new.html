@@ -5,17 +5,14 @@
 {{ breadcrumb(("올리기", "/intake"), ("새로 올리기", None)) }}
 <h1>파일 올리기</h1>
 <p class="muted">문서·사진·음성 파일을 한꺼번에 올리세요. 한 번에 {{ max_files }}개까지, 파일 하나는 {{ max_mb }}MB까지 올릴 수 있어요.</p>
+<ul class="examples">
+  <li>제품 소개서·스펙 → 솔루션</li>
+  <li>미팅 녹취록·현장 사진 → 활동 기록</li>
+  <li>명함·회사 소개 → 고객·파트너</li>
+</ul>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="/intake" enctype="multipart/form-data" class="card stack">
-  <div class="dropzone" data-dropzone>
-    <label for="intake-files"><span>파일 · 문서(pptx, pdf, docx, xlsx, txt, md, csv)와 사진, 음성</span></label>
-    <input id="intake-files" type="file" name="files" multiple required>
-    <p class="muted dropzone-hint" hidden>여기로 파일을 끌어다 놓을 수도 있어요.</p>
-    <ul class="dropzone-list" aria-live="polite"></ul>
-  </div>
-  <label><span>메모 (선택, {{ max_note }}자까지)</span>
-    <input type="text" name="note" value="{{ note }}" maxlength="{{ max_note }}" placeholder="예: 신규 솔루션 후보 자료">
-  </label>
+  {% set zone_id = "intake" %}{% include "intake/_dropzone.html" %}
   <div class="row">
     <button type="submit" class="primary">올리기</button>
     <a href="/intake">취소</a>

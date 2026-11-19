@@ -328,6 +328,7 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
   .topbar .menu-list a { padding:9px 14px; }
   .breadcrumb a, .pager a { display:inline-flex; align-items:center; min-height:36px; }
   .pager a { padding:0 8px; }
+  .page-head .actions a:not(.button), .empty a:not(.button), .intake-pending a { display:inline-flex; align-items:center; min-height:36px; }
   summary:not(.slide-summary) { padding-top:7px; padding-bottom:7px; }
   .section > summary { padding-top:0; padding-bottom:0; min-height:36px; align-items:center; }
   .checklist li, .followups li { min-height:36px; }
@@ -342,6 +343,14 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 .dropzone-hint { margin:0; font-size:13px; }
 .dropzone-list { margin:0; padding-left:18px; font-size:13px; color:var(--muted); }
 .dropzone-list:empty { display:none; }
+.dropzone-summary { margin:0; font-size:13px; font-weight:600; }
+.dropzone-warn { margin:0; font-size:13px; }
+.dropzone-list { overflow-wrap:anywhere; }
+.dropzone:focus-within { border-color:var(--accent); }
+.examples { margin:0 0 16px; padding-left:18px; color:var(--muted); font-size:14px; }
+.intake-pending { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+.intake-pending p { margin:0 0 6px; }
+.intake-pending ul { margin:0 0 6px; padding-left:18px; }
 .notice { margin:0 0 16px; padding:10px 14px; border:1px solid #fedf89; border-radius:6px; background:#fffaeb; color:var(--decide); }
 .badge.intake-uploaded { background:#dbeafe; color:#1e40af; }
 .badge.intake-analyzing { background:#fef0c7; color:#93370d; }
