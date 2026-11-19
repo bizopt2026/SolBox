@@ -6,6 +6,8 @@ import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
+from app.transcribe import TRANSCRIBERS
+
 
 @dataclass
 class Settings:
@@ -24,6 +26,7 @@ class Settings:
     max_upload_mb: int = 100
     backup_dir: Path | None = None
     backup_keep_days: int = 14
+    transcriber: str = "none"
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:
@@ -79,6 +82,12 @@ def load_settings(path: Path | None = None) -> Settings:
         raise SystemExit(
             f"설정 파일의 'secret_key' 를 길고 무작위한 값으로 바꾸세요: {path}\n"
             'python -c "import secrets; print(secrets.token_urlsafe(32))" 로 만들 수 있습니다.'
+        )
+    transcriber = raw.get("transcriber", "none")
+    if transcriber not in TRANSCRIBERS:
+        raise SystemExit(
+            f"설정 파일의 'transcriber' 값이 올바르지 않습니다: {transcriber!r}\n"
+            f"쓸 수 있는 값: {', '.join(sorted(TRANSCRIBERS))}"
         )
     data_dir = Path(raw["data_dir"])
     if not data_dir.is_absolute():

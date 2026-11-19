@@ -13,6 +13,7 @@ from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
 
+from app import transcribe
 from app.config import Settings
 
 MIN_PYTHON = (3, 11)
@@ -123,6 +124,10 @@ def _check_claude(settings: Settings) -> Check:
     return ("Claude CLI", None, (done.stdout or "").strip().splitlines()[0] if (done.stdout or "").strip() else exe)
 
 
+def _check_transcriber(settings: Settings) -> Check:
+    return ("음성 받아쓰기", None, transcribe.label(settings))
+
+
 def _check_cert(settings: Settings) -> Check | None:
     crt, key = settings.ssl_certfile, settings.ssl_keyfile
     if not crt and not key:
@@ -168,6 +173,7 @@ def run_checks(load: Callable[[], Settings]) -> list[Check]:
     results.append(_check_db(settings))
     results.append(_check_knowledge(settings))
     results.append(_check_claude(settings))
+    results.append(_check_transcriber(settings))
     cert = _check_cert(settings)
     if cert is not None:
         results.append(cert)

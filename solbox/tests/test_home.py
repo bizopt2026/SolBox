@@ -164,7 +164,11 @@ def test_intake_summary_counts_only_own_bundles(db):
     assert s["ready_count"] == 7 and s["analyzing_count"] == 1
     assert [i.id for i in s["ready"]] == [i.id for i in reversed(mine)][:5]
     admin = make_user(db, "boss", role="admin")
-    assert intake_summary(db, admin)["ready_count"] == 8 and intake_summary(db, admin)["analyzing_count"] == 2
+    # 관리자도 내 묶음만 센다 (남의 묶음은 올리기 목록에서 본다)
+    _bundle(db, admin, "ready", "관리자 것")
+    a = intake_summary(db, admin)
+    assert a["ready_count"] == 1 and a["analyzing_count"] == 0
+    assert [i.note for i in a["ready"]] == ["관리자 것"]
 
 
 def test_home_shows_pending_confirmation_links(user_client, db):
@@ -186,7 +190,8 @@ def test_home_hides_counts_when_nothing_pending(user_client):
     assert "확인 대기" not in page and "정리 중" not in page
 
 
-def test_admin_home_counts_everyones_ready_bundles(admin_client, db):
+def test_admin_home_lists_only_own_bundles(admin_client, db):
     from tests.conftest import make_user
-    _bundle(db, make_user(db, "park"), "ready")
-    assert "확인 대기 1건" in admin_client.get("/").text
+    _bundle(db, make_user(db, "park"), "ready", "남의 묶음")
+    page = admin_client.get("/").text
+    assert "확인 대기" not in page and "남의 묶음" not in page

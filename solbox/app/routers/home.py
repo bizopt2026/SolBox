@@ -82,10 +82,9 @@ def latest_research(db: Session) -> dict | None:
 
 
 def intake_summary(db: Session, user: User) -> dict:
-    """올리기 묶음 중 확인 대기(최대 5개 목록과 전체 수)와 정리 중 수. 관리자는 모두, 그 밖에는 내 것만."""
+    """올리기 묶음 중 확인 대기(최대 5개 목록과 전체 수)와 정리 중 수. 관리자도 내 것만 (남의 묶음은 올리기 목록에서 본다)."""
     def scoped(status: str):
-        stmt = select(Intake).where(Intake.status == status)
-        return stmt if user.role == "admin" else stmt.where(Intake.created_by_id == user.id)
+        return select(Intake).where(Intake.status == status, Intake.created_by_id == user.id)
 
     def count(status: str) -> int:
         return db.scalar(select(func.count()).select_from(scoped(status).subquery())) or 0

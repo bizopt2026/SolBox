@@ -15,6 +15,7 @@
       <br><small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
     </td></tr>
     <tr><th>AI 작업</th><td>대기 {{ pending }}건, 진행 {{ running }}건</td></tr>
+    <tr><th>음성 받아쓰기</th><td>{{ transcriber }}</td></tr>
     <tr><th>다음 조사 예정</th><td>
       {% if next_run %}{{ next_run.strftime("%Y-%m-%d %H:%M") }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
     </td></tr>

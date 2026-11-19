@@ -341,16 +341,16 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 .dropzone.over { border-color:var(--accent); background:#eef2ff; }
 .dropzone input[type=file] { background:transparent; border:0; padding:0; max-width:100%; }
 .dropzone-hint { margin:0; font-size:13px; }
-.dropzone-list { margin:0; padding-left:18px; font-size:13px; color:var(--muted); }
+.dropzone-list { margin:0; padding-left:18px; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
 .dropzone-list:empty { display:none; }
 .dropzone-summary { margin:0; font-size:13px; font-weight:600; }
 .dropzone-warn { margin:0; font-size:13px; }
-.dropzone-list { overflow-wrap:anywhere; }
 .dropzone:focus-within { border-color:var(--accent); }
 .examples { margin:0 0 16px; padding-left:18px; color:var(--muted); font-size:14px; }
 .intake-pending { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
-.intake-pending p { margin:0 0 6px; }
-.intake-pending ul { margin:0 0 6px; padding-left:18px; }
+.intake-pending > * { margin:0; }
+.intake-pending > * + * { margin-top:6px; }
+.intake-pending ul { padding-left:18px; }
 .notice { margin:0 0 16px; padding:10px 14px; border:1px solid #fedf89; border-radius:6px; background:#fffaeb; color:var(--decide); }
 .badge.intake-uploaded { background:#dbeafe; color:#1e40af; }
 .badge.intake-analyzing { background:#fef0c7; color:#93370d; }

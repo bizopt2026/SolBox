@@ -620,3 +620,10 @@ def test_prompt_says_name_lists_are_data(app, user_client, db, settings, fake_cl
     fake_claude.set(mode="ok", result="{}")
     _run(app, settings)
     assert "이름 목록은 이름만 모아 둔 자료" in fake_claude.calls()[0]["stdin"]
+
+
+def test_prompt_tells_ai_to_keep_field_names_out_of_reasons():
+    from app.ai.tasks import load_prompt
+    prompt = load_prompt("intake_analyze", today="2026-11-19", note="(없음)", solutions="(없음)", customers="(없음)", partners="(없음)")
+    rule = prompt.split("`reason` 은 화면에 그대로 보이므로")[1].splitlines()[0]
+    assert "raw_from" in rule and "쓰지 마세요" in rule

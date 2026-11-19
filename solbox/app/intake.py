@@ -13,7 +13,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import labels
+from app import labels, transcribe
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -194,7 +194,29 @@ def _shrink_image(src: Path, dest_base: Path) -> Path | None:
         return None
 
 
-def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path) -> str:
+def _transcribe_audio(f: IntakeFile, number: int, src: Path, folder: Path, transcriber: transcribe.Transcriber) -> str:
+    """음성: 받아쓰기 엔진이 있으면 글 사본(.md)을 만들어 문서처럼 다룬다. 없으면 받아쓰기 필요, 실패하면 읽지 못함."""
+    if not transcriber.available():
+        f.read_status = "needs_transcript"
+        return ""
+    try:
+        text = transcriber.transcribe(src).strip()
+    except transcribe.TranscribeError:
+        text = ""
+    if not text:
+        f.read_status = "failed"
+        return ""
+    name = doc_copy_name(number, f)
+    try:
+        (folder / name).write_text(f"# {_flat(f.original_name)}\n\n{text}\n", encoding="utf-8")
+    except OSError:
+        (folder / name).unlink(missing_ok=True)
+        raise
+    f.read_status = "ok"
+    return name
+
+
+def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path, transcriber: transcribe.Transcriber) -> str:
     """파일 하나의 작업 폴더 사본을 만들고 읽기 상태를 정한다. 사본 이름(없으면 빈 글)."""
     copy_name = ""
     if f.kind == "document":
@@ -213,7 +235,7 @@ def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path) -> str:
         f.read_status = "ok" if dest else "failed"
         copy_name = dest.name if dest else ""
     elif f.kind == "audio":
-        f.read_status = "needs_transcript"
+        copy_name = _transcribe_audio(f, number, src, folder, transcriber)
     else:
         f.read_status = "unsupported"
     return copy_name
@@ -226,10 +248,11 @@ def prepare_workdir(settings: Settings, intake: Intake) -> None:
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[int, IntakeFile, str]] = []
+    transcriber = transcribe.get(settings)
     for f in sorted(intake.files, key=lambda x: x.id):
         number = file_number(intake, f)
         try:
-            copy_name = _prepare_file(f, number, stored_path(settings, f), folder)
+            copy_name = _prepare_file(f, number, stored_path(settings, f), folder, transcriber)
         except OSError:
             f.read_status, copy_name = "failed", ""
         rows.append((number, f, copy_name))
@@ -271,7 +294,7 @@ def _merge_into(base: dict, other: dict, fields: tuple[str, ...]) -> None:
 
 def _raw_text(settings: Settings | None, intake: Intake, number: int, f: IntakeFile) -> str | None:
     """문서 파일의 추출 글 전체 (작업 폴더 사본에서 `# 이름` 머리줄을 뺀 것). 읽지 못하면 None."""
-    if settings is None or f.kind != "document":
+    if settings is None or f.kind not in ("document", "audio"):
         return None
     path = work_dir(settings, intake) / doc_copy_name(number, f)
     try:
