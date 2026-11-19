@@ -29,7 +29,7 @@
   {% if s.kind == "cover" and s.subtitle %}<p>{{ s.subtitle }}</p>{% endif %}
   {% if s.kind == "bullets" and s.bullets %}<ul>{% for b in s.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
   {% if s.kind == "two_column" %}
-  <div class="row">
+  <div class="twocol">
     <div><h3>{{ s.left_title }}</h3><ul>{% for b in s.left %}<li>{{ b }}</li>{% endfor %}</ul></div>
     <div><h3>{{ s.right_title }}</h3><ul>{% for b in s.right %}<li>{{ b }}</li>{% endfor %}</ul></div>
   </div>

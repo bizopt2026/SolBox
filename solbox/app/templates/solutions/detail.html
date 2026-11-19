@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("솔루션", "/solutions"), (solution.name, None)) }}
@@ -7,12 +7,12 @@
 <section class="card">
   <h2>기본 정보</h2>
   <dl>
-    <dt>한 줄 소개</dt><dd>{{ solution.summary }}</dd>
-    <dt>상세 설명</dt><dd>{{ solution.description }}</dd>
-    <dt>파트너</dt><dd>{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% endif %}</dd>
-    <dt>활용 방향</dt><dd>{{ solution.usage_direction }}</dd>
-    <dt>적용 가능 유형</dt><dd>{{ solution.applicable_types }}</dd>
-    <dt>태그</dt><dd>{{ solution.tags }}</dd>
+    <dt>한 줄 소개</dt><dd>{{ val(solution.summary) }}</dd>
+    <dt>상세 설명</dt><dd>{{ val(solution.description) }}</dd>
+    <dt>파트너</dt><dd>{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+    <dt>활용 방향</dt><dd>{{ val(solution.usage_direction) }}</dd>
+    <dt>적용 가능 유형</dt><dd>{{ val(solution.applicable_types) }}</dd>
+    <dt>태그</dt><dd>{{ val(solution.tags) }}</dd>
   </dl>
 </section>
 <section class="card">

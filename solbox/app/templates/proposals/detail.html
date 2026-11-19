@@ -35,8 +35,8 @@
   <h2>대상</h2>
   <dl>
     <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
-    <dt>기존 사업</dt><dd>{% if proposal.business %}<a href="/businesses/{{ proposal.business_id }}">{{ proposal.business.name }}</a>{% endif %}</dd>
-    <dt>요청 메모</dt><dd>{{ proposal.request_memo }}</dd>
+    <dt>기존 사업</dt><dd>{% if proposal.business %}<a href="/businesses/{{ proposal.business_id }}">{{ proposal.business.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+    <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">박스에 등록된 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
   <details>

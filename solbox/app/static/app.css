@@ -70,9 +70,6 @@ dd { margin:0; white-space:pre-wrap; }
 .chat-divider { font-size:13px; margin:4px 0 0; }
 .status-row { align-items:center; margin-bottom:16px; }
 #ai-status:not(:empty) { margin-bottom:12px; }
-.card dl + form, .card ul + form { margin-top:14px; }
-#chat form + form { margin-top:14px; }
-#directions .stack + form { margin-top:4px; }
 
 .md p, .md ul, .md ol { margin:4px 0; }
 .md ul, .md ol { padding-left:22px; }
@@ -116,4 +113,15 @@ dd { margin:0; white-space:pre-wrap; }
 .fu-task { font-weight:600; }
 button.check { width:22px; height:22px; padding:0; margin-top:1px; border:2px solid var(--accent); border-radius:5px; background:#fff; }
 button.check:hover { background:#dbeafe; }
-.card > :last-child { margin-bottom:0; }
+
+/* 간격: 카드 안 요소 사이와 구역 제목 위는 모두 16px */
+:root { --gap:16px; }
+.card:not(.stack) > * { margin-top:0; margin-bottom:0; }
+.card:not(.stack) > * + * { margin-top:var(--gap); }
+.card.stack > * { margin:0; }
+main > h2 { margin:var(--gap) 0 12px; }
+main > table { margin-bottom:20px; }
+.twocol { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+.twocol h3 { margin:0 0 8px; font-size:15px; }
+.twocol ul { margin:0; }
+code.path { font:12px/1.4 ui-monospace,Consolas,monospace; overflow-wrap:anywhere; word-break:break-all; }

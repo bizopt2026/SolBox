@@ -83,3 +83,6 @@
 {% endmacro %}
 
 {% macro stage_badge(code) %}<span class="badge stage-{{ code }}">{{ labels.STAGES.get(code, code) }}</span>{% endmacro %}
+
+{# 정보 목록(dl)의 값: 비었으면 흐린 "없음" #}
+{% macro val(v) %}{% if v %}{{ v }}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
