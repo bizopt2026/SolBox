@@ -6,7 +6,7 @@
 <title>밑줄 — 긋고, 되묻고, 건네다</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Hahmlet:wght@500;600&family=Gowun+Batang:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{
   /* 밤의 서재: 깊은 남색 + 형광펜 노랑 */
@@ -2752,9 +2752,6 @@ body[data-theme="dark"] .sh-pre button.on{background:rgba(255,255,255,.12)!impor
 .bke-s span{display:grid;gap:2px}
 .bke-s b{font-size:var(--t3)}
 .bke-s small{font-size:var(--t4);color:var(--muted)}
-/* 기본 표지: 천 장정 결 + 가는 띠 */
-.cover:not(.cvi){background:linear-gradient(160deg,color-mix(in srgb,var(--c) 82%,#fff) 0%,var(--c) 42%,color-mix(in srgb,var(--c) 80%,#000) 100%)!important}
-.cover:not(.cvi)::after{background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.03) 0 1px,transparent 1px 3px),linear-gradient(120deg,rgba(255,255,255,.2),transparent 40%)!important}
 /* 밑줄 화면 질문 상자 = 홈과 같게 */
 .pq-ask.bq-ask{margin-top:18px!important}
 /* 대화 머리줄: 남색 */
@@ -3298,7 +3295,7 @@ body[data-theme="dark"] .b4 .pg-rt mark{background:linear-gradient(transparent 8
 .b4-rate em{font-style:normal;margin-left:6px;font-size:11px;color:var(--muted)}
 
 /* 다 읽은 책 서가 */
-.dn{display:grid;gap:22px;padding:2px 0 28px}
+.dns{display:grid;gap:22px;padding:2px 0 28px}
 .dn-hero{position:relative;border-radius:20px;overflow:hidden;background:linear-gradient(160deg,#262B47 0%,#1B1F35 100%);color:#fff;padding:22px 20px 0;box-shadow:0 14px 30px -18px rgba(20,24,46,.55)}
 .dn-k{display:block;font-size:12px;letter-spacing:.06em;color:rgba(255,255,255,.62);font-weight:600}
 .dn-hl b{display:block;font-family:var(--serif);font-size:44px;line-height:1.1;font-weight:700;letter-spacing:-.03em;margin-top:4px}
@@ -3342,6 +3339,41 @@ body[data-theme="dark"] .dn-hero{background:linear-gradient(160deg,#20253D,#1519
 /* 화면을 바꿔도 폭이 흔들리지 않게: 스크롤바 자리를 늘 비워 둠 */
 html{scrollbar-gutter:stable}
 #ov{scrollbar-width:none}#ov::-webkit-scrollbar{display:none}
+
+/* ===== 기본 표지(사진 없을 때): 단정한 책 디자인 세 가지 + 밑줄 형광 표시 ===== */
+.cover.dc{justify-content:flex-start;box-shadow:0 1px 1px rgba(0,0,0,.08),0 6px 14px rgba(20,24,46,.16)}
+.cover.dc::before{width:calc(var(--w)*.045);background:linear-gradient(90deg,rgba(0,0,0,.20),rgba(255,255,255,.10) 70%,transparent)}
+.cover.dc::after{background:linear-gradient(115deg,rgba(255,255,255,.16),transparent 42%)}
+.cover.dc .cv-t{font-family:"Hahmlet",var(--f-body);font-weight:600;letter-spacing:-.035em;line-height:1.28;text-shadow:none;word-break:keep-all}
+.cover.dc0 .cv-t{font-family:"Gowun Batang",var(--f-body);font-weight:700;letter-spacing:-.02em;line-height:1.34}
+.cover.dc .cv-u{display:block;position:relative;z-index:1;flex:none;width:36%;height:max(2px,calc(var(--w)*.035));margin-top:calc(var(--w)*.07);background:#F7DC6F;border-radius:2px;transform:skewX(-14deg)}
+.cover.dc .cv-a{font-size:calc(var(--w)*.075);font-weight:500;letter-spacing:.14em;opacity:.8}
+.cover.dc.cv-sm .cv-u,.cover.dc.cv-sm::after{display:none}
+/* 1. 종이 띠: 상아색 종이 위에 색 띠, 짙은 글자 */
+.cover.dc0{background:linear-gradient(180deg,var(--c) 0 17%,color-mix(in srgb,var(--c) 70%,#000) 17% calc(17% + 1px),transparent calc(17% + 1px)),linear-gradient(170deg,#F8F4EB,#EAE3D3)!important;color:#20233A;padding-top:calc(var(--w)*.38)}
+.cover.dc0 .cv-t{color:#1E2136}
+.cover.dc0 .cv-a{margin-top:auto;color:#55586B;opacity:1}
+.cover.dc0::before{background:linear-gradient(90deg,rgba(0,0,0,.10),rgba(255,255,255,.4) 70%,transparent)}
+/* 2. 단색: 깊은 색 바탕, 저자는 위에 작게, 제목은 아래에 크게 */
+.cover.dc1{background:linear-gradient(172deg,color-mix(in srgb,var(--c) 86%,#fff) 0%,var(--c) 50%,color-mix(in srgb,var(--c) 82%,#000) 100%)!important;color:#F6F1E6}
+.cover.dc1 .cv-a{order:-1;margin-bottom:auto;opacity:.72}
+/* 3. 액자: 가는 테두리 안에 가운데 맞춘 제목 */
+.cover.dc2{background:radial-gradient(130% 90% at 25% 0%,color-mix(in srgb,var(--c) 78%,#fff),var(--c) 55%,color-mix(in srgb,var(--c) 84%,#000))!important;color:#F6F1E6;align-items:center;text-align:center;padding:calc(var(--w)*.17) calc(var(--w)*.15) calc(var(--w)*.15) calc(var(--w)*.17)}
+.cover.dc2 .cv-t{margin-top:auto}
+.cover.dc2 .cv-a{margin-top:auto}
+.cover.dc2::after{inset:calc(var(--w)*.065) calc(var(--w)*.065) calc(var(--w)*.065) calc(var(--w)*.1);border:1px solid rgba(255,255,255,.38);border-radius:2px;background:none}
+.cover.dc2.cv-sm::after{display:block;inset:3px 3px 3px 4px}
+.cover.dc.cv-grid .cv-a{font-size:10.5px}
+.cover.dc.cv-grid .cv-u{height:3px;margin-top:9px}
+.cover.dc0.cv-grid{padding-top:38%}
+.bks-c .cover.dc .cv-t{font-size:25px!important}
+.pb-cv .cover.dc .cv-t{font-size:19px!important}
+
+/* 밑줄 메뉴 머리: 어떤 문장인지 보이게 */
+.sh-q .tb-m{font-size:var(--t4)!important;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sh-q .tb-s{font-size:12px;color:var(--muted)}
+/* 어두운 화면에서 상아색 종이 표지가 눈부시지 않게 */
+body[data-theme="dark"] .cover.dc0{filter:brightness(.86) saturate(.95)}
 </style>
 </head>
 <body>
@@ -3400,7 +3432,9 @@ const newId = p => p + '-' + Date.now().toString(36) + Math.random().toString(36
 const fmtDate = t => { const d = new Date(t); return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`; };
 const STATUS = { reading: '읽는 중', want: '읽을 책', paused: '잠시 멈춤', done: '다 읽음' };
 const SHELF_ORDER = ['reading', 'want', 'paused', 'done'];
-const SPINES = ['#2F3A6B','#2F5D50','#7A3B46','#8C6A2E','#3E5C7A','#5B4A72','#2C6A70','#454550','#9A5640','#5E6B3A'];  /* 책등: 남색·잉크·돌 한 계열 */  /* 천 장정 책등 색 */
+const SPINES = ['#2B3A62','#2E5446','#7A3846','#8A6A2C','#35566F','#5A4570','#2A6366','#45464F','#97533C','#5A6838'];  /* 책등: 남색·잉크·돌 한 계열 */  /* 천 장정 책등 색 */
+/* 기본 표지 모양 셋(종이 띠 · 단색 · 액자) 가운데 책마다 하나 */
+const dcStyle = s => { let h = 7; for (const c of String(s)) h = (h * 131 + c.charCodeAt(0)) >>> 0; return h % 3; };
 const spineColor = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return SPINES[h % SPINES.length]; };
 let toastT; function toast(m, o = {}){
   const t = $('#toast'); t.innerHTML = ''; t.classList.toggle('act', !!o.action);
@@ -3620,11 +3654,11 @@ let cvSig = '';
 let CV_FIX = new Set();
 async function coverRetrim(){
   for (const d of Object.values(S.docs)) {
-    if (!d || d.kind !== 'cover' || (d.trim || 0) >= 4 || !d.img || CV_FIX.has(d.id) || !S.docs[d.bookId] || !col) continue; CV_FIX.add(d.id);
+    if (!d || d.kind !== 'cover' || (d.trim || 0) >= 5 || !d.img || CV_FIX.has(d.id) || !S.docs[d.bookId] || !col) continue; CV_FIX.add(d.id);
     try { const base = d.src || d.img, img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = base; });
-      const o = document.createElement('canvas'); o.width = 360; o.height = 540; o.getContext('2d').drawImage(img, 0, 0, 360, 540); trimCoverEdges(o); if ((d.trim || 0) < 4) lightFix(o);
+      const o = document.createElement('canvas'); o.width = 360; o.height = 540; o.getContext('2d').drawImage(img, 0, 0, 360, 540); if ((d.trim || 0) < 4) { trimCoverEdges(o); lightFix(o); } scanFinish(o);
       const fin = await coverFinalize(o.toDataURL('image/jpeg', .8));
-      await put(d.id, { kind: 'cover', bookId: d.bookId, ...fin, trim: 4, at: Date.now() });
+      await put(d.id, { kind: 'cover', bookId: d.bookId, ...fin, trim: 5, at: Date.now() });
     } catch {}
   }
 }
@@ -3699,7 +3733,7 @@ async function coverAdjustSheet(bid){
   cv.onpointerup = cv.onpointercancel = () => { drag = null; };
   $('#caSave').onclick = async () => {
     const out = cv.toDataURL('image/jpeg', .78);
-    await put(cvId(bid), { ...stripId(d), src, pos: { dy: Math.round(pos.dy * 100) / 100, z: pos.z }, img: out, trim: 4, at: Date.now() });
+    await put(cvId(bid), { ...stripId(d), src, pos: { dy: Math.round(pos.dy * 100) / 100, z: pos.z }, img: out, trim: 5, at: Date.now() });
     syncCoverCSS(); closeSheet(); toast('표지 위치를 맞췄어요'); render();
   };
 }
@@ -3860,6 +3894,41 @@ function lightFix(o){
     g.putImageData(im, 0, 0);
   } catch {}
 }
+/* 스캐너처럼 마무리: 흰 종이는 하얗게, 검정은 또렷하게, 글자 가장자리는 선명하게 (밝기만 다루고 색은 지킴) */
+function scanFinish(o){
+  try {
+    const W = o.width, H = o.height, g = o.getContext('2d'), im = g.getImageData(0, 0, W, H), d = im.data, N = W * H;
+    const L = new Float32Array(N), hist = new Uint32Array(256);
+    for (let i = 0, k = 0; i < N; i++, k += 4) { const l = d[k] * .299 + d[k + 1] * .587 + d[k + 2] * .114; L[i] = l; hist[Math.min(255, l | 0)]++; }
+    const pc = p => { let a = 0; for (let v = 0; v < 256; v++) { a += hist[v]; if (a >= N * p) return v; } return 255; };
+    const lo = pc(.01), p85 = pc(.85), hi = pc(.985);
+    /* 밝은 쪽이 무채색(종이·흰 바탕)인지 */
+    let cs = 0, cn = 0;
+    for (let i = 0, k = 0; i < N; i += 7, k += 28) if (L[i] >= p85) { const mx = Math.max(d[k], d[k + 1], d[k + 2]), mn = Math.min(d[k], d[k + 1], d[k + 2]); cs += (mx - mn) / (mx + 1); cn++; }
+    const paper = cn > 0 && cs / cn < .14 && hi > 140;
+    /* 종이 기준 밝기: 무채색 밝은 면의 아래쪽 25% 지점(그늘진 종이까지 하얗게) */
+    let wp = hi;
+    if (paper) { const ph = new Uint32Array(256); let pn = 0;
+      for (let i = 0, k = 0; i < N; i += 3, k += 12) if (L[i] > hi * .72) { const mx = Math.max(d[k], d[k + 1], d[k + 2]), mn = Math.min(d[k], d[k + 1], d[k + 2]); if ((mx - mn) / (mx + 1) < .14) { ph[Math.min(255, L[i] | 0)]++; pn++; } }
+      if (pn > N / 3 * .2) { let a = 0; for (let v = 0; v < 256; v++) { a += ph[v]; if (a >= pn * .25) { wp = Math.max(v, hi * .8); break; } } } }
+    /* 밝기 범위: 종이는 250까지, 그 밖에는 남은 여유의 40%만 */
+    const T = paper ? 250 : hi + (255 - hi) * .4, ob = Math.min(lo, 10);
+    const s = wp - lo > 40 ? Math.max(1, Math.min(1.6, (T - ob) / (wp - lo))) : 1;
+    const N2 = new Float32Array(N);
+    for (let i = 0; i < N; i++) { let v = Math.max(0, Math.min(255, ob + (L[i] - lo) * s)); const t = (v - 128) / 128; N2[i] = v + 14 * t * (1 - t * t); }   /* 살짝 S자로 */
+    /* 선명하게: 작은 흐림을 빼 가장자리만 키움(잡티는 문턱 아래로 두고) */
+    const tmp = new Float32Array(N), bl = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; tmp[i] = (N2[i - (x > 0)] + N2[i] + N2[i + (x < W - 1)]) / 3; }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; bl[i] = (tmp[i - (y > 0) * W] + tmp[i] + tmp[i + (y < H - 1) * W]) / 3; }
+    for (let i = 0, k = 0; i < N; i++, k += 4) {
+      const det = N2[i] - bl[i], ad = Math.abs(det), v = ad > 5 ? N2[i] + det * .7 : ad < 2.5 ? bl[i] : N2[i];   /* 가장자리는 또렷하게, 평평한 면의 자글자글한 잡티는 고르게 */
+      let sat = 1.05;
+      if (paper && v > 228) { const r = d[k], gg = d[k + 1], b = d[k + 2], ch = (Math.max(r, gg, b) - Math.min(r, gg, b)) / (Math.max(r, gg, b) + 1); if (ch < .16) sat = 1.05 * Math.max(.25, 1 - (v - 228) / 22); }   /* 거의 흰 종이에 남은 색끼는 걷어냄 */
+      for (let c = 0; c < 3; c++) d[k + c] = Math.max(0, Math.min(255, v + (d[k + c] - L[i]) * sat));
+    }
+    g.putImageData(im, 0, 0);
+  } catch {}
+}
 function makeCover(canvas, box, quad){
   const W = canvas.width, H = canvas.height;
   const o = document.createElement('canvas'); o.width = 360; o.height = 540; const g = o.getContext('2d'); g.imageSmoothingQuality = 'high';
@@ -3879,17 +3948,7 @@ function makeCover(canvas, box, quad){
   }
   trimCoverEdges(o);
   lightFix(o);
-  try {   /* 보정: 어두운 쪽 1%와 밝은 쪽 1%를 기준으로 밝기 범위를 펴고, 채도를 살짝 올림 */
-    const im = g.getImageData(0, 0, 360, 540), d = im.data, hist = new Uint32Array(256);
-    for (let i = 0; i < d.length; i += 4) hist[(d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0]++;
-    const tot = d.length / 4; let lo = 0, hi = 255, acc = 0;
-    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= tot * .01) { lo = v; break; } }
-    acc = 0; for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= tot * .01) { hi = v; break; } }
-    if (hi - lo > 40 && (lo > 6 || hi < 249)) { const k = Math.min(1.45, 255 / (hi - lo)), mid = (lo + hi) / 2, to = mid * .5 + 64, sat = 1.04;   /* 과하지 않게: 대비는 최대 1.45배, 밝기는 중간 쪽으로 절반만 */
-      for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2], l0 = (r * 299 + gg * 587 + b * 114) / 1000, l = (l0 - mid) * k + to;   /* 밝기만 펴고 색 차이는 그대로(남은 색끼가 커지지 않게) */
-        d[i] = Math.max(0, Math.min(255, l + (r - l0) * sat)); d[i + 1] = Math.max(0, Math.min(255, l + (gg - l0) * sat)); d[i + 2] = Math.max(0, Math.min(255, l + (b - l0) * sat)); }
-      g.putImageData(im, 0, 0); }
-  } catch {}
+  scanFinish(o);
   return o.toDataURL('image/jpeg', 0.72);
 }
 const CORNER_ASK = `사진 속 책 앞표지의 네 모서리 위치를 찾아 주세요. 표지가 비스듬히 찍혔으면 실제 모서리 그대로(직사각형이 아니어도 됨). 띠지는 표지에 포함하세요. 앞표지 바깥의 책등(옆면 글씨), 책날개, 배경, 손가락, 다른 책은 반드시 빼고, 앞표지 인쇄면의 가장자리에 정확히 맞추세요. 애매하면 바깥보다 살짝 안쪽으로.
@@ -3923,7 +3982,7 @@ function coverHTML(b, size = 'md'){
   const { main } = splitTitle(b.title);
   const au = authorShort(b).split(/\s*,\s*/)[0] || '';
   if (hasCover(b)) return `<div class="cover cv-${size} cvi ${cvCls(b.id)}" style="--c:${spineColor(b.title)}" aria-hidden="true"></div>`;
-  return `<div class="cover cv-${size}" style="--c:${spineColor(b.title)}" aria-hidden="true"><span class="cv-t">${esc(main)}</span>${size !== 'sm' && au ? `<span class="cv-a">${esc(au)}</span>` : ''}</div>`;
+  return `<div class="cover cv-${size} dc dc${dcStyle(b.title)}" style="--c:${spineColor(b.title)}" aria-hidden="true"><span class="cv-t">${esc(main)}</span><i class="cv-u"></i>${size !== 'sm' && au ? `<span class="cv-a">${esc(au)}</span>` : ''}</div>`;
 }
 function titleBlock(b, cls = ''){
   const { main, sub } = splitTitle(b.title);
@@ -4293,7 +4352,7 @@ function bookForm(id, opts = {}){
     </form>`);
   { const ht = $('#bfHt'), ha = $('#bfHa'), cvb = $('#bfCv'), live = !cvImg && !hasCv;
     const upd = () => { const t = $('#bfTitle').value.trim(), a = $('#bfAuthor').value.trim(); ht.textContent = t || '책 제목'; ha.textContent = a || '작가';
-      if (live) cvb.innerHTML = `<div class="cover cv-md" style="--c:${spineColor(t || '?')}"><span class="cv-t">${esc(t || '')}</span>${a ? `<span class="cv-a">${esc(a.split(/\s*[,/]\s*/)[0].replace(/\s*지음$/, ''))}</span>` : ''}</div>`; };
+      if (live) cvb.innerHTML = coverHTML({ id: '_preview', title: t || ' ', author: a.split(/\s*[,/]\s*/)[0].replace(/\s*지음$/, '') }, 'md'); };   /* 저장될 기본 표지 그대로 미리 보기 */
     $('#bfTitle').addEventListener('input', upd); $('#bfAuthor').addEventListener('input', upd); upd();
     const xa = sheet.querySelector('.sp-x'); if (xa) xa.onclick = () => { delete sheet.dataset.lock; closeSheet(); }; }
   $('#fx').onclick = () => { delete sheet.dataset.lock; closeSheet(); };
@@ -4334,7 +4393,7 @@ author는 "저자 지음 / 옮긴이 옮김" 형식. JSON 배열 하나만: [{"t
       totalPages: total, currentPage: total ? Math.min(cur, total) : cur, isbn, publisher: (f.get('publisher') || '').trim(), createdAt: b?.createdAt || Date.now(), updatedAt: Date.now() }, f.get('status'));
     closeSheet();
     put(nid, data);
-    if (!b && pf.coverImg) put(cvId(nid), { kind: 'cover', bookId: nid, ...(typeof pf.coverImg === 'string' ? { img: pf.coverImg } : pf.coverImg), trim: 4, at: Date.now() });
+    if (!b && pf.coverImg) put(cvId(nid), { kind: 'cover', bookId: nid, ...(typeof pf.coverImg === 'string' ? { img: pf.coverImg } : pf.coverImg), trim: 5, at: Date.now() });
     if (!b) { S.homeBook = nid; try { localStorage.setItem('ul_book', nid); } catch {} }
     if (opts.onSaved) { opts.onSaved(nid); return; }
     if (!b) { S.shelf = data.status; go('book', { bookId: nid }); } else render();
@@ -4810,7 +4869,8 @@ async function markerDone(){
 }
 
 function quoteMenu(id){
-  openSheet(`${sheetHead('밑줄', '')}<div class="menu">
+  const q0 = S.docs[id] || {}, b0 = S.docs[q0.bookId];
+  openSheet(`<div class="sh-book sh-q">${b0 ? coverHTML(b0, 'sm') : ''}<div class="tb"><div class="tb-m">${esc((q0.text || "").length > 60 ? q0.text.slice(0, 59) + "…" : (q0.text || ""))}</div><div class="tb-s">${b0 ? `『${esc(shortTitle(splitTitle(b0.title).main, 16))}』` : ''}${q0.page ? ` · p.${esc(q0.page)}` : ''}</div></div></div><div class="menu">
     <button id="mE">수정</button>
     <button id="mC">문장 복사</button>
     <button id="mT">멈춘 이유 · 태그</button>
@@ -5716,7 +5776,7 @@ $('#coverIn').addEventListener('change', async e => {
     const bid = COVER_CTX.only; COVER_CTX = { opts: {} };
     scanStatus('표지 사진을 다듬고 있어요…');
     try { const c = await fileToCanvas(file); let rg = {}; if (sample && canSeeImages) { const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85)); rg = await coverRegionAI(c, blob); }
-      await put(cvId(bid), { kind: 'cover', bookId: bid, ...(await coverFinalize(makeCover(c, rg.box, rg.quad))), trim: 4, at: Date.now() }); delete sheet.dataset.lock; closeSheet(); toast('표지 사진을 바꿨어요'); render(); }
+      await put(cvId(bid), { kind: 'cover', bookId: bid, ...(await coverFinalize(makeCover(c, rg.box, rg.quad))), trim: 5, at: Date.now() }); delete sheet.dataset.lock; closeSheet(); toast('표지 사진을 바꿨어요'); render(); }
     catch { delete sheet.dataset.lock; closeSheet(); toast('표지 사진을 저장하지 못했어요'); }
     return;
   }
@@ -6143,7 +6203,7 @@ function doneView(){
   if (srt === 'recent') { const by = {}; bs.forEach(b => (by[yr(b)] = by[yr(b)] || []).push(b));
     body = Object.keys(by).sort((a, b) => b - a).map(y => `<section class="dn-y"><div class="dn-yh"><b>${+y ? y : '날짜 없음'}</b><span>${by[y].length}권${(q => q ? ` · 밑줄 ${q}` : '')(by[y].reduce((t, b) => t + nq(b), 0))}</span></div><div class="dn-g">${by[y].map(card).join('')}</div></section>`).join(''); }
   else body = `<section class="dn-y"><div class="dn-g">${bs.map(card).join('')}</div></section>`;
-  return `<div class="dn">
+  return `<div class="dns">
     <div class="dn-hero">
       <div class="dn-hl"><span class="dn-k">끝까지 읽은 책</span><b>${all0.length}<small>권</small></b><span class="dn-s">${yN ? `올해 ${yN}권` : ''}${totQ ? `${yN ? ' · ' : ''}밑줄 ${totQ}줄` : ''}${totT ? ` · 사유 ${totT}` : ''}</span></div>
       <div class="dn-shelf"><div class="dn-row">${spines}</div></div>
