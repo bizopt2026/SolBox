@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -256,3 +257,30 @@ def _close_run(db: Session, run_id: int, status: str) -> None:
     db.execute(update(ResearchRun).where(ResearchRun.id == run_id, ResearchRun.status == "running")
                .values(status=status, finished_at=datetime.now()))
     db.commit()
+
+
+_ID_REF = re.compile(r"(\(\s*)?(?<![A-Za-z0-9_])id\s*[:：]?\s*(\d{1,9})(?!\d)(\s*\))?", re.IGNORECASE)
+
+
+def humanize_ids(db: Session, text: str) -> str:
+    """화면에 낼 글에서 `id 3`, `(id 3)`, `ID: 3` 꼴의 솔루션 번호를 그 솔루션 이름으로 바꾼다. 없는 번호는 그대로 둔다.
+
+    이름 바로 뒤에 붙은 `(id 3)` 는 이름이 겹치지 않게 그냥 지운다."""
+    if not text:
+        return text
+    cache: dict[int, str | None] = {}
+
+    def name_of(m: re.Match) -> str:
+        sid = int(m.group(2))
+        if sid not in cache:
+            solution = db.get(Solution, sid)
+            cache[sid] = solution.name if solution is not None else None
+        name = cache[sid]
+        if name is None:
+            return m.group(0)
+        opening, closing = m.group(1) or "", m.group(3) or ""
+        if opening and closing and m.string[: m.start()].rstrip().endswith(name):
+            return ""
+        return f"{opening.strip() and '('}{name}{closing.strip() and ')'}"
+
+    return _ID_REF.sub(name_of, text)

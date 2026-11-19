@@ -15,7 +15,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.labels import RESEARCH_AREAS
 from app.main import render
 from app.models import AIJob, ResearchReport, ResearchRun, Solution, User
-from app.research import UNOPENED_LABEL, clean_url, start_run
+from app.research import UNOPENED_LABEL, clean_url, humanize_ids, start_run
 from app.routers._common import paginate
 from app.security import require_admin, require_user
 
@@ -88,7 +88,8 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
     for index, s in enumerate(suggest.suggestions if suggest else []):
         ids = [i for i in s.get("solution_ids") or [] if isinstance(i, int)]
         solutions = [x for x in (db.get(Solution, i) for i in ids) if x is not None]
-        suggestions.append({**s, "index": index, "solutions": solutions})
+        shown = {k: humanize_ids(db, s.get(k) or "") for k in ("title", "detail", "reason")}
+        suggestions.append({**s, **shown, "index": index, "solutions": solutions})
     areas = []
     for r in run.reports:
         if r.kind != "area":
