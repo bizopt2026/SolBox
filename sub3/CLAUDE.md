@@ -11,3 +11,7 @@
   - `APP_VERSION`·`VLOG`를 올린 뒤(커밋 전) `python3 tools/version_prompt.py`를 실행해요. 직전 버전 커밋과 비교해 `docs/prompts/versions/vX.Y.Z.md`를 만들고, 이전 파일에 적용해 결과가 같은지 스스로 검증해요. 목록은 `docs/prompts/versions/README.md`에 자동으로 추가돼요.
   - 검증이 실패하면(버전 영역과 겹치는 변경 등) 손으로 정리해요. 만든 파일은 앱 변경과 같은 커밋에 넣어요.
 - 날짜별 묶음 프롬프트도 함께 관리해요: 복제본용 업데이트 프롬프트는 `docs/prompts/YYYY-MM-DD.md`로 **하루에 한 파일**로 정리하고, `docs/prompts/README.md` 표에 한 줄 추가해요. 프롬프트에는 "버전 값(APP_VERSION·VLOG)은 바꾸지 마"를 꼭 넣어요.
+- **개발 md 파일은 항상 내려받을 수 있게 해요.**
+  - 버전을 올려 게시할 때마다, 그날 날짜별 프롬프트(`docs/prompts/YYYY-MM-DD.md`)와 그 버전 프롬프트(`docs/prompts/versions/vX.Y.Z.md`)를 **대화에 파일로 보내요**(파일 카드에서 바로 열기·내려받기).
+  - 커밋은 작업 브랜치에 바로 푸시해서 GitHub에서도 같은 파일을 볼 수 있게 해요.
+  - 사용자가 전체를 원하면 `docs/prompts` 전체를 zip으로 묶어(`exports/`, 저장소에는 넣지 않음) 보내요.
