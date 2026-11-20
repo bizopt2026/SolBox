@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{% endblock %} · 솔루션 박스</title>
+  <title>{% block title %}{% endblock %} · 솔박스</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/app.js" defer></script>
@@ -11,7 +11,7 @@
 <body>
 {% if user %}
 <header class="topbar">
-  <a class="brand" href="/">솔루션 박스</a>
+  <a class="brand" href="/">솔박스</a>
   {% set path = request.url.path if request else "/" %}
   {% set section = path.split("/")[1] %}
   {% set ready_n = nav_ready_count() if nav_ready_count else 0 %}

@@ -1,6 +1,6 @@
-# 솔루션 박스 (solbox/CLAUDE.md)
+# 솔박스 (solbox/CLAUDE.md)
 
-이 저장소는 앱마다 폴더를 나눠 관리한다. 솔루션 박스는 `solbox/` 폴더이고, 아래 경로와 명령은 모두 `solbox/` 기준이다 (명령은 `solbox/` 안에서 실행).
+이 저장소는 앱마다 폴더를 나눠 관리한다. 솔박스는 `solbox/` 폴더이고, 아래 경로와 명령은 모두 `solbox/` 기준이다 (명령은 `solbox/` 안에서 실행).
 
 사내 한국어 웹 앱. 솔루션 발굴(접수→태핑→수요조사→박스 등록), 고객·파트너·활동 기록, AI 제안서(PPT), 주간 웹 리서치를 한곳에서 다룬다. FastAPI + SQLAlchemy 2 + SQLite + Jinja2/HTMX. AI는 Claude CLI(`claude -p`)를 호출한다.
 

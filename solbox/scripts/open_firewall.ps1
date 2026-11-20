@@ -1,4 +1,4 @@
-﻿# 솔루션 박스 포트를 Windows 방화벽에서 연다 (인바운드 TCP, 규칙 이름 "SolutionBox"). 관리자 권한이 필요하다.
+﻿# 솔박스 포트를 Windows 방화벽에서 연다 (인바운드 TCP, 규칙 이름 "SolutionBox"). 관리자 권한이 필요하다.
 # 주의: Linux에서 작성되어 실행 검증이 되지 않았습니다. 처음 실행할 때 내용을 확인하세요.
 param(
     [ValidateRange(1, 65535)][int]$Port,   # config.toml 의 port 와 같은 값 (-Remove 와 함께 쓸 때는 생략해도 된다)

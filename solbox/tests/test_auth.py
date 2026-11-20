@@ -80,7 +80,7 @@ def test_http_errors_render_korean_html_page_for_browsers(user_client):
     r = user_client.get("/admin/users", headers={"accept": "text/html"})
     assert r.status_code == 403
     assert r.headers["content-type"].startswith("text/html")
-    assert '<a href="/">' in r.text and "솔루션 박스" in r.text
+    assert '<a href="/">' in r.text and "솔박스" in r.text
     assert "관리자" in r.text  # 403 의 안내 문구를 그대로 보여 준다
 
 

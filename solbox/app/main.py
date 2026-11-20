@@ -122,7 +122,7 @@ def create_app(settings: Settings) -> FastAPI:
             handler.close()
             logger.setLevel(previous_level)
 
-    app = FastAPI(title="솔루션 박스", lifespan=lifespan)
+    app = FastAPI(title="솔박스", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = make_session_factory(engine)
