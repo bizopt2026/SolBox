@@ -92,6 +92,34 @@ textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
 .math-raw{font-family:'STIX Two Text',serif;font-style:italic}
 .mtext{font-size:17px;line-height:1.75}
 .mtext .katex{font-size:1.08em}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pick{height:160px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:16px;font-weight:600;cursor:pointer}
+.pick-cam{border:0;background:var(--primary);color:var(--primary-ink)}
+.pick-album{border:1.5px dashed var(--muted);background:var(--surface)}
+.preview{position:relative;border-radius:18px;overflow:hidden;background:var(--chip)}
+.preview img{display:block;width:100%;max-height:300px;object-fit:contain}
+.retake{position:absolute;right:10px;bottom:10px;height:40px;padding:0 14px;border-radius:999px;border:0;background:rgba(28,35,51,.82);color:#fff;font-size:14px;cursor:pointer}
+.notice{padding:14px;border-radius:12px;background:var(--chip);font-size:15px;line-height:1.6}
+.notice.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.msg:empty,.choose:empty{display:none}
+.choose{display:flex;flex-direction:column;gap:8px}
+.btn.choice{justify-content:flex-start;text-align:left;font-weight:500}
+.btn.small{min-height:36px;font-size:13px;padding:0 12px;border-radius:10px;background:var(--bg)}
+.psteps{list-style:none;margin:0;padding:0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.pstep{display:flex;align-items:center;gap:6px}
+.pstep.on,.pstep.done{color:var(--primary);font-weight:600}
+.pnum{width:22px;height:22px;border-radius:999px;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px}
+.pstep.done .pnum{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.pline{flex:1;height:2px;background:var(--line)}
+.confirm-head{display:flex;gap:12px}
+.thumb{width:96px;height:96px;flex:none;border-radius:12px;object-fit:cover}
+.confirm-meta{display:flex;flex-direction:column;gap:6px}
+.tag{padding:4px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:13px}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.edit-box{display:flex;flex-direction:column;gap:6px}
+.choices{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
+.choices:empty{display:none}
+.hint{display:flex;gap:8px}
 /* kid mode: bigger type and targets */
 body.kid .lead,body.kid .mtext{font-size:18px}
 body.kid .muted{font-size:16px}
@@ -926,7 +954,218 @@ function renderHome(ctx) {
     tabbar(ctx, 'home'));
 }
 
+// ---- src/image.js
+async function resizeImage(file, maxSide = 1600, quality = 0.85) {
+  let src, w, h, revoke = null;
+  if (typeof createImageBitmap === 'function') {
+    src = await createImageBitmap(file);
+    w = src.width; h = src.height;
+  } else {
+    const url = URL.createObjectURL(file);
+    revoke = url;
+    src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    w = src.naturalWidth; h = src.naturalHeight;
+  }
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = cw; canvas.height = ch;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cw, ch);
+  g.drawImage(src, 0, 0, cw, ch);
+  if (src.close) src.close();
+  if (revoke) URL.revokeObjectURL(revoke);
+  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/jpeg', quality));
+}
+
+// ---- src/ui/aimsg.js
+
+function aiErrorText(e) {
+  const code = e && e.code;
+  if (code === 'not_granted' || code === 'unavailable') return 'AI 사용을 허용해야 정리할 수 있어요. 화면 위 권한 메뉴에서 허용해 주세요.';
+  if (code === 'rate_limited') return 'AI가 지금 바빠요. 잠시 뒤 다시 해 주세요.';
+  if (code === 'bad_output') return 'AI가 답을 제대로 만들지 못했어요. 다시 해 볼까요?';
+  if (code === 'unreadable') return '사진을 읽지 못했어요.';
+  return '문제가 생겼어요. 잠시 뒤 다시 해 주세요.';
+}
+
+function noAiNotice() {
+  return h('div', { class: 'notice' }, 'AI 사용을 허용해야 정리할 수 있어요. 저장된 노트는 그대로 볼 수 있어요.');
+}
+
+function progressSteps(active) {
+  const step = (n, label) => h('li', { class: 'pstep' + (n < active ? ' done' : n === active ? ' on' : '') }, h('span', { class: 'pnum' }, n < active ? '✓' : String(n)), label);
+  return h('ol', { class: 'psteps', 'aria-label': '진행 단계' }, step(1, '문제 읽기'), h('li', { class: 'pline', 'aria-hidden': 'true' }), step(2, '풀이 만들기'));
+}
+
+// ---- src/ui/screens/upload.js
+
+
+
+
+
+const SUBJECTS = ['수학', '영어', '국어', '과학', '사회'];
+
+function renderUpload(ctx) {
+  const w = ctx.words;
+  const st = { photo: null, photoUrl: null, subject: '', busy: false };
+  const fileCam = h('input', { type: 'file', accept: 'image/*', capture: 'environment', 'data-src': 'camera', class: 'sr-only', tabindex: '-1' });
+  const fileAlbum = h('input', { type: 'file', accept: 'image/*', 'data-src': 'album', class: 'sr-only', tabindex: '-1' });
+  const pickArea = h('div');
+  const msg = h('div', { class: 'msg', role: 'status' });
+  const choose = h('div', { class: 'choose' });
+  const myAnswer = h('input', { class: 'input', placeholder: '예: 3', 'aria-label': '내가 쓴 답' });
+  const memo = h('input', { class: 'input', placeholder: '예: 시험에서 시간 부족', 'aria-label': '메모' });
+  const go = h('button', { class: 'btn primary big', onclick: submit, disabled: true }, icon('sparkle', 20), 'AI로 정리하기');
+
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    msg.textContent = '';
+    choose.textContent = '';
+    try {
+      st.photo = await resizeImage(f);
+    } catch (err) {
+      msg.textContent = '이 사진은 열 수 없어요. 다른 사진으로 해 주세요.';
+      return;
+    }
+    if (st.photoUrl) URL.revokeObjectURL(st.photoUrl);
+    st.photoUrl = URL.createObjectURL(st.photo);
+    paintPick();
+  }
+  fileCam.addEventListener('change', onFile);
+  fileAlbum.addEventListener('change', onFile);
+
+  function clearPhoto() {
+    st.photo = null; msg.textContent = ''; choose.textContent = '';
+    fileCam.value = ''; fileAlbum.value = '';
+    paintPick();
+  }
+
+  function paintPick() {
+    pickArea.textContent = '';
+    if (!st.photo) {
+      pickArea.appendChild(h('div', { class: 'grid2' },
+        h('button', { type: 'button', class: 'pick pick-cam', onclick: () => fileCam.click() }, icon('camera', 40), '사진 찍기'),
+        h('button', { type: 'button', class: 'pick pick-album', onclick: () => fileAlbum.click() }, icon('album', 40), '앨범에서 고르기')));
+      pickArea.appendChild(h('p', { class: 'muted' }, '문제 하나가 화면에 꽉 차게, 그림자 없이 찍으면 더 정확하게 읽어요.'));
+    } else {
+      pickArea.appendChild(h('div', { class: 'preview' },
+        h('img', { src: st.photoUrl, alt: '올린 문제 사진' }),
+        h('button', { type: 'button', class: 'retake', onclick: clearPhoto }, '다시 찍기')));
+    }
+    go.disabled = !st.photo || st.busy;
+  }
+
+  const chips = SUBJECTS.map((s) => h('button', { type: 'button', class: 'chip', 'aria-pressed': 'false', onclick: () => {
+    st.subject = st.subject === s ? '' : s;
+    chips.forEach((c) => { const on = c.textContent === st.subject; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  } }, s));
+
+  function toConfirm(problem) {
+    ctx.draft = { photo: st.photo, photoUrl: st.photoUrl, subject: problem.subject || st.subject, myAnswer: myAnswer.value.trim(), memo: memo.value.trim(), read: problem };
+    ctx.go('/confirm');
+  }
+
+  async function submit() {
+    if (!st.photo || st.busy) return;
+    st.busy = true; go.disabled = true;
+    msg.textContent = ''; choose.textContent = '';
+    msg.appendChild(progressSteps(1));
+    try {
+      const res = await callJson(ctx.caps.sample, readPrompt({ grade: ctx.settings.grade, subjectHint: st.subject, myAnswer: myAnswer.value.trim() }), { images: [st.photo], modelTier: 'complex', validate: validateRead });
+      msg.textContent = '';
+      if (!res.readable) {
+        msg.appendChild(h('div', { class: 'notice warn' }, res.reason || '사진에서 문제를 찾지 못했어요.', ' 다시 찍어 주세요.'));
+      } else if (res.problems.length === 1) {
+        toConfirm(res.problems[0]);
+        return;
+      } else {
+        choose.appendChild(h('p', { class: 'label' }, '어떤 문제를 정리할까요?'));
+        res.problems.forEach((p, i) => choose.appendChild(h('button', { type: 'button', class: 'btn choice', onclick: () => toConfirm(p) }, `${i + 1}. ${p.problem.replace(/\$/g, '').slice(0, 60)}`)));
+      }
+    } catch (e) {
+      msg.textContent = '';
+      msg.appendChild(h('div', { class: 'notice warn' }, aiErrorText(e)));
+    }
+    st.busy = false; go.disabled = !st.photo;
+  }
+
+  paintPick();
+  const hasAi = !!ctx.caps.sample;
+  return h('div', { class: 'screen' },
+    topbar(w.upload, '/home'),
+    h('main', { class: 'page' },
+      fileCam, fileAlbum, pickArea,
+      h('div', { class: 'field' }, h('span', {}, '과목 ', h('small', {}, '· 비우면 AI가 알아봐요')), h('div', { class: 'chips' }, chips)),
+      h('label', { class: 'field' }, h('span', {}, w.myAnswer, ' ', h('small', {}, '· 적으면 어디서 틀렸는지 짚어 줘요')), myAnswer),
+      h('label', { class: 'field' }, h('span', {}, '메모 ', h('small', {}, '· 선택')), memo),
+      msg, choose,
+      hasAi ? go : noAiNotice()));
+}
+
+// ---- src/ui/screens/confirm.js
+
+
+
+
+function renderConfirm(ctx) {
+  const d = ctx.draft;
+  if (!d || !d.read) { setTimeout(() => ctx.go('/upload'), 0); return h('div', { class: 'screen' }); }
+  let editing = false;
+  const view = h('div', { class: 'problem-view mtext' });
+  const area = h('textarea', { class: 'input', rows: '4', 'aria-label': '문제 고치기' });
+  area.value = d.read.problem;
+  const editHelp = h('span', { class: 'muted' }, '틀린 글자를 고쳐 주세요. 제곱은 x^2 처럼 써도 돼요.');
+  const box = h('div', { class: 'edit-box' });
+  const toggle = h('button', { type: 'button', class: 'btn small', onclick: () => { if (editing) d.read.problem = area.value; editing = !editing; paint(); } });
+  const choices = h('ol', { class: 'choices' });
+  const cta = h('button', { class: 'btn primary big', onclick: solve });
+  const status = h('div', { role: 'status' });
+
+  function paint() {
+    box.textContent = '';
+    if (editing) box.append(editHelp, area);
+    else { view.innerHTML = renderMathText(d.read.problem, window.katex); box.append(view); }
+    toggle.textContent = editing ? '완료' : '고치기';
+    toggle.prepend(icon('edit', 14));
+    cta.textContent = editing ? '고친 문제로 풀기' : '맞아요, 풀어 주세요';
+    choices.textContent = '';
+    (d.read.choices || []).forEach((c) => { const li = h('li', { class: 'mtext' }); li.innerHTML = renderMathText(c, window.katex); choices.appendChild(li); });
+  }
+
+  async function solve() {
+    if (editing) { d.read.problem = area.value; editing = false; paint(); }
+    cta.disabled = true; toggle.disabled = true;
+    status.textContent = '';
+    status.appendChild(progressSteps(2));
+    if (ctx.solveDraft) await ctx.solveDraft(ctx);
+    cta.disabled = false; toggle.disabled = false;
+  }
+
+  const tags = [d.read.subject || d.subject, d.read.unit, d.read.grade_guess].filter(Boolean);
+  paint();
+  return h('div', { class: 'screen' },
+    topbar('문제를 맞게 읽었나요?', '/upload'),
+    h('main', { class: 'page' },
+      progressSteps(2),
+      h('div', { class: 'confirm-head' },
+        d.photoUrl ? h('img', { class: 'thumb', src: d.photoUrl, alt: '원본 사진' }) : h('div', { class: 'thumb stripe' }),
+        h('div', { class: 'confirm-meta' },
+          h('span', { class: 'muted' }, 'AI가 알아본 정보'),
+          h('div', { class: 'chips' }, tags.map((t) => h('span', { class: 'tag' }, t))),
+          d.myAnswer ? h('span', { class: 'muted' }, `${ctx.words.myAnswer}: `, h('b', {}, d.myAnswer)) : null)),
+      h('section', { class: 'card' },
+        h('div', { class: 'row-between' }, h('span', { class: 'label' }, 'AI가 옮긴 문제'), toggle),
+        box, choices),
+      h('p', { class: 'muted hint' }, icon('info', 16), '숫자·부호 하나만 달라도 풀이가 틀려져요. 사진과 한 번만 비교해 주세요.'),
+      status,
+      cta));
+}
+
 // ---- src/main.js
+
+
 
 
 
@@ -941,6 +1180,8 @@ function registerRoutes() {
   route('/onboard', renderOnboard);
   route('/home', renderHome);
   route('/settings', renderSettings);
+  route('/upload', renderUpload);
+  route('/confirm', renderConfirm);
 }
 
 async function boot() {

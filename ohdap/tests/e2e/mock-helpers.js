@@ -37,3 +37,44 @@ function makeDb(seed) {
   function collection(path) { const q = query(path, []); q.doc = (id) => doc(path + '/' + id); q.path = path; return q; }
   return { doc, collection };
 }
+
+// routes: { read: value | [values...] | {reject:{code}} , solve: ..., drill: ..., grade: ... }
+// value may also be a function(input) returning the value.
+function makeSample(routes) {
+  window.__sampleCalls = [];
+  const counts = {};
+  const sample = async () => ({ text: '' });
+  sample.limits = async () => ({ images: { maxCount: 5, maxInputBytes: 20000000 } });
+  sample.json = async (input, opts) => {
+    const task = (String(input).match(/^TASK: (\w+)/) || [])[1];
+    const call = { task, input: String(input), opts: Object.assign({}, opts, { images: undefined }), images: [] };
+    window.__sampleCalls.push(call);
+    for (const b of (opts && opts.images) || []) {
+      const bmp = await createImageBitmap(b);
+      call.images.push({ type: b.type, width: bmp.width, height: bmp.height });
+    }
+    const r = routes[task];
+    const i = counts[task] = (counts[task] || 0) + 1;
+    let v = Array.isArray(r) ? r[Math.min(i - 1, r.length - 1)] : r;
+    if (typeof v === 'function') v = v(input);
+    if (v && v.reject) throw v.reject;
+    if (v === undefined) throw { code: 'invalid_json', message: 'no route' };
+    return JSON.parse(JSON.stringify(v));
+  };
+  return sample;
+}
+const READ_ONE = { readable: true, problems: [{ problem: '이차방정식 $x^2-2x-3=0$의 두 근 중 작은 값을 구하시오.', choices: [], subject: '수학', unit: '이차방정식', grade_guess: '중3' }] };
+const SOLUTION = {
+  answer: 'x = -1', answer_short: '−1', why_wrong: '큰 근을 답했어요.',
+  solutions: [
+    { title: '인수분해', steps: [{ board: '$x^2-2x-3=0$', say: '식을 봐요' }, { board: '$(x-3)(x+1)=0$', say: '인수분해' }, { board: '$x=3, -1$', say: '근' }, { board: '작은 값 $-1$', say: '답은 마이너스 1' }] },
+    { title: '근의 공식', steps: [{ board: '$a=1$', say: '계수' }, { board: '$x=\\frac{2\\pm4}{2}$', say: '공식' }] },
+    { title: '완전제곱식', steps: [{ board: '$(x-1)^2=4$', say: '완전제곱' }] }
+  ],
+  concepts: [{ name: '근의 공식', summary: '언제나 쓸 수 있어요', formula: 'x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}' }],
+  mistakes: ['묻는 것을 다시 확인하지 않기'], unit: '이차방정식', tags: ['인수분해']
+};
+function makeAssets() {
+  window.__assets = [];
+  return { upload: async (blob) => { const id = 'a' + window.__assets.length; window.__assets.push({ id, type: blob.type, size: blob.size }); return { id, url: '/_blob/' + id, sizeBytes: blob.size, contentType: blob.type }; } };
+}

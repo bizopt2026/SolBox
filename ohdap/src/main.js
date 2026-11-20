@@ -6,6 +6,8 @@ import { h, toast } from './ui/dom.js';
 import { renderOnboard } from './ui/screens/onboard.js';
 import { renderSettings } from './ui/screens/settings.js';
 import { renderHome } from './ui/screens/home.js';
+import { renderUpload } from './ui/screens/upload.js';
+import { renderConfirm } from './ui/screens/confirm.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -13,6 +15,8 @@ function registerRoutes() {
   route('/onboard', renderOnboard);
   route('/home', renderHome);
   route('/settings', renderSettings);
+  route('/upload', renderUpload);
+  route('/confirm', renderConfirm);
 }
 
 export async function boot() {

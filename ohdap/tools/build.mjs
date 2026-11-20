@@ -23,6 +23,10 @@ export const FILES = [
   'src/ui/screens/onboard.js',
   'src/ui/screens/settings.js',
   'src/ui/screens/home.js',
+  'src/image.js',
+  'src/ui/aimsg.js',
+  'src/ui/screens/upload.js',
+  'src/ui/screens/confirm.js',
   'src/main.js'
 ];
 

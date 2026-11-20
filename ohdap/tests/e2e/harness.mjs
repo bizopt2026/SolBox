@@ -17,6 +17,7 @@ export async function openApp({ mocks = null, setup = '', viewport = { width: 39
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  page.setDefaultTimeout(6000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
