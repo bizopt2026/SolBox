@@ -26,3 +26,8 @@ test('normalizeAnswer', () => {
   assert.equal(normalizeAnswer(' x = −1. '), '-1');
   assert.equal(normalizeAnswer('①'), '1');
 });
+
+test('words containing 과/와 are not split', () => {
+  assert.equal(normalizeAnswer('사과'), '사과');
+  assert.equal(normalizeAnswer('-1과 3'), '-1,3');
+});

@@ -8,7 +8,7 @@ export function normalizeAnswer(s) {
   let t = toHalfWidth(String(s || '')).toLowerCase();
   t = t.replace(/[−–—]/g, '-');
   t = t.replace(/[①-⑩]/g, (c) => String(CIRCLED.indexOf(c) + 1));
-  t = t.replace(/\s*(또는|or|와|과|그리고)\s*/g, ',');
+  t = t.replace(/\s*(또는|그리고|\bor\b)\s*/g, ',').replace(/(\d)\s*(와|과)\s*/g, '$1,');
   t = t.replace(/\s+/g, '');
   t = t.replace(/(^|,)[a-z]=/g, '$1');
   t = t.replace(/\.+$/, '');
