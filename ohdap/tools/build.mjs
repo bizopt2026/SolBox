@@ -11,6 +11,8 @@ export const FILES = [
   'src/grades.js',
   'src/review.js',
   'src/answer.js',
+  'src/mathtext.js',
+  'src/column.js',
   'src/main.js'
 ];
 
