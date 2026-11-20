@@ -1,18 +1,23 @@
 {% extends "base.html" %}
-{% from "_macros.html" import search_box, list_head, empty_list, pager %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text %}
 {% block title %}{{ ont.label("bm") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("bm"), pg, q, "/bms/new") }}
-{{ search_box("/bms", q) }}
+{{ list_head(ont.label("bm"), pg, q, "/bms/new", type="bm") }}
+{{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기") }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>{{ ont.prop("bm", "name") }}</th><th>{{ ont.prop("bm", "summary") }}</th><th>{{ ont.prop("bm", "solutions") }}</th><th>{{ ont.prop("bm", "projects") }}</th><th>{{ ont.prop("bm", "opportunities") }}</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for b in pg.items %}
-    <tr><td><a href="/bms/{{ b.id }}">{{ b.name }}</a></td><td>{{ b.summary }}</td><td>{{ b.solutions | length }}</td><td>{{ b.projects | length }}</td><td>{{ b.opportunities | length }}</td></tr>
+    {% set i = info[b.id] %}
+    <tr>
+      {% call title_cell("/bms/" ~ b.id, b.name, b.summary) %}<span>{{ links_text(i) }}</span>{% endcall %}
+      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec num">{{ kdate(b.updated_at.date()) }}</td>
+    </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q, "아직 등록된 " ~ ont.label("bm") ~ "이 없습니다. BM은 사업 모델이고, 특정 고객별로 나뉘는 것은 프로젝트입니다.", "/bms/new") }}{% endif %}
+{% else %}{{ empty_list(q, "아직 등록된 " ~ ont.label("bm") ~ "이 없습니다. BM은 사업 모델이고, 특정 고객별로 나뉘는 것은 프로젝트입니다.", "/bms/new", clear_url="/bms") }}{% endif %}
 {% endblock %}

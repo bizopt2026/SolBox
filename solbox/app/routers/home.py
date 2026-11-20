@@ -1,19 +1,17 @@
-"""홈 화면: 최근 활동, 곧 닥칠 후속 조치, 단계별 솔루션 수, AI 상태."""
+"""홈 화면(오늘 할 일): 발굴 흐름, 후속 조치, 올리기 현황, 영업기회 단계, 제안 건, 최근 활동, 최신 리서치. 질의 수는 기록 수와 무관하다."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func, select
+from sqlalchemy.orm import Session, selectinload
 
-from app import labels, ontology, transcribe
+from app import labels, ontology, transcribe, ui
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
-from app import opportunities as opps
-from app.models import AIJob, Activity, FollowUp, Intake, Proposal, ResearchRun, Solution, User
-from app.routers._common import newest_first
+from app.models import AIJob, Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Proposal, ResearchRun, Solution, User
 from app.security import require_user
 
 router = APIRouter()
@@ -22,11 +20,17 @@ OPEN_PROPOSAL_LIMIT = 5
 FOLLOW_UP_DAYS = 14
 LATEST_INSIGHTS, LATEST_SUGGESTIONS = 5, 3
 INTAKE_LINK_LIMIT = 5
+INTAKE_ANALYZING_LIMIT = 3
+FOLLOW_UP_SHOWN = 8
 AI_PROBLEMS = ("not_installed", "auth", "limit", "network")
 
 
+def today() -> date:
+    return date.today()
+
+
 def upcoming_follow_ups(db: Session, today: date, days: int = FOLLOW_UP_DAYS) -> list[dict]:
-    """끝나지 않은 후속 조치 중 기한이 `today + days` 이내(지난 것 포함)인 것. 기한순."""
+    """끝나지 않은 후속 조치 중 기한이 `today + days` 이내(지난 것 포함)인 것. 기한순. 줄마다 상대 기한 글(`rel`)도 담는다."""
     limit = today + timedelta(days=days)
     stmt = (
         select(FollowUp, Activity).join(Activity, FollowUp.activity_id == Activity.id)
@@ -34,14 +38,32 @@ def upcoming_follow_ups(db: Session, today: date, days: int = FOLLOW_UP_DAYS) ->
         .order_by(FollowUp.due, Activity.id, FollowUp.position, FollowUp.id)
     )
     return [
-        {"activity": a, "id": fu.id, "index": fu.position, "task": fu.task, "owner": fu.owner, "due": fu.due, "overdue": fu.due < today}
+        {"activity": a, "id": fu.id, "index": fu.position, "task": fu.task, "owner": fu.owner, "due": fu.due, "overdue": fu.due < today,
+         "done": False, "rel": ui.relative_due(fu.due, today), "customers": []}
         for fu, a in db.execute(stmt)
     ]
 
 
-def stage_counts(db: Session) -> list[tuple[str, str, int]]:
-    counts = dict(db.execute(select(Solution.stage, func.count()).group_by(Solution.stage)).all())
-    return [(code, name, counts.get(code, 0)) for code, name in labels.STAGES.items()]
+def stage_flow(db: Session, today: date) -> dict:
+    """발굴 흐름: 단계 4개(순서대로)의 솔루션 수, 막대 길이(가장 많은 단계 = 100%), 이번 주(7일) 새로 생겨 지금 그 단계에 있는 수. 보류는 따로. 질의 한 번."""
+    since = datetime.combine(today - timedelta(days=7), datetime.min.time())
+    rows = db.execute(select(Solution.stage, func.count(), func.coalesce(func.sum(case((Solution.created_at >= since, 1), else_=0)), 0))
+                      .group_by(Solution.stage)).all()
+    count = {stage: n for stage, n, _ in rows}
+    fresh = {stage: int(w) for stage, _, w in rows}
+    top = max((count.get(c, 0) for c in ontology.STAGE_FLOW), default=0)
+    cells = [{"code": c, "name": ontology.STAGES[c], "count": count.get(c, 0), "week": fresh.get(c, 0),
+              "pct": round(100 * count.get(c, 0) / top) if top else 0} for c in ontology.STAGE_FLOW]
+    return {"cells": cells, "hold": count.get(ontology.STAGE_HOLD, 0), "total": sum(count.values())}
+
+
+def opportunity_bars(db: Session) -> dict:
+    """영업기회: 진행 중 단계 + 수주의 건수(막대 길이는 가장 많은 단계 = 100%), 진행 중 합계, 전체. 질의 한 번."""
+    count = dict(db.execute(select(Opportunity.stage, func.count()).group_by(Opportunity.stage)).all())
+    codes = (*ontology.OPPORTUNITY_OPEN_STAGES, ontology.OPPORTUNITY_STAGE_WON)
+    top = max((count.get(c, 0) for c in codes), default=0)
+    bars = [{"code": c, "name": ontology.OPPORTUNITY_STAGES[c], "count": count.get(c, 0), "pct": round(100 * count.get(c, 0) / top) if top else 0} for c in codes]
+    return {"bars": bars, "open": sum(count.get(c, 0) for c in ontology.OPPORTUNITY_OPEN_STAGES), "total": sum(count.values())}
 
 
 def ai_problem(db: Session) -> str | None:
@@ -56,7 +78,7 @@ def ai_problem(db: Session) -> str | None:
 
 def open_proposals(db: Session) -> list[Proposal]:
     """아직 제안서를 끝내지 않은 제안 건, 최근 수정순."""
-    stmt = select(Proposal).where(Proposal.status != ontology.PROPOSAL_STATUS_DECK)
+    stmt = select(Proposal).where(Proposal.status != ontology.PROPOSAL_STATUS_DECK).options(selectinload(Proposal.customer))
     return list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc()).limit(OPEN_PROPOSAL_LIMIT)))
 
 
@@ -74,25 +96,58 @@ def latest_research(db: Session) -> dict | None:
 
 
 def intake_summary(db: Session, user: User) -> dict:
-    """올리기 묶음 중 확인 대기(최대 5개 목록과 전체 수)와 정리 중 수. 관리자도 내 것만 (남의 묶음은 올리기 목록에서 본다)."""
-    def scoped(status: str):
-        return select(Intake).where(Intake.status == status, Intake.created_by_id == user.id)
+    """올리기 묶음 중 확인 대기(최대 5개 목록과 전체 수)와 정리 중(최대 3개 목록과 전체 수). 관리자도 내 것만 (남의 묶음은 올리기 목록에서 본다).
+    각 묶음에는 파일 수(`files_n`)를 담는다. 질의 네 번 이하."""
+    mine = Intake.created_by_id == user.id
+    counts = dict(db.execute(select(Intake.status, func.count()).where(mine, Intake.status.in_(("ready", "analyzing"))).group_by(Intake.status)).all())
 
-    def count(status: str) -> int:
-        return db.scalar(select(func.count()).select_from(scoped(status).subquery())) or 0
+    def top(status: str, limit: int) -> list[Intake]:
+        if not counts.get(status):
+            return []
+        return list(db.scalars(select(Intake).where(mine, Intake.status == status).order_by(Intake.id.desc()).limit(limit)))
 
-    ready = list(db.scalars(scoped("ready").order_by(Intake.id.desc()).limit(INTAKE_LINK_LIMIT)))
-    return {"ready": ready, "ready_count": count("ready"), "analyzing_count": count("analyzing")}
+    ready, analyzing = top("ready", INTAKE_LINK_LIMIT), top("analyzing", INTAKE_ANALYZING_LIMIT)
+    ids = [i.id for i in (*ready, *analyzing)]
+    files = dict(db.execute(select(IntakeFile.intake_id, func.count()).where(IntakeFile.intake_id.in_(ids)).group_by(IntakeFile.intake_id)).all()) if ids else {}
+    for it in (*ready, *analyzing):
+        it.files_n = files.get(it.id, 0)
+    return {"ready": ready, "ready_count": counts.get("ready", 0), "analyzing": analyzing, "analyzing_count": counts.get("analyzing", 0)}
+
+
+def recent_activities(db: Session) -> list[dict]:
+    """최근 활동 기록 10건 (일자 최신순, 일자 없는 것은 뒤)과 각각의 고객 니즈·후속 조치 수. 질의 세 번."""
+    rows = list(db.scalars(select(Activity).order_by(Activity.date.is_(None), Activity.date.desc(), Activity.id.desc()).limit(RECENT_LIMIT)))
+    ids = [a.id for a in rows]
+    needs = dict(db.execute(select(CustomerNeed.activity_id, func.count()).where(CustomerNeed.activity_id.in_(ids)).group_by(CustomerNeed.activity_id)).all()) if ids else {}
+    fus = dict(db.execute(select(FollowUp.activity_id, func.count()).where(FollowUp.activity_id.in_(ids)).group_by(FollowUp.activity_id)).all()) if ids else {}
+    return [{"a": a, "needs": needs.get(a.id, 0), "follow_ups": fus.get(a.id, 0)} for a in rows]
+
+
+def summary_sentence(overdue: int, ready: int) -> str:
+    """제목 줄 한 문장: 실제 숫자로 만들고 0 인 부분은 뺀다. 모두 0 이면 그렇다고 말한다."""
+    parts = []
+    if overdue:
+        parts.append(f"기한이 지난 후속 조치 {overdue}건")
+    if ready:
+        parts.append(f"확인 대기 {ready}건")
+    return ", ".join(parts) if parts else "지금 처리할 급한 일은 없습니다"
 
 
 @router.get("/")
 def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    recent = newest_first(db.scalars(select(Activity)))[:RECENT_LIMIT]
+    now = today()
+    follow_ups = upcoming_follow_ups(db, now)
+    intake = intake_summary(db, user)
+    flow, opp = stage_flow(db, now), opportunity_bars(db)
+    recent = recent_activities(db)
+    overdue = sum(1 for f in follow_ups if f["overdue"])
+    fresh_install = not (flow["total"] or opp["total"] or recent)
     return render(
         request, "home.html",
-        recent=recent, follow_ups=upcoming_follow_ups(db, date.today()),
-        intake=intake_summary(db, user), max_files=intake_lib.MAX_FILES,
+        today=now, date_line=ui.today_line(now), summary=summary_sentence(overdue, intake["ready_count"]), fresh_install=fresh_install,
+        recent=recent, follow_ups=follow_ups[:FOLLOW_UP_SHOWN], follow_up_more=max(0, len(follow_ups) - FOLLOW_UP_SHOWN),
+        intake=intake, max_files=intake_lib.MAX_FILES,
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
-        open_opportunities=opps.open_count(db), stages=stage_counts(db), research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
+        flow=flow, opp=opp, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
     )

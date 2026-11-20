@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import secrets
+from collections import Counter
 import shutil
 from datetime import date, datetime
 from urllib.parse import quote
@@ -9,9 +10,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app import labels, ontology, opportunities as opps, relations
+from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.deck import build_deck
@@ -78,18 +79,19 @@ def list_proposals(
     request: Request, q: str = "", status: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    stmt = select(Proposal).join(Proposal.customer)
-    if status in labels.PROPOSAL_STATUSES:
-        stmt = stmt.where(Proposal.status == status)
+    stmt = select(Proposal).join(Proposal.customer).options(selectinload(Proposal.customer))
     proposals = list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc())))
     q = q.strip()
     if q:
         proposals = [p for p in proposals if q in display_title(p) or q in p.customer.name]
     proposals, flt = list_filter(db, request, "proposal", proposals)
-    return render(
-        request, "proposals/list.html", pg=paginate(proposals, page), q=q, flt=flt,
-        status=status if status in labels.PROPOSAL_STATUSES else "",
-    )
+    counts = Counter(p.status for p in proposals)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
+    total = len(proposals)
+    status = status if status in labels.PROPOSAL_STATUSES else ""
+    if status:
+        proposals = [p for p in proposals if p.status == status]
+    tabs = ui.seg_tabs(request, "status", list(labels.PROPOSAL_STATUSES.items()), counts, status, total)
+    return render(request, "proposals/list.html", pg=paginate(proposals, page), q=q, flt=flt, status=status, tabs=tabs)
 
 
 @router.get("/new")

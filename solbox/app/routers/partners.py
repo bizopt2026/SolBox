@@ -12,7 +12,7 @@ from app.main import render
 from app.models import Activity, Customer, Partner, User
 from app.routers._common import (
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, resync_related, search_by_name, paginate,
+    resync_activities, resync_related, row_info, search_by_name, paginate,
 )
 from app.security import can_delete, require_user
 
@@ -41,7 +41,8 @@ def list_partners(
     request: Request, q: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    return render(request, "partners/list.html", pg=paginate(search_by_name(db, Partner, q), page), q=q.strip())
+    pg = paginate(search_by_name(db, Partner, q), page)
+    return render(request, "partners/list.html", pg=pg, q=q.strip(), info=row_info(db, "partner", pg.items))
 
 
 @router.get("/new")

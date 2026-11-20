@@ -1,0 +1,14 @@
+{# 후속 조치 한 줄 (홈 카드와 후속 조치 목록이 같이 쓴다): 완료 체크(기존 토글 경로) · 할 일 · 출처 활동 기록 + 담당 (+ 고객) · 상대 기한.
+   f 는 follow_ups.rows 의 한 항목 #}
+{% macro fu_item(f, show_customers=false) %}
+<li class="fu{{ ' is-done' if f.done }}">
+  <form method="post" action="/follow-ups/{{ f.id }}/toggle">
+    <button type="submit" class="check{{ ' on' if f.done }}" aria-label="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}" title="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}"></button>
+  </form>
+  <div class="fu-body">
+    <span class="fu-task">{{ f.task }}</span>
+    <small class="fu-src"><a href="/activities/{{ f.activity.id }}">{{ f.activity.title or "(제목 없음)" }}</a>{% if f.owner %} · 담당 {{ f.owner }}{% endif %}{% if show_customers %}{% for cid, name in f.customers %} · <a href="/customers/{{ cid }}">{{ name }}</a>{% endfor %}{% endif %}</small>
+  </div>
+  <span class="due{{ ' late' if f.rel.tone == 'bad' }}{{ ' today' if f.rel.tone == 'today' }}"{% if f.due %} title="{{ f.due.isoformat() }}"{% endif %}>{{ f.rel.text }}</span>
+</li>
+{% endmacro %}

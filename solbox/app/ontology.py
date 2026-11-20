@@ -306,6 +306,7 @@ class ObjectType:
     embedded_in: str | None = None  # 다른 기록 안에 들어 있다면 "표.열" 또는 설명
     props: dict[str, str] = field(default_factory=dict)  # 속성 이름 -> 화면 이름표
     physical: dict[str, str] = field(default_factory=dict)  # 물리 이름이 코드 이름과 다른 곳
+    description: str = ""  # 목록 화면 제목 밑에 보이는 한 문장 (docs/ontology.md 3장의 뜻)
 
     @property
     def model(self):
@@ -329,16 +330,19 @@ _TYPE_LIST = [
         "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="discover",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
                "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "tags": "태그", "files": "자료", "origin": "유래"},
+        description="파트너에게서 발굴해 고객에게 제안할 수 있는 제품과 서비스",
     ),
     ObjectType(
         "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="discover",
         props={"name": "이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
                "customer": "같은 회사인 고객"},
+        description="솔루션을 공급하는 회사",
     ),
     ObjectType(
         "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객", nav_group="sales",
         props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
                "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
+        description="솔루션을 제안받는 회사",
     ),
     ObjectType(
         "project", "프로젝트", "핵심", "Project", "businesses", "/projects", "/projects/{id}", "projects/{id}.md",
@@ -346,17 +350,20 @@ _TYPE_LIST = [
         props={"name": "프로젝트명", "customer": "고객", "description": "설명", "period": "기간", "status": "상태", "memo": "메모",
                "bm": "BM", "opportunity": "영업기회"},
         physical={"fk_column": "business_id", "link_table": "activity_businesses"},
+        description="특정 고객과 하는(하게 된) 사업 한 건. 제안의 발판이 됩니다",
     ),
     ObjectType(
         "opportunity", "영업기회", "핵심", "Opportunity", "opportunities", "/opportunities", "/opportunities/{id}",
         "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회", nav_group="sales",
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
                "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건"},
+        description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
         "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="sales",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조",
                "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회"},
+        description="사업 모델. 고객에 묶이지 않고, 특정 고객별로 나뉘는 것은 프로젝트입니다",
     ),
     ObjectType(
         "activity", "활동 기록", "핵심", "Activity", "activities", "/activities", "/activities/{id}",
@@ -364,11 +371,13 @@ _TYPE_LIST = [
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
                "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회"},
+        description="회의, 통화, 태핑, 수요조사 등 한 번의 활동",
     ),
     ObjectType(
         "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안", nav_group="sales",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
                "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안"},
+        description="특정 고객(과 프로젝트·영업기회)을 대상으로 한 제안 작업 한 건",
     ),
     ObjectType(
         "solution_file", "자료", "부속", "SolutionFile", "solution_files",
@@ -376,7 +385,8 @@ _TYPE_LIST = [
         parent=("solution", "solution_id"),
         props={"original_name": "파일 이름", "kind": "자료 종류", "extract_status": "글 추출 상태", "size": "크기"},
     ),
-    ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups",
+    ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups", "/follow-ups",
+               description="활동 기록에서 나온 할 일",
                props={"task": "할 일", "owner": "담당", "due": "기한", "done": "완료"}),
     ObjectType("customer_need", TERMS["customer_need"], "부속", "CustomerNeed", "customer_needs",
                props={"customer": "고객", "content": "내용", "opportunity": "영업기회"}),
@@ -389,6 +399,7 @@ _TYPE_LIST = [
     ObjectType(
         "intake", "올리기 묶음", "작업", "Intake", "intakes", "/intake", "/intake/{id}", nav=None,
         props={"note": "메모", "status": "상태", "files": "올린 파일"},
+        description="한 번에 올린 파일들과 그 정리 상태",
     ),
     ObjectType(
         "intake_file", "올린 파일", "작업", "IntakeFile", "intake_files",
@@ -398,7 +409,8 @@ _TYPE_LIST = [
     ObjectType("research_topic", "리서치 주제", "작업", "ResearchTopic", "research_topics",
                props={"name": "이름", "keywords": "검색어", "area": "분야"}),
     ObjectType("research_run", "리서치 실행", "작업", "ResearchRun", "research_runs", "/research", "/research/runs/{id}", nav="리서치", nav_group="discover",
-               props={"status": "상태", "trigger": "실행 방식"}),
+               props={"status": "상태", "trigger": "실행 방식"},
+               description="주간 웹 조사 한 회와 그 결과"),
     ObjectType(
         "research_report", "리서치 보고서", "작업", "ResearchReport", "research_reports",
         mirror_path="research/{day}-{tag}-{id}.md", source_kind="리서치", parent=("research_run", "run_id"),
@@ -407,8 +419,10 @@ _TYPE_LIST = [
     ObjectType("suggestion", "리서치 제안", "작업", embedded_in="research_reports.suggestions",
                props={"title": "제목", "detail": "내용", "reason": TERMS["reason"], "sources": TERMS["source"], "kind": "종류",
                       "solution_ids": "대상 솔루션"}),
-    ObjectType("user", "사용자", "시스템", "User", "users", "/admin/users", props={"username": "아이디", "name": "이름", "role": "역할"}),
-    ObjectType("ai_job", "AI 작업", "시스템", "AIJob", "ai_jobs", "/admin/jobs", props={"kind": "종류", "status": "상태"}),
+    ObjectType("user", "사용자", "시스템", "User", "users", "/admin/users", props={"username": "아이디", "name": "이름", "role": "역할"},
+               description="로그인 계정"),
+    ObjectType("ai_job", "AI 작업", "시스템", "AIJob", "ai_jobs", "/admin/jobs", props={"kind": "종류", "status": "상태"},
+               description="AI 작업 대기열과 최근 결과"),
 ]
 TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 
@@ -824,6 +838,24 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
     ("solution", "bm_id"): ("bm", "R33"),
     ("solution", "opportunity_id"): ("opportunity", "R28"),
 }
+
+# 걸러 보기 파라미터가 아닌 "모두 보기" 목적지: (기준 유형, 그룹 키) -> 주소 ({id} 는 기준 기록 번호). 후속 조치 목록은 고객별로 모아 본다.
+MORE_LINKS: dict[tuple[str, str], str] = {
+    ("customer", "D6"): "/follow-ups?customer_id={id}",
+}
+
+# 목록의 "연결" 칸: 유형 -> [(보이는 이름, 관계 키 또는 따라가서 얻는 관계 키, 도착 유형)]. 건수는 relations.link_counts 가 쪽의 번호들만 묶어서 센다.
+LIST_LINKS: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "solution": (("고객", "D7", "customer"), ("제안", "R14", "proposal"), ("영업기회", "R28", "opportunity")),
+    "customer": (("프로젝트", "R2", "project"), ("영업기회", "R27", "opportunity"), ("제안", "R12", "proposal")),
+    "partner": (("솔루션", "R1", "solution"),),
+    "bm": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity")),
+    "project": (("제안", "R13", "proposal"), ("활동", "R6", "activity")),
+    "opportunity": (("니즈", "R26", "customer_need"), ("제안", "R29", "proposal"), ("솔루션", "R28", "solution")),
+    "activity": (("고객", "R5", "customer"), ("솔루션", "R4", "solution"), ("후속 조치", "R8", "follow_up")),
+}
+# 목록의 "최근 활동" 칸이 보는 관계 (연결된 활동 기록의 가장 늦은 일자). 여기 없는 유형은 "수정일" 을 보인다.
+LIST_LATEST_ACTIVITY: dict[str, str] = {"solution": "R4", "customer": "R5", "partner": "R7", "project": "R6", "opportunity": "R6"}
 
 # ---- JSON·글에 든 관계의 해석기 ----
 # (관계 키, 출발 유형, 도착 유형) -> 함수(db, 출발 번호들) -> [(출발 번호, 도착 번호, 덧붙임|None)]. 모델은 늦게 불러온다.

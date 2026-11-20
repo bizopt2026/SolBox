@@ -1,19 +1,27 @@
 {% extends "base.html" %}
-{% from "_macros.html" import filter_note, filter_hidden, search_box, list_head, empty_list, pager %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text %}
 {% block title %}{{ ont.label("project") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("project"), pg, q or flt, "/projects/new") }}
-{{ filter_note(flt) }}
-{{ search_box("/projects", q, flt) }}
+{{ list_head(ont.label("project"), pg, q or flt, "/projects/new", type="project") }}
+{{ list_tools(request, none, "", q, flt, "이름, 고객으로 찾기") }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>{{ ont.prop("project", "name") }}</th><th>고객</th><th>기간</th><th>상태</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>{{ ont.prop("project", "name") }}</th><th class="col-sec">{{ ont.prop("project", "status") }}</th><th class="col-sec">연결</th><th class="col-sec">최근 활동</th></tr></thead>
   <tbody>
   {% for b in pg.items %}
-    <tr><td><a href="/projects/{{ b.id }}">{{ b.name }}</a></td><td><a href="/customers/{{ b.customer_id }}">{{ b.customer.name }}</a></td><td>{{ b.period }}</td><td>{{ b.status }}</td></tr>
+    {% set i = info[b.id] %}
+    <tr>
+      <td class="c-title"><a href="/projects/{{ b.id }}" class="row-title">{{ b.name }}</a>
+        <small class="row-sub"><a href="/customers/{{ b.customer_id }}">{{ b.customer.name }}</a>{% if b.period %} · {{ b.period }}{% endif %}</small>
+        <div class="row-meta">{% if b.status %}<span class="badge">{{ b.status }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
+      </td>
+      <td class="col-sec">{% if b.status %}<span class="badge">{{ b.status }}</span>{% else %}<span class="muted">없음</span>{% endif %}</td>
+      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec num">{{ date_text(i.latest) }}</td>
+    </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or flt, "아직 등록된 프로젝트가 없습니다.", "/projects/new") }}{% endif %}
+{% else %}{{ empty_list(q or flt, "아직 등록된 프로젝트가 없습니다.", "/projects/new", clear_url="/projects") }}{% endif %}
 {% endblock %}

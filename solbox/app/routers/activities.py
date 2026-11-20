@@ -1,6 +1,7 @@
 """활동 기록 화면."""
 from __future__ import annotations
 
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app import labels, ontology, origin, relations
+from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
 from app.db import get_db
@@ -23,7 +24,7 @@ from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
 from app.routers._common import (
-    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, submitted_fields,
+    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, row_info, submitted_fields,
 )
 from app.security import can_delete, require_user
 
@@ -162,10 +163,16 @@ def list_activities(
         escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (Activity.title, Activity.raw_text, Activity.summary_md))))
-    if kind in labels.ACTIVITY_KINDS:
-        stmt = stmt.where(Activity.kind == kind)
     rows, flt = list_filter(db, request, "activity", newest_first(db.scalars(stmt)))
-    return render(request, "activities/list.html", pg=paginate(rows, page), q=q, kind=kind, flt=flt)
+    counts = Counter(a.kind for a in rows)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
+    total = len(rows)
+    if kind in labels.ACTIVITY_KINDS:
+        rows = [a for a in rows if a.kind == kind]
+    else:
+        kind = ""
+    pg = paginate(rows, page)
+    tabs = ui.seg_tabs(request, "kind", list(labels.ACTIVITY_KINDS.items()), counts, kind, total)
+    return render(request, "activities/list.html", pg=pg, q=q, kind=kind, flt=flt, tabs=tabs, info=row_info(db, "activity", pg.items))
 
 
 @router.get("/new")

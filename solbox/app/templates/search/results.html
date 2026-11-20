@@ -15,7 +15,8 @@
   <div class="card-head"><h2>{{ g.label }} <span class="count">{{ g.total }}건</span></h2>{% if g.more_url %}<a href="{{ g.more_url }}">목록에서 모두 보기</a>{% endif %}</div>
   <ul class="result-list">
     {% for i in g.rows %}
-    <li><a class="row-title" href="{{ i.url }}">{{ i.label }}</a>{% if i.note %}<span class="muted">{{ i.note }}</span>{% endif %}</li>
+    <li><div class="rr-main"><a class="row-title" href="{{ i.url }}">{{ i.label }}</a>{% if i.sub %}<small class="row-sub">{{ i.sub }}</small>{% endif %}</div>
+      {% if i.badge %}{{ pill(i.badge[0], i.badge[1]) }}{% endif %}{% if i.note and not i.badge %}<span class="muted">{{ i.note }}</span>{% elif i.badge and i.badge[0] == "activity_kind" and i.note %}<span class="muted num">{{ i.note }}</span>{% endif %}</li>
     {% endfor %}
   </ul>
 </section>

@@ -11,7 +11,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Solution, User
 from app.records import pick
-from app.routers._common import get_deletable_or_404, get_or_404, name_error, paginate, resync_objects, search_by_name
+from app.routers._common import get_deletable_or_404, get_or_404, name_error, paginate, resync_objects, row_info, search_by_name
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/bms")
@@ -39,7 +39,8 @@ def _values(name, summary, target_customers, revenue_model, memo) -> dict:
 
 @router.get("")
 def list_bms(request: Request, q: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return render(request, "bms/list.html", pg=paginate(search_by_name(db, BM, q, BM.summary), page), q=q.strip())
+    pg = paginate(search_by_name(db, BM, q, BM.summary), page)
+    return render(request, "bms/list.html", pg=pg, q=q.strip(), info=row_info(db, "bm", pg.items))
 
 
 @router.get("/new")

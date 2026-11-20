@@ -7,12 +7,12 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 from starlette.datastructures import FormData
 
 from app import intake as intake_lib
-from app import labels, origin, transcribe
+from app import labels, origin, transcribe, ui
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -139,16 +139,18 @@ def create(
 @router.get("")
 def list_page(request: Request, status: str = "", page: str = "1",
               user: User = Depends(require_user), db: Session = Depends(get_db)):
-    stmt = select(Intake)
-    if user.role != "admin":
-        stmt = stmt.where(Intake.created_by_id == user.id)
+    scope = [] if user.role == "admin" else [Intake.created_by_id == user.id]
+    # 구분 탭의 건수: 내가 볼 수 있는 묶음 전체를 상태별로 한 번에 센다
+    counts = dict(db.execute(select(Intake.status, func.count()).where(*scope).group_by(Intake.status)).all())
+    stmt = select(Intake).where(*scope).options(selectinload(Intake.files))
     if status in labels.INTAKE_STATUSES:
         stmt = stmt.where(Intake.status == status)
     else:
         status = ""
     items = list(db.scalars(stmt.order_by(Intake.id.desc())))
     owners = {u.id: (u.name or u.username) for u in db.scalars(select(User))} if user.role == "admin" else {}
-    return render(request, "intake/list.html", user=user, pg=paginate(items, page), status=status, owners=owners)
+    tabs = ui.seg_tabs(request, "status", list(labels.INTAKE_STATUSES.items()), counts, status, total=sum(counts.values()))
+    return render(request, "intake/list.html", user=user, pg=paginate(items, page), status=status, owners=owners, tabs=tabs)
 
 
 @router.get("/files/{file_id}/download")

@@ -24,7 +24,8 @@ def test_list_shows_a_badge_per_stage(user_client, db):
 def test_home_stage_counts_use_badges(user_client, db):
     _make(db, "survey")
     html = user_client.get("/").text
-    assert 'class="badge tone-brand" data-code="survey"' in html and 'class="badge tone-slate" data-code="hold"' in html
+    assert 'data-stage="survey"' in html and 'data-stage="hold"' in html  # 흐름 띠(시안: 글자 이름표, 배지 아님)
+    assert re.search(r'class="flow-cell"[^>]*data-stage="survey"', html)
 
 
 def test_partner_detail_lists_solution_stage(user_client, db):

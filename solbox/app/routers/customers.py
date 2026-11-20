@@ -13,7 +13,7 @@ from app.main import render
 from app.models import Activity, Customer, CustomerNeed, Partner, User
 from app.routers._common import (
     activities_linked_to, activities_with_needs_of, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, resync_related, search_by_name, paginate,
+    resync_activities, resync_related, search_by_name, paginate, row_info,
 )
 from app.security import can_delete, require_user
 
@@ -47,9 +47,8 @@ def list_customers(
     request: Request, q: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    return render(
-        request, "customers/list.html", pg=paginate(search_by_name(db, Customer, q), page), q=q.strip()
-    )
+    pg = paginate(search_by_name(db, Customer, q), page)
+    return render(request, "customers/list.html", pg=pg, q=q.strip(), info=row_info(db, "customer", pg.items))
 
 
 @router.get("/new")

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import ontology, opportunities as opps, relations
 from app.db import get_db
@@ -13,7 +13,7 @@ from app.models import BM, Activity, Customer, Project, User
 from app.routers._common import (
     list_filter,
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, submitted_fields,
-    resync_activities, resync_objects, resync_related, search_by_name, paginate,
+    resync_activities, resync_objects, resync_related, row_info, search_by_name, paginate,
 )
 from app.security import can_delete, require_user
 
@@ -59,9 +59,10 @@ def list_projects(
     request: Request, q: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    projects = search_by_name(db, Project, q, Customer.name, joins=(Project.customer,))
+    projects = search_by_name(db, Project, q, Customer.name, joins=(Project.customer,), loaders=(selectinload(Project.customer),))
     projects, flt = list_filter(db, request, "project", projects)
-    return render(request, "projects/list.html", pg=paginate(projects, page), q=q.strip(), flt=flt)
+    pg = paginate(projects, page)
+    return render(request, "projects/list.html", pg=pg, q=q.strip(), flt=flt, info=row_info(db, "project", pg.items))
 
 
 @router.get("/new")

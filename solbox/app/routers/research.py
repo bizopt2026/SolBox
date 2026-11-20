@@ -7,9 +7,9 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app import ontology, origin
+from app import ontology, origin, ui
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -67,17 +67,21 @@ def run_summary(run: ResearchRun) -> dict:
 
 @router.get("")
 def list_runs(request: Request, q: str = "", area: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    runs = db.query(ResearchRun).order_by(ResearchRun.started_at.desc(), ResearchRun.id.desc()).all()
+    runs = db.query(ResearchRun).options(selectinload(ResearchRun.reports)).order_by(ResearchRun.started_at.desc(), ResearchRun.id.desc()).all()
     q = q.strip()
+    if q:
+        runs = [r for r in runs if q.lower() in _search_text(r)]
+    # 구분 탭의 건수: 검색어를 적용한 목록에서 그 분야 보고서가 있는 조사 수
+    counts = {code: sum(1 for r in runs if any(rep.kind == "area" and rep.area == code for rep in r.reports)) for code in RESEARCH_AREAS}
+    total = len(runs)
     if area in RESEARCH_AREAS:
         runs = [r for r in runs if any(rep.kind == "area" and rep.area == area for rep in r.reports)]
     else:
         area = ""
-    if q:
-        runs = [r for r in runs if q.lower() in _search_text(r)]
     pg = paginate(runs, page)
     pg = replace(pg, items=[run_summary(r) for r in pg.items])
-    return render(request, "research/list.html", pg=pg, q=q, area=area)
+    tabs = ui.seg_tabs(request, "area", list(RESEARCH_AREAS.items()), counts, area, total)
+    return render(request, "research/list.html", pg=pg, q=q, area=area, tabs=tabs)
 
 
 @router.get("/runs/{run_id}")

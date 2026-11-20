@@ -1,36 +1,28 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, pager, pill %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, pill, title_cell %}
 {% block title %}리서치{% endblock %}
 {% block content %}
-{{ list_head("리서치", pg, q or area) }}
-<form method="get" action="/research" class="row">
-  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
-  <label>분야
-    <select name="area">
-      <option value="">전체</option>
-      {% for code, name in labels.RESEARCH_AREAS.items() %}<option value="{{ code }}" {{ "selected" if code == area }}>{{ name }}</option>{% endfor %}
-    </select>
-  </label>
-  <button type="submit">검색</button>
-</form>
+{{ list_head("리서치", pg, q or area, type="research_run") }}
+{{ list_tools(request, tabs, "분야", q, none, "제목, 시사점으로 찾기") }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>조사 일자</th><th>상태</th><th>분야별 동향</th><th>대표 시사점</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>조사</th><th class="col-sec">상태</th><th class="col-sec">분야별 동향</th></tr></thead>
   <tbody>
   {% for item in pg.items %}
     {% set run = item.run %}
     <tr>
-      <td><a href="/research/runs/{{ run.id }}">{{ run.started_at.strftime("%Y-%m-%d") }}</a></td>
-      <td>
+      {% call title_cell("/research/runs/" ~ run.id, run.started_at.strftime("%Y-%m-%d") ~ " 조사", item.insight | first_line(110) or none) %}
+        {{ pill("run_status", run.status) }}<span>{% for name, count in item.counts %}{{ name }} {{ count }}건{{ " · " if not loop.last }}{% else %}<span class="muted">동향 없음</span>{% endfor %}</span>
+      {% endcall %}
+      <td class="col-sec">
         {{ pill("run_status", run.status) }}
         {% if run.status == "running" %}<div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
       </td>
-      <td>{% for name, count in item.counts %}{{ name }} {{ count }}건{{ ", " if not loop.last }}{% else %}<span class="muted">-</span>{% endfor %}</td>
-      <td>{{ item.insight }}</td>
+      <td class="col-sec">{% for name, count in item.counts %}{{ name }} {{ count }}건{{ " · " if not loop.last }}{% else %}<span class="muted">-</span>{% endfor %}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}<p class="muted">{{ "조건에 맞는 항목이 없습니다." if q or area else "아직 리서치 결과가 없습니다." }}</p>{% endif %}
+{% else %}{{ empty_list(q or area, "아직 리서치 결과가 없습니다. 주간 조사가 끝나면 여기에 쌓입니다.", clear_url="/research") }}{% endif %}
 {% endblock %}

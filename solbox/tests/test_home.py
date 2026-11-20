@@ -28,8 +28,8 @@ def test_home_shows_stage_counts_and_recent(user_client, db):
     assert 'href="/solutions?stage=boxed"' in page and 'href="/solutions?stage=intake"' in page
     for code, name in (("boxed", "박스 등록"), ("intake", "아이템 접수"), ("hold", "보류")):
         assert name in page
-    row = lambda code: page.split(f'href="/solutions?stage={code}"')[1].split("</li>")[0]
-    assert ">2<" in row("boxed") and ">0<" in row("intake") and ">1<" in row("hold")
+    cell = lambda code: re.search(rf'<a[^>]*href="/solutions\?stage={code}"[^>]*>.*?</a>', page, re.S).group(0)
+    assert "<b>2</b>" in cell("boxed") and "<b>0</b>" in cell("intake") and "<b>1</b>" in cell("hold")  # 흐름 띠의 칸(보류는 띠 옆 링크)
 
 
 def test_home_recent_activities_limited_to_ten_newest(user_client, db):
@@ -45,7 +45,7 @@ def test_home_follow_up_has_toggle_and_overdue_mark(user_client, db):
         ("견적 보내기", "", (date.today() - timedelta(days=2)).isoformat(), False)))
     db.add(a); db.commit()
     page = user_client.get("/").text
-    assert "견적 보내기" in page and "기한 지남" in page
+    assert "견적 보내기" in page and "2일 지남" in page and 'class="due late"' in page  # 상대 기한(나쁜 색)
     assert f'action="/follow-ups/{a.follow_ups[0].id}/toggle"' in page
 
 
@@ -120,7 +120,7 @@ def test_home_section_order_and_trimmed_research(user_client, db):
         {"kind": "new", "title": f"제안{i}", "detail": "", "reason": "", "solution_ids": [], "sources": []} for i in range(5)]))
     db.commit()
     page = user_client.get("/").text
-    heads = [page.index(h) for h in ("후속 조치", "진행 중인 제안 건", "발굴 단계별 솔루션", "최신 리서치", "최근 활동 기록")]
+    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-opp"', 'id="h-act"', "진행 중인 제안 건", "최신 리서치")]
     assert heads == sorted(heads)
     assert "시사점1" in page and "시사점2" not in page
     assert "제안1" in page and "제안2" not in page
@@ -133,7 +133,7 @@ def test_home_follow_up_row_has_check_button_and_no_bullets(user_client, db):
     page = user_client.get("/").text
     assert f'action="/follow-ups/{a.follow_ups[0].id}/toggle"' in page
     assert 'aria-label="완료로 표시"' in page
-    assert 'class="followups"' in page
+    assert 'class="fu-list"' in page and 'class="followups"' not in page
 
 
 def _bundle(db, user, status, note=""):
@@ -149,7 +149,7 @@ def test_home_has_upload_card_first(user_client):
     assert 'method="post"' in form and 'enctype="multipart/form-data"' in form
     assert 'type="file"' in form and 'name="files"' in form and "multiple" in form and 'name="note"' in form
     assert form.count("primary") == 1 and ">올리기</button>" in form
-    assert page.index('action="/intake"') < page.index("후속 조치")
+    assert page.index('id="h-up"') < page.index('action="/intake"')  # 올리기 카드 안에 있다
 
 
 def test_intake_summary_counts_only_own_bundles(db):

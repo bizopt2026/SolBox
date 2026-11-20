@@ -25,14 +25,6 @@
 </section>
 {% endmacro %}
 
-{% macro search_box(path, q, flt=none) %}
-<form method="get" action="{{ path }}" class="row">
-  {% for f in flt or [] %}<input type="hidden" name="{{ f.param }}" value="{{ f.value }}">{% endfor %}
-  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
-  <button type="submit">검색</button>
-</form>
-{% endmacro %}
-
 {# 화면 제목 줄 (모든 화면이 하나만 쓴다): 위에 경로, 제목(+ 건수·배지), 부제, 오른쪽 끝에 동작.
    crumbs = [(이름, 주소), …, (이름, None)], count = 제목 옆 작은 글, sub = 제목 밑 한 줄, status = 제목 옆 배지(안전한 HTML).
    동작 버튼은 {% call page_header(...) %}…{% endcall %} 의 본문으로 넣는다. #}
@@ -47,18 +39,45 @@
 </header>
 {% endmacro %}
 
-{# 목록 제목 줄: 제목 + 건수, 오른쪽 끝에 주 버튼. searching 이 참이면 "검색 결과 N건". #}
-{% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", crumbs=none, sub=none) %}
-{% call page_header(title, crumbs=crumbs, sub=sub, count=("검색 결과 " if searching else "") ~ pg.total ~ "건") %}
+{# 목록 제목 줄: 제목 + 건수, 한 줄 설명(온톨로지의 뜻), 오른쪽 끝에 주 버튼. searching 이 참이면 "검색 결과 N건".
+   type 은 대상 유형 코드(없으면 sub 를 직접). 주 버튼은 new_url, 보조는 alt_url (기본 "직접 입력"). #}
+{% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", crumbs=none, sub=none, type=none) %}
+{% call page_header(title, crumbs=crumbs, sub=(sub or (ont.TYPES[type].description if type else none)), count=("검색 결과 " if searching else "") ~ pg.total ~ "건") %}
 {% if new_url %}{% if alt_url %}<a class="button" href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}<a class="button primary" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
 {% endcall %}
 {% endmacro %}
 
-{% macro empty_list(searching, text, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력") %}
-{% if searching %}<p class="muted">조건에 맞는 항목이 없습니다.</p>
+{# 구분 탭 (시안의 .seg): 코드 목록의 값마다 건수. 링크로만 움직이고 현재 것에 aria-current. tabs 는 ui.seg_tabs 의 결과 #}
+{% macro seg(tabs, label="구분") %}
+<nav class="seg" aria-label="{{ label }}">
+  {% for t in tabs %}<a href="{{ t.href }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label }}<b>{{ t.count }}</b></a>{% endfor %}
+</nav>
+{% endmacro %}
+
+{# 목록 도구줄: 구분 탭 + 작은 검색칸(GET, 엔터로 보냄, 글자 없는 이름표는 화면 읽기용) + 걸러 보기 칩.
+   검색을 보낼 때 지금의 다른 조건(구분·걸러 보기 …)은 숨은 칸으로 따라간다 (쪽 번호만 버린다). #}
+{% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none) %}
+<div class="tools">
+  {% if tabs %}{{ seg(tabs, tab_label) }}{% endif %}
+  {% if search %}
+  <form class="search tool-search" method="get" action="{{ request.url.path }}" role="search" aria-label="목록 검색">
+    {% for k, v in request.query_params.multi_items() if k not in ("q", "page") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <label class="sr-only" for="list-q">검색</label>
+    <input id="list-q" type="search" name="q" value="{{ q }}" placeholder="{{ placeholder }}" autocomplete="off">
+  </form>
+  {% endif %}
+  {% if extra %}{{ extra }}{% endif %}
+</div>
+{{ filter_note(flt) }}
+{% endmacro %}
+
+{# 빈 화면. 조건(검색·구분·걸러 보기)이 걸렸으면 문장 하나 + 조건 지우기, 아니면 문장 하나 + 주 동작 #}
+{% macro empty_list(searching, text, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", clear_url=None) %}
+{% if searching %}<div class="empty filtered"><p class="muted">조건에 맞는 항목이 없습니다.</p><a class="button" href="{{ clear_url or '?' }}">조건 지우기</a></div>
 {% else %}<div class="empty"><p class="muted">{{ text }}</p>{% if new_url %}<a class="button{{ " primary" if alt_url }}" href="{{ new_url }}">{{ new_label }}</a>{% if alt_url %}<a href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}{% endif %}</div>{% endif %}
 {% endmacro %}
 
+{# 쪽 넘기기: "51–100 / 전체 120건" 과 이전·다음 #}
 {% macro pager(pg, request) %}
 {% if pg.has_pages %}
 {% set keep = request.query_params.multi_items() | rejectattr(0, "equalto", "page") | list %}
@@ -66,11 +85,25 @@
   {% if pg.page > 1 %}<a href="{{ request.url.path }}?{{ (keep + [("page", pg.page - 1)]) | urlencode }}">이전</a>{% else %}<span class="muted">이전</span>{% endif %}
   <span class="sep" aria-hidden="true">·</span>
   <span>{{ pg.page }} / {{ pg.pages }}</span>
+  <span class="pager-range muted">{{ pg.first }}–{{ pg.last }} / 전체 {{ pg.total }}건</span>
   <span class="sep" aria-hidden="true">·</span>
   {% if pg.page < pg.pages %}<a href="{{ request.url.path }}?{{ (keep + [("page", pg.page + 1)]) | urlencode }}">다음</a>{% else %}<span class="muted">다음</span>{% endif %}
 </nav>
 {% endif %}
 {% endmacro %}
+
+{# 목록 표의 첫 칸: 굵은 제목 링크 + 한 줄 보조 글 + 태그 칩. 호출 본문은 좁은 화면(≤600px)에서만 제목 밑에 접혀 보이는 보조 칸들(.row-meta). #}
+{% macro title_cell(url, title, sub=none, tags=none) %}
+<td class="c-title"><a href="{{ url }}" class="row-title">{{ title }}</a>
+  {% if sub %}<small class="row-sub">{{ sub }}</small>{% endif %}
+  {% if tags %}<span class="row-tags">{% for t in tags %}<span class="tag">{{ t }}</span>{% endfor %}</span>{% endif %}
+  {% if caller is defined %}<div class="row-meta">{{ caller() }}</div>{% endif %}
+</td>
+{% endmacro %}
+
+{# 연결 칸의 내용: info.links = [(이름, 건수)] #}
+{% macro links_text(info) %}{% if info and info.links %}{% for text, n in info.links %}{{ text }} {{ n }}{{ " · " if not loop.last }}{% endfor %}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
+{% macro date_text(d) %}{% if d %}{{ kdate(d) }}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
 
 {# 화면 제목 위 경로. 앞 마디는 (이름, 주소), 마지막 마디는 (이름, None). 예: breadcrumb(("솔루션", "/solutions"), (solution.name, None)) #}
 {% macro breadcrumb() %}
@@ -172,6 +205,6 @@
 {% endif %}
 {% endmacro %}
 
-{# 목록의 걸러 보기 안내 (?customer_id= 같은 연결 목록의 "모두 보기"). flt 는 routers._common.list_filter 의 안내들 #}
-{% macro filter_note(flt) %}{% for f in flt %}<p class="filter-note">{{ f.label }}에 연결된 것만 보는 중 · <a href="{{ f.clear }}">걸러 보기 해제</a></p>{% endfor %}{% endmacro %}
+{# 목록의 걸러 보기 안내 (?customer_id= 같은 연결 목록의 "모두 보기"): 지울 수 있는 칩. flt 는 routers._common.list_filter 의 안내들 #}
+{% macro filter_note(flt) %}{% if flt %}<p class="filter-chips">{% for f in flt %}<a class="chip chip-x filter-note" href="{{ f["clear"] }}"><span>{{ f.label }}에 연결된 것만 보는 중</span><span class="chip-close" aria-hidden="true">×</span><span class="sr-only">걸러 보기 해제</span></a>{% endfor %}</p>{% endif %}{% endmacro %}
 {% macro filter_hidden(flt) %}{% for f in flt %}<input type="hidden" name="{{ f.param }}" value="{{ f.value }}">{% endfor %}{% endmacro %}

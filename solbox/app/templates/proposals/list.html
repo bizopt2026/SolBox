@@ -1,36 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import filter_note, filter_hidden, list_head, empty_list, pager %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill %}
 {% block title %}제안{% endblock %}
 {% block content %}
-{{ list_head("제안", pg, q or status or flt, "/proposals/new", "+ 제안 만들기") }}
-{{ filter_note(flt) }}
-<form method="get" action="/proposals" class="row">
-  {{ filter_hidden(flt) }}
-  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
-  <label>상태
-    <select name="status">
-      <option value="">전체</option>
-      {% for code, name in labels.PROPOSAL_STATUSES.items() %}
-      <option value="{{ code }}" {{ "selected" if code == status }}>{{ name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <button type="submit">검색</button>
-</form>
+{{ list_head("제안", pg, q or status or flt, "/proposals/new", "+ 제안 만들기", type="proposal") }}
+{{ list_tools(request, tabs, "진행 단계", q, flt, "제목, 고객으로 찾기") }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>제안</th><th>고객</th><th>상태</th><th>수정</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>제안</th><th class="col-sec">진행 단계</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for p in pg.items %}
     <tr>
-      <td><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a></td>
-      <td><a href="/customers/{{ p.customer_id }}">{{ p.customer.name }}</a></td>
-      <td>{{ labels.PROPOSAL_STATUSES.get(p.status, p.status) }}</td>
-      <td>{{ p.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td class="c-title"><a href="/proposals/{{ p.id }}" class="row-title">{{ display_title(p) }}</a>
+        <small class="row-sub"><a href="/customers/{{ p.customer_id }}">{{ p.customer.name }}</a></small>
+        <div class="row-meta">{{ pill("proposal_status", p.status) }}<span>{{ kdate(p.updated_at.date()) }}</span></div>
+      </td>
+      <td class="col-sec">{{ pill("proposal_status", p.status) }}</td>
+      <td class="col-sec num" title="{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}">{{ kdate(p.updated_at.date()) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or status or flt, "아직 등록된 제안 건이 없습니다.", "/proposals/new", "+ 제안 만들기") }}{% endif %}
+{% else %}{{ empty_list(q or status or flt, "아직 등록된 제안 건이 없습니다.", "/proposals/new", "+ 제안 만들기", clear_url="/proposals") }}{% endif %}
 {% endblock %}

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, seg, pill %}
 {% block title %}사용자 관리{% endblock %}
 {% block content %}
-{{ page_header("사용자 관리", crumbs=[("관리", none), ("사용자", none)]) }}
+{{ page_header("사용자 관리", crumbs=[("관리", none), ("사용자", none)], sub=ont.TYPES["user"].description ~ "을 추가하고 권한과 사용 여부를 바꿉니다", count=tabs[0].count ~ "명") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 <section class="card">
@@ -20,6 +20,7 @@
   </form>
 </section>
 
+<div class="tools">{{ seg(tabs, "권한") }}</div>
 <div class="tablewrap"><table>
   <thead><tr><th>아이디</th><th>이름</th><th>권한</th><th>사용</th><th>새 비밀번호</th><th></th></tr></thead>
   <tbody>

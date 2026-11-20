@@ -6,9 +6,10 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import backup, ontology, scheduler, transcribe
+from app import backup, ontology, scheduler, transcribe, ui
 from app.ai.queue import enqueue
 from app.db import get_db
 from app.main import render
@@ -24,8 +25,15 @@ ROLES = ontology.USER_ROLES  # 정의는 ontology
 
 
 def _page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
-    users = db.query(User).order_by(User.id).all()
-    return render(request, "admin/users.html", status_code=status_code, users=users, roles=ROLES, error=error)
+    role = request.query_params.get("role", "")
+    counts = dict(db.execute(select(User.role, func.count()).group_by(User.role)).all())
+    stmt = db.query(User).order_by(User.id)
+    if role in ROLES:
+        stmt = stmt.filter(User.role == role)
+    else:
+        role = ""
+    tabs = ui.seg_tabs(request, "role", list(ROLES.items()), counts, role, total=sum(counts.values()))
+    return render(request, "admin/users.html", status_code=status_code, users=stmt.all(), roles=ROLES, error=error, tabs=tabs, role=role)
 
 
 @router.get("/users")
@@ -85,9 +93,17 @@ def update_user(
 
 @router.get("/jobs")
 def jobs_page(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    jobs = db.query(AIJob).order_by(AIJob.id.desc()).limit(100).all()
+    status = request.query_params.get("status", "")
+    counts = dict(db.execute(select(AIJob.status, func.count()).group_by(AIJob.status)).all())  # 구분 탭의 건수: 전체 작업 기준
+    stmt = db.query(AIJob).order_by(AIJob.id.desc())
+    if status in ontology.JOB_STATUSES:
+        stmt = stmt.filter(AIJob.status == status)
+    else:
+        status = ""
+    jobs = stmt.limit(100).all()
     requesters = {u.id: u.name or u.username for u in db.query(User).all()}
-    return render(request, "admin/jobs.html", jobs=jobs, requesters=requesters)
+    tabs = ui.seg_tabs(request, "status", list(ontology.JOB_STATUSES.items()), counts, status, total=sum(counts.values()))
+    return render(request, "admin/jobs.html", jobs=jobs, requesters=requesters, tabs=tabs, status=status, total=sum(counts.values()))
 
 
 NAME_MAX = 100

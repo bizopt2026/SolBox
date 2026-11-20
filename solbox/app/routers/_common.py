@@ -43,9 +43,9 @@ def get_deletable_or_404(db: Session, model: type[T], obj_id: int, user: User) -
     return obj
 
 
-def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=()) -> list:
-    """이름(과 추가 칼럼)에 `q` 가 부분 일치하는 항목을 이름순으로 돌려준다. `q` 가 비면 전부."""
-    stmt = select(model)
+def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=(), loaders=()) -> list:
+    """이름(과 추가 칼럼)에 `q` 가 부분 일치하는 항목을 이름순으로 돌려준다. `q` 가 비면 전부. `loaders` 는 줄에 쓰는 연결을 한꺼번에 읽는 옵션."""
+    stmt = select(model).options(*loaders)
     for target in joins:
         stmt = stmt.join(target)
     q = q.strip()
@@ -143,6 +143,18 @@ def list_filter(db: Session, request: Request, list_type: str, rows) -> tuple[li
     return rows, notes
 
 
+def row_info(db: Session, type_code: str, items) -> dict[int, dict]:
+    """목록 한 쪽의 "연결" 건수와 "최근 활동" 일자: {번호: {"links": [(이름, 건수)], "latest": 일자|None}}.
+    건수는 쪽의 번호들만 묶어서 센다 (relations.link_counts: 줄 수와 상관없이 질의 수가 일정)."""
+    ids = [o.id for o in items]
+    links: dict[int, list[tuple[str, int]]] = {i: [] for i in ids}
+    for text, key, to in ontology.LIST_LINKS.get(type_code, ()):
+        for i, n in relations.link_counts(db, type_code, ids, key, to).items():
+            links[i].append((text, n))
+    latest = relations.latest_activity_dates(db, type_code, ids)
+    return {i: {"links": links[i], "latest": latest.get(i)} for i in ids}
+
+
 def newest_first(activities) -> list[Activity]:
     """날짜 최신순. 날짜 없는 활동은 맨 뒤."""
     return sorted(
@@ -162,10 +174,20 @@ class Page:
     page: int
     pages: int
     total: int
+    per_page: int = 50
 
     @property
     def has_pages(self) -> bool:
         return self.pages > 1
+
+    @property
+    def first(self) -> int:
+        """이 쪽 첫 항목의 번호 (1부터, 비었으면 0)."""
+        return (self.page - 1) * self.per_page + 1 if self.total else 0
+
+    @property
+    def last(self) -> int:
+        return min(self.total, self.page * self.per_page)
 
 
 def paginate(items: Sequence, page, per_page: int = PER_PAGE) -> Page:
@@ -179,4 +201,4 @@ def paginate(items: Sequence, page, per_page: int = PER_PAGE) -> Page:
     if not 1 <= number <= pages:
         number = 1
     start = (number - 1) * per_page
-    return Page(items=items[start:start + per_page], page=number, pages=pages, total=len(items))
+    return Page(items=items[start:start + per_page], page=number, pages=pages, total=len(items), per_page=per_page)

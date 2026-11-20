@@ -429,7 +429,8 @@ def _more_url(start: str, rel_or_d: str, target: str, obj_id: int) -> str | None
     for (list_type, param), (owner, key) in ontology.LIST_FILTERS.items():
         if owner == start and key == rel_or_d and list_type == target:
             return f"{ontology.TYPES[list_type].list_url}?{param}={obj_id}"
-    return None
+    link = ontology.MORE_LINKS.get((start, rel_or_d))
+    return link.format(id=obj_id) if link else None
 
 
 def _excluded(exclude, key: str, dst: str | None = None) -> bool:
@@ -542,6 +543,63 @@ def path_query(db: Session, start, keys) -> list:
     out: list = []
     for code, ids in current.items():
         out.extend(_load(db, code, ids))
+    return out
+
+
+# ======================================================================================
+# 목록의 "연결" 건수와 "최근 활동": 쪽에 보이는 번호들만 묶어서 센다 (기록마다 묻지 않는다)
+# ======================================================================================
+
+def _reach(db: Session, start: str, ids: list[int], key: str, to: str | None) -> dict[int, set[int]]:
+    """각 출발 번호에서 `key`(저장된 관계 또는 따라가서 얻는 관계)로 닿는 기록 번호들. 걸음마다 IN 질의 한 번."""
+    paths = _flatten(key) if key in ontology.DERIVED_BY_KEY else ((ontology.Step(key, False, to),),)
+    out: dict[int, set[int]] = {i: set() for i in ids}
+    for steps in paths:
+        frontier: dict[int, set[int]] = {i: {i} for i in ids}
+        cur = start
+        for step in steps:
+            edge = _edge(step.rel, cur, step.to if step.to else (to if len(steps) == 1 else None))
+            nxt: dict[int, set[int]] = {}
+            for a, b, _meta in edge.pairs(db, list(frontier)):
+                origins = frontier.get(a)
+                if origins:
+                    nxt.setdefault(b, set()).update(origins)
+            if step.where and nxt:
+                keep = _apply_where(db, edge.dst, nxt.keys(), step.where)
+                nxt = {k: v for k, v in nxt.items() if k in keep}
+            frontier, cur = nxt, edge.dst
+        for b, origins in frontier.items():
+            for o in origins:
+                out[o].add(b)
+    return out
+
+
+def link_counts(db: Session, start: str, ids, key: str, to: str | None = None) -> dict[int, int]:
+    """`ids` 각각에서 `key` 로 닿는 서로 다른 기록의 수. 닿는 것이 없는 번호는 빠진다."""
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    return {i: len(v) for i, v in _reach(db, start, ids, key, to).items() if v}
+
+
+def latest_activity_dates(db: Session, start: str, ids) -> dict:
+    """`ids` 각각에 연결된 활동 기록 중 가장 늦은 일자 (ontology.LIST_LATEST_ACTIVITY 의 관계). 일자가 있는 활동이 없으면 빠진다."""
+    from app.models import Activity
+
+    ids = list(dict.fromkeys(ids))
+    key = ontology.LIST_LATEST_ACTIVITY.get(start)
+    if not ids or key is None:
+        return {}
+    reach = _reach(db, start, ids, key, "activity")
+    activity_ids = set().union(*reach.values()) if reach else set()
+    dates: dict[int, object] = {}
+    for chunk in _chunks(activity_ids):
+        dates.update((a, d) for a, d in db.execute(select(Activity.id, Activity.date).where(Activity.id.in_(chunk), Activity.date.is_not(None))))
+    out = {}
+    for i, acts in reach.items():
+        found = [dates[a] for a in acts if a in dates]
+        if found:
+            out[i] = max(found)
     return out
 
 

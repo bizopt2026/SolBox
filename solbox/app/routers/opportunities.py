@@ -1,14 +1,15 @@
 """영업기회 화면: 목록·상세·등록·수정·삭제, 단계 변경, 프로젝트로 전환. 행위 조건은 `app/opportunities.py` 한 곳이다."""
 from __future__ import annotations
 
+from collections import Counter
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app import ontology, opportunities as opps, relations
+from app import ontology, opportunities as opps, relations, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -16,7 +17,7 @@ from app.models import BM, Customer, Opportunity, Project, Solution, User
 from app.records import pick
 from app.routers._common import (
     list_filter,
-    get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, search_by_name,
+    get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, row_info, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -76,16 +77,23 @@ def list_opportunities(
     request: Request, q: str = "", stage: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,))
+    found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
+                           loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
+    found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)
+    found, flt = list_filter(db, request, "opportunity", found)
+    counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
+    counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
+    total = len(found)
     if stage == ontology.OPPORTUNITY_FILTER_OPEN:
         found = [o for o in found if o.stage in ontology.OPPORTUNITY_OPEN_STAGES]
     elif stage in ontology.OPPORTUNITY_STAGES:
         found = [o for o in found if o.stage == stage]
     else:
         stage = ""
-    found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)
-    found, flt = list_filter(db, request, "opportunity", found)
-    return render(request, "opportunities/list.html", pg=paginate(found, page), q=q.strip(), stage=stage, flt=flt)
+    pg = paginate(found, page)
+    choices = [(ontology.OPPORTUNITY_FILTER_OPEN, "진행 중"), *ontology.OPPORTUNITY_STAGES.items()]
+    tabs = ui.seg_tabs(request, "stage", choices, counts, stage, total)
+    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, info=row_info(db, "opportunity", pg.items))
 
 
 @router.get("/new")

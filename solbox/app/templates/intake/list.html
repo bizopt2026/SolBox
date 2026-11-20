@@ -1,32 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, empty_list, pager, pill %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, pill, title_cell %}
 {% block title %}올리기 목록{% endblock %}
 {% block content %}
-{{ list_head(ont.label("intake"), pg, status, "/intake/new", "+ 올리기") }}
-<form method="get" action="/intake" class="row">
-  <label>상태
-    <select name="status">
-      <option value="">전체</option>
-      {% for code, name in labels.INTAKE_STATUSES.items() %}<option value="{{ code }}" {{ "selected" if status == code }}>{{ name }}</option>{% endfor %}
-    </select>
-  </label>
-  <button type="submit">보기</button>
-</form>
+{{ list_head(ont.label("intake"), pg, status, "/intake/new", "+ 올리기", type="intake") }}
+{{ list_tools(request, tabs, "상태", search=false) }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>올린 때</th>{% if user.role == "admin" %}<th>올린 사람</th>{% endif %}<th>메모</th><th>파일</th><th>상태</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>올린 때</th>{% if user.role == "admin" %}<th class="col-sec">올린 사람</th>{% endif %}<th class="col-sec">파일</th><th class="col-sec">상태</th></tr></thead>
   <tbody>
   {% for it in pg.items %}
     <tr>
-      <td><a href="/intake/{{ it.id }}">{{ it.created_at.strftime("%Y-%m-%d %H:%M") }}</a></td>
-      {% if user.role == "admin" %}<td>{{ owners.get(it.created_by_id, "") }}</td>{% endif %}
-      <td>{{ it.note or "" }}</td>
-      <td>{{ it.files | length }}개</td>
-      <td>{{ pill("intake_status", it.status) }}</td>
+      {% call title_cell("/intake/" ~ it.id, it.created_at.strftime("%Y-%m-%d %H:%M"), it.note or none) %}
+        {{ pill("intake_status", it.status) }}<span>{{ it.files | length }}개</span>{% if user.role == "admin" %}<span>{{ owners.get(it.created_by_id, "") }}</span>{% endif %}
+      {% endcall %}
+      {% if user.role == "admin" %}<td class="col-sec">{{ owners.get(it.created_by_id, "") }}</td>{% endif %}
+      <td class="col-sec num">{{ it.files | length }}개</td>
+      <td class="col-sec">{{ pill("intake_status", it.status) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(status, "아직 올린 파일이 없습니다. 문서·사진을 올려 보세요.", "/intake/new", "+ 올리기") }}{% endif %}
+{% else %}{{ empty_list(status, "아직 올린 파일이 없습니다. 문서·사진을 올려 보세요.", "/intake/new", "+ 올리기", clear_url="/intake") }}{% endif %}
 {% endblock %}

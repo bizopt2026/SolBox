@@ -1,24 +1,26 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, seg, pill, empty_list %}
 {% block title %}AI 작업{% endblock %}
 {% block content %}
-{{ page_header("AI 작업", crumbs=[("관리", none), ("AI 작업", none)], sub="AI 작업 대기열과 최근 결과입니다.") }}
-<div class="tablewrap"><table>
-  <thead><tr><th>번호</th><th>종류</th><th>상태</th><th>요청자</th><th>요청 시각</th><th>끝난 시각</th><th>오류</th></tr></thead>
+{% call page_header("AI 작업", crumbs=[("관리", none), ("AI 작업", none)], sub=ont.TYPES["ai_job"].description, count=total ~ "건") %}{% endcall %}
+<div class="tools">{{ seg(tabs, "상태") }}</div>
+{% if jobs %}
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th class="num">번호</th><th>종류</th><th>상태</th><th>요청자</th><th>요청 시각</th><th>끝난 시각</th><th>오류</th></tr></thead>
   <tbody>
   {% for j in jobs %}
     <tr>
-      <td>{{ j.id }}</td>
+      <td class="num">{{ j.id }}</td>
       <td>{{ labels.JOB_KINDS.get(j.kind, j.kind) }}</td>
-      <td>{{ labels.JOB_STATUSES.get(j.status, j.status) }}</td>
+      <td>{{ pill("job_status", j.status) }}</td>
       <td>{{ requesters.get(j.requester_id, "-") }}</td>
-      <td>{{ j.created_at.strftime("%Y-%m-%d %H:%M") if j.created_at else "" }}</td>
-      <td>{{ j.finished_at.strftime("%Y-%m-%d %H:%M") if j.finished_at else "" }}</td>
+      <td class="num">{{ j.created_at.strftime("%Y-%m-%d %H:%M") if j.created_at else "" }}</td>
+      <td class="num">{{ j.finished_at.strftime("%Y-%m-%d %H:%M") if j.finished_at else "" }}</td>
       <td>{% if j.status == "failed" %}{{ labels.ERROR_KINDS.get(j.error_kind, labels.ERROR_KINDS["unknown"]) }}{% endif %}</td>
     </tr>
-  {% else %}
-    <tr><td colspan="7">작업이 없습니다.</td></tr>
   {% endfor %}
   </tbody>
 </table></div>
+{% if total > jobs | length and not status %}<p class="muted list-note">최근 {{ jobs | length }}건만 보입니다.</p>{% endif %}
+{% else %}{{ empty_list(status, "작업이 없습니다.", clear_url="/admin/jobs") }}{% endif %}
 {% endblock %}

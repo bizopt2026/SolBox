@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import ontology
 
@@ -36,14 +36,27 @@ def _matches(code: str, like: str):
 
 
 def _item(code: str, obj) -> dict:
+    """결과 한 줄: 제목(label)·주소(url)·오른쪽 글(note)·단계 배지(badge: (코드 목록 키, 코드))·한 줄 보조 글(sub)."""
+    from app import ui
+
     t = ontology.TYPES[code]
-    note = ""
+    note, badge, sub = "", None, ""
     if code == "solution":
-        note = ontology.STAGES.get(obj.stage, "")
+        note, badge, sub = ontology.STAGES.get(obj.stage, ""), ("stage", obj.stage), ui.first_line(obj.summary, 80)
     elif code == "activity":
-        note = obj.date.isoformat() if obj.date else ""
+        note, badge, sub = (obj.date.isoformat() if obj.date else ""), ("activity_kind", obj.kind), ui.first_line(obj.summary_md, 80)
     elif code == "opportunity":
-        note = ontology.OPPORTUNITY_STAGES.get(obj.stage, "")
+        note, badge, sub = ontology.OPPORTUNITY_STAGES.get(obj.stage, ""), ("opportunity_stage", obj.stage), obj.customer.name
+    elif code == "proposal":
+        badge, sub = ("proposal_status", obj.status), obj.customer.name
+    elif code == "project":
+        sub = " · ".join(x for x in (obj.customer.name, obj.period) if x)
+    elif code == "customer":
+        sub = obj.industry
+    elif code == "partner":
+        sub = ui.first_line(obj.description, 80)
+    elif code == "bm":
+        sub = ui.first_line(obj.summary, 80)
     if code == "proposal":
         from app.proposals import display_title
 
@@ -52,7 +65,7 @@ def _item(code: str, obj) -> dict:
         label = obj.title or "(제목 없음)"
     else:
         label = obj.name
-    return {"label": label, "url": t.url(obj.id), "note": note}
+    return {"label": label, "url": t.url(obj.id), "note": note, "badge": badge, "sub": sub}
 
 
 def search(db: Session, q: str) -> dict:
@@ -71,7 +84,8 @@ def search(db: Session, q: str) -> dict:
         total = db.scalar(select(func.count()).select_from(model).where(cond)) or 0
         if not total:
             continue
-        rows = list(db.scalars(select(model).where(cond).order_by(*order).limit(PER_TYPE)))
+        loaders = [selectinload(model.customer)] if code in ("opportunity", "proposal", "project") else []
+        rows = list(db.scalars(select(model).options(*loaders).where(cond).order_by(*order).limit(PER_TYPE)))
         from urllib.parse import urlencode
 
         groups.append({"code": code, "label": t.label, "total": total, "rows": [_item(code, o) for o in rows],

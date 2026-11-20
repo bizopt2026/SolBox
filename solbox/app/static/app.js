@@ -406,4 +406,10 @@
     });
     show();
   });
+
+  // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
+  document.querySelectorAll(".seg").forEach(function (seg) {
+    var cur = seg.querySelector('[aria-current="page"]');
+    if (cur && seg.scrollWidth > seg.clientWidth) seg.scrollLeft = Math.max(0, cur.offsetLeft - 16);
+  });
 })();

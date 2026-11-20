@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import shutil
+from collections import Counter
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app import labels, ontology, origin, relations
+from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app.db import get_db
@@ -17,7 +18,7 @@ from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
     list_filter,
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
-    resync_activities, resync_objects, resync_related, search_by_name,
+    resync_activities, resync_objects, resync_related, row_info, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -78,11 +79,15 @@ def list_solutions(
     request: Request, q: str = "", stage: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags)
+    solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags, loaders=(selectinload(Solution.partner),))
+    solutions, flt = list_filter(db, request, "solution", solutions)
+    counts = Counter(s.stage for s in solutions)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준 (탭을 누르면 나오는 건수와 같다)
+    total = len(solutions)
     if stage:
         solutions = [s for s in solutions if s.stage == stage]
-    solutions, flt = list_filter(db, request, "solution", solutions)
-    return render(request, "solutions/list.html", pg=paginate(solutions, page), q=q.strip(), stage=stage, flt=flt)
+    pg = paginate(solutions, page)
+    tabs = ui.seg_tabs(request, "stage", list(labels.STAGES.items()), counts, stage, total)
+    return render(request, "solutions/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, info=row_info(db, "solution", pg.items))
 
 
 @router.get("/new")

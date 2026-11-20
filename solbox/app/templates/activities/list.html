@@ -1,29 +1,26 @@
 {% extends "base.html" %}
-{% from "_macros.html" import filter_note, filter_hidden, list_head, empty_list, pager %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill %}
 {% block title %}활동 기록{% endblock %}
 {% block content %}
-{{ list_head("활동 기록", pg, q or kind or flt, "/intake/new", "올리기", "/activities/new") }}
-{{ filter_note(flt) }}
-<form method="get" action="/activities" class="row">
-  {{ filter_hidden(flt) }}
-  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
-  <label>종류
-    <select name="kind">
-      <option value="">전체</option>
-      {% for code, name in labels.ACTIVITY_KINDS.items() %}<option value="{{ code }}" {{ "selected" if kind == code }}>{{ name }}</option>{% endfor %}
-    </select>
-  </label>
-  <button type="submit">검색</button>
-</form>
+{{ list_head("활동 기록", pg, q or kind or flt, "/intake/new", "올리기", "/activities/new", type="activity") }}
+{{ list_tools(request, tabs, "종류", q, flt, "제목, 내용으로 찾기") }}
 {% if pg.items %}
-<div class="tablewrap"><table>
-  <thead><tr><th>일자</th><th>종류</th><th>제목</th></tr></thead>
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>활동</th><th class="col-sec">종류</th><th class="col-sec">연결</th><th class="col-sec">일자</th></tr></thead>
   <tbody>
   {% for a in pg.items %}
-    <tr><td>{{ a.date or "" }}</td><td>{{ labels.ACTIVITY_KINDS.get(a.kind, a.kind) }}</td><td><a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></td></tr>
+    {% set i = info[a.id] %}
+    <tr>
+      {% call title_cell("/activities/" ~ a.id, a.title or "(제목 없음)", a.summary_md | first_line(90)) %}
+        {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ links_text(i) }}</span>
+      {% endcall %}
+      <td class="col-sec">{{ pill("activity_kind", a.kind) }}</td>
+      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec num">{{ date_text(a.date) }}</td>
+    </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or kind or flt, "아직 등록된 활동 기록이 없습니다. 녹취록·사진을 올리면 AI가 정리해 드려요.", "/intake/new", "올리기", "/activities/new") }}{% endif %}
+{% else %}{{ empty_list(q or kind or flt, "아직 등록된 활동 기록이 없습니다. 녹취록·사진을 올리면 AI가 정리해 드려요.", "/intake/new", "올리기", "/activities/new", clear_url="/activities") }}{% endif %}
 {% endblock %}

@@ -18,7 +18,7 @@
 - 받아쓰기(선택 설치) `pip install -e ".[stt]"`
 
 ## 화면 틀
-- 사이드 메뉴(묶음: 오늘·발굴·영업·관리)는 `ontology.NAV_GROUPS`·`NAV_ITEMS`·`nav_groups()` 에서 그린다. 메뉴에 넣는 대상은 `ObjectType.nav_group` 이 있어야 한다. 모든 화면의 제목 줄은 `_macros.html` 의 `page_header`(또는 이를 감싼 `list_head`·`detail_head`) 하나다. 배지 색은 `ontology.CODE_TONES` 한 곳(`pill` 매크로). 전체 검색은 `app/search.py`(이름·제목만, 올리기 묶음 제외). 위쪽 줄의 AI 상태는 `main._ai_status`.
+- 사이드 메뉴(묶음: 오늘·발굴·영업·관리)는 `ontology.NAV_GROUPS`·`NAV_ITEMS`·`nav_groups()` 에서 그린다. 메뉴에 넣는 대상은 `ObjectType.nav_group` 이 있어야 한다. 모든 화면의 제목 줄은 `_macros.html` 의 `page_header`(또는 이를 감싼 `list_head`·`detail_head`) 하나다. 배지 색은 `ontology.CODE_TONES` 한 곳(`pill` 매크로). 목록 화면은 모두 같은 틀이다: `list_head`(온톨로지 `description` 한 줄) + `list_tools`(구분 탭 `seg`·검색·걸러 보기 칩) + `list-table`(제목 칸 `title_cell`, "연결" 건수는 `ontology.LIST_LINKS` → `relations.link_counts` 가 쪽의 번호만 묶어 센다) + `pager`. 구분 탭은 `ui.seg_tabs`(건수는 검색어·걸러 보기를 적용한 목록 기준). 홈은 대시보드(`routers/home.py`, 질의 수는 기록 수와 무관), 후속 조치 목록은 `/follow-ups`(`routers/follow_ups.py`). 전체 검색은 `app/search.py`(이름·제목만, 올리기 묶음 제외). 위쪽 줄의 AI 상태는 `main._ai_status`.
 
 ## 올리기 구조
 - 파일을 한 번에 올리면(`Intake`, `IntakeFile`; `app/intake.py`, `routers/intake.py`) AI 작업 `intake_analyze`(`ai/intake_tasks.py`, 프롬프트 `prompts/intake_analyze.md`)가 정리안(`Intake.plan`)을 만들고, 사용자가 확인하면 `intake.apply` 가 `app/records.py` 의 공용 저장 로직으로 기록을 만든다. 상태: 올림 → 정리 중 → 확인 대기 → 저장 중(`applying`) → 저장 완료 / 실패 / 버림. 저장 중에는 선점마다 `Intake.apply_token` 이 붙고, 저장을 끝내거나 풀 수 있는 것은 그 토큰의 주인뿐이다 (오래 멈춘 저장을 "다시 확인" 으로 풀어도 옛 저장이 뒤늦게 끝나 두 번 저장되지 않게).

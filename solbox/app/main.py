@@ -4,7 +4,7 @@ from __future__ import annotations
 import functools
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import labels, models, ontology, scheduler  # noqa: F401  (모델을 메타데이터에 등록)
+from app import labels, models, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록)
 from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
@@ -203,11 +203,14 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["ontology"] = ontology  # 대상 이름·속성 이름표·목록은 템플릿도 여기서 읽는다
     app.state.templates.env.globals["ont"] = ontology
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
+    app.state.templates.env.globals["kdate"] = lambda d: ui.short_date(d, date.today())  # "11월 24일" (올해가 아니면 연도도)
+    app.state.templates.env.globals["ui"] = ui
+    app.state.templates.env.filters["first_line"] = ui.first_line
     app.state.templates.env.filters["md"] = render_markdown
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        proposals, research, search, solutions,
+        follow_ups, proposals, research, search, solutions,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
@@ -225,6 +228,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(activities.router)
     app.include_router(activities.follow_up_router)
+    app.include_router(follow_ups.router)
     app.include_router(search.router)
     app.include_router(proposals.router)
     app.include_router(proposal_outline.router)

@@ -1,94 +1,109 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, stage_badge, pill %}
+{% from "_macros.html" import page_header, pill %}
+{% from "_followups.html" import fu_item %}
 {% block title %}홈{% endblock %}
 {% block content %}
-{% call page_header("홈", sub="오늘 할 일과 올리기 현황입니다.") %}<a class="button" href="/activities/new">활동 기록 쓰기</a>{% endcall %}
+{% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button" href="/activities/new">활동 기록 쓰기</a><a class="button primary" href="/intake/new">+ 올리기</a>{% endcall %}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 
-<section class="card">
-  <h2>올리기</h2>
-  <form method="post" action="/intake" enctype="multipart/form-data" class="stack">
-    {% set zone_id = "home" %}{% include "intake/_dropzone.html" %}
-    <div class="row"><button type="submit" class="primary">올리기</button></div>
-  </form>
-  {% if intake.ready_count or intake.analyzing_count %}
-  <div class="intake-pending">
-    {% if intake.ready_count %}
-    <p><a href="/intake"><strong>확인 대기 {{ intake.ready_count }}건</strong></a></p>
-    <ul>
-      {% for it in intake.ready %}<li><a href="/intake/{{ it.id }}">{{ it.note or (ont.label("intake") ~ " #" ~ it.id) }}</a></li>{% endfor %}
+<nav class="flow" aria-label="발굴 흐름">
+  {% for c in flow.cells %}
+  <a class="flow-cell{{ ' last' if loop.last }}" href="/solutions?stage={{ c.code }}" data-stage="{{ c.code }}">
+    <small>{{ c.name }}</small>
+    <b>{{ c.count }}</b>
+    <i aria-hidden="true"><u style="width: {{ c.pct }}%"></u></i>
+    <span class="flow-sub">{% if c.week %}이번 주 +{{ c.week }}{% endif %}</span>
+  </a>
+  {% endfor %}
+</nav>
+<p class="flow-hold"><a href="/solutions?stage={{ ont.STAGE_HOLD }}" data-stage="{{ ont.STAGE_HOLD }}">{{ ont.STAGES[ont.STAGE_HOLD] }} <b>{{ flow.hold }}</b>건</a></p>
+
+<div class="dash">
+  <section class="card c7" aria-labelledby="h-fu">
+    <header class="card-head"><h2 id="h-fu">후속 조치 <span class="count">기한 14일 이내</span></h2><a href="/follow-ups">모두 보기</a></header>
+    {% if follow_ups %}
+    <ul class="fu-list">
+      {% for f in follow_ups %}{{ fu_item(f) }}{% endfor %}
     </ul>
-    {% endif %}
-    {% if intake.analyzing_count %}<p class="muted">정리 중 {{ intake.analyzing_count }}건</p>{% endif %}
-  </div>
-  {% endif %}
-</section>
+    {% if follow_up_more %}<p class="muted card-foot">외 {{ follow_up_more }}건 · <a href="/follow-ups">모두 보기</a></p>{% endif %}
+    {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
+  </section>
 
-<section class="card">
-  <h2>후속 조치 (기한 14일 이내)</h2>
-  {% if follow_ups %}
-  <ul class="followups">
-    {% for f in follow_ups %}
-    <li>
-      <form method="post" action="/follow-ups/{{ f.id }}/toggle">
-        <button type="submit" class="check" aria-label="완료로 표시" title="완료로 표시"></button>
-      </form>
-      <div class="fu-body">
-        <span class="fu-task">{{ f.task }}</span>
-        <span class="muted">{% if f.owner %}담당 {{ f.owner }} · {% endif %}기한 {{ f.due }}</span>
-        {% if f.overdue %}<span class="overdue">기한 지남</span>{% endif %}
-        <a href="/activities/{{ f.activity.id }}">{{ f.activity.title or "(제목 없음)" }}</a>
+  <section class="card c5" aria-labelledby="h-up">
+    <header class="card-head"><h2 id="h-up">올리기</h2>{% if intake.ready_count or intake.analyzing_count %}<a href="/intake">올리기 목록</a>{% endif %}</header>
+    <form method="post" action="/intake" enctype="multipart/form-data" class="stack">
+      {% set zone_id = "home" %}{% include "intake/_dropzone.html" %}
+      <div class="row"><button type="submit" class="primary">올리기</button></div>
+    </form>
+    {% if intake.ready_count or intake.analyzing_count %}
+    <div class="intake-pending">
+      <p class="queue-sum">{% if intake.ready_count %}<a href="/intake"><strong>확인 대기 {{ intake.ready_count }}건</strong></a>{% endif %}{% if intake.ready_count and intake.analyzing_count %} · {% endif %}{% if intake.analyzing_count %}<span class="muted">정리 중 {{ intake.analyzing_count }}건</span>{% endif %}</p>
+      <div class="queue">
+        {% for it in intake.ready + intake.analyzing %}
+        <a class="queue-row" href="/intake/{{ it.id }}">
+          <span class="queue-main"><b>{{ it.note or (ont.label("intake") ~ " #" ~ it.id) }}</b><small>파일 {{ it.files_n }}개 · {{ kdate(it.created_at.date()) }}</small></span>
+          {{ pill("intake_status", it.status) }}
+        </a>
+        {% endfor %}
       </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
-</section>
+    </div>
+    {% endif %}
+  </section>
 
-<section class="card">
-  <h2>진행 중인 제안 건</h2>
-  {% if proposals %}
-  <ul>
-    {% for p in proposals %}
-    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> · {{ p.customer.name }} {{ pill("proposal_status", p.status) }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
-  <p><a href="/proposals">제안 건 목록</a> · <a href="/proposals/new">+ 제안 건 만들기</a></p>
-  <p class="muted open-opps">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ open_opportunities }}건</a></p>
-</section>
+  <section class="card c5" aria-labelledby="h-opp">
+    <header class="card-head"><h2 id="h-opp">{{ ont.label("opportunity") }}</h2><a href="/opportunities">전체 {{ opp.total }}건</a></header>
+    {% if opp.total %}
+    <div class="stagebars">
+      {% for b in opp.bars %}
+      <a class="sb-row" href="/opportunities?stage={{ b.code }}" data-stage="{{ b.code }}">
+        <span>{{ b.name }}</span><i aria-hidden="true"><u class="{{ 'won' if b.code == ont.OPPORTUNITY_STAGE_WON }}" style="width: {{ b.pct }}%"></u></i><b>{{ b.count }}</b>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">아직 등록된 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
+    <p class="muted open-opps card-foot">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ opp.open }}건</a></p>
+  </section>
 
-<section class="card">
-  <h2>발굴 단계별 솔루션</h2>
-  <ul class="stages">
-    {% for code, name, count in stages %}
-    <li><a href="/solutions?stage={{ code }}">{{ stage_badge(code) }}<strong>{{ count }}</strong></a></li>
-    {% endfor %}
-  </ul>
-</section>
+  <section class="card c7" aria-labelledby="h-act">
+    <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">활동 기록</a></header>
+    {% if recent %}
+    <div class="feed">
+      {% for r in recent %}
+      <a href="/activities/{{ r.a.id }}">
+        <time datetime="{{ r.a.date.isoformat() if r.a.date }}">{{ kdate(r.a.date) if r.a.date else "일자 없음" }}</time>
+        <span><b>{{ r.a.title or "(제목 없음)" }}</b>{% if r.needs or r.follow_ups %}<small>{% if r.needs %}{{ ont.TERMS["customer_need"] }} {{ r.needs }}건{% endif %}{% if r.needs and r.follow_ups %} · {% endif %}{% if r.follow_ups %}후속 조치 {{ r.follow_ups }}건{% endif %}</small>{% endif %}</span>
+        {{ pill("activity_kind", r.a.kind) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">등록된 활동 기록이 없습니다.</p>{% endif %}
+    <p class="card-foot"><a href="/activities/new">+ 활동 기록 등록</a></p>
+  </section>
 
-<section class="card">
-  <h2>최신 리서치</h2>
-  {% if research %}
-  <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
-  {% if research.insights %}<h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
-  {% if research.suggestions %}<h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endif %}
-  {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
-  <p><a href="/research">리서치 목록</a></p>
-</section>
+  <section class="card c5" aria-labelledby="h-prop">
+    <header class="card-head"><h2 id="h-prop">진행 중인 제안 건</h2><a href="/proposals">제안 건 목록</a></header>
+    {% if proposals %}
+    <div class="queue">
+      {% for p in proposals %}
+      <a class="queue-row" href="/proposals/{{ p.id }}">
+        <span class="queue-main"><b>{{ display_title(p) }}</b><small>{{ p.customer.name }}</small></span>
+        {{ pill("proposal_status", p.status) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
+    <p class="card-foot"><a href="/proposals/new">+ 제안 건 만들기</a></p>
+  </section>
 
-<section class="card">
-  <h2>최근 활동 기록</h2>
-  {% if recent %}
-  <div class="tablewrap"><table>
-    <thead><tr><th>일자</th><th>종류</th><th>제목</th></tr></thead>
-    <tbody>
-    {% for a in recent %}
-      <tr><td>{{ a.date or "" }}</td><td>{{ labels.ACTIVITY_KINDS.get(a.kind, a.kind) }}</td><td><a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></td></tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
-  {% else %}<p class="muted">등록된 활동 기록이 없습니다.</p>{% endif %}
-  <p><a href="/activities/new">+ 활동 기록 등록</a></p>
-</section>
+  <section class="card c7" aria-labelledby="h-res">
+    <header class="card-head"><h2 id="h-res">최신 리서치</h2><a href="/research">리서치 목록</a></header>
+    {% if research %}
+    <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
+    <div class="res-cols">
+      {% if research.insights %}<div><h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if research.suggestions %}<div><h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+    {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
+  </section>
+</div>
 {% endblock %}
