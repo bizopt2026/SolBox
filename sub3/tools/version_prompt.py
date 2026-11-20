@@ -182,11 +182,11 @@ def where(new, r):
 def render(ver, date, title, desc, prev, edits, new):
     L = []
     L.append('# 복제본 업데이트: v%s (%s) %s\n' % (ver, date, title))
-    L.append('> 아래 전체를 복사해서, **복제한 \'Sub-3 훈련 체크\' 앱을 만든 Claude 대화**에 붙여 넣으세요.')
+    L.append('> 아래 전체를 복사해서, **복제한 \'써브쓰리\'(예전 이름 Sub-3 훈련 체크) 앱을 만든 Claude 대화**에 붙여 넣으세요.')
     L.append('> `<여기에 내 앱 링크>` 자리에 내 앱(복제본) 링크를 넣어 주세요.')
     L.append('> **v%s까지 적용한 앱**을 기준으로 자동 생성했어요(원본 v%s → v%s 차이).\n' % (prev, prev, ver))
     L.append('---\n')
-    L.append('내 아티팩트 "Sub-3 훈련 체크"에 아래 업데이트를 적용해서 **같은 URL에 다시 게시**해 줘.\n')
+    L.append('내 아티팩트 "써브쓰리"(예전 이름 "Sub-3 훈련 체크")에 아래 업데이트를 적용해서 **같은 URL에 다시 게시**해 줘.\n')
     L.append('- 아티팩트: <여기에 내 앱 링크>\n')
     L.append('## 0. 먼저 지킬 것')
     L.append('1. `artifact-capabilities` 스킬과 `artifact-design` 스킬을 먼저 로드해.')
