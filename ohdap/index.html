@@ -39,6 +39,67 @@
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans KR',system-ui,sans-serif;-webkit-text-size-adjust:100%}
 body{min-height:100vh;overflow-x:hidden}
 #app{max-width:520px;margin:0 auto;min-height:100vh;position:relative}
+a{color:var(--primary);text-decoration:none}
+button{font:inherit;color:inherit}
+.ic{display:inline-flex;align-items:center;justify-content:center;flex:none}
+.loading{padding:40px 20px;color:var(--muted)}
+.screen{min-height:100vh;padding-bottom:24px}
+.screen.has-tabbar{padding-bottom:110px}
+.page{padding:0 20px;display:flex;flex-direction:column;gap:16px}
+.top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;gap:4px}
+.top-title{margin:0;font-size:17px;font-weight:600;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn,.iconbtn-space{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--ink);cursor:pointer;border-radius:12px}
+.home-head{padding:24px 20px 8px;display:flex;align-items:center;justify-content:space-between}
+.h-big{margin:0;font-size:26px;font-weight:700;letter-spacing:-.5px}
+.h2{margin:0;font-size:18px;font-weight:700}
+.lead{margin:0;font-size:17px;line-height:1.6;color:var(--muted)}
+.muted{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
+.center{text-align:center}
+.label{font-size:15px;font-weight:600;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grade-btn{height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:17px;cursor:pointer}
+.grade-btn.on{border:2px solid var(--primary);background:var(--primary-soft);color:var(--primary);font-weight:700}
+.btn{min-height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:600;cursor:pointer;padding:0 16px;text-align:center}
+.btn.primary{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.btn.dark{background:var(--board);color:var(--chalk);border-color:var(--board)}
+.btn.big{min-height:56px;font-size:17px;width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px;cursor:pointer}
+.chip.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);font-weight:600}
+.badge{align-self:flex-start;font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px;background:var(--chip);color:var(--muted)}
+.badge.due{background:var(--warn-soft);color:var(--warn-ink)}
+.badge.done{background:var(--primary-soft);color:var(--primary)}
+.onboard{padding:40px 24px 120px;display:flex;flex-direction:column;gap:18px}
+.logo{width:80px;height:80px;border-radius:26px;background:var(--board);color:var(--marker);display:flex;align-items:center;justify-content:center}
+.bottom-cta{position:fixed;left:0;right:0;bottom:0;padding:16px 24px 28px;background:linear-gradient(to top,var(--bg) 70%,transparent);max-width:520px;margin:0 auto}
+.tabbar{position:fixed;left:0;right:0;bottom:0;height:80px;background:var(--surface);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding-top:8px;max-width:520px;margin:0 auto;z-index:5}
+.tab{width:88px;min-height:52px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted)}
+.tab.on{color:var(--primary);font-weight:700}
+.tab-plus{width:56px;height:56px;margin-top:-22px;border-radius:999px;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(31,95,74,.3)}
+.device-note{margin:0;font-size:13px;color:var(--warn-ink);background:var(--warn-soft);padding:8px 12px;border-radius:10px;align-self:flex-start}
+.store-where{margin:0;font-size:16px;font-weight:600}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;z-index:20;max-width:90vw}
+.field{display:flex;flex-direction:column;gap:8px}
+.field>span{font-size:14px;font-weight:600}
+.field small{font-weight:400;color:var(--muted)}
+.input{height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:16px;color:var(--ink);width:100%}
+textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
+.stripe{background:repeating-linear-gradient(135deg,var(--stripe1) 0 8px,var(--stripe2) 8px 16px)}
+.math-raw{font-family:'STIX Two Text',serif;font-style:italic}
+.mtext{font-size:17px;line-height:1.75}
+.mtext .katex{font-size:1.08em}
+/* kid mode: bigger type and targets */
+body.kid .lead,body.kid .mtext{font-size:18px}
+body.kid .muted{font-size:16px}
+body.kid .btn{min-height:60px;font-size:18px;border-radius:18px}
+body.kid .grade-btn{height:60px;font-size:18px}
+body.kid .tab{font-size:14px}
+body.kid .card{border-radius:20px}
+
 </style>
 </head>
 <body>
@@ -642,15 +703,286 @@ function browserSynth() {
   return { Utterance: window.SpeechSynthesisUtterance, speak: (u) => s.speak(u), cancel: () => s.cancel(), pause: () => s.pause(), resume: () => s.resume() };
 }
 
+// ---- src/caps.js
+const CAP_NAMES = ['sample', 'db', 'user', 'assets', 'tts', 'downloads'];
+
+async function loadCaps(timeoutMs = 10000) {
+  const out = {};
+  const c = typeof window !== 'undefined' ? window.claude : null;
+  await Promise.all(CAP_NAMES.map(async (name) => {
+    out[name] = null;
+    if (!c || typeof c.use !== 'function') return;
+    let timer;
+    try {
+      out[name] = await Promise.race([
+        Promise.resolve(c.use(name)),
+        new Promise((r) => { timer = setTimeout(() => r(null), timeoutMs); })
+      ]) || null;
+    } catch (e) {
+      out[name] = null;
+    } finally { clearTimeout(timer); }
+  }));
+  return out;
+}
+
+function safeLocalStorage() {
+  try {
+    const ls = window.localStorage;
+    const k = '__ohdap_probe';
+    ls.setItem(k, '1'); ls.removeItem(k);
+    return {
+      getItem: (key) => { try { return ls.getItem(key); } catch (e) { return null; } },
+      setItem: (key, v) => { try { ls.setItem(key, v); } catch (e) { /* full or blocked */ } },
+      removeItem: (key) => { try { ls.removeItem(key); } catch (e) { /* ignore */ } }
+    };
+  } catch (e) {
+    const m = new Map();
+    return { getItem: (key) => (m.has(key) ? m.get(key) : null), setItem: (key, v) => m.set(key, String(v)), removeItem: (key) => m.delete(key) };
+  }
+}
+
+// ---- src/ui/dom.js
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k === 'value') el.value = v;
+    else if (v === true) el.setAttribute(k, '');
+    else el.setAttribute(k, String(v));
+  }
+  appendKids(el, children);
+  return el;
+}
+
+function appendKids(el, kids) {
+  for (const c of kids) {
+    if (c === null || c === undefined || c === false) continue;
+    if (Array.isArray(c)) appendKids(el, c);
+    else el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+}
+
+function toast(msg) {
+  const old = document.querySelector('.toast');
+  if (old) old.remove();
+  const t = h('div', { class: 'toast', role: 'status' }, msg);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+const ICON_PATHS = {
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  album: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  play: '<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>',
+  pause: '<path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor" stroke="none"/>',
+  prev: '<path d="M6 5h2v14H6zM20 5v14L9 12z" fill="currentColor" stroke="none"/>',
+  next: '<path d="M16 5h2v14h-2zM4 5v14l11-7z" fill="currentColor" stroke="none"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+  cross: '<path d="M6 6l12 12M18 6L6 18"/>',
+  speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  note: '<path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 9h8M8 13h6"/>',
+  review: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z"/>',
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  sparkle: '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',
+  chevron: '<path d="M9 5l7 7-7 7"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/>'
+};
+
+function icon(name, size = 22) {
+  const span = document.createElement('span');
+  span.className = 'ic';
+  span.setAttribute('aria-hidden', 'true');
+  span.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name] || ''}</svg>`;
+  return span;
+}
+
+// ---- src/ui/router.js
+const ROUTES = [];
+
+function route(pattern, render) {
+  const keys = [];
+  const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; }) + '$');
+  ROUTES.push({ re, keys, render });
+}
+
+function matchRoute(path) {
+  for (const r of ROUTES) {
+    const m = path.match(r.re);
+    if (m) {
+      const params = {};
+      r.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
+      return { render: r.render, params };
+    }
+  }
+  return null;
+}
+
+function currentPath() {
+  const p = (location.hash || '').replace(/^#/, '');
+  return p || '/home';
+}
+
+// ---- src/ui/chrome.js
+
+
+function tabbar(ctx, active) {
+  const kid = isElementary(ctx.settings.grade);
+  const item = (key, path, label, ic) => h('a', { href: '#' + path, class: 'tab' + (active === key ? ' on' : ''), 'aria-current': active === key ? 'page' : null }, icon(ic, kid ? 28 : 24), label);
+  const plus = h('a', { href: '#/upload', class: 'tab-plus', 'aria-label': '문제 올리기' }, icon('plus', 26));
+  return h('nav', { class: 'tabbar' }, kid
+    ? [item('home', '/home', '오답노트', 'note'), item('review', '/review', '다시 풀기', 'review'), item('settings', '/settings', '나', 'person')]
+    : [item('home', '/home', '노트', 'note'), plus, item('review', '/review', '복습', 'review')]);
+}
+
+function topbar(title, backPath, right) {
+  return h('header', { class: 'top' },
+    backPath ? h('a', { href: '#' + backPath, class: 'iconbtn', 'aria-label': '뒤로' }, icon('back')) : h('span', { class: 'iconbtn-space' }),
+    h('h1', { class: 'top-title' }, title),
+    right || h('span', { class: 'iconbtn-space' }));
+}
+
+function screen(...kids) {
+  return h('div', { class: 'screen' }, ...kids);
+}
+
+// ---- src/ui/screens/onboard.js
+
+
+function renderOnboard(ctx) {
+  let picked = ctx.settings.grade && ctx.settings.grade !== 'auto' ? ctx.settings.grade : '초3';
+  const btns = new Map();
+  const startBtn = h('button', { class: 'btn primary big', onclick: start }, '');
+  function paint() {
+    for (const [g, b] of btns) { b.classList.toggle('on', g === picked); b.setAttribute('aria-pressed', g === picked ? 'true' : 'false'); }
+    startBtn.textContent = `${picked} · 시작하기`;
+  }
+  async function start() {
+    startBtn.disabled = true;
+    const s = Object.assign({}, ctx.settings, { grade: picked, onboarded: true });
+    try { await ctx.saveSettings(s); ctx.go('/home'); } catch (e) { startBtn.disabled = false; ctx.fail(e); }
+  }
+  const gradeBtn = (g) => { const b = h('button', { class: 'grade-btn', type: 'button', onclick: () => { picked = g; paint(); } }, g); btns.set(g, b); return b; };
+  const el = h('div', { class: 'screen onboard' },
+    h('div', { class: 'logo', 'aria-hidden': 'true' }, icon('check', 48)),
+    h('h1', { class: 'h-big' }, '몇 학년이에요?'),
+    h('p', { class: 'lead' }, '학년에 맞는 쉬운 말로 설명해 줄게요. 나중에 설정에서 바꿀 수 있어요.'),
+    h('div', { class: 'label' }, '초등학교'),
+    h('div', { class: 'grid4' }, GRADES.slice(0, 4).map(gradeBtn)),
+    h('div', { class: 'label' }, '중학교 · 고등학교'),
+    h('div', { class: 'grid3' }, GRADES.slice(4).map(gradeBtn)),
+    h('div', { class: 'bottom-cta' }, startBtn));
+  paint();
+  return el;
+}
+
+// ---- src/ui/screens/settings.js
+
+
+
+function renderSettings(ctx) {
+  const options = ['auto'].concat(GRADES);
+  const btns = options.map((g) => h('button', {
+    type: 'button', class: 'grade-btn' + (ctx.settings.grade === g ? ' on' : ''), 'aria-pressed': ctx.settings.grade === g ? 'true' : 'false',
+    onclick: async () => {
+      try { await ctx.saveSettings(Object.assign({}, ctx.settings, { grade: g })); ctx.refresh(); } catch (e) { ctx.fail(e); }
+    }
+  }, g === 'auto' ? '자동' : g));
+  const where = ctx.store.kind === 'account' ? '계정에 저장' : '이 기기에만 저장됨';
+  return h('div', { class: 'screen has-tabbar' },
+    topbar('설정', '/home'),
+    h('main', { class: 'page' },
+      h('section', { class: 'card' },
+        h('h2', { class: 'h2' }, '학년'),
+        h('p', { class: 'muted' }, '학년에 맞춰 풀이 방법과 말투를 바꿔요. 자동이면 문제를 보고 정해요.'),
+        h('div', { class: 'grid4' }, btns)),
+      h('section', { class: 'card' },
+        h('h2', { class: 'h2' }, '저장 위치'),
+        h('p', { class: 'store-where' }, where),
+        ctx.store.kind === 'device' ? h('p', { class: 'muted' }, 'claude.ai에 로그인하면 계정에 저장할 수 있어요.') : null),
+      h('div', { id: 'export-slot' }),
+      h('p', { class: 'muted center' }, `오답노트 ${ctx.version}`)),
+    tabbar(ctx, 'settings'));
+}
+
+// ---- src/ui/screens/home.js
+
+
+function renderHome(ctx) {
+  return h('div', { class: 'screen has-tabbar' },
+    h('header', { class: 'home-head' }, h('h1', { class: 'h-big' }, '오답노트')),
+    h('main', { class: 'page' },
+      ctx.store.kind === 'device' ? h('p', { class: 'device-note' }, '이 기기에만 저장됨') : null),
+    tabbar(ctx, 'home'));
+}
+
 // ---- src/main.js
+
+
+
+
+
+
+
+
 const APP_VERSION = '0.1.0';
 
-function boot() {
+function registerRoutes() {
+  route('/onboard', renderOnboard);
+  route('/home', renderHome);
+  route('/settings', renderSettings);
+}
+
+async function boot() {
   const root = document.getElementById('app');
   root.textContent = '';
-  const h = document.createElement('h1');
-  h.textContent = '오답노트';
-  root.appendChild(h);
+  root.appendChild(h('p', { class: 'loading' }, '불러오는 중…'));
+  registerRoutes();
+  const caps = await loadCaps();
+  const ls = safeLocalStorage();
+  let store;
+  try { store = await createStore({ db: caps.db, user: caps.user, localStorage: ls }); }
+  catch (e) { store = await createStore({ db: null, user: null, localStorage: ls }); }
+  let settings;
+  try { settings = await store.getSettings(); }
+  catch (e) { store = await createStore({ db: null, user: null, localStorage: ls }); settings = await store.getSettings(); }
+
+  let cleanup = null;
+  const ctx = {
+    caps, store, ls, settings, draft: null, version: APP_VERSION,
+    get words() { return words(ctx.settings.grade); },
+    go(path) { if (currentPath() === path) render(); else location.hash = '#' + path; },
+    refresh() { render(); },
+    onLeave(fn) { cleanup = fn; },
+    async saveSettings(s) { await store.saveSettings(s); ctx.settings = s; },
+    fail(e) { console.warn(e); toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
+  };
+
+  async function render() {
+    if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
+    let path = currentPath();
+    if (!ctx.settings.onboarded && path !== '/onboard') { location.hash = '#/onboard'; return; }
+    document.body.classList.toggle('kid', isElementary(ctx.settings.grade));
+    const m = matchRoute(path) || matchRoute('/home');
+    let el;
+    try { el = await m.render(ctx, m.params); }
+    catch (e) { console.warn(e); el = h('div', { class: 'screen page' }, h('p', {}, '화면을 그리지 못했어요.'), h('a', { href: '#/home', class: 'btn' }, '처음으로')); }
+    root.textContent = '';
+    root.appendChild(el);
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', render);
+  render();
 }
 
 if (typeof document !== 'undefined') {

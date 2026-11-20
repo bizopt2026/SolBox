@@ -1,7 +1,10 @@
 // Helpers evaluated inside the page to build mock capability namespaces.
 function makeUser(id) { return { id: async () => id, isOwner: () => true, canEdit: () => true }; }
 function makeDb(seed) {
-  const docs = new Map(Object.entries(seed || {}));
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('__mockdb') || 'null'); } catch (e) {}
+  const docs = new Map(Object.entries(saved || seed || {}));
+  const persist = () => localStorage.setItem('__mockdb', JSON.stringify(Object.fromEntries(docs)));
   window.__db = docs;
   const snap = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => (docs.has(path) ? JSON.parse(JSON.stringify(docs.get(path))) : undefined), metadata: {} });
   function query(colPath, filters) {
@@ -25,9 +28,9 @@ function makeDb(seed) {
     return {
       id: path.split('/').pop(), path,
       async get() { return snap(path); },
-      async set(d) { docs.set(path, JSON.parse(JSON.stringify(d))); },
-      async update(d) { docs.set(path, Object.assign({}, docs.get(path), JSON.parse(JSON.stringify(d)))); },
-      async delete() { docs.delete(path); },
+      async set(d) { docs.set(path, JSON.parse(JSON.stringify(d))); persist(); },
+      async update(d) { docs.set(path, Object.assign({}, docs.get(path), JSON.parse(JSON.stringify(d)))); persist(); },
+      async delete() { docs.delete(path); persist(); },
       collection(p) { return collection(path + '/' + p); }
     };
   }

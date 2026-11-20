@@ -16,6 +16,13 @@ export const FILES = [
   'src/ai.js',
   'src/store.js',
   'src/speaker.js',
+  'src/caps.js',
+  'src/ui/dom.js',
+  'src/ui/router.js',
+  'src/ui/chrome.js',
+  'src/ui/screens/onboard.js',
+  'src/ui/screens/settings.js',
+  'src/ui/screens/home.js',
   'src/main.js'
 ];
 
