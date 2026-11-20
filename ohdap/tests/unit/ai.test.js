@@ -95,3 +95,16 @@ test('a JSON parse failure counts as bad output and is retried', async () => {
   const out = await callJson(s, 'x', { validate: validateSolution });
   assert.equal(out.answer_short, '-1');
 });
+
+// Final review fixes 1 and 6
+test('drill prompt asks for the choice number on multiple choice', () => {
+  assert.ok(drillPrompt({ grade: '중1', note }).includes('보기 번호'));
+});
+
+test('callJson keeps the original refusal code', async () => {
+  for (const code of ['upstream_error', 'image_rejected', 'refused', 'session_expired']) {
+    const s = fakeSample([{ code, message: 'x' }]);
+    await assert.rejects(callJson(s, 'x', { validate: validateSolution }), (e) => e instanceof AiError && e.code === code);
+    assert.equal(s.calls.length, 1);
+  }
+});

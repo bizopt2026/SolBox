@@ -93,6 +93,12 @@ export function renderUpload(ctx) {
 
   paintPick();
   const hasAi = !!ctx.caps.sample;
+  const ctaSlot = h('div', { class: 'cta-slot' }, hasAi ? go : noAiNotice());
+  if (hasAi && typeof ctx.caps.sample.limits === 'function') {
+    ctx.caps.sample.limits().then((l) => {
+      if (l && !l.images) { ctaSlot.textContent = ''; ctaSlot.appendChild(h('div', { class: 'notice warn' }, aiErrorText({ code: 'images_unavailable' }))); }
+    }).catch(() => {});
+  }
   return h('div', { class: 'screen' },
     topbar(w.upload, '/home'),
     h('main', { class: 'page' },
@@ -101,5 +107,5 @@ export function renderUpload(ctx) {
       h('label', { class: 'field' }, h('span', {}, w.myAnswer, ' ', h('small', {}, '· 적으면 어디서 틀렸는지 짚어 줘요')), myAnswer),
       h('label', { class: 'field' }, h('span', {}, '메모 ', h('small', {}, '· 선택')), memo),
       msg, choose,
-      hasAi ? go : noAiNotice()));
+      ctaSlot));
 }

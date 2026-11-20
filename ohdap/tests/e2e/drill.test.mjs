@@ -91,3 +91,31 @@ test('review lists due notes and marks one as done after solving; note shows his
     assert.equal(await page.locator('.drill-hist li').count(), 1);
   } finally { await app.close(); }
 });
+
+// Final review fix 2
+test('a drill before the due date is practice only', async () => {
+  const app = await openApp({ mocks: mocks(`{ drill: ${DRILL} }`), setup: seed('초3', `seedNote('n_1', SOLUTION, { stage: 1, due: '${addDays(3)}' });`), hash: '#/drill/n_1' });
+  const { page } = app;
+  try {
+    await page.getByText('의 큰 근').waitFor();
+    await answer(page, '2');
+    await page.getByText('연습으로 기록했어요').waitFor();
+    const n = await getNote(page, 'n_1');
+    assert.equal(n.stage, 1);
+    assert.equal(n.due, addDays(3));
+    const s = await page.evaluate(() => window.__db.get('data/users/u1/settings'));
+    assert.equal(s.stars, 0);
+  } finally { await app.close(); }
+});
+
+test('replaying an old drill never advances the stage', async () => {
+  const old = `(function(){ const db = JSON.parse(localStorage.getItem('__mockdb')); db['data/users/u1/n_1/drills/d_old'] = { id: 'd_old', noteId: 'n_1', createdAt: '2026-11-19T00:00:00Z', kind: 'similar', problem: '옛 문제', choices: [], answer: '7', answer_short: '7', steps: [], userAnswer: '7', correct: true }; localStorage.setItem('__mockdb', JSON.stringify(db)); })();`;
+  const app = await openApp({ mocks: mocks(`{ drill: ${DRILL} }`), setup: seed('중3', oneNote()) + old, hash: '#/drill/n_1/d_old' });
+  const { page } = app;
+  try {
+    await page.getByText('옛 문제').waitFor();
+    await answer(page, '7');
+    await page.getByText('연습으로 기록했어요').waitFor();
+    assert.equal((await getNote(page, 'n_1')).stage, 0);
+  } finally { await app.close(); }
+});

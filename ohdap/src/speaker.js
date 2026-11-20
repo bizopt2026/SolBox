@@ -1,5 +1,4 @@
 const clampRate = (r) => Math.min(1.5, Math.max(0.7, Number(r) || 1));
-const FALLBACK_CODES = ['not_granted', 'unavailable', 'unsupported'];
 
 export function createSpeaker({ tts, synth, timers } = {}) {
   const T = timers || { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (id) => clearTimeout(id) };
@@ -65,10 +64,11 @@ export function createSpeaker({ tts, synth, timers } = {}) {
         .then(() => { if (gen === st.gen && st.playing) emitEnd(); })
         .catch((e) => {
           if (gen !== st.gen) return;
-          if (FALLBACK_CODES.includes(e && e.code)) {
-            sp.mode = synth ? 'synth' : 'timer';
-            start(st.idx);
-          }
+          const code = e && e.code;
+          if (code === 'stopped' || code === 'cancelled') { st.gen++; emitEnd(); return; }
+          // not_granted: the viewer turned reading aloud off — never read it in the browser's voice instead.
+          sp.mode = code === 'not_granted' || !synth ? 'timer' : 'synth';
+          start(st.idx);
         });
     } else if (sp.mode === 'synth') {
       synthLine(gen, from);

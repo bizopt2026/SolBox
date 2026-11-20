@@ -116,3 +116,36 @@ test('synth mode speaks each line in order', () => {
   made[1].onend();
   assert.equal(ended, 1);
 });
+
+// Final review fixes 3 and 4
+for (const code of ['rate_limited', 'upstream_error', 'no_gesture', 'busy']) {
+  test(`tts rejection ${code} keeps the board moving`, async () => {
+    const timers = fakeTimers();
+    const sp = createSpeaker({ tts: fakeTts({ reject: { code } }), synth: null, timers });
+    let ended = 0; sp.onEnd(() => ended++);
+    sp.play(['a', 'b'], 0, 1);
+    await new Promise((r) => setImmediate(r));
+    timers.advance(10000);
+    assert.equal(ended, 1);
+  });
+}
+
+test('tts stopped by the viewer ends the reading', async () => {
+  const sp = createSpeaker({ tts: fakeTts({ reject: { code: 'stopped', reason: 'viewer_stopped' } }), synth: null, timers: fakeTimers() });
+  let ended = 0; sp.onEnd(() => ended++);
+  sp.play(['a', 'b'], 0, 1);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(ended, 1);
+  assert.equal(sp.isPlaying(), false);
+});
+
+test('tts not_granted never falls back to the browser voice', async () => {
+  class U { constructor(t) { this.text = t; } }
+  let spoke = 0;
+  const synth = { Utterance: U, speak() { spoke++; }, cancel() {}, pause() {}, resume() {} };
+  const sp = createSpeaker({ tts: fakeTts({ reject: { code: 'not_granted' } }), synth, timers: fakeTimers() });
+  sp.play(['a', 'b'], 0, 1);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(sp.mode, 'timer');
+  assert.equal(spoke, 0);
+});

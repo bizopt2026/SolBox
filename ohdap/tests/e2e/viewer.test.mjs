@@ -30,3 +30,19 @@ test('deleting a note uses an in-page confirmation', async () => {
     assert.equal(await page.evaluate(() => window.__db.has('data/users/u1/n_1')), false);
   } finally { await app.close(); }
 });
+
+// Final review fix 5
+test('a slow screen does not replace a newer one', async () => {
+  const app = await openApp({ mocks: "({ user: makeUser('u1'), db: makeDb() })", setup: seed });
+  const { page } = app;
+  try {
+    await page.locator('.note-item').first().waitFor();
+    await page.evaluate(() => { window.__dbDelay = { 'data/users/u1/n_1': 1200 }; });
+    await page.locator('.note-item').first().click();
+    await page.locator('nav.tabbar').getByText('복습').click();
+    await page.getByRole('heading', { name: '오늘 다시 풀 문제' }).waitFor();
+    await page.waitForTimeout(1600);
+    assert.equal(await page.locator('.answer-card').count(), 0);
+    assert.ok(await page.getByRole('heading', { name: '오늘 다시 풀 문제' }).isVisible());
+  } finally { await app.close(); }
+});

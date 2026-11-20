@@ -83,7 +83,7 @@ export function drillPrompt({ grade, note } = {}) {
     concepts ? `핵심 개념: ${concepts}` : '',
     DATA_NOTE,
     fence('원래 문제', note && note.problem),
-    '규칙: 답이 하나로 정해지는 문제. 풀이 steps는 3~6단계.',
+    '규칙: 답이 하나로 정해지는 문제. 풀이 steps는 3~6단계. answer_short는 채점에 쓸 가장 짧은 답이고, 객관식이면 보기 번호(1, 2, 3…)로 쓴다.',
     STEP_RULES,
     kid ? VISUAL_RULE : '',
     '답은 JSON 하나로만:',
@@ -155,7 +155,6 @@ export function validateGrade(o) {
   return { correct: o.correct, feedback: str(o.feedback) };
 }
 
-const PASS_CODES = ['not_granted', 'rate_limited'];
 
 export async function callJson(sample, prompt, { images, modelTier, validate, fresh } = {}) {
   if (!sample || typeof sample.json !== 'function') throw new AiError('unavailable');
@@ -169,9 +168,8 @@ export async function callJson(sample, prompt, { images, modelTier, validate, fr
       raw = await sample.json(prompt, attempt === 0 ? opts : Object.assign({}, opts, { cache: false }));
     } catch (e) {
       const code = e && e.code;
-      if (PASS_CODES.includes(code)) throw new AiError(code, e.message);
-      if (code === 'invalid_json') continue;
-      throw new AiError('unavailable', e && e.message);
+      if (code === 'invalid_json' || code === 'empty_completion') continue;
+      throw new AiError(code || 'upstream_error', e && e.message);
     }
     const ok = validate ? validate(raw) : raw;
     if (ok) return ok;

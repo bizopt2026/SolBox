@@ -2,7 +2,7 @@ import { h, icon } from '../dom.js';
 import { topbar } from '../chrome.js';
 import { renderMathText } from '../../mathtext.js';
 import { isElementary } from '../../grades.js';
-import { applyResult, todayYmd, MASTERED, INTERVALS } from '../../review.js';
+import { applyResult, todayYmd, MASTERED, INTERVALS, isDue } from '../../review.js';
 import { quickGrade } from '../../answer.js';
 import { drillPrompt, gradePrompt, validateDrill, validateGrade, callJson } from '../../ai.js';
 import { newId } from '../../store.js';
@@ -26,7 +26,7 @@ export async function renderDrill(ctx, params) {
   let notice = '';
   if (params.drillId) {
     const old = (await ctx.store.listDrills(note.id)).find((d) => d.id === params.drillId);
-    if (old) drill = { kind: old.kind, problem: old.problem, choices: old.choices || [], answer: old.answer, answer_short: old.answer_short, steps: old.steps || [] };
+    if (old) drill = { replay: true, kind: old.kind, problem: old.problem, choices: old.choices || [], answer: old.answer, answer_short: old.answer_short, steps: old.steps || [] };
   }
   const original = () => ({ kind: 'original', problem: note.problem, choices: note.choices || [], answer: note.result.answer, answer_short: note.result.answer_short, steps: note.result.solutions[0].steps });
 
@@ -94,25 +94,30 @@ export async function renderDrill(ctx, params) {
       submit.disabled = true;
       input.disabled = true;
       const today = todayYmd();
-      const sched = applyResult(note, correct, today);
-      const updated = Object.assign({}, note, sched, { lastReviewed: today, lastCorrect: correct });
-      const rec = { id: newId('d'), noteId: note.id, createdAt: new Date().toISOString(), kind: drill.kind, problem: drill.problem, choices: drill.choices, answer: drill.answer, answer_short: drill.answer_short, steps: drill.steps, userAnswer: String(ans), correct };
+      // Only a scheduled review (due today or overdue, not a replayed old drill) moves the ladder or earns a star.
+      const counts = !drill.replay && isDue(note, today);
+      const sched = counts ? applyResult(note, correct, today) : { stage: note.stage, due: note.due };
+      const rec = { id: newId('d'), noteId: note.id, createdAt: new Date().toISOString(), kind: drill.kind, practice: !counts, problem: drill.problem, choices: drill.choices, answer: drill.answer, answer_short: drill.answer_short, steps: drill.steps, userAnswer: String(ans), correct };
       try {
-        await ctx.store.saveNote(updated);
-        Object.assign(note, updated);
+        if (counts) {
+          const updated = Object.assign({}, note, sched, { lastReviewed: today, lastCorrect: correct });
+          await ctx.store.saveNote(updated);
+          Object.assign(note, updated);
+        }
         await ctx.store.saveDrill(rec);
-        if (kid && correct) await ctx.saveSettings(Object.assign({}, ctx.settings, { stars: (ctx.settings.stars || 0) + 1 }));
+        if (counts && kid && correct) await ctx.saveSettings(Object.assign({}, ctx.settings, { stars: (ctx.settings.stars || 0) + 1 }));
       } catch (e) { ctx.fail(e); }
       result.textContent = '';
       ctx.boardDrill = { title: '풀이', steps: drill.steps, problem: drill.problem, back: '/drill/' + note.id + '/' + rec.id };
       const boardBtn = drill.steps.length ? h('a', { class: 'btn dark', href: `#/board/${note.id}/drill` }, w.board) : null;
       if (correct) {
-        const nextText = sched.stage >= MASTERED ? '이 문제를 정복했어요!' : `${w.review} ${sched.stage + 1}단계로 올라갔어요. ${INTERVALS[sched.stage]}일 뒤에 다시 만나요.`;
-        result.append(h('section', { class: 'result ok', role: 'status' }, h('span', { class: 'result-title' }, icon('check', 22), kid ? w.rightMsg : '맞았어요!'), h('p', {}, nextText)),
+        const nextText = !counts ? `연습으로 기록했어요. ${w.review} 날짜는 그대로예요.`
+          : sched.stage >= MASTERED ? '이 문제를 정복했어요!' : `${w.review} ${sched.stage + 1}단계로 올라갔어요. ${INTERVALS[sched.stage]}일 뒤에 다시 만나요.`;
+        result.append(h('section', { class: 'result ok', role: 'status' }, h('span', { class: 'result-title' }, icon('check', 22), kid && counts ? w.rightMsg : '맞았어요!'), h('p', {}, nextText)),
           h('div', { class: 'grid2' }, boardBtn || h('span'), h('a', { class: 'btn primary', href: '#/review' }, kid ? '다음 문제' : '다음 복습')));
       } else {
         result.append(h('section', { class: 'result bad', role: 'status' }, h('span', { class: 'result-title' }, icon('cross', 22), kid ? w.wrongMsg : '아쉬워요'),
-          h('p', {}, '정답은 ', mathNode('b', '', drill.answer_short), '예요. 내일 한 번 더 풀어 봐요.')),
+          h('p', {}, '정답은 ', mathNode('b', '', drill.answer_short), counts ? '예요. 내일 한 번 더 풀어 봐요.' : `예요. 연습으로 기록했어요. ${w.review} 날짜는 그대로예요.`)),
           h('div', { class: 'grid2' }, boardBtn || h('span'), h('button', { class: 'btn', onclick: () => { drill = null; notice = ''; load(); } }, '다른 문제 받기')));
       }
     }

@@ -6,6 +6,7 @@ import { renderColumn } from '../columnview.js';
 const RATES = [0.8, 1, 1.25, 1.5];
 
 export async function renderBoard(ctx, params) {
+  const mySeq = ctx.renderSeq;
   let solutions, backPath, problem;
   if (params.sol === 'drill' && ctx.boardDrill) {
     solutions = [{ title: ctx.boardDrill.title || '풀이', steps: ctx.boardDrill.steps }];
@@ -25,7 +26,7 @@ export async function renderBoard(ctx, params) {
   const st = { idx: 0, started: false, playing: false, rate: 1 };
 
   const sp = createSpeaker({ tts: ctx.caps.tts, synth: browserSynth() });
-  ctx.onLeave(() => sp.stop());
+  ctx.onLeave(() => sp.stop(), mySeq);
 
   const pos = h('span', { class: 'board-pos' });
   const bars = h('div', { class: 'board-bars', 'aria-hidden': 'true' });

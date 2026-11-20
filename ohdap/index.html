@@ -359,10 +359,15 @@ function normalizeAnswer(s) {
   let t = toHalfWidth(String(s || '')).toLowerCase();
   t = t.replace(/[−–—]/g, '-');
   t = t.replace(/[①-⑩]/g, (c) => String(CIRCLED.indexOf(c) + 1));
+  // thousands separators: 1,234 → 1234 (a comma followed by exactly three digits, no space)
+  t = t.replace(/(\d),(?=\d{3}(?!\d))/g, '$1');
+  // mixed numbers: "1 1/2" or "1과 1/2" → "3/2"
+  t = t.replace(/(-?)(\d+)(?:\s+|\s*과\s*)(\d+)\/(\d+)/g, (m, sg, a, b, c) => `${sg}${Number(a) * Number(c) + Number(b)}/${c}`);
   t = t.replace(/\s*(또는|그리고|\bor\b)\s*/g, ',').replace(/(\d)\s*(와|과)\s*/g, '$1,');
   t = t.replace(/\s+/g, '');
-  t = t.replace(/(^|,)[a-z]=/g, '$1');
   t = t.replace(/\.+$/, '');
+  // a single labelled answer ("x=-1") is just its value; labelled lists keep labels for ordered grading
+  if (!t.includes(',')) t = t.replace(/^[a-z]=/, '');
   return t;
 }
 
@@ -373,9 +378,19 @@ function numValue(t) {
   return null;
 }
 
+// "x=2" → { label: 'x', value: '2' }
 function parts(t) {
-  return t.split(',').map((x) => x.replace(/\.+$/, '')).filter(Boolean);
+  return t.split(',').map((x) => x.replace(/\.+$/, '')).filter(Boolean).map((x) => {
+    const m = x.match(/^([a-z])=(.*)$/);
+    return m ? { label: m[1], value: m[2] } : { label: '', value: x };
+  });
 }
+
+const same = (a, b) => {
+  if (a === b) return true;
+  const x = numValue(a), y = numValue(b);
+  return x !== null && y !== null && Math.abs(x - y) < 1e-9;
+};
 
 function quickGrade(user, answerShort) {
   const u = normalizeAnswer(user);
@@ -383,13 +398,22 @@ function quickGrade(user, answerShort) {
   if (!u) return 'wrong';
   if (u === a) return 'right';
   const up = parts(u), ap = parts(a);
-  const un = up.map(numValue), an = ap.map(numValue);
-  if (un.every((v) => v !== null) && an.every((v) => v !== null) && an.length) {
-    if (un.length !== an.length) return 'wrong';
-    const s1 = un.slice().sort((x, y) => x - y), s2 = an.slice().sort((x, y) => x - y);
-    return s1.every((v, i) => Math.abs(v - s2[i]) < 1e-9) ? 'right' : 'wrong';
+  const labelled = (ps) => ps.length > 1 && ps.every((p) => p.label) && new Set(ps.map((p) => p.label)).size === ps.length;
+  if (labelled(up) && labelled(ap)) {
+    if (up.length !== ap.length) return 'unsure';
+    const ok = ap.every((p) => { const q = up.find((x) => x.label === p.label); return q && same(q.value, p.value); });
+    return ok ? 'right' : 'unsure';
   }
-  if (up.length === ap.length && up.slice().sort().join() === ap.slice().sort().join()) return 'right';
+  const uv = up.map((p) => p.value), av = ap.map((p) => p.value);
+  // unordered set of values (roots etc.)
+  if (uv.length === av.length) {
+    const rest = av.slice();
+    const matched = uv.every((v) => { const i = rest.findIndex((w) => same(v, w)); if (i < 0) return false; rest.splice(i, 1); return true; });
+    if (matched) return 'right';
+  }
+  // a final "wrong" only for one plain number against one plain number
+  const plain = (v) => /^-?\d+(\.\d+)?$/.test(v);
+  if (uv.length === 1 && av.length === 1 && plain(uv[0]) && plain(av[0])) return 'wrong';
   return 'unsure';
 }
 
@@ -565,7 +589,7 @@ function drillPrompt({ grade, note } = {}) {
     concepts ? `핵심 개념: ${concepts}` : '',
     DATA_NOTE,
     fence('원래 문제', note && note.problem),
-    '규칙: 답이 하나로 정해지는 문제. 풀이 steps는 3~6단계.',
+    '규칙: 답이 하나로 정해지는 문제. 풀이 steps는 3~6단계. answer_short는 채점에 쓸 가장 짧은 답이고, 객관식이면 보기 번호(1, 2, 3…)로 쓴다.',
     STEP_RULES,
     kid ? VISUAL_RULE : '',
     '답은 JSON 하나로만:',
@@ -637,7 +661,6 @@ function validateGrade(o) {
   return { correct: o.correct, feedback: str(o.feedback) };
 }
 
-const PASS_CODES = ['not_granted', 'rate_limited'];
 
 async function callJson(sample, prompt, { images, modelTier, validate, fresh } = {}) {
   if (!sample || typeof sample.json !== 'function') throw new AiError('unavailable');
@@ -651,9 +674,8 @@ async function callJson(sample, prompt, { images, modelTier, validate, fresh } =
       raw = await sample.json(prompt, attempt === 0 ? opts : Object.assign({}, opts, { cache: false }));
     } catch (e) {
       const code = e && e.code;
-      if (PASS_CODES.includes(code)) throw new AiError(code, e.message);
-      if (code === 'invalid_json') continue;
-      throw new AiError('unavailable', e && e.message);
+      if (code === 'invalid_json' || code === 'empty_completion') continue;
+      throw new AiError(code || 'upstream_error', e && e.message);
     }
     const ok = validate ? validate(raw) : raw;
     if (ok) return ok;
@@ -738,9 +760,12 @@ async function migrateDeviceToAccount(ls, store) {
   const d = readDevice(ls);
   let moved = 0, skipped = 0;
   for (const note of Object.values(d.notes)) {
-    if (await store.getNote(note.id)) { skipped++; continue; }
+    const exists = !!(await store.getNote(note.id));
+    // drills first, so a note in the account means its drills were copied (a retry fills any gaps)
+    const have = new Set(exists ? (await store.listDrills(note.id)).map((x) => x.id) : []);
+    for (const drill of Object.values(d.drills[note.id] || {})) if (!have.has(drill.id)) await store.saveDrill(drill);
+    if (exists) { skipped++; continue; }
     await store.saveNote(note);
-    for (const drill of Object.values(d.drills[note.id] || {})) await store.saveDrill(drill);
     moved++;
   }
   if (d.settings) {
@@ -815,7 +840,6 @@ function notesToMarkdown(notes) {
 
 // ---- src/speaker.js
 const clampRate = (r) => Math.min(1.5, Math.max(0.7, Number(r) || 1));
-const FALLBACK_CODES = ['not_granted', 'unavailable', 'unsupported'];
 
 function createSpeaker({ tts, synth, timers } = {}) {
   const T = timers || { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (id) => clearTimeout(id) };
@@ -881,10 +905,11 @@ function createSpeaker({ tts, synth, timers } = {}) {
         .then(() => { if (gen === st.gen && st.playing) emitEnd(); })
         .catch((e) => {
           if (gen !== st.gen) return;
-          if (FALLBACK_CODES.includes(e && e.code)) {
-            sp.mode = synth ? 'synth' : 'timer';
-            start(st.idx);
-          }
+          const code = e && e.code;
+          if (code === 'stopped' || code === 'cancelled') { st.gen++; emitEnd(); return; }
+          // not_granted: the viewer turned reading aloud off — never read it in the browser's voice instead.
+          sp.mode = code === 'not_granted' || !synth ? 'timer' : 'synth';
+          start(st.idx);
         });
     } else if (sp.mode === 'synth') {
       synthLine(gen, from);
@@ -1288,13 +1313,25 @@ async function resizeImage(file, maxSide = 1600, quality = 0.85) {
 
 // ---- src/ui/aimsg.js
 
+const AI_TEXT = {
+  not_granted: 'AI 사용을 허용해야 정리할 수 있어요. 화면 위 권한 메뉴에서 허용해 주세요.',
+  unavailable: 'AI 사용을 허용해야 정리할 수 있어요. 화면 위 권한 메뉴에서 허용해 주세요.',
+  sampling_disabled: '이 계정에서는 AI를 쓸 수 없어요.',
+  capability_disabled: '이 화면에서는 AI를 쓸 수 없어요. claude.ai에서 열어 주세요.',
+  rate_limited: 'AI가 지금 바빠요. 잠시 뒤 다시 해 주세요.',
+  queue_overflow: 'AI가 지금 바빠요. 잠시 뒤 다시 해 주세요.',
+  upstream_error: 'AI에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.',
+  image_rejected: '이 사진은 AI가 볼 수 없어요. 다른 사진으로 해 보세요.',
+  images_unavailable: '이 화면에서는 사진을 AI에 보낼 수 없어요. claude.ai 웹이나 앱에서 열어 주세요.',
+  refused: 'AI가 이 문제는 정리하지 않았어요. 문제 글을 확인해 주세요.',
+  prompt_too_large: '문제가 너무 길어요. 줄여서 다시 해 주세요.',
+  session_expired: 'claude.ai에 다시 로그인한 뒤 해 주세요.',
+  bad_output: 'AI가 답을 제대로 만들지 못했어요. 다시 해 볼까요?',
+  unreadable: '사진을 읽지 못했어요.'
+};
+
 function aiErrorText(e) {
-  const code = e && e.code;
-  if (code === 'not_granted' || code === 'unavailable') return 'AI 사용을 허용해야 정리할 수 있어요. 화면 위 권한 메뉴에서 허용해 주세요.';
-  if (code === 'rate_limited') return 'AI가 지금 바빠요. 잠시 뒤 다시 해 주세요.';
-  if (code === 'bad_output') return 'AI가 답을 제대로 만들지 못했어요. 다시 해 볼까요?';
-  if (code === 'unreadable') return '사진을 읽지 못했어요.';
-  return '문제가 생겼어요. 잠시 뒤 다시 해 주세요.';
+  return AI_TEXT[e && e.code] || '문제가 생겼어요. 잠시 뒤 다시 해 주세요.';
 }
 
 function noAiNotice() {
@@ -1401,6 +1438,12 @@ function renderUpload(ctx) {
 
   paintPick();
   const hasAi = !!ctx.caps.sample;
+  const ctaSlot = h('div', { class: 'cta-slot' }, hasAi ? go : noAiNotice());
+  if (hasAi && typeof ctx.caps.sample.limits === 'function') {
+    ctx.caps.sample.limits().then((l) => {
+      if (l && !l.images) { ctaSlot.textContent = ''; ctaSlot.appendChild(h('div', { class: 'notice warn' }, aiErrorText({ code: 'images_unavailable' }))); }
+    }).catch(() => {});
+  }
   return h('div', { class: 'screen' },
     topbar(w.upload, '/home'),
     h('main', { class: 'page' },
@@ -1409,7 +1452,7 @@ function renderUpload(ctx) {
       h('label', { class: 'field' }, h('span', {}, w.myAnswer, ' ', h('small', {}, '· 적으면 어디서 틀렸는지 짚어 줘요')), myAnswer),
       h('label', { class: 'field' }, h('span', {}, '메모 ', h('small', {}, '· 선택')), memo),
       msg, choose,
-      hasAi ? go : noAiNotice()));
+      ctaSlot));
 }
 
 // ---- src/ui/screens/confirm.js
@@ -1688,6 +1731,7 @@ async function renderNote(ctx, params) {
 const RATES = [0.8, 1, 1.25, 1.5];
 
 async function renderBoard(ctx, params) {
+  const mySeq = ctx.renderSeq;
   let solutions, backPath, problem;
   if (params.sol === 'drill' && ctx.boardDrill) {
     solutions = [{ title: ctx.boardDrill.title || '풀이', steps: ctx.boardDrill.steps }];
@@ -1707,7 +1751,7 @@ async function renderBoard(ctx, params) {
   const st = { idx: 0, started: false, playing: false, rate: 1 };
 
   const sp = createSpeaker({ tts: ctx.caps.tts, synth: browserSynth() });
-  ctx.onLeave(() => sp.stop());
+  ctx.onLeave(() => sp.stop(), mySeq);
 
   const pos = h('span', { class: 'board-pos' });
   const bars = h('div', { class: 'board-bars', 'aria-hidden': 'true' });
@@ -1864,7 +1908,7 @@ async function renderDrill(ctx, params) {
   let notice = '';
   if (params.drillId) {
     const old = (await ctx.store.listDrills(note.id)).find((d) => d.id === params.drillId);
-    if (old) drill = { kind: old.kind, problem: old.problem, choices: old.choices || [], answer: old.answer, answer_short: old.answer_short, steps: old.steps || [] };
+    if (old) drill = { replay: true, kind: old.kind, problem: old.problem, choices: old.choices || [], answer: old.answer, answer_short: old.answer_short, steps: old.steps || [] };
   }
   const original = () => ({ kind: 'original', problem: note.problem, choices: note.choices || [], answer: note.result.answer, answer_short: note.result.answer_short, steps: note.result.solutions[0].steps });
 
@@ -1932,25 +1976,30 @@ async function renderDrill(ctx, params) {
       submit.disabled = true;
       input.disabled = true;
       const today = todayYmd();
-      const sched = applyResult(note, correct, today);
-      const updated = Object.assign({}, note, sched, { lastReviewed: today, lastCorrect: correct });
-      const rec = { id: newId('d'), noteId: note.id, createdAt: new Date().toISOString(), kind: drill.kind, problem: drill.problem, choices: drill.choices, answer: drill.answer, answer_short: drill.answer_short, steps: drill.steps, userAnswer: String(ans), correct };
+      // Only a scheduled review (due today or overdue, not a replayed old drill) moves the ladder or earns a star.
+      const counts = !drill.replay && isDue(note, today);
+      const sched = counts ? applyResult(note, correct, today) : { stage: note.stage, due: note.due };
+      const rec = { id: newId('d'), noteId: note.id, createdAt: new Date().toISOString(), kind: drill.kind, practice: !counts, problem: drill.problem, choices: drill.choices, answer: drill.answer, answer_short: drill.answer_short, steps: drill.steps, userAnswer: String(ans), correct };
       try {
-        await ctx.store.saveNote(updated);
-        Object.assign(note, updated);
+        if (counts) {
+          const updated = Object.assign({}, note, sched, { lastReviewed: today, lastCorrect: correct });
+          await ctx.store.saveNote(updated);
+          Object.assign(note, updated);
+        }
         await ctx.store.saveDrill(rec);
-        if (kid && correct) await ctx.saveSettings(Object.assign({}, ctx.settings, { stars: (ctx.settings.stars || 0) + 1 }));
+        if (counts && kid && correct) await ctx.saveSettings(Object.assign({}, ctx.settings, { stars: (ctx.settings.stars || 0) + 1 }));
       } catch (e) { ctx.fail(e); }
       result.textContent = '';
       ctx.boardDrill = { title: '풀이', steps: drill.steps, problem: drill.problem, back: '/drill/' + note.id + '/' + rec.id };
       const boardBtn = drill.steps.length ? h('a', { class: 'btn dark', href: `#/board/${note.id}/drill` }, w.board) : null;
       if (correct) {
-        const nextText = sched.stage >= MASTERED ? '이 문제를 정복했어요!' : `${w.review} ${sched.stage + 1}단계로 올라갔어요. ${INTERVALS[sched.stage]}일 뒤에 다시 만나요.`;
-        result.append(h('section', { class: 'result ok', role: 'status' }, h('span', { class: 'result-title' }, icon('check', 22), kid ? w.rightMsg : '맞았어요!'), h('p', {}, nextText)),
+        const nextText = !counts ? `연습으로 기록했어요. ${w.review} 날짜는 그대로예요.`
+          : sched.stage >= MASTERED ? '이 문제를 정복했어요!' : `${w.review} ${sched.stage + 1}단계로 올라갔어요. ${INTERVALS[sched.stage]}일 뒤에 다시 만나요.`;
+        result.append(h('section', { class: 'result ok', role: 'status' }, h('span', { class: 'result-title' }, icon('check', 22), kid && counts ? w.rightMsg : '맞았어요!'), h('p', {}, nextText)),
           h('div', { class: 'grid2' }, boardBtn || h('span'), h('a', { class: 'btn primary', href: '#/review' }, kid ? '다음 문제' : '다음 복습')));
       } else {
         result.append(h('section', { class: 'result bad', role: 'status' }, h('span', { class: 'result-title' }, icon('cross', 22), kid ? w.wrongMsg : '아쉬워요'),
-          h('p', {}, '정답은 ', mathNode('b', '', drill.answer_short), '예요. 내일 한 번 더 풀어 봐요.')),
+          h('p', {}, '정답은 ', mathNode('b', '', drill.answer_short), counts ? '예요. 내일 한 번 더 풀어 봐요.' : `예요. 연습으로 기록했어요. ${w.review} 날짜는 그대로예요.`)),
           h('div', { class: 'grid2' }, boardBtn || h('span'), h('button', { class: 'btn', onclick: () => { drill = null; notice = ''; load(); } }, '다른 문제 받기')));
       }
     }
@@ -1996,7 +2045,7 @@ async function renderConcepts(ctx) {
 
 
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 
 function registerRoutes() {
   route('/onboard', renderOnboard);
@@ -2027,25 +2076,30 @@ async function boot() {
   catch (e) { store = await createStore({ db: null, user: null, localStorage: ls }); settings = await store.getSettings(); }
 
   let cleanup = null;
+  let renderSeq = 0;
   let path = hashPath() || '/home';
   const ctx = {
     caps, store, ls, settings, draft: null, version: APP_VERSION, solveDraft,
     get words() { return words(ctx.settings.grade); },
     go(p) { path = p; render(); },
     refresh() { render(); },
-    onLeave(fn) { cleanup = fn; },
+    // Screens pass the seq they were rendered for; a late registration from a stale screen runs at once.
+    onLeave(fn, seq) { if (seq !== undefined && seq !== renderSeq) { try { fn(); } catch (e) { /* ignore */ } return; } cleanup = fn; },
+    get renderSeq() { return renderSeq; },
     async saveSettings(s) { await store.saveSettings(s); ctx.settings = s; },
     fail(e) { console.warn(e); toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
   };
 
   async function render() {
     if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
+    const seq = ++renderSeq;
     if (!ctx.settings.onboarded && path !== '/onboard') path = '/onboard';
     document.body.classList.toggle('kid', isElementary(ctx.settings.grade));
     const m = matchRoute(path) || matchRoute('/home');
     let el;
     try { el = await m.render(ctx, m.params); }
     catch (e) { console.warn(e); el = h('div', { class: 'screen page' }, h('p', {}, '화면을 그리지 못했어요.'), h('a', { href: '#/home', class: 'btn' }, '처음으로')); }
+    if (seq !== renderSeq) return; // a newer screen was asked for while this one loaded
     root.textContent = '';
     root.appendChild(el);
     window.scrollTo(0, 0);

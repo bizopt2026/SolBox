@@ -103,3 +103,17 @@ test('migrate device notes into the account without duplicates', async () => {
   assert.equal(s.grade, '초4');
   assert.equal(s.stars, 5);
 });
+
+// Final review fix 7
+test('migration copies missing drills of a note that is already in the account', async () => {
+  const ls = makeFakeLocalStorage();
+  const device = await createStore({ db: null, user: null, localStorage: ls });
+  await device.saveNote(note('n_a', '2026-11-19T00:00:00Z'));
+  await device.saveDrill({ id: 'd_1', noteId: 'n_a', createdAt: 'x', correct: true });
+  await device.saveDrill({ id: 'd_2', noteId: 'n_a', createdAt: 'y', correct: false });
+  const account = await createStore({ db: makeFakeDb(), user: fakeUser('u1'), localStorage: ls });
+  await account.saveNote(note('n_a', '2026-11-19T00:00:00Z'));
+  await account.saveDrill({ id: 'd_1', noteId: 'n_a', createdAt: 'x', correct: true });
+  await migrateDeviceToAccount(ls, account);
+  assert.deepEqual((await account.listDrills('n_a')).map((d) => d.id).sort(), ['d_1', 'd_2']);
+});

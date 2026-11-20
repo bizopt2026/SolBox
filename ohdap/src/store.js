@@ -74,9 +74,12 @@ export async function migrateDeviceToAccount(ls, store) {
   const d = readDevice(ls);
   let moved = 0, skipped = 0;
   for (const note of Object.values(d.notes)) {
-    if (await store.getNote(note.id)) { skipped++; continue; }
+    const exists = !!(await store.getNote(note.id));
+    // drills first, so a note in the account means its drills were copied (a retry fills any gaps)
+    const have = new Set(exists ? (await store.listDrills(note.id)).map((x) => x.id) : []);
+    for (const drill of Object.values(d.drills[note.id] || {})) if (!have.has(drill.id)) await store.saveDrill(drill);
+    if (exists) { skipped++; continue; }
     await store.saveNote(note);
-    for (const drill of Object.values(d.drills[note.id] || {})) await store.saveDrill(drill);
     moved++;
   }
   if (d.settings) {

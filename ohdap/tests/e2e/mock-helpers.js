@@ -27,7 +27,7 @@ function makeDb(seed) {
   function doc(path) {
     return {
       id: path.split('/').pop(), path,
-      async get() { return snap(path); },
+      async get() { if (window.__dbDelay && window.__dbDelay[path]) await new Promise((r) => setTimeout(r, window.__dbDelay[path])); return snap(path); },
       async set(d) { docs.set(path, JSON.parse(JSON.stringify(d))); persist(); },
       async update(d) { docs.set(path, Object.assign({}, docs.get(path), JSON.parse(JSON.stringify(d)))); persist(); },
       async delete() { docs.delete(path); persist(); },

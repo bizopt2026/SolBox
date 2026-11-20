@@ -69,3 +69,13 @@ test('without AI the upload button is replaced by a notice', async () => {
     assert.equal(await app.page.getByRole('button', { name: 'AI로 정리하기' }).count(), 0);
   } finally { await app.close(); }
 });
+
+// Final review fix 6: a view that cannot send images says so up front.
+test('a view without image support explains it instead of offering upload', async () => {
+  const app = await openApp({ mocks: "(function(){ const s = makeSample({}); s.limits = async () => ({ images: null }); return { user: makeUser('u1'), db: makeDb(), sample: s }; })()", setup: seedSettings('중3') });
+  try {
+    await nav(app.page, '#/upload');
+    await app.page.getByText('사진을 AI에 보낼 수 없어요').waitFor();
+    assert.equal(await app.page.getByRole('button', { name: 'AI로 정리하기' }).count(), 0);
+  } finally { await app.close(); }
+});
