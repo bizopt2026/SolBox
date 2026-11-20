@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { openApp, HELPERS } from './harness.mjs';
 import { seedSettings } from './util.mjs';
 
-const three = `seedNote('n_1', SOLUTION, { problem: '근의 공식 문제', createdAt: '2026-11-18T00:00:00Z' });
+const three = `seedNote('n_1', SOLUTION, { problem: '근의 공식 수식 $x^2$ 문제', createdAt: '2026-11-18T00:00:00Z' });
 seedNote('n_2', SOLUTION, { problem: '삼각비 문제', unit: '삼각비', createdAt: '2026-11-19T00:00:00Z' });
 seedNote('n_3', SOLUTION, { problem: 'what that 문제', subject: '영어', unit: '관계대명사', createdAt: '2026-11-20T00:00:00Z' });`;
 const seed = (grade, body) => `${seedSettings(grade)} (function(){ ${HELPERS}; ${body} })();`;
@@ -14,6 +14,7 @@ test('subject chips and search filter the list', async () => {
   try {
     await page.locator('.note-item').first().waitFor();
     assert.equal(await page.locator('.note-item').count(), 3);
+    assert.equal(await page.locator('.note-item').filter({ hasText: '수식' }).locator('.katex').count(), 1, 'math in list titles is rendered');
     await page.getByRole('button', { name: '영어', exact: true }).click();
     assert.equal(await page.locator('.note-item').count(), 1);
     await page.getByRole('button', { name: '전체', exact: true }).click();

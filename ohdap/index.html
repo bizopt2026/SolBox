@@ -178,7 +178,7 @@ textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
 .board-bars{display:flex;gap:4px;padding:0 20px}
 .board-bars span{flex:1;height:4px;border-radius:2px;background:rgba(243,241,232,.2)}
 .board-bars span.on{background:var(--marker)}
-.board-main{flex:1;padding:20px 24px;overflow-y:auto;max-height:calc(100vh - 330px)}
+.board-main{flex:1;padding:24px 24px 20px;overflow-y:auto;max-height:calc(100vh - 330px)}
 .board-problem{margin:0 0 18px;font-size:14px;line-height:1.6;color:var(--chalk-dim)}
 .board-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
 .bstep{display:flex;align-items:baseline;gap:14px;padding:6px 10px;margin:0 -10px;border-radius:10px}
@@ -1163,8 +1163,11 @@ function renderSettings(ctx) {
 
 
 
+
 function noteTitle(n) {
-  return String(n.problem || '').replace(/\$/g, '').split('\n')[0].slice(0, 80) || '문제';
+  const el = h('span', { class: 'ntitle' });
+  el.innerHTML = renderMathText(String(n.problem || '문제').split('\n')[0], window.katex);
+  return el;
 }
 
 function badgeClass(n, today) {
@@ -1178,7 +1181,7 @@ function noteItem(n, today) {
     n.photoId ? h('img', { class: 'nthumb', src: '/_blob/' + n.photoId, alt: '', loading: 'lazy' }) : h('span', { class: 'nthumb stripe', 'aria-hidden': 'true' }, n.subject ? n.subject.slice(0, 2) : ''),
     h('span', { class: 'nbody' },
       h('span', { class: 'muted small' }, [n.subject, n.unit].filter(Boolean).join(' · ')),
-      h('span', { class: 'ntitle' }, noteTitle(n)),
+      noteTitle(n),
       h('span', { class: badgeClass(n, today) }, n.status !== 'ready' ? '정리 필요' : stageLabel(n, today))),
     n.starred ? h('span', { class: 'nstar', 'aria-label': '다시보기 표시' }, icon('star', 16)) : null);
 }
@@ -1784,9 +1787,6 @@ async function renderBoard(ctx, params) {
 
 
 
-function firstLine(text) {
-  return String(text || '').replace(/\$/g, '').split('\n')[0].slice(0, 80);
-}
 
 async function renderReview(ctx) {
   const w = ctx.words;
@@ -1807,7 +1807,7 @@ async function renderReview(ctx) {
   const list = h('ul', { class: 'today-list' }, items.map((n) => h('li', { class: 'today-item' },
     h('a', { href: '#/note/' + n.id, class: 'today-text' },
       h('span', { class: 'muted small' }, [n.subject, n.unit, `${Math.min(n.stage + 1, 5)}단계`].filter(Boolean).join(' · ')),
-      h('span', { class: 'today-title' }, firstLine(n.problem))),
+      (() => { const t = h('span', { class: 'today-title' }); t.innerHTML = renderMathText(String(n.problem || '').split('\n')[0], window.katex); return t; })()),
     n.lastReviewed === today && !due.includes(n)
       ? h('span', { class: n.lastCorrect ? 'got ok' : 'got bad' }, icon(n.lastCorrect ? 'check' : 'cross', 16), n.lastCorrect ? '맞힘' : '다시')
       : h('a', { class: 'btn primary pill', href: '#/drill/' + n.id }, '풀기'))));

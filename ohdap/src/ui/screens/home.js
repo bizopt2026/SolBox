@@ -4,9 +4,12 @@ import { isElementary } from '../../grades.js';
 import { dueNotes, todayYmd, stageLabel, MASTERED } from '../../review.js';
 import { filterNotes } from '../../export.js';
 import { deviceNoteCount, migrateDeviceToAccount } from '../../store.js';
+import { renderMathText } from '../../mathtext.js';
 
 function noteTitle(n) {
-  return String(n.problem || '').replace(/\$/g, '').split('\n')[0].slice(0, 80) || '문제';
+  const el = h('span', { class: 'ntitle' });
+  el.innerHTML = renderMathText(String(n.problem || '문제').split('\n')[0], window.katex);
+  return el;
 }
 
 function badgeClass(n, today) {
@@ -20,7 +23,7 @@ function noteItem(n, today) {
     n.photoId ? h('img', { class: 'nthumb', src: '/_blob/' + n.photoId, alt: '', loading: 'lazy' }) : h('span', { class: 'nthumb stripe', 'aria-hidden': 'true' }, n.subject ? n.subject.slice(0, 2) : ''),
     h('span', { class: 'nbody' },
       h('span', { class: 'muted small' }, [n.subject, n.unit].filter(Boolean).join(' · ')),
-      h('span', { class: 'ntitle' }, noteTitle(n)),
+      noteTitle(n),
       h('span', { class: badgeClass(n, today) }, n.status !== 'ready' ? '정리 필요' : stageLabel(n, today))),
     n.starred ? h('span', { class: 'nstar', 'aria-label': '다시보기 표시' }, icon('star', 16)) : null);
 }

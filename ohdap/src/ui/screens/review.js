@@ -3,10 +3,7 @@ import { tabbar } from '../chrome.js';
 import { dueNotes, todayYmd, addDays, MASTERED } from '../../review.js';
 import { groupConcepts } from '../../concepts.js';
 import { isElementary } from '../../grades.js';
-
-export function firstLine(text) {
-  return String(text || '').replace(/\$/g, '').split('\n')[0].slice(0, 80);
-}
+import { renderMathText } from '../../mathtext.js';
 
 export async function renderReview(ctx) {
   const w = ctx.words;
@@ -27,7 +24,7 @@ export async function renderReview(ctx) {
   const list = h('ul', { class: 'today-list' }, items.map((n) => h('li', { class: 'today-item' },
     h('a', { href: '#/note/' + n.id, class: 'today-text' },
       h('span', { class: 'muted small' }, [n.subject, n.unit, `${Math.min(n.stage + 1, 5)}단계`].filter(Boolean).join(' · ')),
-      h('span', { class: 'today-title' }, firstLine(n.problem))),
+      (() => { const t = h('span', { class: 'today-title' }); t.innerHTML = renderMathText(String(n.problem || '').split('\n')[0], window.katex); return t; })()),
     n.lastReviewed === today && !due.includes(n)
       ? h('span', { class: n.lastCorrect ? 'got ok' : 'got bad' }, icon(n.lastCorrect ? 'check' : 'cross', 16), n.lastCorrect ? '맞힘' : '다시')
       : h('a', { class: 'btn primary pill', href: '#/drill/' + n.id }, '풀기'))));
