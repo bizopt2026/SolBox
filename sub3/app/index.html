@@ -309,7 +309,7 @@ textarea{resize:vertical;min-height:64px}
 .ws .kstar{font-style:normal;font-size:12px;color:var(--accent);margin-right:1px}
 /* fixed rows (day · plan · score/dot · RPE) so every day lines up whether or not it has a score or RPE */
 .ws{display:grid;grid-template-rows:18px 20px 16px 19px;justify-items:center;align-content:start;align-items:center}
-.ws>.wsn,.ws>.dot{margin:0}.ws>.rf.sm{margin:0;align-self:end}
+.ws>.wsn,.ws>.dot{margin:0}.ws>.wsn0{color:var(--muted);opacity:.4}.ws>.rf.sm{margin:0;align-self:end}
 .slg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px;color:var(--muted);align-items:center}
 .slg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:0}
 .slg i.miss{box-shadow:inset 0 0 0 1.5px var(--rec)}
@@ -1507,8 +1507,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.7.3",APP_RELEASED="2026-11-20";
+var APP_VERSION="1.7.4",APP_RELEASED="2026-11-20";
 var VLOG=[
+ ["1.7.4","2026-11-20","이번 주 요일 칸 빈 자리 표시","이번 주 요일 칸에서 RPE가 없는 날은 회색 얼굴, 점수가 없는 날은 흐린 – 로 채워서 모든 칸이 같은 모양·높이로 보여요. 건너뛴 날의 – 는 조금 더 진하게 보여요."],
  ["1.7.3","2026-11-20","이번 주 요일 칸 높이 맞춤","오늘 탭 이번 주 요일 칸에서 점수·RPE가 있는 날과 없는 날의 요일·거리 글자 높이가 어긋나던 문제를 고쳤어요. 모든 요일이 같은 줄에 맞춰 보여요."],
  ["1.7.2","2026-11-20","AI 코치 추천 질문 바로 보내기","AI 코치에서 추천 질문을 누르면 입력창에 남지 않고 바로 질문이 보내져요. 입력창에 글을 쓰던 중(키보드가 열린 상태)에 눌러도 한 번에 보내져요."],
  ["1.7.1","2026-11-20","오늘 탭 요약 줄을 다시 맨 위로","목표·워치 연동·날씨·컨디션 요약 줄과 시작하기를 오늘 탭 맨 위(날짜 줄 위) 원래 자리로 되돌렸어요. 가이드 안내 문구도 '맨 위 요약 줄'로 맞췄어요."],
@@ -3588,7 +3589,7 @@ function vToday(){
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
-    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--muted)">–</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):'')+'</button>'}
+    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--muted)">–</span>':'<span class="wsn wsn0" aria-hidden="true">–</span>'))+(rpeOf(ds)?rpeFace(rpeOf(ds),"sm"):rpeFace(null,"sm ph"))+'</button>'}
   h+='</div>'+scoreLegend();
   var ks=nextKeySessions(),ko=foldOpen("keys",false);
   if(ks.length){h+='<button type="button" class="ifold-h" id="keys-tog" aria-expanded="'+ko+'" style="margin-top:8px"><span><b style="color:var(--accent)">★</b> 다가오는 핵심 훈련 '+ks.length+'개'+(ko?'':' · 다음 '+md(ks[0][0])+' '+DOW[idxOf(ks[0][0])%7])+'</span><span class="chev" aria-hidden="true"></span></button>';
