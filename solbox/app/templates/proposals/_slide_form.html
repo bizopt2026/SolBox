@@ -1,8 +1,10 @@
-{# card: {index, slide, form}. 종류에 맞는 칸만 보이고, 서버도 그 종류의 칸만 읽는다. #}
+{# card: {index, slide, form}. 종류에 맞는 칸만 보이고, 서버도 그 종류의 칸만 읽는다. 칸 격자는 폼 화면과 같은 .fgrid. #}
 {% set f = card.form %}
-<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}" class="stack slide-form">
-  <label>종류
-    <select name="kind" class="kind-select">
+{% set i = card.index %}
+<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}" class="slide-form fgrid">
+  <div class="fld">
+    <label for="s{{ i }}-kind">종류</label>
+    <select id="s{{ i }}-kind" name="kind" class="kind-select">
       {% if card.index == 0 %}
       <option value="cover" selected>{{ slide_kinds["cover"] }}</option>
       {% else %}
@@ -11,28 +13,28 @@
       {% endfor %}
       {% endif %}
     </select>
-  </label>
-  <label>제목<input type="text" name="title" value="{{ f.title }}"></label>
-  <label>핵심 메시지<input type="text" name="key_message" value="{{ f.key_message }}"></label>
-  <label data-kinds="cover">부제<input type="text" name="subtitle" value="{{ f.subtitle }}"></label>
-  <label data-kinds="bullets">글머리 (한 줄에 하나)<textarea name="bullets" rows="4">{{ f.bullets }}</textarea></label>
-  <div data-kinds="two_column" class="stack">
-    <label>왼쪽 제목<input type="text" name="left_title" value="{{ f.left_title }}"></label>
-    <label>왼쪽 (한 줄에 하나)<textarea name="left" rows="4">{{ f.left }}</textarea></label>
-    <label>오른쪽 제목<input type="text" name="right_title" value="{{ f.right_title }}"></label>
-    <label>오른쪽 (한 줄에 하나)<textarea name="right" rows="4">{{ f.right }}</textarea></label>
   </div>
-  <div data-kinds="table" class="stack">
-    <label>열 이름 (<code>|</code> 로 구분)<input type="text" name="columns" value="{{ f.columns }}"></label>
-    <label>행 (한 줄에 한 행, 칸은 <code>|</code> 로 구분)<textarea name="rows" rows="4">{{ f.rows }}</textarea></label>
-    <p class="muted">표 칸 안에는 <code>|</code> 를 쓸 수 없습니다.</p>
+  <div class="fld"><label for="s{{ i }}-title">제목</label><input id="s{{ i }}-title" type="text" name="title" value="{{ f.title }}"></div>
+  <div class="fld wide"><label for="s{{ i }}-km">핵심 메시지</label><input id="s{{ i }}-km" type="text" name="key_message" value="{{ f.key_message }}"></div>
+  <div class="fld wide" data-kinds="cover"><label for="s{{ i }}-sub">부제</label><input id="s{{ i }}-sub" type="text" name="subtitle" value="{{ f.subtitle }}"></div>
+  <div class="fld wide" data-kinds="bullets"><label for="s{{ i }}-bul">글머리 (한 줄에 하나)</label><textarea id="s{{ i }}-bul" name="bullets" rows="4">{{ f.bullets }}</textarea></div>
+  <div data-kinds="two_column" class="fgrid wide">
+    <div class="fld"><label for="s{{ i }}-lt">왼쪽 제목</label><input id="s{{ i }}-lt" type="text" name="left_title" value="{{ f.left_title }}"></div>
+    <div class="fld"><label for="s{{ i }}-rt">오른쪽 제목</label><input id="s{{ i }}-rt" type="text" name="right_title" value="{{ f.right_title }}"></div>
+    <div class="fld"><label for="s{{ i }}-l">왼쪽 (한 줄에 하나)</label><textarea id="s{{ i }}-l" name="left" rows="4">{{ f.left }}</textarea></div>
+    <div class="fld"><label for="s{{ i }}-r">오른쪽 (한 줄에 하나)</label><textarea id="s{{ i }}-r" name="right" rows="4">{{ f.right }}</textarea></div>
   </div>
-  <div data-kinds="steps" class="stack">
-    <label>단계 (한 줄에 <code>단계 이름: 설명</code>, 최대 5단계)<textarea name="steps" rows="4">{{ f.steps }}</textarea></label>
-    <p class="muted">단계 이름 안에는 <code>:</code> 를 쓸 수 없습니다. 설명에는 쓸 수 있습니다.</p>
+  <div data-kinds="table" class="fgrid wide">
+    <div class="fld wide"><label for="s{{ i }}-col">열 이름 (<code>|</code> 로 구분)</label><input id="s{{ i }}-col" type="text" name="columns" value="{{ f.columns }}"></div>
+    <div class="fld wide"><label for="s{{ i }}-rows">행 (한 줄에 한 행, 칸은 <code>|</code> 로 구분)</label><textarea id="s{{ i }}-rows" name="rows" rows="4">{{ f.rows }}</textarea>
+      <p class="help">표 칸 안에는 <code>|</code> 를 쓸 수 없습니다.</p></div>
   </div>
-  <label>출처 (한 줄에 하나, 입력한 그대로 저장됩니다)<textarea name="sources" rows="2">{{ f.sources }}</textarea></label>
-  <p class="muted field-note">자료 이름은 저장 후 자동으로 표시됩니다.</p>
-  <label>확인 항목 (한 줄에 하나)<textarea name="needs_check" rows="2">{{ f.needs_check }}</textarea></label>
-  <div><button type="submit" class="primary">저장</button></div>
+  <div data-kinds="steps" class="fgrid wide">
+    <div class="fld wide"><label for="s{{ i }}-steps">단계 (한 줄에 <code>단계 이름: 설명</code>, 최대 5단계)</label><textarea id="s{{ i }}-steps" name="steps" rows="4">{{ f.steps }}</textarea>
+      <p class="help">단계 이름 안에는 <code>:</code> 를 쓸 수 없습니다. 설명에는 쓸 수 있습니다.</p></div>
+  </div>
+  <div class="fld wide"><label for="s{{ i }}-src">출처 (한 줄에 하나, 입력한 그대로 저장됩니다)</label><textarea id="s{{ i }}-src" name="sources" rows="2">{{ f.sources }}</textarea>
+    <p class="help">자료 이름은 저장 후 자동으로 표시됩니다.</p></div>
+  <div class="fld wide"><label for="s{{ i }}-nc">확인 항목 (한 줄에 하나)</label><textarea id="s{{ i }}-nc" name="needs_check" rows="2">{{ f.needs_check }}</textarea></div>
+  <div class="wide"><button type="submit" class="primary">저장</button></div>
 </form>

@@ -138,9 +138,10 @@ def test_direction_summary_markup(user_client, db, settings):
     p = outlined_proposal(db, settings)
     page = _directions_page(user_client, db, p)
     assert page.count("근거와 확인할 점 보기") == len(p.directions)
-    assert re.search(r'class="dir-grid" style="--cols:2"', page)
+    assert 'class="dir-grid"' in page
     css = user_client.get("/static/app.css").text
-    assert "@media (min-width: 1100px)" in css and "align-items: start" in css.split("제안 방향 카드")[1].split("}")[0]
+    grid = css.split("제안 방향 카드")[1].split("}")[0]
+    assert "repeat(auto-fit" in grid  # 칸이 넓으면 나란히, 좁아지면 알아서 줄을 바꾼다
 
 
 def test_nav_marks_active_and_css_gives_hint(user_client):

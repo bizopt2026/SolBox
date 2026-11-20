@@ -1,4 +1,5 @@
-<section class="card">
+{% from "_macros.html" import pill %}
+<section class="card stack">
   <h2>조사 실행</h2>
   {% if request.query_params.get("notice") == "busy" %}<p class="error" role="alert">이미 조사가 진행 중입니다.</p>
   {% elif request.query_params.get("notice") == "no_topics" %}<p class="error" role="alert">사용 중인 리서치 주제가 없습니다.</p>{% endif %}
@@ -12,13 +13,13 @@
         <td>{{ run.started_at.strftime("%Y-%m-%d %H:%M") }}</td>
         <td>{{ "예약" if run.trigger == "schedule" else "수동" }}</td>
         <td>
-          {% if run.status == "running" %}진행 중
+          {% if run.status == "running" %}{{ pill("run_status", "running") }}
             <div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>
-          {% else %}{{ labels.RUN_STATUSES.get(run.status, run.status) }}{% endif %}
+          {% else %}{{ pill("run_status", run.status) }}{% endif %}
         </td>
       </tr>
     {% endfor %}
     </tbody>
   </table></div>
-  {% else %}<p class="muted">아직 조사 기록이 없습니다.</p>{% endif %}
+  {% else %}<p class="muted">아직 조사 기록이 없습니다. "지금 조사"를 눌러 첫 조사를 시작해 보세요.</p>{% endif %}
 </section>

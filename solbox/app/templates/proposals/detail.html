@@ -1,47 +1,55 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill %}
+{% from "_macros.html" import page_header, pill, source_chip, val %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-{% call page_header(title, crumbs=[("제안", "/proposals"), (title, none)], status=pill("proposal_status", proposal.status)) %}
+{% set directions = proposal.directions or [] %}
+{% set picked = proposal.selected_index is not none and 0 <= proposal.selected_index < directions | length %}
+{% set pd = directions[proposal.selected_index] if picked else none %}
+{% set has_outline = proposal.outline and proposal.outline.slides %}
+{% set who %}<a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a>{% if proposal.opportunity %} · <a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% endif %}{% if proposal.project %} · <a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% endif %}{% endset %}
+{% call page_header(title, crumbs=ui.crumbs("proposal", title), sub=who, status=pill("proposal_status", proposal.status)) %}
   {% if can_delete %}
   <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
-    <button type="submit" class="danger">삭제</button>
+    <button type="submit" class="ghost danger">삭제</button>
   </form>
   {% endif %}
+  {% include "proposals/_primary.html" %}
 {% endcall %}
 {% include "proposals/_stepbar.html" %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
 {% include "proposals/_ai_status.html" %}
-<div class="row status-row">
-  <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
-</div>
 {% macro section(key, title, rebuild=False) %}
-<details class="card section" id="{{ key }}"{% if open_key == key %} open{% endif %}{% if rebuild %} data-rebuild{% endif %}>
-  <summary><h2>{{ title }}</h2><span class="summary-line muted" id="summary-{{ key }}">{{ summaries[key] }}</span></summary>
-  {{ caller() }}
+{% set st = steps | selectattr("key", "equalto", key) | first %}
+<details class="card section" id="{{ key }}"{% if open_key == key %} open data-current{% endif %}{% if rebuild %} data-rebuild{% endif %} data-step="{{ st.state }}">
+  <summary><span class="sec-no" aria-hidden="true">{{ "✓" if st.state == "done" else loop_no(key) }}</span><h2>{{ title }}</h2><span class="summary-line muted" id="summary-{{ key }}">{{ summaries[key] }}</span></summary>
+  <div class="sec-body">{{ caller() }}</div>
 </details>
 {% endmacro %}
+{% macro loop_no(key) %}{{ ["target", "directions", "chat", "outline", "deck"].index(key) + 1 }}{% endmacro %}
+<div class="dgrid pgrid">
+<div class="dmain">
 {% call section("target", "대상") %}
-  <dl>
+  <dl class="props">
     <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
     <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
-  <details>
+  <details class="edit-target">
     <summary>대상 수정</summary>
-    <form method="post" action="/proposals/{{ proposal.id }}/target" class="stack">
-      <label>{{ ont.label("opportunity") }} (선택)
-        <select name="opportunity_id">
+    <form method="post" action="/proposals/{{ proposal.id }}/target" class="fgrid">
+      <div class="fld wide">
+        <label for="f-opportunity_id">{{ ont.label("opportunity") }} (선택)</label>
+        <select id="f-opportunity_id" name="opportunity_id">
           <option value="">선택 안 함</option>
           {% for o in customer_opportunities %}<option value="{{ o.id }}" {{ "selected" if proposal.opportunity_id == o.id }}>{{ o.name }}</option>{% endfor %}
         </select>
-      </label>
+      </div>
       {% set memo = proposal.request_memo %}{% set selected_ids = proposal.extra_solution_ids %}
       {% include "proposals/_target_fields.html" %}
-      <div><button type="submit" class="primary">저장</button></div>
+      <div class="wide"><button type="submit" class="primary">저장</button></div>
     </form>
   </details>
 {% endcall %}
@@ -57,5 +65,41 @@
 {% call section("deck", "제안서") %}
   {% include "proposals/_deck.html" %}
 {% endcall %}
-{% if related %}{{ related_card(related) }}{% endif %}
+</div>
+<aside class="daside" aria-label="제안 맥락">
+  {% if pd %}
+  {% set pnum = number_sources(pd) %}
+  {% set pchecks = check_items(pd.needs_check) %}
+  <section class="card stack ctx-direction" aria-label="선택한 방향">
+    <div class="card-head"><h2>선택한 방향</h2><a href="#directions">바꾸기</a></div>
+    <div class="dir sel">
+      <h3>{{ pd.title }}</h3>
+      {% if pd.summary %}<p class="dir-text">{{ pd.summary }}</p>{% endif %}
+      {% if pd.solutions %}<p class="pills">{% for s in pd.solutions %}<a class="badge tone-brand" href="/solutions/{{ s.solution_id }}"{% if s.role %} title="{{ s.role }}"{% endif %}>{{ s.name }}</a>{% endfor %}</p>{% endif %}
+      <p class="dir-count muted">근거 {{ pnum.rationale | length }} · 확인할 점 {{ pchecks | length }}</p>
+    </div>
+  </section>
+  {% endif %}
+  {% set ns = namespace(paths=[]) %}
+  {% if has_outline and open_key in ("outline", "deck") %}
+    {% for s in proposal.outline.slides %}{% for p in (s.sources or []) %}{% if p not in ns.paths %}{% set ns.paths = ns.paths + [p] %}{% endif %}{% endfor %}{% endfor %}
+  {% elif pd %}{% set ns.paths = pnum.sources %}{% endif %}
+  {% if ns.paths %}
+  <section class="card stack ctx-sources" aria-label="출처">
+    <div class="card-head"><h2>출처</h2><span class="count">{{ ns.paths | length }}</span></div>
+    <ol class="src-rows">{% for path in ns.paths %}{% set d = src(path) %}<li>{% if d.url %}<a href="{{ d.url }}">{% else %}<span class="src-row">{% endif %}<span class="src-label">{{ d.label }}</span>{% if d.kind %}<small class="muted">{{ d.kind }}</small>{% endif %}{% if d.url %}</a>{% else %}</span>{% endif %}</li>{% endfor %}</ol>
+  </section>
+  {% endif %}
+  <section class="card stack ctx-target" aria-label="대상 요약">
+    <div class="card-head"><h2>대상 요약</h2><a href="#target">수정</a></div>
+    <dl class="props compact">
+      <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
+      <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+      <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+      <dt>후보</dt><dd>솔루션 {{ candidates | length }}개</dd>
+    </dl>
+  </section>
+  {% if related %}{{ related_card(related) }}{% endif %}
+</aside>
+</div>
 {% endblock %}

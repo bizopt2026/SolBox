@@ -4,29 +4,36 @@
 {% set deck_busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set cs = outline_check_summary(proposal.outline) %}
 {% set back = "outline" if request.url.path.endswith("/outline") else "" %}
-<div class="deck-box">
+{% set stale = proposal.deck_name and deck_is_stale(proposal) %}
+<div class="deck-box stack">
 {% if deck_error %}<p class="error" role="alert">{{ deck_error }}</p>{% endif %}
-{% if cs.open %}<p class="muted">확인할 항목이 남은 장: {{ check_summary_text(cs) }}</p>{% endif %}
 {% if cs.evidence %}<p class="error">근거 문제가 남은 장이 {{ cs.evidence }}장 있습니다. 고객에게 보내기 전에 확인하세요.</p>{% endif %}
-<div class="row">
-{% if proposal.deck_name %}
-  {% if deck_is_stale(proposal) %}
-  <span class="error">구성안이 바뀌었습니다. 다시 생성하세요.</span>
-  {% else %}
-  <a href="/proposals/{{ proposal.id }}/deck">PPT 내려받기</a>
-  {% endif %}
-  <span class="muted">마지막 생성 {{ proposal.deck_built_at.strftime("%Y-%m-%d %H:%M") }}</span>
-{% endif %}
-{% if deck_busy %}
-  <span class="muted">AI 작업이 끝난 뒤 생성할 수 있습니다.</span>
-{% else %}
-  <form method="post" action="/proposals/{{ proposal.id }}/deck">
-    {% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
-    <button type="submit"{% if not proposal.deck_name %} class="primary"{% endif %}>{{ "다시 만들기" if proposal.deck_name else "PPT 만들기" }}</button>
-  </form>
-{% endif %}
+{% if cs.open %}<p class="notice">확인할 항목이 남은 장: {{ check_summary_text(cs) }}</p>{% endif %}
+<div class="file deck-file">
+  <span class="ext" aria-hidden="true">PPT</span>
+  <div class="file-main">
+    {% if proposal.deck_name %}
+    <b>제안서 파일</b>
+    <small>마지막 생성 {{ proposal.deck_built_at.strftime("%Y-%m-%d %H:%M") }}</small>
+    {% if stale %}<small class="bad error">구성안이 바뀌었습니다. 다시 생성하세요.</small>{% endif %}
+    {% else %}
+    <b>아직 만들지 않았어요</b>
+    <small>구성안 {{ proposal.outline.slides | length }}장으로 PPT 파일을 만듭니다.</small>
+    {% endif %}
+  </div>
+  <div class="file-actions">
+    {% if proposal.deck_name and not stale %}<a class="button primary" href="/proposals/{{ proposal.id }}/deck">PPT 내려받기</a>{% endif %}
+    {% if deck_busy %}
+    <span class="muted">AI 작업이 끝난 뒤 생성할 수 있습니다.</span>
+    {% else %}
+    <form method="post" action="/proposals/{{ proposal.id }}/deck">
+      {% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
+      <button type="submit"{% if not proposal.deck_name or stale %} class="primary"{% endif %}>{{ "다시 만들기" if proposal.deck_name else "PPT 만들기" }}</button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 </div>
 {% else %}
-<p class="muted">구성안을 만든 뒤에 PPT를 만들 수 있습니다.</p>
+<div class="empty"><p class="muted">구성안을 만든 뒤에 PPT를 만들 수 있습니다.</p></div>
 {% endif %}

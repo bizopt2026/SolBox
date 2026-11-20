@@ -1,0 +1,14 @@
+{# 제목 줄의 다음 동작 하나: 지금 상태에서 이어서 할 일. 모두 이미 있는 주소를 쓴다 (방향 만들기·구성안 만들기·제안서 만들기·내려받기).
+   대화 답변이 끝날 때 같이 바뀌도록 id 를 가진 한 덩어리다 (oob 이면 htmx 가 제자리에서 바꾼다). #}
+{% set job = proposal.active_job %}
+{% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
+{% set has_outline = proposal.outline and proposal.outline.slides %}
+{% set picked = proposal.selected_index is not none and proposal.directions and 0 <= proposal.selected_index < proposal.directions | length %}
+{% macro act(action, label) %}<form method="post" action="/proposals/{{ proposal.id }}/{{ action }}"><button type="submit" class="button primary"{% if busy %} disabled title="AI 작업이 끝난 뒤에 할 수 있어요"{% endif %}>{{ label }}</button></form>{% endmacro %}
+<span id="primary-action" class="primary-action"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if has_outline and proposal.deck_name and not deck_is_stale(proposal) %}<a class="button primary" href="/proposals/{{ proposal.id }}/deck">PPT 내려받기</a>
+  {% elif has_outline %}{{ act("deck", "제안서 다시 만들기" if proposal.deck_name else "제안서 만들기") }}
+  {% elif picked %}{{ act("outline", "구성안 만들기") }}
+  {% elif proposal.directions %}<a class="button primary" href="#directions">방향 고르기</a>
+  {% else %}{{ act("directions", "방향 만들기") }}{% endif %}
+</span>

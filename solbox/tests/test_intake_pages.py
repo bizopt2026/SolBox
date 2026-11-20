@@ -37,8 +37,8 @@ def test_activity_new_points_to_upload(user_client):
 
 def test_intake_new_has_examples_and_plain_file_input(user_client):
     page = user_client.get("/intake/new").text
-    for line in ("제품 소개서·스펙 → 솔루션", "미팅 녹취록·현장 사진 → 활동 기록", "명함·회사 소개 → 고객·파트너"):
-        assert line in page
+    for line in ("제품 소개서·스펙", "미팅 녹취록·현장 사진", "명함·회사 소개", "새 솔루션", "활동 기록", "새 고객", "새 파트너"):
+        assert line in page  # 시안의 세 줄 목록: 올리는 것 → 정리되는 항목 종류(배지)
     form = re.search(r'<form[^>]*action="/intake".*?</form>', page, re.S).group(0)
     tag = re.search(r'<input[^>]*type="file"[^>]*>', form).group(0)
     assert "multiple" in tag and 'name="files"' in tag and "hidden" not in tag  # 스크립트 없이도 고를 수 있다

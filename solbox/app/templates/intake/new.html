@@ -1,19 +1,39 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, pill %}
 {% block title %}올리기{% endblock %}
 {% block content %}
-{{ page_header("파일 올리기", crumbs=[("올리기 묶음", "/intake"), ("새로 올리기", none)], sub="문서·사진·음성 파일을 한꺼번에 올리세요. 한 번에 " ~ max_files ~ "개까지, 파일 하나는 " ~ max_mb ~ "MB까지 올릴 수 있어요.") }}
-<ul class="examples">
-  <li>제품 소개서·스펙 → 솔루션</li>
-  <li>미팅 녹취록·현장 사진 → 활동 기록</li>
-  <li>명함·회사 소개 → 고객·파트너</li>
-</ul>
+{{ page_header("파일 올리기", crumbs=[("오늘", none), (ont.label("intake"), "/intake"), ("새로 올리기", none)], sub="문서·사진·음성 파일을 한꺼번에 올리세요. 한 번에 " ~ max_files ~ "개까지, 파일 하나는 " ~ max_mb ~ "MB까지 올릴 수 있어요.") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/intake" enctype="multipart/form-data" class="card stack">
-  {% set zone_id = "intake" %}{% include "intake/_dropzone.html" %}
-  <div class="row">
-    <button type="submit" class="primary">올리기</button>
-    <a href="/intake">취소</a>
+<div class="dgrid">
+  <div class="dmain">
+    <form method="post" action="/intake" enctype="multipart/form-data" class="card stack upload-card">
+      {% set zone_id = "intake" %}{% include "intake/_dropzone.html" %}
+      <div class="row savebar-inline">
+        <button type="submit" class="primary">올리기</button>
+        <a class="button" href="/intake">취소</a>
+      </div>
+    </form>
+    <section class="card stack" aria-label="이렇게 정리돼요">
+      <h2>이런 걸 올리면 이렇게 정리돼요</h2>
+      <ul class="examples">
+        <li><span class="ex-in">제품 소개서·스펙</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "new_solution") }}</span></li>
+        <li><span class="ex-in">미팅 녹취록·현장 사진</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "activity") }}</span></li>
+        <li><span class="ex-in">명함·회사 소개</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "new_customer") }} {{ pill("plan_item_kind", "new_partner") }}</span></li>
+      </ul>
+      <p class="muted help">AI가 정리안을 만들고, 사용자가 확인해 저장해야 기록이 만들어집니다.</p>
+    </section>
   </div>
-</form>
+  <aside class="daside" aria-label="최근 올린 묶음">
+    <section class="card stack">
+      <div class="card-head"><h2>최근 올린 묶음</h2><a href="/intake">모두 보기</a></div>
+      {% if recent %}
+      <div class="queue">
+        {% for it in recent %}
+        <a class="queue-row" href="/intake/{{ it.id }}"><span class="queue-main"><b>{{ it.note or (it.created_at.strftime("%m-%d %H:%M") ~ " 올림") }}</b><small>{{ it.files | length }}개 · {{ it.created_at.strftime("%m-%d %H:%M") }}</small></span>{{ pill("intake_status", it.status) }}</a>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">아직 올린 묶음이 없어요. 첫 파일을 올려 보세요.</p>{% endif %}
+    </section>
+  </aside>
+</div>
 {% endblock %}

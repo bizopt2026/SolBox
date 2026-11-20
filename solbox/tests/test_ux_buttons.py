@@ -44,7 +44,7 @@ def test_chat_section_has_one_primary_before_and_after_outline(user_client, db, 
     p = refining_proposal(db, settings)
     chat = lambda: re.search(r'<details class="card section" id="chat".*?</details>', user_client.get(f"/proposals/{p.id}").text, re.S).group(0)
     before = chat()
-    assert before.count('class="primary"') == 1 and 'class="primary">제안서 만들기' in before
+    assert before.count('class="primary"') == 1 and 'class="primary">구성안 만들기' in before
     p.outline = {"title": "t", "slides": [{"kind": "cover", "title": "표지"}]}
     db.commit()
     after = chat()

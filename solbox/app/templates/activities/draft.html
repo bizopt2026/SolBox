@@ -8,7 +8,7 @@
 {% include "jobs/_status.html" %}
 <div class="card stack">
   <strong>원문 메모</strong>
-  <pre style="white-space: pre-wrap">{{ raw_text }}</pre>
+  <pre class="raw-text">{{ raw_text }}</pre>
   <form method="post" action="/activities/raw">
     <input type="hidden" name="raw_text" value="{{ raw_text }}">
     <button type="submit">기다리지 않고 원문만 저장</button>

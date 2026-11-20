@@ -69,7 +69,7 @@ def test_proposal_outline_research_and_admin_breadcrumbs(admin_client, db):
     db.add(run)
     db.commit()
     day = run.started_at.strftime("%Y-%m-%d")
-    assert _crumbs(admin_client.get(f"/research/runs/{run.id}").text) == f"리서치 › {day}"
+    assert _crumbs(admin_client.get(f"/research/runs/{run.id}").text) == f"발굴 › 리서치 › {day}"
 
 
 def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings):
@@ -77,5 +77,5 @@ def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings
     p.outline = {"title": "t", "slides": [{"kind": "cover", "title": "표지"}]}
     db.commit()
     html = user_client.get(f"/proposals/{p.id}/outline").text
-    assert _crumbs(html).startswith("제안 › ") and _crumbs(html).endswith("› 구성안")
+    assert _crumbs(html).startswith("영업 › 제안 › ") and _crumbs(html).endswith("› 구성안")
     assert f'<a href="/proposals/{p.id}">' in html

@@ -4,6 +4,7 @@
   {% if job is none or job.status == "pending" %}AI 대기 {{ position or 1 }}번째 (앞 작업이 끝나면 시작합니다){% if job is not none %}{% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}{% endif %}
   {% elif job.status == "running" %}
     {% if transcribing %}음성 받아쓰는 중 · {{ transcribing.original_name }}{% if transcribing.progress is not none %} · {{ transcribing.progress }}%{% endif %}
+      {% if transcribing.progress is not none %}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ transcribing.progress }}" aria-label="받아쓰기 진행"><i style="width:{{ transcribing.progress }}%"></i></div>{% endif %}
       <span class="muted">녹음 길이에 따라 오래 걸릴 수 있어요. 이 화면을 떠나도 됩니다. {{ wait_detail(job, expected=False) }}</span>
     {% elif intake.files | selectattr("kind", "equalto", "audio") | selectattr("read_status", "equalto", "ok") | list %}AI가 파일을 정리하고 있어요… <span class="muted">{{ wait_detail(job, expected=False) }}</span>
     {% else %}정리 중… {{ wait_detail(job) }}{% endif %}

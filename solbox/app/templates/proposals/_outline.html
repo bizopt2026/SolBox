@@ -1,13 +1,21 @@
 {% if proposal.outline %}
 {% set job = proposal.active_job %}
 {% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
-<p><strong>{{ proposal.outline.slides | length }}장</strong> · <a href="/proposals/{{ proposal.id }}/outline">구성안 검토·수정</a></p>
+{% set slides = proposal.outline.slides %}
+<div class="outline-lead">
+  <p><strong>{{ slides | length }}장</strong>{% if proposal.outline_updated_at %} <span class="muted">· 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}</span>{% endif %}</p>
+  <a class="button" href="/proposals/{{ proposal.id }}/outline">구성안 검토·수정</a>
+</div>
+<ol class="slide-mini">
+  {% for s in slides[:8] %}<li><span class="no">{{ loop.index }}</span><span class="t">{{ s.title or "(제목 없음)" }}</span></li>{% endfor %}
+  {% if slides | length > 8 %}<li class="more muted">외 {{ slides | length - 8 }}장</li>{% endif %}
+</ol>
 {% if not busy %}
-<form method="post" action="/proposals/{{ proposal.id }}/outline" class="stack">
-  <label>추가 지시 (선택)<input type="text" name="instruction" maxlength="500"></label>
-  <div><button type="submit">다시 만들기</button></div>
+<form method="post" action="/proposals/{{ proposal.id }}/outline" class="regen">
+  <label class="fld"><span>추가 지시 (선택)</span><input type="text" name="instruction" maxlength="500" placeholder="예: 가격 슬라이드를 앞으로"></label>
+  <button type="submit">다시 만들기</button>
 </form>
 {% endif %}
 {% else %}
-<p class="muted">대화를 마치고 "제안서 만들기" 를 누르면 슬라이드 구성안을 만듭니다.</p>
+<div class="empty"><p class="muted">대화를 마치고 "구성안 만들기"를 누르면 슬라이드 구성안을 만듭니다.</p></div>
 {% endif %}

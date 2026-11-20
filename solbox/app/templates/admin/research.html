@@ -2,16 +2,16 @@
 {% from "_macros.html" import page_header %}
 {% block title %}리서치 설정{% endblock %}
 {% block content %}
-{{ page_header("리서치 설정", crumbs=[("관리", none), ("리서치 설정", none)]) }}
+{{ page_header("리서치 설정", crumbs=[("관리", none), ("리서치 설정", none)], sub="매주 자동으로 조사할 주제와 실행 주기를 정합니다.") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 
 {% include "research/_admin_runs.html" ignore missing %}
 
-<section class="card">
+<section class="card stack">
   <h2>실행 주기</h2>
-  <form method="post" action="/admin/research/schedule" class="row">
-    <label><input type="checkbox" name="enabled" value="on" {% if schedule.enabled %}checked{% endif %}> 자동 실행</label>
+  <form method="post" action="/admin/research/schedule" class="row compact-form">
+    <label class="check"><input type="checkbox" name="enabled" value="on" {% if schedule.enabled %}checked{% endif %}> 자동 실행</label>
     <label>요일
       <select name="weekday">
         {% for code, text in weekdays.items() %}<option value="{{ code }}" {% if schedule.weekday == code %}selected{% endif %}>{{ text }}요일</option>{% endfor %}
@@ -21,12 +21,12 @@
     <label>분 <input type="number" name="minute" min="0" max="59" value="{{ schedule.minute }}" required></label>
     <button type="submit" class="primary">저장</button>
   </form>
-  <p class="muted">서버 PC의 현지 시각 기준입니다.</p>
+  <p class="muted help">서버 PC의 현지 시각 기준입니다.</p>
 </section>
 
-<section class="card">
+<section class="card stack">
   <h2>주제 추가</h2>
-  <form method="post" action="/admin/research/topics" class="row">
+  <form method="post" action="/admin/research/topics" class="row compact-form">
     <label>주제 <input name="name" maxlength="100" required></label>
     <label>키워드 <input name="keywords" maxlength="500" placeholder="쉼표로 구분"></label>
     <label>분야
@@ -39,9 +39,9 @@
 </section>
 
 {% for code, text in areas.items() %}
-<h2>{{ text }}</h2>
+<div class="section-head topic-head"><h2>{{ text }}</h2><span class="muted">{{ by_area[code] | length }}개</span></div>
 {% if by_area[code] %}
-<div class="tablewrap"><table>
+<div class="tablewrap"><table class="inline-table">
   <thead><tr><th>주제</th><th>키워드</th><th>분야</th><th>사용</th><th></th></tr></thead>
   <tbody>
   {% for t in by_area[code] %}
@@ -54,7 +54,7 @@
           {% for c, label in areas.items() %}<option value="{{ c }}" {% if t.area == c %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </td>
-      <td><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}></td>
+      <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}><span class="sr-only">사용</span></label></td>
       <td><div class="cell-actions">
         <button form="{{ f }}" type="submit" class="small">저장</button>
         <form method="post" action="/admin/research/topics/{{ t.id }}/delete" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit" class="small danger">삭제</button></form>
@@ -64,7 +64,7 @@
   </tbody>
 </table></div>
 {% else %}
-<p class="muted">등록된 주제가 없습니다.</p>
+<div class="empty"><p class="muted">이 분야에 등록된 주제가 없어요. 위의 "주제 추가"로 더해 보세요.</p></div>
 {% endif %}
 {% endfor %}
 {% endblock %}

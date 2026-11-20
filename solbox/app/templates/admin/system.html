@@ -2,38 +2,45 @@
 {% from "_macros.html" import page_header %}
 {% block title %}시스템{% endblock %}
 {% block content %}
-{{ page_header("시스템", crumbs=[("관리", none), ("시스템", none)]) }}
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-<div class="tablewrap"><table>
-  <tbody>
-    <tr><th>버전</th><td>{{ version }}</td></tr>
-    <tr><th>데이터 폴더</th><td><code class="path">{{ data_dir }}</code> ({{ data_size }})</td></tr>
-    <tr><th>최근 백업</th><td>
+{{ page_header("시스템", crumbs=[("관리", none), ("시스템", none)], sub="서버 상태와 점검할 것을 한눈에 봅니다. 문제가 있는 줄에는 할 일이 함께 나옵니다.") }}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% macro row(label, tone, state, guide=none) %}
+<li class="check-row"><div class="cr-label">{{ label }}</div><div class="cr-body"><span class="badge tone-{{ tone }}">{{ state }}</span><div class="cr-text">{{ caller() }}</div>{% if guide %}<p class="cr-guide muted">{{ guide }}</p>{% endif %}</div></li>
+{% endmacro %}
+<section class="card stack" aria-label="점검 목록">
+  <h2>상태 점검</h2>
+  <ul class="check-rows">
+    {% call row("버전", "slate", "정보") %}{{ version }}{% endcall %}
+    {% call row("데이터 폴더", "slate", "정보") %}<code class="path">{{ data_dir }}</code> ({{ data_size }}){% endcall %}
+    {% call row("최근 백업", "ok" if last_backup else "warn", "정상" if last_backup else "확인 필요", none if last_backup else "아직 백업이 없습니다. 아래 '지금 백업'을 눌러 첫 백업을 만들어 두세요.") %}
       {% if last_backup %}{{ last_backup.created_at.strftime("%Y-%m-%d %H:%M") }} — <code class="path">{{ last_backup.path }}</code>
       {% else %}백업 없음{% endif %}
-      <br><small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
-    </td></tr>
-    <tr><th>AI 작업</th><td>대기 {{ pending }}건, 진행 {{ running }}건</td></tr>
-    <tr><th>음성 받아쓰기</th><td>{{ transcriber }}</td></tr>
-    <tr><th>다음 조사 예정</th><td>
+      <small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
+    {% endcall %}
+    {% call row("AI 작업", "warn" if (pending + running) else "ok", "대기 있음" if (pending + running) else "한가함") %}대기 {{ pending }}건, 진행 {{ running }}건{% endcall %}
+    {% call row("음성 받아쓰기", "slate", "설정", none) %}{{ transcriber }}{% endcall %}
+    {% call row("다음 조사 예정", "ok" if next_run else "slate", "예약됨" if next_run else "꺼짐", none if next_run else "자동 조사를 켜려면 '리서치 설정'에서 실행 주기를 켜세요.") %}
       {% if next_run %}{{ next_run.strftime("%Y-%m-%d %H:%M") }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
-    </td></tr>
-    <tr><th>최근 AI 오류</th><td>
+    {% endcall %}
+    {% call row("최근 AI 오류", "bad" if last_failed else "ok", "오류 있음" if last_failed else "없음", "아래 'AI 연결 확인'으로 지금 연결이 되는지 확인해 보세요." if last_failed else none) %}
       {% if last_failed %}{{ last_failed.finished_at.strftime("%Y-%m-%d %H:%M") if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
       {% else %}없음{% endif %}
-    </td></tr>
-  </tbody>
-</table></div>
+    {% endcall %}
+  </ul>
+</section>
 
-<section class="card">
+<div class="twocol">
+<section class="card stack">
 <h2>AI 연결 확인</h2>
+<p class="muted help">다른 AI 작업이 진행 중이면 그 작업이 끝난 뒤에 확인합니다.</p>
 <form method="post" action="/admin/system/ai-check"><button type="submit">AI 연결 확인</button></form>
-<p class="muted"><small>다른 AI 작업이 진행 중이면 그 작업이 끝난 뒤에 확인합니다.</small></p>
 {% include "admin/_ai_check.html" %}
 </section>
 
-<section class="card">
+<section class="card stack">
 <h2>백업</h2>
+<p class="muted help">데이터 폴더를 백업 폴더에 복사해 둡니다. 매일 자동으로도 만들어집니다.</p>
 <form method="post" action="/admin/system/backup"><button type="submit">지금 백업</button></form>
 </section>
+</div>
 {% endblock %}

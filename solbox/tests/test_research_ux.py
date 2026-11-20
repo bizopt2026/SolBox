@@ -52,7 +52,7 @@ def test_trend_summary_shows_link_count_and_needs_check(user_client, db, setting
     run = finished_run(db, settings)
     page = user_client.get(f"/research/runs/{run.id}").text
     assert "링크 1개" in page and "링크 0개" in page
-    summary = re.search(r"<summary[^>]*>[^<]*<strong>출처 없는 동향</strong>.*?</summary>", page, re.S).group(0)
+    summary = re.search(r"<summary[^>]*>[^<]*<strong class=.trend-title.>출처 없는 동향</strong>.*?</summary>", page, re.S).group(0)
     assert "근거 문제" in summary  # 출처 없음은 근거 문제(C1)
 
 

@@ -99,7 +99,7 @@ def test_outline_superseded_does_not_write(app, user_client, db, settings, fake_
 def test_detail_has_outline_controls(app, user_client, db, settings, fake_claude):
     p = refining_proposal(db, settings)
     html = user_client.get(f"/proposals/{p.id}").text
-    assert f'action="/proposals/{p.id}/outline"' in html and "제안서 만들기" in html
+    assert f'action="/proposals/{p.id}/outline"' in html and "구성안 만들기" in html
     fake_claude.set(mode="ok", result=json.dumps(sample_outline(8), ensure_ascii=False))
     user_client.post(f"/proposals/{p.id}/outline")
     _run(app, settings)

@@ -1,16 +1,16 @@
 {% from "_macros.html" import source_chip, pill %}
 <li class="trend">
   <details class="trend-card suggestion"{% if s.index < 3 %} open{% endif %}>
-    <summary>{{ pill("suggestion_kind", s.kind) }} <strong>{{ s.title }}</strong></summary>
+    <summary><span class="trend-badges">{{ pill("suggestion_kind", s.kind) }}</span><strong class="trend-title">{{ s.title }}</strong></summary>
     <div class="card-body">
-      {% if s.detail %}<div>{{ s.detail }}</div>{% endif %}
+      {% if s.detail %}<p class="trend-summary">{{ s.detail }}</p>{% endif %}
       {% if s.reason %}<div class="muted">{{ ont.term("reason") }}: {{ s.reason }}</div>{% endif %}
       {% if s.sources %}<div><span class="muted">{{ ont.term("source") }}:</span> <span class="chips">{% for p in s.sources %}{{ source_chip(src, p) }}{% endfor %}</span></div>{% endif %}
       {% if s.kind == "push" %}
         {% for sol in s.solutions %}<div>솔루션: <a href="/solutions/{{ sol.id }}">{{ sol.name }}</a></div>{% endfor %}
       {% else %}
       {% set reg = registered.get(suggest.id ~ ":suggestion:" ~ s.index) %}
-      {% if reg %}<div class="muted">후보로 등록됨: <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></div>
+      {% if reg %}<p class="trend-reg"><span class="badge tone-ok">후보로 등록됨</span> <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></p>
       {% else %}
       <form method="post" action="/research/runs/{{ run.id }}/candidate" class="inline-form">
         <input type="hidden" name="source" value="suggestion"><input type="hidden" name="report_id" value="{{ suggest.id }}"><input type="hidden" name="index" value="{{ s.index }}">

@@ -9,14 +9,14 @@
   {% if first and proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %}
   <p class="chat-divider muted">이전 방향에서 나눈 대화 (새 방향에는 반영되지 않습니다)</p>
   {% endif %}
-  <div class="chat-msg {{ m.role }}{% if proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %} old{% endif %}"><span class="chat-who">{{ "사용자" if m.role == "user" else "AI" }}</span>{% if m.role == "user" %}{{ m.content }}{% else %}<div class="md">{{ m.content | md }}</div>{% endif %}</div>
+  <div class="chat-msg {{ m.role }}{% if proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %} old{% endif %}"><span class="chat-who">{{ "나" if m.role == "user" else "AI" }}{% if m.created_at %} · {{ m.created_at.strftime("%m-%d %H:%M") }}{% endif %}</span>{% if m.role == "user" %}{{ m.content }}{% else %}<div class="md">{{ m.content | md }}</div>{% endif %}</div>
 {% endmacro %}
 {% set msgs = proposal.messages | list %}
 {% set older = msgs[:-6] if msgs | length > 6 else [] %}
 {% set recent = msgs[older | length:] %}
 <div id="chat-live" class="chat-live" data-state="{{ state }}"
   {% if state in ("pending", "running") %}hx-get="/proposals/{{ proposal.id }}/chat/live" hx-trigger="every {{ '1s' if state == 'running' else '2s' }}" hx-swap="outerHTML"{% endif %}>
-<div class="chat-list">
+<div class="chat-list" data-chat-scroll>
   {% if older %}
   <details class="more">
     <summary>이전 대화 {{ older | length }}개 보기</summary>
@@ -24,7 +24,7 @@
   </details>
   {% endif %}
   {% for m in recent %}{{ msg(m, loop.first and not older) }}{% else %}
-  {% if not older %}<p class="muted">선택한 방향에 대해 범위, 강조점, 솔루션 추가·제외를 말해 보세요.</p>{% endif %}
+  {% if not older %}<div class="empty chat-empty"><p class="muted">선택한 방향에 대해 범위, 강조점, 솔루션 추가·제외를 말해 보세요.</p><p class="muted">예: "예산이 5천만원 이하라면?", "1단계에서 뺄 솔루션은?"</p></div>{% endif %}
   {% endfor %}
   {% if state == "pending" %}
   {% set ahead = queue_ahead(job) %}
@@ -50,13 +50,15 @@
   {% endif %}
 </div>
 {% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
-<form method="post" action="/proposals/{{ proposal.id }}/chat" class="stack" id="chat-form">
-  <label>메시지<textarea name="message" rows="3" required{% if active %} disabled aria-describedby="chat-wait"{% endif %}></textarea></label>
-  {% if active %}<p id="chat-wait" class="muted">{{ "답변이 끝나면 이어서 물을 수 있어요" if chat_job else "AI 작업이 끝나면 이어서 물을 수 있어요" }}</p>{% endif %}
-  <div><button type="submit"{% if proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>보내기</button></div>
+<form method="post" action="/proposals/{{ proposal.id }}/chat" class="composer" id="chat-form">
+  <label class="sr-only" for="chat-message">메시지</label>
+  <textarea id="chat-message" name="message" rows="2" required placeholder="범위, 강조점, 솔루션 추가·제외를 말해 보세요"{% if active %} disabled aria-describedby="chat-wait"{% endif %}></textarea>
+  <button type="submit"{% if proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>보내기</button>
+  {% if active %}<p id="chat-wait" class="composer-note muted">{{ "답변이 끝나면 이어서 물을 수 있어요" if chat_job else "AI 작업이 끝나면 이어서 물을 수 있어요" }}</p>{% endif %}
 </form>
-<form method="post" action="/proposals/{{ proposal.id }}/outline">
-  <button type="submit"{% if not proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>제안서 만들기</button>
+<form method="post" action="/proposals/{{ proposal.id }}/outline" class="chat-next">
+  <span class="muted">대화를 마쳤다면</span>
+  <button type="submit"{% if not proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>{{ "구성안 다시 만들기" if proposal.outline else "구성안 만들기" }}</button>
 </form>
 </div><!--/chat-live-->
 {% else %}

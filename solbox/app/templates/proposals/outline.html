@@ -1,36 +1,45 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, source_chip, check_badge %}
+{% from "_macros.html" import page_header, source_chip, check_badge, pill %}
 {% block title %}구성안 · {{ title }}{% endblock %}
 {% block content %}
-{{ page_header("구성안 검토·수정", crumbs=[("제안", "/proposals"), (title, "/proposals/" ~ proposal.id), ("구성안", none)]) }}
-<section class="card" id="deck">
-  <h2>제안서</h2>
+{{ page_header("구성안 검토·수정", crumbs=ui.crumbs("proposal", title, "/proposals/" ~ proposal.id, "구성안"), sub="슬라이드를 열어 고치고, 확인할 점을 하나씩 체크하세요.", status=pill("proposal_status", proposal.status)) }}
+{% if busy %}<p class="error" role="alert">AI 작업이 진행 중입니다. 끝난 뒤에 수정하세요.</p>{% endif %}
+<div class="outline-bar">
+  <div class="outline-summary">
+    <p class="ob-total"><strong>{{ cards | length }}장</strong>{% if proposal.outline_updated_at %} <span class="muted">· 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}</span>{% endif %}</p>
+    <p class="check-summary">
+      <span class="count-evidence">근거 문제 {{ summary.evidence }}장</span> · <span class="count-decide">확인할 점 {{ summary.decide }}장</span> · <span class="count-done">확인 끝 {{ summary.done }}장</span>
+    </p>
+  </div>
+  <div class="outline-tools">
+    <button type="button" class="small remaining-toggle" aria-pressed="false" hidden>남은 장만 보기</button>
+    <span class="toggle-slides" hidden>
+      <button type="button" class="small" data-open="1">모두 펼치기</button>
+      <button type="button" class="small" data-open="0">모두 접기</button>
+    </span>
+  </div>
+</div>
+<section class="card stack" id="deck">
+  <div class="card-head"><h2>제안서</h2></div>
   {% include "proposals/_deck.html" %}
 </section>
-{% if busy %}<p class="error" role="alert">AI 작업이 진행 중입니다. 끝난 뒤에 수정하세요.</p>{% endif %}
-<div class="outline-summary">
-  <p class="muted">{{ cards | length }}장{% if proposal.outline_updated_at %} · 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</p>
-  <p class="check-summary">
-    <span class="count-evidence">근거 문제 {{ summary.evidence }}장</span> · <span class="count-decide">확인할 점 {{ summary.decide }}장</span> · <span class="count-done">확인 끝 {{ summary.done }}장</span>
-    <button type="button" class="small remaining-toggle" aria-pressed="false" hidden>남은 장만 보기</button>
-  </p>
-  <span class="toggle-slides" hidden>
-    <button type="button" class="small" data-open="1">모두 펼치기</button>
-    <button type="button" class="small" data-open="0">모두 접기</button>
-  </span>
-</div>
+<div class="slide-list">
 {% for card in cards %}
 {% set s = card.slide %}
 {% set st = card.state %}
 <details class="card slide-card{% if st.level != "clear" %} check-{{ st.level }}{% endif %}" id="slide-{{ card.index }}"{% if st.level != "clear" %} data-remaining="1"{% endif %}{% if open_index == card.index %} open{% endif %}>
   <summary class="slide-summary">
-    <strong class="slide-no">{{ card.index + 1 }}</strong>
-    <span class="badge tone-slate">{{ slide_kinds.get(s.kind, s.kind) }}</span>
-    <h2 class="slide-title">{{ s.title or "(제목 없음)" }}</h2>
-    {% if s.key_message %}<span class="slide-msg muted">{{ s.key_message }}</span>{% endif %}
-    {% if st.evidence %}<span class="badge tone-bad">근거 문제 {{ st.evidence }}</span>{% endif %}
-    {% if st.decide %}<span class="badge tone-warn">확인할 점 {{ st.decide }}</span>{% endif %}
-    {% if not st.evidence and not st.decide and st.done %}<span class="badge tone-slate">확인 끝</span>{% endif %}
+    <span class="slide-no" aria-label="{{ card.index + 1 }}번 슬라이드">{{ card.index + 1 }}</span>
+    <span class="slide-main">
+      <h2 class="slide-title">{{ s.title or "(제목 없음)" }}</h2>
+      {% if s.key_message %}<span class="slide-msg muted">{{ s.key_message }}</span>{% endif %}
+    </span>
+    <span class="slide-badges">
+      <span class="badge tone-slate">{{ slide_kinds.get(s.kind, s.kind) }}</span>
+      {% if st.evidence %}<span class="badge tone-bad">근거 문제 {{ st.evidence }}</span>{% endif %}
+      {% if st.decide %}<span class="badge tone-warn">확인할 점 {{ st.decide }}</span>{% endif %}
+      {% if not st.evidence and not st.decide and st.done %}<span class="badge tone-ok">확인 끝</span>{% endif %}
+    </span>
   </summary>
   <div class="slide-body">
   {% if not busy and card.index > 0 %}
@@ -90,7 +99,7 @@
   </div>
   {% endif %}
   {% if not busy %}
-  <details>
+  <details class="slide-edit">
     <summary>편집</summary>
     {% include "proposals/_slide_form.html" %}
   </details>
@@ -103,5 +112,6 @@
   </div>
 </details>
 {% endfor %}
+</div>
 {% if not can_add %}<p class="muted">슬라이드는 14장까지 만들 수 있습니다.</p>{% endif %}
 {% endblock %}

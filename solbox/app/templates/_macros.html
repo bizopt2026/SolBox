@@ -17,7 +17,7 @@
   {% if proposals %}
   <ul>
     {% for p in proposals %}
-    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> <span class="muted">{{ labels.PROPOSAL_STATUSES.get(p.status, p.status) }}</span></li>
+    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> {{ pill("proposal_status", p.status) }}</li>
     {% endfor %}
   </ul>
   {% else %}<p class="muted">제안 건이 없습니다.</p>{% endif %}
@@ -257,7 +257,7 @@
 {# 정리한 이유와 붙는 파일 이름 #}
 {% macro plan_meta(card) %}
 {% if card.item.reason %}<p class="plan-reason"><strong>이렇게 정리한 이유</strong> {{ card.item.reason }}</p>{% endif %}
-{% if card.files %}<p class="muted">{{ ont.INTAKE_ITEM_KINDS[ontology.INTAKE_ITEM_UNPLACED] if card.item.kind == ontology.INTAKE_ITEM_UNPLACED else "붙는 파일" }}: {% for n, name in card.files %}{{ n }}번 {{ name }}{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+{% if card.files %}<p class="chips plan-attached"><span class="muted">{{ ont.INTAKE_ITEM_KINDS[ontology.INTAKE_ITEM_UNPLACED] if card.item.kind == ontology.INTAKE_ITEM_UNPLACED else "붙는 파일" }}</span>{% for n, name in card.files %}<span class="chip">{{ n }}번 {{ name }}</span>{% endfor %}</p>{% endif %}
 {% endmacro %}
 
 {# 솔루션 자료 종류(소개/스펙/관련)를 파일마다 고르는 칸 #}

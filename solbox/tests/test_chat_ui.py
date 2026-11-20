@@ -123,7 +123,7 @@ def test_top_status_is_compact_and_does_not_poll_for_chat(user_client, db, setti
     p = refining_proposal(db, settings)
     _chat_job(db, p, "running", result="부분 답변", started_ago=3)
     html = _page(user_client, p)
-    top = html.split('<div id="ai-status">', 1)[1].split('<div class="row status-row">', 1)[0]
+    top = html.split('<div id="ai-status">', 1)[1].split('<div class="dgrid pgrid">', 1)[0]
     assert "부분 답변" not in top and "hx-get" not in top and 'href="#chat"' in top
 
 

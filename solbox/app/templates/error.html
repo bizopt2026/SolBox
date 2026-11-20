@@ -1,9 +1,19 @@
 {% extends "base.html" %}
 {% block title %}오류{% endblock %}
 {% block content %}
-<section class="card auth-card error-card" role="alert">
+{% set hint = {404: "주소가 바뀌었거나 이미 지워진 항목일 수 있어요. 목록에서 다시 찾아보세요.", 403: "이 화면은 관리자만 열 수 있거나 다른 사람이 올린 항목이에요. 필요하면 관리자에게 알려 주세요.", 400: "입력한 내용이나 주소를 한 번 더 확인해 주세요."}.get(code | default(0), "잠시 뒤에 다시 해 보세요. 계속 안 되면 관리자에게 알려 주세요.") %}
+<section class="card auth-card error-card stack" role="alert">
+  {% if code is defined and code %}<p class="error-code" aria-hidden="true">{{ code }}</p>{% endif %}
   <h1>{{ title }}</h1>
-  <p class="error">{{ message }}</p>
-  <p><a class="button primary" href="/">처음 화면으로 돌아가기</a></p>
+  {% if message != title %}<p class="error">{{ message }}</p>{% endif %}
+  <p class="muted">{{ hint }}</p>
+  <div class="row">
+    {% if user %}
+    <a class="button primary" href="/">홈으로</a>
+    <a class="button" href="/search">검색하기</a>
+    {% else %}
+    <a class="button primary" href="/login">로그인</a>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

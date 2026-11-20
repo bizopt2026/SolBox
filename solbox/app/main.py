@@ -133,7 +133,7 @@ def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Respon
     message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
     if request.headers.get("HX-Request"):
         return PlainTextResponse(message, status_code=exc.status_code, headers=exc.headers)
-    response = render(request, "error.html", status_code=exc.status_code, message=message, title=error_title(exc.status_code))
+    response = render(request, "error.html", status_code=exc.status_code, message=message, title=error_title(exc.status_code), code=exc.status_code)
     for key, value in (exc.headers or {}).items():
         response.headers[key] = value
     return response

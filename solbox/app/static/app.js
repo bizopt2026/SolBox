@@ -91,6 +91,16 @@
     var first = live();
     var prev = first ? first.dataset.state : null;
     var following = false;
+    // 대화 카드는 높이를 제한하고 안쪽만 스크롤한다 (스크립트가 없으면 쪽이 그냥 길어진다). 늘 가장 새 메시지에서 시작
+    var pin = function () {
+      var box = document.querySelector("[data-chat-scroll]");
+      if (!box) return;
+      box.classList.add("chat-scroll");
+      box.scrollTop = box.scrollHeight;
+    };
+    pin();
+    var chatSection = document.getElementById("chat");
+    if (chatSection) chatSection.addEventListener("toggle", function () { if (chatSection.open) pin(); });
     document.body.addEventListener("htmx:beforeSwap", function () {
       var el = live();
       if (!el) return;
@@ -101,6 +111,7 @@
       var el = live();
       if (!el) return;
       var state = el.dataset.state;
+      pin();
       var msgs = el.querySelectorAll(".chat-msg");
       var last = msgs[msgs.length - 1];
       var finished = waiting(prev) && !waiting(state);

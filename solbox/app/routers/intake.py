@@ -99,9 +99,14 @@ def upload_context(request: Request, db: Session) -> dict:
                 transcriber_ready=transcribe.get(settings).available(), ai_problem=ai_problem(db))
 
 
+def _recent(db: Session, user: User, limit: int = 5) -> list[Intake]:
+    """올리기 화면 옆에 보이는 내가 최근 올린 묶음."""
+    return list(db.scalars(select(Intake).where(Intake.created_by_id == user.id).order_by(Intake.id.desc()).limit(limit)))
+
+
 @router.get("/new")
 def new_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return render(request, "intake/new.html", user=user, error="", note="", **upload_context(request, db))
+    return render(request, "intake/new.html", user=user, error="", note="", recent=_recent(db, user), **upload_context(request, db))
 
 
 @router.post("")
@@ -113,7 +118,7 @@ def create(
 
     def again(error: str):
         return render(request, "intake/new.html", status_code=400, user=user, error=error, note=note,
-                      **upload_context(request, db))
+                      recent=_recent(db, user), **upload_context(request, db))
 
     if len(note.strip()) > intake_lib.MAX_NOTE:
         return again(NOTE_TOO_LONG)

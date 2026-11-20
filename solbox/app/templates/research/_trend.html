@@ -1,9 +1,9 @@
 {% from "_macros.html" import check_badge %}
 <li class="trend">
   <details class="trend-card">
-    <summary><strong>{{ t.headline }}</strong> <span class="muted">· 링크 {{ t.sources | length }}개</span>{% set notes = check_items(t.needs_check) %}{% if notes %} {{ check_badge(notes[0].kind) }}{% endif %}</summary>
+    <summary><strong class="trend-title">{{ t.headline }}</strong>{% set notes = check_items(t.needs_check) %}<span class="trend-badges"><span class="muted">링크 {{ t.sources | length }}개</span>{% if notes %}{{ check_badge(notes[0].kind) }}{% endif %}</span></summary>
     <div class="card-body">
-      {% if t.summary %}<div>{{ t.summary }}</div>{% endif %}
+      {% if t.summary %}<p class="trend-summary">{{ t.summary }}</p>{% endif %}
       {% if t.sources %}
       <ul class="sources">
         {% for s in t.sources %}
@@ -11,9 +11,9 @@
         {% endfor %}
       </ul>
       {% endif %}
-      {% for it in notes %}<div>{{ check_badge(it.kind) }} {{ it.text }}</div>{% endfor %}
+      {% for it in notes %}<p class="trend-check">{{ check_badge(it.kind) }} {{ it.text }}</p>{% endfor %}
       {% set reg = registered.get(report.id ~ ":trend:" ~ t.index) %}
-      {% if reg %}<div class="muted">후보로 등록됨: <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></div>
+      {% if reg %}<p class="trend-reg"><span class="badge tone-ok">후보로 등록됨</span> <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></p>
       {% else %}
       <form method="post" action="/research/runs/{{ run.id }}/candidate" class="inline-form">
         <input type="hidden" name="source" value="trend"><input type="hidden" name="report_id" value="{{ report.id }}"><input type="hidden" name="index" value="{{ t.index }}">
