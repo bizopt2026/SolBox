@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>오답노트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
+<!--KATEX_CSS-->
+<style>
+:root{
+  --bg:#FAF8F3;--surface:#FFFFFF;--ink:#1C2333;--muted:#4A5262;--line:#E6E1D6;--chip:#EFEBE2;
+  --primary:#1F5F4A;--primary-ink:#FFFFFF;--primary-soft:#E4EFE9;
+  --board:#1F3A33;--chalk:#F3F1E8;--chalk-dim:#A9BDB4;--marker:#F2C14E;
+  --ok:#1E3FA8;--ok-soft:#E3EAFB;--bad:#8A3209;--bad-soft:#FBEDE5;--warn-soft:#FDF1D3;--warn-ink:#6A4100;
+  --stripe1:#EEEAE0;--stripe2:#E4DFD2;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181D;--surface:#1E232A;--ink:#ECEAE4;--muted:#A9B0BC;--line:#323843;--chip:#262C34;
+    --primary:#3F9C7C;--primary-ink:#0E1A15;--primary-soft:#1F3A31;
+    --board:#16302A;--chalk:#F3F1E8;--chalk-dim:#93A89F;--marker:#F2C14E;
+    --ok:#8EAAF5;--ok-soft:#1E2A47;--bad:#F2A07A;--bad-soft:#3A2419;--warn-soft:#3A2F14;--warn-ink:#F2D58E;
+    --stripe1:#262C34;--stripe2:#2E353E;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181D;--surface:#1E232A;--ink:#ECEAE4;--muted:#A9B0BC;--line:#323843;--chip:#262C34;
+  --primary:#3F9C7C;--primary-ink:#0E1A15;--primary-soft:#1F3A31;
+  --board:#16302A;--chalk:#F3F1E8;--chalk-dim:#93A89F;--marker:#F2C14E;
+  --ok:#8EAAF5;--ok-soft:#1E2A47;--bad:#F2A07A;--bad-soft:#3A2419;--warn-soft:#3A2F14;--warn-ink:#F2D58E;
+  --stripe1:#262C34;--stripe2:#2E353E;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans KR',system-ui,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overflow-x:hidden}
+#app{max-width:520px;margin:0 auto;min-height:100vh;position:relative}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<!--KATEX_JS-->
+<!--APP_JS-->
+</body>
+</html>
