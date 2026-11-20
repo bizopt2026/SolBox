@@ -76,6 +76,6 @@ MEMO>>>
 
 - 신규 솔루션 후보(`solutions`): `name` 솔루션 이름, `summary` 한 줄 소개, `description` 자세한 설명, `tags` 태그(5개 이내), `partner` 공급하는 회사 이름(모르면 빈 문자열).
 - `additions`: `solution_id` 는 위 목록의 `id` 숫자이고, `note` 는 더할 자료에 대한 짧은 메모입니다.
-- `contacts`: `target_type` 은 `partner` 또는 `customer`, `target_id` 는 위 목록의 `id` 숫자입니다. `person` 담당자 이름, `role` 직책, `phone` 전화, `email` 이메일, `address` 주소, `note` 그 밖에 덧붙일 말(모르면 빈 문자열)이고, 자료에 적힌 대로만 쓰세요. 이 항목은 저장할 때 대상의 연락처 칸에 한 줄로 덧붙여질 뿐 기존 내용은 그대로 남습니다.
+- `contacts`: `target_type` 은 `partner` 또는 `customer`, `target_id` 는 위 목록의 `id` 숫자입니다. `person` 담당자 이름, `role` 직책·부서, `phone` 전화, `email` 이메일, `address` 주소이고, 자료에 적힌 대로만 쓰세요. 연락처에는 사람 이름, 직책·부서, 전화, 이메일, 주소만 담습니다. `note` 는 그 연락처가 누구의 것인지 알아보게 하는 짧은 말(예: "대표번호", "구매 담당")에만 쓰고, 명함의 슬로건, 제품 설명, 회사 소개 문구는 쓰지 마세요(없으면 빈 문자열). 이 항목은 저장할 때 대상의 연락처 칸에 한 줄로 덧붙여질 뿐 기존 내용은 그대로 남습니다.
 - `activities`: `draft.kind` 는 `meeting`(회의), `partner`(파트너 미팅), `tapping`(고객 태핑), `survey`(수요조사), `other`(기타) 중 하나입니다. `date` 는 `YYYY-MM-DD` 이고 자료에 없으면 오늘 날짜입니다. `follow_ups[].due` 는 모르면 빈 문자열입니다. `mentions` 에는 자료에 나온 솔루션·고객·기존 사업·파트너 이름을 씁니다.
 - 해당하는 것이 없는 목록은 빈 배열 `[]` 로 두세요.

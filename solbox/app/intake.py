@@ -335,6 +335,7 @@ def _raw_text(settings: Settings | None, intake: Intake, number: int, f: IntakeF
 
 CONTACT_FIELDS = ("person", "role", "phone", "email", "address", "note")
 USABLE_CONTACT_FIELDS = ("person", "phone", "email", "address")  # 이 중 하나는 있어야 덧붙일 연락처다
+CONTACT_NOTE_PLAN_CAP = 60  # 정리안에서 연락처 메모는 이 글자 수까지만 (줄 하나가 너무 길어지지 않게)
 CONTACT_CAPS = {"person": 100, "role": 100, "phone": 100, "email": 100, "address": 200, "note": 200}  # 칸마다 글자 수 제한
 
 
@@ -380,6 +381,8 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
                 **{f: _flat(fields.get(f, ""))[:CONTACT_CAPS[f]].strip() for f in CONTACT_FIELDS}}
         if not any(item[f] for f in USABLE_CONTACT_FIELDS):
             return
+        if len(item["note"]) > CONTACT_NOTE_PLAN_CAP:
+            item["note"] = item["note"][:CONTACT_NOTE_PLAN_CAP - 1].rstrip() + "…"
         same = (target_type, target_id, normalize_name(item["person"]), _digits_only(item["phone"]), item["email"].lower())
         if same in contacts:
             _merge_into(contacts[same], item, ("role", "address", "note", "reason"))
@@ -762,10 +765,21 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
             v["new_options"][rel] = [(n, n in checked) for n in candidates] + [(n, True) for n in checked if n not in candidates]
         v["new_names"] = {f"new_{rel}": [n for n, on in opts if on] for rel, opts in v["new_options"].items()}
         v["fu_rows"] = [{"task": t, "owner": o, "due": d_} for t, o, d_ in _rows(v["fu_task"], v["fu_owner"], v["fu_due"])]
+        flagged = {d["row"] for d in item.get("dup_follow_ups", []) if isinstance(d.get("row"), int)}
+        v["fu_drop"] = {n for n in (_digits(x) for x in (fields.many(f"{key}__fu_drop") if use else [])) if n in flagged}
         v["ds_rows"] = [{"customer": c, "content": t} for c, t in _rows(v["ds_customer"], v["ds_content"])]
         v["selected"] = {t: [n for n in (_digits(i) for i in v[f"{t}_ids"]) if n is not None]
                          for t in ("solution", "customer", "business", "partner")}
     return v
+
+
+def kept_follow_up_positions(item: dict, v: dict) -> list[int]:
+    """폼의 후속 조치 줄 번호(위치) 중 저장할 것. `v["fu_drop"]` 은 정리안에서 표시된 행 번호(빈 할 일을 뺀 줄 순서가
+    아니라 초안의 행 번호)이므로, 표시된 행이 폼에서 몇 번째 줄인지 정리안의 초안으로 센다."""
+    rows = (item.get("draft") or {}).get("follow_ups", [])
+    drop_positions = {sum(1 for r in rows[:n] if str(r.get("task", "")).strip()) for n in v.get("fu_drop", ())
+                      if n < len(rows) and str(rows[n].get("task", "")).strip()}
+    return [i for i in range(len(v["fu_task"])) if i not in drop_positions]
 
 
 def _rows(*columns: list[str]) -> list[tuple[str, ...]]:
@@ -814,7 +828,7 @@ def plain_lines(md: str, count: int = 3) -> list[str]:
     return lines
 
 
-_SIG_SKIP = {"skip", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "selected", "new_names"}
+_SIG_SKIP = {"skip", "fu_drop", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "selected", "new_names"}
 
 
 def _signature(v: dict) -> dict:
@@ -893,6 +907,9 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
                   for i in (intake.plan or {}).get("items", []) if i.get("kind") == "activity"}
         b["dup_of"] = {str(d.get("task", "")).strip(): titles.get(d.get("of"), "") for d in item.get("dup_follow_ups", [])}
         b["dup_tasks"] = dups
+        now = {r["task"].strip() for r in v["fu_rows"]}
+        b["dup_rows"] = [{"row": d["row"], "task": str(d.get("task", "")).strip(), "checked": d["row"] in v["fu_drop"]}
+                         for d in item.get("dup_follow_ups", []) if str(d.get("task", "")).strip() in now]
         b["dup_count"] = sum(1 for r in v["fu_rows"] if r["task"].strip() in dups)
     elif kind == "new_solution":
         b["title"] = v["name"].strip() or "(이름 없음)"
@@ -1272,6 +1289,10 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     for item, v in chosen:
         if item["kind"] != "activity":
             continue
+        keep = kept_follow_up_positions(item, v)
+
+        def pick(column: list[str], keep=keep) -> list[str]:
+            return [column[i] if i < len(column) else "" for i in keep]
         a = Activity(created_by_id=user.id, raw_text=v["raw_text"].strip())
         db.add(a)
         ids = {t: [i for i in v[f"{t}_ids"] if run.existing_id(model, i) is not None] for t, (model, _) in records.LINK_TYPES.items()}
@@ -1282,7 +1303,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
                     ids[t].append(str(obj.id))
         records.apply_activity_fields(
             db, user, a, kind=v["kind"], date_=v["date"], title=v["title"], raw_text=v["raw_text"].strip(), summary_md=v["summary_md"],
-            fu_task=v["fu_task"], fu_owner=v["fu_owner"], fu_due=v["fu_due"], fu_done=[],
+            fu_task=pick(v["fu_task"]), fu_owner=pick(v["fu_owner"]), fu_due=pick(v["fu_due"]), fu_done=[],
             ds_customer=v["ds_customer"], ds_content=v["ds_content"],
             solution_ids=ids["solution"], customer_ids=ids["customer"], business_ids=ids["business"], partner_ids=ids["partner"],
             new_solutions=v["new_names"]["new_solutions"], new_customers=v["new_names"]["new_customers"],

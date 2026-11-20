@@ -176,7 +176,7 @@ def test_contact_fields_are_capped_and_invisible_marks_removed(app, user_client,
     db.commit()
     it = ready_bundle(db, settings, [CARD], contacts=[_c(p, note="N" * 5000, person="P" * 500, phone="1" * 300)])
     item = it.plan["items"][0]
-    assert len(item["note"]) == 200 and len(item["person"]) == 100 and len(item["phone"]) == 100
+    assert len(item["note"]) == 60 and len(item["person"]) == 100 and len(item["phone"]) == 100
     form = form_from_page(user_client, it)
     form["ct1__address"] = ["A" * 100000 + "​‮"]
     form["ct1__role"] = ["R" * 1000]

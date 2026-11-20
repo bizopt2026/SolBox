@@ -322,6 +322,11 @@ sup a { padding:0 2px; text-decoration:none; font-weight:600; }
 .dir-more dt { margin-top:8px; font-size:13px; }
 .dir-more dd ul { padding-left:18px; margin:0; }
 .dir-more .checklist { padding-left:0; }
+.dir-more dd { white-space:normal; }
+details.dir-rest { margin-top:4px; }
+details.dir-rest > summary { cursor:pointer; color:var(--accent); font-size:13px; }
+details.dir-rest[open] > summary { margin-bottom:4px; }
+details.dir-rest > ul { margin-top:0; }
 
 /* 좁은 화면: 누르는 곳은 높이 36px 이상 */
 @media (max-width: 900px) {
@@ -439,3 +444,7 @@ html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
 @media (max-width: 480px) {
   .topbar nav > a, .topbar .menu summary { min-height:40px; }
 }
+
+/* 올리기 확인: 접힌 요약에서 비슷한 할 일을 바로 빼는 체크 */
+.plan-item .plan-dup-drop { display:flex; flex-direction:column; gap:2px; margin:0 0 8px; }
+.plan-item .plan-dup-drop label.check { align-items:flex-start; overflow-wrap:anywhere; }

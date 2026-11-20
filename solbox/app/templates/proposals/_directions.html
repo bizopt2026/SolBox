@@ -3,6 +3,9 @@
 {% set busy = job is not none and job.status in ("pending", "running") %}
 {% set directions = proposal.directions or [] %}
 {% set confirm_change = "return confirm('방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다. 계속할까요?')" if proposal.outline else "" %}
+{% set FOLD = 5 %}
+{% macro rationale_li(ev, i) %}<li>{{ ev.text }}{% for n in ev.refs %}<sup><a href="#d{{ i }}-src-{{ n }}">{{ n }}</a></sup>{% endfor %}{% if not ev.refs %} <span class="badge evidence">출처 없음</span>{% endif %}</li>{% endmacro %}
+{% macro check_li(it) %}<li class="{{ it.kind }}">{{ check_badge(it.kind) }}<span class="check-text">{{ it.text }}</span></li>{% endmacro %}
 {% macro card(d, i, expanded=False) %}
   {% set num = number_sources(d) %}
   {% set checks = check_items(d.needs_check) %}
@@ -25,7 +28,10 @@
         {% endif %}
         {% if num.rationale %}
         <dt>맞는 이유</dt>
-        <dd><ul>{% for ev in num.rationale %}<li>{{ ev.text }}{% for n in ev.refs %}<sup><a href="#d{{ i }}-src-{{ n }}">{{ n }}</a></sup>{% endfor %}{% if not ev.refs %} <span class="badge evidence">출처 없음</span>{% endif %}</li>{% endfor %}</ul></dd>
+        <dd>
+          <ul>{% for ev in num.rationale[:FOLD] %}{{ rationale_li(ev, i) }}{% endfor %}</ul>
+          {% if num.rationale | length > FOLD %}<details class="dir-rest"><summary>나머지 {{ num.rationale | length - FOLD }}개 더 보기</summary><ul>{% for ev in num.rationale[FOLD:] %}{{ rationale_li(ev, i) }}{% endfor %}</ul></details>{% endif %}
+        </dd>
         {% endif %}
         {% if d.effects %}
         <dt>기대 효과</dt>
@@ -33,7 +39,10 @@
         {% endif %}
         {% if checks %}
         <dt>확인이 필요한 점</dt>
-        <dd><ul class="checklist">{% for it in checks %}<li class="{{ it.kind }}">{{ check_badge(it.kind) }}<span class="check-text">{{ it.text }}</span></li>{% endfor %}</ul></dd>
+        <dd>
+          <ul class="checklist">{% for it in checks[:FOLD] %}{{ check_li(it) }}{% endfor %}</ul>
+          {% if checks | length > FOLD %}<details class="dir-rest"><summary>나머지 {{ checks | length - FOLD }}개 더 보기</summary><ul class="checklist">{% for it in checks[FOLD:] %}{{ check_li(it) }}{% endfor %}</ul></details>{% endif %}
+        </dd>
         {% endif %}
         {% if num.sources %}
         <dt>출처</dt>

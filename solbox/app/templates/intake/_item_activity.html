@@ -8,6 +8,11 @@
     · 후속 조치 {{ b.fu_count }} · 수요 단서 {{ b.ds_count }}
     {% if b.dup_count %}<span class="badge decide">비슷한 할 일 {{ b.dup_count }}건 확인</span>{% endif %}
   </p>
+  {% if b.dup_rows %}
+  <div class="plan-dup-drop">
+    {% for d in b.dup_rows %}<label class="check"><input type="checkbox" name="{{ k }}__fu_drop" value="{{ d.row }}"{% if d.checked %} checked{% endif %}> 이 할 일 빼기: {{ d.task }}</label>{% endfor %}
+  </div>
+  {% endif %}
   {% if b.lines %}<ul class="plan-lines">{% for line in b.lines %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
   {% if b.linked or b.new_names %}
   <p class="chips plan-links">
