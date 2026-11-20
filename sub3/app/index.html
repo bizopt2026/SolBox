@@ -1504,8 +1504,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.7.1",APP_RELEASED="2026-11-20";
+var APP_VERSION="1.7.2",APP_RELEASED="2026-11-20";
 var VLOG=[
+ ["1.7.2","2026-11-20","AI 코치 추천 질문 바로 보내기","AI 코치에서 추천 질문을 누르면 입력창에 남지 않고 바로 질문이 보내져요. 입력창에 글을 쓰던 중(키보드가 열린 상태)에 눌러도 한 번에 보내져요."],
  ["1.7.1","2026-11-20","오늘 탭 요약 줄을 다시 맨 위로","목표·워치 연동·날씨·컨디션 요약 줄과 시작하기를 오늘 탭 맨 위(날짜 줄 위) 원래 자리로 되돌렸어요. 가이드 안내 문구도 '맨 위 요약 줄'로 맞췄어요."],
  ["1.7.0","2026-11-20","디자인 정리: 오늘 훈련 먼저 · 선 아이콘 · 남색과 레이스 오렌지","오늘 탭은 대회 임박 카드와 오늘 훈련을 맨 위로 올리고, 목표·워치·날씨·컨디션 요약 줄과 시작하기는 훈련 카드 아래로 옮겼어요. 로그인 안내는 한 줄로 줄였어요. 화면의 이모지를 한 가지 선 아이콘으로 바꾸고, 강조색을 보라에서 레이스 오렌지로, 장식 그라데이션은 걷어냈어요. 놓친 날은 빨간 '놓침' 대신 회색 '건너뜀'으로, 입력 칸 예시는 '예: 168'처럼 보여요. 최소 글자 12px, 훈련표 주 이름 줄바꿈, 머리글에 앱 이름 '써브쓰리'와 목표 기록, 저장 상태는 점 하나로. AI 코치 추천 질문은 깔끔한 목록으로, 끌어서 요일 바꾸기 안내는 한 줄로 줄였어요."],
  ["1.6.6","2026-11-20","앱 이름을 써브쓰리로","앱 이름을 'Sub-3 훈련 체크'에서 '써브쓰리'로 바꿨어요. 브라우저 제목, 상단 머리글, 캘린더 알림, 인스타 스토리, 공유 카드에 새 이름이 보여요."],
@@ -2918,7 +2919,8 @@ function vCoach(){
     if(VOICE.kb){clearTimeout(VOICE.kbT);VOICE.kbT=setTimeout(function(){var q=ta.value.trim();if(VOICE.kb&&q&&q!==(VOICE.kbStart||"").trim()&&!COACH.busy){VOICE.kb=false;ta.blur();coachAsk(q)}},2500)}};
   ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById("co-form").requestSubmit()}};
   document.getElementById("co-form").onsubmit=function(e){e.preventDefault();var q=ta.value.trim();if(q&&!COACH.busy)coachAsk(q)};
-  view.querySelectorAll("[data-q]").forEach(function(b){b.onclick=function(){if(!COACH.busy)coachAsk(b.dataset.q)}});
+  // a suggested question is sent right away: keep the input focused on press so the keyboard closing cannot shift the bar and swallow the tap
+  view.querySelectorAll("[data-q]").forEach(function(b){b.onpointerdown=function(e){if(e.pointerType!=="mouse")e.preventDefault()};b.onclick=function(e){e.preventDefault();if(COACH.busy)return;var q=b.dataset.q;COACH.draft="";ta.value="";ta.blur();coachAsk(q)}});
   var st=document.getElementById("co-stop");if(st)st.onclick=function(){if(COACH.ctl)COACH.ctl.abort()};
   var cl=document.getElementById("co-clear");if(cl)cl.onclick=function(){if(COACH.busy)return;S.coachPrev=(S.coach||[]).slice(-20);S.coach=[];save();render();toast("새 대화를 시작했어요 · 이전 대화는 위 버튼으로 다시 열 수 있어요")};
   var cpv=document.getElementById("co-prev");if(cpv)cpv.onclick=function(){S.coach=S.coachPrev||[];S.coachPrev=[];save();render()};
