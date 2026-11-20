@@ -10,6 +10,7 @@ const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
 export const FILES = [
   'src/grades.js',
   'src/review.js',
+  'src/answer.js',
   'src/main.js'
 ];
 
