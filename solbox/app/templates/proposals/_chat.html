@@ -1,6 +1,10 @@
 {% if proposal.selected_index is not none and proposal.directions and proposal.selected_index < proposal.directions | length %}
 {% set job = proposal.active_job %}
-{% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
+{% set active = job is not none and job.status in ontology.JOB_ACTIVE %}
+{% set chat_job = job is not none and job.kind == "proposal_chat" %}
+{% set last = proposal.messages[-1] if proposal.messages else none %}
+{% set failed = chat_job and job.status == "failed" and last is not none and last.role == "user" %}
+{% set state = ("pending" if job.status == "pending" else "running") if chat_job and active else "failed" if failed else "busy" if active else "idle" %}
 {% macro msg(m, first) %}
   {% if first and proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %}
   <p class="chat-divider muted">이전 방향에서 나눈 대화 (새 방향에는 반영되지 않습니다)</p>
@@ -10,6 +14,8 @@
 {% set msgs = proposal.messages | list %}
 {% set older = msgs[:-6] if msgs | length > 6 else [] %}
 {% set recent = msgs[older | length:] %}
+<div id="chat-live" class="chat-live" data-state="{{ state }}"
+  {% if state in ("pending", "running") %}hx-get="/proposals/{{ proposal.id }}/chat/live" hx-trigger="every {{ '1s' if state == 'running' else '2s' }}" hx-swap="outerHTML"{% endif %}>
 <div class="chat-list">
   {% if older %}
   <details class="more">
@@ -20,17 +26,39 @@
   {% for m in recent %}{{ msg(m, loop.first and not older) }}{% else %}
   {% if not older %}<p class="muted">선택한 방향에 대해 범위, 강조점, 솔루션 추가·제외를 말해 보세요.</p>{% endif %}
   {% endfor %}
+  {% if state == "pending" %}
+  {% set ahead = queue_ahead(job) %}
+  <div class="chat-msg assistant live pending" role="status"><span class="chat-who">AI</span>
+    <p><strong>대기 중</strong>{% if ahead.count %} · 앞에 AI 작업 {{ ahead.count }}개{% endif %}</p>
+    {% if ahead.lines %}<ul class="ahead">{% for line in ahead.lines %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+    <p class="muted">앞 작업이 끝나면 자동으로 시작합니다. 이 화면을 떠나도 됩니다.</p>
+    <noscript><p class="muted">이 화면은 저절로 바뀌지 않아요. <a href="/proposals/{{ proposal.id }}#chat">새로 고침</a>으로 상태를 확인하세요.</p></noscript>
+  </div>
+  {% elif state == "running" %}
+  <div class="chat-msg assistant live running"><span class="chat-who">AI</span>
+    {% if job.result %}<div class="md">{{ job.result | md }}</div>{% else %}<p class="muted">답변을 쓰는 중…</p>{% endif %}
+    <p class="live-meta"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> <span class="muted">{% if job.result %}작성 중{% else %}보통 1분 안에 끝납니다{% endif %}{% if job.started_at %} · {{ labels.elapsed_text(job.started_at) }}{% endif %}</span></p>
+    <noscript><p class="muted">이 화면은 저절로 바뀌지 않아요. <a href="/proposals/{{ proposal.id }}#chat">새로 고침</a>으로 답변을 확인하세요.</p></noscript>
+  </div>
+  {% elif state == "failed" %}
+  <div class="chat-msg assistant live failed" role="alert"><span class="chat-who">AI</span>
+    <p class="error">{{ labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+    <form method="post" action="/proposals/{{ proposal.id }}/chat/retry"><button type="submit" class="small">다시 시도</button></form>
+    <p class="muted">내 메시지는 그대로 남아 있어요. 다시 시도하거나 아래에 다른 말로 물어볼 수 있어요.</p>
+    {% if job.error %}<details class="more"><summary>자세한 오류</summary><pre class="error-detail">{{ job.error }}</pre></details>{% endif %}
+  </div>
+  {% endif %}
 </div>
 {% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
-{% if not busy %}
-<form method="post" action="/proposals/{{ proposal.id }}/chat" class="stack">
-  <label>메시지<textarea name="message" rows="3" required></textarea></label>
-  <div><button type="submit"{% if proposal.outline %} class="primary"{% endif %}>보내기</button></div>
+<form method="post" action="/proposals/{{ proposal.id }}/chat" class="stack" id="chat-form">
+  <label>메시지<textarea name="message" rows="3" required{% if active %} disabled aria-describedby="chat-wait"{% endif %}></textarea></label>
+  {% if active %}<p id="chat-wait" class="muted">{{ "답변이 끝나면 이어서 물을 수 있어요" if chat_job else "AI 작업이 끝나면 이어서 물을 수 있어요" }}</p>{% endif %}
+  <div><button type="submit"{% if proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>보내기</button></div>
 </form>
 <form method="post" action="/proposals/{{ proposal.id }}/outline">
-  <button type="submit"{% if not proposal.outline %} class="primary"{% endif %}>제안서 만들기</button>
+  <button type="submit"{% if not proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>제안서 만들기</button>
 </form>
-{% endif %}
+</div><!--/chat-live-->
 {% else %}
 <p class="muted">제안 방향을 선택하면 대화로 구체화할 수 있습니다.</p>
 {% endif %}

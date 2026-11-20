@@ -190,8 +190,25 @@ def status(
         return Response("제안 건이 없습니다.", headers={"HX-Redirect": "/proposals"})
     job = proposal.active_job
     if job is not None and job.status in ontology.JOB_ACTIVE:
-        return render(request, "proposals/_status.html", proposal=proposal, job=job, position=_position(db, proposal))
+        return render(request, "proposals/_status.html", proposal=proposal, job=job, position=_position(db, proposal), poll=True)
     return Response("작업이 끝났습니다.", headers={"HX-Redirect": f"/proposals/{proposal.id}"})
+
+
+@router.get("/{proposal_id}/chat/live")
+def chat_live(
+    proposal_id: int, request: Request,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """대화 구역 조각. 대기·진행 중에는 스스로 다시 부르고, 끝나면(완료·실패) 최종 모양과 함께 위쪽 안내·단계 표시줄·요약을
+    같은 응답으로 바꾼다 (쪽 전체를 새로 불러오지 않는다)."""
+    proposal = db.get(Proposal, proposal_id)
+    if proposal is None or not _has_selection(proposal):  # 지워졌거나 방향이 바뀌었다. 쪽을 새로 불러온다.
+        return Response("", headers={"HX-Redirect": "/proposals" if proposal is None else f"/proposals/{proposal.id}"})
+    finished = not _is_busy(proposal)
+    extra = {}
+    if finished:
+        extra = dict(steps=step_states(proposal), summaries=section_summaries(proposal, candidate_solutions(db, proposal)))
+    return render(request, "proposals/_chat_live.html", proposal=proposal, oob_done=finished, **extra)
 
 
 def _start(

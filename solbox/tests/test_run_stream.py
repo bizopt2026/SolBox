@@ -73,7 +73,7 @@ def test_stream_without_result_line_raises(settings, fake_claude):
     fake_claude.set(mode="stream", chunks=["가"], no_result=True)
     with pytest.raises(ClaudeError) as e:
         _runner(settings).run_stream("x", on_text=lambda t: None)
-    assert e.value.kind == "unknown"
+    assert e.value.kind == "bad_output"
 
 
 def test_stream_large_prompt_does_not_deadlock(settings, fake_claude):

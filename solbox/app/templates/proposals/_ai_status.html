@@ -1,0 +1,16 @@
+{% set job = proposal.active_job %}
+<div id="ai-status"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if job is not none and job.status in ontology.JOB_ACTIVE %}
+    {% include "proposals/_status.html" %}
+  {% elif job is not none and job.status == "failed" and job.kind == "proposal_chat" %}
+    <p class="error" role="alert">대화 답변을 만들지 못했어요. <a href="#chat">대화로 구체화</a>에서 다시 시도할 수 있어요.</p>
+  {% elif job is not none and job.status == "failed" %}
+    {% set retry_paths = {"proposal_directions": "directions", "proposal_chat": "chat/retry", "proposal_outline": "outline"} %}
+    <div class="error" role="alert">
+      <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+      {% if job.kind in retry_paths %}
+      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit">다시 시도</button></form>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

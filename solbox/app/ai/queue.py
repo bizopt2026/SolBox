@@ -43,6 +43,23 @@ def queue_position(db: Session, job: AIJob) -> int:
     return (ahead or 0) + 1
 
 
+def jobs_ahead(db: Session, job: AIJob) -> list[AIJob]:
+    """이 작업보다 앞서 있는 작업: 지금 도는 것(오래된 순)이 먼저, 그다음 이 작업보다 앞선 대기 작업(차례대로).
+    진행 중인 작업의 앞에는 아무것도 없다. 화면에 종류와 경과 시간만 보이려는 것이라 입력·요청자는 읽지 않는다."""
+    if job.status != "pending":
+        return []
+    running = list(db.scalars(
+        select(AIJob).where(AIJob.status == "running", AIJob.id != job.id).order_by(AIJob.started_at, AIJob.id)
+    ))
+    pending = list(db.scalars(
+        select(AIJob).where(
+            AIJob.status == "pending",
+            or_(AIJob.priority < job.priority, and_(AIJob.priority == job.priority, AIJob.id < job.id)),
+        ).order_by(AIJob.priority, AIJob.id)
+    ))
+    return running + pending
+
+
 def fail_stale_running(db: Session) -> int:
     result = db.execute(
         update(AIJob).where(AIJob.status == "running").values(

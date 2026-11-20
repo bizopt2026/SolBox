@@ -1,6 +1,8 @@
-{% set chat_running = job is defined and job.kind == "proposal_chat" and job.status == "running" %}
+{# 위쪽 진행 안내. 대화 답변 작업은 대화 구역이 스스로 갱신하므로 여기서는 한 줄 안내만 하고, 갱신은 하지 않는다 (poll 이 참일 때만, 곧 쪽을 새로 불러오는 옛 조각 요청용). #}
+{% set job = proposal.active_job %}
 <div id="proposal-status" class="job-status" role="status"
-  hx-get="/proposals/{{ proposal.id }}/status" hx-trigger="every {{ '1s' if chat_running else '2s' }}" hx-swap="outerHTML">
-  {% if proposal.active_job.status == "pending" %}AI 대기 {{ position }}번째 (앞 작업이 끝나면 시작합니다){% else %}AI가 작성 중입니다… {{ wait_detail(proposal.active_job) }}{% endif %}
-  {% if chat_running and job.result %}<div class="chat-msg assistant"><div class="md">{{ job.result | md }}</div></div>{% endif %}
+  {% if job.kind != "proposal_chat" or poll %}hx-get="/proposals/{{ proposal.id }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if job.kind == "proposal_chat" %}AI가 대화 답변을 만들고 있어요. <a href="#chat">대화로 구체화</a>에서 볼 수 있어요.
+  {% elif job.status == "pending" %}AI 대기 {{ position }}번째 (앞 작업이 끝나면 시작합니다){% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}
+  {% else %}AI가 작성 중입니다… {{ wait_detail(job) }}{% endif %}
 </div>

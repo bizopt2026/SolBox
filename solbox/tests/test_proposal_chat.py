@@ -87,16 +87,18 @@ def test_partial_text_write_failure_does_not_fail_job(app, user_client, db, sett
     assert _roles(p)[-1] == ("assistant", "끝")
 
 
-def test_status_fragment_shows_partial_answer(user_client, db, settings):
+def test_chat_fragment_shows_partial_answer_escaped_and_status_stays_compact(user_client, db, settings):
     p = refining_proposal(db, settings)
     job = AIJob(kind="proposal_chat", status="running", result="지금까지 <b>답변</b>", input={"proposal_id": p.id})
     db.add(job)
     db.flush()
     p.active_job_id = job.id
     db.commit()
-    r = user_client.get(f"/proposals/{p.id}/status")
+    r = user_client.get(f"/proposals/{p.id}/chat/live")
     assert "지금까지 &lt;b&gt;답변&lt;/b&gt;" in r.text and "<b>답변</b>" not in r.text
     assert "every 1s" in r.text
+    r = user_client.get(f"/proposals/{p.id}/status")  # 옛 쪽이 부르는 위쪽 안내: 한 줄만, 부분 답변은 없다
+    assert "지금까지" not in r.text and "every 2s" in r.text and "대화로 구체화" in r.text
     job.kind = "proposal_directions"
     db.commit()
     r = user_client.get(f"/proposals/{p.id}/status")

@@ -25,3 +25,23 @@ def wait_detail(job, now: datetime | None = None, expected: bool = True) -> str:
         parts.append(hint + " 끝납니다" if hint.endswith("안에") else hint)
     parts.append(elapsed_text(job.started_at, now))
     return "(" + " · ".join(parts) + ")"
+
+
+AHEAD_LIMIT = 3
+
+
+def ahead_lines(jobs, now: datetime | None = None, limit: int = AHEAD_LIMIT) -> list[str]:
+    """앞에 있는 작업을 평이한 말로: "리서치 분야 조사 진행 중 (3분 경과)", "올린 파일 정리 대기 중".
+    종류 이름과 경과 시간만 쓴다 (다른 사람의 작업 내용은 드러내지 않는다). 많으면 "외 n개"."""
+    lines = []
+    for job in list(jobs)[:limit]:
+        name = JOB_KINDS.get(job.kind, "AI 작업")
+        if job.status == "running" and job.started_at is not None:
+            lines.append(f"{name} 진행 중 ({elapsed_text(job.started_at, now)})")
+        elif job.status == "running":
+            lines.append(f"{name} 진행 중")
+        else:
+            lines.append(f"{name} 대기 중")
+    if len(jobs) > limit:
+        lines.append(f"외 {len(jobs) - limit}개")
+    return lines

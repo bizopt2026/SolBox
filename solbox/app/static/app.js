@@ -68,6 +68,39 @@
     reveal(hashId());
   }
 
+  // 제안 대화: 답을 기다리는 동안 갱신되는 대화 구역. 사용자가 보고 있던 위치를 존중하고, 끝나면 입력칸으로 돌아온다
+  (function () {
+    var live = function () { return document.getElementById("chat-live"); };
+    var waiting = function (state) { return state === "pending" || state === "running"; };
+    var first = live();
+    var prev = first ? first.dataset.state : null;
+    var following = false;
+    document.body.addEventListener("htmx:beforeSwap", function () {
+      var el = live();
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      following = r.top < window.innerHeight && r.bottom > 0 && r.bottom < window.innerHeight + 160; // 대화 끝이 보이는 자리에 있다
+    });
+    document.body.addEventListener("htmx:afterSettle", function () {
+      var el = live();
+      if (!el) return;
+      var state = el.dataset.state;
+      var msgs = el.querySelectorAll(".chat-msg");
+      var last = msgs[msgs.length - 1];
+      var finished = waiting(prev) && !waiting(state);
+      if (following && last) {
+        if (finished && state === "idle") last.scrollIntoView({ block: "start" }); // 새 답변의 첫머리부터
+        else last.scrollIntoView({ block: "nearest" });
+      }
+      if (finished) {
+        var ta = el.querySelector("textarea");
+        var a = document.activeElement;
+        if (ta && !ta.disabled && (!a || a === document.body || el.contains(a))) ta.focus({ preventScroll: true });
+      }
+      prev = state;
+    });
+  })();
+
   // 구성안: 확인이 남은 장만 보기
   document.querySelectorAll(".remaining-toggle").forEach(function (btn) {
     btn.hidden = false;

@@ -81,13 +81,25 @@ def _reap(proc: subprocess.Popen) -> None:
     """죽인 프로세스를 회수한다. 손자 프로세스가 파이프를 쥐고 있어도 멈추지 않는다."""
     try:
         proc.communicate(timeout=5)
-    except (subprocess.TimeoutExpired, ValueError):
+    except Exception:  # noqa: BLE001 - TimeoutExpired, 닫힌 파이프(ValueError, Windows 에서는 IndexError 도 가능)
         for pipe in (proc.stdin, proc.stdout, proc.stderr):
             try:
                 if pipe is not None:
                     pipe.close()
             except OSError:
                 pass
+        proc.wait()
+
+
+def _wait_after_readers(proc: subprocess.Popen) -> None:
+    """읽기·쓰기 스레드가 파이프를 모두 닫은 뒤 프로세스만 회수한다.
+
+    이미 닫힌 파이프에 `communicate` 를 부르면 플랫폼마다 다르게 깨질 수 있다 (Windows 는 파이프마다 읽기 스레드를 새로 띄워
+    닫힌 파일을 읽다 실패하고 Python 버전에 따라 IndexError 가 난다). 그래서 정상 종료 뒤에는 부르지 않는다."""
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
         proc.wait()
 
 
@@ -237,6 +249,7 @@ class ClaudeRunner:
         out_reader = threading.Thread(target=read_stdout, name="claude-stdout", daemon=True)
         threads = [writer, err_reader, out_reader]
         accumulated = ""
+        parsed_events = 0
         result_line: dict | None = None
         try:
             for t in threads:
@@ -258,6 +271,7 @@ class ClaudeRunner:
                     continue
                 if not isinstance(data, dict):
                     continue
+                parsed_events += 1
                 kind = data.get("type")
                 if kind == "result":
                     result_line = data
@@ -294,7 +308,7 @@ class ClaudeRunner:
                     except (OSError, ValueError):
                         pass
             else:
-                _reap(proc)
+                _wait_after_readers(proc)
 
         if timed_out:
             raise ClaudeError("timeout", f"{timeout_s}초 안에 끝나지 않았습니다.")
@@ -305,4 +319,13 @@ class ClaudeRunner:
                 and not result_line.get("is_error") and isinstance(result, str)):
             return result
         raw = (result if isinstance(result, str) else "") + "\n" + stderr
-        raise ClaudeError(classify_error(raw), raw.strip()[-500:] or "Claude 가 결과 없이 끝났습니다.")
+        if raw.strip():
+            raise ClaudeError(classify_error(raw), raw.strip()[-500:])
+        # 아무 글도 없이 끝났다. 조용히 빈 답으로 넘기지 않고 이유를 분명히 적는다.
+        if result_line is not None:
+            raise ClaudeError("bad_output", "Claude 가 결과 글 없이 끝났습니다.")
+        if proc.returncode == 0:
+            if parsed_events == 0:
+                raise ClaudeError("bad_output", "Claude 의 스트리밍 결과를 읽지 못했습니다 (알아볼 수 있는 이벤트가 없습니다).")
+            raise ClaudeError("bad_output", "Claude 가 최종 결과를 보내지 않고 끝났습니다.")
+        raise ClaudeError("unknown", f"Claude 가 결과 없이 끝났습니다 (종료 코드 {proc.returncode}).")

@@ -69,6 +69,11 @@ def main() -> int:
         sys.stderr.write(control.get("stderr", ""))
         return control.get("exit_code", 1)
     elif mode == "stream":
+        argv = sys.argv[1:]
+        plain_json = "--output-format" in argv and argv[argv.index("--output-format") + 1] == "json"
+        if plain_json and "json_result" in control:  # 스트리밍이 아닌 실행(대체 경로)이 받는 답
+            print(json.dumps({"type": "result", "is_error": False, "result": control["json_result"]}, ensure_ascii=False))
+            return 0
         return run_stream_mode(control, result)
     elif mode == "is_error":
         print(json.dumps({"type": "result", "is_error": True, "result": result}, ensure_ascii=False))

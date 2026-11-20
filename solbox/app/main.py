@@ -4,6 +4,7 @@ from __future__ import annotations
 import functools
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import labels, models, ontology, scheduler  # noqa: F401  (모델을 메타데이터에 등록)
-from app.ai.queue import fail_stale_running, start_workers, stop_workers
+from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
@@ -61,10 +62,26 @@ def _intake_ready_count(session_factory, user) -> int:
         return 0
 
 
+GENERIC_AHEAD_AFTER_S = 5  # 이만큼 기다리게 되면 일반 대기 안내에도 앞선 작업을 적는다
+
+
+def _queue_ahead(session_factory, job, min_wait_s: float = 0) -> dict:
+    """대기 안내용: 대기 중인 `job` 앞에 무엇이 있는지 {"count", "lines"}. 기다린 지 `min_wait_s` 초가 안 됐으면 비어 있다."""
+    empty = {"count": 0, "lines": []}
+    if job is None or job.status != "pending":
+        return empty
+    if min_wait_s and (datetime.now() - job.created_at).total_seconds() < min_wait_s:
+        return empty
+    with session_factory() as db:
+        ahead = jobs_ahead(db, job)
+    return {"count": len(ahead), "lines": labels.ahead_lines(ahead)} if ahead else empty
+
+
 def render(request: Request, template: str, status_code: int = 200, **ctx) -> HTMLResponse:
     """템플릿을 그린다. `user`, `labels` 는 항상 넣어 준다."""
     ctx.setdefault("user", getattr(request.state, "user", None))
     ctx.setdefault("labels", labels)
+    ctx.setdefault("queue_ahead", functools.partial(_queue_ahead, request.app.state.session_factory))
     ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.app.state.session_factory, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 

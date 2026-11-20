@@ -1,0 +1,5 @@
+{% include "proposals/_chat.html" %}
+{% if oob_done %}
+{% with oob=true %}{% include "proposals/_ai_status.html" %}{% include "proposals/_stepbar.html" %}{% endwith %}
+<span id="summary-chat" class="summary-line muted" hx-swap-oob="true">{{ summaries["chat"] }}</span>
+{% endif %}

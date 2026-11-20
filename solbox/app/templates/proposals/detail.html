@@ -14,34 +14,15 @@
   </div>
   {% endif %}
 </div>
-<nav class="stepbar" aria-label="제안 진행 단계">
-  <ol>
-    {% for st in steps %}
-    <li class="step {{ st.state }}{{ ' busy' if st.busy }}">{% if st.href %}<a href="{{ st.href }}"{% if st.state == "current" %} aria-current="step"{% endif %}>{% if st.state == "done" %}<span aria-hidden="true">✓ </span><span class="sr-only">끝남: </span>{% endif %}{{ st.label }}{% if st.busy %}<span class="busy-label">진행 중</span>{% endif %}</a>{% else %}<span aria-disabled="true">{{ st.label }}</span>{% endif %}</li>
-    {% endfor %}
-  </ol>
-</nav>
+{% include "proposals/_stepbar.html" %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
-{% set job = proposal.active_job %}
-<div id="ai-status">
-  {% if job is not none and job.status in ontology.JOB_ACTIVE %}
-    {% include "proposals/_status.html" %}
-  {% elif job is not none and job.status == "failed" %}
-    {% set retry_paths = {"proposal_directions": "directions", "proposal_chat": "chat/retry", "proposal_outline": "outline"} %}
-    <div class="error" role="alert">
-      <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
-      {% if job.kind in retry_paths %}
-      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit">다시 시도</button></form>
-      {% endif %}
-    </div>
-  {% endif %}
-</div>
+{% include "proposals/_ai_status.html" %}
 <div class="row status-row">
   <span>상태: <strong>{{ labels.PROPOSAL_STATUSES.get(proposal.status, proposal.status) }}</strong></span>
 </div>
 {% macro section(key, title, rebuild=False) %}
 <details class="card section" id="{{ key }}"{% if open_key == key %} open{% endif %}{% if rebuild %} data-rebuild{% endif %}>
-  <summary><h2>{{ title }}</h2><span class="summary-line muted">{{ summaries[key] }}</span></summary>
+  <summary><h2>{{ title }}</h2><span class="summary-line muted" id="summary-{{ key }}">{{ summaries[key] }}</span></summary>
   {{ caller() }}
 </details>
 {% endmacro %}

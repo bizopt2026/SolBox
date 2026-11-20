@@ -390,6 +390,8 @@ def open_section(p: Proposal) -> str:
     job = p.active_job
     if job is not None and job.status in ontology.JOB_ACTIVE and job.kind in _JOB_STEP:
         return _JOB_STEP[job.kind]
+    if job is not None and job.status == "failed" and job.kind == "proposal_chat" and p.messages and p.messages[-1].role == "user":
+        return "chat"  # 답변을 못 받은 대화: 실패 안내와 다시 시도가 거기 있다
     return _STATUS_STEP.get(p.status, "directions")
 
 

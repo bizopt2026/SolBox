@@ -200,6 +200,28 @@ def _recent_messages(db: Session, p: Proposal) -> list[ProposalMessage]:
     return list(db.scalars(stmt.order_by(ProposalMessage.id.desc()).limit(CHAT_HISTORY_LIMIT)))[::-1]
 
 
+STREAM_FALLBACK_KINDS = ("bad_output", "unknown")  # 인증·한도·네트워크·시간 초과는 다시 실행해도 같으니 대체 실행하지 않는다
+
+
+def _chat_answer(runner: ClaudeRunner, prompt: str, bind, job_id: int | None, timeout_s: int) -> str:
+    """실시간(스트리밍)으로 답을 받는다. 글이 한 글자도 오기 전에 스트리밍이 깨졌으면(CLI 버전·환경 문제 등) 한 번만
+    스트리밍 없는 실행으로 다시 받는다. 사용자는 실시간 타이핑만 못 볼 뿐 답을 받는다."""
+    writer = _partial_writer(bind, job_id)
+    got_text = [False]
+
+    def on_text(text: str) -> None:
+        got_text[0] = True
+        writer(text)
+
+    try:
+        return runner.run_stream(prompt, on_text=on_text, timeout_s=timeout_s)
+    except ClaudeError as e:
+        if got_text[0] or e.kind not in STREAM_FALLBACK_KINDS:
+            raise
+        log.warning("제안 채팅 스트리밍 실패, 스트리밍 없는 실행으로 대체합니다 (작업 %s, %s): %s", job_id, e.kind, e.message)
+    return runner.run(prompt, timeout_s=timeout_s)
+
+
 def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     p = db.get(Proposal, input.get("proposal_id"))
     if p is None:
@@ -227,8 +249,7 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
     )
     pid, job_id, bind = p.id, input.get("_job_id"), db.get_bind()
     db.rollback()  # 긴 실행 동안 읽기 트랜잭션을 잡고 있지 않는다
-    text = runner.run_stream(prompt, on_text=_partial_writer(bind, job_id), timeout_s=settings.ai_timeout_s)
-    text = text.strip()
+    text = _chat_answer(runner, prompt, bind, job_id, settings.ai_timeout_s).strip()
     if not text:
         raise ClaudeError("bad_output", "AI 답변이 비어 있습니다.")
     p = db.get(Proposal, pid)

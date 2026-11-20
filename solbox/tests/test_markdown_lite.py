@@ -64,7 +64,7 @@ def test_proposal_page_renders_assistant_markdown_not_user(user_client, db, sett
     assert "## 내 말\n**그대로**" in page
 
 
-def test_status_fragment_renders_markdown(user_client, db, settings):
+def test_chat_live_fragment_renders_markdown(user_client, db, settings):
     from app.models import AIJob
     p = refining_proposal(db, settings)
     job = AIJob(kind="proposal_chat", status="running", result="## 진행\n**중**", input={"proposal_id": p.id})
@@ -72,7 +72,7 @@ def test_status_fragment_renders_markdown(user_client, db, settings):
     db.flush()
     p.active_job_id = job.id
     db.commit()
-    page = user_client.get(f"/proposals/{p.id}/status").text
+    page = user_client.get(f"/proposals/{p.id}/chat/live").text  # 부분 답변은 대화 구역 조각에 나온다
     assert "<h5>진행</h5>" in page and "<strong>중</strong>" in page
 
 
