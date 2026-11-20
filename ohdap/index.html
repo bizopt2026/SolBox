@@ -172,6 +172,35 @@ textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
 .col-a.struck{text-decoration:line-through;text-decoration-color:var(--marker);text-decoration-thickness:3px;opacity:.6}
 .col-line{align-self:stretch;height:3px;background:currentColor;margin:4px 0}
 .col-result{font-weight:700}
+.board-screen{background:var(--board);color:var(--chalk);min-height:100vh;display:flex;flex-direction:column;padding-bottom:0}
+.board-screen .iconbtn{color:var(--chalk)}
+.board-pos{width:44px;text-align:center;font-size:13px;color:var(--chalk-dim)}
+.board-bars{display:flex;gap:4px;padding:0 20px}
+.board-bars span{flex:1;height:4px;border-radius:2px;background:rgba(243,241,232,.2)}
+.board-bars span.on{background:var(--marker)}
+.board-main{flex:1;padding:20px 24px;overflow-y:auto;max-height:calc(100vh - 330px)}
+.board-problem{margin:0 0 18px;font-size:14px;line-height:1.6;color:var(--chalk-dim)}
+.board-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.bstep{display:flex;align-items:baseline;gap:14px;padding:6px 10px;margin:0 -10px;border-radius:10px}
+.bstep.current{background:rgba(242,193,78,.12)}
+.bnum{font-size:14px;font-weight:700;color:var(--chalk-dim);flex:none}
+.bstep.current .bnum{color:var(--marker)}
+.btext{font-size:24px;line-height:1.5;font-family:'STIX Two Text',serif}
+.bstep.past .btext,.bstep.past .column-calc{color:var(--chalk-dim)}
+.bstep.current .btext{text-decoration:underline;text-decoration-color:var(--marker);text-decoration-thickness:3px;text-underline-offset:6px}
+.board-screen .col-mark{color:var(--marker)}
+.board-screen .col.focus{background:rgba(242,193,78,.16)}
+.caption-box{margin:0 16px;padding:16px;border-radius:14px;background:rgba(0,0,0,.28);display:flex;gap:10px;color:var(--marker)}
+.caption{margin:0;font-size:16px;line-height:1.65;color:var(--chalk);min-height:52px}
+.board-ctl{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 32px}
+.bctl{min-width:64px;height:44px;border-radius:999px;border:1px solid rgba(243,241,232,.35);background:transparent;color:var(--chalk);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer}
+.bctl.ghost{border:0}
+.bctl.round{min-width:52px;width:52px;height:52px;border:0;background:rgba(243,241,232,.12)}
+.bplay{width:72px;height:72px;border-radius:999px;border:0;background:var(--marker);color:#1C2333;display:flex;align-items:center;justify-content:center;cursor:pointer}
+body.kid .caption{font-size:18px}
+body.kid .bplay{width:84px;height:84px}
+body.kid .board-screen .col-a,body.kid .board-screen .col-b,body.kid .board-screen .col-result{font-size:46px;height:56px;line-height:56px}
+body.kid .board-screen .col{width:56px}
 /* kid mode: bigger type and targets */
 body.kid .lead,body.kid .mtext{font-size:18px}
 body.kid .muted{font-size:16px}
@@ -1411,7 +1440,112 @@ async function renderNote(ctx, params) {
     h('main', { class: 'page' }, body));
 }
 
+// ---- src/ui/screens/board.js
+
+
+
+
+const RATES = [0.8, 1, 1.25, 1.5];
+
+async function renderBoard(ctx, params) {
+  let solutions, backPath, problem;
+  if (params.sol === 'drill' && ctx.boardDrill) {
+    solutions = [{ title: ctx.boardDrill.title || '풀이', steps: ctx.boardDrill.steps }];
+    backPath = ctx.boardDrill.back || '/home';
+    problem = ctx.boardDrill.problem || '';
+  } else {
+    const note = await ctx.store.getNote(params.id);
+    if (!note || !note.result) { setTimeout(() => ctx.go('/home'), 0); return h('div', { class: 'screen' }); }
+    solutions = note.result.solutions;
+    backPath = '/note/' + note.id;
+    problem = note.problem;
+  }
+  const solIdx = Math.min(Math.max(0, Number(params.sol) || 0), solutions.length - 1);
+  const sol = solutions[solIdx];
+  const steps = sol.steps.length ? sol.steps : [{ board: '', say: '' }];
+  const says = steps.map((s) => s.say || s.board.replace(/\$/g, ''));
+  const st = { idx: 0, started: false, playing: false, rate: 1 };
+
+  const sp = createSpeaker({ tts: ctx.caps.tts, synth: browserSynth() });
+  ctx.onLeave(() => sp.stop());
+
+  const pos = h('span', { class: 'board-pos' });
+  const bars = h('div', { class: 'board-bars', 'aria-hidden': 'true' });
+  const list = h('ol', { class: 'board-steps' });
+  const caption = h('p', { class: 'caption', 'aria-live': 'polite' });
+  const playBtn = h('button', { class: 'bplay', onclick: togglePlay });
+  const rateBtn = h('button', { class: 'bctl rate', 'aria-label': '재생 속도', onclick: () => {
+    st.rate = RATES[(RATES.indexOf(st.rate) + 1) % RATES.length];
+    sp.setRate(st.rate);
+    if (st.playing && sp.mode !== 'tts') sp.play(says, st.idx, st.rate);
+    paint();
+  } });
+
+  function paint() {
+    pos.textContent = `${st.idx + 1}/${steps.length}`;
+    bars.textContent = '';
+    steps.forEach((_, i) => bars.appendChild(h('span', { class: i <= st.idx ? 'on' : '' })));
+    list.textContent = '';
+    steps.slice(0, st.idx + 1).forEach((s, i) => {
+      const cur = i === st.idx;
+      const li = h('li', { class: 'bstep' + (cur ? ' current' : ' past') }, h('span', { class: 'bnum' }, String(i + 1)));
+      if (s.visual) li.appendChild(renderColumn(s.visual, { marks: true, result: true, focus: cur }));
+      else { const b = h('span', { class: 'btext' }); b.innerHTML = renderMathText(s.board, window.katex); li.appendChild(b); }
+      list.appendChild(li);
+    });
+    const cur = list.lastElementChild;
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+    caption.textContent = says[st.idx];
+    playBtn.textContent = '';
+    playBtn.appendChild(icon(st.playing ? 'pause' : 'play', 30));
+    playBtn.setAttribute('aria-label', st.playing ? '멈추기' : '재생');
+    rateBtn.textContent = (st.rate === 1 ? '1.0' : String(st.rate)) + 'x';
+  }
+
+  sp.onLine((i) => { st.idx = i; paint(); });
+  sp.onEnd(() => { st.playing = false; st.started = false; paint(); });
+
+  function togglePlay() {
+    if (st.playing) { sp.pause(); st.playing = false; }
+    else if (st.started) { sp.resume(); st.playing = true; }
+    else {
+      if (st.idx >= steps.length - 1 && steps.length > 1) st.idx = 0;
+      st.started = true; st.playing = true;
+      sp.play(says, st.idx, st.rate);
+    }
+    paint();
+  }
+  function goStep(n) {
+    st.idx = Math.max(0, Math.min(steps.length - 1, n));
+    if (st.playing) sp.play(says, st.idx, st.rate);
+    else if (st.started) { sp.stop(); st.started = false; }
+    paint();
+  }
+
+  paint();
+  const other = solutions.length > 1
+    ? h('a', { class: 'bctl', href: `#/board/${params.id}/${(solIdx + 1) % solutions.length}`, 'aria-label': '다른 풀이' }, `풀이 ${((solIdx + 1) % solutions.length) + 1}`)
+    : h('span', { class: 'bctl ghost' });
+  return h('div', { class: 'screen board-screen' },
+    h('header', { class: 'top' },
+      h('a', { href: '#' + backPath, class: 'iconbtn', 'aria-label': '닫기' }, icon('close')),
+      h('h1', { class: 'top-title' }, solutions.length > 1 ? `풀이 ${solIdx + 1} · ${sol.title}` : sol.title),
+      pos),
+    bars,
+    h('main', { class: 'board-main' },
+      problem ? (() => { const p = h('p', { class: 'board-problem' }); p.innerHTML = renderMathText(problem, window.katex); return p; })() : null,
+      list),
+    h('div', { class: 'caption-box' }, icon('speaker', 20), caption),
+    h('div', { class: 'board-ctl' },
+      rateBtn,
+      h('button', { class: 'bctl round', 'aria-label': '이전 단계', onclick: () => goStep(st.idx - 1) }, icon('prev', 22)),
+      playBtn,
+      h('button', { class: 'bctl round', 'aria-label': '다음 단계', onclick: () => goStep(st.idx + 1) }, icon('next', 22)),
+      other));
+}
+
 // ---- src/main.js
+
 
 
 
@@ -1433,6 +1567,7 @@ function registerRoutes() {
   route('/upload', renderUpload);
   route('/confirm', renderConfirm);
   route('/note/:id', renderNote);
+  route('/board/:id/:sol', renderBoard);
 }
 
 async function boot() {

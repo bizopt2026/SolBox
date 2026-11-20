@@ -78,3 +78,28 @@ function makeAssets() {
   window.__assets = [];
   return { upload: async (blob) => { const id = 'a' + window.__assets.length; window.__assets.push({ id, type: blob.type, size: blob.size }); return { id, url: '/_blob/' + id, sizeBytes: blob.size, contentType: blob.type }; } };
 }
+
+function makeTts() {
+  window.__tts = { spoken: [], lineFns: [] };
+  window.__ttsLine = (id) => window.__tts.lineFns.forEach((f) => f({ line: 0, id: String(id) }));
+  return {
+    speak(lines, opts) { window.__tts.spoken.push({ lines, opts }); return new Promise(() => {}); },
+    onLine(fn) { window.__tts.lineFns.push(fn); return () => {}; },
+    onState() { return () => {}; },
+    pause() {}, resume() {}, stop() {}, setRate() {}
+  };
+}
+const KID_SOLUTION = {
+  answer: '236', answer_short: '236', why_wrong: '거꾸로 뺐어요.',
+  solutions: [{ title: '세로로 빼기', steps: [
+    { board: '$503-267$', say: '세로로 계산해요', visual: { type: 'column', op: '-', a: '503', b: '267', marks: {}, focus: [], result: '' } },
+    { board: '빌려 오기', say: '빌려 와요', visual: { type: 'column', op: '-', a: '503', b: '267', marks: { h: '4', t: '9', o: '13' }, focus: ['o'], result: '__6' } }
+  ] }],
+  concepts: [], mistakes: [], unit: '뺄셈', tags: []
+};
+function seedNote(id, result, extra) {
+  const n = Object.assign({ type: 'note', id, createdAt: '2026-11-20T00:00:00Z', grade: '중3', subject: '수학', unit: '이차방정식', tags: [], problem: '문제 ' + id, choices: [], myAnswer: '', memo: '', photoId: null, result, status: 'ready', stage: 0, due: '2026-11-21', starred: false }, extra || {});
+  const db = JSON.parse(localStorage.getItem('__mockdb') || '{}');
+  db['data/users/u1/' + id] = n;
+  localStorage.setItem('__mockdb', JSON.stringify(db));
+}

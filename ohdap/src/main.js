@@ -10,6 +10,7 @@ import { renderUpload } from './ui/screens/upload.js';
 import { renderConfirm } from './ui/screens/confirm.js';
 import { renderNote } from './ui/screens/note.js';
 import { solveDraft } from './ui/solve.js';
+import { renderBoard } from './ui/screens/board.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -20,6 +21,7 @@ function registerRoutes() {
   route('/upload', renderUpload);
   route('/confirm', renderConfirm);
   route('/note/:id', renderNote);
+  route('/board/:id/:sol', renderBoard);
 }
 
 export async function boot() {

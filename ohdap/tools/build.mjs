@@ -30,6 +30,7 @@ export const FILES = [
   'src/ui/columnview.js',
   'src/ui/solve.js',
   'src/ui/screens/note.js',
+  'src/ui/screens/board.js',
   'src/main.js'
 ];
 
