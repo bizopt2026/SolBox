@@ -1,4 +1,4 @@
-<title>Sub-3 훈련 체크</title>
+<title>써브쓰리</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1488,7 +1488,7 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 </style>
 
 <header class="top"><div class="wrap">
-  <div class="brand"><span id="brand-eb">Sub-3 · 2027.3.21</span><b>2:59:59 프로젝트</b></div>
+  <div class="brand"><span id="brand-eb">써브쓰리 · 2027.3.21</span><b>2:59:59 프로젝트</b></div>
   <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync" id="sync">불러오는 중</span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hcoach" id="h-coach" aria-label="AI 코치에게 물어보기" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>AI 코치</button><button type="button" class="hq" id="h-guide" aria-label="가이드">?</button></div>
 </div></header>
 
@@ -1508,8 +1508,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.6.5",APP_RELEASED="2026-11-19";
+var APP_VERSION="1.6.6",APP_RELEASED="2026-11-20";
 var VLOG=[
+ ["1.6.6","2026-11-20","앱 이름을 써브쓰리로","앱 이름을 'Sub-3 훈련 체크'에서 '써브쓰리'로 바꿨어요. 브라우저 제목, 상단 머리글, 캘린더 알림, 인스타 스토리, 공유 카드에 새 이름이 보여요."],
  ["1.6.5","2026-11-19","기준 미달 날 RPE 다시 고르기","워치가 RPE를 이미 넣은 기준 미달 날에도 RPE 선택 칸이 바로 열려요. 워치 값과 같아도 다시 고르면 점수가 매겨지고, 언제든 RPE를 다시 고르면 점수를 새로 계산해요."],
  ["1.6.4","2026-11-19","계획 거리 기준 미달 날 점수","계획 거리의 80%에 못 미친 날은 바로 점수를 매기지 않고, 오늘 강도(RPE)를 직접 입력하면 0점으로 기록해요. RPE를 넣기 전에는 '기준 미달 · RPE를 입력하면 점수' 안내가 보여요."],
  ["1.6.3","2026-11-19","두 번 이상 나눠 뛴 날 점수","포인트 훈련을 워치에서 두 번 이상 나눠 기록한 날, 첫 번째 기록의 랩만 보고 점수를 매기던 문제를 고쳤어요. 이제 그날 모든 기록의 랩을 합쳐 본 구간 페이스·반복 편차·심박을 평가해요."],
@@ -2286,7 +2287,7 @@ async function addCalReminder(){
     var mcp=window.claude&&window.claude.use?await window.claude.use("mcp"):null;
     if(!mcp){CAL.err=noMcpMsg("구글 캘린더");return}
     var d=nextSunday();
-    await mcp.callTool("Google Calendar","create_event",{summary:"⌚ 워치 기록 올리기 (Sub-3 훈련 체크)",description:"지난주 러닝 기록을 앱에 올려 주세요.\n"+appUrl(),startTime:d+"T21:00:00",endTime:d+"T21:10:00",recurrenceData:["RRULE:FREQ=WEEKLY;BYDAY=SU;UNTIL=20270321T235959Z"],overrideReminders:[{method:"popup",minutes:0}],availability:"AVAILABILITY_FREE"});
+    await mcp.callTool("Google Calendar","create_event",{summary:"⌚ 워치 기록 올리기 (써브쓰리)",description:"지난주 러닝 기록을 앱에 올려 주세요.\n"+appUrl(),startTime:d+"T21:00:00",endTime:d+"T21:10:00",recurrenceData:["RRULE:FREQ=WEEKLY;BYDAY=SU;UNTIL=20270321T235959Z"],overrideReminders:[{method:"popup",minutes:0}],availability:"AVAILABILITY_FREE"});
     S.calSet=Date.now();CAL.msg="구글 캘린더에 매주 일요일 21:00 알림을 등록했어요. 휴대폰 캘린더 앱에서 알림이 와요.";save();
   }catch(e){var c=e&&e.code;CAL.err=c==="server_not_connected"||c==="needs_reauth"?"구글 캘린더가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 Google Calendar를 연결한 뒤 다시 눌러 주세요.":c==="not_in_manifest"?"이 앱의 구글 캘린더 사용을 허용하지 않았어요. 앱의 권한 메뉴에서 허용해 주세요.":"등록하지 못했어요"+(e&&e.message?": "+e.message:".");CAL.msg=""}
   finally{CAL.busy=false;keepIf()}
@@ -3762,7 +3763,7 @@ function cwCourse(t,ds){
   if(!sec.length)return null;
   var nsp=sec.length;sec=cwLapSplit(sec);var lapped=sec.length!==nsp||sec.some(function(x,i){return x.intervalGroup&&x.sets.length===1});
   var nm=ptxt(t[1]).split("\n").map(function(x){return x.trim()}).filter(function(x){return x&&!/^\(.*\)$/.test(x)}).join(" · ").slice(0,100);
-  var d=md(ds)+" ("+DOW[(new Date(p(ds)).getUTCDay()+6)%7]+") Sub-3 훈련 체크 계획: "+ptxt(t[1]).replace(/\n+/g," / ")+". 페이스는 내 기준 설정에 맞춘 실제 페이스 범위예요."+(lapped?" 본 구간은 1km(긴 구간은 2km)마다 랩이 끊기도록 나눠서, 랩별 페이스·심박 변화를 분석할 수 있어요.":"")+(str?" 달린 뒤 근력 운동도 잊지 마세요.":"");
+  var d=md(ds)+" ("+DOW[(new Date(p(ds)).getUTCDay()+6)%7]+") 써브쓰리 계획: "+ptxt(t[1]).replace(/\n+/g," / ")+". 페이스는 내 기준 설정에 맞춘 실제 페이스 범위예요."+(lapped?" 본 구간은 1km(긴 구간은 2km)마다 랩이 끊기도록 나눠서, 랩별 페이스·심박 변화를 분석할 수 있어요.":"")+(str?" 달린 뒤 근력 운동도 잊지 마세요.":"");
   return{course:{sportType:1,courseName:nm||"러닝",courseDescription:d.slice(0,900),sections:sec},skip:skip};
 }
 function cwHash(c){var s=JSON.stringify(c),h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return String(h)}
@@ -4247,7 +4248,7 @@ function refreshEngine(){EG=engine();K=EG.on&&EG.k?EG.k:1;HRK=EG.on&&EG.lthr?EG.
   var G=EG.goal,b=document.querySelector(".brand b"),eb=document.getElementById("brand-eb");
   if(b)b.textContent=G?fmtT(G)+" 프로젝트":"2:59:59 프로젝트";
   var rd=dotDate(RACE);if(myPlanOn()){if(b&&S.myplan.goal)b.textContent=fmtT(S.myplan.goal)+" 프로젝트";if(eb)eb.textContent=(S.myplan.name||"나만의 계획")+" · "+rd;return}
-  if(eb)eb.textContent=G?"SUB-"+subLabel(G)+" · "+rd:"Sub-3 · "+rd}
+  if(eb)eb.textContent=G?"SUB-"+subLabel(G)+" · "+rd:"써브쓰리 · "+rd}
 function subLabel(G){var m=G%60===59?(G+1)/60:Math.ceil(G/60),h=Math.floor(m/60),mm=m%60;return mm?h+":"+String(mm).padStart(2,"0"):String(h)}
 function niceGoal(t){var m=Math.ceil(t/60);return m%5===0?m*60-1:m*60}
 function goalOptions(){
@@ -4490,7 +4491,7 @@ function raceText(rc){
     [["keys","꼭 지킬 것"],["warn","조심할 점"],["fuel","보급"]].forEach(function(x){if(rc.ai[x[0]]&&rc.ai[x[0]].length){L.push("","["+x[1]+"]");rc.ai[x[0]].forEach(function(t){L.push("· "+t)})}})}
   var r=rc.result;if(r){L.push("","[결과] "+fmtT(r.dur)+" · "+r.score+"/100점");r.parts.forEach(function(q){L.push("· "+q.k+" "+q.v+"/"+q.m+" — "+q.d)});
     if(r.ai&&r.ai.next&&r.ai.next.length){L.push("","[다음 레이스 유의사항]");r.ai.next.forEach(function(t){L.push("· "+t)})}}
-  L.push("","— Sub-3 훈련 체크");return L.join("\n");
+  L.push("","— 써브쓰리");return L.join("\n");
 }
 function copyText(t,ok,fail){function fb(){try{var ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();var r=document.execCommand("copy");document.body.removeChild(ta);r?ok():fail()}catch(e){fail()}}
   try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,fb);else fb()}catch(e){fb()}}
@@ -4570,7 +4571,7 @@ async function drawRaceInfo(rc){
   T("레이스 핵심",M,y,"700 26px "+FB,C.ink);y+=12;x.font="500 26px "+FB;
   for(var ti=0;ti<tips.length;ti++){var ls=wrapLines(x,tips[ti][1],W-2*M-50,2);if(y+44+(ls.length-1)*36>H-120)break;T(tips[ti][0],M,y+40,"800 26px "+FB,tips[ti][2]);ls.forEach(function(l,k){T(l,M+46,y+40+k*36,"500 26px "+FB,"#dbe1f0")});y+=ls.length*36+12}
   // footer
-  x.fillStyle=C.line;x.fillRect(M,H-100,W-2*M,2);T("Sub-3 훈련 체크",M,H-52,"800 24px "+FB,C.mut);T("통과 시간은 공식 km 표지판 기준",W-M,H-52,"500 22px "+FB,C.dim,"right");
+  x.fillStyle=C.line;x.fillRect(M,H-100,W-2*M,2);T("써브쓰리",M,H-52,"800 24px "+FB,C.mut);T("통과 시간은 공식 km 표지판 기준",W-M,H-52,"500 22px "+FB,C.dim,"right");
   return cv}
 async function openRaceInfo(rc){closeSheet();var o=document.createElement("div");o.id="dsheet";o.innerHTML='<div class="sh-bg" data-shx></div><div class="sh" role="dialog" aria-label="레이스 전략 인포그래픽"><div class="sh-grab"></div><div class="row between"><h2>인포그래픽</h2><button class="linkbtn" data-shx type="button">닫기</button></div><div class="rinfo-pv"><span class="skel">만드는 중…</span></div><div class="row" style="gap:8px;margin-top:12px"><button class="btn" id="ri-save" style="flex:1;background:var(--accent);color:var(--on-accent)" disabled>이미지 저장</button></div><p class="small muted" id="ri-msg" style="margin:6px 0 0">1080×1920 세로 이미지예요. 대회 날 잠금화면이나 스토리에 쓰기 좋아요.</p></div>';
   document.body.appendChild(o);o.querySelectorAll("[data-shx]").forEach(function(b){b.onclick=closeSheet});
@@ -5053,7 +5054,7 @@ function versionCard(){var cp=isCopyApp(),last=VLOG[0],dg=APP_VERSION.split(".")
   return h}
 function appUrl(){var u=CREW.settings&&CREW.settings.url;if(u&&/^https:\/\/claude\.ai\//.test(u))return u;try{var m=String(document.referrer||"").match(/^https:\/\/claude\.ai\/(?:code\/)?artifact\/[A-Za-z0-9_-]+/);if(m)return m[0]}catch(e){}return APP_URL0}
 function inviteMsg(){
-  return ["🏃 Sub-3 훈련 체크 앱 같이 써요!","마라톤 훈련표·페이스·식단·워치 기록을 한 곳에서 관리하는 앱이에요.","",
+  return ["🏃 써브쓰리 앱 같이 써요!","마라톤 훈련표·페이스·식단·워치 기록을 한 곳에서 관리하는 앱이에요.","",
     "👉 앱 링크",appUrl(),"",
     "[처음 사용 방법]",
     "1️⃣ 링크를 열고 claude.ai에 로그인 (계정 없으면 무료 가입)",
@@ -5068,7 +5069,7 @@ function inviteMsg(){
     "💡 복제하지 않고 링크로만 쓰면 워치 연동이 안 되고 기록이 그 기기에만 남아요.",
     "❓ 자세한 사용법은 앱 오른쪽 위 ? 가이드에 있어요."].join("\n")}
 function inviteLink(){var u=appUrl(),st=[["🔑","로그인"],["📋","복제"],["🔌","커넥터"],["⌚","워치"],["🎯","기준"]];
-  return '<div class="shhero"><span class="shapp" aria-hidden="true">🏃</span><div class="shid"><b>Sub-3 훈련 체크</b><small>훈련표 · 페이스 · 식단 · 워치 기록</small></div></div>'
+  return '<div class="shhero"><span class="shapp" aria-hidden="true">🏃</span><div class="shid"><b>써브쓰리</b><small>훈련표 · 페이스 · 식단 · 워치 기록</small></div></div>'
    +'<div class="shlink"><span class="shli" aria-hidden="true">🔗</span><span class="shu num">'+esc(u.replace(/^https:\/\//,""))+'</span><button type="button" class="shcp" data-copy-link aria-label="링크만 복사">복사</button></div>'
    +'<div class="shsteps" aria-label="함께 보내는 처음 사용 방법 5단계">'+st.map(function(x,k){return '<span><i>'+x[0]+'</i><small><b>'+(k+1)+'</b> '+x[1]+'</small></span>'}).join('')+'</div>'
    +'<button class="btn shmain" type="button" data-copy-inv><span class="shic" aria-hidden="true">💬</span><span class="shtx">링크 + 처음 사용 방법 복사</span></button>'
