@@ -9,7 +9,7 @@
 ## 게시와 사용
 
 - **보호자 claude.ai 계정으로 게시**하고 학생은 그 계정이 로그인된 기기에서 써요(claude.ai 계정은 만 18세 이상). 앱 하나 = 학생 한 명.
-- 아티팩트: (게시 후 주소를 여기에 적어요)
+- 아티팩트: https://claude.ai/artifact/HtbsY9Etd4woGQiqQud2TC
 - 게시 파일은 빌드 결과인 `index.html` 하나. 기능: `sample`(사진 읽기), `db`, `user`, `assets`, `tts`, `downloads`.
 
 ## 개발
