@@ -35,7 +35,8 @@ export function isDue(note, today) {
 }
 
 export function dueNotes(notes, today) {
-  return notes.filter((n) => isDue(n, today)).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+  const key = (n) => `${n.due}|${n.createdAt || ''}`;
+  return notes.filter((n) => isDue(n, today)).sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
 }
 
 export function stageLabel(note, today) {

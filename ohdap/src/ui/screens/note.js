@@ -96,7 +96,16 @@ export async function renderNote(ctx, params) {
         stages.map((s, i) => h('li', { class: i < note.stage ? 'done' : i === note.stage ? 'on' : '' }, h('span', { class: 'bar' }), s))),
       h('a', { class: 'btn primary big', href: `#/drill/${note.id}` }, w.drill),
       h('span', { class: 'muted center small' }, 'AI 풀이는 틀릴 수 있어요. 이상하면 아래에서 문제를 고쳐 다시 풀게 해 주세요.')));
-    body.push(h('div', { id: 'drill-history' }));
+    const hist = h('section', { class: 'sec drill-hist-sec' });
+    body.push(hist);
+    ctx.store.listDrills(note.id).then((ds) => {
+      if (!ds.length) return;
+      hist.append(h('h2', { class: 'h3' }, '지난 연습'), h('ul', { class: 'drill-hist' }, ds.slice(0, 10).map((d) => h('li', {},
+        h('a', { href: `#/drill/${note.id}/${d.id}` },
+          h('span', { class: d.correct ? 'got ok' : 'got bad' }, icon(d.correct ? 'check' : 'cross', 14), d.correct ? '맞음' : '틀림'),
+          h('span', { class: 'hist-text' }, String(d.problem || '').replace(/\$/g, '').slice(0, 40)),
+          h('span', { class: 'muted small' }, new Date(d.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })))))));
+    }).catch(() => {});
   }
 
   const fix = h('textarea', { class: 'input', rows: '3', 'aria-label': '문제 고치기' });
