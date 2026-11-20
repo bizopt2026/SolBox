@@ -205,6 +205,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
     app.state.templates.env.globals["kdate"] = lambda d: ui.short_date(d, date.today())  # "11월 24일" (올해가 아니면 연도도)
     app.state.templates.env.globals["ui"] = ui
+    app.state.templates.env.globals["error_field"] = ui.error_field
     app.state.templates.env.filters["first_line"] = ui.first_line
     app.state.templates.env.filters["md"] = render_markdown
 

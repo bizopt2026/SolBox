@@ -44,7 +44,7 @@ def detail_page(request: Request, db: Session, user: User, solution: Solution, n
         solution=solution, notice=notice,
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
         related=relations.related_for_page(db, solution, user),
-        can_delete=can_delete(user, solution), origin=origin.view(db, user, solution),
+        can_delete=can_delete(user, solution), origin=origin.view(db, user, solution), meta=ui.stamp_info(db, solution),
     )
 
 
@@ -91,8 +91,11 @@ def list_solutions(
 
 
 @router.get("/new")
-def new_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return _form_page(request, db, {**{f: "" for f in FIELDS}, "stage": ontology.STAGE_DEFAULT})
+def new_form(request: Request, partner_id: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """`?partner_id=` 는 파트너 화면의 "+ 솔루션 등록": 존재하는 파트너면 미리 골라 둔다."""
+    pid = partner_id.strip()
+    chosen = pid if pid.isdigit() and db.get(Partner, int(pid)) is not None else ""
+    return _form_page(request, db, {**{f: "" for f in FIELDS}, "stage": ontology.STAGE_DEFAULT, "partner_id": chosen})
 
 
 @router.post("")

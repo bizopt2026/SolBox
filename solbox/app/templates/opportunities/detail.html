@@ -1,34 +1,35 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, opportunity_badge %}
-{% from "_related.html" import related_card %}
+{% from "_macros.html" import detail_head, val, opportunity_badge, stage_stepper, meta_card %}
+{% from "_related.html" import related_card, lead_card %}
 {% block title %}{{ opp.name }}{% endblock %}
 {% block content %}
-{{ detail_head(opp.name, "/opportunities", opp, can_delete, crumbs=[(ont.label("opportunity"), "/opportunities"), (opp.name, None)]) }}
+{% set lead_keys = ["R26:customer_need", "R28:solution"] %}
+{% set lead = related | selectattr("key", "in", lead_keys) | list %}
+{% set rest = related | rejectattr("key", "in", lead_keys) | list %}
+{% set sub = [opp.customer.name, opp.bm.name if opp.bm else none] | select | join(" · ") %}
+{# 다음 동작: 수주하면 프로젝트로 전환(아직 전환 전일 때), 아니면 제안 만들기 #}
+{% set next = (ont.label("project") ~ "로 전환", "/opportunities/" ~ opp.id ~ "/convert") if can_convert else ("제안 만들기", "/proposals/new?customer_id=" ~ opp.customer_id ~ "&opportunity_id=" ~ opp.id) %}
+{{ detail_head(opp.name, "/opportunities", opp, can_delete, crumbs=ui.crumbs("opportunity", opp.name), sub=sub or none,
+               status=opportunity_badge(opp.stage), primary=next) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<section class="card">
-  <dl>
-    <dt>{{ ont.prop("opportunity", "customer") }}</dt><dd><a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a></dd>
-    <dt>{{ ont.prop("opportunity", "stage") }}</dt><dd>{{ opportunity_badge(opp.stage) }}</dd>
-    <dt>{{ ont.prop("opportunity", "bm") }}</dt><dd>{% if opp.bm %}<a href="/bms/{{ opp.bm_id }}">{{ opp.bm.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-    <dt>{{ ont.prop("opportunity", "project") }}</dt><dd>{% if opp.project %}<a href="/projects/{{ opp.project_id }}">{{ opp.project.name }}</a>{% elif can_convert %}<a class="button primary small" href="/opportunities/{{ opp.id }}/convert">{{ ont.label("project") }}로 전환</a> <span class="muted">수주했습니다. 프로젝트를 만들거나 기존 프로젝트를 이을 수 있습니다.</span>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-    <dt>{{ ont.prop("opportunity", "memo") }}</dt><dd>{{ val(opp.memo) }}</dd>
-  </dl>
-</section>
-<section class="card">
-  <h2>{{ ont.prop("opportunity", "stage") }}</h2>
-  <p class="sr-only">현재 단계: <strong>{{ ont.OPPORTUNITY_STAGES.get(opp.stage, opp.stage) }}</strong></p>
-  {% set flow = ont.OPPORTUNITY_FLOW %}
-  {% set at = flow.index(opp.stage) if opp.stage in flow else -1 %}
-  <form method="post" action="/opportunities/{{ opp.id }}/stage" class="stagebar">
-    <div class="steps">
-      {% for code in flow %}
-      <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at }}{{ ont.OPPORTUNITY_STAGES[code] }}</button>
-      {% endfor %}
-    </div>
-    {% for code in ont.OPPORTUNITY_SIDE_STAGES %}
-    <button type="submit" name="stage" value="{{ code }}" class="step sidestep {{ code }}{{ ' current' if opp.stage == code }}"{% if opp.stage == code %} aria-current="step" disabled{% endif %}>{{ ont.OPPORTUNITY_STAGES[code] }}</button>
-    {% endfor %}
-  </form>
-</section>
-{{ related_card(related, [(ont.label("customer_need") ~ " 고르기", "/opportunities/" ~ opp.id ~ "/edit"), ("+ 제안 만들기", "/proposals/new?customer_id=" ~ opp.customer_id ~ "&opportunity_id=" ~ opp.id)]) }}
+{{ stage_stepper("/opportunities/" ~ opp.id ~ "/stage", ont.OPPORTUNITY_FLOW, ont.OPPORTUNITY_STAGES, opp.stage, ont.OPPORTUNITY_SIDE_STAGES, ont.prop("opportunity", "stage")) }}
+<div class="dgrid">
+  <div class="dmain">
+    <section class="card stack">
+      <div class="card-head"><h2>기본 정보</h2></div>
+      <dl class="props">
+        <dt>{{ ont.prop("opportunity", "customer") }}</dt><dd><a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a></dd>
+        <dt>{{ ont.prop("opportunity", "stage") }}</dt><dd>{{ opportunity_badge(opp.stage) }}</dd>
+        <dt>{{ ont.prop("opportunity", "bm") }}</dt><dd>{% if opp.bm %}<a href="/bms/{{ opp.bm_id }}">{{ opp.bm.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+        <dt>{{ ont.prop("opportunity", "project") }}</dt><dd>{% if opp.project %}<a href="/projects/{{ opp.project_id }}">{{ opp.project.name }}</a>{% elif can_convert %}<a class="button primary small" href="/opportunities/{{ opp.id }}/convert">{{ ont.label("project") }}로 전환</a> <span class="muted">수주했습니다. 프로젝트를 만들거나 기존 프로젝트를 이을 수 있습니다.</span>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+        <dt>{{ ont.prop("opportunity", "memo") }}</dt><dd>{{ val(opp.memo) }}</dd>
+      </dl>
+    </section>
+    {% for g in lead %}{{ lead_card(g) }}{% endfor %}
+  </div>
+  <aside class="daside" aria-label="연결과 기록 정보">
+    {{ related_card(rest, [(ont.label("customer_need") ~ " 고르기", "/opportunities/" ~ opp.id ~ "/edit"), ("+ 제안 만들기", "/proposals/new?customer_id=" ~ opp.customer_id ~ "&opportunity_id=" ~ opp.id)]) }}
+    {{ meta_card(meta) }}
+  </aside>
+</div>
 {% endblock %}

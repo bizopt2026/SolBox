@@ -1,20 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, check_picker %}
+{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar %}
 {% block title %}{{ ont.label("bm") }} {{ "수정" if bm else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("bm") %}
-{{ page_header(label ~ " " ~ ("수정" if bm else "등록"), crumbs=[(label, "/bms")] + ([(bm.name, "/bms/" ~ bm.id), ("수정", none)] if bm else [("등록", none)])) }}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="{{ "/bms/" ~ bm.id if bm else "/bms" }}" class="card stack">
-  <label>{{ ont.prop("bm", "name") }} (필수) <input name="name" value="{{ form.name }}"></label>
-  <label>{{ ont.prop("bm", "summary") }} <input name="summary" value="{{ form.summary }}"></label>
-  <label>{{ ont.prop("bm", "target_customers") }} <textarea name="target_customers" rows="2">{{ form.target_customers }}</textarea></label>
-  <label>{{ ont.prop("bm", "revenue_model") }} <textarea name="revenue_model" rows="3">{{ form.revenue_model }}</textarea></label>
-  <label>{{ ont.prop("bm", "memo") }} <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
-  {{ check_picker("solution_ids", ont.prop("bm", "solutions"), solutions, form.solution_ids, show_stage=True) }}
-  <div class="row">
-    <button type="submit" class="primary">저장</button>
-    <a href="{{ "/bms/" ~ bm.id if bm else "/bms" }}">취소</a>
-  </div>
+{{ page_header(label ~ " " ~ ("수정" if bm else "등록"), crumbs=ui.crumbs("bm", bm.name if bm else none, ("/bms/" ~ bm.id) if bm else none, "수정" if bm else "등록"), sub=(bm.name if bm else ont.TYPES["bm"].description)) }}
+{{ form_error(error) }}
+<form method="post" action="{{ "/bms/" ~ bm.id if bm else "/bms" }}" class="form-page">
+  <section class="card">
+    <h2>기본 정보</h2>
+    <div class="fgrid">
+      {{ text_field(ont.prop("bm", "name"), "name", form.name, required=true, error=error) }}
+      {{ text_field(ont.prop("bm", "summary"), "summary", form.summary) }}
+      {{ text_field(ont.prop("bm", "target_customers"), "target_customers", form.target_customers, rows=3) }}
+      {{ text_field(ont.prop("bm", "revenue_model"), "revenue_model", form.revenue_model, rows=3) }}
+      {{ text_field(ont.prop("bm", "memo"), "memo", form.memo, rows=3) }}
+    </div>
+  </section>
+  <section class="card">
+    <h2>연결</h2>
+    {{ check_picker("solution_ids", ont.prop("bm", "solutions"), solutions, form.solution_ids, show_stage=True) }}
+  </section>
+  {{ save_bar("/bms/" ~ bm.id if bm else "/bms") }}
 </form>
 {% endblock %}

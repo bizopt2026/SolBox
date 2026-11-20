@@ -68,7 +68,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
     return render(
         request, "opportunities/detail.html", status_code=400 if error else 200,
         opp=opp, error=error, related=relations.related_for_page(db, opp, user),
-        can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp),
+        can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
     )
 
 

@@ -31,7 +31,7 @@ def test_activity_new_points_to_upload(user_client):
     page = user_client.get("/activities/new").text
     assert "녹취록·사진·자료는 올리기에서 한 번에 정리할 수 있습니다" in page
     assert page.index('href="/intake/new"') < page.index('action="/activities/raw"')
-    card = re.search(r'<form[^>]*class="card stack".*?</form>', page, re.S).group(0)
+    card = re.search(r'<form[^>]*class="(?:card stack|form-page)".*?</form>', page, re.S).group(0)
     assert card.count('class="primary"') == 1 and 'name="raw_text"' in card  # 메모 붙여 넣기 흐름 그대로
 
 

@@ -1,31 +1,24 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar %}
 {% block title %}{{ ont.label("project") }} {{ "수정" if project else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("project") %}
-{{ page_header(label ~ " " ~ ("수정" if project else "등록"), crumbs=[(label, "/projects")] + ([(project.name, "/projects/" ~ project.id), ("수정", none)] if project else [("등록", none)])) }}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="{{ "/projects/" ~ project.id if project else "/projects" }}" class="card stack">
-    <label>{{ ont.prop("project", "name") }} (필수) <input name="name" value="{{ form.name }}"></label>
-    <label>고객 (필수)
-      <select name="customer_id">
-        <option value="">선택하세요</option>
-        {% for c in customers %}<option value="{{ c.id }}" {% if form.customer_id | string == c.id | string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>{{ ont.prop("project", "bm") }} (선택)
-      <select name="bm_id">
-        <option value="">선택 안 함</option>
-        {% for b in bms %}<option value="{{ b.id }}" {% if form.bm_id | string == b.id | string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>설명 <textarea name="description" rows="3">{{ form.description }}</textarea></label>
-    <label>기간 <input name="period" value="{{ form.period }}"></label>
-    <label>상태 <input name="status" value="{{ form.status }}"></label>
-    <label>메모 <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
-    <div class="row">
-      <button type="submit" class="primary">저장</button>
-      <a href="{{ "/projects/" ~ project.id if project else "/projects" }}">취소</a>
+{{ page_header(label ~ " " ~ ("수정" if project else "등록"), crumbs=ui.crumbs("project", project.name if project else none, ("/projects/" ~ project.id) if project else none, "수정" if project else "등록"), sub=(project.name if project else ont.TYPES["project"].description)) }}
+{{ form_error(error) }}
+<form method="post" action="{{ "/projects/" ~ project.id if project else "/projects" }}" class="form-page">
+  <section class="card">
+    <div class="fgrid">
+      {{ text_field(ont.prop("project", "name"), "name", form.name, required=true, wide=true, error=error) }}
+      {% set copts = [("", "선택하세요")] %}{% for c in customers %}{% set _ = copts.append((c.id, c.name)) %}{% endfor %}
+      {{ select_field("고객", "customer_id", copts, form.customer_id, required=true, error=error) }}
+      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
+      {{ select_field(ont.prop("project", "bm"), "bm_id", bopts, form.bm_id, help="선택 사항입니다.") }}
+      {{ text_field("기간", "period", form.period) }}
+      {{ text_field("상태", "status", form.status) }}
+      {{ text_field("설명", "description", form.description, rows=3) }}
+      {{ text_field("메모", "memo", form.memo, rows=3) }}
     </div>
+  </section>
+  {{ save_bar("/projects/" ~ project.id if project else "/projects") }}
 </form>
 {% endblock %}

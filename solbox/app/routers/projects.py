@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 
-from app import ontology, opportunities as opps, relations
+from app import ontology, opportunities as opps, relations, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -100,7 +100,7 @@ def detail(project_id: int, request: Request, user: User = Depends(require_user)
         request, "projects/detail.html", project=project,
         related=relations.related_for_page(db, project, user),
         opportunity=opps.opportunity_of_project(db, project),
-        can_delete=can_delete(user, project),
+        can_delete=can_delete(user, project), meta=ui.stamp_info(db, project),
     )
 
 

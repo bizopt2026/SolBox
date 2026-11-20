@@ -184,6 +184,11 @@ body.auth .page { padding: 0; max-width: 400px; margin: 0; }
   :root { --card-pad: 16px; --top-h: 0px; }
 }
 @media (max-width: 600px) {
+  dl.props { grid-template-columns: 96px minmax(0, 1fr); gap: 8px 12px; }
+  dl.props dt { margin-top: 0; font-size: inherit; }
+  dl.props.compact { grid-template-columns: 70px minmax(0, 1fr); }
+  .page-header .actions { width: 100%; margin-left: 0; }
+  .page-header .actions > .button.primary { order: -1; flex: 1 1 100%; }
   h1 { font-size: 22px; }
   dl { grid-template-columns: 1fr; gap: 2px 0; }
   dt { margin-top: var(--s2); font-size: var(--fs-note); }
@@ -202,6 +207,8 @@ button.danger, .button.danger { color: var(--bad); }
 button.danger:hover, .button.danger:hover { background: var(--bad-soft); border-color: var(--bad-line); }
 button.ghost, .button.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
 button.ghost:hover, .button.ghost:hover { background: var(--sunken); }
+button.ghost.danger, .button.ghost.danger { color: var(--bad); }
+button.ghost.danger:hover, .button.ghost.danger:hover { background: var(--bad-soft); }
 button.small, .button.small { min-height: 28px; padding: 2px 10px; font-size: var(--fs-note); }
 button.linklike { min-height: 0; padding: 0; border: 0; background: none; color: var(--brand); text-decoration: underline; }
 button:disabled, .button[aria-disabled="true"] { opacity: .5; cursor: default; }
@@ -344,8 +351,10 @@ details.more[open] > summary, details.dir-more[open] > summary { margin-bottom: 
 
 /* --- 단계 막대: 발굴 단계·영업기회 단계(버튼) / 제안 진행 단계(링크). 시안의 stepper --- */
 .stagebar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
-.stagebar .steps { display: flex; flex: 1 1 360px; max-width: 680px; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+.stagebar { margin: 0 0 var(--gap); }
+.stagebar .steps { display: flex; flex: 1 1 360px; max-width: none; overflow-x: auto; scrollbar-width: none; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
 .stagebar .step { flex: 1; min-width: 0; min-height: 44px; padding: 10px 12px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink-3); font-weight: 500; }
+.stagebar .steps .step { white-space: nowrap; }
 .stagebar .steps .step:last-child { border-right: 0; }
 .stagebar .step:hover { background: var(--sunken); }
 .stagebar .step.done { color: var(--ink-2); }
@@ -376,33 +385,31 @@ details.more[open] > summary, details.dir-more[open] > summary { margin-bottom: 
 .picker { border: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .picker legend { padding: 0; margin-bottom: 6px; }
 .picker-filter { width: 100%; max-width: 320px; }
-.picker-list { display: flex; flex-direction: column; gap: 2px; }
-.picker.scroll .picker-list { max-height: 220px; overflow-y: auto; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); }
+.picker-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); }
 .picked-count { font-weight: 400; }
 
-/* --- 연결된 것 (templates/_related.html): 왼쪽에 이름·건수, 오른쪽에 한 줄씩 --- */
-.related .rel-group { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 2px 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+/* --- 연결된 것 (templates/_related.html): 그룹 이름(작은 글) 밑에 한 줄씩, 배지·보조 글은 줄 끝 --- */
+.card.related.stack { gap: 0; }
+.related .rel-group { padding: 12px 0; border-top: 1px solid var(--line); }
 .related h2 + .rel-group, .related .related-sub + .rel-group, .related summary + .rel-group { border-top: 0; }
-.related .rel-group h3 { margin: 0; font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--ink-3); }
-.related .rel-group h3 .count { margin-left: 4px; font-size: var(--fs-small); }
+.related h2 + .rel-group { padding-top: 12px; }
+.related .rel-group h3 { margin: 0 0 4px; font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--ink-3); }
+.related .rel-group h3 .count { margin-left: 4px; font-size: var(--fs-small); font-weight: 400; }
 .related .rel-list { list-style: none; margin: 0; padding: 0; }
-.related .rel-list li { padding: 2px 0; overflow-wrap: anywhere; }
-.related .rel-list li.done > a, .related .rel-list li.done > span:first-child { text-decoration: line-through; color: var(--ink-3); }
-.related .rel-note, .related .rel-via { margin-left: 6px; font-size: var(--fs-note); }
-.related .rel-via { display: block; margin-left: 0; font-size: var(--fs-small); }
-.related .rel-more { grid-column: 2; margin: 0; font-size: var(--fs-note); }
-.related .related-sub { margin: 14px 0 0; padding-top: var(--s3); border-top: 2px solid var(--line); font-size: var(--fs-body); }
-.related .related-derived { margin-top: 14px; padding-top: 10px; border-top: 2px solid var(--line); }
-.related .related-derived > summary { font-weight: var(--fw-strong); }
-.related .related-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: var(--s3) 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
-.card.related > .rel-group, .card.related .related-derived > .rel-group { margin-top: 0; padding: var(--s2) 0; }
-.card.related > h2 + .rel-group { padding-top: var(--s3); }
-.card.related > .related-sub, .card.related > .related-derived { margin-top: 10px; }
-.card.related > .related-actions { margin-top: var(--s2); }
-@media (max-width: 600px) {
-  .related .rel-group { grid-template-columns: minmax(0, 1fr); }
-  .related .rel-more { grid-column: 1; }
-}
+.related .rel-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; padding: 3px 0; }
+.related .rel-main { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.related .rel-list li.done .rel-main > * { text-decoration: line-through; color: var(--ink-3); }
+.related .rel-note { flex: none; max-width: 100%; font-size: var(--fs-small); }
+.related .rel-via { flex: 1 0 100%; font-size: var(--fs-small); }
+.related .rel-more { margin: 4px 0 0; font-size: var(--fs-note); }
+.related .related-via, .related .related-derived { margin-top: 6px; padding-top: 10px; border-top: 2px solid var(--line); }
+.related .related-sub { margin: 0; font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--ink-3); }
+.related .related-via .rel-group h3 { color: var(--ink-3); }
+.related .related-via .rel-main a, .related .related-derived .rel-main a { color: var(--ink-2); }
+.related .related-via .rel-main a:hover, .related .related-derived .rel-main a:hover { color: var(--brand); }
+.related .related-derived > summary { font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--ink-3); }
+.related .related-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: var(--s3) 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-note); font-weight: 500; }
+.related .rel-empty { margin: var(--s3) 0 0; }
 
 /* --- 대화 말풍선: 사용자는 오른쪽 브랜드 색, AI 는 왼쪽 옅은 회색. 대기·진행·완료·실패 상태가 같은 목록 안에 들어간다 --- */
 .chat-list { display: flex; flex-direction: column; gap: var(--s3); margin-bottom: var(--s3); }
@@ -455,6 +462,87 @@ sup a { padding: 0 2px; font-weight: var(--fw-strong); }
 .slide-sources .source-list { margin-top: 4px; }
 
 /* ============================================================ 5. 화면별 */
+
+/* 상세 화면: 왼쪽 내용 카드(8/12) + 오른쪽 옆 칸(4/12, "연결된 것"·기록 정보). 1100px 밑에서는 옆 칸이 아래로 간다 (시안의 .grid .c8 .c4) */
+.dgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.dmain, .daside { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.dgrid .card { margin: 0; }
+@media (min-width: 1100px) {
+  .dgrid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .dmain { grid-column: span 8; }
+  .daside { grid-column: span 4; }
+}
+.card-head { position: relative; }
+.card-head .count { margin-left: 8px; font-size: var(--fs-small); font-weight: 400; }
+dl.props { grid-template-columns: 112px minmax(0, 1fr); gap: 10px 16px; }
+dl.props dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+dl.props.compact { grid-template-columns: 76px minmax(0, 1fr); gap: 6px 12px; font-size: var(--fs-note); }
+.meta .origin { margin: 0; }
+.meta h2 { margin: 0; }
+.prose { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sub-list { list-style: none; margin: 0; padding: 0; }
+.sub-list > li { padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.sub-list > li:first-child { border-top: 0; padding-top: 0; }
+.sub-list > li:last-child { padding-bottom: 0; }
+.sub-list .li-meta { display: block; color: var(--ink-3); font-size: var(--fs-note); }
+.sub-list .li-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.sub-list .li-row > a:first-child { font-weight: var(--fw-strong); color: var(--ink); }
+.sub-list .li-row > a:first-child:hover { color: var(--brand); }
+.sub-list .li-row .grow { flex: 1 1 200px; min-width: 0; }
+.need-item .need-who { font-weight: var(--fw-strong); }
+.need-item .need-act { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--fs-note); }
+.raw-text { margin: var(--s3) 0 0; padding: var(--s3); background: var(--sunken); border-radius: var(--r-sm); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; }
+.fu-card-list .fu-form { display: flex; align-items: flex-start; gap: var(--s3); margin: 0; }
+/* 자료 줄: 확장자 표 · 이름과 보조 글 · 오른쪽에 받기 (시안의 .file) */
+.files { list-style: none; margin: 0; padding: 0; }
+.file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.file:first-child { border-top: 0; padding-top: 0; }
+.file:last-child { padding-bottom: 0; }
+.ext { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--brand-soft); color: var(--brand-deep); font-size: 11px; font-weight: var(--fw-display); letter-spacing: .02em; }
+.file-main { flex: 1 1 200px; min-width: 0; }
+.file-main b { display: block; font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.file-main small { display: block; color: var(--ink-3); }
+.file-main small .bad { color: var(--bad); }
+.file-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); margin-left: auto; }
+.file-actions form { margin: 0; }
+.file-actions select { min-height: 30px; padding: 2px 8px; font-size: var(--fs-note); }
+/* "+ 자료 추가": 카드 머리의 펼침. 열면 머리 밑에 올리기 폼이 뜬다 (스크립트 없이) */
+details.card-add { margin-left: auto; }
+details.card-add > summary { list-style: none; display: inline-flex; align-items: center; min-height: 28px; padding: 2px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); font-size: var(--fs-note); font-weight: 500; color: var(--brand); cursor: pointer; }
+details.card-add > summary::-webkit-details-marker { display: none; }
+details.card-add > summary:hover { background: var(--sunken); }
+details.card-add[open] > summary { background: var(--brand-soft); border-color: var(--brand-soft); }
+details.card-add > .add-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 6; width: min(460px, 100%); display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+.add-panel .row { align-items: flex-end; }
+.add-panel .row > label { flex: 1 1 140px; }
+.add-panel input[type=file] { width: 100%; }
+
+/* 폼: 제목 줄 + 카드(들) 안의 두 칸 격자 + 맨 밑 끈끈한 저장 막대. 칸 이름표는 위, 도움말은 작게, 오류는 칸 옆에도 */
+.form-page { display: flex; flex-direction: column; gap: var(--gap); max-width: 960px; }
+.form-page > .card { margin: 0; }
+.form-page .fgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); align-content: start; }
+@media (min-width: 760px) { .form-page .fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4) var(--s5); } }
+.form-page .card > h2:first-child { margin: 0 0 var(--s3); }
+.fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fld.wide, .fgrid > .wide { grid-column: 1 / -1; }
+.fld > label { display: block; font-size: var(--fs-note); font-weight: var(--fw-strong); color: var(--ink-2); }
+.fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea { width: 100%; }
+.fld .help { margin: 0; color: var(--ink-3); font-size: var(--fs-small); }
+.req { color: var(--bad); }
+.field-err { margin: 0; color: var(--bad); font-size: var(--fs-note); font-weight: var(--fw-strong); }
+.fld.has-error input, .fld.has-error select, .fld.has-error textarea { border-color: var(--bad); }
+.form-page > .savebar { flex-direction: row; position: sticky; bottom: var(--s2); z-index: 5; flex-wrap: nowrap; align-items: center; padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+.form-page > .savebar .button { margin-left: 0; }
+.form-lead { margin: 0 0 var(--s3); color: var(--ink-2); }
+.picker-hint { margin: 4px 0 0; }
+.fgrid .picker { min-width: 0; }
+@media (max-width: 600px) {
+  .form-page > .savebar { flex-direction: row; }
+  .form-page > .savebar > * { flex: 1; }
+  details.card-add > .add-panel { position: static; width: auto; margin-top: var(--s3); box-shadow: none; }
+  details.card-add { margin-left: 0; flex-basis: 100%; }
+  .file-actions { margin-left: 52px; }
+}
 
 /* 홈 (오늘 할 일): 발굴 흐름 띠 + 12칸 격자 (시안의 .flow .grid .c7 .c5 .todo .stagebars .feed .queue) */
 .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: var(--s2); overflow: hidden; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); }
@@ -556,7 +644,7 @@ button.check::after { content: ""; position: absolute; inset: -8px; }
 .result-list li > .badge, .result-list li > .muted { flex: none; margin-left: auto; font-size: var(--fs-note); white-space: nowrap; }
 
 /* 정보 칸 보조 */
-.origin { margin: -4px 0 var(--s3); font-size: var(--fs-note); }
+.origin { margin: 0; font-size: var(--fs-note); }
 .same-name-hint { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
 dd .button + .muted { margin-left: var(--s2); }
 .need-list li { margin-bottom: 6px; overflow-wrap: anywhere; }
@@ -673,6 +761,25 @@ details.dir-rest > ul { margin-top: 0; }
 .tabpanel h3 { margin: 0 0 var(--s2); }
 .tabpanel .trends { margin-top: var(--s4); }
 
+/* 활동 기록 폼 구역: 폼 페이지 안에서는 카드 한 장씩. 행(후속 조치·고객 니즈)은 촘촘한 격자 */
+.form-page > .formsec { padding: var(--card-pad); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.form-page > .formsec:first-child { padding-top: var(--card-pad); }
+.fgrid.three { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .form-page .fgrid.three { grid-template-columns: 180px 180px minmax(0, 1fr); } }
+.rows { display: flex; flex-direction: column; gap: var(--s3); }
+.gridrow { display: grid; gap: var(--s2) var(--s3); align-items: end; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
+.gridrow .need-linked { margin-top: 2px; }
+.gridrow input:not([type=checkbox]) { width: 100%; }
+.gridrow label.check { align-self: center; padding-bottom: 8px; white-space: nowrap; }
+.fu-row { grid-template-columns: minmax(0, 1fr); }
+.ds-row { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) {
+  .fu-row { grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr) 150px auto; }
+  .ds-row { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+}
+.link-pickers { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+@media (min-width: 760px) { .link-pickers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.formsec .help { margin: 0; }
 /* 폼 구역 */
 .formsec { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; padding-top: var(--s4); border-top: 1px solid var(--line); }
 .formsec:first-child { padding-top: 0; border-top: 0; }

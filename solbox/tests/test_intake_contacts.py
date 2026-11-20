@@ -275,8 +275,8 @@ def test_newlines_in_fields_stay_one_line(app, user_client, db, settings):
 
 def test_partner_and_customer_contact_forms_are_multiline(user_client, db):
     p, c = _world(db)
-    assert '<textarea name="contact"' in user_client.get(f"/partners/{p.id}/edit").text
-    assert '<textarea name="contact"' in user_client.get(f"/customers/{c.id}/edit").text
+    assert re.search(r'<textarea[^>]*name="contact"', user_client.get(f"/partners/{p.id}/edit").text)
+    assert re.search(r'<textarea[^>]*name="contact"', user_client.get(f"/customers/{c.id}/edit").text)
 
 
 # ---- 프롬프트 ----

@@ -1,28 +1,26 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, form_error, save_bar %}
 {% block title %}{{ ont.label("project") }}로 전환{% endblock %}
 {% block content %}
-{{ page_header(ont.label("project") ~ "로 전환", crumbs=[(ont.label("opportunity"), "/opportunities"), (opp.name, "/opportunities/" ~ opp.id), (ont.label("project") ~ "로 전환", none)]) }}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/opportunities/{{ opp.id }}/convert" class="card stack">
-  <p class="muted">{{ ont.OPPORTUNITY_RULES.convert }}.</p>
-  <p>{{ ont.label("opportunity") }}: <strong>{{ opp.name }}</strong> · {{ ont.prop("opportunity", "customer") }}: <a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a>{% if opp.bm %} · {{ ont.label("bm") }}: {{ opp.bm.name }}{% endif %}</p>
-  <fieldset class="stack methods">
-    <legend>방법</legend>
-    <label class="check"><input type="radio" name="mode" value="create"{% if form.mode != "link" %} checked{% endif %}> 새 {{ ont.label("project") }} 만들기 (같은 고객, {{ ont.label("bm") }}은 이어받습니다)</label>
-    <label>{{ ont.prop("project", "name") }} <input name="name" value="{{ form.name }}"></label>
-    <label class="check"><input type="radio" name="mode" value="link"{% if form.mode == "link" %} checked{% endif %}> 같은 고객의 기존 {{ ont.label("project") }} 잇기</label>
-    <label>기존 {{ ont.label("project") }}
-      <select name="project_id">
-        <option value="">선택하세요</option>
-        {% for p in projects %}<option value="{{ p.id }}" {% if form.project_id | string == p.id | string %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
-      </select>
-    </label>
-    {% if not projects %}<p class="muted">이을 수 있는 기존 {{ ont.label("project") }}가 없습니다.</p>{% endif %}
-  </fieldset>
-  <div class="row">
-    <button type="submit" class="primary">전환</button>
-    <a href="/opportunities/{{ opp.id }}">취소</a>
-  </div>
+{{ page_header(ont.label("project") ~ "로 전환", crumbs=ui.crumbs("opportunity", opp.name, "/opportunities/" ~ opp.id, ont.label("project") ~ "로 전환"), sub=opp.name) }}
+{{ form_error(error) }}
+<form method="post" action="/opportunities/{{ opp.id }}/convert" class="form-page">
+  <section class="card stack">
+    <p class="muted">{{ ont.OPPORTUNITY_RULES.convert }}.</p>
+    <p>{{ ont.label("opportunity") }}: <strong>{{ opp.name }}</strong> · {{ ont.prop("opportunity", "customer") }}: <a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a>{% if opp.bm %} · {{ ont.label("bm") }}: {{ opp.bm.name }}{% endif %}</p>
+    <fieldset class="stack methods">
+      <legend>방법</legend>
+      <label class="check"><input type="radio" name="mode" value="create"{% if form.mode != "link" %} checked{% endif %}> 새 {{ ont.label("project") }} 만들기 (같은 고객, {{ ont.label("bm") }}은 이어받습니다)</label>
+      <div class="fld"><label for="f-name">{{ ont.prop("project", "name") }}</label><input id="f-name" name="name" value="{{ form.name }}"></div>
+      <label class="check"><input type="radio" name="mode" value="link"{% if form.mode == "link" %} checked{% endif %}> 같은 고객의 기존 {{ ont.label("project") }} 잇기</label>
+      <div class="fld"><label for="f-project_id">기존 {{ ont.label("project") }}</label>
+        <select id="f-project_id" name="project_id">
+          <option value="">선택하세요</option>
+          {% for p in projects %}<option value="{{ p.id }}" {% if form.project_id | string == p.id | string %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select></div>
+      {% if not projects %}<p class="muted">이을 수 있는 기존 {{ ont.label("project") }}가 없습니다.</p>{% endif %}
+    </fieldset>
+  </section>
+  {{ save_bar("/opportunities/" ~ opp.id, "전환") }}
 </form>
 {% endblock %}

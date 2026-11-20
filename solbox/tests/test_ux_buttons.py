@@ -4,14 +4,15 @@ import re
 from app.models import Solution
 
 
-def test_detail_head_puts_edit_then_delete_in_title_row(user_client, db):
+def test_detail_head_orders_delete_edit_then_primary_in_title_row(user_client, db):
     s = Solution(name="AI 에너지 절감", created_by_id=1)
     db.add(s)
     db.commit()
     html = user_client.get(f"/solutions/{s.id}").text
     head = re.search(r'<header class="page-header">(.*?)</header>', html, re.S).group(1)
-    assert "<h1>AI 에너지 절감</h1>" in head
-    assert head.index(f'class="button" href="/solutions/{s.id}/edit"') < head.index('class="danger"')
+    assert "<h1>AI 에너지 절감 " in head  # 제목 옆에 단계 배지
+    # 삭제(조용한 위험) → 수정 → 다음 동작(주 버튼) 차례
+    assert head.index('class="ghost danger"') < head.index(f'class="button" href="/solutions/{s.id}/edit"') < head.index('class="button primary"')
 
 
 def test_forms_have_one_primary_button(user_client):
@@ -31,7 +32,7 @@ def test_each_form_has_exactly_one_primary(user_client, db):
     db.commit()
     for url in ("/customers/new", f"/solutions/{s.id}/edit", "/activities/new", "/proposals/new"):
         html = user_client.get(url).text
-        card = re.search(r'<form[^>]*class="card stack".*?</form>', html, re.S).group(0)
+        card = re.search(r'<form[^>]*class="(?:card stack|form-page)".*?</form>', html, re.S).group(0)
         assert card.count('class="primary"') + card.count(' primary"') == 1, url
     from fastapi.testclient import TestClient
     login = TestClient(user_client.app).get("/login").text

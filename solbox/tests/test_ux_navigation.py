@@ -41,13 +41,13 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     db.add(s)
     db.commit()
     html = user_client.get(f"/solutions/{s.id}").text
-    assert _crumbs(html) == "솔루션 › (예시) AI 공조"
+    assert _crumbs(html) == "발굴 › 솔루션 › (예시) AI 공조"
     assert '<a href="/solutions">솔루션</a>' in html
     assert "&larr; 목록" not in html
-    assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "솔루션 › (예시) AI 공조 › 수정"
-    assert _crumbs(user_client.get("/solutions/new").text) == "솔루션 › 등록"
-    assert _crumbs(user_client.get("/customers/new").text) == "고객 › 등록"
-    assert _crumbs(user_client.get("/activities/new").text) == "활동 기록 › 등록"
+    assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "발굴 › 솔루션 › (예시) AI 공조 › 수정"
+    assert _crumbs(user_client.get("/solutions/new").text) == "발굴 › 솔루션 › 등록"
+    assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객 › 등록"
+    assert _crumbs(user_client.get("/activities/new").text) == "오늘 › 활동 기록 › 등록"
 
 
 def test_breadcrumb_escapes_names(user_client, db):

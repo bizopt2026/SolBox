@@ -314,7 +314,7 @@ def detail(activity_id: int, request: Request, user: User = Depends(require_user
     bundled = {o.id: o for o in db.scalars(select(Opportunity).where(Opportunity.id.in_({n.opportunity_id for n in a.needs if n.opportunity_id})))}
     return render(request, "activities/detail.html", activity=a, can_delete=can_delete(user, a), originals=originals,
                   origin=origin.view(db, user, a), need_opportunities=bundled,
-                  related=relations.related_for_page(db, a, user))
+                  related=relations.related_for_page(db, a, user), meta=ui.stamp_info(db, a))
 
 
 @router.get("/{activity_id}/edit")

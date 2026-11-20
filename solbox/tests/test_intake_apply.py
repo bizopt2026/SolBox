@@ -444,7 +444,7 @@ def test_activity_detail_title_and_original_section_once(app, user_client, db, s
     a = db.query(Activity).one()
     page = user_client.get(f"/activities/{a.id}").text
     title = page[page.index("<title>"):page.index("</title>")]
-    assert "<section" not in title and page.count("원본 파일</h2>") == 1
+    assert "<section" not in title and page.count("<h2>원본 파일") == 1
 
 
 def test_odd_digit_characters_do_not_crash(app, user_client, db, settings):

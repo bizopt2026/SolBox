@@ -11,7 +11,7 @@ def test_empty_detail_values_show_none(user_client, db):
     db.add(s)
     db.commit()
     html = user_client.get(f"/solutions/{s.id}").text
-    dl = re.search(r"<dl>.*?</dl>", html, re.S).group(0)
+    dl = re.search(r"<dl[^>]*>.*?</dl>", html, re.S).group(0)
     assert dl.count('<span class="muted">없음</span>') == 5   # 설명, 파트너, 활용 방향, 유형, 태그
     assert "소개" in dl
 

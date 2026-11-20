@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar %}
 {% block title %}솔루션 {{ "수정" if solution else "등록" }}{% endblock %}
 {% block content %}
-{% set label = "솔루션" %}
-{{ page_header(label ~ " " ~ ("수정" if solution else "등록"), crumbs=[(label, "/solutions")] + ([(solution.name, "/solutions/" ~ solution.id), ("수정", none)] if solution else [("등록", none)])) }}
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{{ page_header("솔루션 " ~ ("수정" if solution else "등록"), crumbs=ui.crumbs("solution", solution.name if solution else none, ("/solutions/" ~ solution.id) if solution else none, "수정" if solution else "등록"), sub=(solution.name if solution else ont.TYPES["solution"].description)) }}
+{{ form_error(error) }}
 {% if job %}
 <section class="card">{% include "jobs/_status.html" %}</section>
 {% else %}
@@ -15,28 +14,21 @@
   <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">다시 시도</button></form>
 </div>
 {% endif %}
-<form method="post" action="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}" class="card stack">
-    <label>이름 (필수) <input name="name" value="{{ form.name }}"></label>
-    <label>한 줄 소개 <input name="summary" value="{{ form.summary }}"></label>
-    <label>상세 설명 <textarea name="description" rows="4">{{ form.description }}</textarea></label>
-    <label>파트너
-      <select name="partner_id">
-        <option value="">(없음)</option>
-        {% for p in partners %}<option value="{{ p.id }}" {{ "selected" if form.partner_id|string == p.id|string }}>{{ p.name }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>단계
-      <select name="stage">
-        {% for code, name in labels.STAGES.items() %}<option value="{{ code }}" {{ "selected" if form.stage == code }}>{{ name }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>활용 방향 <textarea name="usage_direction" rows="3">{{ form.usage_direction }}</textarea></label>
-    <label>적용 가능 유형 <input name="applicable_types" value="{{ form.applicable_types }}"></label>
-    <label>태그 (쉼표로 구분) <input name="tags" value="{{ form.tags }}"></label>
-    <div class="row">
-      <button type="submit" class="primary">저장</button>
-      <a href="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}">취소</a>
+<form method="post" action="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}" class="form-page">
+  <section class="card">
+    <div class="fgrid">
+      {{ text_field("이름", "name", form.name, required=true, wide=true, error=error) }}
+      {{ text_field("한 줄 소개", "summary", form.summary, wide=true) }}
+      {% set popts = [("", "(없음)")] %}{% for p in partners %}{% set _ = popts.append((p.id, p.name)) %}{% endfor %}
+      {{ select_field("파트너", "partner_id", popts, form.partner_id, error=error) }}
+      {{ select_field("단계", "stage", labels.STAGES.items() | list, form.stage, error=error) }}
+      {{ text_field("상세 설명", "description", form.description, rows=4) }}
+      {{ text_field("활용 방향", "usage_direction", form.usage_direction, rows=3) }}
+      {{ text_field("적용 가능 유형", "applicable_types", form.applicable_types) }}
+      {{ text_field("태그", "tags", form.tags, help="쉼표로 구분합니다.") }}
     </div>
+  </section>
+  {{ save_bar("/solutions/" ~ solution.id if solution else "/solutions") }}
 </form>
 {% endif %}
 {% endblock %}

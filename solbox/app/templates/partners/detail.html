@@ -1,12 +1,27 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, origin_line, same_name_hint %}
+{% from "_macros.html" import detail_head, val, same_name_hint, meta_card %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
-{{ detail_head(partner.name, "/partners", partner, can_delete, crumbs=[("파트너", "/partners"), (partner.name, None)]) }}
-{{ origin_line(origin) }}
+{{ detail_head(partner.name, "/partners", partner, can_delete, crumbs=ui.crumbs("partner", partner.name),
+               sub=((partner.description | first_line(90)) if partner.description else none),
+               primary=("+ " ~ ont.label("solution") ~ " 등록", "/solutions/new?partner_id=" ~ partner.id)) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}
-<section class="card"><dl>{% if partner.customer %}<dt>같은 회사</dt><dd>고객 <a href="/customers/{{ partner.customer.id }}">{{ partner.customer.name }}</a></dd>{% endif %}<dt>연락처</dt><dd>{{ val(partner.contact) }}</dd><dt>소개</dt><dd>{{ val(partner.description) }}</dd><dt>메모</dt><dd>{{ val(partner.memo) }}</dd></dl></section>
-{{ related_card(related) }}
+<div class="dgrid">
+  <div class="dmain">
+    <section class="card stack">
+      <div class="card-head"><h2>기본 정보</h2></div>
+      <dl class="props">
+        <dt>소개</dt><dd>{{ val(partner.description) }}</dd>
+        <dt>연락처</dt><dd>{{ val(partner.contact) }}</dd>
+        <dt>메모</dt><dd>{{ val(partner.memo) }}</dd>
+      </dl>
+    </section>
+  </div>
+  <aside class="daside" aria-label="연결과 기록 정보">
+    {{ related_card(related, [("올리기로 " ~ ont.label("solution") ~ " 등록", "/intake/new")]) }}
+    {% call meta_card(meta, origin) %}{% if partner.customer %}<dt>같은 회사</dt><dd>고객 <a href="/customers/{{ partner.customer.id }}">{{ partner.customer.name }}</a></dd>{% endif %}{% endcall %}
+  </aside>
+</div>
 {% endblock %}

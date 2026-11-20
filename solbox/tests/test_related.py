@@ -373,7 +373,7 @@ def test_related_query_count_does_not_grow_with_links(app, db, world):
 
 def test_customer_page_shows_shared_related_card(admin_client, world):
     html = admin_client.get(f"/customers/{world.c_hanbit.id}").text
-    assert 'class="card related"' in html
+    assert 'class="card related stack"' in html
     for text in ("이야기된 솔루션", "제안된 솔루션", "남은 후속 조치", "고객 니즈", "건너서 연결된 것", "견적 보내기", "AI 공조 최적제어", "전기요금 절감 방안이 필요하다",
                  "한빛 전력 절감", "한빛 에너지 절감 제안", "한빛 킥오프", "한빛병원 설비 유지보수", "활동 기록 2건을 거쳐"):
         assert text in html, text
@@ -391,7 +391,7 @@ def test_customer_needs_show_opportunity_state(admin_client, world):
 
 def test_partner_page(admin_client, world):
     html = admin_client.get(f"/partners/{world.p_green.id}").text
-    assert 'class="card related"' in html
+    assert 'class="card related stack"' in html
     for text in ("솔루션이 들어간 제안 건", "한빛 에너지 절감 제안", "솔루션이 닿은 고객", "한빛병원", "AI 공조 최적제어", "그린 파트너 미팅", "한빛 킥오프",
                  "같은 회사 고객의 프로젝트"):
         assert text in html, text
@@ -414,7 +414,7 @@ def test_other_detail_pages_render_shared_card(admin_client, world):
         f"/proposals/{world.pro_hanbit.id}": ["AI 공조 최적제어", "태양광 자가소비 진단"],
     }.items():
         html = admin_client.get(url).text
-        assert 'class="card related"' in html, url
+        assert 'class="card related stack"' in html, url
         for t in texts:
             assert t in html, (url, t)
     html = admin_client.get(f"/activities/{world.a_daesung.id}").text

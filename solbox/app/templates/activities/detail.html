@@ -1,52 +1,70 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, origin_line %}
+{% from "_macros.html" import detail_head, val, meta_card, pill %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
-{{ detail_head(activity.title or "(제목 없음)", "/activities", activity, can_delete, crumbs=[("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)]) }}
-{{ origin_line(origin) }}
-<section class="card">
-  <dl>
-    <dt>{{ ont.prop("activity", "kind") }}</dt><dd>{{ labels.ACTIVITY_KINDS.get(activity.kind, activity.kind) }}</dd>
-    <dt>{{ ont.prop("activity", "date") }}</dt><dd>{{ val(activity.date) }}</dd>
-  </dl>
-</section>
-{{ related_card(related) }}
-{% if activity.summary_md %}
-<section class="card"><h2>{{ ont.prop("activity", "summary_md") }}</h2><div class="md">{{ activity.summary_md | md }}</div></section>
-{% endif %}
-<section class="card">
-  <h2>{{ ont.prop("activity", "follow_ups") }}</h2>
-  {% if activity.follow_ups %}
-  <ul>
-    {% for fu in activity.follow_ups %}
-    <li>
-      <form method="post" action="/follow-ups/{{ fu.id }}/toggle" class="row">
-        <button type="submit" class="small">{{ "완료 취소" if fu.done else "완료" }}</button>
-        <span>{% if fu.done %}<s>{{ fu.task }}</s>{% else %}{{ fu.task }}{% endif %}
-          {% if fu.owner %}· 담당 {{ fu.owner }}{% endif %}{% if fu.due %}· 기한 {{ fu.due.isoformat() }}{% endif %}</span>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="muted">후속 조치가 없습니다.</p>{% endif %}
-</section>
-{% if activity.needs %}
-<section class="card">
-  <h2>{{ ont.prop("activity", "demand_signals") }}</h2>
-  <ul class="need-list">{% for n in activity.needs %}<li>{% if n.customer_name %}<strong>{{ n.customer_name }}</strong>{% if n.customer_id %} <a class="chip" href="/customers/{{ n.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}: {% endif %}{{ n.content }}
-    {% if n.opportunity_id and n.opportunity_id in need_opportunities %}<span class="need-opp">→ <a class="chip" href="/opportunities/{{ n.opportunity_id }}">{{ ont.label("opportunity") }} · {{ need_opportunities[n.opportunity_id].name }}</a></span>
-    {% elif n.customer_id %}<a class="button small" href="/opportunities/new?customer_id={{ n.customer_id }}&amp;need_id={{ n.id }}">{{ ont.label("opportunity") }} 만들기</a>{% endif %}</li>{% endfor %}</ul>
-</section>
-{% endif %}
-<section class="card">
-  <h2>{{ ont.prop("activity", "raw_text") }}</h2>
-  <details><summary>원문 보기</summary><div style="white-space: pre-wrap">{{ activity.raw_text }}</div></details>
-</section>
-{% if originals %}
-<section class="card">
-  <h2>원본 파일</h2>
-  <ul>{% for f in originals %}<li>{{ f.original_name }} <a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></li>{% endfor %}</ul>
-</section>
-{% endif %}
+{% set title = activity.title or "(제목 없음)" %}
+{% set sub = [kdate(activity.date) if activity.date else none, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind), (activity.customers | map(attribute="name") | join(", ")) or none] | select | join(" · ") %}
+{{ detail_head(title, "/activities", activity, can_delete, crumbs=ui.crumbs("activity", title), sub=sub or none) }}
+<div class="dgrid">
+  <div class="dmain">
+    <section class="card stack">
+      <div class="card-head"><h2>기본 정보</h2></div>
+      <dl class="props">
+        <dt>{{ ont.prop("activity", "kind") }}</dt><dd>{{ pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind)) }}</dd>
+        <dt>{{ ont.prop("activity", "date") }}</dt><dd>{{ val(activity.date) }}</dd>
+      </dl>
+    </section>
+    {% if activity.summary_md %}
+    <section class="card stack"><div class="card-head"><h2>{{ ont.prop("activity", "summary_md") }}</h2></div><div class="md">{{ activity.summary_md | md }}</div></section>
+    {% endif %}
+    <section class="card stack">
+      <div class="card-head"><h2>{{ ont.prop("activity", "follow_ups") }}{% if activity.follow_ups %}<span class="count">{{ activity.follow_ups | length }}건</span>{% endif %}</h2></div>
+      {% if activity.follow_ups %}
+      <ul class="fu-list">
+        {% for fu in activity.follow_ups %}
+        <li class="fu{{ ' is-done' if fu.done }}">
+          <form method="post" action="/follow-ups/{{ fu.id }}/toggle">
+            <button type="submit" class="check{{ ' on' if fu.done }}" aria-label="{{ '완료 취소' if fu.done else '완료' }}" title="{{ '완료 취소' if fu.done else '완료로 표시' }}"></button>
+          </form>
+          <div class="fu-body">
+            <span class="fu-task">{{ fu.task }}</span>
+            {% if fu.owner or fu.due %}<small class="fu-src">{% if fu.owner %}담당 {{ fu.owner }}{% endif %}{% if fu.owner and fu.due %} · {% endif %}{% if fu.due %}기한 {{ fu.due.isoformat() }}{% endif %}</small>{% endif %}
+          </div>
+          <span class="muted fu-state">{{ "완료" if fu.done else "진행" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">후속 조치가 없습니다.</p>{% endif %}
+    </section>
+    {% if activity.needs %}
+    <section class="card stack">
+      <div class="card-head"><h2>{{ ont.prop("activity", "demand_signals") }}<span class="count">{{ activity.needs | length }}건</span></h2></div>
+      <ul class="sub-list need-list">{% for n in activity.needs %}
+        <li class="need-item">
+          <div>{% if n.customer_name %}<span class="need-who">{{ n.customer_name }}</span>{% if n.customer_id %} <a class="chip" href="/customers/{{ n.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}<br>{% endif %}{{ n.content }}</div>
+          {% if n.opportunity_id and n.opportunity_id in need_opportunities %}<div class="need-act">→ <a class="chip" href="/opportunities/{{ n.opportunity_id }}">{{ ont.label("opportunity") }} · {{ need_opportunities[n.opportunity_id].name }}</a></div>
+          {% elif n.customer_id %}<div class="need-act"><a class="button small" href="/opportunities/new?customer_id={{ n.customer_id }}&amp;need_id={{ n.id }}">{{ ont.label("opportunity") }} 만들기</a></div>{% endif %}
+        </li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    <section class="card stack">
+      <div class="card-head"><h2>{{ ont.prop("activity", "raw_text") }}</h2></div>
+      <details><summary>원문 보기</summary><div class="raw-text">{{ activity.raw_text }}</div></details>
+    </section>
+    {% if originals %}
+    <section class="card stack">
+      <div class="card-head"><h2>원본 파일<span class="count">{{ originals | length }}건</span></h2></div>
+      <ul class="files">{% for f in originals %}{% set ext = f.original_name.rsplit(".", 1)[1] if "." in f.original_name else "" %}
+        <li class="file"><span class="ext" aria-hidden="true">{{ (ext[:4] | upper) if ext else "파일" }}</span><div class="file-main"><b>{{ f.original_name }}</b></div><div class="file-actions"><a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></div></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+  <aside class="daside" aria-label="연결과 기록 정보">
+    {{ related_card(related) }}
+    {{ meta_card(meta, origin) }}
+  </aside>
+</div>
 {% endblock %}
