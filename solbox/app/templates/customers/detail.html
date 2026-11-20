@@ -1,11 +1,13 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, origin_line, same_name_hint %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("고객", "/customers"), (customer.name, None)) }}
 {{ detail_head(customer.name, "/customers", customer, can_delete) }}
+{{ origin_line(origin) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<section class="card"><dl><dt>업종</dt><dd>{{ val(customer.industry) }}</dd><dt>연락처</dt><dd>{{ val(customer.contact) }}</dd><dt>메모</dt><dd>{{ val(customer.memo) }}</dd></dl></section>
+{% if same_name %}{{ same_name_hint("파트너", same_name.name, "/customers/" ~ customer.id ~ "/same-company", "partner_id", same_name.id) }}{% endif %}
+<section class="card"><dl>{% if customer.partner %}<dt>같은 회사</dt><dd>파트너 <a href="/partners/{{ customer.partner.id }}">{{ customer.partner.name }}</a></dd>{% endif %}<dt>업종</dt><dd>{{ val(customer.industry) }}</dd><dt>연락처</dt><dd>{{ val(customer.contact) }}</dd><dt>메모</dt><dd>{{ val(customer.memo) }}</dd></dl></section>
 <section class="card">
   <h2>{{ ont.label("project") }}</h2>
   {% if projects %}<ul>{% for b in projects %}<li><a href="/projects/{{ b.id }}">{{ b.name }}</a> {{ b.status }}</li>{% endfor %}</ul>

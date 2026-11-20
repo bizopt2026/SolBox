@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from app import intake as intake_lib
-from app import labels, transcribe
+from app import labels, origin, transcribe
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -33,7 +33,7 @@ _ASCII_UNSAFE = re.compile(r'[^\x20-\x7e]|["\\%]')
 
 
 def _is_owner(user: User, intake: Intake) -> bool:
-    return user.role == "admin" or intake.created_by_id == user.id
+    return origin.can_open_intake(user, intake)
 
 
 def _ensure_owner(user: User, intake: Intake) -> None:

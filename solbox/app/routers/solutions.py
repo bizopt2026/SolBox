@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import labels, ontology
+from app import labels, ontology, origin
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app.db import get_db
@@ -15,7 +15,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
-    activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
+    activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
     resync_activities, resync_related, search_by_name,
 )
 from app.security import can_delete, require_user
@@ -43,7 +43,7 @@ def detail_page(request: Request, db: Session, user: User, solution: Solution, n
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
         activities=newest_first(activities_linked_to(db, Activity.solutions, solution)),
         proposals=sorted(solution.proposals, key=lambda p: p.updated_at, reverse=True),
-        can_delete=can_delete(user, solution),
+        can_delete=can_delete(user, solution), origin=origin.view(db, user, solution),
     )
 
 
@@ -101,7 +101,7 @@ def create(
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
     if error:
         return _form_page(request, db, values, error=error)
-    solution = Solution(**values, created_by_id=user.id)
+    solution = Solution(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
     db.add(solution)
     db.commit()
     mirror.sync(solution)
@@ -218,6 +218,7 @@ def delete(
     partner = solution.partner
     mirror.remove(solution)
     shutil.rmtree(request.app.state.settings.uploads_dir / "solutions" / str(solution.id), ignore_errors=True)
+    clear_file_targets(db, "solution", solution.id)
     db.delete(solution)
     db.commit()
     resync_activities(db, mirror, activities)

@@ -82,6 +82,18 @@
 </div>
 {% endmacro %}
 
+{# 상세 화면의 조용한 "유래:" 줄. origin 은 origin.view 의 결과 (직접 입력·모름은 None 이라 아무것도 그리지 않는다) #}
+{% macro origin_line(origin) %}{% if origin %}<p class="origin muted">유래: {% if origin.href %}<a href="{{ origin.href }}">{{ origin.label }}</a>{% else %}{{ origin.label }}{% endif %}</p>{% endif %}{% endmacro %}
+
+{# 이름이 같은 짝 후보 안내: 한 번 누르면 같은 회사로 잇는다 (자동으로 잇지 않는다) #}
+{% macro same_name_hint(kind, name, action, field, value) %}
+<form method="post" action="{{ action }}" class="inline-form same-name-hint">
+  <span>이름이 같은 {{ kind }} '{{ name }}'이 있습니다.</span>
+  <input type="hidden" name="{{ field }}" value="{{ value }}">
+  <button type="submit" class="small">같은 회사로 연결</button>
+</form>
+{% endmacro %}
+
 {% macro stage_badge(code) %}<span class="badge stage-{{ code }}">{{ labels.STAGES.get(code, code) }}</span>{% endmacro %}
 
 {# 정보 목록(dl)의 값: 비었으면 흐린 "없음" #}

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val %}
+{% from "_macros.html" import detail_head, breadcrumb, val, origin_line %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)) }}
 {{ detail_head(activity.title or "(제목 없음)", "/activities", activity, can_delete) }}
+{{ origin_line(origin) }}
 <section class="card">
   <dl>
     <dt>{{ ont.prop("activity", "kind") }}</dt><dd>{{ labels.ACTIVITY_KINDS.get(activity.kind, activity.kind) }}</dd>

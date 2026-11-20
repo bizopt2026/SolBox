@@ -9,10 +9,14 @@
       {% if s.kind == "push" %}
         {% for sol in s.solutions %}<div>솔루션: <a href="/solutions/{{ sol.id }}">{{ sol.name }}</a></div>{% endfor %}
       {% else %}
+      {% set reg = registered.get(suggest.id ~ ":suggestion:" ~ s.index) %}
+      {% if reg %}<div class="muted">후보로 등록됨: <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></div>
+      {% else %}
       <form method="post" action="/research/runs/{{ run.id }}/candidate" class="inline-form">
         <input type="hidden" name="source" value="suggestion"><input type="hidden" name="report_id" value="{{ suggest.id }}"><input type="hidden" name="index" value="{{ s.index }}">
         <button type="submit" class="small">후보 등록</button>
       </form>
+      {% endif %}
       {% endif %}
     </div>
   </details>

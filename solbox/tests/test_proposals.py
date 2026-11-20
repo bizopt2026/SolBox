@@ -5,17 +5,17 @@ from app.proposals import candidate_solutions, display_title
 
 # HEAD(ba8ab7c) 모델에서 읽은 기존 테이블의 칼럼 이름.
 EXISTING_COLUMNS = {
-    "activities": ['created_at', 'created_by_id', 'date', 'demand_signals', 'follow_ups', 'id', 'kind', 'raw_text', 'summary_md', 'title', 'updated_at'],
+    "activities": ['created_at', 'created_by_id', 'date', 'demand_signals', 'follow_ups', 'id', 'kind', 'origin_id', 'origin_type', 'raw_text', 'summary_md', 'title', 'updated_at'],
     "activity_businesses": ['activity_id', 'business_id'],
     "activity_customers": ['activity_id', 'customer_id'],
     "activity_partners": ['activity_id', 'partner_id'],
     "activity_solutions": ['activity_id', 'solution_id'],
     "ai_jobs": ['created_at', 'error', 'error_kind', 'finished_at', 'id', 'input', 'kind', 'priority', 'requester_id', 'result', 'started_at', 'status'],
     "businesses": ['created_at', 'created_by_id', 'customer_id', 'description', 'id', 'memo', 'name', 'period', 'status', 'updated_at'],
-    "customers": ['contact', 'created_at', 'created_by_id', 'id', 'industry', 'memo', 'name', 'updated_at'],
-    "partners": ['contact', 'created_at', 'created_by_id', 'description', 'id', 'memo', 'name', 'updated_at'],
+    "customers": ['contact', 'created_at', 'created_by_id', 'id', 'industry', 'memo', 'name', 'origin_id', 'origin_type', 'updated_at'],
+    "partners": ['contact', 'created_at', 'created_by_id', 'customer_id', 'description', 'id', 'memo', 'name', 'origin_id', 'origin_type', 'updated_at'],
     "solution_files": ['created_at', 'created_by_id', 'extract_status', 'id', 'kind', 'original_name', 'size', 'solution_id', 'stored_name', 'updated_at'],
-    "solutions": ['applicable_types', 'created_at', 'created_by_id', 'description', 'id', 'name', 'partner_id', 'stage', 'summary', 'tags', 'updated_at', 'usage_direction'],
+    "solutions": ['applicable_types', 'created_at', 'created_by_id', 'description', 'id', 'name', 'origin_id', 'origin_item', 'origin_type', 'partner_id', 'stage', 'summary', 'tags', 'updated_at', 'usage_direction'],
     "users": ['created_at', 'id', 'is_active', 'name', 'password_hash', 'role', 'username'],
 }
 

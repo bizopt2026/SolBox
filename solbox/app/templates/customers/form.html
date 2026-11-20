@@ -10,6 +10,10 @@
     <label>업종 <input name="industry" value="{{ form.industry }}"></label>
     <label>연락처 <textarea name="contact" rows="2">{{ form.contact }}</textarea></label>
     <label>메모 <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
+    <label>{{ ont.prop("customer", "partner") }} <select name="partner_id">
+      <option value="">없음</option>
+      {% for p in partners %}<option value="{{ p.id }}"{{ " selected" if form.partner_id | string == p.id | string }}>{{ p.name }}{% if p.taken_by %} (이미 연결: 고객 {{ p.taken_by }}){% endif %}</option>{% endfor %}
+    </select></label>
     <div class="row">
       <button type="submit" class="primary">저장</button>
       <a href="{{ "/customers/" ~ customer.id if customer else "/customers" }}">취소</a>

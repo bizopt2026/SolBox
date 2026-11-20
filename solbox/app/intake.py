@@ -14,7 +14,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import labels, ontology, transcribe
+from app import labels, ontology, origin, transcribe
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -1149,6 +1149,7 @@ class _Run:
         self.db, self.settings, self.intake, self.user = db, settings, intake, user
         self.extracted, self.copied = extracted, copied
         self.by_number = {file_number(intake, f): f for f in intake.files}
+        self.origin = origin.intake_origin(intake.id)  # 이 저장이 새로 만드는 기록의 유래
         self.result: list[dict] = []
         self.skipped: list[dict] = []
         self.unsaved: list[dict] = []  # 저장하지 않은 파일 (정리하지 못한 파일, 제외한 항목의 파일)
@@ -1203,7 +1204,7 @@ class _Run:
         if chosen is not None:
             return self.db.get(Partner, chosen)
         if v["partner_new"].strip():
-            partner, created = records.get_or_create(self.db, Partner, v["partner_new"], self.user)
+            partner, created = records.get_or_create(self.db, Partner, v["partner_new"], self.user, origin=self.origin)
             if created:
                 self.result.append({"type": "partner", "id": partner.id, "label": partner.name})
             if partner is not None:
@@ -1351,7 +1352,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     partners_for: dict[str, object] = {}
     for item, v in chosen:
         if item["kind"] == "new_partner":
-            partner, created = records.get_or_create(db, Partner, v["name"], user, contact=v["contact"].strip(),
+            partner, created = records.get_or_create(db, Partner, v["name"], user, origin=run.origin, contact=v["contact"].strip(),
                                                      description=v["description"].strip(), memo=v["memo"].strip())
             if created:
                 run.result.append({"type": "partner", "id": partner.id, "label": partner.name})
@@ -1361,7 +1362,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             partners_for[item["key"]] = run.partner_for(v)
     for item, v in chosen:
         if item["kind"] == "new_customer":
-            customer, created = records.get_or_create(db, Customer, v["name"], user, industry=v["industry"].strip(),
+            customer, created = records.get_or_create(db, Customer, v["name"], user, origin=run.origin, industry=v["industry"].strip(),
                                                       contact=v["contact"].strip(), memo=v["memo"].strip())
             if created:
                 run.result.append({"type": "customer", "id": customer.id, "label": customer.name})
@@ -1373,7 +1374,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         partner = partners_for.get(item["key"])
         tags = ",".join(t for t in (p.strip() for p in v["tags"].split(",")) if t)
         solution, created = records.get_or_create(
-            db, Solution, v["name"], user, summary=v["summary"].strip(), description=v["description"].strip(), tags=tags,
+            db, Solution, v["name"], user, origin=run.origin, summary=v["summary"].strip(), description=v["description"].strip(), tags=tags,
             partner_id=partner.id if partner is not None else None,
         )
         made = run.attach(solution, item, v)
@@ -1411,7 +1412,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
 
         def pick(column: list[str], keep=keep) -> list[str]:
             return [column[i] if i < len(column) else "" for i in keep]
-        a = Activity(created_by_id=user.id, raw_text=v["raw_text"].strip())
+        a = Activity(created_by_id=user.id, raw_text=v["raw_text"].strip(), origin_type=run.origin[0], origin_id=run.origin[1])
         db.add(a)
         ids = {t: [i for i in v[f"{t}_ids"] if run.existing_id(model, i) is not None] for t, (model, _) in records.LINK_TYPES.items()}
         for rel, t in (("solutions", "solution"), ("customers", "customer"), ("partners", "partner")):
@@ -1425,7 +1426,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             ds_customer=v["ds_customer"], ds_content=v["ds_content"],
             solution_ids=ids["solution"], customer_ids=ids["customer"], project_ids=ids["project"], partner_ids=ids["partner"],
             new_solutions=v["new_names"]["new_solutions"], new_customers=v["new_names"]["new_customers"],
-            new_partners=v["new_names"]["new_partners"],
+            new_partners=v["new_names"]["new_partners"], origin=run.origin,
         )
         db.flush()
         for number in item.get("files", []):

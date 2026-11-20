@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, origin_line %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("솔루션", "/solutions"), (solution.name, None)) }}
 {{ detail_head(solution.name, "/solutions", solution, can_delete) }}
+{{ origin_line(origin) }}
 <section class="card">
   <h2>기본 정보</h2>
   <dl>

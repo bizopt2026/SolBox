@@ -10,7 +10,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import labels, ontology
+from app import labels, ontology, origin as origins
 from app.activity_rows import load_index, reconcile_follow_ups, reconcile_needs
 from app.ai.tasks import normalize_name
 from app.config import Settings
@@ -114,9 +114,10 @@ def pick(db: Session, model, ids: list[str]) -> list:
     return picked
 
 
-def get_or_create(db: Session, model, name: str, user: User, **fields) -> tuple[object | None, bool]:
-    """같은 이름(공백·문장부호·대소문자 무시, 완전 일치만)의 항목이 있으면 그것을, 없으면 `fields` 로 새로 만든다 (flush).
-    (항목, 새로 만들었는지). 이름이 비면 (None, False)."""
+def get_or_create(db: Session, model, name: str, user: User, *, origin: tuple[str, int | None] = origins.MANUAL,
+                  **fields) -> tuple[object | None, bool]:
+    """같은 이름(공백·문장부호·대소문자 무시, 완전 일치만)의 항목이 있으면 그것을(유래는 그대로), 없으면 `fields` 로 새로 만든다 (flush).
+    새로 만들 때만 유래 `origin` = (유형, 번호) 를 적는다 (기본: 직접 입력). (항목, 새로 만들었는지). 이름이 비면 (None, False)."""
     key = normalize_name(name)
     if not key:
         return None, False
@@ -124,17 +125,17 @@ def get_or_create(db: Session, model, name: str, user: User, **fields) -> tuple[
         if normalize_name(obj.name) == key:
             return obj, False
     extra = {"stage": ontology.STAGE_DEFAULT} if model is Solution else {}
-    obj = model(name=name.strip(), created_by_id=user.id, **extra, **fields)
+    obj = model(name=name.strip(), created_by_id=user.id, origin_type=origin[0], origin_id=origin[1], **extra, **fields)
     db.add(obj)
     db.flush()
     return obj, True
 
 
-def find_or_create(db: Session, model, names: list[str], user: User) -> list:
+def find_or_create(db: Session, model, names: list[str], user: User, origin: tuple[str, int | None] = origins.MANUAL) -> list:
     """이름만 가진 항목을 만든다. 같은 이름이 있으면 그것을 쓴다."""
     result = []
     for name in names:
-        obj, _ = get_or_create(db, model, name, user)
+        obj, _ = get_or_create(db, model, name, user, origin=origin)
         if obj is not None and obj not in result:
             result.append(obj)
     return result
@@ -150,7 +151,7 @@ def apply_activity_fields(
     db: Session, user: User, a: Activity, *, kind, date_, title, raw_text, summary_md,
     fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-    fu_id=(), ds_id=(),
+    fu_id=(), ds_id=(), origin: tuple[str, int | None] = origins.MANUAL,
 ) -> None:
     """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다.
     후속 조치·고객 니즈는 `fu_id`·`ds_id`(줄 번호, 새 줄은 빈 글자) 기준으로 표의 행을 맞춘다 (번호 유지·삭제·추가)."""
@@ -164,7 +165,7 @@ def apply_activity_fields(
         setattr(a, rel, pick(db, model, ids[t]))
     for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners)):
         current = getattr(a, rel)
-        for obj in find_or_create(db, NEW_TYPES[rel], names, user):
+        for obj in find_or_create(db, NEW_TYPES[rel], names, user, origin):
             if obj not in current:
                 current.append(obj)
     index = load_index(db)  # 새로 등록한 고객도 포함하도록 연결 뒤에 맞춘다

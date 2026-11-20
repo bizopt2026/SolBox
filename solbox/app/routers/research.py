@@ -6,10 +6,10 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app import ontology
+from app import ontology, origin
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -92,6 +92,11 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
         solutions = [x for x in (db.get(Solution, i) for i in ids) if x is not None]
         shown = {k: humanize_ids(db, s.get(k) or "") for k in ("title", "detail", "reason")}
         suggestions.append({**s, **shown, "index": index, "solutions": solutions})
+    report_ids = [r.id for r in run.reports]  # 이 조사에서 등록된 솔루션 (유래 키로 찾는다)
+    registered = {}
+    if report_ids:
+        for sol in db.scalars(select(Solution).where(Solution.origin_type == ontology.ORIGIN_RESEARCH, Solution.origin_id.in_(report_ids)).order_by(Solution.id.desc())):
+            registered[f"{sol.origin_id}:{sol.origin_item}"] = sol  # 같은 항목이 둘이면 가장 먼저 등록한 것
     areas = []
     for r in run.reports:
         if r.kind != "area":
@@ -101,7 +106,7 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
         areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends, "insights": insights})
     suggest_insights = [humanize_ids(db, i) for i in (suggest.insights if suggest else None) or []]
     return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas,
-                  suggest_insights=suggest_insights, src=SourceLookup(db))
+                  suggest_insights=suggest_insights, src=SourceLookup(db), registered=registered)
 
 
 @router.post("/runs/{run_id}/candidate")
@@ -120,6 +125,11 @@ def register_candidate(
     if not 0 <= index < len(items or []):
         raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
     item = items[index]
+    item_key = f"{source}:{index}"
+    already = db.scalar(select(Solution).where(Solution.origin_type == ontology.ORIGIN_RESEARCH, Solution.origin_id == report.id,
+                                               Solution.origin_item == item_key).order_by(Solution.id))
+    if already is not None:  # 같은 제안·동향을 두 번 등록하지 않는다 (지워졌으면 다시 등록할 수 있다)
+        return RedirectResponse(f"/solutions/{already.id}", status_code=303)
     lines: list[str] = []
     if source == "suggestion":
         name, summary = humanize_ids(db, item.get("title", "")), humanize_ids(db, item.get("reason", ""))
@@ -136,7 +146,8 @@ def register_candidate(
     day = report.run.started_at.date().isoformat()
     lines += ["", f"리서치({day})에서 등록"]
     solution = Solution(name=(name.strip() or "리서치 후보")[:NAME_MAX], summary=summary.strip(),
-                        description="\n".join(lines), stage=ontology.STAGE_DEFAULT, created_by_id=user.id)
+                        description="\n".join(lines), stage=ontology.STAGE_DEFAULT, created_by_id=user.id,
+                        origin_type=ontology.ORIGIN_RESEARCH, origin_id=report.id, origin_item=item_key)
     db.add(solution)
     db.commit()
     mirror.sync(solution)
@@ -153,6 +164,7 @@ def delete_run(run_id: int, admin: User = Depends(require_admin), db: Session = 
         raise HTTPException(status_code=400, detail=RUNNING_DELETE)
     for report in list(run.reports):  # 사본 경로는 보고서 행에서 나오므로 지우기 전에 먼저 지운다
         mirror.remove(report)
+    origin.clear_dangling(db, ontology.ORIGIN_RESEARCH, [r.id for r in run.reports])  # 같은 트랜잭션에서 유래의 번호를 비운다
     db.delete(run)
     db.commit()
     return RedirectResponse("/research", status_code=303)

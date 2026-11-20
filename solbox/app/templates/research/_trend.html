@@ -12,10 +12,14 @@
       </ul>
       {% endif %}
       {% for it in notes %}<div>{{ check_badge(it.kind) }} {{ it.text }}</div>{% endfor %}
+      {% set reg = registered.get(report.id ~ ":trend:" ~ t.index) %}
+      {% if reg %}<div class="muted">후보로 등록됨: <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></div>
+      {% else %}
       <form method="post" action="/research/runs/{{ run.id }}/candidate" class="inline-form">
         <input type="hidden" name="source" value="trend"><input type="hidden" name="report_id" value="{{ report.id }}"><input type="hidden" name="index" value="{{ t.index }}">
         <button type="submit" class="small">후보 등록</button>
       </form>
+      {% endif %}
     </div>
   </details>
 </li>

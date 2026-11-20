@@ -104,7 +104,7 @@ def test_proposal_steps_come_from_status_codes():
 
 def test_relations_use_defined_types_and_real_storage():
     keys = [r.key for r in ontology.RELATIONS]
-    assert keys == [f"R{i}" for i in range(1, 25)]
+    assert keys == [f"R{i}" for i in range(1, 26)]
     tables = Base.metadata.tables
     for r in ontology.RELATIONS:
         assert r.source and r.target and r.label

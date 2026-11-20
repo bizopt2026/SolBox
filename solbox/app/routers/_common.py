@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from typing import Sequence, TypeVar
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Customer, CustomerNeed, Partner, Project, Solution, User
+from app.models import Activity, Customer, CustomerNeed, IntakeFile, Partner, Project, Solution, User
 from app.security import ensure_can_delete
 
 T = TypeVar("T")
@@ -60,6 +60,12 @@ def activities_with_needs_of(db: Session, customer: Customer) -> list[Activity]:
     return list(db.scalars(select(Activity).where(Activity.needs.any(CustomerNeed.customer_id == customer.id))))
 
 
+def clear_file_targets(db: Session, target_type: str, target_id: int) -> None:
+    """대상 기록을 지우기 전에 올린 파일의 대상 표시(R21)를 비운다: 번호를 다시 쓰는 새 기록이 원본을 물려받지 않게 (같은 트랜잭션)."""
+    db.execute(update(IntakeFile).where(IntakeFile.target_type == target_type, IntakeFile.target_id == target_id)
+               .values(target_type="", target_id=None))
+
+
 def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Activity]) -> None:
     """연결 대상이 지워진 뒤 활동 기록 사본을 다시 쓴다."""
     for a in activities:
@@ -70,11 +76,12 @@ def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Act
 def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
     """`obj` 의 이름이 적히는 다른 사본(상위·하위 항목, 연결된 활동 기록)을 다시 쓴다."""
     if isinstance(obj, Customer):
-        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj), *activities_with_needs_of(db, obj)]
+        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj), *activities_with_needs_of(db, obj),
+                   *([obj.partner] if obj.partner else [])]
     elif isinstance(obj, Project):
         related = [obj.customer, *activities_linked_to(db, Activity.projects, obj)]
     elif isinstance(obj, Partner):
-        related = [*obj.solutions, *activities_linked_to(db, Activity.partners, obj)]
+        related = [*obj.solutions, *activities_linked_to(db, Activity.partners, obj), *([obj.customer] if obj.customer else [])]
     elif isinstance(obj, Solution):
         related = [*([obj.partner] if obj.partner else []), *activities_linked_to(db, Activity.solutions, obj)]
     else:

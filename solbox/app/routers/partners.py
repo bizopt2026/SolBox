@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app import ontology, origin, same_company
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Activity, Partner, User
+from app.models import Activity, Customer, Partner, User
 from app.routers._common import (
-    activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
+    activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first,
     resync_activities, resync_related, search_by_name, paginate,
 )
 from app.security import can_delete, require_user
@@ -19,10 +20,19 @@ router = APIRouter(prefix="/partners")
 FIELDS = ("name", "contact", "description", "memo")
 
 
-def _form_page(request: Request, form: dict, partner: Partner | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, form: dict, partner: Partner | None = None, error: str | None = None):
     return render(
         request, "partners/form.html", status_code=400 if error else 200,
-        form=form, partner=partner, error=error,
+        form=form, partner=partner, error=error, customers=same_company.customer_choices(db, partner),
+    )
+
+
+def _detail_page(request: Request, db: Session, user: User, partner: Partner, error: str | None = None):
+    return render(
+        request, "partners/detail.html", status_code=400 if error else 200, partner=partner,
+        activities=newest_first(activities_linked_to(db, Activity.partners, partner)),
+        can_delete=can_delete(user, partner), error=error, origin=origin.view(db, user, partner),
+        same_name=same_company.candidate_customer(db, partner),
     )
 
 
@@ -35,59 +45,88 @@ def list_partners(
 
 
 @router.get("/new")
-def new_form(request: Request, user: User = Depends(require_user)):
-    return _form_page(request, {f: "" for f in FIELDS})
+def new_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return _form_page(request, db, {**{f: "" for f in FIELDS}, "customer_id": ""})
 
 
 @router.post("")
 def create(
     request: Request,
     name: str = Form(""), contact: str = Form(""), description: str = Form(""), memo: str = Form(""),
+    customer_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
     if error := name_error(name):
-        return _form_page(request, values, error=error)
-    partner = Partner(**values, created_by_id=user.id)
+        return _form_page(request, db, {**values, "customer_id": customer_id}, error=error)
+    partner = Partner(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
+    if error := same_company.set_from_partner(db, partner, customer_id):  # 오류면 아무것도 바꾸지 않았다
+        return _form_page(request, db, {**values, "customer_id": customer_id}, error=error)
     db.add(partner)
     db.commit()
     mirror.sync(partner)
+    if partner.customer is not None:
+        mirror.sync(partner.customer)
     return RedirectResponse(f"/partners/{partner.id}", status_code=303)
 
 
 @router.get("/{partner_id}")
 def detail(partner_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    partner = get_or_404(db, Partner, partner_id)
-    activities = newest_first(activities_linked_to(db, Activity.partners, partner))
-    return render(
-        request, "partners/detail.html", partner=partner, activities=activities,
-        can_delete=can_delete(user, partner),
-    )
+    return _detail_page(request, db, user, get_or_404(db, Partner, partner_id))
 
 
 @router.get("/{partner_id}/edit")
 def edit_form(partner_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     partner = get_or_404(db, Partner, partner_id)
-    return _form_page(request, {f: getattr(partner, f) for f in FIELDS}, partner)
+    return _form_page(request, db, {**{f: getattr(partner, f) for f in FIELDS}, "customer_id": partner.customer_id or ""}, partner)
 
 
 @router.post("/{partner_id}")
 def update(
     partner_id: int, request: Request,
     name: str = Form(""), contact: str = Form(""), description: str = Form(""), memo: str = Form(""),
+    customer_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     partner = get_or_404(db, Partner, partner_id)
     values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
     if error := name_error(name):
-        return _form_page(request, values, partner, error)
+        return _form_page(request, db, {**values, "customer_id": customer_id}, partner, error)
+    old_customer = partner.customer
+    if error := same_company.set_from_partner(db, partner, customer_id):  # 오류면 아무것도 바꾸지 않았다
+        return _form_page(request, db, {**values, "customer_id": customer_id}, partner, error)
     for field, value in values.items():
         setattr(partner, field, value)
     db.commit()
+    db.refresh(partner)
     mirror.sync(partner)
     resync_related(db, mirror, partner)
+    if old_customer is not None and old_customer is not partner.customer:  # 풀린 고객의 사본
+        db.refresh(old_customer)
+        mirror.sync(old_customer)
+    return RedirectResponse(f"/partners/{partner.id}", status_code=303)
+
+
+@router.post("/{partner_id}/same-company")
+def link_same_company(
+    partner_id: int, request: Request, customer_id: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """이름이 같은 고객 안내의 한 번 누르기: 아직 다른 곳과 이어지지 않았을 때만 잇는다."""
+    partner = get_or_404(db, Partner, partner_id)
+    customer = db.get(Customer, int(customer_id)) if customer_id.strip().isascii() and customer_id.strip().isdecimal() else None
+    error = same_company.NO_CUSTOMER if customer is None else same_company.link_unlinked(db, partner, customer)
+    if error:
+        db.rollback()
+        return _detail_page(request, db, user, partner, error)
+    db.commit()
+    db.refresh(partner)
+    db.refresh(customer)
+    mirror.sync(partner)
+    mirror.sync(customer)
     return RedirectResponse(f"/partners/{partner.id}", status_code=303)
 
 
@@ -100,11 +139,16 @@ def delete(
     partner = get_deletable_or_404(db, Partner, partner_id, user)
     solutions = list(partner.solutions)
     activities = activities_linked_to(db, Activity.partners, partner)
+    customer = partner.customer
     for s in solutions:
         s.partner_id = None
     mirror.remove(partner)
+    clear_file_targets(db, "partner", partner.id)
     db.delete(partner)
     db.commit()
+    if customer is not None:  # 사본에 이 파트너가 적혀 있었다
+        db.refresh(customer)
+        mirror.sync(customer)
     for s in solutions:
         db.refresh(s)
         mirror.sync(s)

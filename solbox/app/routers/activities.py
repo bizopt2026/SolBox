@@ -8,10 +8,9 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 from sqlalchemy import or_, select
-from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
-from app import labels, ontology
+from app import labels, ontology, origin
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
 from app.db import get_db
@@ -22,7 +21,7 @@ from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile,
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
-from app.routers._common import get_deletable_or_404, get_or_404, newest_first, paginate
+from app.routers._common import clear_file_targets, get_deletable_or_404, get_or_404, newest_first, paginate
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/activities")
@@ -131,7 +130,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         return _form_page(request, db, submitted, activity, e.detail)
     old = linked(activity) if activity is not None else []
     if activity is None:
-        activity = Activity(created_by_id=user.id, raw_text=text)
+        activity = Activity(created_by_id=user.id, raw_text=text, origin_type=ontology.ORIGIN_MANUAL)
         db.add(activity)
     apply_activity_fields(
         db, user, activity, kind=kind, date_=date_, title=title, raw_text=text, summary_md=summary_md,
@@ -140,7 +139,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
         fu_id=fu_id, ds_id=ds_id,
-    )
+    )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
     return RedirectResponse(f"/activities/{activity.id}", status_code=303)
@@ -178,7 +177,7 @@ def save_raw(
         return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     activity = Activity(
         kind=ontology.ACTIVITY_KIND_DEFAULT, date=date.today(), title=first_line(text), raw_text=text, summary_md="",
-        created_by_id=user.id,
+        created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL,
     )
     db.add(activity)
     db.commit()
@@ -294,7 +293,8 @@ def detail(activity_id: int, request: Request, user: User = Depends(require_user
     originals = list(db.scalars(  # 올리기로 만든 기록이면 올린 원본 파일
         select(IntakeFile).where(IntakeFile.target_type == "activity", IntakeFile.target_id == a.id).order_by(IntakeFile.id)
     ))
-    return render(request, "activities/detail.html", activity=a, can_delete=can_delete(user, a), originals=originals)
+    return render(request, "activities/detail.html", activity=a, can_delete=can_delete(user, a), originals=originals,
+                  origin=origin.view(db, user, a))
 
 
 @router.get("/{activity_id}/edit")
@@ -320,8 +320,7 @@ def delete(
     a = get_deletable_or_404(db, Activity, activity_id, user)
     related = linked(a)
     mirror.remove(a)
-    db.execute(sql_update(IntakeFile).where(IntakeFile.target_type == "activity", IntakeFile.target_id == a.id)
-               .values(target_type="", target_id=None))  # 번호를 다시 쓰는 새 기록이 올린 원본을 물려받지 않게
+    clear_file_targets(db, "activity", a.id)  # 번호를 다시 쓰는 새 기록이 올린 원본을 물려받지 않게
     db.delete(a)
     db.commit()
     for obj in related:

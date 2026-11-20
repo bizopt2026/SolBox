@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, func
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, String, Table, Text, func
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from app import ontology
@@ -21,6 +21,13 @@ class Stamped:
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
     )
+
+
+class Origin:
+    """기록의 유래: 직접 입력 / 올리기 묶음 / 리서치 보고서. 비어 있으면 모른다. `origin_id` 는 짝 표 번호이고 응용 수준에서만 지킨다."""
+
+    origin_type: Mapped[str | None] = mapped_column(String, nullable=True)  # manual / intake / research (ontology.ORIGINS)
+    origin_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # intake 번호 또는 research_reports 번호
 
 
 def _link_table(name: str, other: str, other_table: str) -> Table:
@@ -57,19 +64,22 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
 
 
-class Partner(Stamped, Base):
+class Partner(Stamped, Origin, Base):
     __tablename__ = "partners"
+    __table_args__ = (Index("ux_partners_customer_id", "customer_id", unique=True),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)
     contact: Mapped[str] = mapped_column(String, default="")
     description: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True)  # 같은 회사인 고객 (1:1)
 
     solutions: Mapped[list[Solution]] = relationship(back_populates="partner")
+    customer: Mapped[Customer | None] = relationship(back_populates="partner")
 
 
-class Customer(Stamped, Base):
+class Customer(Stamped, Origin, Base):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -80,6 +90,7 @@ class Customer(Stamped, Base):
 
     projects: Mapped[list[Project]] = relationship(back_populates="customer")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
+    partner: Mapped[Partner | None] = relationship(back_populates="customer", uselist=False)
 
 
 class Project(Stamped, Base):
@@ -99,7 +110,7 @@ class Project(Stamped, Base):
     proposals: Mapped[list[Proposal]] = relationship(back_populates="project")
 
 
-class Solution(Stamped, Base):
+class Solution(Stamped, Origin, Base):
     __tablename__ = "solutions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -111,6 +122,7 @@ class Solution(Stamped, Base):
     usage_direction: Mapped[str] = mapped_column(String, default="")
     applicable_types: Mapped[str] = mapped_column(String, default="")
     tags: Mapped[str] = mapped_column(String, default="")  # 쉼표 구분
+    origin_item: Mapped[str | None] = mapped_column(String, nullable=True)  # 리서치에서 등록했다면 보고서 안의 위치 ("suggestion:3", "trend:1")
 
     partner: Mapped[Partner | None] = relationship(back_populates="solutions")
     files: Mapped[list[SolutionFile]] = relationship(
@@ -138,7 +150,7 @@ class SolutionFile(Stamped, Base):
     solution: Mapped[Solution] = relationship(back_populates="files")
 
 
-class Activity(Stamped, Base):
+class Activity(Stamped, Origin, Base):
     __tablename__ = "activities"
 
     id: Mapped[int] = mapped_column(primary_key=True)

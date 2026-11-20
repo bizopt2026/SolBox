@@ -178,6 +178,8 @@ class KnowledgeMirror:
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
         out += _lines(_item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
+        if c.partner is not None:  # 같은 회사인 파트너 (AI 가 경로를 따라갈 수 있게)
+            out.append(f"- {ontology.term('same_company')}: {ontology.label('partner')} {self._ref(c.partner.name, c.partner)}")
         if c.projects:
             out += ["", f"## {ontology.label('project')}", ""]
             out += [f"- {self._ref(b.name, b)}" for b in sorted(c.projects, key=lambda b: b.id)]
@@ -197,6 +199,8 @@ class KnowledgeMirror:
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
         out += _lines(_item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
+        if p.customer is not None:
+            out.append(f"- {ontology.term('same_company')}: {ontology.label('customer')} {self._ref(p.customer.name, p.customer)}")
         if p.solutions:
             out += ["", "## 솔루션", ""]
             out += [f"- {self._ref(s.name, s)}" for s in sorted(p.solutions, key=lambda s: s.id)]
@@ -266,7 +270,7 @@ class KnowledgeMirror:
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
-KNOWLEDGE_FORMAT = 3  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로)
+KNOWLEDGE_FORMAT = 4  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄)
 FORMAT_KEY = "knowledge_format"
 
 

@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import JSON, Column, Engine, MetaData, inspect
+from sqlalchemy import JSON, Column, Engine, MetaData, inspect, select, update
 from sqlalchemy.dialects import sqlite as sqlite_dialect
 
 from app.db import Base
@@ -230,5 +231,116 @@ def copy_activity_json(engine: Engine, db_path: Path) -> dict | None:
         "후속 조치·고객 니즈 복사: 활동 기록 %(activities)d건, 후속 조치 %(follow_ups)d줄(담당 연결 %(owner_linked)d, 미연결 %(owner_unlinked)d), "
         "고객 니즈 %(needs)d줄(고객 연결 %(customer_linked)d, 미연결 %(customer_unlinked)d), 건너뜀 %(skipped)d, 기한 형식 오류 %(bad_due)d",
         stats,
+    )
+    return stats
+
+
+# ---- 올리기로 만든 기록의 유래: `Intake.result` 로 되짚어 채우기 (한 번) ----
+
+ORIGINS_FILLED_KEY = "origins_filled"  # app_settings 표시: 있으면 되짚지 않는다
+UNIQUE_INDEXES = ("ux_partners_customer_id",)  # 옛 DB 에 모델의 이 유일 색인을 더한다 (열이 새로 생겨 모두 비어 있으므로 안전하다)
+_LINKED_ONLY = re.compile(r" \((연락처 추가|자료 \d+개 추가|이미 등록된 솔루션에 자료 \d+개 추가)\)$")  # 새로 만들지 않고 연결·덧붙인 결과 줄의 꼬리표
+
+
+def add_unique_indexes(engine: Engine) -> list[str]:
+    """모델에 있는데 옛 DB 에 없는 유일 색인(`UNIQUE_INDEXES`)을 더한다. 중복이 있어 못 만들면 로그만 남긴다 (응용 코드가 따로 지킨다)."""
+    insp = inspect(engine)
+    made: list[str] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in insp.get_table_names():
+            continue
+        have = {i["name"] for i in insp.get_indexes(table.name)}
+        for index in table.indexes:
+            if index.name in UNIQUE_INDEXES and index.name not in have:
+                try:
+                    index.create(engine)
+                    made.append(index.name)
+                    log.info("색인 추가: %s", index.name)
+                except Exception:  # noqa: BLE001
+                    log.warning("유일 색인 %s 을(를) 만들지 못했습니다 (중복 값). 응용 코드가 중복을 막습니다.", index.name, exc_info=True)
+    return made
+
+
+def backfill_origins(engine: Engine, db_path: Path) -> dict | None:
+    """저장 완료된 모든 올리기 묶음의 `result` 를 읽어, 그 묶음이 만든 기록에 유래(`intake`/묶음 번호)를 채운다.
+
+    채우는 조건 (모두): 기록이 아직 있다, 유래가 비어 있다, 결과 줄이 연결·덧붙임이 아니라 새로 만든 것이다(꼬리표),
+    기록의 `created_at` 이 묶음을 올린 시각과 저장을 끝낸 시각(`applied_at`) 사이다 (SQLite 가 지워진 번호를 다시 써서 엉뚱한
+    기록을 가리키거나, 묶음 뒤에 직접 만든 기록에 자료만 더한 줄을 잘못 채우는 일을 막는다). 근거가 없는 기록은 비워 둔다
+    ("직접 입력" 으로 표시하지 않는다: 모른다). 리서치로 등록한 옛 솔루션은 되짚을 수 없어 그대로다.
+    `copy_activity_json` 과 같은 방식: 표시로 한 번만, 고칠 것이 있으면 하기 전에 DB 복사, 고치기와 표시는 한 트랜잭션.
+    했으면 요약(dict)을, 이미 했으면 None 을 돌려준다."""
+    from app import models  # noqa: F401  (표를 등록한다)
+
+    tables = Base.metadata.tables
+    settings_t = tables["app_settings"]
+    kinds = {"partner": tables["partners"], "customer": tables["customers"], "solution": tables["solutions"], "activity": tables["activities"]}
+    with engine.connect() as conn:
+        if conn.execute(settings_t.select().where(settings_t.c.key == ORIGINS_FILLED_KEY)).first() is not None:
+            return None
+        intakes = conn.exec_driver_sql(
+            "SELECT id, created_at, applied_at, result FROM intakes WHERE status = 'applied' ORDER BY id").all()
+        rows = {k: {r[0]: (r[1], r[2]) for r in conn.execute(select(t.c.id, t.c.created_at, t.c.origin_type))} for k, t in kinds.items()}
+
+    def when(value):
+        if isinstance(value, datetime) or value is None:
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+
+    stats = {"intakes": len(intakes), "entries": 0, "total": 0, "set": {k: 0 for k in kinds},
+             "missing": 0, "already": 0, "outside_window": 0, "linked_only": 0, "skipped_entries": 0}
+    updates: list[tuple[str, int, int]] = []  # (종류, 기록 번호, 묶음 번호)
+    claimed: set[tuple[str, int]] = set()
+    for intake_id, created, applied, raw in intakes:
+        created, applied = when(created), when(applied)
+        try:
+            result = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+        except ValueError:
+            result = None
+        if not isinstance(result, list):
+            log.warning("올리기 묶음 %s 의 결과를 읽을 수 없어 건너뜁니다", intake_id)
+            continue
+        for entry in result:
+            kind = entry.get("type") if isinstance(entry, dict) else None
+            number = entry.get("id") if isinstance(entry, dict) else None
+            if kind not in kinds or not isinstance(number, int) or isinstance(number, bool):
+                stats["skipped_entries"] += 1  # 저장하지 못한 항목·저장하지 않은 파일·깨진 줄
+                continue
+            stats["entries"] += 1
+            if _LINKED_ONLY.search(str(entry.get("label") or "")):
+                stats["linked_only"] += 1
+                continue
+            row = rows[kind].get(number)
+            if row is None:
+                stats["missing"] += 1
+                continue
+            record_created, origin_type = when(row[0]), row[1]
+            if origin_type is not None:
+                stats["already"] += 1
+                continue
+            if created is None or applied is None or record_created is None or not created <= record_created <= applied:
+                stats["outside_window"] += 1
+                continue
+            if (kind, number) in claimed:
+                continue
+            claimed.add((kind, number))
+            updates.append((kind, number, intake_id))
+            stats["set"][kind] += 1
+    stats["total"] = len(updates)
+
+    if updates:
+        backup = _backup(db_path)
+        log.info("유래 채우기 전 DB 복사본: %s", backup)
+    with engine.begin() as conn:  # 고치기와 표시를 한 트랜잭션으로: 중간에 멈추면 모두 취소된다
+        for kind, number, intake_id in updates:
+            t = kinds[kind]  # origin_type 이 아직 비어 있을 때만 쓴다
+            conn.execute(update(t).where(t.c.id == number, t.c.origin_type.is_(None)).values(origin_type="intake", origin_id=intake_id))
+        conn.execute(settings_t.insert().values(key=ORIGINS_FILLED_KEY, value=stats))
+    log.info(
+        "유래 채우기: 올리기 묶음 %(intakes)d건, 결과 줄 %(entries)d, 유래를 채운 기록 %(total)d건 %(set)s, 연결·덧붙임 줄 %(linked_only)d, "
+        "기록 없음 %(missing)d, 이미 유래 있음 %(already)d, 시각이 맞지 않아 건너뜀 %(outside_window)d", stats,
     )
     return stats

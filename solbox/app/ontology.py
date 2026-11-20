@@ -162,6 +162,9 @@ ERROR_KINDS = {
 # 확인 항목의 종류: 근거 문제 / 확인할 점 (저장된 값이 아니라 문구에서 가려낸다. app/checks.py)
 CHECK_KINDS = {"evidence": "근거 문제", "decide": "확인할 점"}
 
+ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
+ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
+
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
 
 CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
@@ -184,6 +187,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("job_status", "AI 작업 상태", JOB_STATUSES, JOB_PENDING),
     CodeList("job_kind", "AI 작업 종류", JOB_KINDS),
     CodeList("check_kind", "확인 항목 종류", CHECK_KINDS),
+    CodeList("origin_type", "기록의 유래", ORIGINS),
 )}
 
 # 모델 열이 어느 코드 목록의 값을 담는지 (물리 표 이름, 열 이름). 일관성 검사가 기본값을 대조한다.
@@ -201,6 +205,10 @@ COLUMN_CODES = {
     ("research_reports", "kind"): "report_kind",
     ("research_reports", "area"): "research_area",
     ("research_reports", "status"): "job_status",
+    ("solutions", "origin_type"): "origin_type",
+    ("activities", "origin_type"): "origin_type",
+    ("customers", "origin_type"): "origin_type",
+    ("partners", "origin_type"): "origin_type",
     ("users", "role"): "user_role",
     ("ai_jobs", "status"): "job_status",
     ("ai_jobs", "kind"): "job_kind",
@@ -221,6 +229,7 @@ TERMS = {
     "intake_nav": "올리기",
     "intake_short": "묶음",
     "customer_need": "고객 니즈",
+    "same_company": "같은 회사",
 }
 
 # ======================================================================================
@@ -270,15 +279,17 @@ _TYPE_LIST = [
         "solution", "솔루션", "핵심", "Solution", "solutions", "/solutions", "/solutions/{id}",
         "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
-               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "tags": "태그", "files": "자료"},
+               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "tags": "태그", "files": "자료", "origin": "유래"},
     ),
     ObjectType(
         "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너",
-        props={"name": "이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션"},
+        props={"name": "이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
+               "customer": "같은 회사인 고객"},
     ),
     ObjectType(
         "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객",
-        props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트"},
+        props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
+               "partner": "같은 회사인 파트너"},
     ),
     ObjectType(
         "project", "프로젝트", "핵심", "Project", "businesses", "/projects", "/projects/{id}", "projects/{id}.md",
@@ -291,7 +302,7 @@ _TYPE_LIST = [
         "activities/{year}/{id}.md", nav="활동 기록",
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
-               "projects": "프로젝트", "partners": "파트너"},
+               "projects": "프로젝트", "partners": "파트너", "origin": "유래"},
     ),
     ObjectType(
         "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안",
@@ -507,13 +518,18 @@ RELATIONS: tuple[Relation, ...] = (
        ("solution", "solution_file", "customer", "project", "partner", "activity", "research_report"), "N:M", "text",
        "proposals.directions proposals.outline research_reports.suggestions", "지식 사본 경로 글자. 해석은 ontology.parse_rel"),
     _r("R18", "민다", "suggestion", "solution", "N:M", "json", "research_reports.suggestions"),
-    _r("R19", "등록된다", "research_report", "solution", "1:N", "text", "solutions.description", "설명 속 문장. 연결 키 없음"),
+    _r("R19", "등록된다", "research_report", "solution", "1:N", "fk", "solutions.origin_type solutions.origin_id solutions.origin_item",
+       "origin_type='research', origin_id=보고서 번호, origin_item='suggestion:N'/'trend:N'. 보고서 번호는 조사를 지우면 비운다. 옛 등록은 채우지 못했다"),
     _r("R20", "담는다", "intake", "intake_file", "1:N", "fk", "intake_files.intake_id"),
     _r("R21", "원본이다", "intake_file", ("activity", "solution", "partner", "customer"), "N:1", "text",
-       "intake_files.target_type intake_files.target_id", "종류+번호. 활동 기록만 읽는다"),
-    _r("R22", "만들어진다", "intake", ("solution", "activity", "customer", "partner"), "1:N", "json", "intakes.result"),
+       "intake_files.target_type intake_files.target_id", "종류+번호. 활동 기록만 읽는다. 대상을 지우면 함께 비운다"),
+    _r("R22", "만들어진다", "intake", ("solution", "activity", "customer", "partner"), "1:N", "fk",
+       "solutions.origin_type solutions.origin_id activities.origin_type activities.origin_id "
+       "customers.origin_type customers.origin_id partners.origin_type partners.origin_id",
+       "origin_type='intake', origin_id=묶음 번호. 새로 만든 기록만 (연결·덧붙임은 아님). 묶음 번호는 `Intake.result` 로 한 번 되짚어 채웠다"),
     _r("R23", "낸다", "research_run", "research_report", "1:N", "fk", "research_reports.run_id"),
     _r("R24", "작성한다", "user", _CORE, "1:N", "fk", "partners.created_by_id", "삭제 권한의 기준. 모든 핵심 대상의 created_by_id"),
+    _r("R25", "같은 회사다", "partner", "customer", "1:1", "fk", "partners.customer_id", "선택. 한 파트너에 고객 하나, 한 고객에 파트너 하나"),
 )
 
 # ======================================================================================
