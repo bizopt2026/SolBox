@@ -14,6 +14,7 @@ export const FILES = [
   'src/mathtext.js',
   'src/column.js',
   'src/ai.js',
+  'src/store.js',
   'src/main.js'
 ];
 
