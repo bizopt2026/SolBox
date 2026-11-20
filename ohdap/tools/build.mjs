@@ -13,6 +13,7 @@ export const FILES = [
   'src/answer.js',
   'src/mathtext.js',
   'src/column.js',
+  'src/ai.js',
   'src/main.js'
 ];
 
