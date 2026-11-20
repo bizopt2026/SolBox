@@ -4,7 +4,7 @@
   <label class="dropzone-area" for="{{ zone_id }}-files">
     <span class="dropzone-main">파일을 여기에 끌어다 놓거나 눌러서 선택</span>
     <span class="dropzone-types">문서(pptx, pdf, docx, xlsx, txt, md, csv) · 사진 · 음성</span>
-    {% if not transcriber_ready %}<span class="dropzone-types">음성 파일은 보관만 됩니다 (받아쓰기 준비 중)</span>{% endif %}
+    <span class="dropzone-types">{% if transcriber_ready %}음성 파일은 받아써서 정리합니다 (길면 오래 걸려요){% else %}음성 파일은 보관만 됩니다 (받아쓰기 준비 중){% endif %}</span>
     <input id="{{ zone_id }}-files" type="file" name="files" multiple required>
   </label>
   <p class="dropzone-summary" aria-live="polite" hidden></p>

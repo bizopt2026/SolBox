@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]
+stt = ["faster-whisper>=1.1"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

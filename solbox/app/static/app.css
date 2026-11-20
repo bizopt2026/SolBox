@@ -376,6 +376,7 @@ details.dir-rest > ul { margin-top:0; }
 .badge.intake-discarded { background:#eaecf0; color:#475467; }
 .badge.read-failed { background:#fef3f2; color:var(--err); }
 .badge.read-needs_transcript { background:#fef0c7; color:#93370d; }
+.badge.read-pending_transcript { background:#e0f2fe; color:#075985; }
 .badge.read-unsupported { background:#eaecf0; color:#475467; }
 
 /* 올리기 정리안 확인 */

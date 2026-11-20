@@ -25,14 +25,18 @@
     <thead><tr><th class="col-num">번호</th><th>이름</th><th>종류</th><th class="col-size">크기</th><th class="col-status">읽기 상태</th><th></th></tr></thead>
     <tbody>
     {% for f in intake.files %}
-      {% set audio_note = f.read_status == "needs_transcript" and intake.status not in ("applied", "discarded") %}
+      {% set active = intake.status not in ("applied", "discarded") %}
+      {% set audio_note = f.read_status == "needs_transcript" and active %}
+      {% set status_text = ("받아쓰는 중 " ~ f.progress ~ "%") if (f.read_status == "pending_transcript" and f.progress is not none and intake.status == "analyzing") else labels.READ_STATUSES.get(f.read_status, f.read_status) %}
+      {% set fail_note = f.kind == "audio" and f.read_status == "failed" and (f.read_error or active) %}
+      {% set note_html %}{% if audio_note %}<span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% elif fail_note %}<span class="file-note">{{ f.read_error or "" }}{% if f.read_error and active %} · {% endif %}{% if active %}다시 정리를 누르면 다시 받아씁니다.{% endif %}</span>{% endif %}{% endset %}
       <tr>
         <td class="col-num">{{ loop.index }}</td>
         <td>{{ f.original_name }}
-          <span class="name-status"><span class="badge read-{{ f.read_status }}">{{ labels.READ_STATUSES.get(f.read_status, f.read_status) }}</span>{% if audio_note %} <span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% endif %}</span></td>
+          <span class="name-status"><span class="badge read-{{ f.read_status }}">{{ status_text }}</span> {{ note_html }}</span></td>
         <td>{{ labels.INTAKE_FILE_KINDS.get(f.kind, f.kind) }}</td>
         <td class="col-size">{% if f.size >= 1048576 %}{{ (f.size / 1024 / 1024)|round(2) }} MB{% elif f.size >= 1024 %}{{ (f.size / 1024)|round(1) }} KB{% else %}{{ f.size }} B{% endif %}</td>
-        <td class="col-status"><span class="badge read-{{ f.read_status }}">{{ labels.READ_STATUSES.get(f.read_status, f.read_status) }}</span>{% if audio_note %}<br><span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% endif %}</td>
+        <td class="col-status"><span class="badge read-{{ f.read_status }}">{{ status_text }}</span>{% if audio_note or fail_note %}<br>{{ note_html }}{% endif %}</td>
         <td><a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></td>
       </tr>
     {% endfor %}

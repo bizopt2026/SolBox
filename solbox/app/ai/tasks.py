@@ -30,6 +30,8 @@ Handler = Callable[[Session, dict, ClaudeRunner, Settings], str]
 HANDLERS: dict[str, Handler] = {}
 # 작업이 끝난 뒤(성공·실패 모두) 새 세션으로 부르는 후처리. 모양: (db, input) -> None.
 AFTER_JOB: dict[str, Callable[[Session, dict], None]] = {}
+# 작업을 집기 전에 부르는 검사 (종류 → 함수(db, 작업 입력) -> 지금 집어도 되는가). False 면 이번에는 건너뛰고 다음 작업을 본다.
+CLAIM_GUARDS: dict[str, Callable[[Session, dict], bool]] = {}
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
 NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료 파일이 없습니다."

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date
 
 from typing import Annotated
@@ -11,12 +12,17 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app import intake as intake_lib
+from app import transcribe
 from app.ai.runner import ClaudeError, ClaudeRunner
-from app.ai.tasks import AFTER_JOB, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json
+from app.ai.tasks import AFTER_JOB, CLAIM_GUARDS, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json
 from app.config import Settings
-from app.models import Customer, Intake, Partner, Solution
+from app.models import Customer, Intake, IntakeFile, Partner, Solution
 
 log = logging.getLogger(__name__)
+
+PROGRESS_INTERVAL_S = 2.0  # 받아쓰기 진행을 DB 에 적는 최소 간격
+TRANSCRIBE_UNEXPECTED = "받아쓰는 중 오류가 났습니다. 다시 정리를 눌러 보시고, 계속 안 되면 관리자에게 알려 주세요."
+TRANSCRIBE_EMPTY = "음성에서 글을 찾지 못했습니다 (소리가 없거나 알아들을 수 없습니다)."
 
 
 def _text(v) -> str:
@@ -181,6 +187,122 @@ def _drop(settings: Settings, intake: Intake) -> str:
     return "superseded"
 
 
+def _write_file(engine, file_id: int, **values) -> None:
+    """파일 한 줄을 짧은 독립 트랜잭션으로 고친다 (작업의 트랜잭션을 쥐거나 다른 쓰기를 막지 않는다)."""
+    with Session(engine) as s:
+        s.execute(update(IntakeFile).where(IntakeFile.id == file_id).values(**values))
+        s.commit()
+
+
+def _progress_writer(engine, file_id: int, intake_id: int, job_id: int):
+    """받아쓰기 진행 알림 함수. `PROGRESS_INTERVAL_S` 마다 한 번 진행률(%)을 적고, 그때 묶음이 버려졌거나 다시 정리가 시작됐으면 멈춘다."""
+    last: list[float | None] = [None]
+
+    def notify(fraction: float) -> None:
+        now = time.monotonic()
+        if last[0] is not None and now - last[0] < PROGRESS_INTERVAL_S:
+            return
+        last[0] = now
+        try:
+            with Session(engine) as s:
+                s.execute(update(IntakeFile).where(IntakeFile.id == file_id).values(progress=max(0, min(100, int(fraction * 100)))))
+                s.commit()
+                row = s.execute(select(Intake.status, Intake.job_id).where(Intake.id == intake_id)).first()
+        except Exception:  # noqa: BLE001 - 진행 표시는 없어도 받아쓰기는 계속한다
+            log.warning("받아쓰기 진행을 기록하지 못했습니다", exc_info=True)
+            return
+        if row is None or row.status != "analyzing" or row.job_id != job_id:
+            raise transcribe.TranscribeCancelled()
+
+    return notify
+
+
+def _current(db: Session, intake_id: int, job_id: int) -> Intake | None:
+    """이 작업이 아직 이 묶음의 지금 작업이면 묶음, 아니면 None (최신 값을 다시 읽는다)."""
+    db.expire_all()
+    intake = db.get(Intake, intake_id)
+    return intake if intake is not None and intake.status == "analyzing" and intake.job_id == job_id else None
+
+
+def _stop_result(db: Session, settings: Settings, intake_id: int) -> str:
+    db.rollback()
+    intake = db.get(Intake, intake_id)
+    return "deleted" if intake is None else _drop(settings, intake)
+
+
+def _transcribe_pending(db: Session, settings: Settings, intake_id: int, job_id: int) -> str | None:
+    """받아쓰기를 기다리는(또는 지난번에 실패한) 음성 파일을 하나씩 받아쓴다. None 이면 계속, 문자열이면 처리기가 그 값으로 끝낸다."""
+    intake = db.get(Intake, intake_id)
+    todo = [f.id for f in sorted(intake.files, key=lambda x: x.id) if f.kind == "audio" and f.read_status in ("pending_transcript", "failed")]
+    if not todo:
+        return None
+    transcriber = transcribe.get(settings)
+    model = transcriber.model_name()
+    hints = intake_lib.build_hints(intake_lib.registered_names(db), intake.note or "")
+    engine = db.get_bind()
+    folder = intake_lib.work_dir(settings, intake)
+    errors: list[str] = []
+    for file_id in todo:
+        intake = _current(db, intake_id, job_id)  # 파일 사이마다 묶음이 그대로인지 본다
+        if intake is None:
+            return _stop_result(db, settings, intake_id)
+        f = db.get(IntakeFile, file_id)
+        number, src, name = intake_lib.file_number(intake, f), intake_lib.stored_path(settings, f), f.original_name
+        db.rollback()  # 오래 걸리는 동안 읽기 트랜잭션을 쥐지 않는다
+        text, error = intake_lib.read_transcript_cache(settings, f, model), ""
+        cached = text is not None
+        if not cached:
+            _write_file(engine, file_id, progress=0)
+            try:
+                text = transcribe.run(transcriber, src, hints=hints,
+                                      on_progress=_progress_writer(engine, file_id, intake_id, job_id)).strip()
+            except transcribe.TranscribeCancelled:
+                return _stop_result(db, settings, intake_id)
+            except transcribe.TranscribeError as e:
+                error = str(e)
+            except Exception:  # noqa: BLE001 - 엔진이 어떤 오류를 내도 이 파일만 실패로 둔다
+                log.exception("음성 받아쓰기 중 예상하지 못한 오류 (파일 %s)", file_id)
+                error = TRANSCRIBE_UNEXPECTED
+            if not error and not text:
+                error = TRANSCRIBE_EMPTY
+        if _current(db, intake_id, job_id) is None:  # 받아쓰는 사이 버려졌다
+            return _stop_result(db, settings, intake_id)
+        if not error:
+            if not cached:
+                intake_lib.write_transcript_cache(settings, f, model, text)
+            try:
+                folder.mkdir(parents=True, exist_ok=True)
+                intake_lib.write_audio_copy(folder, number, f, text)
+            except OSError:
+                log.exception("받아쓴 글 사본을 쓰지 못했습니다 (파일 %s)", file_id)
+                error = "받아쓴 글을 작업 폴더에 쓰지 못했습니다. 디스크 여유 공간을 확인하세요."
+        if error:
+            log.warning("음성 받아쓰기 실패 (파일 %s): %s", file_id, error)
+            errors.append(f"{name}: {error}")
+            _write_file(engine, file_id, read_status="failed", read_error=error[:300], progress=None)
+        else:
+            _write_file(engine, file_id, read_status="ok", read_error=None, progress=100)
+    intake = _current(db, intake_id, job_id)
+    if intake is None:
+        return _stop_result(db, settings, intake_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    intake_lib.write_file_list(settings, intake)
+    if not any(f.read_status == "ok" for f in intake.files):
+        message = f"{intake_lib.NO_READABLE} 음성을 받아쓰지 못했습니다. " + " / ".join(errors)
+        db.rollback()
+        intake_lib._fail_analysis(db, intake_id, job_id, message[:500])
+        return "failed"
+    return None
+
+
+def _may_claim_analysis(db: Session, job_input: dict) -> bool:
+    """받아쓰기가 필요한 정리 작업은 다른 워커가 받아쓰는 중이면 집지 않는다 (기다리느라 워커를 붙잡지 않게)."""
+    intake_id = job_input.get("intake_id")
+    if not isinstance(intake_id, int) or not intake_lib.has_audio_to_transcribe(db, intake_id):
+        return True
+    return not transcribe._RUN_LOCK.locked()
+
+
 def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     intake = db.get(Intake, input.get("intake_id"))
     if intake is None:
@@ -193,6 +315,10 @@ def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
         intake_lib.prepare_workdir(settings, intake)
         if intake.status != "analyzing" or intake.job_id != job_id:  # 만드는 사이 버려졌거나 다시 정리가 시작되었다
             return _drop(settings, intake)
+    stopped = _transcribe_pending(db, settings, intake_id, job_id)  # 음성은 여기서 받아쓴다 (요청 안에서는 하지 않는다)
+    if stopped is not None:
+        return stopped
+    intake = db.get(Intake, intake_id)
     note = (intake.note or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO").strip()
     prompt = load_prompt(
         "intake_analyze", today=date.today().isoformat(), note=note or "(없음)",
@@ -224,3 +350,4 @@ def _after_analyze(db: Session, input: dict) -> None:
 
 HANDLERS["intake_analyze"] = _analyze
 AFTER_JOB["intake_analyze"] = _after_analyze
+CLAIM_GUARDS["intake_analyze"] = _may_claim_analysis

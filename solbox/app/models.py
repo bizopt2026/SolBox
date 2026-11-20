@@ -203,7 +203,9 @@ class IntakeFile(Base):
     original_name: Mapped[str] = mapped_column(String, default="")
     stored_name: Mapped[str] = mapped_column(String, default="")
     kind: Mapped[str] = mapped_column(String, default="other")  # document / image / audio / other
-    read_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported / needs_transcript
+    read_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported / needs_transcript / pending_transcript
+    read_error: Mapped[str | None] = mapped_column(String, nullable=True)  # 읽지 못한 이유 (받아쓰기 실패 등, 화면에 보이는 한국어)
+    progress: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 받아쓰기 진행 0~100
     size: Mapped[int] = mapped_column(Integer, default=0)
     target_type: Mapped[str] = mapped_column(String, default="")
     target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

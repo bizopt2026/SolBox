@@ -46,6 +46,7 @@ READ_STATUSES = {
     "failed": "읽지 못함",
     "unsupported": "보관만 함",
     "needs_transcript": "받아쓰기 필요",
+    "pending_transcript": "받아쓰기 대기",
 }
 
 JOB_STATUSES = {
@@ -123,13 +124,13 @@ def elapsed_text(started_at: datetime, now: datetime | None = None) -> str:
     return (f"{minutes}분 {rest}초" if minutes and rest else f"{minutes}분" if minutes else f"{rest}초") + " 경과"
 
 
-def wait_detail(job, now: datetime | None = None) -> str:
+def wait_detail(job, now: datetime | None = None, expected: bool = True) -> str:
     """진행 중인 작업 옆에 붙일 안내: "(보통 1분 안에 끝납니다 · 35초 경과)". 시작 전이면 빈 글."""
     if job.started_at is None:
         return ""
-    expected = JOB_EXPECTED.get(job.kind, "")
+    hint = JOB_EXPECTED.get(job.kind, "") if expected else ""
     parts = []
-    if expected:
-        parts.append(expected + " 끝납니다" if expected.endswith("안에") else expected)
+    if hint:
+        parts.append(hint + " 끝납니다" if hint.endswith("안에") else hint)
     parts.append(elapsed_text(job.started_at, now))
     return "(" + " · ".join(parts) + ")"

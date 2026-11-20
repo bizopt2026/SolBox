@@ -79,7 +79,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
         )
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
-        skipped=skipped or [],
+        skipped=skipped or [], intake_files_transcribing=intake_lib.transcribing_file(intake),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),
         not_saved=_result_of(intake, lambda t: t == "skipped"),
@@ -182,7 +182,8 @@ def status(intake_id: int, request: Request, user: User = Depends(require_user),
         db.refresh(intake)  # 작업이 끝났는데 기록되지 않은 채 남은 묶음을 바로잡았다
     if intake.status != "analyzing":
         return Response("정리가 끝났습니다.", headers={"HX-Redirect": f"/intake/{intake.id}"})
-    return render(request, "intake/_status.html", intake=intake, job=intake.job, position=_position(db, intake))
+    return render(request, "intake/_status.html", intake=intake, job=intake.job, position=_position(db, intake),
+                  intake_files_transcribing=intake_lib.transcribing_file(intake))
 
 
 @router.post("/{intake_id}/analyze")

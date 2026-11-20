@@ -125,7 +125,12 @@ def _check_claude(settings: Settings) -> Check:
 
 
 def _check_transcriber(settings: Settings) -> Check:
-    return ("음성 받아쓰기", None, transcribe.label(settings))
+    t = transcribe.get(settings)
+    if settings.transcriber == "none":
+        return ("음성 받아쓰기", None, "사용 안 함")
+    if not t.available():
+        return ("음성 받아쓰기", t.label(), "")
+    return ("음성 받아쓰기", None, t.label())
 
 
 def _check_cert(settings: Settings) -> Check | None:

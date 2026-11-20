@@ -38,6 +38,11 @@ NO_READABLE = "읽을 수 있는 파일이 없습니다."
 NOT_PLACED = "정리 대상에 포함되지 않음"
 NO_FILES = "올릴 파일을 선택하세요."
 FILE_LIST_NAME = "파일목록.md"
+HINT_MAX_CHARS = 200  # 받아쓰기 힌트(초기 프롬프트) 전체 글자 수: 모델이 읽는 창이 작다
+HINT_NOTE_CHARS = 80
+TRANSCRIPT_SUFFIX = ".transcript.txt"
+TRANSCRIPT_HEADER = "#model: "
+AUDIO_LISTED_KIND = "음성(받아쓰기)"
 
 _EXT = re.compile(r"\.[a-z0-9]{1,10}")
 _KINDS = {
@@ -198,30 +203,107 @@ def _shrink_image(src: Path, dest_base: Path) -> Path | None:
         return None
 
 
-def _transcribe_audio(f: IntakeFile, number: int, src: Path, folder: Path, transcriber: transcribe.Transcriber) -> str:
-    """음성: 받아쓰기 엔진이 있으면 글 사본(.md)을 만들어 문서처럼 다룬다. 없으면 받아쓰기 필요, 실패하면 읽지 못함."""
-    if not transcriber.available():
-        f.read_status = "needs_transcript"
-        return ""
+# ---- 음성 받아쓰기 (작업 폴더 사본·저장해 둔 글·힌트) ----
+
+def transcript_cache_path(settings: Settings, f: IntakeFile) -> Path:
+    """받아쓴 글을 원본 옆에 저장해 두는 곳. 다시 정리·작업 폴더 재생성 때 다시 받아쓰지 않으려고 쓴다."""
+    return stored_path(settings, f).with_name(f.stored_name + TRANSCRIPT_SUFFIX)
+
+
+def read_transcript_cache(settings: Settings, f: IntakeFile, model: str) -> str | None:
+    """저장해 둔 받아쓴 글. 없거나 다른 모델이 받아쓴 것이면 None."""
     try:
-        text = transcriber.transcribe(src).strip()
-    except transcribe.TranscribeError as e:
-        log.warning("음성 받아쓰기 실패 (%s): %s", f.original_name, e)
-        text = ""
-    if not text:
-        f.read_status = "failed"
-        return ""
+        head, _, body = transcript_cache_path(settings, f).read_text(encoding="utf-8").partition("\n")
+    except OSError:
+        return None
+    if head != TRANSCRIPT_HEADER + model:
+        return None
+    return body.strip() or None
+
+
+def write_transcript_cache(settings: Settings, f: IntakeFile, model: str, text: str) -> None:
+    path = transcript_cache_path(settings, f)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(f"{TRANSCRIPT_HEADER}{model}\n{text}\n", encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        log.warning("받아쓴 글을 저장해 두지 못했습니다 (파일 %s)", f.id, exc_info=True)
+
+
+def write_audio_copy(folder: Path, number: int, f: IntakeFile, text: str) -> str:
+    """받아쓴 글을 문서처럼 글 사본(.md)으로 쓴다. 사본 이름."""
     name = doc_copy_name(number, f)
     try:
         (folder / name).write_text(f"# {_flat(f.original_name)}\n\n{text}\n", encoding="utf-8")
     except OSError:
         (folder / name).unlink(missing_ok=True)
         raise
-    f.read_status = "ok"
     return name
 
 
-def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path, transcriber: transcribe.Transcriber) -> str:
+def _prepare_audio(settings: Settings, f: IntakeFile, number: int, folder: Path, transcriber: transcribe.Transcriber) -> str:
+    """음성: 요청 안에서는 받아쓰지 않는다. 엔진이 없으면 받아쓰기 필요, 있으면 받아쓰기 대기(정리 작업이 받아쓴다).
+    이미 받아쓴 글이 저장돼 있으면 그대로 써서 바로 읽음으로 둔다."""
+    f.read_error, f.progress = None, None
+    if not transcriber.available():
+        f.read_status = "needs_transcript"
+        return ""
+    cached = read_transcript_cache(settings, f, transcriber.model_name())
+    if cached:
+        f.read_status = "ok"
+        return write_audio_copy(folder, number, f, cached)
+    f.read_status = "pending_transcript"
+    return ""
+
+
+def registered_names(db: Session) -> list[str]:
+    """등록된 솔루션·고객·파트너·사업 이름, 최근 것 먼저."""
+    rows: list[tuple[datetime, int, str]] = []
+    for model in (Solution, Customer, Partner, Business):
+        rows.extend((o.created_at or datetime.min, o.id, o.name) for o in db.scalars(select(model)))
+    rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
+    return [r[2] for r in rows]
+
+
+def build_hints(names: list[str], note: str, limit: int = HINT_MAX_CHARS) -> str:
+    """받아쓰기 힌트: 등록된 이름(최근 먼저, 겹치는 것 뺌, 이름은 중간에서 자르지 않음) 뒤에 묶음 메모. 전체 `limit` 글자 이하."""
+    note = _flat(note or "")[:HINT_NOTE_CHARS].strip()
+    room = limit - (len(note) + 1 if note else 0)
+    picked: list[str] = []
+    seen: set[str] = set()
+    used = 0
+    for raw in names:
+        name = _flat(raw or "")
+        key = normalize_name(name)
+        if len(key) < 2 or key in seen:
+            continue
+        cost = len(name) + (2 if picked else 0)
+        if used + cost > room:
+            continue
+        picked.append(name)
+        seen.add(key)
+        used += cost
+    return " ".join(x for x in (", ".join(picked), note) if x)
+
+
+def transcribing_file(intake: Intake) -> IntakeFile | None:
+    """지금 받아쓰고 있는(받아쓰기 대기 중 가장 앞) 음성 파일."""
+    pending = [f for f in sorted(intake.files, key=lambda x: x.id) if f.kind == "audio" and f.read_status == "pending_transcript"]
+    return pending[0] if pending else None
+
+
+def has_audio_to_transcribe(db: Session, intake_id: int) -> bool:
+    return db.scalar(
+        select(func.count()).select_from(IntakeFile).where(
+            IntakeFile.intake_id == intake_id, IntakeFile.kind == "audio",
+            IntakeFile.read_status.in_(("pending_transcript", "failed")),
+        )
+    ) > 0
+
+
+def _prepare_file(settings: Settings, f: IntakeFile, number: int, src: Path, folder: Path, transcriber: transcribe.Transcriber) -> str:
     """파일 하나의 작업 폴더 사본을 만들고 읽기 상태를 정한다. 사본 이름(없으면 빈 글)."""
     copy_name = ""
     if f.kind == "document":
@@ -240,7 +322,7 @@ def _prepare_file(f: IntakeFile, number: int, src: Path, folder: Path, transcrib
         f.read_status = "ok" if dest else "failed"
         copy_name = dest.name if dest else ""
     elif f.kind == "audio":
-        copy_name = _transcribe_audio(f, number, src, folder, transcriber)
+        copy_name = _prepare_audio(settings, f, number, folder, transcriber)
     else:
         f.read_status = "unsupported"
     return copy_name
@@ -252,27 +334,48 @@ def prepare_workdir(settings: Settings, intake: Intake) -> None:
     folder = work_dir(settings, intake)
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True, exist_ok=True)
-    rows: list[tuple[int, IntakeFile, str]] = []
     transcriber = transcribe.get(settings)
     for f in sorted(intake.files, key=lambda x: x.id):
         number = file_number(intake, f)
         try:
-            copy_name = _prepare_file(f, number, stored_path(settings, f), folder, transcriber)
+            _prepare_file(settings, f, number, stored_path(settings, f), folder, transcriber)
         except Exception:  # noqa: BLE001 - 파일 하나가 깨져도 묶음 전체의 준비를 멈추지 않는다
             log.exception("올리기 묶음 %s 의 파일 %s 사본을 만들지 못했습니다", intake.id, f.id)
-            f.read_status, copy_name = "failed", ""
-        rows.append((number, f, copy_name))
-    lines = ["# 파일 목록", "", "| 번호 | 원래 이름 | 종류 | 읽기 상태 | 사본 파일 |", "|---|---|---|---|---|"]
-    for number, f, copy_name in rows:
-        name = _flat(f.original_name).replace("|", "\\|")
-        lines.append(
-            f"| {number} | {name} | {labels.INTAKE_FILE_KINDS.get(f.kind, f.kind)} | "
-            f"{labels.READ_STATUSES.get(f.read_status, f.read_status)} | {copy_name or '(없음)'} |"
-        )
-    (folder / FILE_LIST_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            f.read_status = "failed"
+    write_file_list(settings, intake)
     session = object_session(intake)
     if session is not None:
         session.commit()
+
+
+def _existing_copy(folder: Path, number: int, f: IntakeFile) -> str:
+    """작업 폴더에 실제로 있는 사본의 이름 (없으면 빈 글)."""
+    if f.read_status != "ok":
+        return ""
+    if f.kind in ("document", "audio"):
+        name = doc_copy_name(number, f)
+        return name if (folder / name).is_file() else ""
+    if f.kind == "image":
+        base = _copy_base(number, f.original_name)
+        for ext in (".jpg", ".png"):
+            if (folder / (base + ext)).is_file():
+                return base + ext
+    return ""
+
+
+def write_file_list(settings: Settings, intake: Intake) -> None:
+    """`파일목록.md` 를 지금의 읽기 상태와 작업 폴더 사본대로 다시 쓴다."""
+    folder = work_dir(settings, intake)
+    lines = ["# 파일 목록", "", "| 번호 | 원래 이름 | 종류 | 읽기 상태 | 사본 파일 |", "|---|---|---|---|---|"]
+    for f in sorted(intake.files, key=lambda x: x.id):
+        number = file_number(intake, f)
+        name = _flat(f.original_name).replace("|", "\\|")
+        kind = AUDIO_LISTED_KIND if f.kind == "audio" and f.read_status == "ok" else labels.INTAKE_FILE_KINDS.get(f.kind, f.kind)
+        lines.append(
+            f"| {number} | {name} | {kind} | "
+            f"{labels.READ_STATUSES.get(f.read_status, f.read_status)} | {_existing_copy(folder, number, f) or '(없음)'} |"
+        )
+    (folder / FILE_LIST_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def remove_workdir(settings: Settings, intake: Intake) -> None:
@@ -594,7 +697,7 @@ def start_analysis(db: Session, intake: Intake, user: User) -> bool:
     db.refresh(intake)
     intake_id = intake.id
     startable = Intake.status.in_(("uploaded", "ready", "failed"))
-    if not any(f.read_status == "ok" for f in intake.files):
+    if not any(f.read_status == "ok" or (f.kind == "audio" and f.read_status == "pending_transcript") for f in intake.files):
         db.rollback()
         db.execute(update(Intake).where(Intake.id == intake_id, startable).values(status="failed", error=NO_READABLE))
         db.commit()

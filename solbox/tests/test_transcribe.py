@@ -67,24 +67,14 @@ def test_audio_without_transcriber_needs_transcript(db, settings):
     assert [p.name for p in work_dir(settings, it).glob("*.md")] == ["파일목록.md"]
 
 
-def test_audio_with_transcriber_becomes_text_copy(db, settings, monkeypatch):
+def test_audio_with_transcriber_is_pending_not_transcribed_in_request(db, settings, monkeypatch):
     it, f = _bundle_with_audio(db, settings)
     fake = FakeTranscriber()
     monkeypatch.setattr(transcribe, "get", lambda s: fake)
     prepare_workdir(settings, it)
-    assert f.read_status == "ok" and fake.paths
-    copy = work_dir(settings, it) / "1-회의.m4a.md"
-    assert copy.read_text(encoding="utf-8") == "# 회의.m4a\n\n안녕하세요 통화 내용입니다\n"
-    assert "회의.m4a" in (work_dir(settings, it) / "파일목록.md").read_text(encoding="utf-8")
-
-
-@pytest.mark.parametrize("fake", [FakeTranscriber(error=transcribe.TranscribeError("엔진 오류")), FakeTranscriber(text="  ")])
-def test_transcribe_failure_marks_failed(db, settings, monkeypatch, fake):
-    it, f = _bundle_with_audio(db, settings)
-    monkeypatch.setattr(transcribe, "get", lambda s: fake)
-    prepare_workdir(settings, it)
-    assert f.read_status == "failed"
-    assert not (work_dir(settings, it) / "1-회의.m4a.md").exists()
+    assert f.read_status == "pending_transcript" and fake.paths == []  # 받아쓰기는 정리 작업 안에서 한다 (tests/test_stt.py)
+    assert [p.name for p in work_dir(settings, it).glob("*.md")] == ["파일목록.md"]
+    assert "받아쓰기 대기" in (work_dir(settings, it) / "파일목록.md").read_text(encoding="utf-8")
 
 
 def test_system_page_and_check_show_transcriber(admin_client, tmp_path, monkeypatch, capsys):

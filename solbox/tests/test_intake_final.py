@@ -381,19 +381,3 @@ def test_audio_note_only_when_transcriber_missing(app, user_client, db, settings
     it.files[0].read_status = "ok"  # 받아쓰기가 되면 읽은 파일이다 (안내는 "받아쓰기 필요" 상태일 때만)
     db.commit()
     assert "받아쓰기 필요 · 글자로" not in user_client.get(f"/intake/{it.id}").text
-
-
-def test_transcribe_error_message_is_logged(app, user_client, db, settings, monkeypatch, caplog):
-    class Bad(transcribe.Transcriber):
-        def available(self):
-            return True
-
-        def transcribe(self, path):
-            raise transcribe.TranscribeError("엔진이 응답하지 않습니다")
-
-    monkeypatch.setitem(transcribe.TRANSCRIBERS, "none", Bad)
-    it = _new_bundle(db, settings, name="회의.m4a")
-    with caplog.at_level(logging.WARNING):
-        intake_lib.prepare_workdir(settings, it)
-    assert it.files[0].read_status == "failed"
-    assert "엔진이 응답하지 않습니다" in caplog.text
