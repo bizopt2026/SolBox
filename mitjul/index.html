@@ -3573,6 +3573,21 @@ body[data-theme="dark"] .pen-k,body[data-theme="dark"] .wk-pen{color:#B9A6E0}
 .wh-w em .wk-pen{font-weight:600}
 .pen-b b .nw{white-space:nowrap}
 .wh-w b{word-break:keep-all}
+
+/* 손가락으로 누르기 쉬운 크기 (보이는 모양은 그대로, 누르는 영역만 넓힘) */
+.syncdot{position:relative}.syncdot::after{content:"";position:absolute;inset:-12px}
+[data-action="bkRate"]{position:relative}[data-action="bkRate"]::after{content:"";position:absolute;inset:-5px -2px}
+.pq-book{padding:8px 0!important;margin:-8px 0!important}
+.pen-f button{padding:8px 0 8px 12px;margin:-8px 0}
+
+/* 저장 공간 */
+.bk-cap{margin-top:10px;padding:14px 16px;border-radius:14px;background:var(--card);border:1px solid var(--line);display:grid;gap:8px}
+.bk-cap-h{display:flex;align-items:baseline;justify-content:space-between}
+.bk-cap-h span{font-size:13px;font-weight:600}.bk-cap-h b{font-size:15px}.bk-cap-h b small{font-size:12px;font-weight:500;color:var(--muted)}
+.bk-bar{display:block;height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bk-bar>i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.bk-cap>small{font-size:12px;color:var(--muted)}
+.bk-cap.warn .bk-bar>i{background:#C8605A}.bk-cap.warn>small{color:#B3261E;font-weight:600}
 </style>
 </head>
 <body>
@@ -3693,7 +3708,7 @@ async function init(){
       S.docs = next; syncCoverCSS();
       if (!snap.metadata.fromCache) { clearTimeout(timer); const first = S.mode !== 'cloud'; S.mode = 'cloud'; setSync(''); if (first && !(S.docs.settings || {}).guideSeen) { let tries = 0; const ob = () => { if (VISIT.on) return; if (VISIT.pending && tries++ < 20) return setTimeout(ob, 250); onboarding(); }; setTimeout(ob, 400); } if (first) setTimeout(backfillTags, 4000); }
       else if (S.mode === 'loading') S.mode = 'cache';
-      softRender();
+      softRender(); setTimeout(capCheck, 1500);
     }, () => { clearTimeout(timer); S.mode = 'error'; setSync('저장소에 연결할 수 없어요'); softRender(); });
   } catch (e) { local(); }
 }
@@ -4315,14 +4330,15 @@ function libraryBody(){
 `;
 }
 function globalResults(q){
+  const lim = S.srLim || 40;   /* 기록이 많아도 빠르게: 처음엔 40개씩만 그림 */
   const bs = books().filter(b => hit(q, b.title, b.author, b.memo));
   const qs = quotesOf().filter(x => { const b = S.docs[x.bookId] || {}; return hit(q, x.text, x.feeling, x.context, b.title, b.author, (x.tags || {}).themes, reasonLabel(x.reason)); });
   const ts = savedTalks().filter(t => { const s = t.summary || {}; return hit(q, s.title, s.empathy, s.insight, s.meaning, s.lifeLink, s.authorLine, s.emotions, t.quoteText, t.bookTitle); });
   if (!bs.length && !qs.length && !ts.length) return `<div class="empty"><b>찾는 기록이 없어요</b>다른 단어로 찾아보세요.</div>`;
   return `
     ${bs.length ? `<div class="row"><h2>책 ${bs.length}</h2></div><div class="bgrid">${bs.map(bookCard).join('')}</div>` : ''}
-    ${qs.length ? `<div class="row"><h2>밑줄 ${qs.length}</h2></div><div class="qlist">${qs.map(quoteRow).join('')}</div>` : ''}
-    ${ts.length ? `<div class="row"><h2>사유 ${ts.length}</h2></div><div class="glist">${ts.map(talkCard).join('')}</div>` : ''}`;
+    ${qs.length ? `<div class="row"><h2>밑줄 ${qs.length}</h2></div><div class="qlist">${qs.slice(0, lim).map(quoteRow).join('')}</div>${qs.length > lim ? `<button class="morebtn" data-action="srMore">밑줄 더 보기 · ${qs.length - lim}줄 남음</button>` : ''}` : ''}
+    ${ts.length ? `<div class="row"><h2>사유 ${ts.length}</h2></div><div class="glist">${ts.slice(0, lim).map(talkCard).join('')}</div>${ts.length > lim ? `<button class="morebtn" data-action="srMore">사유 더 보기 · ${ts.length - lim}개 남음</button>` : ''}` : ''}`;
 }
 
 /* ----- book ----- */
@@ -6753,7 +6769,8 @@ function doneShelfView(){
   const fin = b => b.finishedAt || b.updatedAt || 0;
   const all0 = books().filter(b => b.status === 'done');
   if (!all0.length) return `<div class="dn-empty"><div class="dn-eshelf"><i></i><i></i><i></i></div><b>아직 다 읽은 책이 없어요</b><p>책 화면에서 읽기 상태를 ‘다 읽었어요’로 바꾸면<br>첫 화면에서 이 서가로 옮겨 꽂아 드려요.</p></div>`;
-  const nq = b => quotesOf(b.id).length, ts = savedTalks();
+  const qc = {}; all('quote').forEach(q => { qc[q.bookId] = (qc[q.bookId] || 0) + 1; });   /* 책마다 밑줄 수를 한 번에 세어 둠 (기록이 많아도 빠르게) */
+  const nq = b => qc[b.id] || 0, ts = savedTalks();
   const srt = S.dnSort || 'recent';
   const bs = all0.slice().sort(srt === 'rating' ? (a, b) => (b.rating || 0) - (a.rating || 0) || fin(b) - fin(a) : srt === 'lines' ? (a, b) => nq(b) - nq(a) || fin(b) - fin(a) : (a, b) => fin(b) - fin(a));
   const yr = b => b.finishedAt ? new Date(b.finishedAt + KST).getUTCFullYear() : 0, thisY = new Date(Date.now() + KST).getUTCFullYear();
@@ -6789,7 +6806,8 @@ const STATS_ACTIONS = {
   bkMore: () => { S.bkBook = S.bookId; S.bkLim = (S.bkLim || 20) + 40; render(); },
   mkWarnOff: () => $('#mkWarn').classList.add('hidden'),
   bookEdit: el => bookForm(el.dataset.id),
-  srchSet: el => { const i = $('#srch'); S.q = el.dataset.q; if (i) { i.value = S.q; } refreshResults(); },
+  srMore: () => { S.srLim = (S.srLim || 40) + 80; refreshResults(); },
+  srchSet: el => { S.srLim = 0; const i = $('#srch'); S.q = el.dataset.q; if (i) { i.value = S.q; } refreshResults(); },
   stats: () => { if (S.view === 'stats') { if (S.stTab === 'done') { S.stTab = 'month'; render(); } return; } S.stMonth = ''; S.stOpen = ''; S.stTab = 'month'; go('stats', {}); },
   stMon: el => { S.stMonth = el.dataset.k || monShift(S.stMonth || monKey(Date.now()), +el.dataset.d); S.stOpen = ''; render(); const o = $('#ov'); if (o) o.scrollTop = 0; },
   stDay: el => statsDaySheet(el.dataset.k),
@@ -6880,8 +6898,9 @@ function backupBlock(){
   const row = (id, icon, t, d) => `<button class="sp-row" id="${id}"><span class="sp-ri">${icon}</span><span><b>${t}</b><small>${d}</small></span>${SP_CHEV}</button>`;
   const svg = p => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   return `<div class="bkp2">
-    <div class="sp-g bk-sum"><div><b>${st.books}</b><span>책</span></div><div><b>${st.quotes}</b><span>밑줄</span></div><div><b>${st.talks}</b><span>사유</span></div><div><b>${st.works}</b><span>원고</span></div>
+    <div class="sp-g bk-sum"><div><b>${st.books.toLocaleString()}</b><span>책</span></div><div><b>${st.quotes.toLocaleString()}</b><span>밑줄</span></div><div><b>${st.talks.toLocaleString()}</b><span>사유</span></div><div><b>${st.works.toLocaleString()}</b><span>원고</span></div>
       <p class="bk-last">${last ? `마지막 백업 · ${fmtDate(last)}` : '아직 따로 백업한 적이 없어요'}</p></div>
+    ${capBlock()}
     <div class="sp-lb">백업하기</div>
     <div class="sp-g">${row('bkCopy', svg('<rect x="8" y="8" width="11" height="12" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>'), '백업 코드 복사', '메모 앱에 붙여 두면 언제든 되살릴 수 있어요')}
       ${downloads ? row('bkFile', svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'), '파일로 저장', '기기에 .json 파일로 내려받아요') : ''}</div>
@@ -6893,6 +6912,26 @@ function backupBlock(){
       </div></div>
     <div class="bkp-m" id="bkMsg" role="status"></div>
   </div>`;
+}
+/* 저장 공간: 이 앱의 저장소는 기록 25,000개까지 */
+const DOC_CAP = 25000;
+function capInfo(){
+  const v = Object.values(S.docs), n = v.length, yr = Date.now() - 365 * DAY;
+  const rate = v.filter(d => (d.createdAt || d.savedAt || d.at || 0) > yr).length;   /* 최근 1년 동안 늘어난 기록 */
+  return { n, pct: Math.min(100, n / DOC_CAP * 100), years: rate ? (DOC_CAP - n) / rate : Infinity };
+}
+function capBlock(){
+  const { n, pct, years } = capInfo(), warn = pct >= 80;
+  const msg = warn ? '거의 찼어요. 백업해 두고 오래된 기록을 정리해 주세요.'
+    : years === Infinity || years > 50 ? '넉넉해요. 오래오래 써도 괜찮아요.' : `넉넉해요. 지금 속도라면 ${years >= 10 ? Math.floor(years) + '년 넘게' : Math.max(1, Math.floor(years)) + '년쯤'} 더 쓸 수 있어요.`;
+  return `<div class="bk-cap${warn ? ' warn' : ''}"><div class="bk-cap-h"><span>저장 공간</span><b>${n.toLocaleString()} <small>/ ${DOC_CAP.toLocaleString()}개</small></b></div>
+    <i class="bk-bar"><i style="width:${Math.max(1, pct).toFixed(1)}%"></i></i><small>${msg}</small></div>`;
+}
+/* 80%를 넘으면 앱을 열 때 한 번 알려 줌 */
+let capWarned = false;
+function capCheck(){
+  if (capWarned || S.mode !== 'cloud') return; const { pct } = capInfo(); if (pct < 80) return; capWarned = true;
+  toast(`저장 공간이 ${Math.floor(pct)}% 찼어요. 백업해 두세요.`, { action: '백업', ms: 6000, onAction: () => backupSheet() });
 }
 function markBackup(){ const { id, ...st } = S.docs.settings || {}; put('settings', { ...st, kind: 'settings', backupAt: Date.now() }); }
 function wireBackup(){
@@ -7019,7 +7058,7 @@ function moreSheet(){
   const st = backupStats(S.docs), last = (S.docs.settings || {}).backupAt;
   const theme = { auto: '시스템', light: '밝게', dark: '어둡게' }[PREF.theme] || '시스템';
   openSheet(`${sheetHead('더보기', '')}
-    <div class="mr2-me">${SM_AVATAR(40)}<span><b>나의 밑줄</b><small>책 ${st.books}권 · 밑줄 ${st.quotes}개 · 사유 ${st.talks}개</small></span></div>
+    <div class="mr2-me">${SM_AVATAR(40)}<span><b>나의 밑줄</b><small>책 ${st.books}권 · 밑줄 ${st.quotes}개 · 사유 ${st.talks}개${st.works ? ` · 원고 ${st.works}편` : ''}</small></span></div>
     <div class="sp-g">
     ${row('mrG', '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4M12 16.5h.01"/>', '이용 안내', `긋고, 되묻고, 쓰는 법 · ${AI_NAME}이와 여백이`)}
     ${row('mrS', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', '환경설정', `화면 ${theme} · ${AI_NAME}이 말 걸기 ${PREF.smAuto === 'off' ? '끔' : '켬'}`)}
@@ -7390,6 +7429,7 @@ document.addEventListener('click', e => {
   const fn = A[el.dataset.action];
   if (fn) { e.preventDefault(); fn(el, e); }
 });
+let srchT = 0;
 function refreshResults(){
   const r = document.querySelector('#ov:not([hidden]) #results') || (document.body.classList.contains('ov-open') ? null : $('#results')); if (!r) return render();
   r.innerHTML = ({ library: libraryBody, quotes: quotesBody, archive: archiveBody, search: searchBody }[S.view] || (() => ''))();
@@ -7402,7 +7442,7 @@ document.addEventListener('change', e => {
   if (e.target.classList.contains('sortsel')) { S[e.target.dataset.key] = e.target.value; ['library','quotes','archive','trophy'].includes(S.view) ? refreshResults() : render(); }
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'srch') { S.q = e.target.value; refreshResults(); return; }
+  if (e.target.id === 'srch') { S.q = e.target.value; S.srLim = 0; clearTimeout(srchT); srchT = setTimeout(refreshResults, quotesOf().length > 1500 ? 180 : 0); return; }
   if (e.target.id === 'inp') { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }
 });
 document.addEventListener('keydown', e => {
