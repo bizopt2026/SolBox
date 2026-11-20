@@ -27,22 +27,22 @@ def test_every_table_is_inside_a_tablewrap(admin_client, db, settings):
 
 def test_stylesheet_has_narrow_screen_rules(client):
     css = client.get("/static/app.css").text
-    assert "@media (max-width: 900px)" in css and ".tablewrap" in css and "white-space:nowrap" in css
+    assert "@media (max-width: 1099px)" in css and ".tablewrap" in css and "white-space: nowrap" in css
 
 
-def test_topbar_is_sticky_and_menu_closes_on_outside_click_and_escape(admin_client):
+def test_top_row_is_sticky_and_sidebar_becomes_top_strip_when_narrow(admin_client):
     css = admin_client.get("/static/app.css").text
-    assert re.search(r"\.topbar \{ position:sticky; top:0; z-index:10;", css)
-    html = admin_client.get("/").text
-    assert 'details.menu[open]' in html and '"Escape"' in html and 'addEventListener("click"' in html
+    assert re.search(r"\.top \{ position: sticky; top: 0; z-index: 20;", css)
+    assert re.search(r"\.side \{ position: sticky; top: 0; height: 100vh;", css)
+    assert "@media (max-width: 1099px)" in css and ".side { position: static;" in css
 
 
 def test_narrow_menu_cue_and_tap_target_rules():
     from app.main import APP_DIR
     css = (APP_DIR / "static" / "app.css").read_text(encoding="utf-8")
     js = (APP_DIR / "static" / "app.js").read_text(encoding="utf-8")
-    narrow = css[css.index("@media (max-width: 900px)"):]
-    assert ".topbar nav::after" in narrow and "linear-gradient" in narrow and ".topbar nav.at-end::after" in narrow
-    assert "min-height:36px" in css.split("좁은 화면: 누르는 곳은")[1]
-    menu_js = js.split("상단 메뉴")[1].split("체크 상자 목록")[0]
-    assert "topNav.scrollLeft" in menu_js and "scrollIntoView" not in menu_js
+    narrow = css[css.index("@media (max-width: 1099px)"):]
+    assert ".side-nav::after" in narrow and "linear-gradient" in narrow and ".side-nav.at-end::after" in narrow
+    assert "min-height: 40px" in css.split("좁은 화면: 누르는 곳은")[1]
+    menu_js = js.split("좁은 화면 위쪽 메뉴")[1].split("체크 상자 목록")[0]
+    assert "topNav.scrollLeft" in menu_js and "scrollIntoView" not in menu_js.split("전체 검색")[0]

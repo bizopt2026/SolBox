@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 # ======================================================================================
 # 코드 값 목록 (각각 한 번만 정의한다)
@@ -176,10 +177,6 @@ OPPORTUNITY_FLOW = ("discovery", "proposing", "negotiating", "won")  # 단계 �
 OPPORTUNITY_SIDE_STAGES = ("lost", "hold")  # 막대 옆에 따로 보이는 단계
 OPPORTUNITY_OPEN_STAGES = ("discovery", "proposing", "negotiating")  # 진행 중
 OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모두
-OPPORTUNITY_STAGE_CLASS = {  # 단계 -> 배지 CSS 클래스 (app.css)
-    "discovery": "opp-discovery", "proposing": "opp-proposing", "negotiating": "opp-negotiating",
-    "won": "opp-won", "lost": "opp-lost", "hold": "opp-hold",
-}
 
 ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
@@ -209,6 +206,36 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("origin_type", "기록의 유래", ORIGINS),
     CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT),
 )}
+
+# 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
+# 표에 없는 값은 slate (중립). 의미: ok 완료·좋음, warn 진행 중·확인 필요, bad 실패·문제, brand 현재 흐름, violet 새로 들어옴·검토, slate 중립·보류.
+TONES = ("brand", "violet", "ok", "warn", "bad", "slate")
+CODE_TONES: dict[str, dict[str, str]] = {
+    "stage": {"intake": "violet", "tapping": "warn", "survey": "brand", "boxed": "ok", "hold": "slate"},
+    "opportunity_stage": {"discovery": "brand", "proposing": "warn", "negotiating": "violet", "won": "ok", "lost": "bad", "hold": "slate"},
+    "activity_kind": {"meeting": "slate", "partner": "violet", "tapping": "warn", "survey": "brand", "other": "slate"},
+    "proposal_status": {"new": "slate", "directions": "brand", "refining": "violet", "outlined": "warn", "deck": "ok"},
+    "intake_status": {"uploaded": "brand", "analyzing": "warn", "ready": "violet", "applying": "warn", "applied": "ok", "failed": "bad", "discarded": "slate"},
+    "read_status": {"ok": "ok", "failed": "bad", "unsupported": "slate", "needs_transcript": "warn", "pending_transcript": "brand"},
+    "plan_item_kind": {"new_solution": "violet", "add_to_solution": "violet", "add_contact": "ok", "activity": "brand", "new_customer": "ok",
+                       "new_partner": "ok", "unplaced": "slate"},
+    "run_status": {"running": "warn", "done": "ok", "partial": "warn", "failed": "bad"},
+    "job_status": {"pending": "slate", "running": "brand", "done": "ok", "failed": "bad"},
+    "check_kind": {"evidence": "bad", "decide": "warn"},
+    "user_role": {"admin": "violet", "user": "slate"},
+    "file_kind": {"intro": "brand", "spec": "violet", "related": "slate"},
+    "suggestion_kind": {"new": "violet", "push": "brand"},
+    "intake_file_kind": {"document": "brand", "image": "violet", "audio": "warn", "other": "slate"},
+    "origin_type": {"manual": "slate", "intake": "brand", "research": "violet"},
+}
+
+
+def tone_class(list_key: str, code: str) -> str:
+    """배지 CSS 클래스 (`tone-ok` …). 정해지지 않은 값은 중립."""
+    return "tone-" + CODE_TONES.get(list_key, {}).get(code, "slate")
+
+
+OPPORTUNITY_STAGE_CLASS = {c: tone_class("opportunity_stage", c) for c in OPPORTUNITY_STAGES}  # 단계 -> 배지 CSS 클래스
 
 # 모델 열이 어느 코드 목록의 값을 담는지 (물리 표 이름, 열 이름). 일관성 검사가 기본값을 대조한다.
 COLUMN_CODES = {
@@ -247,7 +274,7 @@ TERMS = {
     "to_check": CHECK_KINDS["decide"],
     "proposal_deck": "제안서",
     "proposal_nav": "제안",
-    "intake_nav": "올리기",
+    "intake_nav": "올리기 묶음",
     "intake_short": "묶음",
     "customer_need": "고객 니즈",
     "same_company": "같은 회사",
@@ -275,6 +302,7 @@ class ObjectType:
     source_kind: str | None = None  # 출처 칩에 보일 종류 이름 (없으면 label)
     parent: tuple[str, str] | None = None  # 화면 주소를 부모 대상에서 빌린다: (부모 유형, 모델의 부모 번호 속성)
     nav: str | None = None  # 메뉴 이름 (없으면 메뉴에 없음)
+    nav_group: str | None = None  # 메뉴 묶음 (NAV_GROUPS 의 코드). 메뉴에 있으면 반드시 있다
     embedded_in: str | None = None  # 다른 기록 안에 들어 있다면 "표.열" 또는 설명
     props: dict[str, str] = field(default_factory=dict)  # 속성 이름 -> 화면 이름표
     physical: dict[str, str] = field(default_factory=dict)  # 물리 이름이 코드 이름과 다른 곳
@@ -298,47 +326,47 @@ class ObjectType:
 _TYPE_LIST = [
     ObjectType(
         "solution", "솔루션", "핵심", "Solution", "solutions", "/solutions", "/solutions/{id}",
-        "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션",
+        "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="discover",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
                "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "tags": "태그", "files": "자료", "origin": "유래"},
     ),
     ObjectType(
-        "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너",
+        "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="discover",
         props={"name": "이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
                "customer": "같은 회사인 고객"},
     ),
     ObjectType(
-        "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객",
+        "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객", nav_group="sales",
         props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
                "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
     ),
     ObjectType(
         "project", "프로젝트", "핵심", "Project", "businesses", "/projects", "/projects/{id}", "projects/{id}.md",
-        legacy_mirror_paths=("businesses/{id}.md",), nav="프로젝트",
+        legacy_mirror_paths=("businesses/{id}.md",), nav="프로젝트", nav_group="sales",
         props={"name": "프로젝트명", "customer": "고객", "description": "설명", "period": "기간", "status": "상태", "memo": "메모",
                "bm": "BM", "opportunity": "영업기회"},
         physical={"fk_column": "business_id", "link_table": "activity_businesses"},
     ),
     ObjectType(
         "opportunity", "영업기회", "핵심", "Opportunity", "opportunities", "/opportunities", "/opportunities/{id}",
-        "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회",
+        "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회", nav_group="sales",
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
                "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건"},
     ),
     ObjectType(
-        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM",
+        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="sales",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조",
                "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회"},
     ),
     ObjectType(
         "activity", "활동 기록", "핵심", "Activity", "activities", "/activities", "/activities/{id}",
-        "activities/{year}/{id}.md", nav="활동 기록",
+        "activities/{year}/{id}.md", nav="활동 기록", nav_group="today",
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
                "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회"},
     ),
     ObjectType(
-        "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안",
+        "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안", nav_group="sales",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
                "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안"},
     ),
@@ -369,7 +397,7 @@ _TYPE_LIST = [
     ObjectType("plan_item", "정리안 항목", "작업", embedded_in="intakes.plan", props={"kind": "종류", "reason": TERMS["reason"]}),
     ObjectType("research_topic", "리서치 주제", "작업", "ResearchTopic", "research_topics",
                props={"name": "이름", "keywords": "검색어", "area": "분야"}),
-    ObjectType("research_run", "리서치 실행", "작업", "ResearchRun", "research_runs", "/research", "/research/runs/{id}", nav="리서치",
+    ObjectType("research_run", "리서치 실행", "작업", "ResearchRun", "research_runs", "/research", "/research/runs/{id}", nav="리서치", nav_group="discover",
                props={"status": "상태", "trigger": "실행 방식"}),
     ObjectType(
         "research_report", "리서치 보고서", "작업", "ResearchReport", "research_reports",
@@ -384,15 +412,65 @@ _TYPE_LIST = [
 ]
 TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 
-# 메뉴: (주소 앞 조각, 이름). "올리기" 는 대상이 아니라 동작이라 따로 둔다.
+# 메뉴: 묶음(NAV_GROUPS) 안의 항목. 대상 유형의 `nav`·`nav_group` 에서 만들고, 대상이 아닌 항목(홈·올리기 묶음)과 관리 항목만 여기서 적는다.
+# 사이드 메뉴(base.html)는 이 정의만 그린다: 새 항목은 묶음이 없으면 안 된다 (tests/test_shell.py).
+NAV_GROUPS = (("today", "오늘"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
+
+
+class NavItem(NamedTuple):
+    path: str  # 주소에서 앞 조각 ("" 은 홈, 관리는 "admin/users")
+    label: str
+    group: str
+    badge: str | None = None  # 이름 옆 배지 종류 ("ready": 확인 대기 수)
+
+    @property
+    def href(self) -> str:
+        return "/" + self.path
+
+
+class NavGroup(NamedTuple):
+    code: str
+    label: str
+    items: tuple[NavItem, ...]
+
+
+def _type_nav_item(code: str) -> NavItem:
+    t = TYPES[code]
+    return NavItem(t.list_url.strip("/"), t.nav, t.nav_group)
+
+
+# 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록, 발굴 = 솔루션·파트너·리서치, 영업 = 고객·영업기회·제안·프로젝트·BM
 NAV_ITEMS = (
-    ("intake", TERMS["intake_nav"]), ("", "홈"),
-    *((t.list_url.strip("/"), t.nav) for t in _TYPE_LIST if t.nav and t.list_url and t.code != "research_run"),
-    ("research", TYPES["research_run"].nav),
+    NavItem("", "홈", "today"),
+    NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
+    _type_nav_item("activity"),
+    _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
+    _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
 )
-_NAV_ORDER = ("intake", "", "solutions", "customers", "opportunities", "projects", "bms", "partners", "proposals", "activities", "research")
-NAV_ITEMS = tuple(sorted(NAV_ITEMS, key=lambda x: _NAV_ORDER.index(x[0])))
-ADMIN_NAV_ITEMS = (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템"))
+ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
+                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템")))
+
+
+def nav_groups(is_admin: bool = False) -> list[NavGroup]:
+    """사이드 메뉴 묶음들. 관리 묶음은 관리자에게만."""
+    out = []
+    for code, label in NAV_GROUPS:
+        items = ADMIN_NAV_ITEMS if code == "admin" else tuple(i for i in NAV_ITEMS if i.group == code)
+        if code == "admin" and not is_admin:
+            continue
+        out.append(NavGroup(code, label, items))
+    return out
+
+
+def nav_current(path: str) -> str | None:
+    """이 주소가 속한 메뉴 항목의 `path` (상세·수정 화면은 그 구역의 항목). 메뉴에 없는 화면은 None."""
+    parts = path.strip("/").split("/")
+    first = parts[0]
+    if first == "admin":
+        key = "/".join(parts[:2])
+        return key if any(i.path == key for i in ADMIN_NAV_ITEMS) else None
+    return first if any(i.path == first for i in NAV_ITEMS) else None
+
 
 # 옛 주소(GET) -> 새 주소. 영구 이동한다.
 LEGACY_URL_PREFIXES = {"/businesses": "/projects"}

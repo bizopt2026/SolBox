@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val, origin_line, same_name_hint %}
+{% from "_macros.html" import detail_head, val, origin_line, same_name_hint %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("파트너", "/partners"), (partner.name, None)) }}
-{{ detail_head(partner.name, "/partners", partner, can_delete) }}
+{{ detail_head(partner.name, "/partners", partner, can_delete, crumbs=[("파트너", "/partners"), (partner.name, None)]) }}
 {{ origin_line(origin) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}

@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val, opportunity_badge %}
+{% from "_macros.html" import detail_head, val, opportunity_badge %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ opp.name }}{% endblock %}
 {% block content %}
-{{ breadcrumb((ont.label("opportunity"), "/opportunities"), (opp.name, None)) }}
-{{ detail_head(opp.name, "/opportunities", opp, can_delete) }}
+{{ detail_head(opp.name, "/opportunities", opp, can_delete, crumbs=[(ont.label("opportunity"), "/opportunities"), (opp.name, None)]) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <section class="card">
   <dl>
@@ -27,7 +26,7 @@
       {% endfor %}
     </div>
     {% for code in ont.OPPORTUNITY_SIDE_STAGES %}
-    <button type="submit" name="stage" value="{{ code }}" class="step side {{ code }}{{ ' current' if opp.stage == code }}"{% if opp.stage == code %} aria-current="step" disabled{% endif %}>{{ ont.OPPORTUNITY_STAGES[code] }}</button>
+    <button type="submit" name="stage" value="{{ code }}" class="step sidestep {{ code }}{{ ' current' if opp.stage == code }}"{% if opp.stage == code %} aria-current="step" disabled{% endif %}>{{ ont.OPPORTUNITY_STAGES[code] }}</button>
     {% endfor %}
   </form>
 </section>

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}파트너 {{ "수정" if partner else "등록" }}{% endblock %}
 {% block content %}
-{% if partner %}{{ breadcrumb(("파트너", "/partners"), (partner.name, "/partners/" ~ partner.id), ("수정", None)) }}{% else %}{{ breadcrumb(("파트너", "/partners"), ("등록", None)) }}{% endif %}
-<h1>파트너 {{ "수정" if partner else "등록" }}</h1>
+{% set label = "파트너" %}
+{{ page_header(label ~ " " ~ ("수정" if partner else "등록"), crumbs=[(label, "/partners")] + ([(partner.name, "/partners/" ~ partner.id), ("수정", none)] if partner else [("등록", none)])) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="{{ "/partners/" ~ partner.id if partner else "/partners" }}" class="card stack">
     <label>이름 (필수) <input name="name" value="{{ form.name }}"></label>

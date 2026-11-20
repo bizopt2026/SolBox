@@ -1,10 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header, pill %}
 {% block title %}리서치 {{ run.started_at.strftime("%Y-%m-%d") }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("리서치", "/research"), (run.started_at.strftime("%Y-%m-%d"), None)) }}
-<h1>리서치 {{ run.started_at.strftime("%Y-%m-%d") }} <span class="badge {{ 'warn' if run.status in ('partial', 'failed') }}">{{ labels.RUN_STATUSES.get(run.status, run.status) }}</span></h1>
-<p class="muted">AI가 웹에서 수집한 내용입니다. 링크를 열어 확인하세요.</p>
+{{ page_header("리서치 " ~ run.started_at.strftime("%Y-%m-%d"), crumbs=[("리서치", "/research"), (run.started_at.strftime("%Y-%m-%d"), none)], sub="AI가 웹에서 수집한 내용입니다. 링크를 열어 확인하세요.", status=pill("run_status", run.status)) }}
 {% if run.status == "running" %}
 <section class="card"><h2>조사 진행</h2>
   <div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>

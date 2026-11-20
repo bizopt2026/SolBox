@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, pill %}
+{% block title %}검색{% endblock %}
+{% block content %}
+{{ page_header("검색", sub=("‘" ~ result.q ~ "’ 이름·제목에서 찾았습니다." if result.state in ("found", "none") else "솔루션, 고객, 파트너, 프로젝트, 영업기회, BM, 제안 건, 활동 기록의 이름·제목을 찾습니다.")) }}
+{% if result.state == "empty" %}
+<div class="empty"><p class="muted">찾을 이름이나 제목을 위쪽 검색칸에 입력하세요. (단축키 /)</p></div>
+{% elif result.state == "short" %}
+<div class="empty"><p class="muted">검색어는 두 글자 이상 입력하세요.</p></div>
+{% elif result.state == "none" %}
+<div class="empty"><p class="muted">‘{{ result.q }}’에 대한 결과가 없습니다. 다른 이름으로 찾아 보세요.</p></div>
+{% else %}
+{% for g in result.groups %}
+<section class="card">
+  <div class="card-head"><h2>{{ g.label }} <span class="count">{{ g.total }}건</span></h2>{% if g.more_url %}<a href="{{ g.more_url }}">목록에서 모두 보기</a>{% endif %}</div>
+  <ul class="result-list">
+    {% for i in g.rows %}
+    <li><a class="row-title" href="{{ i.url }}">{{ i.label }}</a>{% if i.note %}<span class="muted">{{ i.note }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

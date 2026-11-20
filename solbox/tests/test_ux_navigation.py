@@ -6,7 +6,7 @@ from tests.conftest import refining_proposal
 
 
 def _nav(html):
-    return re.search(r"<nav>.*?</nav>", html, re.S).group(0)
+    return re.search(r'<aside class="side".*?</aside>', html, re.S).group(0)
 
 
 def test_top_menu_marks_current_section(user_client):
@@ -26,7 +26,7 @@ def test_detail_page_belongs_to_its_section(user_client, db):
 
 def test_admin_menu_is_current_under_admin(admin_client):
     html = admin_client.get("/admin/research").text
-    assert '<summary aria-current="page">관리</summary>' in html
+    assert 'aria-label="관리"' in html
     assert 'href="/admin/research" aria-current="page"' in html
 
 

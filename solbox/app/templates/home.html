@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import stage_badge %}
+{% from "_macros.html" import page_header, stage_badge, pill %}
 {% block title %}홈{% endblock %}
 {% block content %}
-<h1>홈</h1>
+{% call page_header("홈", sub="오늘 할 일과 올리기 현황입니다.") %}<a class="button" href="/activities/new">활동 기록 쓰기</a>{% endcall %}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 
 <section class="card">
@@ -50,7 +50,7 @@
   {% if proposals %}
   <ul>
     {% for p in proposals %}
-    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> · {{ p.customer.name }} <span class="badge">{{ labels.PROPOSAL_STATUSES.get(p.status, p.status) }}</span></li>
+    <li><a href="/proposals/{{ p.id }}">{{ display_title(p) }}</a> · {{ p.customer.name }} {{ pill("proposal_status", p.status) }}</li>
     {% endfor %}
   </ul>
   {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}

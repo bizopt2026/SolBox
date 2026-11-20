@@ -1,19 +1,15 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header, pill %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("제안", "/proposals"), (title, None)) }}
-<div class="page-head">
-  <h1>{{ title }}</h1>
+{% call page_header(title, crumbs=[("제안", "/proposals"), (title, none)], status=pill("proposal_status", proposal.status)) %}
   {% if can_delete %}
-  <div class="actions">
-    <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
-      <button type="submit" class="danger">삭제</button>
-    </form>
-  </div>
+  <form method="post" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
+    <button type="submit" class="danger">삭제</button>
+  </form>
   {% endif %}
-</div>
+{% endcall %}
 {% include "proposals/_stepbar.html" %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
 {% include "proposals/_ai_status.html" %}

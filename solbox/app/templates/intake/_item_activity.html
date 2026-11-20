@@ -6,7 +6,7 @@
   <p class="plan-facts">
     <span data-sum="date">{{ b.date }}</span> · <span data-sum="kind">{{ b.kind_label }}</span>
     · 후속 조치 {{ b.fu_count }} · {{ ont.prop('activity', 'demand_signals') }} {{ b.ds_count }}
-    {% if b.dup_count %}<span class="badge decide">비슷한 할 일 {{ b.dup_count }}건 확인</span>{% endif %}
+    {% if b.dup_count %}<span class="badge tone-warn">비슷한 할 일 {{ b.dup_count }}건 확인</span>{% endif %}
   </p>
   {% if b.dup_rows %}
   <div class="plan-dup-drop">

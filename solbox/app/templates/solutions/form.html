@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}솔루션 {{ "수정" if solution else "등록" }}{% endblock %}
 {% block content %}
-{% if solution %}{{ breadcrumb(("솔루션", "/solutions"), (solution.name, "/solutions/" ~ solution.id), ("수정", None)) }}{% else %}{{ breadcrumb(("솔루션", "/solutions"), ("등록", None)) }}{% endif %}
-<h1>솔루션 {{ "수정" if solution else "등록" }}</h1>
+{% set label = "솔루션" %}
+{{ page_header(label ~ " " ~ ("수정" if solution else "등록"), crumbs=[(label, "/solutions")] + ([(solution.name, "/solutions/" ~ solution.id), ("수정", none)] if solution else [("등록", none)])) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if job %}
 <section class="card">{% include "jobs/_status.html" %}</section>

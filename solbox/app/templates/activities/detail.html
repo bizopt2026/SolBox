@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val, origin_line %}
+{% from "_macros.html" import detail_head, val, origin_line %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)) }}
-{{ detail_head(activity.title or "(제목 없음)", "/activities", activity, can_delete) }}
+{{ detail_head(activity.title or "(제목 없음)", "/activities", activity, can_delete, crumbs=[("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)]) }}
 {{ origin_line(origin) }}
 <section class="card">
   <dl>

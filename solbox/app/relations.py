@@ -367,7 +367,7 @@ def _describe(db: Session, code: str, objs: list, start: str) -> dict[int, Relat
         url = T[code].url(o.id) if T[code].detail_url else None
         it = RelatedItem(code, o.id, getattr(o, "name", "") or "", url, obj=o)
         if code == "solution":
-            it.badge = (f"stage-{o.stage}", ontology.STAGES.get(o.stage, o.stage))
+            it.badge = (ontology.tone_class("stage", o.stage), ontology.STAGES.get(o.stage, o.stage))
             it.note = o.summary or ""
         elif code == "opportunity":
             it.badge = (ontology.OPPORTUNITY_STAGE_CLASS.get(o.stage, ""), ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage))

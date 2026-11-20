@@ -8,4 +8,5 @@
     {% elif intake.files | selectattr("kind", "equalto", "audio") | selectattr("read_status", "equalto", "ok") | list %}AI가 파일을 정리하고 있어요… <span class="muted">{{ wait_detail(job, expected=False) }}</span>
     {% else %}정리 중… {{ wait_detail(job) }}{% endif %}
   {% else %}정리를 마무리하는 중입니다…{% endif %}
+  {% if job is not none and job.status == "running" %}<div class="skeleton" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}
 </div>

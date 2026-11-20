@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val, origin_line %}
+{% from "_macros.html" import detail_head, val, origin_line %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("솔루션", "/solutions"), (solution.name, None)) }}
-{{ detail_head(solution.name, "/solutions", solution, can_delete) }}
+{{ detail_head(solution.name, "/solutions", solution, can_delete, crumbs=[("솔루션", "/solutions"), (solution.name, None)]) }}
 {{ origin_line(origin) }}
 <section class="card">
   <h2>기본 정보</h2>

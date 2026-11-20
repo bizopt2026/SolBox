@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb, check_picker %}
+{% from "_macros.html" import page_header, check_picker %}
 {% block title %}{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}{% endblock %}
 {% block content %}
-{% if opp %}{{ breadcrumb((ont.label("opportunity"), "/opportunities"), (opp.name, "/opportunities/" ~ opp.id), ("수정", None)) }}{% else %}{{ breadcrumb((ont.label("opportunity"), "/opportunities"), ("등록", None)) }}{% endif %}
-<h1>{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}</h1>
+{% set label = ont.label("opportunity") %}
+{{ page_header(label ~ " " ~ ("수정" if opp else "등록"), crumbs=[(label, "/opportunities")] + ([(opp.name, "/opportunities/" ~ opp.id), ("수정", none)] if opp else [("등록", none)])) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if not opp and not customer %}
 <form method="get" action="/opportunities/new" class="card stack">

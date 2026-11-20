@@ -22,7 +22,7 @@ from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror, rebuild_if_stale
-from app.models import Intake
+from app.models import AIJob, Intake
 from app.intake import recover as recover_intakes
 from app.intake import recover_applying
 from app.research import recover_runs
@@ -62,6 +62,33 @@ def _intake_ready_count(session_factory, user) -> int:
         return 0
 
 
+def _ai_status_data(session_factory, settings) -> dict:
+    """상단 줄의 AI 상태: {"state": "ok"|"busy"|"down", "text"}. 작은 조회 두 번 (대기·실행 수, 마지막으로 끝난 작업의 환경 문제 여부)."""
+    from app.routers.home import ai_problem
+
+    if not settings.ai_worker_enabled:
+        return {"state": "down", "text": "AI 사용 불가"}
+    with session_factory() as db:
+        counts = dict(db.execute(select(AIJob.status, func.count()).where(AIJob.status.in_(("pending", "running"))).group_by(AIJob.status)).all())
+        problem = ai_problem(db)
+    pending, running = counts.get("pending", 0), counts.get("running", 0)
+    if problem:
+        return {"state": "down", "text": "AI 사용 불가"}
+    if running:
+        return {"state": "busy", "text": f"AI 작업 중 {running}" + (f" · 대기 {pending}" if pending else "")}
+    return {"state": "ok", "text": f"AI 사용 가능 · 대기 {pending}"}
+
+
+def _ai_status(session_factory, settings, user) -> dict | None:
+    """로그인하지 않았거나 어떤 이유로든 읽지 못하면 None (상태 표시 때문에 화면이 깨지면 안 된다)."""
+    if user is None:
+        return None
+    try:
+        return _ai_status_data(session_factory, settings)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 GENERIC_AHEAD_AFTER_S = 5  # 이만큼 기다리게 되면 일반 대기 안내에도 앞선 작업을 적는다
 
 
@@ -83,6 +110,7 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
     ctx.setdefault("labels", labels)
     ctx.setdefault("queue_ahead", functools.partial(_queue_ahead, request.app.state.session_factory))
     ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.app.state.session_factory, ctx["user"]))
+    ctx.setdefault("ai_status", functools.partial(_ai_status, request.app.state.session_factory, request.app.state.settings, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 
@@ -179,7 +207,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        proposals, research, solutions,
+        proposals, research, search, solutions,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
@@ -197,6 +225,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(activities.router)
     app.include_router(activities.follow_up_router)
+    app.include_router(search.router)
     app.include_router(proposals.router)
     app.include_router(proposal_outline.router)
     app.include_router(research.router)

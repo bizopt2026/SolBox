@@ -5,7 +5,7 @@
 사내 한국어 웹 앱. 솔루션 발굴(접수→태핑→수요조사→박스 등록), 고객·파트너·프로젝트·활동 기록, AI 제안서(PPT), 주간 웹 리서치를 한곳에서 다룬다. FastAPI + SQLAlchemy 2 + SQLite + Jinja2/HTMX. AI는 Claude CLI(`claude -p`)를 호출한다.
 
 ## 폴더
-- `app/` 코드. `routers/` 화면·API, `ai/` AI 작업(대기열 `queue.py`, 실행기 `runner.py`, 처리기, `prompts/`), `templates/`, `static/`
+- `app/` 코드. `routers/` 화면·API, `ai/` AI 작업(대기열 `queue.py`, 실행기 `runner.py`, 처리기, `prompts/`), `templates/`, `static/` (`app.css` 하나, 글꼴 Pretendard Variable 은 `static/fonts/` 에 OFL 라이선스 글과 함께 담았다. 바깥 주소·CDN 을 부르지 않는다)
 - `app/research.py` 리서치, `scheduler.py` 주간 조사·일일 작업, `backup.py` 백업, `certs.py` 인증서, `system.py` 점검, `cli.py` 명령줄, `migrate.py` 컬럼 자동 추가
 - `tests/` pytest (가짜 CLI `tests/fake_claude.py`), `scripts/` Windows PowerShell 스크립트, `docs/` 문서
 - 운영 데이터는 `data_dir` (기본은 `solbox/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`, `intake_work/`(올리기 묶음별 작업 폴더), `models/`(음성 받아쓰기 모델, 백업하지 않음)
@@ -16,6 +16,9 @@
 - 테스트 `python -m pytest -q -W error` (경고도 오류. 실제 `claude` 는 테스트에서 부르지 않는다)
 - 명령줄: `create-admin`, `rebuild-knowledge`, `backup`, `backup --verify <폴더>`, `make-cert`, `check`, `stt-setup`(받아쓰기 모델 받기, 인터넷 필요), `stt-test <음성 파일>`
 - 받아쓰기(선택 설치) `pip install -e ".[stt]"`
+
+## 화면 틀
+- 사이드 메뉴(묶음: 오늘·발굴·영업·관리)는 `ontology.NAV_GROUPS`·`NAV_ITEMS`·`nav_groups()` 에서 그린다. 메뉴에 넣는 대상은 `ObjectType.nav_group` 이 있어야 한다. 모든 화면의 제목 줄은 `_macros.html` 의 `page_header`(또는 이를 감싼 `list_head`·`detail_head`) 하나다. 배지 색은 `ontology.CODE_TONES` 한 곳(`pill` 매크로). 전체 검색은 `app/search.py`(이름·제목만, 올리기 묶음 제외). 위쪽 줄의 AI 상태는 `main._ai_status`.
 
 ## 올리기 구조
 - 파일을 한 번에 올리면(`Intake`, `IntakeFile`; `app/intake.py`, `routers/intake.py`) AI 작업 `intake_analyze`(`ai/intake_tasks.py`, 프롬프트 `prompts/intake_analyze.md`)가 정리안(`Intake.plan`)을 만들고, 사용자가 확인하면 `intake.apply` 가 `app/records.py` 의 공용 저장 로직으로 기록을 만든다. 상태: 올림 → 정리 중 → 확인 대기 → 저장 중(`applying`) → 저장 완료 / 실패 / 버림. 저장 중에는 선점마다 `Intake.apply_token` 이 붙고, 저장을 끝내거나 풀 수 있는 것은 그 토큰의 주인뿐이다 (오래 멈춘 저장을 "다시 확인" 으로 풀어도 옛 저장이 뒤늦게 끝나 두 번 저장되지 않게).

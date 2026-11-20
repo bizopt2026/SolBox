@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}시스템{% endblock %}
 {% block content %}
-{{ breadcrumb(("관리", None), ("시스템", None)) }}
-<h1>시스템</h1>
+{{ page_header("시스템", crumbs=[("관리", none), ("시스템", none)]) }}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <div class="tablewrap"><table>
   <tbody>

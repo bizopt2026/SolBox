@@ -1,6 +1,8 @@
 """발굴 단계 배지와 상세 화면의 진행 막대."""
 import re
 
+from app import ontology
+
 from app.models import Partner, Solution
 
 
@@ -16,13 +18,13 @@ def test_list_shows_a_badge_per_stage(user_client, db):
         _make(db, stage, f"S{i}")
     html = user_client.get("/solutions").text
     for stage, name in (("intake", "아이템 접수"), ("tapping", "사전 태핑"), ("survey", "수요조사"), ("boxed", "박스 등록"), ("hold", "보류")):
-        assert f'<span class="badge stage-{stage}">{name}</span>' in html
+        assert f'<span class="badge {ontology.tone_class("stage", stage)}" data-code="{stage}">{name}</span>' in html
 
 
 def test_home_stage_counts_use_badges(user_client, db):
     _make(db, "survey")
     html = user_client.get("/").text
-    assert 'class="badge stage-survey"' in html and 'class="badge stage-hold"' in html
+    assert 'class="badge tone-brand" data-code="survey"' in html and 'class="badge tone-slate" data-code="hold"' in html
 
 
 def test_partner_detail_lists_solution_stage(user_client, db):
@@ -32,7 +34,7 @@ def test_partner_detail_lists_solution_stage(user_client, db):
     s = _make(db, "tapping")
     s.partner_id = p.id
     db.commit()
-    assert 'class="badge stage-tapping"' in user_client.get(f"/partners/{p.id}").text
+    assert 'class="badge tone-warn"' in user_client.get(f"/partners/{p.id}").text
 
 
 def test_detail_stage_bar_marks_current_and_past(user_client, db):
@@ -58,7 +60,7 @@ def test_extra_solution_choices_show_stage_badge(user_client, db):
     from app.models import Customer
     db.add(Customer(name="c"))
     db.commit()
-    assert 'class="badge stage-hold"' in user_client.get("/proposals/new").text
+    assert 'class="badge tone-slate" data-code="hold"' in user_client.get("/proposals/new").text
 
 
 def test_current_step_is_disabled_and_same_stage_post_writes_nothing(user_client, db, settings):

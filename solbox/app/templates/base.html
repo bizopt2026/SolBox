@@ -8,44 +8,53 @@
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
-<body>
+<body class="{{ 'shell' if user else 'auth' }}">
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+{% macro brand() %}<a class="brand" href="/"><span class="mark" aria-hidden="true"><i></i></span><span class="brand-text"><b>솔박스</b><small>솔루션 사업 워크스페이스</small></span></a>{% endmacro %}
 {% if user %}
-<header class="topbar">
-  <a class="brand" href="/">솔박스</a>
-  {% set path = request.url.path if request else "/" %}
-  {% set section = path.split("/")[1] %}
-  {% set ready_n = nav_ready_count() if nav_ready_count else 0 %}
-  <nav>
-    {% for href, name in ont.NAV_ITEMS %}
-    <a href="/{{ href }}"{% if section == href %} aria-current="page"{% endif %}>{{ name }}{% if href == "intake" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
-    {% endfor %}
-    {% if user.role == "admin" %}
-    <details class="menu"><summary{% if section == "admin" %} aria-current="page"{% endif %}>관리</summary>
-      <div class="menu-list">
-      {% for href, name in ont.ADMIN_NAV_ITEMS %}
-      <a href="/admin/{{ href }}"{% if path == "/admin/" ~ href %} aria-current="page"{% endif %}>{{ name }}</a>
+{% set path = request.url.path if request else "/" %}
+{% set cur = ont.nav_current(path) %}
+{% set ready_n = nav_ready_count() if nav_ready_count else 0 %}
+<aside class="side" aria-label="사이드 메뉴">
+  {{ brand() }}
+  <a class="cta" href="/intake/new">+ 올리기</a>
+  <div class="side-nav">
+    {% for g in ont.nav_groups(user.role == "admin") %}
+    <nav class="navg" aria-label="{{ g.label }}">
+      <h3>{{ g.label }}</h3>
+      {% for item in g.items %}
+      <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span>{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
       {% endfor %}
-      </div>
-    </details>
-    {% endif %}
-  </nav>
-  <form class="logout" method="post" action="/logout">
-    <span>{{ user.name or user.username }}</span>
-    <button type="submit">로그아웃</button>
-  </form>
-</header>
+    </nav>
+    {% endfor %}
+  </div>
+  <div class="who">
+    <span class="av" aria-hidden="true">{{ (user.name or user.username)[:1] }}</span>
+    <div class="who-name"><span>{{ user.name or user.username }}</span><small>{{ ont.USER_ROLES.get(user.role, user.role) }}</small></div>
+    <form class="logout" method="post" action="/logout"><button type="submit">로그아웃</button></form>
+  </div>
+</aside>
 {% endif %}
-<main>
+<div class="main">
+  {% if user %}
+  {% set ai = ai_status() if ai_status else None %}
+  <div class="top">
+    <form class="search" role="search" method="get" action="/search">
+      <label class="sr-only" for="global-search">전체 검색</label>
+      <input id="global-search" type="search" name="q" value="{{ request.query_params.get('q', '') if path == '/search' else '' }}" placeholder="솔루션, 고객, 기록 찾기" autocomplete="off" aria-keyshortcuts="/">
+      <kbd aria-hidden="true">/</kbd>
+    </form>
+    {% if ai %}
+    {% if user.role == "admin" %}<a class="aistat {{ ai.state }}" href="/admin/jobs" title="AI 작업 보기"><i class="pulse" aria-hidden="true"></i><span>{{ ai.text }}</span></a>
+    {% else %}<span class="aistat {{ ai.state }}"><i class="pulse" aria-hidden="true"></i><span>{{ ai.text }}</span></span>{% endif %}
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="auth-brand">{{ brand() }}</div>
+  {% endif %}
+  <main id="main" class="page" tabindex="-1">
 {% block content %}{% endblock %}
-</main>
-<script>
-(function () {
-  function closeMenus(except) {
-    document.querySelectorAll("details.menu[open]").forEach(function (d) { if (d !== except) d.removeAttribute("open"); });
-  }
-  document.addEventListener("click", function (e) { closeMenus(e.target.closest("details.menu")); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(null); });
-})();
-</script>
+  </main>
+</div>
 </body>
 </html>

@@ -64,6 +64,8 @@ python -m app
 
 포트나 주소를 바꿨다면 `config.toml` 의 값에 맞춰 열면 됩니다. 종료는 실행 창에서 `Ctrl+C` 입니다.
 
+화면 글꼴은 Pretendard Variable(SIL OFL 1.1)을 `app/static/fonts/` 에 함께 담았습니다 (사내망에서도 바깥 접속 없이 쓰고, 라이선스 글은 `Pretendard-OFL.txt`).
+
 ## 올리기
 
 화면 위쪽 "올리기" 메뉴(또는 홈의 올리기 카드)에서 파일을 한꺼번에 올리면 AI가 어디에 정리할지 제안하고, 확인 한 번으로 저장합니다.

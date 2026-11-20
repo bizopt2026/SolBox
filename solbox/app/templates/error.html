@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}오류{% endblock %}
 {% block content %}
-<h1>{{ title }}</h1>
-<div class="card stack" role="alert">
+<section class="card auth-card error-card" role="alert">
+  <h1>{{ title }}</h1>
   <p class="error">{{ message }}</p>
-  <p><a href="/">처음 화면으로 돌아가기</a></p>
-</div>
+  <p><a class="button primary" href="/">처음 화면으로 돌아가기</a></p>
+</section>
 {% endblock %}

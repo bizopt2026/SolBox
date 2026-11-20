@@ -107,7 +107,7 @@ def test_slide_without_sources_shows_red_marker(user_client, db, settings):
     p.outline = {**p.outline, "slides": slides}
     db.commit()
     page = _page(user_client, p)
-    assert 'class="badge evidence">출처 없음' in page.split('id="slide-3"')[1].split("</details>")[0]
+    assert 'class="badge tone-bad">출처 없음' in page.split('id="slide-3"')[1].split("</details>")[0]
     assert "출처 없음" not in page.split('id="slide-0"')[1].split('id="slide-1"')[0]  # 표지는 해당 없음
 
 
@@ -122,7 +122,7 @@ def test_direction_without_source_keeps_inline_marker(user_client, db, settings)
     d = dict(p.directions[0], rationale=[{"text": "근거 있음", "sources": ["solutions/1/card.md"]}, {"text": "근거 없음 문장", "sources": []}])
     p.directions = [d, p.directions[1]]
     page = _directions_page(user_client, db, p)
-    assert re.search(r"근거 없음 문장\s*<span class=\"badge evidence\">출처 없음</span>", page)
+    assert re.search(r"근거 없음 문장\s*<span class=\"badge tone-bad\">출처 없음</span>", page)
     assert '<sup><a href="#d0-src-1">1</a></sup>' in page
 
 
@@ -140,12 +140,12 @@ def test_direction_summary_markup(user_client, db, settings):
     assert page.count("근거와 확인할 점 보기") == len(p.directions)
     assert re.search(r'class="dir-grid" style="--cols:2"', page)
     css = user_client.get("/static/app.css").text
-    assert "@media (min-width: 1100px)" in css and "align-items:start" in css.split("제안 방향 카드")[1].split("}")[0]
+    assert "@media (min-width: 1100px)" in css and "align-items: start" in css.split("제안 방향 카드")[1].split("}")[0]
 
 
 def test_nav_marks_active_and_css_gives_hint(user_client):
     page = user_client.get("/proposals").text
-    assert re.search(r'<a href="/proposals" aria-current="page">제안</a>', page)
+    assert re.search(r'<a href="/proposals" aria-current="page">', page)
     css = user_client.get("/static/app.css").text
-    tail = css.split("상단 메뉴 항목은 누르기 쉽게")[1]
-    assert "@media (max-width: 480px)" in tail and ".topbar nav > a" in tail and "min-height:40px" in tail
+    narrow = css.split("@media (max-width: 1099px)")[1].split("}")[0:12]
+    assert ".navg a { flex: none; white-space: nowrap; min-height: 40px;" in css

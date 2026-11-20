@@ -1,7 +1,7 @@
-{% from "_macros.html" import source_chip %}
+{% from "_macros.html" import source_chip, pill %}
 <li class="trend">
   <details class="trend-card suggestion"{% if s.index < 3 %} open{% endif %}>
-    <summary><span class="badge">{{ labels.SUGGESTION_KINDS.get(s.kind, s.kind) }}</span> <strong>{{ s.title }}</strong></summary>
+    <summary>{{ pill("suggestion_kind", s.kind) }} <strong>{{ s.title }}</strong></summary>
     <div class="card-body">
       {% if s.detail %}<div>{{ s.detail }}</div>{% endif %}
       {% if s.reason %}<div class="muted">{{ ont.term("reason") }}: {{ s.reason }}</div>{% endif %}

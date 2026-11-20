@@ -1,12 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header, pill %}
 {% block title %}{{ ont.label("intake") }} {{ intake.id }}번{% endblock %}
 {% block content %}
-{{ breadcrumb(("올리기", "/intake"), (ont.label("intake") ~ " " ~ intake.id, None)) }}
-<div class="page-head">
-  <h1>{{ ont.label("intake") }} {{ intake.id }}번 <span class="count">{{ ont.label("intake_file") }} {{ intake.files | length }}개</span></h1>
-  <span class="badge intake-{{ intake.status }}">{{ labels.INTAKE_STATUSES.get(intake.status, intake.status) }}</span>
-</div>
+{{ page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[(ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", intake.status)) }}
 {% if skipped %}
 <div class="error" role="alert">
   <p>받지 못한 파일이 있어요.</p>
@@ -34,10 +30,10 @@
       <tr>
         <td class="col-num">{{ loop.index }}</td>
         <td>{{ f.original_name }}
-          <span class="name-status"><span class="badge read-{{ f.read_status }}">{{ status_text }}</span> {{ note_html }}</span></td>
+          <span class="name-status">{{ pill("read_status", f.read_status, status_text) }} {{ note_html }}</span></td>
         <td>{{ labels.INTAKE_FILE_KINDS.get(f.kind, f.kind) }}</td>
         <td class="col-size">{% if f.size >= 1048576 %}{{ (f.size / 1024 / 1024)|round(2) }} MB{% elif f.size >= 1024 %}{{ (f.size / 1024)|round(1) }} KB{% else %}{{ f.size }} B{% endif %}</td>
-        <td class="col-status"><span class="badge read-{{ f.read_status }}">{{ status_text }}</span>{% if audio_note or fail_note %}<br>{{ note_html }}{% endif %}</td>
+        <td class="col-status">{{ pill("read_status", f.read_status, status_text) }}{% if audio_note or fail_note %}<br>{{ note_html }}{% endif %}</td>
         <td><a class="button small" href="/intake/files/{{ f.id }}/download">내려받기</a></td>
       </tr>
     {% endfor %}

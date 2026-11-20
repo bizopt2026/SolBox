@@ -420,4 +420,4 @@ def test_outline_wording_matches_slide_badges(user_client, db, settings):
     db.commit()
     page = user_client.get(f"/proposals/{p.id}/outline").text
     assert re.search(r'class="count-evidence">근거 문제 1장', page) and re.search(r'class="count-decide">확인할 점 \d+장', page)
-    assert '<span class="badge evidence">근거 문제</span>' in page and '<span class="badge decide">확인할 점</span>' in page
+    assert '<span class="badge tone-bad" data-code="evidence">근거 문제</span>' in page and '<span class="badge tone-warn" data-code="decide">확인할 점</span>' in page

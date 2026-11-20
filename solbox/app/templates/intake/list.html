@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, empty_list, pager %}
+{% from "_macros.html" import list_head, empty_list, pager, pill %}
 {% block title %}올리기 목록{% endblock %}
 {% block content %}
-{{ list_head("올리기", pg, status, "/intake/new", "+ 올리기") }}
+{{ list_head(ont.label("intake"), pg, status, "/intake/new", "+ 올리기") }}
 <form method="get" action="/intake" class="row">
   <label>상태
     <select name="status">
@@ -22,7 +22,7 @@
       {% if user.role == "admin" %}<td>{{ owners.get(it.created_by_id, "") }}</td>{% endif %}
       <td>{{ it.note or "" }}</td>
       <td>{{ it.files | length }}개</td>
-      <td><span class="badge intake-{{ it.status }}">{{ labels.INTAKE_STATUSES.get(it.status, it.status) }}</span></td>
+      <td>{{ pill("intake_status", it.status) }}</td>
     </tr>
   {% endfor %}
   </tbody>

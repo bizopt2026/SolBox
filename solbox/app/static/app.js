@@ -8,17 +8,33 @@
     return h;
   }
 
-  // 좁은 화면 상단 메뉴: 현재 항목이 보이게 메뉴 안에서만 가로로 옮기고, 끝에 닿으면 끝 표시를 감춘다
-  var topNav = document.querySelector(".topbar nav");
+  // 좁은 화면 위쪽 메뉴: 현재 항목이 보이게 메뉴 안에서만 가로로 옮기고, 끝에 닿으면 끝 표시를 감춘다
+  var topNav = document.querySelector(".side-nav");
   if (topNav) {
     var syncNav = function () { topNav.classList.toggle("at-end", topNav.scrollLeft + topNav.clientWidth >= topNav.scrollWidth - 2); };
-    var curItem = topNav.querySelector('[aria-current="page"]');
-    if (curItem && topNav.scrollWidth > topNav.clientWidth) {
-      topNav.scrollLeft += curItem.getBoundingClientRect().left - topNav.getBoundingClientRect().left - (topNav.clientWidth - curItem.offsetWidth) / 2;
-    }
+    var placeNav = function () {
+      var curItem = topNav.querySelector('[aria-current="page"]');
+      if (curItem && topNav.scrollWidth > topNav.clientWidth) {
+        topNav.scrollLeft += curItem.getBoundingClientRect().left - topNav.getBoundingClientRect().left - (topNav.clientWidth - curItem.offsetWidth) / 2;
+      }
+    };
+    placeNav();
     topNav.addEventListener("scroll", syncNav);
     window.addEventListener("resize", syncNav);
     syncNav();
+  }
+
+  // 전체 검색: "/" 를 누르면 검색칸으로 (입력칸에 글을 쓰는 중에는 그냥 "/" 가 입력된다)
+  var globalSearch = document.getElementById("global-search");
+  if (globalSearch) {
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      var t = e.target, tag = t && t.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (t && t.isContentEditable)) return;
+      e.preventDefault();
+      globalSearch.focus();
+      globalSearch.select();
+    });
   }
 
   // 체크 상자 목록: 선택 수 표시와 걸러 보기

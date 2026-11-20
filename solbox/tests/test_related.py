@@ -438,7 +438,7 @@ def test_detail_pages_do_not_leak_intake_to_other_users(app, db, world):
     make_user(db, "lee", name="lee")
     c = TestClient(app)
     assert c.post("/login", data={"username": "lee", "password": "pw1234"}, follow_redirects=False).status_code == 303
-    assert "올리기 묶음" not in c.get(f"/activities/{world.a_mirae.id}").text.split("유래")[0]
+    assert "올리기 묶음" not in c.get(f"/activities/{world.a_mirae.id}").text.split("<main ")[1].split("유래")[0]
 
 
 # ---- 8. 지식 사본 ----

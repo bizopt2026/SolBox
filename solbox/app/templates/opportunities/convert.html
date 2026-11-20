@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}{{ ont.label("project") }}로 전환{% endblock %}
 {% block content %}
-{{ breadcrumb((ont.label("opportunity"), "/opportunities"), (opp.name, "/opportunities/" ~ opp.id), (ont.label("project") ~ "로 전환", None)) }}
-<h1>{{ ont.label("project") }}로 전환</h1>
+{{ page_header(ont.label("project") ~ "로 전환", crumbs=[(ont.label("opportunity"), "/opportunities"), (opp.name, "/opportunities/" ~ opp.id), (ont.label("project") ~ "로 전환", none)]) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="/opportunities/{{ opp.id }}/convert" class="card stack">
   <p class="muted">{{ ont.OPPORTUNITY_RULES.convert }}.</p>

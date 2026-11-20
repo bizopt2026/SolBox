@@ -9,7 +9,7 @@ APP_JS = Path(__file__).resolve().parent.parent / "app" / "static" / "app.js"
 
 @pytest.mark.parametrize("url,manual", [("/solutions", "/solutions/new"), ("/activities", "/activities/new")])
 def test_list_primary_is_upload_and_manual_stays(user_client, url, manual):
-    head = re.search(r'<div class="page-head">.*?</div>\s*(?=<form|<div)', user_client.get(url).text, re.S).group(0)
+    head = re.search(r'<header class="page-header">.*?</header>', user_client.get(url).text, re.S).group(0)
     assert 'class="button primary" href="/intake/new">올리기</a>' in head
     assert f'href="{manual}">직접 입력</a>' in head and head.count("primary") == 1
     assert user_client.get(manual).status_code == 200

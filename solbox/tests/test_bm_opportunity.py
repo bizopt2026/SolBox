@@ -144,11 +144,12 @@ def test_models_tables_and_columns(app):
 
 def test_nav_has_opportunity_and_bm_in_order(user_client):
     html = user_client.get("/").text
-    nav = re.search(r"<nav>.*?</nav>", html, re.S).group(0)
-    names = re.findall(r"<a href=\"/([a-z]*)\"[^>]*>([^<]+)", nav)
+    nav = re.search(r'<aside class="side".*?</aside>', html, re.S).group(0)
+    names = re.findall(r'<a href="/([a-z]*)"[^>]*><span class="dot"[^>]*></span>([^<]+)', nav)
     order = [h for h, _ in names]
-    assert order.index("customers") + 1 == order.index("opportunities") and order.index("opportunities") + 1 == order.index("projects")
-    assert order.index("projects") + 1 == order.index("bms")
+    # 영업 묶음: 고객 → 영업기회 → 제안 → 프로젝트 → BM
+    assert order.index("customers") + 1 == order.index("opportunities") and order.index("opportunities") + 1 == order.index("proposals")
+    assert order.index("proposals") + 1 == order.index("projects") and order.index("projects") + 1 == order.index("bms")
     assert ("opportunities", "영업기회") in [(h, n.strip()) for h, n in names] and ("bms", "BM") in [(h, n.strip()) for h, n in names]
 
 
@@ -302,7 +303,7 @@ def test_stage_any_to_any_and_bad_value(user_client, db):
     assert user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "nope"}).status_code == 400
     page = user_client.get(f"/opportunities/{o.id}").text
     assert 'class="stagebar"' in page and 'name="stage" value="won"' in page and 'name="stage" value="lost"' in page
-    assert 'class="badge opp-' in user_client.get("/opportunities").text
+    assert 'class="badge tone-' in user_client.get("/opportunities").text
 
 
 # ---- 프로젝트로 전환 ----
@@ -788,7 +789,7 @@ def test_forms_work_without_javascript(user_client, db):
     assert n.opportunity_id == o.id
     # 단계 막대와 전환 화면은 모두 일반 form 제출이다
     detail = user_client.get(f"/opportunities/{o.id}").text
-    assert f'action="/opportunities/{o.id}/stage"' in detail and "<script" not in detail.split("<main>")[1].split("</main>")[0]
+    assert f'action="/opportunities/{o.id}/stage"' in detail and "<script" not in detail.split("<main ")[1].split("</main>")[0]
     for url in ("/bms/new", "/opportunities", "/bms", f"/opportunities/{o.id}/edit"):
         assert user_client.get(url).status_code == 200
     f2 = _PageForm("/bms")
@@ -798,8 +799,8 @@ def test_forms_work_without_javascript(user_client, db):
 
 def test_no_horizontal_overflow_rules_exist():
     css = (Path(__file__).resolve().parent.parent / "app" / "static" / "app.css").read_text(encoding="utf-8")
-    for stage in ontology.OPPORTUNITY_STAGE_CLASS.values():
-        assert f".badge.{stage}" in css, stage
+    for tone in set(ontology.OPPORTUNITY_STAGE_CLASS.values()):
+        assert f".badge.{tone}" in css, tone
 
 
 # ---- 옛 구조 DB ----

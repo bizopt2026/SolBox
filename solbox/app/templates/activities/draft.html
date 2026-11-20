@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}활동 기록 AI 초안{% endblock %}
 {% block content %}
-{{ breadcrumb(("활동 기록", "/activities"), ("등록", None)) }}
-<h1>활동 기록 AI 초안</h1>
+{{ page_header("활동 기록 AI 초안", crumbs=[("활동 기록", "/activities"), ("등록", none)]) }}
 {% if f is none %}
 <p class="muted">AI가 메모를 정리하는 중입니다. 이 화면을 열어 두면 끝나는 대로 초안이 나타납니다.</p>
 {% include "jobs/_status.html" %}

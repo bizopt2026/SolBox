@@ -7,7 +7,7 @@
       {% if t.sources %}
       <ul class="sources">
         {% for s in t.sources %}
-        <li>{% if s.href %}<a href="{{ s.href }}" target="_blank" rel="noopener noreferrer">{{ s.title }}</a> <span class="muted">({{ s.host }})</span>{% else %}{{ s.title }}{% endif %}{% if not s.opened %} <span class="badge warn">검색 결과 링크 (본문 미확인)</span>{% endif %}</li>
+        <li>{% if s.href %}<a href="{{ s.href }}" target="_blank" rel="noopener noreferrer">{{ s.title }}</a> <span class="muted">({{ s.host }})</span>{% else %}{{ s.title }}{% endif %}{% if not s.opened %} <span class="badge tone-warn">검색 결과 링크 (본문 미확인)</span>{% endif %}</li>
         {% endfor %}
       </ul>
       {% endif %}

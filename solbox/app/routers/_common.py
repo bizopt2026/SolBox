@@ -9,6 +9,7 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app import ontology, relations
+from app.search import like_pattern
 from app.knowledge import KnowledgeMirror
 from app.opportunities import dependents
 from app.models import BM, Activity, Customer, CustomerNeed, IntakeFile, Opportunity, Partner, Project, Solution, User
@@ -49,8 +50,7 @@ def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=()) ->
         stmt = stmt.join(target)
     q = q.strip()
     if q:
-        escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        like = f"%{escaped}%"
+        like = like_pattern(q)
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (model.name, *extra_columns))))
     return list(db.scalars(stmt.order_by(model.name, model.id)).unique())
 

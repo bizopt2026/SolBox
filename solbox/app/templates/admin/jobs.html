@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb %}
+{% from "_macros.html" import page_header %}
 {% block title %}AI 작업{% endblock %}
 {% block content %}
-{{ breadcrumb(("관리", None), ("AI 작업", None)) }}
-<h1>AI 작업</h1>
+{{ page_header("AI 작업", crumbs=[("관리", none), ("AI 작업", none)], sub="AI 작업 대기열과 최근 결과입니다.") }}
 <div class="tablewrap"><table>
   <thead><tr><th>번호</th><th>종류</th><th>상태</th><th>요청자</th><th>요청 시각</th><th>끝난 시각</th><th>오류</th></tr></thead>
   <tbody>

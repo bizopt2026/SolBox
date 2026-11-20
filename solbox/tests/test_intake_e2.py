@@ -103,7 +103,7 @@ def test_nav_badge_counts_own_ready_bundles(user_client, admin_client, db):
     assert _nav_badge(user_client.get("/solutions").text) == ("확인 대기 2건", "2")
     assert _nav_badge(admin_client.get("/").text) == ("확인 대기 1건", "1")  # 관리자도 내 것만
     page = user_client.get("/solutions").text
-    assert re.search(r'<a href="/intake"[^>]*>올리기\s*<span class="nav-badge"', page)
+    assert re.search(r'<a href="/intake"[^>]*><span class="dot"[^>]*></span>올리기 묶음\s*<span class="nav-badge"', page)
 
 
 def test_nav_badge_is_one_cheap_count_and_login_page_is_safe(app, user_client, db):

@@ -9,7 +9,7 @@ def test_detail_head_puts_edit_then_delete_in_title_row(user_client, db):
     db.add(s)
     db.commit()
     html = user_client.get(f"/solutions/{s.id}").text
-    head = re.search(r'<div class="page-head">(.*?)</div>\s*</div>', html, re.S).group(1)
+    head = re.search(r'<header class="page-header">(.*?)</header>', html, re.S).group(1)
     assert "<h1>AI 에너지 절감</h1>" in head
     assert head.index(f'class="button" href="/solutions/{s.id}/edit"') < head.index('class="danger"')
 

@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import breadcrumb, source_chip, check_badge %}
+{% from "_macros.html" import page_header, source_chip, check_badge %}
 {% block title %}구성안 · {{ title }}{% endblock %}
 {% block content %}
-{{ breadcrumb(("제안", "/proposals"), (title, "/proposals/" ~ proposal.id), ("구성안", None)) }}
-<h1>구성안 검토·수정</h1>
+{{ page_header("구성안 검토·수정", crumbs=[("제안", "/proposals"), (title, "/proposals/" ~ proposal.id), ("구성안", none)]) }}
 <section class="card" id="deck">
   <h2>제안서</h2>
   {% include "proposals/_deck.html" %}
@@ -26,12 +25,12 @@
 <details class="card slide-card{% if st.level != "clear" %} check-{{ st.level }}{% endif %}" id="slide-{{ card.index }}"{% if st.level != "clear" %} data-remaining="1"{% endif %}{% if open_index == card.index %} open{% endif %}>
   <summary class="slide-summary">
     <strong class="slide-no">{{ card.index + 1 }}</strong>
-    <span class="badge">{{ slide_kinds.get(s.kind, s.kind) }}</span>
+    <span class="badge tone-slate">{{ slide_kinds.get(s.kind, s.kind) }}</span>
     <h2 class="slide-title">{{ s.title or "(제목 없음)" }}</h2>
     {% if s.key_message %}<span class="slide-msg muted">{{ s.key_message }}</span>{% endif %}
-    {% if st.evidence %}<span class="badge evidence">근거 문제 {{ st.evidence }}</span>{% endif %}
-    {% if st.decide %}<span class="badge decide">확인할 점 {{ st.decide }}</span>{% endif %}
-    {% if not st.evidence and not st.decide and st.done %}<span class="badge done">확인 끝</span>{% endif %}
+    {% if st.evidence %}<span class="badge tone-bad">근거 문제 {{ st.evidence }}</span>{% endif %}
+    {% if st.decide %}<span class="badge tone-warn">확인할 점 {{ st.decide }}</span>{% endif %}
+    {% if not st.evidence and not st.decide and st.done %}<span class="badge tone-slate">확인 끝</span>{% endif %}
   </summary>
   <div class="slide-body">
   {% if not busy and card.index > 0 %}
@@ -61,7 +60,7 @@
     <strong>출처</strong>
     {% if card.sources %}<ol class="source-list">{% for path in card.sources %}<li id="s{{ card.index }}-src-{{ loop.index }}">{{ source_chip(src, path) }}</li>{% endfor %}</ol>
     {% elif s.kind in ("cover", "closing") %}<span class="muted">없음</span>
-    {% else %}<span class="badge evidence">출처 없음</span>{% endif %}
+    {% else %}<span class="badge tone-bad">출처 없음</span>{% endif %}
   </div>
   {% if card.checks %}
   <div class="checks check-{{ st.level }}">

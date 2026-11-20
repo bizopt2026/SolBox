@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, pager %}
+{% from "_macros.html" import list_head, pager, pill %}
 {% block title %}리서치{% endblock %}
 {% block content %}
 {{ list_head("리서치", pg, q or area) }}
@@ -22,7 +22,7 @@
     <tr>
       <td><a href="/research/runs/{{ run.id }}">{{ run.started_at.strftime("%Y-%m-%d") }}</a></td>
       <td>
-        <span class="badge {{ 'warn' if run.status in ('partial', 'failed') }}">{{ labels.RUN_STATUSES.get(run.status, run.status) }}</span>
+        {{ pill("run_status", run.status) }}
         {% if run.status == "running" %}<div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
       </td>
       <td>{% for name, count in item.counts %}{{ name }} {{ count }}건{{ ", " if not loop.last }}{% else %}<span class="muted">-</span>{% endfor %}</td>
