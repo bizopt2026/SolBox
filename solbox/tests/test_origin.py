@@ -198,8 +198,8 @@ def test_detail_pages_show_intake_origin_with_link_for_owner_and_admin_only(app,
         for client in (user_client, admin_client):  # 올린 사람과 관리자: 링크
             html = client.get(url).text
             assert _line(html) == f"유래: 올리기 묶음 {it.id}번" and f'<a href="/intake/{it.id}">' in html, url
-        html = stranger.get(url).text  # 그 밖의 사용자: 글자만
-        assert _line(html) == f"유래: 올리기 묶음 {it.id}번" and f'href="/intake/{it.id}"' not in html, url
+        html = stranger.get(url).text  # 그 밖의 사용자: 올린 사람 이름이 든 글자만
+        assert _line(html) == f"유래: {owner.name or owner.username}님이 올린 묶음 {it.id}번" and f'href="/intake/{it.id}"' not in html, url
 
 
 def test_detail_pages_show_research_origin_and_nothing_for_manual_or_unknown(user_client, db, settings):

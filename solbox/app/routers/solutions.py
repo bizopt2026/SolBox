@@ -19,8 +19,8 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
-    list_filter,
-    activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
+    list_filter, origin_filter,
+    activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, duplicate_warning, paginate,
     resync_activities, resync_objects, resync_related, row_info, search_by_name, sort_rows,
 )
 from app.security import can_delete, require_user
@@ -33,11 +33,11 @@ BAD_PARTNER = ui.FieldError("존재하지 않는 파트너입니다.", "partner_
 
 def _form_page(
     request: Request, db: Session, form: dict, solution: Solution | None = None, error: str | None = None,
-    conflict=None, **extra,
+    conflict=None, duplicate=None, **extra,
 ):
     return render(
         request, "solutions/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, conflict=conflict, **extra,
+        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, conflict=conflict, duplicate=duplicate, **extra,
     )
 
 
@@ -83,14 +83,15 @@ def list_solutions(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags, loaders=(selectinload(Solution.partner),))
-    solutions, flt = list_filter(db, request, "solution", sort_rows(request, "solution", solutions))
+    solutions, flt = list_filter(db, request, "solution", sort_rows(request, "solution", solutions, db=db))
+    solutions, origin_tabs, origin_now = origin_filter(request, solutions)
     counts = Counter(s.stage for s in solutions)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준 (탭을 누르면 나오는 건수와 같다)
     total = len(solutions)
     if stage:
         solutions = [s for s in solutions if s.stage == stage]
     pg = paginate(solutions, page)
     tabs = ui.seg_tabs(request, "stage", list(labels.STAGES.items()), counts, stage, total)
-    return render(request, "solutions/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, info=row_info(db, "solution", pg.items))
+    return render(request, "solutions/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, info=row_info(db, "solution", pg.items))
 
 
 @router.get("/new")
@@ -106,13 +107,15 @@ def create(
     request: Request,
     name: str = Form(""), summary: str = Form(""), description: str = Form(""),
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
-    applicable_types: str = Form(""), tags: str = Form(""),
+    applicable_types: str = Form(""), tags: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
     if error:
         return _form_page(request, db, values, error=error)
+    if dup := duplicate_warning(db, Solution, name, confirm_dup):
+        return _form_page(request, db, values, duplicate=dup)
     solution = Solution(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
     db.add(solution)
     db.commit()
@@ -198,7 +201,7 @@ def update(
     solution_id: int, request: Request,
     name: str = Form(""), summary: str = Form(""), description: str = Form(""),
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
-    applicable_types: str = Form(""), tags: str = Form(""),
+    applicable_types: str = Form(""), tags: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
@@ -208,6 +211,8 @@ def update(
         return _form_page(request, db, values, solution, conflict=conflict)
     if error:
         return _form_page(request, db, values, solution, error)
+    if dup := duplicate_warning(db, Solution, name, confirm_dup, exclude=solution):
+        return _form_page(request, db, values, solution, duplicate=dup)
     old_partner = solution.partner
     for field, value in values.items():
         setattr(solution, field, value)

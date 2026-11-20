@@ -25,12 +25,20 @@
 </div>
 {% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
 {% set current_msgs = msgs if proposal.chat_from_id is none else msgs | selectattr("id", "gt", proposal.chat_from_id) | list %}
+{# 시작 질문 칩: 누르면 그 글을 바로 보낸다 (스크립트가 있든 없든 칩 자체가 그 글을 보내는 작은 폼 버튼). 대화가 시작된 뒤에도 접힌 "예시 질문" 안에 남는다 #}
+{% macro starter_chips() %}{% for text in ont.PROPOSAL_CHAT_STARTERS %}<button type="submit" name="message" value="{{ text }}" class="chip starter" data-starter="{{ text }}"{% if active %} disabled{% endif %}>{{ text }}</button>{% endfor %}{% endmacro %}
 {% if not current_msgs and not active %}
-{# 아직 이 방향의 대화가 없을 때만: 시작 질문 칩 (스크립트가 있으면 칸에 채우고, 없으면 칩 자체가 그 글을 보내는 작은 폼 버튼) #}
 <form method="post" action="/proposals/{{ proposal.id }}/chat" class="starters" aria-label="이렇게 물어볼 수 있어요">
   <span class="starters-title muted">이렇게 물어볼 수 있어요</span>
-  {% for text in ont.PROPOSAL_CHAT_STARTERS %}<button type="submit" name="message" value="{{ text }}" class="chip starter" data-starter="{{ text }}">{{ text }}</button>{% endfor %}
+  {{ starter_chips() }}
 </form>
+{% else %}
+<details class="starters-more">
+  <summary>예시 질문</summary>
+  <form method="post" action="/proposals/{{ proposal.id }}/chat" class="starters" aria-label="예시 질문">
+    {{ starter_chips() }}
+  </form>
+</details>
 {% endif %}
 <form method="post" action="/proposals/{{ proposal.id }}/chat" class="composer" id="chat-form">
   <label class="sr-only" for="chat-message">메시지</label>

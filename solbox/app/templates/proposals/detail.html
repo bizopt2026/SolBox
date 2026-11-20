@@ -33,7 +33,7 @@
     <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
-    <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
+    <dt>후보 솔루션 {{ candidates | length }}개</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
   {% set tf = target_form if target_form is defined else none %}
   <details class="edit-target"{% if target_conflict is defined and target_conflict %} open{% endif %}>
@@ -96,7 +96,7 @@
       <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
       <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
       <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-      <dt>후보</dt><dd>솔루션 {{ candidates | length }}개</dd>
+      <dt>후보 솔루션</dt><dd>{{ candidates | length }}개 <small class="muted">AI에 주는 후보</small></dd>
     </dl>
   </section>
   {% if related %}{{ related_card(related) }}{% endif %}

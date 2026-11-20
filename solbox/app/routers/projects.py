@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
@@ -15,7 +16,7 @@ from app.main import render
 from app.models import BM, Activity, Customer, Project, User
 from app.routers._common import (
     list_filter,
-    activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, submitted_fields,
+    activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, duplicate_warning, submitted_fields,
     resync_activities, resync_objects, resync_related, row_info, search_by_name, paginate, sort_rows,
 )
 from app.security import can_delete, require_user
@@ -25,12 +26,22 @@ FIELDS = ("name", "customer_id", "description", "period", "status", "memo", "bm_
 CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 
 
+def status_choices(db: Session) -> list[str]:
+    """이미 쓰인 상태 값 (많이 쓴 순): 입력칸 제안에 쓴다. 상태 값을 정하지는 않는다 (자유 글)."""
+    rows = db.execute(select(Project.status, func.count()).where(Project.status != "").group_by(Project.status).order_by(func.count().desc(), Project.status))
+    seen: dict[str, None] = {}
+    for value, _ in rows:
+        seen.setdefault(" ".join((value or "").split()), None)
+    return [v for v in seen if v]
+
+
 def _form_page(
-    request: Request, db: Session, form: dict, project: Project | None = None, error: str | None = None, conflict=None
+    request: Request, db: Session, form: dict, project: Project | None = None, error: str | None = None, conflict=None, duplicate=None
 ):
     return render(
         request, "projects/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, project=project, customers=search_by_name(db, Customer), bms=search_by_name(db, BM), error=error, conflict=conflict,
+        form=form, project=project, customers=search_by_name(db, Customer), bms=search_by_name(db, BM), error=error, conflict=conflict, duplicate=duplicate,
+        status_choices=status_choices(db),
     )
 
 
@@ -39,7 +50,7 @@ def _parse(name, customer_id, description, period, status, memo, db: Session, bm
     (칸이 아예 오지 않으면(None) BM 은 그대로 둔다)."""
     values = dict(
         name=name.strip(), customer_id=customer_id.strip(), description=description.strip(),
-        period=period.strip(), status=status.strip(), memo=memo.strip(),
+        period=period.strip(), status=" ".join(status.split()), memo=memo.strip(),  # 상태는 자유 글이라 앞뒤·가운데 공백만 정리한다
     )
     if error := name_error(name):
         return values, error
@@ -63,7 +74,7 @@ def list_projects(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     projects = search_by_name(db, Project, q, Customer.name, joins=(Project.customer,), loaders=(selectinload(Project.customer),))
-    projects, flt = list_filter(db, request, "project", sort_rows(request, "project", projects))
+    projects, flt = list_filter(db, request, "project", sort_rows(request, "project", projects, db=db))
     pg = paginate(projects, page)
     return render(request, "projects/list.html", pg=pg, q=q.strip(), flt=flt, info=row_info(db, "project", pg.items))
 
@@ -80,13 +91,15 @@ def new_form(
 def create(
     request: Request,
     name: str = Form(""), customer_id: str = Form(""), description: str = Form(""),
-    period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""),
+    period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields), once: Once = Depends(form_once),
 ):
     values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None)
     if error:
         return _form_page(request, db, {**{f: "" for f in FIELDS}, **values}, error=error)
+    if dup := duplicate_warning(db, Project, name, confirm_dup):
+        return _form_page(request, db, {**{f: "" for f in FIELDS}, **values}, duplicate=dup)
     project = Project(**values, created_by_id=user.id)
     db.add(project)
     db.commit()
@@ -118,7 +131,7 @@ def edit_form(project_id: int, request: Request, user: User = Depends(require_us
 def update(
     project_id: int, request: Request,
     name: str = Form(""), customer_id: str = Form(""), description: str = Form(""),
-    period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""),
+    period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields), rev: Rev = Depends(rev_form),
 ):
@@ -130,6 +143,8 @@ def update(
         error = opps.project_customer_problem(db, project, values["customer_id"])
     if error:
         return _form_page(request, db, {**{f: getattr(project, f) for f in FIELDS}, **values}, project, error)
+    if dup := duplicate_warning(db, Project, name, confirm_dup, exclude=project):
+        return _form_page(request, db, {**{f: getattr(project, f) for f in FIELDS}, **values}, project, duplicate=dup)
     old_customer, old_bm = project.customer, project.bm
     for field, value in values.items():
         setattr(project, field, value)

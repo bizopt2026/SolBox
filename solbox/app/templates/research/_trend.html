@@ -1,17 +1,17 @@
 {% from "_macros.html" import check_badge %}
 <li class="trend">
   <details class="trend-card">
-    <summary><strong class="trend-title">{{ t.headline }}</strong>{% set notes = check_items(t.needs_check) %}<span class="trend-badges"><span class="muted">링크 {{ t.sources | length }}개</span>{% if notes %}{{ check_badge(notes[0].kind) }}{% endif %}</span></summary>
+    <summary><strong class="trend-title">{{ t.headline }}</strong>{% set notes = check_items(t.needs_check) %}<span class="trend-badges"><span class="muted">링크 {{ t.sources | length }}개</span>{% if notes and not unopened_all %}{{ check_badge(notes[0].kind, notes[0].text) }}{% endif %}</span></summary>
     <div class="card-body">
       {% if t.summary %}<p class="trend-summary">{{ t.summary }}</p>{% endif %}
       {% if t.sources %}
       <ul class="sources">
         {% for s in t.sources %}
-        <li>{% if s.href %}<a href="{{ s.href }}" target="_blank" rel="noopener noreferrer">{{ s.title }}</a> <span class="muted">({{ s.host }})</span>{% else %}{{ s.title }}{% endif %}{% if not s.opened %} <span class="badge tone-warn">검색 결과 링크 (본문 미확인)</span>{% endif %}</li>
+        <li>{% if s.href %}<a href="{{ s.href }}" target="_blank" rel="noopener noreferrer">{{ s.title }}</a> <span class="muted">({{ s.host }})</span>{% else %}{{ s.title }}{% endif %}{% if not s.opened and not unopened_all %} <span class="badge tone-warn">검색 결과 링크 (본문 미확인)</span>{% endif %}</li>
         {% endfor %}
       </ul>
       {% endif %}
-      {% for it in notes %}<p class="trend-check">{{ check_badge(it.kind) }} {{ it.text }}</p>{% endfor %}
+      {% if not unopened_all %}{% for it in notes %}<p class="trend-check">{{ check_badge(it.kind, it.text) }} {{ it.text }}</p>{% endfor %}{% endif %}
       {% set reg = registered.get(report.id ~ ":trend:" ~ t.index) %}
       {% if reg %}<p class="trend-reg"><span class="badge tone-ok">후보로 등록됨</span> <a href="/solutions/{{ reg.id }}">{{ reg.name }}</a></p>
       {% else %}

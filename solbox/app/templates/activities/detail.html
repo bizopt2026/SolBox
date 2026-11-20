@@ -20,12 +20,13 @@
         {% for fu in activity.follow_ups %}
         <li class="fu{{ ' is-done' if fu.done }}">
           <form method="post" action="/follow-ups/{{ fu.id }}/toggle">
-            <button type="submit" class="check{{ ' on' if fu.done }}" aria-label="{{ '완료 취소' if fu.done else '완료' }}" title="{{ '완료 취소' if fu.done else '완료로 표시' }}"></button>
+            <button type="submit" class="check{{ ' on' if fu.done }}" aria-label="{{ '다시 남은 일로 표시' if fu.done else '완료로 표시' }}" title="{{ '다시 남은 일로 표시' if fu.done else '완료로 표시' }}"></button>
           </form>
           <div class="fu-body">
             <span class="fu-task">{{ fu.task }}</span>
             {% if fu.owner or fu.due %}<small class="fu-src">{% if fu.owner %}담당 {{ fu.owner }}{% endif %}{% if fu.owner and fu.due %} · {% endif %}{% if fu.due %}기한 <time datetime="{{ fu.due.isoformat() }}">{{ kdate(fu.due) }}</time>{% endif %}</small>{% endif %}
           </div>
+          {% if not fu.done and fu.owner_user_id is none %}<form method="post" action="/follow-ups/{{ fu.id }}/mine" class="fu-mine"><button type="submit" class="small" title="담당을 내 이름으로 바꿔 '내 할 일'에 넣습니다">내 할 일로</button></form>{% endif %}
           <span class="muted fu-state">{{ "완료" if fu.done else "진행" }}</span>
         </li>
         {% endfor %}

@@ -38,7 +38,7 @@ def test_ai_check_job_runs_without_tools(app, admin_client, db, settings, fake_c
     admin_client.post("/admin/system/ai-check")
     assert "확인 중" in admin_client.get("/admin/system").text
     process_next(app.state.session_factory, app.state.runner, settings)
-    argv = fake_claude.calls()[0]["argv"]
+    argv = next(c["argv"] for c in fake_claude.calls() if "--tools" in c["argv"])  # 시스템 화면의 Claude CLI 점검(--version)도 호출로 남는다
     assert argv[argv.index("--tools") + 1] == ""
     assert "AI 연결 정상" in admin_client.get("/admin/system").text
 
@@ -116,6 +116,6 @@ def test_system_and_jobs_pages_use_korean_job_names(admin_client, db):
     db.add(AIJob(kind="research_area", input={}, status="failed", error_kind="auth", finished_at=datetime.now()))
     db.commit()
     for url in ("/admin/system", "/admin/jobs"):
-        text = admin_client.get(url).text
+        text = admin_client.get(url).text.replace('value="research_area"', "")  # 종류 거르기 칸의 코드 값은 빼고 본다
         assert "리서치 분야 조사" in text and "research_area" not in text
     assert "다른 AI 작업이 진행 중이면" in admin_client.get("/admin/system").text

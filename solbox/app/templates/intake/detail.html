@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill, confirm_link %}
+{% from "_macros.html" import page_header, pill, intake_pill, confirm_link %}
 {% block title %}{{ ont.label("intake") }} {{ intake.id }}번{% endblock %}
 {% block content %}
 {% set st = intake.status %}
+{% set archived = intake_archived(intake) %}
 {% set flow = [] %}{% for c in ("uploaded", "analyzing", "ready", "applied") %}{% set _ = flow.append((c, ont.INTAKE_STATUSES[c])) %}{% endfor %}
 {% set at = {"uploaded": 0, "analyzing": 1, "failed": 1, "ready": 2, "applying": 3, "applied": 4, "discarded": -1}.get(st, 0) %}
-{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", st), cls="detail") %}
-  {% if st == "uploaded" %}
+{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=intake_pill(intake), cls="detail") %}
+  {% if archived %}
+  {% if can_transcribe %}<form method="post" action="/intake/{{ intake.id }}/analyze"><button type="submit" class="button primary">다시 정리</button></form>
+  {% else %}<a class="button primary" href="/intake/new">글자로 풀어 올리기</a>{% endif %}
+  {% elif st == "uploaded" %}
   <form method="post" action="/intake/{{ intake.id }}/analyze"><button type="submit" class="button primary">정리 시작</button></form>
   {% elif st == "failed" %}<a class="button primary" href="#retry">다시 정리</a>
   {% elif st == "ready" %}<a class="button primary" href="#plan-cards">정리안 확인</a>
@@ -14,10 +18,11 @@
 {% endcall %}
 <ol class="timeline" aria-label="진행 단계" data-status="{{ st }}">
   {% for code, name in flow %}
-  {% set state = "failed" if (st == "failed" and loop.index0 == 1) else "done" if loop.index0 < at else "current" if loop.index0 == at else "todo" %}
+  {% set state = "failed" if (st == "failed" and not archived and loop.index0 == 1) else "done" if loop.index0 < at else "current" if loop.index0 == at else "todo" %}
   <li class="tl {{ state }}"{% if state in ("current", "failed") %} aria-current="step"{% endif %}><span class="tl-dot" aria-hidden="true">{{ "✓" if state == "done" else loop.index }}</span><span class="tl-name">{{ ont.INTAKE_STATUSES["applying"] if (code == "applied" and st == "applying") else (ont.INTAKE_STATUSES["failed"] if state == "failed" else name) }}</span></li>
   {% endfor %}
   {% if st == "discarded" %}<li class="tl note"><span class="tl-name">버린 묶음입니다</span></li>{% endif %}
+  {% if archived %}<li class="tl note"><span class="tl-name">{{ ont.INTAKE_ARCHIVED_LABEL }} · 받아쓰기를 기다립니다</span></li>{% endif %}
 </ol>
 {% if skipped %}
 <div class="error" role="alert">
@@ -63,6 +68,22 @@
   <h2>AI가 파일을 정리하고 있어요</h2>
   {% set job = intake.job %}
   {% include "intake/_status.html" %}
+  {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 정리 중인 작업 결과는 저장되지 않고 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
+</section>
+{% elif archived %}
+<section class="card state-card archived stack" id="archived">
+  <h2>음성 파일을 보관했어요</h2>
+  <p>이 묶음에는 글자로 읽을 수 있는 파일이 없고, 음성 파일은 받아쓰기가 꺼져 있어 정리하지 않았습니다. 실패한 것이 아닙니다. 올린 원본은 그대로 보관되어 있고 위 표에서 내려받을 수 있어요.</p>
+  {% if can_transcribe %}
+  <p><b>지금은 받아쓰기를 쓸 수 있어요.</b> 아래 "다시 정리"를 누르면 음성을 받아써서 정리합니다.</p>
+  <form method="post" action="/intake/{{ intake.id }}/analyze" class="stack"><div class="row"><button type="submit" class="primary">다시 정리</button></div></form>
+  {% endif %}
+  <h3>이렇게 할 수 있어요</h3>
+  <ol class="next-steps">
+    <li><b>글자로 풀어 다시 올리기</b> — 회의 내용을 메모나 문서로 옮겨 올리면 바로 정리합니다. <a class="button small" href="/intake/new">올리기</a></li>
+    <li><b>관리자에게 받아쓰기 켜기를 요청</b> — {% if user.role == "admin" %}<a href="/admin/system#transcriber">시스템 화면의 음성 받아쓰기 항목</a>에서 켜는 방법을 볼 수 있어요.{% else %}받아쓰기가 켜지면 이 화면에서 정리를 다시 시작할 수 있습니다.{% endif %}</li>
+  </ol>
+  {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
 </section>
 {% elif intake.status == "uploaded" %}
 <section class="card state-card stack">
@@ -70,7 +91,7 @@
   <p class="muted">위의 "정리 시작"을 누르면 AI가 파일을 읽고 정리안을 만듭니다. 저장하기 전에는 아무것도 등록되지 않아요.</p>
   {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
 </section>
-{% elif intake.status == "failed" %}
+{% elif intake.status == "failed" and not archived %}
 <section class="card state-card failed stack" id="retry">
   <h2>정리하지 못했어요</h2>
   <p class="error" role="alert">{{ intake.error or labels.ERROR_KINDS["unknown"] }}</p>

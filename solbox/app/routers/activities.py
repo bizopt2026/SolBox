@@ -29,7 +29,7 @@ from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
 from app.routers._common import (
-    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, row_info, submitted_fields, sort_rows,
+    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, origin_filter, paginate, row_info, submitted_fields, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -200,6 +200,7 @@ def list_activities(
         like = f"%{escaped}%"
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (Activity.title, Activity.raw_text, Activity.summary_md))))
     rows, flt = list_filter(db, request, "activity", sort_rows(request, "activity", newest_first(db.scalars(stmt)), lambda a: a.title or ""))
+    rows, origin_tabs, origin_now = origin_filter(request, rows)
     counts = Counter(a.kind for a in rows)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     total = len(rows)
     if kind in labels.ACTIVITY_KINDS:
@@ -208,7 +209,7 @@ def list_activities(
         kind = ""
     pg = paginate(rows, page)
     tabs = ui.seg_tabs(request, "kind", list(labels.ACTIVITY_KINDS.items()), counts, kind, total)
-    return render(request, "activities/list.html", pg=pg, q=q, kind=kind, flt=flt, tabs=tabs, info=row_info(db, "activity", pg.items))
+    return render(request, "activities/list.html", pg=pg, q=q, kind=kind, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, info=row_info(db, "activity", pg.items))
 
 
 @router.get("/new")
@@ -428,6 +429,22 @@ def toggle_follow_up_by_index(
 
 
 follow_up_router = APIRouter(prefix="/follow-ups")
+
+
+@follow_up_router.post("/{follow_up_id}/mine")
+def take_follow_up(
+    follow_up_id: int, request: Request,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """"내 할 일로": 담당을 내 이름으로 하고 나에게 연결한다 (담당 칸 글이 이름과 달라 연결되지 않은 줄을 위해)."""
+    fu = get_or_404(db, FollowUp, follow_up_id)
+    fu.owner, fu.owner_user_id = (user.name or user.username).strip(), user.id
+    db.commit()
+    mirror.sync(fu.activity)
+    referer = fu_lib.redirect_after_toggle(request.headers.get("referer"), fu.id)
+    back = referer.split("?")[0] if referer else f"/activities/{fu.activity_id}"
+    return notices.redirect(back, "fu_mine")
 
 
 @follow_up_router.post("/{follow_up_id}/toggle")

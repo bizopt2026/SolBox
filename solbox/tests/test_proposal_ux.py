@@ -52,13 +52,13 @@ def test_open_section_by_status_and_job(db, settings):
 def test_section_summaries(db, settings):
     p = make_proposal_world(db, settings)[0]
     s = section_summaries(p, candidate_solutions(db, p))
-    assert s["target"] == "한빛병원 · 설비 유지보수 — 조합 솔루션 AI 에너지 절감, 스마트 조명"
+    assert s["target"] == "한빛병원 · 설비 유지보수 — 후보 솔루션 2개"
     assert s["directions"] == "아직 만들지 않음"
     assert s["chat"] == "방향을 선택하면 시작할 수 있습니다"
     assert s["outline"] == s["deck"] == "아직 만들지 않음"
     p = refining_proposal(db, settings)
     s = section_summaries(p, candidate_solutions(db, p))
-    assert s["directions"] == "선택한 방향: 전력비 절감 패키지"
+    assert s["directions"] == "선택한 방향: 전력비 절감 패키지 · 선택한 방향의 솔루션 2개"
     assert s["chat"] == "대화 없음"
     p.messages.append(ProposalMessage(role="user", content="안녕"))
     p.messages.append(ProposalMessage(role="assistant", content="네", created_at=datetime(2026, 5, 3, 14, 5)))

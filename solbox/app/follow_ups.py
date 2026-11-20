@@ -67,7 +67,7 @@ def rows(db: Session, pairs: Sequence[tuple[FollowUp, Activity]], today: date, w
     out = []
     for fu, a in pairs:
         out.append({
-            "id": fu.id, "task": fu.task, "owner": fu.owner, "due": fu.due, "done": fu.done, "activity": a,
+            "id": fu.id, "task": fu.task, "owner": fu.owner, "owner_user_id": fu.owner_user_id, "due": fu.due, "done": fu.done, "activity": a,
             "overdue": bool(fu.due and fu.due < today and not fu.done),
             "rel": ui.relative_due(fu.due, today, fu.done), "customers": customers.get(a.id, []),
         })

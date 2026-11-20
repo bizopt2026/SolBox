@@ -116,5 +116,5 @@ def test_delete_buttons_are_links_to_the_confirm_page(user_client, db):
     db.add(c)
     db.commit()
     page = user_client.get(f"/customers/{c.id}").text
-    assert re.search(r'<a class="button ghost danger" href="/customers/%d/delete" data-confirm-post="/customers/%d/delete" data-ask="정말 삭제할까요\?" data-ok="삭제">삭제</a>' % (c.id, c.id), page)
+    assert re.search(r'<a class="button ghost danger" href="/customers/%d/delete" data-confirm-post="/customers/%d/delete" data-ask="연결된 다른 기록이 없어 다른 기록에는 영향이 없습니다\. 정말 삭제할까요\?" data-ok="삭제">삭제</a>' % (c.id, c.id), page)  # 지우기 전 영향 안내가 함께 붙는다
     assert "onsubmit" not in page.split('<div class="dgrid">')[0]

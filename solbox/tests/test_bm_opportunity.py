@@ -697,7 +697,7 @@ def test_proposal_page_and_directions_prompt_show_priority(user_client, db, sett
     db.add(p)
     db.commit()
     page = user_client.get(f"/proposals/{p.id}").text
-    names = re.findall(r'href="/solutions/\d+">([^<]+)</a>', page.split("<dt>조합 솔루션</dt>")[1].split("</dl>")[0])
+    names = re.findall(r'href="/solutions/\d+">([^<]+)</a>', page.split("<dt>후보 솔루션 ")[1].split("</dl>")[0])
     assert names == ["다라", "마바", "자차", "가나"]
     prompt = directions_prompt(db, p)
     assert "우선 검토할 솔루션" in prompt

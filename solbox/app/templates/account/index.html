@@ -15,6 +15,15 @@
     </dl>
     <p class="help muted">이름과 권한은 관리자가 바꿉니다.</p>
   </section>
+  <form method="post" action="/account/contact" class="stack">
+    <section class="card stack">
+      <h2>연락처</h2>
+      {% call(err) field_shell("연락처", "contact", false, "제안서 마무리 장에 이름과 함께 들어갑니다. 전화나 이메일을 한 줄로 쓰세요. 비워 두면 이름만 들어갑니다.", false, error) %}
+      <input id="f-contact" name="contact" type="text" maxlength="200" value="{{ user.contact or '' }}" autocomplete="tel"{% if err %} aria-invalid="true" aria-describedby="e-contact"{% else %} aria-describedby="h-contact"{% endif %}>
+      {% endcall %}
+    </section>
+    {{ save_bar("/", "연락처 저장") }}
+  </form>
   <form method="post" action="/account/password" class="stack">
     <section class="card stack">
       <h2>비밀번호 바꾸기</h2>

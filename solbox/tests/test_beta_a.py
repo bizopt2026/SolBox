@@ -366,13 +366,13 @@ def test_token_is_per_user_and_released_on_validation_error(app, user_client, db
     assert user_client.post("/customers", data={"name": "", "_tok": tok}).status_code == 400  # 오류면 표를 풀어 고쳐서 다시 낼 수 있다
     assert db.query(FormToken).count() == 0
     assert user_client.post("/customers", data={"name": "고객", "_tok": tok}, follow_redirects=False).status_code == 303
-    r = other.post("/customers", data={"name": "고객", "_tok": tok}, follow_redirects=False)  # 다른 사용자의 같은 글자 표는 따로다
+    r = other.post("/customers", data={"name": "고객", "_tok": tok, "confirm_dup": "1"}, follow_redirects=False)  # 다른 사용자의 같은 글자 표는 따로다 (같은 이름 경고는 확인했다)
     assert r.status_code == 303 and db.query(Customer).count() == 2
 
 
 def test_missing_token_is_accepted_as_before(user_client, db):
     assert user_client.post("/customers", data={"name": "표 없음"}, follow_redirects=False).status_code == 303
-    assert user_client.post("/customers", data={"name": "표 없음"}, follow_redirects=False).status_code == 303
+    assert user_client.post("/customers", data={"name": "표 없음", "confirm_dup": "1"}, follow_redirects=False).status_code == 303  # 같은 이름 경고를 확인했다
     assert db.query(Customer).count() == 2
 
 

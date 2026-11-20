@@ -27,6 +27,23 @@ def account_page(request: Request, user: User = Depends(current_user)):
     return _page(request, user)
 
 
+MAX_CONTACT = 200
+
+
+@router.post("/contact")
+def save_contact(
+    request: Request, contact: str = Form(""),
+    user: User = Depends(current_user), db: Session = Depends(get_db),
+):
+    """제안서 마무리 장에 쓰는 연락처 (전화·이메일 등 한 줄). 비우면 이름만 쓴다."""
+    value = " ".join(contact.split())
+    if len(value) > MAX_CONTACT:
+        return _page(request, user, error=_field(f"연락처는 {MAX_CONTACT}자까지 쓸 수 있습니다.", "contact"), status_code=400)
+    user.contact = value or None
+    db.commit()
+    return notices.redirect("/account", "saved")
+
+
 @router.post("/password")
 def change_password(
     request: Request,

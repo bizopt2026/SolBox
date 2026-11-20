@@ -77,7 +77,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
     ctx = {}
     if ready:
         ctx = dict(
-            cards=intake_lib.review_cards(db, intake, form),
+            cards=intake_lib.review_cards(db, intake, form, request.app.state.settings, user),
             choices={
                 "solution": list(db.scalars(select(Solution).order_by(Solution.name))),
                 "customer": list(db.scalars(select(Customer).order_by(Customer.name))),

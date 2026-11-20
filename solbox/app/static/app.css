@@ -541,6 +541,21 @@ sup a { padding: 0 2px; font-weight: var(--fw-strong); }
 /* --- 정렬 막대(목록 도구줄) · 빈 칸 표시 · 줄 전체 누르기 --- */
 .sortbar { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-size: var(--fs-note); color: var(--ink-3); }
 .sortbar .sort-label { margin-right: 6px; }
+.origin-tools { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-note); color: var(--ink-3); }
+.confirm-impact { padding: 10px 12px; border-radius: var(--r-sm); background: var(--warn-soft, var(--sunken)); color: var(--ink-1); }
+.stage-legend { margin-top: 10px; padding: 10px 14px; font-size: var(--fs-note); color: var(--ink-2); }
+.stage-legend[hidden] { display: none; }
+.stage-legend .legend-head { margin: 0 0 4px; }
+.stage-legend ul { margin: 0; padding-left: 18px; }
+.stage-legend li { margin: 2px 0; }
+.row-hit { display: block; margin-top: 2px; color: var(--ink-2); }
+.row-hit .hit-field { display: inline-block; margin-right: 4px; padding: 0 6px; border-radius: 999px; background: var(--sunken); color: var(--ink-3); font-size: 11px; }
+.row-hit mark { background: var(--warn-soft); color: inherit; padding: 0 1px; border-radius: 2px; }
+.starters-more { margin: 6px 0; }
+.starters-more > summary { cursor: pointer; color: var(--ink-3); font-size: var(--fs-note); }
+details.slide-card { scroll-margin-top: 16px; }
+.list-table th.sorted { color: var(--brand-deep); }
+.sort-mark { font-size: 10px; margin-left: 2px; }
 .sortbar a { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border-radius: var(--r-sm); color: var(--ink-2); white-space: nowrap; }
 .sortbar a:hover { background: var(--sunken); text-decoration: none; }
 .sortbar a[aria-current="true"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
@@ -692,6 +707,9 @@ details.card-add > .add-panel { display: flex; flex-direction: column; gap: var(
 .fu-card { padding-top: var(--s4); padding-bottom: var(--s4); }
 button.check { position: relative; width: 20px; height: 20px; min-width: 20px; min-height: 20px; padding: 0; margin-top: 2px; border: 1.5px solid var(--line-2); border-radius: 5px; background: var(--surface); }
 button.check:hover { border-color: var(--brand); background: var(--brand-soft); }
+/* 완료 칸: 비어 있어도 흐린 체크 모양이 보이고(누르면 완료), 완료면 채워진다 */
+button.check:not(.on)::before { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--line-2); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+button.check:not(.on):hover::before, button.check:not(.on):focus-visible::before { border-color: var(--brand); }
 button.check.on { border-color: var(--ok); background: var(--ok); }
 button.check.on::before { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--brand-ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 button.check::after { content: ""; position: absolute; inset: -8px; }
@@ -1023,6 +1041,14 @@ details.formsec[open] > summary { margin-bottom: var(--s3); }
 .plan-form > .savebar { flex-wrap: nowrap; justify-content: flex-start; bottom: var(--s2); margin: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
 .plan-savebar [data-save-count] { min-width: 0; font-weight: var(--fw-strong); }
 html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
+/* 올리기 확인 화면: 떠 있는 저장 막대가 마지막 카드와 입력칸을 가리지 않게 아래 여백과 스크롤 여백을 둔다 */
+.plan-form { padding-bottom: 96px; }
+.plan-item, .plan-item :is(input, select, textarea, summary) { scroll-margin-bottom: 110px; }
+/* 휴대폰: 위쪽 줄에 "+ 올리기" 가 이미 있으므로 머리줄의 같은 버튼과, 올리기 카드가 있는 홈의 위쪽 버튼은 감춘다 (한 화면에 하나) */
+@media (max-width: 600px) {
+  .page-header .actions a.to-intake { display: none; }
+  body:has(.dash) .side .cta { display: none; }
+}
 @media (max-width: 1099px) {
   .plan-form > .savebar { flex-direction: row; align-items: center; gap: 10px; padding: var(--s2) var(--s3); }
   .plan-savebar [data-save-count] { font-size: var(--fs-body); }

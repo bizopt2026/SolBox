@@ -1,21 +1,23 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash %}
+{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, empty_list, pager, title_cell, links_text, date_text, none_dash %}
 {% block title %}파트너{% endblock %}
 {% block content %}
-{{ list_head("파트너", pg, q, "/partners/new", type="partner") }}
-{{ list_tools(request, none, "", q, none, "이름으로 찾기") }}
+{% set cur_sort = current_sort(request) %}
+{{ list_head("파트너", pg, q or origin_now, "/partners/new", type="partner") }}
+{{ list_tools(request, none, "", q, none, "이름으로 찾기", origin_tabs=origin_tabs) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>파트너</th><th class="col-sec">연락처</th><th class="col-sec">연결</th><th class="col-sec">최근 활동</th></tr></thead>
+  <thead><tr>{{ sort_th("파트너", "name", cur_sort, "") }}<th class="col-sec">연락처</th><th class="col-sec">유래</th><th class="col-sec">연결</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>
   <tbody>
   {% for p in pg.items %}
     {% set i = info[p.id] %}
     {% set lines = (p.contact or "").splitlines() | map("trim") | select | list %}
     <tr>
       {% call title_cell("/partners/" ~ p.id, p.name, p.description | first_line(80)) %}
-        {% if lines %}<span>{{ lines[0] }}</span>{% endif %}<span>{{ links_text(i) }}</span>
+        {% if lines %}<span>{{ lines[0] }}</span>{% endif %}<span>{{ links_text(i) }}</span>{% if p.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}<span>유래 {{ ont.ORIGINS[p.origin_type] }}</span>{% endif %}
       {% endcall %}
       <td class="col-sec">{% if lines %}{{ lines[0] }}{% if lines | length > 1 %} <span class="muted">외 {{ lines | length - 1 }}줄</span>{% endif %}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{{ origin_cell(p) }}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>
@@ -23,5 +25,5 @@
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q, "아직 등록된 파트너가 없습니다.", "/partners/new", clear_url="/partners") }}{% endif %}
+{% else %}{{ empty_list(q or origin_now, "아직 등록된 파트너가 없습니다.", "/partners/new", clear_url="/partners") }}{% endif %}
 {% endblock %}

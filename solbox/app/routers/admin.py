@@ -20,7 +20,7 @@ from app.research import Schedule, get_schedule, set_schedule
 from app import guards
 from app.guards import Once, Rev, form_once, rev_form
 from app.security import PASSWORD_RULE, hash_password, password_problem, password_version, require_admin
-from app.system import app_version, folder_size, human_size
+from app.system import app_version, describe, folder_size, human_size, run_checks
 
 router = APIRouter(prefix="/admin")
 
@@ -110,23 +110,85 @@ def update_user(
     return notices.redirect("/admin/users", "saved")
 
 
+def _duration(seconds: float | None) -> str:
+    """"1시간 3분" / "2분 5초" / "8초" (끝나지 않았거나 시각이 없으면 빈 글)."""
+    if seconds is None or seconds < 0:
+        return ""
+    s = int(round(seconds))
+    h, rest = divmod(s, 3600)
+    m, sec = divmod(rest, 60)
+    if h:
+        return f"{h}시간 {m}분" if m else f"{h}시간"
+    if m:
+        return f"{m}분 {sec}초" if sec else f"{m}분"
+    return f"{sec}초"
+
+
+def _retry_target(admin: User, job: AIJob, proposals: dict, intakes: dict, reports: dict) -> str | None:
+    """실패한 작업을 다시 시도하는 기존 POST 경로 (새 작업 규칙을 만들지 않고 각 화면의 "다시 시도" 와 같은 주소를 쓴다). 지금 그 대상의 현재 작업이 아니면 None."""
+    inp = job.input or {}
+    pid, iid, rid = inp.get("proposal_id"), inp.get("intake_id"), inp.get("report_id")
+    if job.kind == "activity_structure":  # 활동 기록 초안은 요청한 본인만 다시 시도할 수 있다 (메모 내용이 든 작업이라 남의 것은 열지 않는다)
+        return f"/activities/draft/{job.id}/retry" if job.requester_id == admin.id else None
+    if job.kind == "solution_draft" and isinstance(inp.get("solution_id"), int):
+        return f"/solutions/{inp['solution_id']}/draft"
+    if job.kind == "proposal_directions" and proposals.get(pid) == job.id:
+        return f"/proposals/{pid}/directions"
+    if job.kind == "proposal_chat" and proposals.get(pid) == job.id:
+        return f"/proposals/{pid}/chat/retry"
+    if job.kind == "proposal_outline" and proposals.get(pid) == job.id:
+        return f"/proposals/{pid}/outline"
+    if job.kind in ("research_area", "research_suggest") and reports.get(rid) == job.id:
+        return f"/research/reports/{rid}/retry"
+    if job.kind == "intake_analyze" and intakes.get(iid) == job.id:
+        return f"/intake/{iid}/analyze"
+    if job.kind == PING_KIND:
+        return "/admin/system/ai-check"
+    return None
+
+
 @router.get("/jobs")
 def jobs_page(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    from app.models import Intake, Proposal, ResearchReport
+
     status = request.query_params.get("status", "")
+    kind = request.query_params.get("kind", "")
     counts = dict(db.execute(select(AIJob.status, func.count()).group_by(AIJob.status)).all())  # 구분 탭의 건수: 전체 작업 기준
     stmt = db.query(AIJob).order_by(AIJob.id.desc())
     if status in ontology.JOB_STATUSES:
         stmt = stmt.filter(AIJob.status == status)
     else:
         status = ""
+    if kind in ontology.JOB_KINDS:
+        stmt = stmt.filter(AIJob.kind == kind)
+    else:
+        kind = ""
     jobs = stmt.limit(100).all()
     requesters = {u.id: u.name or u.username for u in db.query(User).all()}
+    failed = [j for j in jobs if j.status == "failed"]
+    ids = lambda key: [j.input.get(key) for j in failed if isinstance((j.input or {}).get(key), int)]  # noqa: E731
+    proposals = dict(tuple(r) for r in db.execute(select(Proposal.id, Proposal.active_job_id).where(Proposal.id.in_(ids("proposal_id"))))) if failed else {}
+    intakes = dict(tuple(r) for r in db.execute(select(Intake.id, Intake.job_id).where(Intake.id.in_(ids("intake_id"))))) if failed else {}
+    reports = dict(tuple(r) for r in db.execute(select(ResearchReport.id, ResearchReport.job_id).where(ResearchReport.id.in_(ids("report_id"))))) if failed else {}
+    rows = []
+    for j in jobs:
+        waited = (j.started_at - j.created_at).total_seconds() if j.started_at and j.created_at else None
+        took = (j.finished_at - j.started_at).total_seconds() if j.finished_at and j.started_at else None
+        rows.append({"job": j, "wait": _duration(waited), "took": _duration(took),
+                     "retry": _retry_target(admin, j, proposals, intakes, reports) if j.status == "failed" else None})
     tabs = ui.seg_tabs(request, "status", list(ontology.JOB_STATUSES.items()), counts, status, total=sum(counts.values()))
-    return render(request, "admin/jobs.html", jobs=jobs, requesters=requesters, tabs=tabs, status=status, total=sum(counts.values()))
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("kind", "page", "notice", "nt")]
+    return render(request, "admin/jobs.html", rows=rows, requesters=requesters, tabs=tabs, status=status, kind=kind, kinds=ontology.JOB_KINDS,
+                  keep=keep, total=sum(counts.values()), shown=len(jobs))
 
 
 NAME_MAX = 100
 KEYWORDS_MAX = 500
+
+
+def _next_run(schedule) -> datetime | None:
+    """다음 자동 조사 시각 (자동 실행이 꺼져 있으면 None)."""
+    return scheduler.latest_slot(schedule, datetime.now()) + timedelta(days=7) if schedule.enabled else None
 
 
 def _research_page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
@@ -141,6 +203,7 @@ def _research_page(request: Request, db: Session, error: str | None = None, stat
         areas=RESEARCH_AREAS,
         weekdays=WEEKDAYS,
         schedule=get_schedule(db),
+        next_run=_next_run(get_schedule(db)),
         runs=runs,
         error=error,
     )
@@ -262,6 +325,25 @@ def _ping_state(db: Session) -> dict:
     return {"state": "failed", "text": text, "at": job.finished_at}
 
 
+_CHECK_CACHE: dict = {}
+
+
+def _check_rows(settings) -> list[dict]:
+    """명령줄 `check` 와 같은 점검 항목(`app.system.run_checks`)을 뜻·할 일과 함께. Claude CLI 점검은 느릴 수 있어 1분 동안 결과를 다시 쓴다 (포트는 이 서버가 쓰는 중이라 새로 열어 보지 않는다)."""
+    import time
+
+    key = id(settings)
+    cached = _CHECK_CACHE.get(key)
+    if cached is None or time.monotonic() - cached[0] > 60:
+        _CHECK_CACHE[key] = cached = (time.monotonic(), run_checks(lambda: settings, skip_port=True))
+    rows = []
+    for name, problem, detail in cached[1]:
+        meaning, todo = describe(name)
+        rows.append({"name": name, "problem": problem, "detail": detail, "meaning": meaning, "todo": todo,
+                     "id": "transcriber" if name == "음성 받아쓰기" else None})
+    return rows
+
+
 def _system_page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
     s = request.app.state.settings
     now = datetime.now()
@@ -288,7 +370,8 @@ def _system_page(request: Request, db: Session, error: str | None = None, status
         last_failed=last_failed,
         failed_text=ERROR_KINDS.get(last_failed.shown_error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
         ping=_ping_state(db),
-        transcriber=transcribe.label(s),
+        checks=_check_rows(s),
+        fresh_backup=request.query_params.get("notice") == "backup_done",
         error=error,
     )
 

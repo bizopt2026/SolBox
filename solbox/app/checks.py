@@ -23,6 +23,11 @@ def no_evidence(text: str = "") -> str:
     return f"{NO_EVIDENCE}: {text}" if text else NO_EVIDENCE
 
 
+def is_unopened(text: str) -> bool:
+    """"본문을 열어 확인하지 못함" 항목인가 (근거 문제 중 출처는 있으나 서버가 본문을 열어 보지 못한 경우: 노란 "본문 미확인"으로 보인다)."""
+    return str(text or "").lstrip().startswith(UNOPENED)
+
+
 def check_kind(text: str) -> str:
     """"evidence"(근거 문제) 또는 "decide"(확인할 점). 이름표는 ontology.CHECK_KINDS."""
     return "evidence" if str(text or "").lstrip().startswith(EVIDENCE_PREFIXES) else "decide"

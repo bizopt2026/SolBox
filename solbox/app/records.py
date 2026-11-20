@@ -28,6 +28,36 @@ NEW_TYPES = {rel: ontology.model_for(t) for rel, t in ontology.ACTIVITY_NEW_TYPE
 
 # ---- 솔루션 자료 파일 ----
 
+import hashlib
+
+
+def sha256_of(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+class DuplicateFile(Exception):
+    """같은 솔루션에 내용이 같은 자료가 이미 있다. `existing` 은 그 자료."""
+
+    def __init__(self, existing: SolutionFile):
+        super().__init__(existing.original_name)
+        self.existing = existing
+
+
+def stored_sha(path: Path, f) -> str | None:
+    """파일의 내용 해시: 저장된 값이 있으면 그것, 없으면(옛 파일) 지금 읽어 채운다 (비교할 때만, 기존 값은 고치지 않는다). 파일이 없으면 None."""
+    if f.sha256:
+        return f.sha256
+    try:
+        f.sha256 = sha256_of(path)
+    except OSError:
+        return None
+    return f.sha256
+
+
 def solution_file_path(settings: Settings, f: SolutionFile) -> Path:
     return settings.uploads_dir / "solutions" / str(f.solution_id) / f.stored_name
 
@@ -50,6 +80,13 @@ def new_solution_file(
         if size is None:
             return None
         f.size = size
+        f.sha256 = sha256_of(path)
+        for other in db.scalars(select(SolutionFile).where(SolutionFile.solution_id == solution.id, SolutionFile.id != f.id).order_by(SolutionFile.id)):
+            if stored_sha(solution_file_path(settings, other), other) == f.sha256:  # 같은 솔루션에 내용이 같은 자료가 이미 있으면 새로 만들지 않는다
+                path.unlink(missing_ok=True)
+                db.delete(f)
+                db.flush()
+                raise DuplicateFile(other)
         result = extracted if extracted is not None else extract_text(path)
         f.extract_status = result.status
     except BaseException:

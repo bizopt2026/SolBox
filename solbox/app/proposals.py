@@ -1,6 +1,8 @@
 """제안 건 도우미."""
 from __future__ import annotations
 
+import logging
+import re
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
@@ -14,6 +16,8 @@ from app.models import AIJob, Proposal, Solution, User
 
 if TYPE_CHECKING:
     from app.ai.proposal_tasks import DirectionsOut, Outline
+
+log = logging.getLogger(__name__)
 
 MAX_DIRECTIONS = 3
 SLIDE_KINDS = tuple(ontology.SLIDE_KINDS)  # 정의는 ontology
@@ -166,9 +170,55 @@ def _unique(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
 
+# 고객에게 보이는 글에 섞인 "작성자에게 하는 말"을 알아보는 작고 보수적인 목록. 줄 끝(마침표·괄호 제외)이 아래로 끝날 때만 본다.
+# 명사형으로 끝나는 보통 문구("단계별 로드맵 제시")는 목적격 조사(을/를)가 없으면 건드리지 않는다.
+_AUTHOR_DO = r"(?:제시|기재|명시|기입|작성|입력|삽입|보완)"
+AUTHOR_INSTRUCTION_PATTERNS = tuple(re.compile(p) for p in (
+    rf"[을를]\s*(?:함께\s*|반드시\s*)?{_AUTHOR_DO}$",                    # "총액과 견적 유효기간을 함께 제시"
+    rf"(?:{_AUTHOR_DO}|추가|확인|포함)\s*할\s*것$",                      # "담당자 연락처를 추가할 것"
+    rf"{_AUTHOR_DO}\s*(?:하세요|해\s*주세요|바랍니다|요망)$",
+    r"(?:확인|기재|입력|보완|작성|수정)\s*필요$",                           # "금액 확인 필요"
+    r"\b(?:TBD|TODO)\b|○○|OOO",                                         # 채우지 않은 자리표시
+))
+_LINE_TAIL = re.compile(r"[\s.。)\]]+$")
+_CONTACT_LINE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+|0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}|^\s*(?:담당|연락처|문의|Tel|TEL|E-?mail|Contact)\b")
+
+
+def is_author_instruction(text: str) -> bool:
+    """고객에게 보이는 줄이 아니라 작성자에게 하는 말처럼 쓰인 줄인가 (줄 끝 말투로만 본다)."""
+    line = _LINE_TAIL.sub("", str(text or "").strip())
+    return bool(line) and any(p.search(line) for p in AUTHOR_INSTRUCTION_PATTERNS)
+
+
+def _move_instructions(s: dict) -> int:
+    """슬라이드 본문에서 작성자에게 하는 말을 빼 needs_check(확인할 점)로 옮긴다. 옮긴 줄 수를 돌려준다."""
+    moved: list[str] = []
+
+    def keep(items):
+        kept = []
+        for item in items:
+            (moved if is_author_instruction(item) else kept).append(item)
+        return kept
+
+    for key in ("bullets", "left", "right"):
+        s[key] = keep(s[key])
+    s["rows"] = [[("" if is_author_instruction(c) and not moved.append(c) else c) for c in row] for row in s["rows"]]
+    for st in s["steps"]:
+        if is_author_instruction(st["detail"]):
+            moved.append(st["detail"])
+            st["detail"] = ""
+    if is_author_instruction(s["key_message"]):
+        moved.append(s["key_message"])
+        s["key_message"] = ""
+    if moved:
+        s["needs_check"] = _unique(s["needs_check"] + moved)
+    return len(moved)
+
+
 def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
     """AI 구성안을 저장용 dict 로 바꾼다. 종류·표·단계·출처를 규칙에 맞게 고치고 빈 항목을 버린다."""
     slides: list[dict] = []
+    moved_total = dropped_contacts = 0
     for raw in out.slides:
         s = raw.model_dump()
         for key in ("kind", "title", "key_message", "subtitle", "left_title", "right_title"):
@@ -194,12 +244,19 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
         steps = [{"name": st["name"].strip(), "detail": st["detail"].strip()} for st in s["steps"]]
         s["steps"] = [st for st in steps if st["name"]][:MAX_STEPS]
         s["checked"] = []  # AI 가 새로 만든 구성안은 확인한 항목이 없다
+        if s["kind"] == "closing":  # 연락처는 AI 가 쓰지 않는다: 지어내거나 자료 속 사람을 옮겨 오기 쉽다. 제안서를 만드는 사람 정보로 서버가 채운다
+            kept = [b for b in s["bullets"] if not _CONTACT_LINE.search(b)]
+            dropped_contacts += len(s["bullets"]) - len(kept)
+            s["bullets"] = kept
+        moved_total += _move_instructions(s)
         found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
         s["sources"] = found
         s["needs_check"] = _unique(s["needs_check"] + [checks.source_unverified(m) for m in missing])
         if s["kind"] not in ("cover", "closing") and not s["sources"] and not s["needs_check"]:
             s["needs_check"] = [NO_SOURCE_NOTE]
         slides.append(s)
+    if moved_total or dropped_contacts:
+        log.info("outline cleanup: %d author-instruction lines moved to needs_check, %d contact lines dropped from closing", moved_total, dropped_contacts)
     title = out.title.strip()
     if not slides or slides[0]["kind"] != "cover":
         from app.ai.proposal_tasks import Slide  # 순환 참조를 피해 늦게 불러온다
@@ -288,6 +345,28 @@ def outline_check_summary(outline: dict | None) -> dict:
     return {"evidence": evidence, "decide": decide, "done": done, "open": evidence + decide}
 
 
+def unresolved_check_count(outline: dict | None) -> int:
+    """구성안 전체에서 아직 확인하지 않은 확인 항목(근거 문제 + 확인할 점)의 개수."""
+    return sum(st["evidence"] + st["decide"] for st in (slide_check_state(s) for s in (outline or {}).get("slides") or [] if isinstance(s, dict)))
+
+
+def contact_lines(user: User) -> list[str]:
+    """마무리 장에 붙는 연락처 줄: 제안서를 만드는(로그인한) 사용자의 이름과, 계정 화면에서 적어 둔 연락처가 있으면 그것."""
+    name = (user.name or user.username or "").strip()
+    lines = [f"담당 {name}"] if name else []
+    if (user.contact or "").strip():
+        lines.append(f"연락처 {user.contact.strip()}")
+    return lines
+
+
+INTERNAL_SUFFIX = "-internal"
+
+
+def internal_deck_path(path: Path) -> Path:
+    """고객용 파일 옆의 내부 검토용 파일 경로 (`deck-….pptx` → `deck-…-internal.pptx`)."""
+    return path.with_name(path.stem + INTERNAL_SUFFIX + path.suffix)
+
+
 def check_summary_text(cs: dict) -> str:
     """"근거 문제 1장 · 확인할 점 2장" (0장인 부분은 뺀다). 남은 게 없으면 빈 글."""
     return " · ".join(p for p in (f"{CK['evidence']} {cs['evidence']}장" if cs["evidence"] else "", f"{CK['decide']} {cs['decide']}장" if cs["decide"] else "") if p)
@@ -314,6 +393,8 @@ def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
 def reset_for_new_direction(p: Proposal, decks_dir: Path) -> None:
     """방향이 바뀌었을 때 구성안과 만든 제안서를 지우고, 이전 대화는 새 방향에 반영되지 않게 선을 긋는다. 커밋은 호출자가 한다."""
     deck = decks_dir / str(p.id) / p.deck_name if p.deck_name else None
+    if deck is not None:
+        internal_deck_path(deck).unlink(missing_ok=True)
     p.outline, p.outline_updated_at = None, None
     p.deck_name, p.deck_built_at = "", None
     p.chat_from_id = p.messages[-1].id if p.messages else None
@@ -398,12 +479,12 @@ def open_section(p: Proposal) -> str:
 def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]:
     """접힌 구역에 보이는 한 줄 요약."""
     who = p.customer.name + (f" · {p.project.name}" if p.project is not None else "") + (f" · {p.opportunity.name}" if p.opportunity is not None else "")
-    names = [s.name for s in candidates]
-    shown = ", ".join(names[:3]) + (f" 외 {len(names) - 3}개" if len(names) > 3 else "")
-    target = f"{who} — 조합 솔루션 {shown}" if names else who
+    # 세 숫자는 따로 부른다: "후보 솔루션 n개"(AI 에 주는 후보), "선택한 방향의 솔루션 n개"(조합). 방향을 고르기 전에는 조합 이야기를 하지 않는다
+    target = f"{who} — 후보 솔루션 {len(candidates)}개" if candidates else who
     directions = p.directions or []
     if _has_selection(p):
-        direction = f"선택한 방향: {directions[p.selected_index]['title']}"
+        chosen = directions[p.selected_index]
+        direction = f"선택한 방향: {chosen['title']} · 선택한 방향의 솔루션 {len(chosen.get('solutions') or [])}개"
     else:
         direction = f"방향 {len(directions)}개" if directions else "아직 만들지 않음"
     if not _has_selection(p):

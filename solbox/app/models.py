@@ -81,6 +81,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, default=ontology.USER_ROLE_DEFAULT)  # admin / user
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    contact: Mapped[str | None] = mapped_column(String, nullable=True)  # 제안서 마무리 장에 쓰는 연락처 (본인이 계정 화면에서 적는다)
     must_change_password: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # 관리자가 정해 준 비밀번호: 다음 로그인 뒤 바꿔야 쓸 수 있다
 
 
@@ -222,6 +223,7 @@ class SolutionFile(Stamped, Base):
     kind: Mapped[str] = mapped_column(String, default=ontology.FILE_KIND_DEFAULT)
     extract_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported
     size: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str | None] = mapped_column(String, nullable=True)  # 파일 내용의 해시 (새로 올린 것만 채운다. 옛 파일은 비교할 때 한 번 채운다)
 
     solution: Mapped[Solution] = relationship(back_populates="files")
 
@@ -359,6 +361,7 @@ class IntakeFile(Base):
     read_error: Mapped[str | None] = mapped_column(String, nullable=True)  # 읽지 못한 이유 (받아쓰기 실패 등, 화면에 보이는 한국어)
     progress: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 받아쓰기 진행 0~100
     size: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str | None] = mapped_column(String, nullable=True)  # 파일 내용의 해시 (새로 올린 것만 채운다. 옛 파일은 비교할 때 한 번 채운다)
     target_type: Mapped[str] = mapped_column(String, default="")
     target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)

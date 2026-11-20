@@ -10,6 +10,8 @@
 
 <section class="card stack">
   <h2>실행 주기</h2>
+  <p class="next-run" id="next-run">{% if next_run %}<b>다음 자동 조사</b> {{ kdatetime(next_run) }} ({{ weekdays[next_run.weekday()] }}요일)
+    {% else %}<span class="muted">자동 실행이 꺼져 있어 예약된 조사가 없습니다.</span>{% endif %}</p>
   <form method="post" action="/admin/research/schedule" class="row compact-form">
     <label class="check"><input type="checkbox" name="enabled" value="on" {% if schedule.enabled %}checked{% endif %}> 자동 실행</label>
     <label>요일

@@ -224,7 +224,7 @@ def cfg(tmp_path, monkeypatch):
 
 
 def test_cli_backup_and_verify(cfg, capsys):
-    cli.main(["create-admin", "--username", "boss", "--name", "관리자", "--password", "pw1234"])
+    cli.main(["create-admin", "--username", "boss", "--name", "관리자", "--password", "pw123456"])
     capsys.readouterr()
     cli.main(["backup"])
     out = capsys.readouterr().out

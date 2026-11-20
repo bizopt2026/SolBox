@@ -18,7 +18,7 @@ def test_list_shows_a_badge_per_stage(user_client, db):
         _make(db, stage, f"S{i}")
     html = user_client.get("/solutions").text
     for stage, name in (("intake", "아이템 접수"), ("tapping", "사전 태핑"), ("survey", "수요조사"), ("boxed", "박스 등록"), ("hold", "보류")):
-        assert f'<span class="badge {ontology.tone_class("stage", stage)}" data-code="{stage}">{name}</span>' in html
+        assert f'<span class="badge {ontology.tone_class("stage", stage)}" data-code="{stage}" title="{ontology.code_help("stage", stage)}">{name}</span>' in html
 
 
 def test_home_stage_counts_use_badges(user_client, db):

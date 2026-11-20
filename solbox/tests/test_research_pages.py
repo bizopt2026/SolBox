@@ -173,7 +173,8 @@ def test_unopened_links_are_labelled_old_ones_are_not(user_client, db, settings)
     tech.trends = [{"headline": "동향", "summary": "", "needs_check": ["본문을 열어 확인하지 못함"], "sources": [
         {"title": "검색만", "url": "https://example.com/s", "opened": False},
         {"title": "열어 봄", "url": "https://example.com/o", "opened": True},
-        {"title": "옛 기록", "url": "https://example.com/old"}]}]
+        {"title": "옛 기록", "url": "https://example.com/old"}]},
+        {"headline": "다른 동향", "summary": "", "needs_check": [], "sources": [{"title": "열어 본 글", "url": "https://example.com/x", "opened": True}]}]  # 모두 미확인이 아니어야 줄마다 보인다
     db.commit()
     page = user_client.get(f"/research/runs/{run.id}").text
     assert page.count("검색 결과 링크 (본문 미확인)") == 1

@@ -49,7 +49,12 @@ def view(db: Session, user: User, obj) -> dict | None:
         intake = db.get(Intake, number) if number is not None else None
         if intake is None:
             return {"label": "올리기 (묶음 삭제됨)", "href": None}
-        return {"label": f"올리기 묶음 {intake.id}번", "href": f"/intake/{intake.id}" if can_open_intake(user, intake) else None}
+        if can_open_intake(user, intake):
+            return {"label": f"올리기 묶음 {intake.id}번", "href": f"/intake/{intake.id}"}
+        # 열 수 없는 사람에게는 링크 없이 누가 올렸는지만 (링크는 빈 목록으로 가므로)
+        uploader = db.get(User, intake.created_by_id) if intake.created_by_id else None
+        who = (uploader.name or uploader.username) if uploader else ""
+        return {"label": f"{who}님이 올린 묶음 {intake.id}번" if who else f"올리기 묶음 {intake.id}번", "href": None}
     if kind == ontology.ORIGIN_RESEARCH:
         report = db.get(ResearchReport, number) if number is not None else None
         if report is None:

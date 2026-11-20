@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token, dup_warning %}
 {% block title %}솔루션 {{ "수정" if solution else "등록" }}{% endblock %}
 {% block content %}
 {{ page_header("솔루션 " ~ ("수정" if solution else "등록"), crumbs=ui.crumbs("solution", solution.name if solution else none, ("/solutions/" ~ solution.id) if solution else none, "수정" if solution else "등록"), sub=(solution.name if solution else ont.TYPES["solution"].description)) }}
@@ -16,6 +16,7 @@
 {% endif %}
 <form method="post" action="{{ "/solutions/" ~ solution.id if solution else "/solutions" }}" class="form-page">
   {% if solution %}{{ rev_fields(solution, conflict, "/solutions/" ~ solution.id) }}{% else %}{{ form_token() }}{% endif %}
+  {{ dup_warning(duplicate, "그래도 이 이름으로 저장" if solution else "그래도 새로 등록") }}
   <section class="card">
     <div class="fgrid">
       {{ text_field("이름", "name", form.name, required=true, wide=true, error=error) }}

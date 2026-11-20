@@ -399,7 +399,7 @@ def test_partner_page(admin_client, world):
 
 def test_solution_page(admin_client, world):
     html = admin_client.get(f"/solutions/{world.s_hvac.id}").text
-    for text in ("관심을 보인 고객", "한빛병원", "이야기된 프로젝트", "한빛병원 설비 유지보수", "검토 중인 영업기회", "한빛 전력 절감", "언급한 리서치 제안",
+    for text in ("관심을 보인 고객", "한빛병원", "이야기된 프로젝트", "한빛병원 설비 유지보수", "이 솔루션을 검토한 영업기회", "한빛 전력 절감", "언급한 리서치 제안",
                  "공조 제어 확산", "이 솔루션이 들어간 제안 건", "한빛 에너지 절감 제안", "한빛 킥오프", "에너지 절감 구독형"):
         assert text in html, text
     assert html.count("소개서.pdf") >= 1  # 자료 구역은 그대로

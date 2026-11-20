@@ -14,17 +14,17 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Solution, User
 from app.records import pick
-from app.routers._common import get_deletable_or_404, get_or_404, name_error, paginate, resync_objects, row_info, search_by_name, sort_rows
+from app.routers._common import get_deletable_or_404, get_or_404, name_error, duplicate_warning, paginate, resync_objects, row_info, search_by_name, sort_rows
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/bms")
 FIELDS = ("name", "summary", "target_customers", "revenue_model", "memo")
 
 
-def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, error: str | None = None, conflict=None):
+def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, error: str | None = None, conflict=None, duplicate=None):
     return render(
         request, "bms/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, bm=bm, error=error, solutions=search_by_name(db, Solution), conflict=conflict,
+        form=form, bm=bm, error=error, solutions=search_by_name(db, Solution), conflict=conflict, duplicate=duplicate,
     )
 
 
@@ -55,13 +55,15 @@ def new_form(request: Request, user: User = Depends(require_user), db: Session =
 def create(
     request: Request,
     name: str = Form(""), summary: str = Form(""), target_customers: str = Form(""), revenue_model: str = Form(""),
-    memo: str = Form(""), solution_ids: list[str] = Form([]),
+    memo: str = Form(""), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
     once: Once = Depends(form_once),
 ):
     values = _values(name, summary, target_customers, revenue_model, memo)
     if error := name_error(name):
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, error=error)
+    if dup := duplicate_warning(db, BM, name, confirm_dup):
+        return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, duplicate=dup)
     bm = BM(**values, created_by_id=user.id)
     bm.solutions = pick(db, Solution, solution_ids)
     db.add(bm)
@@ -87,7 +89,7 @@ def edit_form(bm_id: int, request: Request, user: User = Depends(require_user), 
 def update(
     bm_id: int, request: Request,
     name: str = Form(""), summary: str = Form(""), target_customers: str = Form(""), revenue_model: str = Form(""),
-    memo: str = Form(""), solution_ids: list[str] = Form([]),
+    memo: str = Form(""), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
     rev: Rev = Depends(rev_form),
 ):
@@ -97,6 +99,8 @@ def update(
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, error)
+    if dup := duplicate_warning(db, BM, name, confirm_dup, exclude=bm):
+        return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, duplicate=dup)
     before = opps.dependents(db, bm)  # 빠지는 솔루션의 카드도 다시 쓴다
     for field, value in values.items():
         setattr(bm, field, value)

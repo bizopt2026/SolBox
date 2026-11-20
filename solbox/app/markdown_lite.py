@@ -21,6 +21,8 @@ _LINK = re.compile(r"\[([^\]\n]{1,200})\]\((https?://[^\s)]{1,500})\)")
 _SEPARATOR = re.compile(r"\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*")
 # 지식 사본 경로 후보: 유형 폴더로 시작하고 .md 로 끝난다 (실제로 있는 항목인지는 resolve 가 가린다)
 _PATH = re.compile(r"(?<![\w/.\-])((?:solutions|customers|partners|projects|businesses|opportunities|bms|activities|research)/[^\s`'\"<>()\[\]|&]{1,200}?\.md)(?![\w/\-])")
+# 폴더식 언급(`solutions/3`, `opportunities/2/`): 번호가 붙은 유형 폴더만, 실제로 있는 항목일 때만 칩으로 바꾼다
+_FOLDER = re.compile(r"(?<![\w/.\-])((?:solutions|customers|partners|projects|businesses|opportunities|bms|activities)/\d{1,9})/?(?![\w/\-]|\.\w)")
 _TOKEN = re.compile("\x00(\\d+)\x00")
 
 
@@ -38,6 +40,11 @@ def _chip(path: str, resolve: Callable | None) -> str | None:
     return f'<a class="chip" href="{escape(d["url"])}">{kind}{escape(d["label"])}</a>'
 
 
+def _folder_path(folder: str) -> str:
+    """`solutions/3` → `solutions/3/card.md`, `opportunities/2` → `opportunities/2.md` (사본 경로 형식)."""
+    return folder + "/card.md" if folder.startswith("solutions/") else folder + ".md"
+
+
 def _plain(text: str, resolve: Callable | None, stash: list[str]) -> str:
     """코드가 아닌 글: 링크·출처 칩은 자리 표시로 빼 두고(굵게 표시가 속을 건드리지 않게) 굵게를 바꾼 뒤 되돌린다."""
     def hold(html: str) -> str:
@@ -48,6 +55,8 @@ def _plain(text: str, resolve: Callable | None, stash: list[str]) -> str:
         text = _LINK.sub(lambda m: hold(f'<a href="{m.group(2)}" rel="noopener noreferrer" target="_blank">{m.group(1)}</a>'), text)
     if resolve is not None:
         text = _PATH.sub(lambda m: hold(chip) if (chip := _chip(m.group(1), resolve)) else m.group(0), text)
+        if "/" in text:
+            text = _FOLDER.sub(lambda m: hold(chip) if (chip := _chip(_folder_path(m.group(1)), resolve)) else m.group(0), text)
     return _BOLD.sub(r"<strong>\1</strong>", text)
 
 

@@ -6,6 +6,7 @@
 {% call page_header(ont.label("follow_up"), crumbs=[(ont.nav_group_label("follow-ups"), none), (ont.label("follow_up"), none)], sub=ont.TYPES["follow_up"].description, count=pg.total ~ "건") %}<a class="button" href="/activities/new">활동 기록 쓰기</a>{% endcall %}
 {{ fu_notice(toggled) }}
 <div class="tools">{{ seg(tabs, "구분") }}</div>
+<p class="muted fu-scope" id="fu-scope">여기 "남은 일"은 기한이 없는 것까지 끝나지 않은 후속 조치를 모두 센 수입니다. 홈은 기한이 14일 안(지난 것 포함)인 것만 보여 줘서 숫자가 더 작을 수 있어요.</p>
 {% if chips %}<p class="filter-chips">{% for f in chips %}<a class="chip chip-x filter-note" href="{{ f["clear"] }}"><span>{{ f.label }}만 보는 중</span><span class="chip-close" aria-hidden="true">×</span><span class="sr-only">걸러 보기 해제</span></a>{% endfor %}</p>{% endif %}
 {% if pg.items %}
 <div class="card fu-card"><ul class="fu-list">

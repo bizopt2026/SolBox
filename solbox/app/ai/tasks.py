@@ -22,7 +22,7 @@ from app.ai.runner import DEFAULT_TOOLS, ClaudeError, ClaudeRunner
 from app.config import Settings
 from app import ontology
 from app.labels import ACTIVITY_KINDS
-from app.models import Customer, Partner, Solution
+from app.models import AIJob, Customer, Partner, Solution, User
 
 log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -197,6 +197,12 @@ def draft_summary_md(d: ActivityDraft) -> str:
     return "\n\n".join(sections)
 
 
+def writer_name(db: Session, user_id: int | None) -> str:
+    """프롬프트의 "작성자": 글을 올린 사용자의 표시 이름 (없으면 알 수 없음)."""
+    user = db.get(User, user_id) if user_id else None
+    return ((user.name or user.username).strip() if user else "") or "(알 수 없음)"
+
+
 def _name_list(db: Session, model) -> str:
     names = [o.name for o in db.scalars(select(model).order_by(model.name))]
     return "\n".join(f"- {n}" for n in names) or "(없음)"
@@ -205,8 +211,9 @@ def _name_list(db: Session, model) -> str:
 def _structure_activity(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     # 원문이 구분 표시를 닫아 버리지 못하게 한다.
     memo = str(input.get("raw_text", "")).replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO")
+    job = db.get(AIJob, input.get("_job_id")) if input.get("_job_id") else None
     prompt = load_prompt(
-        "activity_structure", raw_text=memo, today=date.today().isoformat(),
+        "activity_structure", raw_text=memo, today=date.today().isoformat(), writer=writer_name(db, job.requester_id if job else None),
         solutions=_name_list(db, Solution), customers=_name_list(db, Customer),
         projects=_name_list(db, _MENTION_MODELS["projects"]), partners=_name_list(db, Partner),
     )

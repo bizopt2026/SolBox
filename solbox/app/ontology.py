@@ -26,6 +26,7 @@ class CodeList:
     label: str  # 이 목록의 한국어 이름
     items: dict[str, str]  # 코드 -> 화면 이름
     default: str | None = None
+    descriptions: dict[str, str] = field(default_factory=dict)  # 코드 -> 한 문장 뜻 (툴팁·범례·도움말이 같은 글을 쓴다. 앱이 하는 일만 적는다)
 
 
 STAGES = {  # 발굴 단계
@@ -34,6 +35,14 @@ STAGES = {  # 발굴 단계
     "survey": "수요조사",
     "boxed": "박스 등록",
     "hold": "보류",
+}
+# 발굴 단계의 뜻: 이 앱이 단계로 무엇을 하는지만 적는다 (설계 문서 docs/superpowers/specs/2026-11-18-solution-box-design.md 의 말을 따른다)
+STAGE_DESCRIPTIONS = {
+    "intake": "파트너에게서 받은 아이템을 처음 등록한 상태입니다.",
+    "tapping": "기존 고객에게 이 솔루션에 관심이 있는지 미리 알아보는 단계입니다.",
+    "survey": "고객들이 실제로 필요로 하는지 조사하는 단계입니다.",
+    "boxed": "검토를 마쳐 제안에 바로 쓸 수 있는 상태입니다.",
+    "hold": "지금은 진행하지 않는 상태입니다. 제안 후보에는 자동으로 들어가지 않고, 제안 건에서 직접 더할 때만 후보가 됩니다.",
 }
 STAGE_DEFAULT = "intake"
 STAGE_BOXED = "boxed"
@@ -78,6 +87,9 @@ INTAKE_STATUSES = {  # 올리기 상태
     "discarded": "버림",
 }
 INTAKE_STATUS_DEFAULT = "uploaded"
+# 보여 주는 모양만 다른 올림 상태: 읽을 수 있는 파일이 없고 음성이 받아쓰기를 기다리는 묶음 (실패가 아니다). 상태 코드는 늘리지 않는다 (`intake.is_archived`).
+INTAKE_ARCHIVED_LABEL = "보관됨"
+INTAKE_ARCHIVED_TONE = "slate"
 
 INTAKE_FILE_KINDS = {"document": "문서", "image": "사진", "audio": "음성", "other": "기타"}  # 올린 파일 종류
 INTAKE_FILE_KIND_DEFAULT = "other"
@@ -168,6 +180,10 @@ AI_OFF_NOTICE = "AI 작업 처리기가 꺼져 있어 작업이 시작되지 않
 
 # 확인 항목의 종류: 근거 문제 / 확인할 점 (저장된 값이 아니라 문구에서 가려낸다. app/checks.py)
 CHECK_KINDS = {"evidence": "근거 문제", "decide": "확인할 점"}
+CHECK_KIND_DESCRIPTIONS = {
+    "evidence": "출처 본문을 열어 확인하지 못했거나 출처가 없는 항목입니다. 링크를 열어 직접 확인하세요.",
+    "decide": "수치·범위처럼 사람이 정하거나 맞는지 확인해야 하는 항목입니다.",
+}
 
 OPPORTUNITY_STAGES = {  # 영업기회 단계 (순서 강제 없음: 어디서 어디로든 바꿀 수 있다)
     "discovery": "발굴",
@@ -176,6 +192,14 @@ OPPORTUNITY_STAGES = {  # 영업기회 단계 (순서 강제 없음: 어디서 �
     "won": "수주",
     "lost": "실패",
     "hold": "보류",
+}
+OPPORTUNITY_STAGE_DESCRIPTIONS = {
+    "discovery": "고객 니즈를 확인하며 영업기회를 찾는 단계입니다.",
+    "proposing": "고객에게 제안을 내고 답을 기다리는 단계입니다.",
+    "negotiating": "금액·범위 같은 조건을 고객과 조율하는 단계입니다.",
+    "won": "수주한 상태입니다. 이어서 프로젝트를 만들거나 기존 프로젝트에 이을 수 있습니다.",
+    "lost": "수주하지 못하고 끝난 상태입니다.",
+    "hold": "지금은 진행하지 않고 멈춘 상태입니다.",
 }
 OPPORTUNITY_STAGE_DEFAULT = "discovery"
 OPPORTUNITY_STAGE_WON = "won"
@@ -186,11 +210,12 @@ OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모�
 
 ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
+ORIGIN_FILTER_PARAM = "origin"  # 목록 `?origin=intake|research|manual` (화이트리스트). 유래가 비어 있는(모름) 기록은 "직접 입력"에 센다: 올리기·리서치는 근거가 있을 때만 채우기 때문
 
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
 
 CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
-    CodeList("stage", "발굴 단계", STAGES, STAGE_DEFAULT),
+    CodeList("stage", "발굴 단계", STAGES, STAGE_DEFAULT, STAGE_DESCRIPTIONS),
     CodeList("activity_kind", "활동 종류", ACTIVITY_KINDS, ACTIVITY_KIND_DEFAULT),
     CodeList("file_kind", "자료 종류", FILE_KINDS, FILE_KIND_DEFAULT),
     CodeList("proposal_status", "제안 진행 단계", PROPOSAL_STATUSES, PROPOSAL_STATUS_DEFAULT),
@@ -208,9 +233,9 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("user_role", "사용자 역할", USER_ROLES, USER_ROLE_DEFAULT),
     CodeList("job_status", "AI 작업 상태", JOB_STATUSES, JOB_PENDING),
     CodeList("job_kind", "AI 작업 종류", JOB_KINDS),
-    CodeList("check_kind", "확인 항목 종류", CHECK_KINDS),
+    CodeList("check_kind", "확인 항목 종류", CHECK_KINDS, None, CHECK_KIND_DESCRIPTIONS),
     CodeList("origin_type", "기록의 유래", ORIGINS),
-    CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT),
+    CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT, OPPORTUNITY_STAGE_DESCRIPTIONS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -517,6 +542,11 @@ def prop(code: str, name: str) -> str:
     return TYPES[code].props[name]
 
 
+def code_help(key: str, code: str) -> str:
+    """코드 값의 한 문장 뜻 (없으면 빈 글). 배지 툴팁·단계 범례·도움말이 이것 하나를 쓴다."""
+    return CODE_LISTS[key].descriptions.get(code, "") if key in CODE_LISTS else ""
+
+
 def term(key: str) -> str:
     return TERMS[key]
 
@@ -735,7 +765,7 @@ for _key, _pairs in {
     "R1": {("partner", "solution"): "공급하는 솔루션", ("solution", "partner"): "공급 파트너"},
     "R2": {("customer", "project"): "프로젝트", ("project", "customer"): "고객"},
     "R3": {("solution", "solution_file"): "자료", ("solution_file", "solution"): "솔루션"},
-    "R4": {("activity", "solution"): "솔루션", ("solution", "activity"): "활동 기록"},
+    "R4": {("activity", "solution"): "이야기된 솔루션", ("solution", "activity"): "이 솔루션이 이야기된 활동 기록"},
     "R5": {("activity", "customer"): "고객", ("customer", "activity"): "활동 기록"},
     "R6": {("activity", "project"): "프로젝트", ("activity", "opportunity"): "영업기회",
            ("project", "activity"): "활동 기록", ("opportunity", "activity"): "활동 기록"},
@@ -746,7 +776,7 @@ for _key, _pairs in {
     "R11": {("follow_up", "user"): "담당 사용자", ("user", "follow_up"): "맡은 후속 조치"},
     "R12": {("proposal", "customer"): "대상 고객", ("customer", "proposal"): "제안 건"},
     "R13": {("proposal", "project"): "발판 프로젝트", ("project", "proposal"): "제안 건"},
-    "R14": {("proposal", "solution"): "조합한 솔루션", ("solution", "proposal"): "이 솔루션이 들어간 제안 건"},
+    "R14": {("proposal", "solution"): "선택한 방향의 솔루션", ("solution", "proposal"): "이 솔루션이 들어간 제안 건"},
     "R15": {("proposal", "solution"): "후보에 더한 솔루션", ("solution", "proposal"): "후보로 더한 제안 건"},
     "R18": {("research_report", "solution"): "민 솔루션", ("solution", "research_report"): "언급한 리서치 제안"},
     "R19": {("research_report", "solution"): "등록된 솔루션", ("solution", "research_report"): "등록된 리서치 보고서"},
@@ -760,11 +790,11 @@ for _key, _pairs in {
     "R25": {("partner", "customer"): "같은 회사 고객", ("customer", "partner"): "같은 회사 파트너"},
     "R26": {("customer_need", "opportunity"): "영업기회", ("opportunity", "customer_need"): "고객 니즈"},
     "R27": {("opportunity", "customer"): "고객", ("customer", "opportunity"): "영업기회"},
-    "R28": {("opportunity", "solution"): "검토 솔루션", ("solution", "opportunity"): "검토 중인 영업기회"},
+    "R28": {("opportunity", "solution"): "검토한 솔루션", ("solution", "opportunity"): "이 솔루션을 검토한 영업기회"},
     "R29": {("proposal", "opportunity"): "영업기회", ("opportunity", "proposal"): "제안 건"},
     "R30": {("opportunity", "project"): "이어진 프로젝트", ("project", "opportunity"): "이 프로젝트가 된 영업기회"},
     "R31": {("project", "bm"): "BM", ("bm", "project"): "따르는 프로젝트"},
-    "R32": {("opportunity", "bm"): "BM", ("bm", "opportunity"): "접근하는 영업기회"},
+    "R32": {("opportunity", "bm"): "BM", ("bm", "opportunity"): "이 BM으로 진행하는 영업기회"},
     "R33": {("bm", "solution"): "솔루션", ("solution", "bm"): "BM"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
@@ -818,6 +848,10 @@ DERIVED: tuple[Derived, ...] = (
     Derived("D13", "같은 회사 파트너가 공급하는 솔루션", "customer", "solution", ((_b("R25"), _f("R1")),)),
     # 이 고객과 이야기했거나(활동 기록 D1) 영업기회에서 검토했지만(R27→R28) 아직 제안 건에 들어가지 않은(D2) 솔루션: 만들 제안의 후보
     Derived("D14", "이야기했지만 아직 제안하지 않은 솔루션", "customer", "solution", (("D1",), (_b("R27"), _f("R28"))), minus=("D2",)),
+    # 프로젝트 화면: 이 프로젝트가 된 영업기회의 제안 건 (제안 건이 프로젝트에 직접 이어지지 않았어도 영업기회를 통해 보인다), 이 프로젝트의 활동 기록에서 이야기된 솔루션과 그 솔루션의 파트너
+    Derived("D15", "영업기회의 제안 건", "project", "proposal", ((_b("R30"), _b("R29")),)),
+    Derived("D16", "이야기된 솔루션", "project", "solution", ((_b("R6"), _f("R4")),)),
+    Derived("D17", "이야기된 솔루션의 파트너", "project", "partner", (("D16", _b("R1")),)),
 )
 DERIVED_BY_KEY = {d.key: d for d in DERIVED}
 
@@ -862,6 +896,9 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R13:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={customer_id}&project_id={id}"), True),
         MainGroup("R6:activity", ("+ 활동 기록 쓰기", "/activities/new?project_id={id}"), True),
         MainGroup("R30:opportunity"),
+        MainGroup("D15"),
+        MainGroup("D16"),
+        MainGroup("D17"),
     ),
     "bm": (
         MainGroup("R33:solution"),
@@ -913,14 +950,14 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
 }
 
 # 목록의 `?sort=` 정렬: 유형 -> ((코드, 이름), …). 첫 항목이 지금의 기본 순서이고 (`?sort` 가 없거나 틀리면 이것), 나머지는 고르는 순서다.
-# 코드 뜻: name 이름(제목)순, recent 최근 수정순, date 활동 일자순 (최근 것이 위).
+# 코드 뜻: name 이름(제목)순, recent 최근 수정순, date 활동 일자순, active 최근 활동순 (표의 "최근 활동" 칸) (최근 것이 위). 표에 보이는 칸이 있는 정렬은 그 칸 머리에 방향 표시가 붙는다.
 LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
-    "solution": (("name", "이름순"), ("recent", "최근 수정순")),
-    "customer": (("name", "이름순"), ("recent", "최근 수정순")),
-    "partner": (("name", "이름순"), ("recent", "최근 수정순")),
-    "project": (("name", "이름순"), ("recent", "최근 수정순")),
+    "solution": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
+    "customer": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
+    "partner": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
+    "project": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
     "bm": (("name", "이름순"), ("recent", "최근 수정순")),
-    "opportunity": (("recent", "최근 수정순"), ("name", "이름순")),
+    "opportunity": (("recent", "최근 수정순"), ("active", "최근 활동순"), ("name", "이름순")),
     "proposal": (("recent", "최근 수정순"), ("name", "이름순")),
     "activity": (("date", "일자순"), ("recent", "최근 수정순"), ("name", "제목순")),
 }
@@ -1098,6 +1135,23 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
 }
 
 
+# 지우기 확인 화면의 "연결이 끊깁니다" 건수: 유형 -> (끊기는 연결 [(보이는 이름, 관계 키, 도착 유형)], 함께 지워지는 줄 [(이름, 관계 키, 도착 유형)],
+# 제안 건 안에 들어 있는 경우의 문장 [(관계 키, 문장 틀 "{n}")]). 건수는 relations.link_counts 로 센다 (지우는 규칙은 바꾸지 않고 알려 주기만 한다).
+DELETE_IMPACT: dict[str, dict] = {
+    "solution": {"cut": (("영업기회", "R28", "opportunity"), ("BM", "R33", "bm"), ("활동 기록", "R4", "activity")),
+                 "inside": (("R14", "제안 건 {n}건의 방향에 이 솔루션이 들어 있습니다."),)},
+    "partner": {"cut": (("솔루션의 파트너 칸", "R1", "solution"), ("활동 기록", "R7", "activity"), ("같은 회사 고객", "R25", "customer"))},
+    "customer": {"cut": (("활동 기록", "R5", "activity"), ("고객 니즈", "R10", "customer_need"), ("같은 회사 파트너", "R25", "partner"))},
+    "project": {"cut": (("영업기회", "R30", "opportunity"), ("활동 기록", "R6", "activity"), ("제안 건", "R13", "proposal"), ("BM", "R31", "bm"))},
+    "bm": {"cut": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity"))},
+    "opportunity": {"cut": (("고객 니즈", "R26", "customer_need"), ("제안 건", "R29", "proposal"), ("프로젝트", "R30", "project"),
+                            ("활동 기록", "R6", "activity"), ("솔루션", "R28", "solution"), ("BM", "R32", "bm"))},
+    "activity": {"cut": (("솔루션", "R4", "solution"), ("고객", "R5", "customer"), ("파트너", "R7", "partner"), ("프로젝트", "R6", "project"), ("영업기회", "R6", "opportunity")),
+                 "gone": (("후속 조치", "R8", "follow_up"), ("고객 니즈", "R9", "customer_need"))},
+    "proposal": {"cut": (("고객", "R12", "customer"), ("프로젝트", "R13", "project"), ("영업기회", "R29", "opportunity"), ("솔루션", "R14", "solution"))},
+}
+
+
 # 제안 대화 입력칸 위의 시작 질문 (아직 이 방향의 대화가 없을 때만 화면에 칩으로 나온다)
 PROPOSAL_CHAT_STARTERS: tuple[str, ...] = (
     "예산을 절반으로 줄이면 어떻게 구성할까요?",
@@ -1105,6 +1159,14 @@ PROPOSAL_CHAT_STARTERS: tuple[str, ...] = (
     "이 고객이 가장 걱정할 점과 답변을 정리해 주세요",
     "경쟁 방식과 비교한 강점을 알려 주세요",
     "도입 일정을 단계별로 제안해 주세요",
+)
+
+
+# 연결을 이르는 말 (화면의 "이야기된 / 검토한 / 제안된" 이름이 같은 뜻으로 쓰이도록 도움말이 풀어 준다)
+RELATION_WORDS: tuple[tuple[str, str], ...] = (
+    ("이야기된", "활동 기록(미팅·통화 메모)에서 언급된 것입니다."),
+    ("검토한", "영업기회에서 고객 니즈에 맞춰 검토한 것입니다."),
+    ("제안된", "제안 건의 방향에 들어가 고객에게 제안되는 것입니다 (제안 건 화면에서는 \"선택한 방향의 솔루션\"으로 보입니다)."),
 )
 
 

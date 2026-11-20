@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import update
 from sqlalchemy.orm import Session
@@ -85,6 +85,9 @@ NO_TOPICS_MESSAGE = "사용 중인 리서치 주제가 없습니다."
 _INVISIBLE = {*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2066, 0x206A), 0xFEFF}
 
 
+_QUERY_IN_PATH = re.compile(r"&[A-Za-z0-9_.\-]+=")
+
+
 def clean_url(url: str) -> str | None:
     """http(s) 주소만 돌려준다. 공백·제어문자가 있거나 호스트가 없거나 너무 길면 None."""
     url = (url or "").strip()
@@ -99,6 +102,10 @@ def clean_url(url: str) -> str | None:
         return None
     if not host or parts.username is not None or parts.password is not None:
         return None
+    # "…/market&gsessionid=abc" 처럼 '?' 없이 '&이름=값' 이 경로에 붙은 주소는 첫 '&' 를 '?' 로 바로잡는다 (쿼리 값은 그대로 둔다)
+    if not parts.query and (m := _QUERY_IN_PATH.search(parts.path)):
+        parts = parts._replace(path=parts.path[:m.start()], query=parts.path[m.start() + 1:])
+        return urlunsplit(parts)
     return url
 
 

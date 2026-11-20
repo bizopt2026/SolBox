@@ -271,13 +271,27 @@ def create_app(settings: Settings) -> FastAPI:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.templates = Jinja2Templates(directory=templates_dir)
     from app.markdown_lite import render_markdown
-    from app.proposals import check_items, check_summary_text, number_sources, deck_is_stale, display_title, outline_check_summary
+    from app.proposals import check_items, check_summary_text, number_sources, deck_is_stale, display_title, outline_check_summary, unresolved_check_count
 
     app.state.templates.env.globals["display_title"] = display_title
     app.state.templates.env.globals["deck_is_stale"] = deck_is_stale
     app.state.templates.env.globals["check_items"] = check_items
     app.state.templates.env.globals["number_sources"] = number_sources
     app.state.templates.env.globals["outline_check_summary"] = outline_check_summary
+    app.state.templates.env.globals["unresolved_check_count"] = unresolved_check_count
+    from app.korean import josa as _josa
+
+    app.state.templates.env.globals["josa"] = _josa
+    app.state.templates.env.globals["current_sort"] = ui.current_sort
+    from app.checks import is_unopened as _is_unopened
+
+    app.state.templates.env.globals["is_unopened"] = _is_unopened
+    from app import impact as _impact
+
+    app.state.templates.env.globals["delete_impact"] = _impact.text_for  # 상세 화면 삭제 버튼의 "연결이 끊깁니다" 안내
+    from app.intake import is_archived as _intake_archived
+
+    app.state.templates.env.globals["intake_archived"] = _intake_archived
     app.state.templates.env.globals["check_summary_text"] = check_summary_text
     app.state.templates.env.globals["labels"] = labels  # 매크로에서도 쓴다
     app.state.templates.env.globals["ontology"] = ontology  # 대상 이름·속성 이름표·목록은 템플릿도 여기서 읽는다

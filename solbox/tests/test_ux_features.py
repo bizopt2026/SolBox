@@ -178,7 +178,10 @@ def test_chat_starters_appear_only_while_the_direction_has_no_messages(user_clie
     assert f'action="/proposals/{p.id}/chat" class="starters"' in page  # 스크립트 없이도: 칩 하나가 그 글을 보내는 작은 폼 버튼
     db.add(ProposalMessage(proposal_id=p.id, role="user", content="공조만 하자"))
     db.commit()
-    assert 'class="starters"' not in _chat_page(user_client, p)
+    after = _chat_page(user_client, p)
+    assert 'action="/proposals/%d/chat" class="starters" aria-label="이렇게 물어볼 수 있어요"' % p.id not in after  # 펼쳐 둔 시작 줄은 없고
+    assert '<details class="starters-more">' in after and "<summary>예시 질문</summary>" in after  # 접힌 "예시 질문" 안에 칩이 남는다
+    assert '<details class="starters-more" open' not in after and all(f'value="{t}"' in after.split("starters-more")[1] for t in ontology.PROPOSAL_CHAT_STARTERS)
 
 
 def test_chat_starters_come_back_for_a_new_direction(user_client, db, settings):
@@ -188,7 +191,7 @@ def test_chat_starters_come_back_for_a_new_direction(user_client, db, settings):
     db.commit()
     p.chat_from_id = m.id  # 방향을 바꾸면 이전 대화는 새 방향에 반영되지 않는다
     db.commit()
-    assert 'class="starters"' in _chat_page(user_client, p)
+    assert 'aria-label="이렇게 물어볼 수 있어요"' in _chat_page(user_client, p)
 
 
 def test_clicking_a_starter_without_javascript_sends_it_as_the_message(user_client, db, settings):
@@ -221,7 +224,7 @@ def test_home_my_follow_ups_switch(user_client, db, kim):
     db.commit()
     all_card = _home_fu(user_client.get("/").text)
     assert "내 일" in all_card and "남의 일" in all_card and "담당 없음" in all_card
-    assert re.search(r'<a href="/\?fu=mine">내 할 일<b>1</b></a>', all_card) and re.search(r'<a href="/" aria-current="page">전체<b>3</b></a>', all_card)
+    assert re.search(r'<a href="/\?fu=mine">내 할 일<b>1</b></a>', all_card) and re.search(r'<a href="/" aria-current="page">14일 이내<b>3</b></a>', all_card)
     mine = _home_fu(user_client.get("/?fu=mine").text)
     assert "내 일" in mine and "남의 일" not in mine and "담당 없음" not in mine
     assert re.search(r'<a href="/\?fu=mine" aria-current="page">내 할 일<b>1</b></a>', mine)
@@ -232,7 +235,7 @@ def test_home_my_follow_ups_empty_state_explains_how_to_become_mine(user_client,
     db.add(a)
     db.commit()
     mine = _home_fu(user_client.get("/?fu=mine").text)
-    assert "내 담당 후속 조치가 없습니다" in mine and "담당" in mine and "내 이름(kim)" in mine and "전체 보기에는 1건" in mine
+    assert "내 담당 후속 조치가 없습니다" in mine and "담당" in mine and "내 이름(kim)" in mine and "14일 이내 전체에는 1건" in mine
     assert "남의 일" not in mine
 
 

@@ -159,7 +159,8 @@ def test_deck_route_writes_names_and_checked(user_client, db, settings):
     user_client.post(f"/proposals/{p.id}/outline/slides/2/check", data={"item": "0", "text": "절감률 수치", "done": "1"})
     assert user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False).status_code == 303
     db.refresh(p)
-    notes = _notes(settings.decks_dir / str(p.id) / p.deck_name)
+    notes = _notes(settings.decks_dir / str(p.id) / p.deck_name.replace(".pptx", "-internal.pptx"))  # 노트는 내부 검토용 파일에만 있다
+    assert all(n == "" for n in _notes(settings.decks_dir / str(p.id) / p.deck_name))
     assert any("[출처]\nAI 에너지 절감" in n and "[확인함]\n절감률 수치" in n for n in notes)
     assert not any("solutions/1/card.md" in n for n in notes)
 
@@ -195,7 +196,7 @@ def test_describe_source_for_every_record_type(db, settings):
     assert got[f"Activity{act.id}"] == {"label": "킥오프 (2026-03-04)", "url": f"/activities/{act.id}", "kind": "활동 기록"}
     assert got[f"Activity{undated.id}"]["url"] == f"/activities/{undated.id}"
     assert got[f"SolutionFile{f.id}"] == {"label": "소개서 v2.pdf (AI 에너지 절감)", "url": f"/solutions/{sol.id}", "kind": "자료"}
-    assert got[f"ResearchReport{area.id}"] == {"label": "리서치 2026-05-06 기술", "url": f"/research/runs/{run.id}", "kind": "리서치"}
+    assert got[f"ResearchReport{area.id}"] == {"label": "리서치 2026-05-06 기술", "url": f"/research/runs/{run.id}#{area.area}", "kind": "리서치"}
     assert got[f"ResearchReport{sug.id}"]["label"] == "리서치 2026-05-06 발굴 방향 제안"
 
 
@@ -381,7 +382,7 @@ def test_direction_full_summary_and_roles_inside_details(user_client, db, settin
     db.commit()
     page = user_client.get(f"/proposals/{p.id}").text
     body = re.search(r'<details class="dir-more">(.*?)</details>', page, re.S).group(1)
-    assert long.strip() in body and role.strip() in body and "<dt>요약</dt>" in body and "<dt>조합 솔루션</dt>" in body
+    assert long.strip() in body and role.strip() in body and "<dt>요약</dt>" in body and "<dt>이 방향의 솔루션 " in body
     assert f'title="{long.strip()}"' in page
 
 

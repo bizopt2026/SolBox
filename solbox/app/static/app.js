@@ -24,6 +24,20 @@
     syncNav();
   }
 
+  // 단계 범례: 처음엔 보이고, 닫으면 이 브라우저에서 다시 보이지 않는다 (스크립트가 없으면 늘 보인다)
+  document.querySelectorAll("[data-legend]").forEach(function (box) {
+    var storeKey = "solbox.legend." + box.getAttribute("data-legend"), closed = false;
+    try { closed = window.localStorage.getItem(storeKey) === "1"; } catch (e) { /* 저장을 쓸 수 없으면 늘 보인다 */ }
+    if (closed) { box.hidden = true; return; }
+    var close = box.querySelector("[data-legend-close]");
+    if (!close) return;
+    close.hidden = false;
+    close.addEventListener("click", function () {
+      box.hidden = true;
+      try { window.localStorage.setItem(storeKey, "1"); } catch (e) { /* 기억하지 못해도 이번 화면에서는 닫힌다 */ }
+    });
+  });
+
   // 전체 검색: "/" 를 누르면 검색칸으로 (입력칸에 글을 쓰는 중에는 그냥 "/" 가 입력된다)
   var globalSearch = document.getElementById("global-search");
   if (globalSearch) {
@@ -197,6 +211,14 @@
       } catch (e) { /* 저장소를 못 쓰면 서버가 정한 상태 그대로 */ }
     }
     saveOpen();
+    // 기억해 둔 장을 펼치면 위쪽 장의 높이가 달라져 브라우저가 이미 맞춰 둔 앵커 위치가 어긋난다: 펼친 뒤 방금 만진 장으로 다시 맞춘다
+    (function () {
+      var target = document.getElementById(hashId());
+      if (target && target.matches && target.matches("details.slide-card")) {
+        target.open = true;
+        target.scrollIntoView({ block: "start" });
+      }
+    })();
     // 주소의 ?open=, ?renumber= 는 한 번 쓰고 지운다. 새로고침하면 기억해 둔 상태를 따른다
     if (params.has("open") || params.has("renumber") || params.has("notice")) {
       params.delete("open"); params.delete("renumber"); params.delete("notice");
@@ -563,22 +585,12 @@
   window.addEventListener("resize", function () { fitAll(); });
   fitAll();
 
-  // 제안 대화: 입력칸에서 Ctrl/⌘+Enter 로 보낸다 (Enter 는 줄바꿈. 한글 조합 중에는 가로채지 않는다). 시작 질문 칩은 칸에 글을 채운다.
+  // 제안 대화: 입력칸에서 Ctrl/⌘+Enter 로 보낸다 (Enter 는 줄바꿈. 한글 조합 중에는 가로채지 않는다). 시작 질문 칩은 누르면 바로 보낸다 (칩이 곧 제출 버튼이라 따로 할 일이 없다).
   document.addEventListener("keydown", function (e) {
     var t = e.target;
     if (!t || t.id !== "chat-message" || e.key !== "Enter" || !(e.ctrlKey || e.metaKey) || isComposing(e)) return;
     e.preventDefault();
     if (t.value.trim() && !t.disabled && t.form) t.form.requestSubmit();
-  });
-  document.addEventListener("click", function (e) {
-    var chip = e.target.closest && e.target.closest("[data-starter]");
-    var ta = document.getElementById("chat-message");
-    if (!chip || !ta || ta.disabled) return;
-    e.preventDefault();
-    ta.value = chip.value || chip.dataset.starter;
-    fit(ta);
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
   });
 
   // 목록 표: 줄의 빈 곳을 눌러도 제목 링크로 간다 (링크·버튼·입력칸을 누른 것과 글자를 끌어 고른 것은 그대로). 키보드는 제목 링크를 쓴다.

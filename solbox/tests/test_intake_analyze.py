@@ -224,12 +224,58 @@ def test_ready_page_renders_plan_read_only(app, user_client, db, settings, fake_
 
 
 def test_unreadable_only_fails_without_cli(app, user_client, db, settings, fake_claude):
-    r = _upload(user_client, [("회의.m4a", b"\x00\x01", "audio/mp4")])
+    r = _upload(user_client, [("메모.bin", b"\x00\x01", "application/octet-stream")])
     it = db.query(Intake).one()
     assert r.status_code == 303 and it.status == "failed" and it.error == "읽을 수 있는 파일이 없습니다."
     assert db.query(AIJob).count() == 0 and fake_claude.calls() == []
     page = user_client.get(f"/intake/{it.id}").text
     assert "읽을 수 있는 파일이 없습니다." in page and "다시 정리" in page
+
+
+def test_audio_only_while_transcription_off_is_kept_not_failed(app, user_client, db, settings, fake_claude):
+    """음성만 올렸고 받아쓰기가 꺼져 있으면 실패가 아니라 "보관됨" (옛 처리: 실패 + 다시 정리)."""
+    r = _upload(user_client, [("회의.m4a", b"\x00\x01", "audio/mp4")])
+    it = db.query(Intake).one()
+    assert r.status_code == 303 and it.status == "uploaded" and not it.error
+    assert db.query(AIJob).count() == 0 and fake_claude.calls() == []
+    page = user_client.get(f"/intake/{it.id}").text
+    assert "보관됨" in page and "음성 파일을 보관했어요" in page and "정리하지 못했어요" not in page and 'data-code="failed"' not in page
+    assert "글자로 풀어 다시 올리기" in page and 'href="/intake/new"' in page and "받아쓰기 켜기를 요청" in page
+    assert "다시 정리" not in page and "정리 시작" not in page and f'action="/intake/{it.id}/analyze"' not in page and "/admin/system" not in page  # 일반 사용자에게는 관리자 화면 링크가 없다
+    lst = user_client.get("/intake").text
+    assert "보관됨" in lst and 'data-code="failed"' not in lst
+    assert user_client.post(f"/intake/{it.id}/analyze", follow_redirects=False).status_code == 303
+    db.refresh(it)
+    assert it.status == "uploaded" and db.query(AIJob).count() == 0
+
+
+def test_archived_card_links_admin_to_system_page(app, admin_client, db, settings):
+    _upload(admin_client, [("회의.m4a", b"\x00\x01", "audio/mp4")])
+    it = db.query(Intake).one()
+    assert 'href="/admin/system#transcriber"' in admin_client.get(f"/intake/{it.id}").text
+
+
+def test_old_failed_audio_only_bundle_is_shown_as_kept_without_rewriting(app, user_client, db, settings):
+    """이미 실패로 저장된 음성뿐인 묶음도 데이터는 그대로 두고 보관됨으로 보인다."""
+    _upload(user_client, [("회의.m4a", b"\x00\x01", "audio/mp4")])
+    it = db.query(Intake).one()
+    it.status, it.error = "failed", "읽을 수 있는 파일이 없습니다."
+    db.commit()
+    page = user_client.get(f"/intake/{it.id}").text
+    assert "보관됨" in page and "다시 정리" not in page and "정리하지 못했어요" not in page
+    db.refresh(it)
+    assert it.status == "failed"
+
+
+def test_archived_bundle_can_be_reanalyzed_once_engine_is_enabled(app, user_client, db, settings, fake_claude, monkeypatch):
+    from app import transcribe
+
+    _upload(user_client, [("회의.m4a", b"\x00\x01", "audio/mp4")])
+    it = db.query(Intake).one()
+    monkeypatch.setattr(transcribe.get(settings).__class__, "available", lambda self: True, raising=False)
+    monkeypatch.setattr(transcribe, "get", lambda s: type("E", (), {"available": lambda self: True, "model_name": lambda self: "m", "language_name": lambda self: ""})())
+    page = user_client.get(f"/intake/{it.id}").text
+    assert "지금은 받아쓰기를 쓸 수 있어요" in page and "다시 정리" in page
 
 
 def test_ai_failure_marks_failed_and_reanalyze_works(app, user_client, db, settings, fake_claude):

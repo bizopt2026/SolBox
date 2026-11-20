@@ -291,10 +291,10 @@ def test_upload_without_engine_keeps_needs_transcript(app, user_client, db, sett
     assert audio.read_status == "needs_transcript" and it.status == "analyzing"  # 문서가 있으니 시작은 된다
 
 
-def test_audio_only_without_engine_still_fails_to_start(app, user_client, db, settings):
+def test_audio_only_without_engine_is_kept_not_started(app, user_client, db, settings):
     _upload(user_client, [AUDIO])
     it = _latest(db)
-    assert it.status == "failed" and it.error == intake_lib.NO_READABLE
+    assert it.status == "uploaded" and not it.error and intake_lib.is_archived(it)
 
 
 def test_audio_only_with_engine_starts_analysis(app, user_client, db, settings, stt):

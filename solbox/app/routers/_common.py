@@ -55,6 +55,24 @@ def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=(), lo
     return list(db.scalars(stmt.order_by(model.name, model.id)).unique())
 
 
+def duplicate_warning(db: Session, model, name: str, confirm: str = "", exclude: object | None = None) -> dict | None:
+    """같은 종류에 정규형(공백·기호·대소문자 무시)이 같은 이름이 이미 있으면 폼에 보일 경고 `{"label", "name", "records": [{"name", "url"}], "open_url"}`.
+    `confirm == "1"`("그래도 새로 등록")이면 None. 이름을 고치는 폼은 `exclude` 로 자기 자신을 빼고, 이름이 그대로면 묻지 않는다."""
+    from app.ai.tasks import normalize_name
+
+    key = normalize_name(name or "")
+    if confirm == "1" or not key:
+        return None
+    if exclude is not None and normalize_name(exclude.name or "") == key:
+        return None
+    code = next(t.code for t in ontology.TYPES.values() if t.model_name == model.__name__)
+    records = [{"name": n, "url": ontology.detail_url(code, i)}
+               for i, n in db.execute(select(model.id, model.name).order_by(model.id)) if normalize_name(n or "") == key and (exclude is None or i != exclude.id)]
+    if not records:
+        return None
+    return {"label": ontology.label(code), "name": name.strip(), "records": records, "open_url": records[0]["url"]}
+
+
 def name_error(name: str) -> str | None:
     """이름이 비었으면 화면에 보일 오류 문구를, 아니면 None."""
     return None if name.strip() else NAME_REQUIRED
@@ -143,7 +161,29 @@ def list_filter(db: Session, request: Request, list_type: str, rows) -> tuple[li
     return rows, notes
 
 
-def sort_rows(request: Request, list_type: str, rows, name_of=None) -> list:
+def origin_bucket(obj) -> str:
+    """기록의 유래 구분: intake / research / manual (비어 있으면 manual)."""
+    return obj.origin_type if obj.origin_type in (ontology.ORIGIN_INTAKE, ontology.ORIGIN_RESEARCH) else ontology.ORIGIN_MANUAL
+
+
+def origin_filter(request: Request, rows) -> tuple[list, list, str]:
+    """목록의 `?origin=` 걸러 보기 (전체 / 올리기 / 리서치 / 직접 입력). (걸러진 목록, 구분 탭, 지금 구분).
+    건수는 지금의 검색어·다른 걸러 보기를 적용한 목록 기준이고, 알 수 없는 값은 전체로 본다. 다른 조건과 쪽 번호는 `ui.seg_tabs` 가 지킨다."""
+    rows = list(rows)
+    current = request.query_params.get(ontology.ORIGIN_FILTER_PARAM, "")
+    if current not in ontology.ORIGINS:
+        current = ""
+    counts = {code: 0 for code in ontology.ORIGINS}
+    for r in rows:
+        counts[origin_bucket(r)] += 1
+    tabs = ui.seg_tabs(request, ontology.ORIGIN_FILTER_PARAM, [(c, ontology.ORIGINS[c]) for c in (ontology.ORIGIN_INTAKE, ontology.ORIGIN_RESEARCH, ontology.ORIGIN_MANUAL)],
+                       counts, current, len(rows))
+    if current:
+        rows = [r for r in rows if origin_bucket(r) == current]
+    return rows, tabs, current
+
+
+def sort_rows(request: Request, list_type: str, rows, name_of=None, db: Session | None = None) -> list:
     """목록의 `?sort=` (정의: ontology.LIST_SORTS). 화이트리스트가 아니면 기본 순서. 기본 순서는 각 목록이 이미 정해 둔 대로 두고 다른 것만 다시 정렬한다."""
     rows = list(rows)
     choices = ontology.LIST_SORTS[list_type]
@@ -156,6 +196,11 @@ def sort_rows(request: Request, list_type: str, rows, name_of=None) -> list:
         return sorted(rows, key=lambda o: (name(o), o.id))
     if sort == "date":
         return newest_first(rows)
+    if sort == "active":  # 표의 "최근 활동" 칸(연결된 활동 기록의 가장 늦은 일자) 순. 활동이 없는 줄은 뒤로
+        if db is None:
+            return rows
+        latest = relations.latest_activity_dates(db, list_type, [o.id for o in rows])
+        return sorted(rows, key=lambda o: (latest.get(o.id) is not None, latest[o.id].toordinal() if latest.get(o.id) else 0, o.id), reverse=True)
     return sorted(rows, key=lambda o: (o.updated_at, o.id), reverse=True)  # recent
 
 

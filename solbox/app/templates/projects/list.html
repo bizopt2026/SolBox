@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash %}
+{% from "_macros.html" import sort_th, list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash %}
 {% block title %}{{ ont.label("project") }}{% endblock %}
 {% block content %}
+{% set cur_sort = current_sort(request) %}
 {{ list_head(ont.label("project"), pg, q or flt, "/projects/new", type="project") }}
 {{ list_tools(request, none, "", q, flt, "이름, 고객으로 찾기") }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>{{ ont.prop("project", "name") }}</th><th class="col-sec">{{ ont.prop("project", "status") }}</th><th class="col-sec">연결</th><th class="col-sec">최근 활동</th></tr></thead>
+  <thead><tr>{{ sort_th(ont.prop("project", "name"), "name", cur_sort, "") }}<th class="col-sec">{{ ont.prop("project", "status") }}</th><th class="col-sec">연결</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>
   <tbody>
   {% for b in pg.items %}
     {% set i = info[b.id] %}

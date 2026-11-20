@@ -149,7 +149,7 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depe
     overdue = sum(1 for f in follow_ups if f["overdue"])  # 제목 줄 문장은 보기와 상관없이 전체 기준
     if mine_only:
         follow_ups = [f for f in follow_ups if f["owner_user_id"] == user.id]
-    fu_tabs = [ui.SegTab("", "전체", all_count, "/", not mine_only), ui.SegTab("mine", "내 할 일", mine_count, "/?fu=mine", mine_only)]
+    fu_tabs = [ui.SegTab("", f"{FOLLOW_UP_DAYS}일 이내", all_count, "/", not mine_only), ui.SegTab("mine", "내 할 일", mine_count, "/?fu=mine", mine_only)]
     intake = intake_summary(db, user)
     flow, opp = stage_flow(db, now), opportunity_bars(db)
     recent = recent_activities(db)

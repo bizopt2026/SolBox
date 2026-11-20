@@ -10,7 +10,7 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app import ontology, opportunities as opps, ui
+from app import impact as impact_lib, ontology, opportunities as opps, ui
 from app.db import get_db
 from app.main import render
 from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, ResearchRun, ResearchTopic, Solution, SolutionFile, User
@@ -137,8 +137,9 @@ def _make(spec: Spec):
     def page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
         obj = spec.load(db, user, request.path_params)
         name = spec.name(obj)
+        impact = impact_lib.sentences(db, spec.effects, obj) if spec.effects in ontology.DELETE_IMPACT and not (spec.blocker and spec.blocker(db, obj)) else []
         return render(
-            request, "confirm.html", obj_name=name, kind=spec.kind_label, verb=spec.verb, action=request.url.path, back=spec.back(obj),
+            request, "confirm.html", impact=impact, obj_name=name, kind=spec.kind_label, verb=spec.verb, action=request.url.path, back=spec.back(obj),
             effects=ontology.DELETE_EFFECTS[spec.effects], problem=spec.blocker(db, obj) if spec.blocker else None,
             crumbs=spec.crumbs(obj, name),
         )

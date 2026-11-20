@@ -4,6 +4,7 @@
 {% block content %}
 {{ page_header("시스템", crumbs=[("관리", none), ("시스템", none)], sub="서버 상태와 점검할 것을 한눈에 봅니다. 문제가 있는 줄에는 할 일이 함께 나옵니다.") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if fresh_backup and last_backup %}<p class="notice backup-where" role="status">방금 만든 백업은 <code class="path">{{ last_backup.path }}</code> 에 저장되었습니다.</p>{% endif %}
 {% macro row(label, tone, state, guide=none) %}
 <li class="check-row"><div class="cr-label">{{ label }}</div><div class="cr-body"><span class="badge tone-{{ tone }}">{{ state }}</span><div class="cr-text">{{ caller() }}</div>{% if guide %}<p class="cr-guide muted">{{ guide }}</p>{% endif %}</div></li>
 {% endmacro %}
@@ -18,7 +19,6 @@
       <small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
     {% endcall %}
     {% call row("AI 작업", "warn" if (pending + running) else "ok", "대기 있음" if (pending + running) else "한가함") %}대기 {{ pending }}건, 진행 {{ running }}건{% endcall %}
-    {% call row("음성 받아쓰기", "slate", "설정", none) %}{{ transcriber }}{% endcall %}
     {% call row("다음 조사 예정", "ok" if next_run else "slate", "예약됨" if next_run else "꺼짐", none if next_run else "자동 조사를 켜려면 '리서치 설정'에서 실행 주기를 켜세요.") %}
       {% if next_run %}{{ kdatetime(next_run) }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
     {% endcall %}
@@ -26,6 +26,21 @@
       {% if last_failed %}{{ kdatetime(last_failed.finished_at) if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
       {% else %}없음{% endif %}
     {% endcall %}
+  </ul>
+</section>
+
+<section class="card stack" aria-label="서버 점검" id="checks">
+  <h2>서버 점검</h2>
+  <p class="muted help">명령줄 <code>python -m app.cli check</code> 와 같은 항목입니다. 문제가 있는 줄에는 할 일이 함께 나옵니다.</p>
+  <ul class="check-rows">
+    {% for c in checks %}
+    <li class="check-row"{% if c.id %} id="{{ c.id }}"{% endif %}><div class="cr-label">{{ c.name }}</div>
+      <div class="cr-body"><span class="badge tone-{{ 'bad' if c.problem else 'ok' }}">{{ "문제" if c.problem else "정상" }}</span>
+        <div class="cr-text">{% if c.problem %}{{ c.problem }}{% elif c.detail %}{{ c.detail }}{% else %}이상 없음{% endif %}</div>
+        {% if c.meaning %}<p class="cr-guide muted">{{ c.meaning }}</p>{% endif %}
+        {% if c.problem and c.todo %}<p class="cr-guide"><b>할 일</b> {{ c.todo }}</p>{% endif %}
+      </div></li>
+    {% endfor %}
   </ul>
 </section>
 

@@ -13,11 +13,13 @@ from app.db import Base, make_engine, make_session_factory
 from app.knowledge import KnowledgeMirror
 from app.migrate import run_startup_migrations
 from app.models import User
-from app.security import hash_password
-from app.system import folder_size, human_size, run_checks
+from app.security import PASSWORD_RULE, hash_password, password_problem
+from app.system import folder_size, format_lines, human_size, run_checks
 
 
 def create_admin(session_factory, username: str, name: str, password: str) -> None:
+    if problem := password_problem(password, username):  # 웹과 같은 비밀번호 규칙 (security.password_problem)
+        raise SystemExit(f"비밀번호가 규칙에 맞지 않아 계정을 만들지 않았습니다: {problem}\n규칙: 비밀번호는 {PASSWORD_RULE}")
     with session_factory() as db:
         if db.query(User).filter_by(username=username).first():
             raise SystemExit(f"이미 있는 아이디입니다: {username}")
@@ -57,13 +59,10 @@ def _make_cert_command(hosts: list[str], out: str, overwrite: bool) -> None:
 
 
 def _check_command() -> None:
-    problems = 0
-    for name, problem, detail in run_checks(load_settings):
-        if problem is None:
-            print(f"{name}: 정상" + (f" ({detail})" if detail else ""))
-        else:
-            problems += 1
-            print(f"{name}: 문제: {problem}")
+    results = run_checks(load_settings)
+    for line in format_lines(results):  # 관리자 시스템 화면과 같은 항목·같은 말 (app.system.CHECK_INFO)
+        print(line)
+    problems = sum(1 for _, problem, _ in results if problem is not None)
     if problems:
         print(f"문제가 {problems}개 있습니다.")
         raise SystemExit(1)

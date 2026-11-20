@@ -16,9 +16,12 @@
    type 은 대상 유형 코드(없으면 sub 를 직접). 주 버튼은 new_url, 보조는 alt_url (기본 "직접 입력"). #}
 {% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", crumbs=none, sub=none, type=none) %}
 {% call page_header(title, crumbs=crumbs, sub=(sub or (ont.TYPES[type].description if type else none)), count=("검색 결과 " if searching else "") ~ pg.total ~ "건") %}
-{% if new_url %}{% if alt_url %}<a class="button" href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}<a class="button primary" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
+{% if new_url %}{% if alt_url %}<a class="button" href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}<a class="button primary{{ ' to-intake' if new_url == '/intake/new' }}" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
 {% endcall %}
 {% endmacro %}
+
+{# 정렬 중인 칸의 머리: 방향 표시(▲ 이름순 / ▼ 최근 것이 위)와 aria-sort. cur = ui.current_sort, code = 이 칸이 맡은 정렬 코드 #}
+{% macro sort_th(label, code, cur, cls="col-sec") %}<th class="{{ cls }}{{ ' sorted' if cur == code }}"{% if cur == code %} aria-sort="{{ 'ascending' if code == 'name' else 'descending' }}"{% endif %}>{{ label }}{% if cur == code %} <span class="sort-mark" aria-hidden="true">{{ '▲' if code == 'name' else '▼' }}</span>{% endif %}</th>{% endmacro %}
 
 {# 구분 탭 (시안의 .seg): 코드 목록의 값마다 건수. 링크로만 움직이고 현재 것에 aria-current. tabs 는 ui.seg_tabs 의 결과 #}
 {% macro seg(tabs, label="구분") %}
@@ -29,9 +32,10 @@
 
 {# 목록 도구줄: 구분 탭 + 작은 검색칸(GET, 엔터로 보냄, 글자 없는 이름표는 화면 읽기용) + 걸러 보기 칩.
    검색을 보낼 때 지금의 다른 조건(구분·걸러 보기 …)은 숨은 칸으로 따라간다 (쪽 번호만 버린다). #}
-{% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none) %}
+{% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none, origin_tabs=none) %}
 <div class="tools">
   {% if tabs %}{{ seg(tabs, tab_label) }}{% endif %}
+  {% if origin_tabs %}<span class="origin-tools"><span class="sort-label">유래</span>{{ seg(origin_tabs, "유래") }}</span>{% endif %}
   {% if search %}
   <form class="search tool-search" method="get" action="{{ request.url.path }}" role="search" aria-label="목록 검색">
     {% for k, v in request.query_params.multi_items() if k not in ("q", "page", "notice", "nt") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
@@ -98,7 +102,7 @@
    caller 본문은 수정 뒤·주 버튼 앞에 놓을 동작(안전한 HTML). #}
 {% macro detail_head(title, path, obj, can_delete, crumbs=none, sub=none, status=none, primary=none) %}
 {% call page_header(title, crumbs=crumbs, sub=sub, status=status, cls="detail") %}
-  {% if can_delete %}<span class="actions-danger">{{ confirm_link(path ~ "/" ~ obj.id ~ "/delete", cls="ghost danger") }}</span>{% endif %}
+  {% if can_delete %}<span class="actions-danger">{{ confirm_link(path ~ "/" ~ obj.id ~ "/delete", cls="ghost danger", ask=((delete_impact(obj) ~ " ") if delete_impact(obj) else "") ~ "정말 삭제할까요?") }}</span>{% endif %}
   <a class="button" href="{{ path }}/{{ obj.id }}/edit">수정</a>
   {% if caller is defined %}{{ caller() }}{% endif %}
   {% if primary %}<a class="button primary" href="{{ primary[1] }}">{{ primary[0] }}</a>{% endif %}
@@ -110,19 +114,25 @@
 {% macro confirm_link(url, label="삭제", ask="정말 삭제할까요?", ok=none, cls="ghost danger", aria=none) %}<a class="button {{ cls }}" href="{{ url }}" data-confirm-post="{{ url }}" data-ask="{{ ask }}" data-ok="{{ ok or label }}"{% if aria %} aria-label="{{ aria }}"{% endif %}>{{ label }}</a>{% endmacro %}
 
 {# 제목 줄 밑 단계 막대 (한 번 누르면 그 단계로: 같은 POST). flow = 차례로 나아가는 코드들, names = {코드: 이름}, side = 막대 옆 따로 선 코드들(보류·실패) #}
-{% macro stage_stepper(action, flow, names, current, side=(), label="단계") %}
+{% macro stage_stepper(action, flow, names, current, side=(), label="단계", key=none) %}
 <p class="sr-only">현재 단계: <strong>{{ names.get(current, current) }}</strong></p>
 {% set at = flow.index(current) if current in flow else -1 %}
 <form method="post" action="{{ action }}" class="stagebar" aria-label="{{ label }}">
   <div class="steps">
     {% for code in flow %}
-    <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at else (loop.index ~ " ") }}{{ names[code] }}</button>
+    <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if key and ont.code_help(key, code) %} title="{{ ont.code_help(key, code) }}"{% endif %}{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at else (loop.index ~ " ") }}{{ names[code] }}</button>
     {% endfor %}
   </div>
   {% for code in side %}
-  <button type="submit" name="stage" value="{{ code }}" class="step {{ 'hold' if code == 'hold' else 'sidestep ' ~ code }}{{ ' current' if current == code }}"{% if current == code %} aria-current="step" disabled{% endif %}>{{ names[code] }}</button>
+  <button type="submit" name="stage" value="{{ code }}" class="step {{ 'hold' if code == 'hold' else 'sidestep ' ~ code }}{{ ' current' if current == code }}"{% if key and ont.code_help(key, code) %} title="{{ ont.code_help(key, code) }}"{% endif %}{% if current == code %} aria-current="step" disabled{% endif %}>{{ names[code] }}</button>
   {% endfor %}
 </form>
+{% if key %}
+<div class="stage-legend card" data-legend="{{ key }}" role="note">
+  <p class="legend-head"><b>{{ label }}</b>은 이렇게 쓰입니다 <button type="button" class="linklike legend-close" data-legend-close hidden>닫기</button></p>
+  <ul>{% for code in flow %}<li><b>{{ names[code] }}</b> {{ ont.code_help(key, code) }}</li>{% endfor %}{% for code in side %}<li><b>{{ names[code] }}</b> {{ ont.code_help(key, code) }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
 {% endmacro %}
 
 {# 상세 화면의 조용한 "유래:" 줄. origin 은 origin.view 의 결과 (직접 입력·모름은 None 이라 아무것도 그리지 않는다) #}
@@ -155,10 +165,10 @@
 {% endmacro %}
 
 {# 글 입력 칸: 한 줄(rows 없음) / 여러 줄(rows) / 날짜(type="date"). 칸 이름 = name 속성 = 값 이름 그대로 #}
-{% macro text_field(label, name, value="", required=false, help=none, rows=none, wide=none, type="text", error=none, placeholder=none) %}
+{% macro text_field(label, name, value="", required=false, help=none, rows=none, wide=none, type="text", error=none, placeholder=none, datalist=none) %}
 {% call(err) field_shell(label, name, required, help, (wide if wide is not none else rows is not none), error) %}
 {% if rows %}<textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if required %} aria-required="true"{% endif %}{% if err %} aria-invalid="true" aria-describedby="e-{{ name }}"{% elif help %} aria-describedby="h-{{ name }}"{% endif %}>{{ value }}</textarea>
-{% else %}<input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} aria-required="true"{% endif %}{% if err %} aria-invalid="true" aria-describedby="e-{{ name }}"{% elif help %} aria-describedby="h-{{ name }}"{% endif %}>{% endif %}
+{% else %}<input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if datalist %} list="{{ datalist }}" autocomplete="off"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} aria-required="true"{% endif %}{% if err %} aria-invalid="true" aria-describedby="e-{{ name }}"{% elif help %} aria-describedby="h-{{ name }}"{% endif %}>{% endif %}
 {% endcall %}
 {% endmacro %}
 
@@ -201,6 +211,17 @@
 </div>
 {% endmacro %}
 
+{# 같은 이름이 이미 있다는 경고 (폼 안, 맨 위): 기존 것 열기(링크) / 그래도 등록(같은 폼을 확인 칸과 함께 다시 보냄). duplicate = _common.duplicate_warning 의 결과 #}
+{% macro dup_warning(duplicate, go_label="그래도 새로 등록") %}
+{% if duplicate %}
+<div class="dup-warning notice" role="alert" data-dup="1">
+  <p><b>같은 이름의 {{ josa(duplicate.label, "이/가") }} 이미 있어요.</b> 이미 등록한 것을 다시 만드는 것이 아닌지 먼저 확인하세요.</p>
+  <ul>{% for r in duplicate.records %}<li><a href="{{ r.url }}">{{ r.name }}</a></li>{% endfor %}</ul>
+  <p class="dup-acts"><a class="button" href="{{ duplicate.open_url }}">기존 것 열기</a> <button type="submit" name="confirm_dup" value="1" class="primary">{{ go_label }}</button></p>
+</div>
+{% endif %}
+{% endmacro %}
+
 {# 이름이 같은 짝 후보 안내: 한 번 누르면 같은 회사로 잇는다 (자동으로 잇지 않는다) #}
 {% macro same_name_hint(kind, name, action, field, value) %}
 <form method="post" action="{{ action }}" class="inline-form same-name-hint">
@@ -211,7 +232,11 @@
 {% endmacro %}
 
 {# 배지: 코드 목록 `key` 의 `code` 하나. 이름은 그 목록에서, 색은 ontology.CODE_TONES 한 곳에서 온다 #}
-{% macro pill(key, code, text=none) %}<span class="badge {{ ont.tone_class(key, code) }}" data-code="{{ code }}">{{ text if text is not none else ont.CODE_LISTS[key].items.get(code, code) }}</span>{% endmacro %}
+{% macro pill(key, code, text=none) %}<span class="badge {{ ont.tone_class(key, code) }}" data-code="{{ code }}"{% set _help = ont.code_help(key, code) %}{% if _help %} title="{{ _help }}"{% endif %}>{{ text if text is not none else ont.CODE_LISTS[key].items.get(code, code) }}</span>{% endmacro %}
+{# 올리기 묶음 상태 배지: 음성만 있어 보관만 된 묶음은 실패가 아니라 중립 색의 "보관됨" #}
+{% macro intake_pill(it) %}{% if intake_archived(it) %}<span class="badge tone-{{ ont.INTAKE_ARCHIVED_TONE }}" data-code="archived">{{ ont.INTAKE_ARCHIVED_LABEL }}</span>{% else %}{{ pill("intake_status", it.status) }}{% endif %}{% endmacro %}
+{# 목록의 "유래" 칸: 올리기·리서치로 만든 기록만 이름을 보이고, 직접 입력·모름은 흐린 줄표 #}
+{% macro origin_cell(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}{{ ont.ORIGINS[obj.origin_type] }}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
 {% macro stage_badge(code) %}{{ pill("stage", code) }}{% endmacro %}
 {% macro opportunity_badge(code) %}{{ pill("opportunity_stage", code) }}{% endmacro %}
 
@@ -251,10 +276,10 @@
 {% endmacro %}
 
 {# 출처 한 건: `종류 · 이름` 칩 링크. 링크가 없으면 글자만. src 는 요청마다 만든 조회 함수(app.sources.SourceLookup). #}
-{% macro source_chip(src, path) %}{% set d = src(path) %}{% if d.url %}<a class="chip" href="{{ d.url }}">{% if d.kind %}<span class="chip-kind">{{ d.kind }}</span>{% endif %}{{ d.label }}</a>{% else %}<span class="chip raw">{{ d.label }}</span>{% endif %}{% endmacro %}
+{% macro source_chip(src, path) %}{% set d = src(path) %}{% if d.url %}<a class="chip" href="{{ d.url }}">{% if d.kind and not d.label.startswith(d.kind) %}<span class="chip-kind">{{ d.kind }}</span>{% endif %}{{ d.label }}</a>{% else %}<span class="chip raw">{{ d.label }}</span>{% endif %}{% endmacro %}
 
 {# 확인 항목 배지: 종류에 따라 빨강(근거 문제) / 노랑(확인할 점) #}
-{% macro check_badge(kind) %}{{ pill("check_kind", kind) }}{% endmacro %}
+{% macro check_badge(kind, text=none) %}{% if kind == "evidence" and text and is_unopened(text) %}<span class="badge tone-warn" data-code="unopened" title="{{ ont.code_help('check_kind', 'evidence') }}">본문 미확인</span>{% else %}{{ pill("check_kind", kind) }}{% endif %}{% endmacro %}
 
 {# 올리기 정리안 카드 머리: 종류 배지, 제목, 이 항목 제외 체크. card 는 intake.review_cards 의 한 항목.
    data-sum 은 고치기를 닫을 때 스크립트가 입력값으로 갱신하는 자리 (스크립트가 없으면 서버가 그린 값 그대로). #}
@@ -268,6 +293,7 @@
 
 {# 정리한 이유와 붙는 파일 이름 #}
 {% macro plan_meta(card) %}
+{% for d in card.dup_notes or [] %}<p class="plan-dup-file notice" role="status">같은 파일을 {{ d.date.month }}월 {{ d.date.day }}일에 올려 저장했습니다 (<a href="/intake/{{ d.intake_id }}">묶음 {{ d.intake_id }}</a>){% if card.files | length > 1 %}: {{ d.number }}번 파일{% endif %}.{% if card.v.skip %} 그래서 이 항목은 제외로 해 두었어요. 다시 저장하려면 "이 항목 제외"를 풀어 주세요.{% endif %}</p>{% endfor %}
 {% if card.item.reason %}<p class="plan-reason"><strong>이렇게 정리한 이유</strong> {{ card.item.reason }}</p>{% endif %}
 {% if card.files %}<p class="chips plan-attached"><span class="muted">{{ ont.INTAKE_ITEM_KINDS[ontology.INTAKE_ITEM_UNPLACED] if card.item.kind == ontology.INTAKE_ITEM_UNPLACED else "붙는 파일" }}</span>{% for n, name in card.files %}<span class="chip">{{ n }}번 {{ name }}</span>{% endfor %}</p>{% endif %}
 {% endmacro %}

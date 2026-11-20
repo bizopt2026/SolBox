@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app import ontology
 from app.ai.tasks import normalize_name
+from app.korean import josa
 from app.models import BM, Activity, Customer, CustomerNeed, Opportunity, Project, Proposal, User
 from app.ui import FieldError
 
@@ -25,17 +26,17 @@ NAME_REQUIRED = FieldError("이름을 입력하세요.", "name")
 CUSTOMER_REQUIRED = FieldError("고객을 선택하세요.", "customer_id")
 BAD_STAGE = FieldError("알 수 없는 단계입니다.", "stage")
 BAD_BM = FieldError(f"존재하지 않는 {L_BM}입니다.", "bm_id")
-NEED_NOT_BUNDLABLE = f"묶을 수 없는 {L_NEED}가 있습니다. 이 고객에 연결된 {L_NEED} 중 다른 {L_OPP}에 묶이지 않은 것만 고를 수 있습니다."
-CHANGE_HAS_NEEDS = f"묶은 {L_NEED}가 있으면 고객을 바꿀 수 없습니다. {L_NEED} 선택을 먼저 풀어 주세요."
-CHANGE_HAS_LINKS = f"{L_PROJECT}나 제안 건이 이어진 {L_OPP}는 고객을 바꿀 수 없습니다."
-NOT_WON = f"{L_PROJECT}로 전환은 수주 단계에서만 할 수 있습니다."
+NEED_NOT_BUNDLABLE = f"묶을 수 없는 {josa(L_NEED, '이/가')} 있습니다. 이 고객에 연결된 {L_NEED} 중 다른 {L_OPP}에 묶이지 않은 것만 고를 수 있습니다."
+CHANGE_HAS_NEEDS = f"묶은 {josa(L_NEED, '이/가')} 있으면 고객을 바꿀 수 없습니다. {L_NEED} 선택을 먼저 풀어 주세요."
+CHANGE_HAS_LINKS = f"{josa(L_PROJECT, '이나/나')} 제안 건이 이어진 {josa(L_OPP, '은/는')} 고객을 바꿀 수 없습니다."
+NOT_WON = f"{josa(L_PROJECT, '으로/로')} 전환은 수주 단계에서만 할 수 있습니다."
 NO_PROJECT = f"존재하지 않는 {L_PROJECT}입니다."
-PROJECT_OTHER_CUSTOMER = f"선택한 고객의 {L_PROJECT}가 아닙니다."
-PROJECT_TAKEN = f"이미 다른 {L_OPP}와 이어진 {L_PROJECT}입니다."
-PROJECT_HAS_OPPORTUNITY = f"이 {L_PROJECT}는 {L_OPP}와 이어져 있어 고객을 바꿀 수 없습니다."
-HAS_OPPORTUNITIES = f"{L_OPP}가 있는 고객은 삭제할 수 없습니다. {L_OPP}를 먼저 삭제해 주세요."
-BM_IN_USE = f"이 {L_BM}을 따르는 {L_PROJECT}나 {L_OPP}가 있어 삭제할 수 없습니다. {L_PROJECT}·{L_OPP}의 {L_BM}을 먼저 바꾸거나 비워 주세요."
-OPPORTUNITY_MISMATCH = f"선택한 고객의 {L_OPP}가 아닙니다."
+PROJECT_OTHER_CUSTOMER = f"선택한 고객의 {josa(L_PROJECT, '이/가')} 아닙니다."
+PROJECT_TAKEN = f"이미 다른 {josa(L_OPP, '와/과')} 이어진 {L_PROJECT}입니다."
+PROJECT_HAS_OPPORTUNITY = f"이 {josa(L_PROJECT, '은/는')} {josa(L_OPP, '와/과')} 이어져 있어 고객을 바꿀 수 없습니다."
+HAS_OPPORTUNITIES = f"{josa(L_OPP, '이/가')} 있는 고객은 삭제할 수 없습니다. {josa(L_OPP, '을/를')} 먼저 삭제해 주세요."
+BM_IN_USE = f"이 {josa(L_BM, '을/를')} 따르는 {josa(L_PROJECT, '이나/나')} {josa(L_OPP, '이/가')} 있어 삭제할 수 없습니다. {L_PROJECT}·{L_OPP}의 {josa(L_BM, '을/를')} 먼저 바꾸거나 비워 주세요."
+OPPORTUNITY_MISMATCH = f"선택한 고객의 {josa(L_OPP, '이/가')} 아닙니다."
 NO_OPPORTUNITY = f"존재하지 않는 {L_OPP}입니다."
 
 
@@ -140,7 +141,7 @@ def stage_problem(stage: str) -> str | None:
 def convert_problem(opp: Opportunity) -> str | None:
     """프로젝트로 전환(만들기·잇기)할 수 없는 이유. 수주 단계이고 아직 프로젝트가 없을 때만 할 수 있다."""
     if opp.project_id is not None:
-        return f"이미 {L_PROJECT}가 있습니다."
+        return f"이미 {josa(L_PROJECT, '이/가')} 있습니다."
     if opp.stage != ontology.OPPORTUNITY_STAGE_WON:
         return NOT_WON
     return None
@@ -173,6 +174,11 @@ def claim_project(db: Session, opp: Opportunity, project_id: int) -> bool:
     (호출자가 `PROJECT_TAKEN` 으로 보여 준다)."""
     claimed = db.execute(update(Opportunity).where(Opportunity.id == opp.id, Opportunity.project_id.is_(None)).values(project_id=project_id))
     if claimed.rowcount == 1:
+        # 이 영업기회의 제안 건 중 프로젝트가 아직 없고 같은 고객인 것은 이 프로젝트를 발판으로 잇는다 (이미 프로젝트가 있는 제안 건은 건드리지 않는다)
+        project = db.get(Project, project_id)
+        if project is not None:
+            db.execute(update(Proposal).where(Proposal.opportunity_id == opp.id, Proposal.project_id.is_(None), Proposal.customer_id == project.customer_id)
+                       .values(project_id=project_id))
         db.refresh(opp)
         return True
     return False
@@ -195,7 +201,7 @@ def link_project(db: Session, opp: Opportunity, project: Project) -> str | None:
     try:
         if not claim_project(db, opp, project.id):
             db.rollback()
-            return f"이미 {L_PROJECT}가 있습니다."
+            return f"이미 {josa(L_PROJECT, '이/가')} 있습니다."
     except IntegrityError:
         db.rollback()
         return PROJECT_TAKEN

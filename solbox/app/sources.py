@@ -43,7 +43,8 @@ def _describe(db: Session, path: str, fmt=None) -> dict:
             day = day_text(date.fromisoformat(v["day"]))
         except ValueError:
             day = v["day"]
-        return {"label": f"{t.kind_label} {day} {name}", "url": ontology.detail_url("research_run", r.run_id), "kind": t.kind_label}
+        anchor = r.area if r.kind == "area" and r.area else "suggestions"  # 같은 조사의 보고서마다 그 보고서 자리(분야 탭·발굴 방향 제안)로 간다
+        return {"label": f"{t.kind_label} {day} {name}", "url": f"{ontology.detail_url('research_run', r.run_id)}#{anchor}", "kind": t.kind_label}
     obj = db.get(t.model, int(v["id"]))  # solution / customer / project / partner
     return {"label": obj.name, "url": t.url(obj.id), "kind": t.kind_label} if obj else _plain(path)
 

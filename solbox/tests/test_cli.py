@@ -24,7 +24,7 @@ def _users(settings_path):
 
 
 def test_create_admin_prompts_for_password_when_omitted(cfg, monkeypatch):
-    answers = iter(["비밀번호1", "비밀번호1"])
+    answers = iter(["비밀번호12345", "비밀번호12345"])
     monkeypatch.setattr(cli.getpass, "getpass", lambda prompt="": next(answers))
     cli.main(["create-admin", "--username", "boss", "--name", "관리자"])
     assert _users(cfg) == ["boss"]
@@ -53,7 +53,7 @@ def test_cli_adds_missing_columns_to_an_older_database(cfg, monkeypatch):
 
     real = migrate.add_missing_columns
     monkeypatch.setattr(migrate, "add_missing_columns", lambda *a, **k: seen.append(1) or real(*a, **k))
-    cli.main(["create-admin", "--username", "boss", "--name", "관리자", "--password", "pw1234"])
+    cli.main(["create-admin", "--username", "boss", "--name", "관리자", "--password", "pw123456"])
     cli.main(["rebuild-knowledge"])
     assert len(seen) == 2
     assert _users(cfg) == ["boss"]

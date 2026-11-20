@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar, rev_fields, form_token %}
+{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar, rev_fields, form_token, dup_warning %}
 {% block title %}{{ ont.label("bm") }} {{ "수정" if bm else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("bm") %}
@@ -7,6 +7,7 @@
 {{ form_error(error) }}
 <form method="post" action="{{ "/bms/" ~ bm.id if bm else "/bms" }}" class="form-page">
   {% if bm %}{{ rev_fields(bm, conflict, "/bms/" ~ bm.id) }}{% else %}{{ form_token() }}{% endif %}
+  {{ dup_warning(duplicate, "그래도 이 이름으로 저장" if bm else "그래도 새로 등록") }}
   <section class="card">
     <h2>기본 정보</h2>
     <div class="fgrid">

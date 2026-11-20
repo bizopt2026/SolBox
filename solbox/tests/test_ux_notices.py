@@ -124,7 +124,7 @@ def test_post_notice_codes_exist_in_the_table():
 
 # 라우트 -> 알림 코드 (None 또는 괄호 글은 알림이 없는 이유). 보고서의 표와 같다.
 POST_NOTICES = {
-    "/login": "(로그인: 홈으로)", "/logout": "(로그인 화면으로)", "/account/password": "password_changed",
+    "/login": "(로그인: 홈으로)", "/logout": "(로그인 화면으로)", "/account/password": "password_changed", "/account/contact": "saved", "/follow-ups/{follow_up_id}/mine": "fu_mine",
     "/solutions": "created", "/solutions/{solution_id}/draft": "(AI 초안 작업 진행 화면)", "/solutions/{solution_id}/stage": "stage.{stage}",
     "/solutions/{solution_id}": "saved", "/solutions/{solution_id}/delete": "deleted",
     "/solutions/{solution_id}/files": "files_uploaded", "/files/{file_id}/kind": "file_kind", "/files/{file_id}/delete": "file_deleted",

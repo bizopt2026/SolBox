@@ -33,14 +33,14 @@
 <div class="dash">
   <div class="dash-col dash-main">
   <section class="card o1" aria-labelledby="h-fu">
-    <header class="card-head"><h2 id="h-fu">후속 조치 <span class="count">기한 14일 이내</span></h2><a href="/follow-ups">모두 보기</a></header>
+    <header class="card-head"><h2 id="h-fu">후속 조치 <span class="count">기한 14일 이내</span></h2><a href="/follow-ups">기한 없는 것까지 모두 보기</a></header>
     {{ seg(fu_tabs, "후속 조치 보기") }}
     {% if follow_ups %}
     <ul class="fu-list">
       {% for f in follow_ups %}{{ fu_item(f) }}{% endfor %}
     </ul>
     {% if follow_up_more %}<p class="muted card-foot">외 {{ follow_up_more }}건 · <a href="/follow-ups">모두 보기</a></p>{% endif %}
-    {% elif mine_only %}<p class="muted">내 담당 후속 조치가 없습니다. 활동 기록의 후속 조치 <b>담당</b> 칸에 내 이름({{ user.name or user.username }})을 그대로 쓰면 내 할 일로 모입니다.{% if fu_tabs[0].count %} 전체 보기에는 {{ fu_tabs[0].count }}건이 있습니다.{% endif %}</p>
+    {% elif mine_only %}<p class="muted">내 담당 후속 조치가 없습니다. 활동 기록의 후속 조치 <b>담당</b> 칸에 내 이름({{ user.name or user.username }})을 쓰거나(뒤에 직함이 붙어도 됩니다) 그 줄의 "내 할 일로" 버튼을 누르면 내 할 일로 모입니다.{% if fu_tabs[0].count %} 14일 이내 전체에는 {{ fu_tabs[0].count }}건이 있습니다.{% endif %}</p>
     {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
   </section>
 
@@ -93,7 +93,7 @@
       </a>
       {% endfor %}
     </div>
-    {% else %}<p class="muted">아직 등록된 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
+    {% else %}<p class="muted">아직 등록된 {{ josa(ont.label("opportunity"), "이/가") }} 없습니다.</p>{% endif %}
     <p class="muted open-opps card-foot">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ opp.open }}건</a></p>
   </section>
 

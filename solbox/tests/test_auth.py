@@ -66,7 +66,7 @@ def test_admin_updates_other_user_and_password(admin_client, client, db):
 def test_create_admin_cli_helper(app, db):
     from app.cli import create_admin
 
-    create_admin(app.state.session_factory, "root", "루트", "pw1234")
+    create_admin(app.state.session_factory, "root", "루트", "pw123456")
     assert db.query(User).filter_by(username="root").one().role == "admin"
 
 

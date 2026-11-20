@@ -32,7 +32,7 @@ def test_build_and_download(user_client, db, settings):
     assert d.content[:2] == b"PK"
     assert d.headers["content-type"] == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     assert d.headers["content-disposition"] == (
-        f'attachment; filename="proposal-{p.id}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + ".pptx"))
+        f'attachment; filename="proposal-{p.id}-customer.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + "_고객용.pptx"))
 
 
 def test_build_back_to_outline(user_client, db, settings):
@@ -50,7 +50,7 @@ def test_rebuild_replaces_old_file(user_client, db, settings):
     db.refresh(p)
     assert p.deck_name != first
     files = _files(settings, p)
-    assert [f.name for f in files] == [p.deck_name]
+    assert [f.name for f in files] == sorted([p.deck_name, p.deck_name.replace(".pptx", "-internal.pptx")])  # 고객용 + 내부 검토용 한 쌍만
 
 
 def test_stale_after_outline_edit(user_client, db, settings):
@@ -87,7 +87,7 @@ def test_build_failure_keeps_previous(user_client, db, settings, monkeypatch):
     assert r.status_code == 400 and FAILED in r.text
     db.refresh(p)
     assert p.deck_name == name and p.deck_built_at == built and p.status == "deck"
-    assert [f.name for f in _files(settings, p)] == [name]
+    assert [f.name for f in _files(settings, p)] == sorted([name, name.replace(".pptx", "-internal.pptx")])
 
 
 def test_no_outline_rejected_and_missing_file_404(user_client, db, settings):

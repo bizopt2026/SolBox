@@ -92,7 +92,7 @@
           <button type="submit" class="tick" aria-label="확인함" aria-pressed="{{ 'true' if it.checked else 'false' }}" title="{{ '확인함 취소' if it.checked else '확인함으로 표시' }}">{% if it.checked %}&#10003;{% endif %}</button>
         </form>
         {% endif %}
-        {{ check_badge(it.kind) }} <span class="check-text">{{ it.text }}</span>
+        {{ check_badge(it.kind, it.text) }} <span class="check-text">{{ it.text }}</span>
       </li>
       {% endfor %}
     </ul>

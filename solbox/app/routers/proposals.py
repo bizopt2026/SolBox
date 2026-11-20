@@ -24,7 +24,7 @@ from app.knowledge import safe_name
 from app.main import render
 from app.models import Customer, Opportunity, Project, Proposal, ProposalMessage, Solution, User
 from app.proposals import (
-    candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
+    candidate_solutions, contact_lines, display_title, internal_deck_path, open_section, reset_for_new_direction, section_summaries, start_job,
     step_states,
 )
 from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields, sort_rows
@@ -363,37 +363,63 @@ def build(
     now = datetime.now()
     name = f"deck-{now:%Y%m%d-%H%M%S}-{secrets.token_hex(3)}.pptx"
     temp, final = folder / f"{name}.tmp", folder / name
+    internal_temp = internal_deck_path(temp)
     old_name = p.deck_name
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
-        build_deck(p.outline, temp, customer_name=p.customer.name, today=date.today(),
-                   source_labels=SourceLookup(db).labels(paths))
+        _write_deck_pair(db, p, temp, user)
         temp.replace(final)
+        internal_temp.replace(internal_deck_path(final))
         p.deck_name, p.deck_built_at, p.status = name, now, "deck"
         db.commit()
     except Exception:
         db.rollback()
-        temp.unlink(missing_ok=True)
-        final.unlink(missing_ok=True)
+        for f in (temp, internal_temp, final, internal_deck_path(final)):
+            f.unlink(missing_ok=True)
         db.refresh(p)
         return _detail_page(request, db, p, user, status_code=400, deck_error=DECK_FAILED)
     if old_name and old_name != name:
         (folder / old_name).unlink(missing_ok=True)
+        internal_deck_path(folder / old_name).unlink(missing_ok=True)
     suffix = "/outline#deck" if back == "outline" else "#deck"
     return notices.redirect(f"/proposals/{p.id}{suffix}", "deck_built")
 
 
+def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User) -> None:
+    """같은 구성안으로 고객용(`customer_path`)과 내부 검토용(그 옆 `-internal`) 파일을 쓴다."""
+    paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
+    common = dict(customer_name=p.customer.name, today=date.today(), contact=contact_lines(user))
+    build_deck(p.outline, customer_path, audience="customer", **common)
+    build_deck(p.outline, internal_deck_path(customer_path), audience="internal", source_labels=SourceLookup(db).labels(paths), **common)
+
+
+DECK_VERSIONS = {"customer": "고객용", "internal": "내부검토용"}  # 파일 이름에 붙는 말
+DECK_ASCII = {"customer": "customer", "internal": "internal"}
+
+
 @router.get("/{proposal_id}/deck")
 def download(
-    proposal_id: int, request: Request,
+    proposal_id: int, request: Request, version: str = "customer",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
+    """`?version=customer`(기본, 고객용: 발표자 노트 없음) / `internal`(내부 검토용: 노트에 출처·확인 항목)."""
     p = get_or_404(db, Proposal, proposal_id)
-    path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name if p.deck_name else None
-    if path is None or not path.is_file():
+    version = version if version in DECK_VERSIONS else "customer"
+    customer_path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name if p.deck_name else None
+    if customer_path is None or not customer_path.is_file():
         raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
-    disposition = f'attachment; filename="proposal-{p.id}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + ".pptx")
+    internal_path = internal_deck_path(customer_path)
+    if not internal_path.is_file() and p.outline and p.outline.get("slides"):
+        # 두 파일로 나누기 전에 만든 제안서: 옛 파일은 노트가 든 것이라 그대로 고객용으로 내려보내지 않고 지금 구성안으로 두 파일을 다시 쓴다
+        try:
+            _write_deck_pair(db, p, customer_path, user)
+        except Exception:
+            raise HTTPException(status_code=500, detail=DECK_FAILED) from None
+    path = customer_path if version == "customer" else internal_path
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
+    suffix = f"_{DECK_VERSIONS[version]}.pptx"
+    disposition = f'attachment; filename="proposal-{p.id}-{DECK_ASCII[version]}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + suffix)
     return FileResponse(path, media_type=PPTX_TYPE, headers={"Content-Disposition": disposition})
 
 

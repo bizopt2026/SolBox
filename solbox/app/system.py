@@ -166,7 +166,43 @@ def _check_port(settings: Settings) -> Check:
     return ("포트", None, f"{settings.host}:{settings.port} 사용 가능")
 
 
-def run_checks(load: Callable[[], Settings]) -> list[Check]:
+# 점검 항목마다 "무슨 점검인지"와 "문제가 있을 때 할 일" (관리자 시스템 화면과 `python -m app.cli check` 가 같은 항목·같은 말을 쓴다)
+CHECK_INFO: dict[str, tuple[str, str]] = {
+    "설정 파일 읽기": ("config.toml 을 읽어 서버 설정을 불러옵니다.", "config.toml 의 문법과 항목 이름을 config.example.toml 과 견주어 고치세요."),
+    "Python 버전": (f"솔박스는 Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} 이상에서 돌아갑니다.", f"Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} 이상을 설치하고 가상환경을 다시 만드세요."),
+    "데이터 폴더": ("데이터베이스·올린 파일·지식 사본이 저장되는 폴더이고, 서버가 쓸 수 있어야 합니다.", "config.toml 의 data_dir 경로와 그 폴더의 쓰기 권한(서버를 돌리는 계정)을 확인하세요."),
+    "데이터베이스": ("모든 기록이 든 app.db 파일을 열 수 있는지 봅니다.", "파일이 손상됐으면 서버를 멈추고 최근 백업으로 복원하세요 (운영 가이드의 복원 항목)."),
+    "지식 폴더": ("AI 가 읽는 지식 사본 폴더입니다 (원본은 데이터베이스입니다).", "python -m app.cli rebuild-knowledge 로 데이터베이스에서 다시 만드세요."),
+    "Claude CLI": ("AI 작업이 부르는 Claude 명령을 실행할 수 있는지 봅니다.", "Claude CLI 를 설치하고 PATH 를 확인한 뒤, 서버 계정으로 claude 를 한 번 실행해 로그인하세요."),
+    "음성 받아쓰기": ("음성 파일을 글자로 바꾸는 선택 기능입니다. 꺼 두어도 다른 기능에는 영향이 없습니다.",
+                 "쓰려면 config.toml 의 transcriber 를 켜고 python -m app.cli stt-setup 으로 모델을 받은 뒤 서버를 다시 시작하세요."),
+    "인증서": ("HTTPS 접속에 쓰는 인증서와 키 파일을 읽을 수 있는지 봅니다.", "python -m app.cli make-cert 로 다시 만들거나 config.toml 의 ssl_certfile·ssl_keyfile 경로를 고치세요."),
+    "포트": ("서버가 접속을 받을 주소와 포트를 쓸 수 있는지 봅니다.", "다른 프로그램이 같은 포트를 쓰고 있으면 config.toml 의 port 를 바꾸거나 그 프로그램을 끄세요."),
+}
+
+
+def describe(name: str) -> tuple[str, str]:
+    """(점검 뜻, 문제일 때 할 일). 모르는 항목은 빈 글."""
+    return CHECK_INFO.get(name, ("", ""))
+
+
+def format_lines(results: list[Check]) -> list[str]:
+    """명령줄 `check` 의 출력 줄들. 첫 줄은 항목마다 "이름: 정상 (…)" / "이름: 문제: …", 그 밑에 뜻과 (문제일 때) 할 일."""
+    lines = []
+    for name, problem, detail in results:
+        meaning, todo = describe(name)
+        if problem is None:
+            lines.append(f"{name}: 정상" + (f" ({detail})" if detail else ""))
+        else:
+            lines.append(f"{name}: 문제: {problem}")
+        if meaning:
+            lines.append(f"  뜻: {meaning}")
+        if problem is not None and todo:
+            lines.append(f"  할 일: {todo}")
+    return lines
+
+
+def run_checks(load: Callable[[], Settings], skip_port: bool = False) -> list[Check]:
     """점검 결과 목록. 설정을 읽지 못하면 그 한 줄만 돌려준다. 서버를 띄우거나 데이터를 바꾸지 않는다."""
     try:
         settings = load()
@@ -182,5 +218,8 @@ def run_checks(load: Callable[[], Settings]) -> list[Check]:
     cert = _check_cert(settings)
     if cert is not None:
         results.append(cert)
-    results.append(_check_port(settings))
+    if skip_port:  # 서버가 이미 그 포트로 이 화면을 보내고 있다: 새로 열어 보지 않고 쓰는 중이라고 알린다
+        results.append(("포트", None, f"{settings.host}:{settings.port} 에서 이 서버가 응답하는 중입니다"))
+    else:
+        results.append(_check_port(settings))
     return results

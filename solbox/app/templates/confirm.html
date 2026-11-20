@@ -10,6 +10,7 @@
   <p class="error" role="alert">{{ problem }}</p>
   <p><a class="button" href="{{ back }}">돌아가기</a></p>
   {% else %}
+  {% if impact %}<p class="confirm-impact" role="status"><b>지금 연결된 기록</b><br>{{ impact | join(" ") }}</p>{% endif %}
   <ul class="confirm-effects">{% for e in effects %}<li>{{ e }}</li>{% endfor %}</ul>
   <p class="muted">{{ "삭제한" if verb == "삭제" else "버린" }} 뒤에는 되돌릴 수 없습니다.</p>
   <form method="post" action="{{ action }}" class="row confirm-actions">

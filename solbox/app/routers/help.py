@@ -21,6 +21,15 @@ def glossary() -> list[dict]:
     return out
 
 
+def stage_blocks() -> list[dict]:
+    """"발굴 단계"·"영업기회 단계" 풀이: 이름과 한 문장 뜻은 코드 목록(ontology.CODE_LISTS)에서 그대로."""
+    out = []
+    for key, flow, side in (("stage", ontology.STAGE_FLOW, (ontology.STAGE_HOLD,)), ("opportunity_stage", ontology.OPPORTUNITY_FLOW, ontology.OPPORTUNITY_SIDE_STAGES)):
+        cl = ontology.CODE_LISTS[key]
+        out.append({"key": key, "title": cl.label, "rows": [(cl.items[c], ontology.code_help(key, c)) for c in (*flow, *side)]})
+    return out
+
+
 @router.get("/help")
 def help_page(request: Request, user: User = Depends(require_user)):
-    return render(request, "help.html", glossary=glossary(), is_admin=user.role == "admin", max_files=intake_lib.MAX_FILES)
+    return render(request, "help.html", glossary=glossary(), stage_blocks=stage_blocks(), relation_words=ontology.RELATION_WORDS, is_admin=user.role == "admin", max_files=intake_lib.MAX_FILES)

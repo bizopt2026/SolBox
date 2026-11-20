@@ -107,6 +107,52 @@ def stored_path(settings: Settings, f: IntakeFile) -> Path:
     return intake_upload_dir(settings, f.intake_id) / f.stored_name
 
 
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def file_sha(settings: Settings, f: IntakeFile) -> str | None:
+    """올린 파일의 내용 해시: 저장된 값, 없으면(옛 파일) 지금 읽어 채운다 (비교할 때만). 파일이 없으면 None."""
+    if f.sha256:
+        return f.sha256
+    try:
+        f.sha256 = _sha256(stored_path(settings, f))
+    except OSError:
+        return None
+    return f.sha256
+
+
+def earlier_copies(db: Session, settings: Settings, intake: Intake, viewer: User) -> dict[int, dict]:
+    """이 묶음의 파일 중 `viewer` 가 볼 수 있는 이전의 저장이 끝난 묶음에 내용이 같은 파일이 있는 것: {파일 번호: {"intake_id", "date", "name"}}.
+    같은 크기의 파일만 해시를 비교하므로 옛 파일(해시 없음)도 값싸게 맞춰 본다 (비교하며 해시를 채운다)."""
+    mine = {file_number(intake, f): f for f in intake.files if f.read_status == "ok"}
+    sizes = {f.size for f in mine.values()}
+    if not mine:
+        return {}
+    stmt = (select(IntakeFile, Intake).join(Intake, Intake.id == IntakeFile.intake_id)
+            .where(Intake.status == "applied", Intake.id != intake.id, IntakeFile.size.in_(sizes)).order_by(Intake.id))
+    if viewer.role != ontology.USER_ROLE_ADMIN:
+        stmt = stmt.where(Intake.created_by_id == viewer.id)
+    found: dict[int, dict] = {}
+    candidates = list(db.execute(stmt))
+    for number, f in mine.items():
+        sha = file_sha(settings, f)
+        if not sha:
+            continue
+        for other, earlier in candidates:
+            if other.size == f.size and file_sha(settings, other) == sha:
+                when = earlier.applied_at or earlier.created_at
+                found[number] = {"intake_id": earlier.id, "date": when, "name": other.original_name}
+                break
+    return found
+
+
 def create_intake(db: Session, settings: Settings, user: User, note: str,
                   uploads: list[UploadFile | str]) -> tuple[Intake, list[str]]:
     """묶음을 만들고 파일을 저장한다. (묶음, 받지 못한 파일 안내 목록). 받은 파일이 없으면 ValueError."""
@@ -115,6 +161,7 @@ def create_intake(db: Session, settings: Settings, user: User, note: str,
     db.add(intake)
     db.flush()
     skipped: list[str] = []
+    empties: list[str] = []
     accepted = 0
     try:
         for upload in uploads:
@@ -137,10 +184,15 @@ def create_intake(db: Session, settings: Settings, user: User, note: str,
                 db.delete(f)
                 db.flush()
                 skipped.append(f"{name} ({'빈 파일' if size == 0 else f'크기 제한 {limit_mb}MB 초과'})")
+                if size == 0:
+                    empties.append(name)
                 continue
             f.size = size
+            f.sha256 = _sha256(stored_path(settings, f))
             accepted += 1
         if not accepted:
+            if empties:  # 고른 파일이 모두 빈 파일이면 "파일을 고르세요" 가 아니라 무엇이 문제인지 알린다
+                raise ValueError(f"빈 파일은 올릴 수 없습니다: {', '.join(empties)}")
             raise ValueError(NO_FILES)
         db.commit()
     except BaseException:
@@ -589,7 +641,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
         summary = draft_summary_md(draft)
         matches = match_mentions(db, draft.mentions)
         activities.append({
-            "kind": "activity", "reason": act.reason.strip(), "files": numbers,
+            "kind": "activity", "reason": act.reason.strip(), "files": numbers, "raw_from": act.raw_from if raw is not None else None,
             "draft": draft.model_dump(), "summary_md": summary, "raw_text": raw or summary,
             "matched": {rel: m["matched"] for rel, m in matches.items()},
             "new": {rel: m["new"] for rel, m in matches.items()},
@@ -695,6 +747,20 @@ def job_failure_message(job: AIJob | None) -> str:
     return labels.ERROR_KINDS.get(job.shown_error_kind or "", labels.ERROR_KINDS["unknown"])
 
 
+def is_archived(intake: Intake) -> bool:
+    """읽을 수 있는 파일이 없는데 그 까닭이 "음성이 받아쓰기를 기다리는 것"뿐이라 보관만 된 묶음인가 (실패가 아니다).
+    올림 상태이거나, 예전에 이 까닭으로 실패 처리된 묶음(오류 글이 `NO_READABLE` 그대로)이면 참이다. 저장된 데이터는 고치지 않고 보이는 모양만 바꾼다.
+    음성을 받아쓰다 실패한 파일(`failed`)이나 아직 읽기 상태가 비어 있는 파일이 있으면 거짓이다."""
+    if intake.status not in ("uploaded", "failed"):
+        return False
+    if intake.status == "failed" and (intake.error or "").strip() != NO_READABLE:
+        return False
+    states = [f.read_status for f in intake.files]
+    if any(st in ("ok", "pending_transcript", "failed", "") for st in states):
+        return False
+    return any(f.kind == "audio" and f.read_status == "needs_transcript" for f in intake.files)
+
+
 def start_analysis(db: Session, intake: Intake, user: User) -> bool:
     """묶음을 정리 중으로 바꾸고 정리 작업을 넣는다. 올림·확인 대기·실패 상태에서만, 동시에 와도 한 번만 시작된다.
     읽을 수 있는 파일이 없으면 작업 없이 실패로 둔다 (False)."""
@@ -703,6 +769,8 @@ def start_analysis(db: Session, intake: Intake, user: User) -> bool:
     startable = Intake.status.in_(("uploaded", "ready", "failed"))
     if not any(f.read_status == "ok" or (f.kind == "audio" and f.read_status == "pending_transcript") for f in intake.files):
         db.rollback()
+        if is_archived(intake):  # 음성만 있고 받아쓰기가 꺼져 있다: 실패가 아니라 보관만 한다 (올림 상태 그대로)
+            return False
         db.execute(update(Intake).where(Intake.id == intake_id, startable).values(status="failed", error=NO_READABLE))
         db.commit()
         db.refresh(intake)
@@ -1076,19 +1144,33 @@ def outcome_text(intake: Intake) -> str:
     return text + (f" · {o['excluded']}건 제외" if o.get("excluded") else "")
 
 
-def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
+def raw_source_number(item: dict) -> int | None:
+    """활동 기록 항목의 원문이 된 파일 번호: 정리안에 적힌 `raw_from`, 없는 옛 정리안은 파일이 하나뿐일 때 그 파일."""
+    if item.get("kind") != "activity":
+        return None
+    if isinstance(item.get("raw_from"), int):
+        return item["raw_from"]
+    files = item.get("files") or []
+    return files[0] if len(files) == 1 else None
+
+
+def review_cards(db: Session, intake: Intake, form=None, settings: Settings | None = None, viewer: User | None = None) -> list[dict]:
     """정리안 확인 화면의 항목 카드: `{"item", "v", "files", "ambiguous", "brief", "open"}`. `form` 이 있으면 제출한 값을 유지한다.
     `open` 은 고치기를 펼쳐 둘 카드 (저장할 수 없는 입력이거나, 제출한 값이 기본값과 다른 카드)."""
     from app import records
 
     fields = _Fields(form) if form is not None else None
     names = _file_names(intake)
+    copies = earlier_copies(db, settings, intake, viewer) if settings is not None and viewer is not None else {}
     cards = []
     for item in (intake.plan or {}).get("items", []):
         v = item_values(item, fields, names)
         card = {"item": item, "v": v, "files": [(n, names.get(n, "")) for n in item.get("files", [])], "ambiguous": {},
                 "file_ids": {file_number(intake, f): f.id for f in intake.files},
                 "file_status": {file_number(intake, f): f.read_status for f in intake.files}}
+        card["dup_notes"] = [{**copies[n], "number": n} for n in item.get("files", []) if n in copies]
+        if fields is None and copies.get(raw_source_number(item)) is not None:
+            v["skip"] = True  # 원문 파일을 이미 저장한 활동 기록이면 처음부터 "이 항목 제외" (사용자가 풀 수 있다)
         if item["kind"] == "activity":
             for t, (model, rel) in records.LINK_TYPES.items():
                 amb = item.get("ambiguous", {})
@@ -1171,6 +1253,7 @@ class _Run:
         self.origin = origin.intake_origin(intake.id)  # 이 저장이 새로 만드는 기록의 유래
         self.result: list[dict] = []
         self.skipped: list[dict] = []
+        self.same_files: list[str] = []  # 같은 내용이라 솔루션 자료로 만들지 않은 파일 ("이름 (이미 있는 자료 이름)")
         self.unsaved: list[dict] = []  # 저장하지 않은 파일 (정리하지 못한 파일, 제외한 항목의 파일)
         self.known: dict[str, dict[str, object]] = {"solutions": {}, "customers": {}, "partners": {}}
         self.sync: list = []
@@ -1205,8 +1288,13 @@ class _Run:
                 shutil.copyfile(src, path)
                 return path.stat().st_size
 
-            saved = records.new_solution_file(self.db, self.settings, solution, f.original_name, v["kinds"][number], self.user,
-                                              write, extracted=self.extracted.get(f.id))
+            try:
+                saved = records.new_solution_file(self.db, self.settings, solution, f.original_name, v["kinds"][number], self.user,
+                                                  write, extracted=self.extracted.get(f.id))
+            except records.DuplicateFile as dup:  # 같은 내용의 자료가 이미 이 솔루션에 있다: 건너뛰고 알린다
+                self.same_files.append(f"{f.original_name} (이미 있는 자료 {dup.existing.original_name})")
+                self.attached.add((solution.id, f.id))
+                continue
             sf, extract = saved  # 크기 제한 없이 복사하므로 None 이 아니다
             self.attached.add((solution.id, f.id))
             self.file_texts.append((sf, extract))
@@ -1230,6 +1318,15 @@ class _Run:
                 self.remember("partners", partner)
             return partner
         return None
+
+
+def _same_note(run) -> str:
+    """방금 처리한 항목에서 같은 내용이라 건너뛴 자료 안내 (한 번 보이고 비운다)."""
+    if not run.same_files:
+        return ""
+    text = f" — 같은 내용이라 건너뜀: {', '.join(run.same_files)}"
+    run.same_files.clear()
+    return text
 
 
 def _item_title(item: dict, v: dict) -> str:
@@ -1399,7 +1496,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         made = run.attach(solution, item, v)
         run.remember("solutions", solution)
         label = solution.name if created else f"{solution.name} (이미 등록된 솔루션에 자료 {made}개 추가)"
-        run.result.append({"type": "solution", "id": solution.id, "label": label})
+        run.result.append({"type": "solution", "id": solution.id, "label": label + _same_note(run)})
     for item, v in chosen:
         if item["kind"] != "add_to_solution":
             continue
@@ -1418,7 +1515,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         solution = db.get(Solution, target)
         made = run.attach(solution, item, v)
         run.remember("solutions", solution)
-        run.result.append({"type": "solution", "id": solution.id, "label": f"{solution.name} (자료 {made}개 추가)"})
+        run.result.append({"type": "solution", "id": solution.id, "label": f"{solution.name} (자료 {made}개 추가)" + _same_note(run)})
     for item, v in chosen:
         if item["kind"] == "add_contact":
             _append_contact(run, item, v)

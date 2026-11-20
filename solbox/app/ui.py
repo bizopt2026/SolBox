@@ -136,6 +136,18 @@ def sort_options(request) -> list[SortLink]:
     return [SortLink(c, label, href(c), c == current) for c, label in choices]
 
 
+def current_sort(request) -> str:
+    """지금 목록의 정렬 코드 (정의: ontology.LIST_SORTS, 틀린 값·없으면 기본 순서). 정렬이 없는 주소는 빈 글."""
+    from app import ontology
+
+    code = next((c for c in ontology.LIST_SORTS if ontology.TYPES[c].list_url == request.url.path), None)
+    if code is None:
+        return ""
+    choices = ontology.LIST_SORTS[code]
+    chosen = request.query_params.get("sort")
+    return chosen if chosen in dict(choices) else choices[0][0]
+
+
 def stamp_info(db, obj) -> dict:
     """상세 화면 옆 칸의 "작성자·수정일": 작성자 이름(없으면 None), 만든 때, 고친 때."""
     from app.models import User

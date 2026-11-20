@@ -20,20 +20,20 @@ from app.models import BM, Customer, Opportunity, Project, Solution, User
 from app.records import pick
 from app.routers._common import (
     list_filter,
-    get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, row_info, search_by_name, sort_rows,
+    get_deletable_or_404, get_or_404, newest_first, duplicate_warning, paginate, resync_objects, row_info, search_by_name, sort_rows,
 )
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/opportunities")
 
 
-def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | None = None, error: str | None = None, conflict=None):
+def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | None = None, error: str | None = None, conflict=None, duplicate=None):
     cid = opps.parse_id(form.get("customer_id"))
     customer = db.get(Customer, cid) if cid is not None else None
     needs = [SimpleNamespace(id=n.id, name=opps.need_label(n)) for n in opps.bundlable_needs(db, cid, opp)]
     return render(
         request, "opportunities/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, opp=opp, error=error, conflict=conflict, customer=customer, customers=search_by_name(db, Customer),
+        form=form, opp=opp, error=error, conflict=conflict, duplicate=duplicate, customer=customer, customers=search_by_name(db, Customer),
         bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs,
         unlinked_needs=opps.unlinked_same_name_needs(db, customer),
     )
@@ -83,7 +83,7 @@ def list_opportunities(
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
                            loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
-    found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found))
+    found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found, db=db))
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -116,7 +116,7 @@ def new_form(
 def create(
     request: Request,
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
-    need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]),
+    need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
@@ -124,6 +124,8 @@ def create(
     form = _submitted(values, need_ids, solution_ids)
     if error:
         return _form_page(request, db, form, error=error)
+    if dup := duplicate_warning(db, Opportunity, name, confirm_dup):
+        return _form_page(request, db, form, duplicate=dup)
     opp = Opportunity(**values, created_by_id=user.id)
     db.add(opp)
     db.flush()
@@ -155,7 +157,7 @@ def edit_form(opportunity_id: int, request: Request, user: User = Depends(requir
 def update(
     opportunity_id: int, request: Request,
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
-    need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]),
+    need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
@@ -168,6 +170,8 @@ def update(
         error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
         return _form_page(request, db, form, opp, error)
+    if dup := duplicate_warning(db, Opportunity, name, confirm_dup, exclude=opp):
+        return _form_page(request, db, form, opp, duplicate=dup)
     before = opps.dependents(db, opp)
     needs_before = {n.id for n in opps.needs_of(db, opp)}
     for field, value in values.items():

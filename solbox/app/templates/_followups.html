@@ -16,6 +16,7 @@
     <span class="fu-task">{{ f.task }}</span>
     <small class="fu-src"><a href="/activities/{{ f.activity.id }}">{{ f.activity.title or "(제목 없음)" }}</a>{% if f.owner %} · 담당 {{ f.owner }}{% endif %}{% if show_customers %}{% for cid, name in f.customers %} · <a href="/customers/{{ cid }}">{{ name }}</a>{% endfor %}{% endif %}</small>
   </div>
+  {% if not f.done and f.owner_user_id is none %}<form method="post" action="/follow-ups/{{ f.id }}/mine" class="fu-mine"><button type="submit" class="small" title="담당을 내 이름으로 바꿔 '내 할 일'에 넣습니다">내 할 일로</button></form>{% endif %}
   <span class="due{{ ' late' if f.rel.tone == 'bad' }}{{ ' today' if f.rel.tone == 'today' }}"{% if f.due %} title="{{ f.due.isoformat() }}"{% endif %}>{{ f.rel.text }}</span>
 </li>
 {% endmacro %}

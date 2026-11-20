@@ -2,7 +2,7 @@
 {% from "_macros.html" import page_header, pill %}
 {% block title %}검색{% endblock %}
 {% block content %}
-{{ page_header("검색", sub=("‘" ~ result.q ~ "’ 이름·제목에서 찾았습니다." if result.state in ("found", "none") else "솔루션, 고객, 파트너, 프로젝트, 영업기회, BM, 제안 건, 활동 기록의 이름·제목을 찾습니다.")) }}
+{{ page_header("검색", sub=("‘" ~ result.q ~ "’ 이름·제목과 소개·설명·메모·정리본·후속 조치에서 찾았습니다." if result.state in ("found", "none") else "솔루션, 고객, 파트너, 프로젝트, 영업기회, BM, 제안 건, 활동 기록의 이름·제목과 소개·설명·메모·연락처·정리본·원문, 후속 조치·고객 니즈의 글을 찾습니다.")) }}
 {% if result.state == "empty" %}
 <div class="empty"><p class="muted">찾을 이름이나 제목을 위쪽 검색칸에 입력하세요. (단축키 /)</p></div>
 {% elif result.state == "short" %}
@@ -15,7 +15,7 @@
   <div class="card-head"><h2>{{ g.label }} <span class="count">{{ g.total }}건</span></h2>{% if g.more_url %}<a href="{{ g.more_url }}">목록에서 모두 보기</a>{% endif %}</div>
   <ul class="result-list">
     {% for i in g.rows %}
-    <li><div class="rr-main"><a class="row-title" href="{{ i.url }}">{{ i.label }}</a>{% if i.sub %}<small class="row-sub">{{ i.sub }}</small>{% endif %}</div>
+    <li><div class="rr-main">{% if i.url %}<a class="row-title" href="{{ i.url }}">{{ i.label }}</a>{% else %}<span class="row-title">{{ i.label }}</span>{% endif %}{% if i.sub %}<small class="row-sub">{{ i.sub }}</small>{% endif %}{% if i.hit %}<small class="row-hit"><span class="hit-field">{{ i.hit.field }}</span> {{ i.hit.excerpt }}</small>{% endif %}</div>
       {% if i.badge %}{{ pill(i.badge[0], i.badge[1]) }}{% endif %}{% if i.note and not i.badge %}<span class="muted">{{ i.note }}</span>{% elif i.badge and i.badge[0] == "activity_kind" and i.note %}<span class="muted num">{{ i.note }}</span>{% endif %}</li>
     {% endfor %}
   </ul>

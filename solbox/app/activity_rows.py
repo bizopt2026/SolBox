@@ -4,6 +4,7 @@
 커밋하지 않는다 (호출자가 커밋한다)."""
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -14,6 +15,22 @@ from app.idparse import parse_id
 from app import opportunities
 from app.ai.tasks import normalize_name
 from app.models import Activity, Customer, CustomerNeed, FollowUp, User
+
+
+# 담당 칸 글이 "이름 + 직함" 이어도 그 사용자로 보는 직함·호칭 (한 곳). 이름 앞에는 팀 이름이 올 수 있다 ("영업팀 김민수 대리").
+OWNER_TITLES = ("사원", "주임", "대리", "과장", "차장", "부장", "팀장", "파트장", "실장", "본부장", "책임", "선임", "수석", "매니저",
+                "연구원", "이사", "상무", "전무", "대표", "사장", "님")
+OWNER_TEAM_WORD = re.compile(r"(?:[\w가-힣&·]+(?:팀|부서|부|실|본부|센터|파트|그룹)\s+)")
+_TITLES = "|".join(sorted(map(re.escape, OWNER_TITLES), key=len, reverse=True))
+
+
+def owner_matches_name(owner: str, name: str) -> bool:
+    """`owner` 가 사용자 `name` 을 가리키는 글인가: 이름만이거나, (팀 이름) + 이름 + (직함…·님)."""
+    owner, name = " ".join((owner or "").split()), " ".join((name or "").split())
+    if not owner or not name:
+        return False
+    pattern = rf"(?:{OWNER_TEAM_WORD.pattern})?{re.escape(name)}(?:\s*(?:{_TITLES}))*"
+    return re.fullmatch(pattern, owner) is not None
 
 
 @dataclass(frozen=True)
@@ -29,9 +46,16 @@ class LinkIndex:
         return found[0] if len(found) == 1 else None
 
     def user_id(self, owner: str) -> int | None:
+        """이름이 정확히 같은 활성 사용자가 하나면 그 사용자. 아니면 "이름 + 직함(·앞에 팀 이름)" 글이 가리키는 활성 사용자가 정확히 하나일 때만.
+        여럿이거나 없으면 연결하지 않는다."""
         key = (owner or "").strip()
-        found = self.users.get(key, []) if key else []
-        return found[0] if len(found) == 1 else None
+        if not key:
+            return None
+        found = self.users.get(key, [])
+        if found:
+            return found[0] if len(found) == 1 else None
+        loose = {uid for name, ids in self.users.items() if name and owner_matches_name(key, name) for uid in ids}
+        return next(iter(loose)) if len(loose) == 1 else None
 
 
 def load_index(executor) -> LinkIndex:
@@ -76,8 +100,8 @@ def reconcile_follow_ups(
         fu = by_id.pop(row_id, None) if row_id is not None else None
         if fu is None:
             fu = FollowUp(owner_user_id=index.user_id(owner))
-        elif (fu.owner or "").strip() != owner.strip():
-            fu.owner_user_id = index.user_id(owner)
+        elif (fu.owner or "").strip() != owner.strip() or (fu.owner_user_id is None and owner.strip()):
+            fu.owner_user_id = index.user_id(owner)  # 글이 바뀌었거나, 아직 연결 안 된 옛 줄을 고치는 김에 다시 연결을 시도한다 (일괄 변환은 없다)
         fu.task, fu.owner, fu.due, fu.done = task, owner, _as_day(due), done
         fu.position = len(result)
         result.append(fu)

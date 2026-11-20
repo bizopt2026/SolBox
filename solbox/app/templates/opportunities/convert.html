@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import page_header, form_error, save_bar %}
-{% block title %}{{ ont.label("project") }}로 전환{% endblock %}
+{% block title %}{{ josa(ont.label("project"), "으로/로") }} 전환{% endblock %}
 {% block content %}
 {{ page_header(ont.label("project") ~ "로 전환", crumbs=ui.crumbs("opportunity", opp.name, "/opportunities/" ~ opp.id, ont.label("project") ~ "로 전환"), sub=opp.name) }}
 {{ form_error(error) }}
@@ -10,7 +10,7 @@
     <p>{{ ont.label("opportunity") }}: <strong>{{ opp.name }}</strong> · {{ ont.prop("opportunity", "customer") }}: <a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a>{% if opp.bm %} · {{ ont.label("bm") }}: {{ opp.bm.name }}{% endif %}</p>
     <fieldset class="stack methods">
       <legend>방법</legend>
-      <label class="check"><input type="radio" name="mode" value="create"{% if form.mode != "link" %} checked{% endif %}> 새 {{ ont.label("project") }} 만들기 (같은 고객, {{ ont.label("bm") }}은 이어받습니다)</label>
+      <label class="check"><input type="radio" name="mode" value="create"{% if form.mode != "link" %} checked{% endif %}> 새 {{ ont.label("project") }} 만들기 (같은 고객, {{ josa(ont.label("bm"), "은/는") }} 이어받습니다)</label>
       <div class="fld"><label for="f-name">{{ ont.prop("project", "name") }}</label><input id="f-name" name="name" value="{{ form.name }}"></div>
       <label class="check"><input type="radio" name="mode" value="link"{% if form.mode == "link" %} checked{% endif %}> 같은 고객의 기존 {{ ont.label("project") }} 잇기</label>
       <div class="fld"><label for="f-project_id">기존 {{ ont.label("project") }}</label>
@@ -18,7 +18,7 @@
           <option value="">선택하세요</option>
           {% for p in projects %}<option value="{{ p.id }}" {% if form.project_id | string == p.id | string %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
         </select></div>
-      {% if not projects %}<p class="muted">이을 수 있는 기존 {{ ont.label("project") }}가 없습니다.</p>{% endif %}
+      {% if not projects %}<p class="muted">이을 수 있는 기존 {{ josa(ont.label("project"), "이/가") }} 없습니다.</p>{% endif %}
     </fieldset>
   </section>
   {{ save_bar("/opportunities/" ~ opp.id, "전환") }}

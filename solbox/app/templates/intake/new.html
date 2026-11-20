@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill %}
+{% from "_macros.html" import page_header, pill, intake_pill %}
 {% block title %}올리기{% endblock %}
 {% block content %}
 {{ page_header("파일 올리기", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), ("새로 올리기", none)], sub="문서·사진·음성 파일을 한꺼번에 올리세요. 한 번에 " ~ max_files ~ "개까지, 파일 하나는 " ~ max_mb ~ "MB까지 올릴 수 있어요.") }}
@@ -30,7 +30,7 @@
       {% if recent %}
       <div class="queue">
         {% for it in recent %}
-        <a class="queue-row" href="/intake/{{ it.id }}"><span class="queue-main"><b>{{ it.note or (kdatetime(it.created_at) ~ " 올림") }}</b><small>{{ it.files | length }}개 · {{ kdatetime(it.created_at) }}</small></span>{{ pill("intake_status", it.status) }}</a>
+        <a class="queue-row" href="/intake/{{ it.id }}"><span class="queue-main"><b>{{ it.note or (kdatetime(it.created_at) ~ " 올림") }}</b><small>{{ it.files | length }}개 · {{ kdatetime(it.created_at) }}</small></span>{{ intake_pill(it) }}</a>
         {% endfor %}
       </div>
       {% else %}<p class="muted">아직 올린 묶음이 없어요. 첫 파일을 올려 보세요.</p>{% endif %}

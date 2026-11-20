@@ -15,7 +15,7 @@ from app.extract import extract_text
 from app.intake import clean_name, write_upload
 from app.knowledge import KnowledgeMirror, file_markdown, get_mirror
 from app.models import Solution, SolutionFile, User
-from app.records import new_solution_file, solution_file_path
+from app.records import DuplicateFile, new_solution_file, solution_file_path
 from app.routers._common import get_or_404
 from app.routers.solutions import detail_page
 from app.security import ensure_can_delete, require_user
@@ -29,8 +29,9 @@ def _stored_path(request: Request, f: SolutionFile) -> Path:
 
 
 def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solution: Solution,
-                 upload: UploadFile, name: str, kind: str, user: User, limit: int) -> bool:
-    """파일 하나를 저장한다. 크기 제한을 넘으면 아무것도 남기지 않고 False."""
+                 upload: UploadFile, name: str, kind: str, user: User, limit: int, same: list[str] | None = None) -> bool:
+    """파일 하나를 저장한다. 크기 제한을 넘으면 아무것도 남기지 않고 False. 같은 솔루션에 내용이 같은 자료가 있으면 새로 만들지 않고
+    `same` 에 "올린 이름 (이미 있는 자료 이름)" 을 적은 뒤 True (실패가 아니다)."""
     saved = None
     try:
         saved = new_solution_file(db, request.app.state.settings, solution, name, kind, user,
@@ -39,6 +40,11 @@ def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solutio
             db.rollback()
             return False
         db.commit()
+    except DuplicateFile as e:
+        db.commit()  # 옛 파일의 해시만 채워졌을 수 있다
+        if same is not None:
+            same.append(name if name == e.existing.original_name else f"{name} → 이미 있는 자료 {e.existing.original_name}")
+        return True
     except BaseException:
         if saved is not None:
             _stored_path(request, saved[0]).unlink(missing_ok=True)
@@ -62,19 +68,24 @@ def upload_files(
         raise HTTPException(status_code=400, detail=BAD_KIND)
     max_mb = request.app.state.settings.max_upload_mb
     skipped: list[str] = []
+    same: list[str] = []
     for upload in files:
         if isinstance(upload, str):  # 파일을 고르지 않고 보낸 빈 칸은 문자열로 들어온다
             continue
         name = clean_name(upload.filename or "")
         if not name:
             continue
-        if not _save_upload(db, mirror, request, solution, upload, name, kind, user, max_mb * 1024 * 1024):
+        if not _save_upload(db, mirror, request, solution, upload, name, kind, user, max_mb * 1024 * 1024, same):
             skipped.append(name)
     db.refresh(solution)
     mirror.sync(solution)
+    notice = ""
+    if same:
+        notice += f"이미 같은 내용의 자료가 있어 건너뛴 파일: {', '.join(same)}. "
     if skipped:
-        notice = f"크기 제한({max_mb}MB)을 넘어 건너뛴 파일: {', '.join(skipped)}"
-        return detail_page(request, db, user, solution, notice=notice)
+        notice += f"크기 제한({max_mb}MB)을 넘어 건너뛴 파일: {', '.join(skipped)}"
+    if notice:
+        return detail_page(request, db, user, solution, notice=notice.strip())
     return notices.redirect(f"/solutions/{solution.id}", "files_uploaded")
 
 

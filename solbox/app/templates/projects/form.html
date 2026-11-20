@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token, dup_warning %}
 {% block title %}{{ ont.label("project") }} {{ "수정" if project else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("project") %}
@@ -7,6 +7,7 @@
 {{ form_error(error) }}
 <form method="post" action="{{ "/projects/" ~ project.id if project else "/projects" }}" class="form-page">
   {% if project %}{{ rev_fields(project, conflict, "/projects/" ~ project.id) }}{% else %}{{ form_token() }}{% endif %}
+  {{ dup_warning(duplicate, "그래도 이 이름으로 저장" if project else "그래도 새로 등록") }}
   <section class="card">
     <div class="fgrid">
       {{ text_field(ont.prop("project", "name"), "name", form.name, required=true, wide=true, error=error) }}
@@ -15,7 +16,8 @@
       {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
       {{ select_field(ont.prop("project", "bm"), "bm_id", bopts, form.bm_id, help="선택 사항입니다.") }}
       {{ text_field("기간", "period", form.period) }}
-      {{ text_field("상태", "status", form.status) }}
+      {{ text_field("상태", "status", form.status, datalist="status-choices") }}
+      <datalist id="status-choices">{% for s in status_choices %}<option value="{{ s }}">{% endfor %}</datalist>
       {{ text_field("설명", "description", form.description, rows=3) }}
       {{ text_field("메모", "memo", form.memo, rows=3) }}
     </div>

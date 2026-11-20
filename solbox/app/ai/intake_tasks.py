@@ -17,7 +17,7 @@ from app import intake as intake_lib
 from app import ontology
 from app import transcribe
 from app.ai.runner import ClaudeError, ClaudeRunner
-from app.ai.tasks import AFTER_JOB, CLAIM_GUARDS, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json
+from app.ai.tasks import AFTER_JOB, CLAIM_GUARDS, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json, writer_name
 from app.config import Settings
 from app.models import Customer, Intake, IntakeFile, Partner, Solution
 
@@ -338,7 +338,7 @@ def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     intake = db.get(Intake, intake_id)
     note = (intake.note or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO").strip()
     prompt = load_prompt(
-        "intake_analyze", today=date.today().isoformat(), note=note or "(없음)",
+        "intake_analyze", today=date.today().isoformat(), note=note or "(없음)", writer=writer_name(db, intake.created_by_id),
         solutions=_names(db, Solution, with_id=True), customers=_names(db, Customer, with_id=True),
         partners=_names(db, Partner, with_id=True),
     )

@@ -7,6 +7,11 @@
 {% if user.role == "admin" and run.status != "running" %}<span class="actions-danger">{{ confirm_link("/research/runs/" ~ run.id ~ "/delete", label="이 조사 삭제", ask="이 조사 결과를 삭제할까요?", ok="삭제") }}</span>{% endif %}
 {% endcall %}
 <p class="notice research-note">AI가 웹에서 수집한 내용입니다. 링크를 열어 직접 확인하세요.</p>
+{% if unopened_all %}
+<p class="notice research-unopened" role="status"><b>이번 조사의 동향은 모두 출처 본문을 열어 확인하지 못했습니다.</b> 서버가 웹 페이지를 열 수 없으면 이렇게 되고, 검색 결과의 제목·요약만 근거입니다. 링크를 열어 직접 확인하세요.</p>
+{% endif %}
+<p class="muted research-legend"><span class="badge tone-bad">{{ ont.CHECK_KINDS["evidence"] }}</span> {{ ont.code_help("check_kind", "evidence") }}
+  <span class="badge tone-warn">본문 미확인</span> 출처는 있지만 서버가 본문을 열어 보지 못한 항목입니다. <span class="badge tone-bad">출처 없음</span>은 링크 자체가 없는 항목입니다.</p>
 {% if run.status == "running" %}
 <section class="card stack"><h2>조사 진행</h2>
   <div hx-get="/research/runs/{{ run.id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>

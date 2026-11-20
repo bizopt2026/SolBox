@@ -431,6 +431,42 @@ def _page_number(slide, number: int):
     _write(p, str(number), 12, color=MUTED)
 
 
+def mirror_folders() -> tuple[str, ...]:
+    """지식 사본의 맨 위 폴더 이름들 (옛 형식 포함). 예: solutions, opportunities"""
+    names = {ontology.mirror_folder(t.code) for t in ontology.TYPES.values() if t.mirror_path or t.mirror_dir_format}
+    return tuple(sorted(names | set(ontology.legacy_mirror_folders())))
+
+
+# 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로(`opportunities/2.md`)
+_MIRROR_PATH = re.compile(r"\b(?:" + "|".join(map(re.escape, mirror_folders())) + r")/[\w가-힣\-./]*|[\w가-힣\-./]+\.md\b")
+
+
+def has_internal_mark(text) -> bool:
+    """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
+    return bool(_MIRROR_PATH.search(_clean(text)))
+
+
+def _scrub_customer(slide: dict) -> dict:
+    """고객용 장에서 내부 경로가 든 줄을 뺀다 (구성안 정리가 이미 막지만, 손으로 넣은 글까지 한 번 더 막는 마지막 안전망)."""
+    out = copy.deepcopy(slide)
+    for key in ("bullets", "left", "right"):
+        out[key] = [i for i in _list(out, key) if not has_internal_mark(i)]
+    out["rows"] = [r for r in _list(out, "rows") if not any(has_internal_mark(c) for c in (r if isinstance(r, (list, tuple)) else [r]))]
+    out["steps"] = [st for st in _list(out, "steps") if isinstance(st, dict) and not has_internal_mark(st.get("name")) and not has_internal_mark(st.get("detail"))]
+    for key in ("title", "key_message", "subtitle", "left_title", "right_title"):
+        if has_internal_mark(out.get(key)):
+            out[key] = ""
+    return out
+
+
+def _with_contact(slide: dict, contact: list[str] | None) -> dict:
+    """마무리 장 글머리 끝에 연락처 줄을 붙인다 (구성안에는 저장하지 않는다)."""
+    lines = [_clean(c).strip() for c in contact or [] if _clean(c).strip()]
+    if slide.get("kind") != "closing" or not lines:
+        return slide
+    return {**slide, "bullets": [*_list(slide, "bullets"), *lines]}
+
+
 def _notes(slide, data: dict, source_labels: dict[str, str] | None = None):
     labels = source_labels or {}
     sources = [_clean(labels.get(s, s) if isinstance(s, str) else s) for s in _list(data, "sources") if _clean(s).strip()]
@@ -466,14 +502,21 @@ def _draw_body(slide, data: dict):
 
 def build_deck(
     outline: dict, out_path: Path, *, customer_name: str = "", today: date | None = None,
-    source_labels: dict[str, str] | None = None,
+    source_labels: dict[str, str] | None = None, audience: str = "internal", contact: list[str] | None = None,
 ) -> int:
-    """구성안으로 .pptx 를 쓰고 만든 슬라이드 수를 돌려준다. 노트의 출처는 `source_labels`(경로→이름)가 있으면 이름으로 적는다."""
+    """구성안으로 .pptx 를 쓰고 만든 슬라이드 수를 돌려준다.
+
+    `audience="customer"`(고객용)는 발표자 노트를 비워 두고 내부 경로가 든 줄도 뺀다. `"internal"`(내부 검토용)은 노트에 출처(`source_labels`:
+    경로→이름이 있으면 이름)와 확인 항목을 적는다. `contact` 는 마무리 장 맨 아래에 붙는 연락처 줄(서버가 만든 사람 정보로 채운다)."""
+    if audience not in ("customer", "internal"):
+        raise ValueError(audience)
     source = (outline or {}).get("slides")
     if not isinstance(source, list) or not source:
         raise ValueError("구성안에 슬라이드가 없습니다.")
     today = today or date.today()
-    pages = [page for s in source if isinstance(s, dict) for page in paginate(s)]
+    pages = [page for s in source if isinstance(s, dict) for page in paginate(_with_contact(s, contact))]
+    if audience == "customer":
+        pages = [_scrub_customer(page) for page in pages]
     if not pages:
         raise ValueError("구성안에 슬라이드가 없습니다.")
     prs = Presentation()
@@ -486,7 +529,8 @@ def build_deck(
         else:
             _draw_body(slide, data)
             _page_number(slide, number)
-        _notes(slide, data, source_labels)
+        if audience == "internal":
+            _notes(slide, data, source_labels)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(out_path)

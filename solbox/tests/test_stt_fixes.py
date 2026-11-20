@@ -607,7 +607,7 @@ def test_audio_only_bundle_uploaded_with_engine_off_is_picked_up_after_enabling(
     _upload(user_client, [AUDIO])
     it = _latest(db)
     (f,) = _files(db, it)
-    assert (it.status, f.read_status) == ("failed", "needs_transcript")
+    assert (it.status, f.read_status) == ("uploaded", "needs_transcript")  # 실패가 아니라 보관만 된다
     assert NOTE not in user_client.get(f"/intake/{it.id}").text  # 엔진이 꺼져 있으면 옛 안내
     engine = request.getfixturevalue("stt")
     page = user_client.get(f"/intake/{it.id}").text

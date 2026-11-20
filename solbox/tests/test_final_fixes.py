@@ -70,7 +70,7 @@ def test_download_header_has_ascii_fallback(user_client, db, settings):
     user_client.post(f"/proposals/{p.id}/deck")
     d = user_client.get(f"/proposals/{p.id}/deck")
     assert d.headers["content-disposition"] == (
-        f'attachment; filename="proposal-{p.id}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + ".pptx"))
+        f'attachment; filename="proposal-{p.id}-customer.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + "_고객용.pptx"))
 
 
 def test_bad_output_twice_shows_korean_message(app, db, settings, fake_claude):

@@ -61,6 +61,7 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "slide_added": ("ok", "슬라이드를 추가했습니다."),
     "slide_moved": ("ok", "슬라이드 순서를 바꿨습니다."),
     "slide_deleted": ("ok", "슬라이드를 삭제했습니다."),
+    "fu_mine": ("ok", "내 할 일로 바꿨습니다."),
     "busy": ("warn", "이미 AI 작업이 진행 중입니다."),
     # 리서치·관리
     "research_started": ("ok", "조사를 시작했습니다. 끝나면 목록에 나타납니다."),

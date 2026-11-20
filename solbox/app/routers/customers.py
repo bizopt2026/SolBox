@@ -15,8 +15,8 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, CustomerNeed, Partner, User
 from app.routers._common import (
-    activities_linked_to, activities_with_needs_of, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, resync_related, search_by_name, paginate, row_info, sort_rows,
+    activities_linked_to, activities_with_needs_of, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, duplicate_warning,
+    resync_activities, resync_related, search_by_name, paginate, row_info, sort_rows, origin_filter,
 )
 from app.security import can_delete, require_user
 
@@ -29,10 +29,10 @@ HAS_PROPOSALS = "제안 건이 있는 고객은 삭제할 수 없습니다."
 HAS_OPPORTUNITIES = opps.HAS_OPPORTUNITIES
 
 
-def _form_page(request: Request, db: Session, form: dict, customer: Customer | None = None, error: str | None = None, conflict=None):
+def _form_page(request: Request, db: Session, form: dict, customer: Customer | None = None, error: str | None = None, conflict=None, duplicate=None):
     return render(
         request, "customers/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, customer=customer, error=error, partners=same_company.partner_choices(db, customer), conflict=conflict,
+        form=form, customer=customer, error=error, partners=same_company.partner_choices(db, customer), conflict=conflict, duplicate=duplicate,
     )
 
 
@@ -50,8 +50,9 @@ def list_customers(
     request: Request, q: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    pg = paginate(sort_rows(request, "customer", search_by_name(db, Customer, q)), page)
-    return render(request, "customers/list.html", pg=pg, q=q.strip(), info=row_info(db, "customer", pg.items))
+    rows, origin_tabs, origin_now = origin_filter(request, sort_rows(request, "customer", search_by_name(db, Customer, q), db=db))
+    pg = paginate(rows, page)
+    return render(request, "customers/list.html", pg=pg, q=q.strip(), info=row_info(db, "customer", pg.items), origin_tabs=origin_tabs, origin_now=origin_now)
 
 
 @router.get("/new")
@@ -63,12 +64,15 @@ def new_form(request: Request, user: User = Depends(require_user), db: Session =
 def create(
     request: Request,
     name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
+    confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, error=error)
+    if dup := duplicate_warning(db, Customer, name, confirm_dup):
+        return _form_page(request, db, {**values, "partner_id": partner_id}, duplicate=dup)
     customer = Customer(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
     db.add(customer)
     db.flush()
@@ -98,6 +102,7 @@ def edit_form(customer_id: int, request: Request, user: User = Depends(require_u
 def update(
     customer_id: int, request: Request,
     name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
+    confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
@@ -107,6 +112,8 @@ def update(
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, error)
+    if dup := duplicate_warning(db, Customer, name, confirm_dup, exclude=customer):
+        return _form_page(request, db, {**values, "partner_id": partner_id}, customer, duplicate=dup)
     old_partner = same_company.partner_of(db, customer)
     if error := same_company.set_from_customer(db, customer, partner_id):  # 오류면 아무것도 바꾸지 않았다
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, error)

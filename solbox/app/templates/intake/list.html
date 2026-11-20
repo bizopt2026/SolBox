@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, pill, title_cell %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, intake_pill, title_cell %}
 {% block title %}올리기 목록{% endblock %}
 {% block content %}
 {{ list_head(ont.label("intake"), pg, status, "/intake/new", "+ 올리기", type="intake") }}
+{% if user.role != "admin" %}<p class="muted list-scope" id="intake-scope">내가 올린 묶음만 보입니다.</p>{% endif %}
 {{ list_tools(request, tabs, "상태", search=false) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
@@ -11,11 +12,11 @@
   {% for it in pg.items %}
     <tr>
       {% call title_cell("/intake/" ~ it.id, kdatetime(it.created_at), it.note or none) %}
-        {{ pill("intake_status", it.status) }}<span>{{ it.files | length }}개</span>{% if user.role == "admin" %}<span>{{ owners.get(it.created_by_id, "") }}</span>{% endif %}
+        {{ intake_pill(it) }}<span>{{ it.files | length }}개</span>{% if user.role == "admin" %}<span>{{ owners.get(it.created_by_id, "") }}</span>{% endif %}
       {% endcall %}
       {% if user.role == "admin" %}<td class="col-sec">{{ owners.get(it.created_by_id, "") }}</td>{% endif %}
       <td class="col-sec num">{{ it.files | length }}개</td>
-      <td class="col-sec">{{ pill("intake_status", it.status) }}</td>
+      <td class="col-sec">{{ intake_pill(it) }}</td>
     </tr>
   {% endfor %}
   </tbody>
