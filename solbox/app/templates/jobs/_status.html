@@ -1,4 +1,4 @@
-{% set active = job.status in ("pending", "running") %}
+{% set active = job.status in ontology.JOB_ACTIVE %}
 <div id="job-{{ job.id }}" class="job-status job-{{ job.status }}" role="status"
   {% if active %}hx-get="/jobs/{{ job.id }}/status{% if next %}?next={{ next | urlencode }}{% endif %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   {% if job.status == "pending" %}AI 대기 {{ position }}번째 (앞 작업이 끝나면 시작합니다)

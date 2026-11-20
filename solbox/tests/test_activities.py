@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.models import Activity, Business, Customer, Partner, Solution
+from app.models import Activity, Project, Customer, Partner, Solution
 
 
 def test_save_raw_only(user_client, db, settings):

@@ -91,7 +91,7 @@ def test_more_than_three_directions_trimmed(app, user_client, db, settings, fake
     assert [x["title"] for x in p.directions] == ["방향0", "방향1", "방향2"]
 
 
-def test_no_boxed_solutions_fails_without_cli(app, user_client, db, settings, fake_claude):
+def test_no_candidate_solutions_fails_without_cli(app, user_client, db, settings, fake_claude):
     p, c, b, s1, s2, s3 = make_proposal_world(db, settings)
     for s in (s1, s2):
         s.stage = "hold"
@@ -99,7 +99,7 @@ def test_no_boxed_solutions_fails_without_cli(app, user_client, db, settings, fa
     user_client.post(f"/proposals/{p.id}/directions")
     _run(app, settings)
     db.refresh(p)
-    assert p.active_job.status == "failed" and p.active_job.error == "박스에 등록된 솔루션이 없습니다."
+    assert p.active_job.status == "failed" and p.active_job.error.startswith("제안 후보가 될 솔루션이 없습니다")
     assert fake_claude.calls() == []
 
 
@@ -137,7 +137,7 @@ def test_second_request_while_running_is_ignored(user_client, db, settings):
 
 def test_create_starts_directions_job(user_client, db, settings):
     p, c, b, *_ = make_proposal_world(db, settings)
-    user_client.post("/proposals", data={"customer_id": c.id, "business_id": b.id})
+    user_client.post("/proposals", data={"customer_id": c.id, "project_id": b.id})
     new = db.query(Proposal).order_by(Proposal.id.desc()).first()
     assert new.id != p.id and new.status == "new"
     assert new.active_job_id is not None and new.active_job.kind == "proposal_directions"

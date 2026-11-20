@@ -14,6 +14,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app import intake as intake_lib
+from app import ontology
 from app import transcribe
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import AFTER_JOB, CLAIM_GUARDS, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json
@@ -77,12 +78,13 @@ def _draft(v) -> ActivityDraft | None:
         return None
     mentions = v.get("mentions") if isinstance(v.get("mentions"), dict) else {}
     clean = {
-        "kind": _text(v.get("kind")) or "meeting", "date": _text(v.get("date")) or None, "title": _text(v.get("title")),
+        "kind": _text(v.get("kind")) or ontology.ACTIVITY_KIND_DEFAULT, "date": _text(v.get("date")) or None, "title": _text(v.get("title")),
         "attendees": _str_list(v.get("attendees")), "discussion": _str_list(v.get("discussion")),
         "decisions": _str_list(v.get("decisions")),
         "follow_ups": [{"task": _text(f.get("task")), "owner": _text(f.get("owner")), "due": _text(f.get("due"))} for f in _dicts(v.get("follow_ups"))],
         "demand_signals": [{"customer": _text(d.get("customer")), "content": _text(d.get("content"))} for d in _dicts(v.get("demand_signals"))],
-        "mentions": {k: _str_list(mentions.get(k)) for k in ("solutions", "customers", "businesses", "partners")},
+        "mentions": {k: _str_list(mentions.get(k) if k in mentions else mentions.get("businesses") if k == "projects" else None)
+                     for k in ontology.MENTION_KEYS},  # 옛 키 businesses 도 받는다
     }
     try:
         return ActivityDraft.model_validate(clean)

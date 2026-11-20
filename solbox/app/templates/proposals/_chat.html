@@ -1,6 +1,6 @@
 {% if proposal.selected_index is not none and proposal.directions and proposal.selected_index < proposal.directions | length %}
 {% set job = proposal.active_job %}
-{% set busy = job is not none and job.status in ("pending", "running") %}
+{% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% macro msg(m, first) %}
   {% if first and proposal.chat_from_id is not none and m.id <= proposal.chat_from_id %}
   <p class="chat-divider muted">이전 방향에서 나눈 대화 (새 방향에는 반영되지 않습니다)</p>

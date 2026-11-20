@@ -16,7 +16,7 @@
     {% if intake.ready_count %}
     <p><a href="/intake"><strong>확인 대기 {{ intake.ready_count }}건</strong></a></p>
     <ul>
-      {% for it in intake.ready %}<li><a href="/intake/{{ it.id }}">{{ it.note or ("올리기 #" ~ it.id) }}</a></li>{% endfor %}
+      {% for it in intake.ready %}<li><a href="/intake/{{ it.id }}">{{ it.note or (ont.label("intake") ~ " #" ~ it.id) }}</a></li>{% endfor %}
     </ul>
     {% endif %}
     {% if intake.analyzing_count %}<p class="muted">정리 중 {{ intake.analyzing_count }}건</p>{% endif %}

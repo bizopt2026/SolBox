@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from app import ontology
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -135,7 +136,7 @@ def register_candidate(
     day = report.run.started_at.date().isoformat()
     lines += ["", f"리서치({day})에서 등록"]
     solution = Solution(name=(name.strip() or "리서치 후보")[:NAME_MAX], summary=summary.strip(),
-                        description="\n".join(lines), stage="intake", created_by_id=user.id)
+                        description="\n".join(lines), stage=ontology.STAGE_DEFAULT, created_by_id=user.id)
     db.add(solution)
     db.commit()
     mirror.sync(solution)

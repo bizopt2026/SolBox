@@ -3,8 +3,8 @@
   <textarea name="request_memo" rows="4" placeholder="고객이 요청한 내용, 강조할 점 등">{{ memo }}</textarea>
 </label>
 <details>
-  <summary>박스 등록이 아닌 솔루션도 포함하기</summary>
+  <summary>보류 단계 솔루션도 직접 추가하기</summary>
   {% if extra_candidates %}
   {{ check_picker("extra_solution_ids", "포함할 솔루션", extra_candidates, selected_ids or [], show_stage=True) }}
-  {% else %}<p class="muted">포함할 수 있는 다른 솔루션이 없습니다.</p>{% endif %}
+  {% else %}<p class="muted">직접 추가할 수 있는 보류 단계 솔루션이 없습니다.</p>{% endif %}
 </details>

@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, ontology
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
@@ -42,7 +42,7 @@ def _load_for_edit(db: Session, proposal_id: int, index: int | None = None) -> t
     slides = [dict(s) for s in p.outline["slides"]]
     if index is not None and not 0 <= index < len(slides):
         raise HTTPException(status_code=404, detail="없는 슬라이드입니다.")
-    if p.active_job is not None and p.active_job.status in ("pending", "running"):
+    if p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE:
         raise HTTPException(status_code=400, detail=BUSY)
     return p, slides
 
@@ -61,7 +61,7 @@ def outline_page(
     p = _load(db, proposal_id)
     slides = p.outline["slides"]
     open_index = int(open) if open.isascii() and open.isdigit() and len(open) <= 6 and int(open) < len(slides) else None
-    busy = p.active_job is not None and p.active_job.status in ("pending", "running")
+    busy = p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
     cards = []
     for i, s in enumerate(slides):
         checks = check_items(s.get("needs_check"), s.get("checked"))
@@ -104,7 +104,7 @@ def check_item(
     proposal_id: int, index: int, item: str = Form(""), text: str = Form(""), done: str = Form("1"),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    """확인 필요 항목 하나를 확인함으로 표시하거나 되돌린다."""
+    """확인 항목 하나를 확인함으로 표시하거나 되돌린다."""
     p, slides = _load_for_edit(db, proposal_id, index)
     if done not in ("0", "1"):
         raise HTTPException(status_code=400, detail="확인 여부가 올바르지 않습니다.")

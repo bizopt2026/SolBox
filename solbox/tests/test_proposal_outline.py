@@ -146,4 +146,4 @@ def test_prompts_carry_source_rules():
     assert "대화나 방향 JSON 에만 있는 수치" in outline and "모든 내용 장에는 `sources` 나 `needs_check`" in outline
     assert "방향의 `needs_check`" in outline
     assert "근거 자료가 뒷받침하지 않는 수치는 `effects` 에 쓰지 마세요" in (prompts / "proposal_directions.md").read_text(encoding="utf-8")
-    assert "(사용자 제시, 확인 필요)" in (prompts / "proposal_chat.md").read_text(encoding="utf-8")
+    assert "(사용자 제시, 확인할 점)" in (prompts / "proposal_chat.md").read_text(encoding="utf-8")

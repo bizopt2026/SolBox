@@ -11,14 +11,14 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, ontology
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.deck import build_deck
 from app.sources import SourceLookup
 from app.knowledge import safe_name
 from app.main import render
-from app.models import Business, Customer, Proposal, ProposalMessage, Solution, User
+from app.models import Customer, Project, Proposal, ProposalMessage, Solution, User
 from app.proposals import (
     candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
     step_states,
@@ -28,7 +28,7 @@ from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
 CUSTOMER_REQUIRED = "고객을 선택하세요."
-BUSINESS_MISMATCH = "선택한 고객의 사업이 아닙니다."
+PROJECT_MISMATCH = "선택한 고객의 프로젝트가 아닙니다."
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
 EMPTY_MESSAGE = "메시지를 입력하세요."
 MAX_MESSAGE, MAX_INSTRUCTION, MAX_MEMO = 4000, 500, 2000
@@ -58,16 +58,16 @@ def _solution_ids(db: Session, raw: list[str]) -> list[int]:
 
 
 def _extra_candidates(db: Session) -> list[Solution]:
-    """박스 등록이 아닌 솔루션 (제안 건에서 따로 고를 수 있는 것)."""
-    return list(db.scalars(select(Solution).where(Solution.stage != "boxed").order_by(Solution.name, Solution.id)))
+    """보류 단계 솔루션 (제안 건에 직접 추가해야 후보가 되는 것). 후보 규칙은 `proposals.candidate_rule`."""
+    return list(db.scalars(select(Solution).where(Solution.stage == ontology.STAGE_HOLD).order_by(Solution.name, Solution.id)))
 
 
 def _new_page(request: Request, db: Session, form: dict, error: str | None = None):
     customers = search_by_name(db, Customer)
-    businesses = search_by_name(db, Business)
+    projects = search_by_name(db, Project)
     return render(
         request, "proposals/new.html", status_code=400 if error else 200,
-        form=form, error=error, customers=customers, businesses=businesses,
+        form=form, error=error, customers=customers, projects=projects,
         extra_candidates=_extra_candidates(db),
     )
 
@@ -92,22 +92,22 @@ def list_proposals(
 
 @router.get("/new")
 def new_form(
-    request: Request, customer_id: str = "", business_id: str = "",
+    request: Request, customer_id: str = "", project_id: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    form = {"customer_id": customer_id, "business_id": business_id, "request_memo": "", "extra_solution_ids": []}
+    form = {"customer_id": customer_id, "project_id": project_id, "request_memo": "", "extra_solution_ids": []}
     return _new_page(request, db, form)
 
 
 @router.post("")
 def create(
     request: Request,
-    customer_id: str = Form(""), business_id: str = Form(""), request_memo: str = Form(""),
+    customer_id: str = Form(""), project_id: str = Form(""), request_memo: str = Form(""),
     extra_solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     form = {
-        "customer_id": customer_id.strip(), "business_id": business_id.strip(),
+        "customer_id": customer_id.strip(), "project_id": project_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
     }
     if len(form["request_memo"]) > MAX_MEMO:
@@ -116,14 +116,14 @@ def create(
     customer = db.get(Customer, cid) if cid is not None else None
     if customer is None:
         return _new_page(request, db, form, CUSTOMER_REQUIRED)
-    business = None
-    if form["business_id"]:
-        bid = _parse_id(form["business_id"])
-        business = db.get(Business, bid) if bid is not None else None
-        if business is None or business.customer_id != customer.id:
-            return _new_page(request, db, form, BUSINESS_MISMATCH)
+    project = None
+    if form["project_id"]:
+        bid = _parse_id(form["project_id"])
+        project = db.get(Project, bid) if bid is not None else None
+        if project is None or project.customer_id != customer.id:
+            return _new_page(request, db, form, PROJECT_MISMATCH)
     proposal = Proposal(
-        customer_id=customer.id, business_id=business.id if business else None,
+        customer_id=customer.id, project_id=project.id if project else None,
         request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"],
         created_by_id=user.id,
     )
@@ -172,7 +172,7 @@ def status(
     if proposal is None:  # 그 사이 지워졌다. 조회를 멈추고 목록으로 보낸다.
         return Response("제안 건이 없습니다.", headers={"HX-Redirect": "/proposals"})
     job = proposal.active_job
-    if job is not None and job.status in ("pending", "running"):
+    if job is not None and job.status in ontology.JOB_ACTIVE:
         return render(request, "proposals/_status.html", proposal=proposal, job=job, position=_position(db, proposal))
     return Response("작업이 끝났습니다.", headers={"HX-Redirect": f"/proposals/{proposal.id}"})
 
@@ -200,7 +200,7 @@ def select_direction(
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
     job = proposal.active_job
-    if job is not None and job.status in ("pending", "running"):
+    if job is not None and job.status in ontology.JOB_ACTIVE:
         return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
     i = _parse_id(index)
     directions = proposal.directions or []
@@ -226,7 +226,7 @@ def _has_selection(p: Proposal) -> bool:
 
 
 def _is_busy(p: Proposal) -> bool:
-    return p.active_job is not None and p.active_job.status in ("pending", "running")
+    return p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
 
 
 @router.post("/{proposal_id}/chat")
@@ -344,10 +344,10 @@ def update_target(
     if len(request_memo.strip()) > MAX_MEMO:
         raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
     ids = _solution_ids(db, extra_solution_ids)
-    # 폼에는 박스 등록이 아닌 솔루션만 나온다. 그 사이 박스에 등록된 기존 선택은 그대로 둔다.
+    # 폼에는 보류 단계 솔루션만 나온다. 그 사이 보류에서 풀린 솔루션의 기존 선택은 그대로 둔다.
     for sid in proposal.extra_solution_ids or []:
         solution = db.get(Solution, sid)
-        if solution is not None and solution.stage == "boxed" and sid not in ids:
+        if solution is not None and solution.stage != ontology.STAGE_HOLD and sid not in ids:
             ids.append(sid)
     proposal.request_memo = request_memo.strip()
     proposal.extra_solution_ids = ids

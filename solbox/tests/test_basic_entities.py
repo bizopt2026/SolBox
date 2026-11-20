@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.models import Activity, Business, Customer, Partner, Solution
+from app.models import Activity, Project, Customer, Partner, Solution
 from tests.conftest import make_user
 
 
@@ -57,11 +57,11 @@ def test_delete_removes_row_and_mirror_file(user_client, db, settings):
     assert not md.exists()
 
 
-def test_customer_with_businesses_cannot_be_deleted(admin_client, db):
+def test_customer_with_projects_cannot_be_deleted(admin_client, db):
     c = Customer(name="한빛병원"); db.add(c); db.flush()
-    db.add(Business(name="유지보수", customer_id=c.id)); db.commit()
+    db.add(Project(name="유지보수", customer_id=c.id)); db.commit()
     r = admin_client.post(f"/customers/{c.id}/delete")
-    assert r.status_code == 400 and "기존 사업" in r.text
+    assert r.status_code == 400 and "프로젝트" in r.text
     assert db.get(Customer, c.id) is not None
 
 
@@ -75,49 +75,49 @@ def test_deleting_partner_clears_solution_partner(admin_client, db, settings):
 
 
 def test_business_requires_customer_and_missing_id_is_404(user_client):
-    assert user_client.post("/businesses", data={"name": "유지보수"}).status_code == 400
+    assert user_client.post("/projects", data={"name": "유지보수"}).status_code == 400
     r = user_client.get("/customers/999")
     assert r.status_code == 404 and "항목을 찾을 수 없습니다." in r.text
 
 
 def test_business_create_search_by_name_or_customer_and_delete_unlinks_activity(user_client, db, settings):
     c = Customer(name="한빛병원"); db.add(c); db.commit()
-    r = user_client.post("/businesses", data={"name": "유지보수", "customer_id": c.id}, follow_redirects=False)
+    r = user_client.post("/projects", data={"name": "유지보수", "customer_id": c.id}, follow_redirects=False)
     assert r.status_code == 303
-    b = db.query(Business).one()
+    b = db.query(Project).one()
     assert b.created_by_id is not None
-    assert (settings.knowledge_dir / "businesses" / f"{b.id}.md").exists()
-    assert "유지보수" in user_client.get("/businesses?q=유지").text
-    assert "유지보수" in user_client.get("/businesses?q=한빛").text
-    assert "유지보수" not in user_client.get("/businesses?q=없는이름").text
+    assert (settings.knowledge_dir / "projects" / f"{b.id}.md").exists()
+    assert "유지보수" in user_client.get("/projects?q=유지").text
+    assert "유지보수" in user_client.get("/projects?q=한빛").text
+    assert "유지보수" not in user_client.get("/projects?q=없는이름").text
     # 고객 상세에 사업이 보인다
     assert "유지보수" in user_client.get(f"/customers/{c.id}").text
     # 활동 기록 연결
-    a = Activity(raw_text="메모", title="킥오프", date=date(2026, 1, 5)); a.businesses.append(b)
+    a = Activity(raw_text="메모", title="킥오프", date=date(2026, 1, 5)); a.projects.append(b)
     db.add(a); db.commit()
-    assert "킥오프" in user_client.get(f"/businesses/{b.id}").text
-    business_id = b.id
-    r = user_client.post(f"/businesses/{business_id}/delete", follow_redirects=False)
+    assert "킥오프" in user_client.get(f"/projects/{b.id}").text
+    project_id = b.id
+    r = user_client.post(f"/projects/{project_id}/delete", follow_redirects=False)
     assert r.status_code == 303
     db.expire_all()
-    assert db.query(Business).count() == 0
+    assert db.query(Project).count() == 0
     assert db.get(Activity, a.id) is not None
-    assert not (settings.knowledge_dir / "businesses" / f"{business_id}.md").exists()
+    assert not (settings.knowledge_dir / "projects" / f"{project_id}.md").exists()
     assert "유지보수" not in (settings.knowledge_dir / "activities" / "2026" / f"{a.id}.md").read_text(encoding="utf-8")
 
 
 def test_business_with_unknown_customer_rejected(user_client):
-    r = user_client.post("/businesses", data={"name": "유지보수", "customer_id": "999"})
+    r = user_client.post("/projects", data={"name": "유지보수", "customer_id": "999"})
     assert r.status_code == 400
 
 
 def test_business_edit_form_shows_customer_select(user_client, db):
     c = Customer(name="한빛병원"); db.add(c); db.flush()
-    b = Business(name="유지보수", customer_id=c.id); db.add(b); db.commit()
-    html = user_client.get(f"/businesses/{b.id}/edit").text
+    b = Project(name="유지보수", customer_id=c.id); db.add(b); db.commit()
+    html = user_client.get(f"/projects/{b.id}/edit").text
     assert "<select" in html and "한빛병원" in html
     assert user_client.post(
-        f"/businesses/{b.id}", data={"name": "유지보수2", "customer_id": c.id, "status": "진행"},
+        f"/projects/{b.id}", data={"name": "유지보수2", "customer_id": c.id, "status": "진행"},
         follow_redirects=False,
     ).status_code == 303
     db.refresh(b)

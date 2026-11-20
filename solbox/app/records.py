@@ -10,21 +10,18 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, ontology
 from app.ai.tasks import normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
 from app.intake import extension
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Business, Customer, Partner, Solution, SolutionFile, User
+from app.models import Activity, Solution, SolutionFile, User
 
-LINK_TYPES = {  # 연결 종류: (모델, Activity 관계 이름)
-    "solution": (Solution, "solutions"),
-    "customer": (Customer, "customers"),
-    "business": (Business, "businesses"),
-    "partner": (Partner, "partners"),
+LINK_TYPES = {  # 연결 종류: (모델, Activity 관계 이름). 정의는 ontology.ACTIVITY_LINKS
+    t: (ontology.model_for(t), rel) for t, rel in ontology.ACTIVITY_LINKS.items()
 }
-NEW_TYPES = {"solutions": Solution, "customers": Customer, "partners": Partner}
+NEW_TYPES = {rel: ontology.model_for(t) for rel, t in ontology.ACTIVITY_NEW_TYPES.items()}  # 이름만으로 새로 만들 수 있는 대상
 
 
 # ---- 솔루션 자료 파일 ----
@@ -128,7 +125,7 @@ def get_or_create(db: Session, model, name: str, user: User, **fields) -> tuple[
     for obj in db.scalars(select(model).order_by(model.id)):
         if normalize_name(obj.name) == key:
             return obj, False
-    extra = {"stage": "intake"} if model is Solution else {}
+    extra = {"stage": ontology.STAGE_DEFAULT} if model is Solution else {}
     obj = model(name=name.strip(), created_by_id=user.id, **extra, **fields)
     db.add(obj)
     db.flush()
@@ -154,17 +151,17 @@ def ambiguous_view(db: Session, model, items: list[dict]) -> list[dict]:
 def apply_activity_fields(
     db: Session, user: User, a: Activity, *, kind, date_, title, raw_text, summary_md,
     fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content,
-    solution_ids, customer_ids, business_ids, partner_ids, new_solutions, new_customers, new_partners,
+    solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
 ) -> None:
-    """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 수요 단서, 연결, 새로 등록할 이름. 커밋하지 않는다."""
-    a.kind = kind if kind in labels.ACTIVITY_KINDS else "other"
+    """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다."""
+    a.kind = kind if kind in labels.ACTIVITY_KINDS else ontology.ACTIVITY_KIND_OTHER
     a.date = parse_date(date_)
     a.raw_text = raw_text
     a.title = title.strip() or first_line(raw_text) or first_line(summary_md)
     a.summary_md = summary_md.strip()
     a.follow_ups = follow_ups(fu_task, fu_owner, fu_due, fu_done)
     a.demand_signals = demand_signals(ds_customer, ds_content)
-    ids = dict(solution=solution_ids, customer=customer_ids, business=business_ids, partner=partner_ids)
+    ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
     for t, (model, rel) in LINK_TYPES.items():
         setattr(a, rel, pick(db, model, ids[t]))
     for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners)):

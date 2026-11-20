@@ -6,6 +6,7 @@ from datetime import date, datetime
 from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, func
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
+from app import ontology
 from app.db import Base
 
 
@@ -33,7 +34,7 @@ def _link_table(name: str, other: str, other_table: str) -> Table:
 
 activity_solutions = _link_table("activity_solutions", "solution", "solutions")
 activity_customers = _link_table("activity_customers", "customer", "customers")
-activity_businesses = _link_table("activity_businesses", "business", "businesses")
+activity_projects = _link_table("activity_businesses", "business", "businesses")  # 물리 표 이름은 그대로 (프로젝트 = 옛 사업)
 activity_partners = _link_table("activity_partners", "partner", "partners")
 
 proposal_solutions = Table(
@@ -51,7 +52,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, unique=True)
     name: Mapped[str] = mapped_column(String, default="")
     password_hash: Mapped[str] = mapped_column(String, default="")
-    role: Mapped[str] = mapped_column(String, default="user")  # admin / user
+    role: Mapped[str] = mapped_column(String, default=ontology.USER_ROLE_DEFAULT)  # admin / user
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
 
@@ -77,11 +78,13 @@ class Customer(Stamped, Base):
     contact: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
 
-    businesses: Mapped[list[Business]] = relationship(back_populates="customer")
+    projects: Mapped[list[Project]] = relationship(back_populates="customer")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
 
 
-class Business(Stamped, Base):
+class Project(Stamped, Base):
+    """프로젝트 (옛 "기존 사업"). 물리 표·열 이름은 businesses / business_id 그대로 둔다."""
+
     __tablename__ = "businesses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -92,8 +95,8 @@ class Business(Stamped, Base):
     status: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
 
-    customer: Mapped[Customer] = relationship(back_populates="businesses")
-    proposals: Mapped[list[Proposal]] = relationship(back_populates="business")
+    customer: Mapped[Customer] = relationship(back_populates="projects")
+    proposals: Mapped[list[Proposal]] = relationship(back_populates="project")
 
 
 class Solution(Stamped, Base):
@@ -104,7 +107,7 @@ class Solution(Stamped, Base):
     summary: Mapped[str] = mapped_column(String, default="")
     description: Mapped[str] = mapped_column(String, default="")
     partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True)
-    stage: Mapped[str] = mapped_column(String, default="intake")
+    stage: Mapped[str] = mapped_column(String, default=ontology.STAGE_DEFAULT)
     usage_direction: Mapped[str] = mapped_column(String, default="")
     applicable_types: Mapped[str] = mapped_column(String, default="")
     tags: Mapped[str] = mapped_column(String, default="")  # 쉼표 구분
@@ -128,7 +131,7 @@ class SolutionFile(Stamped, Base):
     solution_id: Mapped[int] = mapped_column(ForeignKey("solutions.id"))
     original_name: Mapped[str] = mapped_column(String, default="")
     stored_name: Mapped[str] = mapped_column(String, default="")
-    kind: Mapped[str] = mapped_column(String, default="related")
+    kind: Mapped[str] = mapped_column(String, default=ontology.FILE_KIND_DEFAULT)
     extract_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported
     size: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -139,7 +142,7 @@ class Activity(Stamped, Base):
     __tablename__ = "activities"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    kind: Mapped[str] = mapped_column(String, default="meeting")
+    kind: Mapped[str] = mapped_column(String, default=ontology.ACTIVITY_KIND_DEFAULT)
     date: Mapped[date | None] = mapped_column(Date, nullable=True)
     title: Mapped[str] = mapped_column(String, default="")
     raw_text: Mapped[str] = mapped_column(Text)
@@ -153,7 +156,7 @@ class Activity(Stamped, Base):
         secondary=activity_solutions, back_populates="activities"
     )
     customers: Mapped[list[Customer]] = relationship(secondary=activity_customers)
-    businesses: Mapped[list[Business]] = relationship(secondary=activity_businesses)
+    projects: Mapped[list[Project]] = relationship(secondary=activity_projects)
     partners: Mapped[list[Partner]] = relationship(secondary=activity_partners)
 
 
@@ -162,7 +165,7 @@ class AIJob(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String, default="")
-    status: Mapped[str] = mapped_column(String, default="pending")
+    status: Mapped[str] = mapped_column(String, default=ontology.JOB_PENDING)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     input: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -181,7 +184,7 @@ class Intake(Stamped, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     note: Mapped[str] = mapped_column(String, default="")
-    status: Mapped[str] = mapped_column(String, default="uploaded")  # uploaded / analyzing / ready / applying(저장 중) / applied / failed / discarded
+    status: Mapped[str] = mapped_column(String, default=ontology.INTAKE_STATUS_DEFAULT)  # uploaded / analyzing / ready / applying(저장 중) / applied / failed / discarded
     plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result: Mapped[list] = mapped_column(JSON, default=list)  # 저장으로 만들어진 기록 [{"type", "id", "label"}]
     job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
@@ -202,7 +205,7 @@ class IntakeFile(Base):
     intake_id: Mapped[int] = mapped_column(ForeignKey("intakes.id"))
     original_name: Mapped[str] = mapped_column(String, default="")
     stored_name: Mapped[str] = mapped_column(String, default="")
-    kind: Mapped[str] = mapped_column(String, default="other")  # document / image / audio / other
+    kind: Mapped[str] = mapped_column(String, default=ontology.INTAKE_FILE_KIND_DEFAULT)  # document / image / audio / other
     read_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported / needs_transcript / pending_transcript
     read_error: Mapped[str | None] = mapped_column(String, nullable=True)  # 읽지 못한 이유 (받아쓰기 실패 등, 화면에 보이는 한국어)
     progress: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 받아쓰기 진행 0~100
@@ -220,9 +223,9 @@ class Proposal(Stamped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String, default="")
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
-    business_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id"), nullable=True)
+    project_id: Mapped[int | None] = mapped_column("business_id", ForeignKey("businesses.id"), nullable=True)
     request_memo: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(String, default="new")
+    status: Mapped[str] = mapped_column(String, default=ontology.PROPOSAL_STATUS_DEFAULT)
     extra_solution_ids: Mapped[list] = mapped_column(JSON, default=list)
     directions: Mapped[list] = mapped_column(JSON, default=list)
     selected_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -234,7 +237,7 @@ class Proposal(Stamped, Base):
     chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 현재 방향의 것이 아니다
 
     customer: Mapped[Customer] = relationship(back_populates="proposals")
-    business: Mapped[Business | None] = relationship(back_populates="proposals")
+    project: Mapped[Project | None] = relationship(back_populates="proposals")
     solutions: Mapped[list[Solution]] = relationship(
         secondary=proposal_solutions, back_populates="proposals"
     )
@@ -272,7 +275,7 @@ class ResearchRun(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     slot: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # 예약 실행이 맡은 예정 시각
     trigger: Mapped[str] = mapped_column(String)  # schedule / manual
-    status: Mapped[str] = mapped_column(String, default="running")  # running / done / partial / failed
+    status: Mapped[str] = mapped_column(String, default=ontology.JOB_RUNNING)  # running / done / partial / failed
     requester_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -294,7 +297,7 @@ class ResearchReport(Base):
     insights: Mapped[list] = mapped_column(JSON, default=list)
     suggestions: Mapped[list] = mapped_column(JSON, default=list)
     job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
-    status: Mapped[str] = mapped_column(String, default="pending")  # pending / done / failed
+    status: Mapped[str] = mapped_column(String, default=ontology.JOB_PENDING)  # pending / done / failed
     error: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
 

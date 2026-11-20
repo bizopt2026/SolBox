@@ -32,7 +32,7 @@ def test_no_readable_files_fails_without_calling_cli(app, db, settings, fake_cla
     job = enqueue(db, "solution_draft", {"solution_id": s.id}, None)
     _run(app, settings)
     db.refresh(job)
-    assert job.status == "failed" and "자료 파일이 없습니다" in job.error and fake_claude.calls() == []
+    assert job.status == "failed" and "자료가 없습니다" in job.error and fake_claude.calls() == []
 
 
 def test_draft_job_of_other_solution_rejected(app, user_client, db, settings, fake_claude):

@@ -3,16 +3,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app import labels
-from app.knowledge import parse_rel
-from app.models import Activity, Business, Customer, Partner, ResearchReport, Solution, SolutionFile
-
-_SIMPLE = {
-    "solution": (Solution, "솔루션", "/solutions/{id}"),
-    "customer": (Customer, "고객", "/customers/{id}"),
-    "business": (Business, "기존 사업", "/businesses/{id}"),
-    "partner": (Partner, "파트너", "/partners/{id}"),
-}
+from app import labels, ontology
+from app.models import Activity, ResearchReport, Solution, SolutionFile
 
 
 def _plain(path: str) -> dict:
@@ -20,31 +12,31 @@ def _plain(path: str) -> dict:
 
 
 def _describe(db: Session, path: str) -> dict:
-    parsed = parse_rel(path)
+    parsed = ontology.parse_rel(path)  # 옛 형식(businesses/3.md)도 읽는다
     if parsed is None:
         return _plain(path)
-    kind, v = parsed
-    if kind in _SIMPLE:
-        model, kind_label, url = _SIMPLE[kind]
-        obj = db.get(model, int(v["id"]))
-        return {"label": obj.name, "url": url.format(id=obj.id), "kind": kind_label} if obj else _plain(path)
-    if kind == "activity":
+    code, v = parsed
+    t = ontology.TYPES[code]
+    if code == "activity":
         a = db.get(Activity, int(v["id"]))
         if a is None:
             return _plain(path)
         title = a.title or "(제목 없음)"
-        return {"label": f"{title} ({a.date.isoformat()})" if a.date else title, "url": f"/activities/{a.id}", "kind": "활동 기록"}
-    if kind == "file":
+        return {"label": f"{title} ({a.date.isoformat()})" if a.date else title, "url": t.url(a.id), "kind": t.kind_label}
+    if code == "solution_file":
         f = db.get(SolutionFile, int(v["id"]))
         sol = db.get(Solution, f.solution_id) if f is not None and str(f.solution_id) == v["solution_id"] else None
         if f is None or sol is None:
             return _plain(path)
-        return {"label": f"{f.original_name} ({sol.name})", "url": f"/solutions/{sol.id}", "kind": "자료"}
-    r = db.get(ResearchReport, int(v["id"]))  # report
-    if r is None or (r.kind == "area") != (v["tag"] != "suggest"):
-        return _plain(path)
-    name = labels.RESEARCH_AREAS.get(r.area, r.area) if r.kind == "area" else "발굴 방향 제안"
-    return {"label": f"리서치 {v['day']} {name}", "url": f"/research/runs/{r.run_id}", "kind": "리서치"}
+        return {"label": f"{f.original_name} ({sol.name})", "url": ontology.detail_url("solution", sol.id), "kind": t.kind_label}
+    if code == "research_report":
+        r = db.get(ResearchReport, int(v["id"]))
+        if r is None or (r.kind == "area") != (v["tag"] != "suggest"):
+            return _plain(path)
+        name = labels.RESEARCH_AREAS.get(r.area, r.area) if r.kind == "area" else ontology.REPORT_KINDS["suggest"]
+        return {"label": f"{t.kind_label} {v['day']} {name}", "url": ontology.detail_url("research_run", r.run_id), "kind": t.kind_label}
+    obj = db.get(t.model, int(v["id"]))  # solution / customer / project / partner
+    return {"label": obj.name, "url": t.url(obj.id), "kind": t.kind_label} if obj else _plain(path)
 
 
 def describe_source(db: Session, path: str) -> dict:

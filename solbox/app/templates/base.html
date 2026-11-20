@@ -16,13 +16,13 @@
   {% set section = path.split("/")[1] %}
   {% set ready_n = nav_ready_count() if nav_ready_count else 0 %}
   <nav>
-    {% for href, name in (("intake", "올리기"), ("", "홈"), ("solutions", "솔루션"), ("customers", "고객"), ("businesses", "기존 사업"), ("partners", "파트너"), ("proposals", "제안"), ("activities", "활동 기록"), ("research", "리서치")) %}
+    {% for href, name in ont.NAV_ITEMS %}
     <a href="/{{ href }}"{% if section == href %} aria-current="page"{% endif %}>{{ name }}{% if href == "intake" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
     {% endfor %}
     {% if user.role == "admin" %}
     <details class="menu"><summary{% if section == "admin" %} aria-current="page"{% endif %}>관리</summary>
       <div class="menu-list">
-      {% for href, name in (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템")) %}
+      {% for href, name in ont.ADMIN_NAV_ITEMS %}
       <a href="/admin/{{ href }}"{% if path == "/admin/" ~ href %} aria-current="page"{% endif %}>{{ name }}</a>
       {% endfor %}
       </div>

@@ -1,7 +1,7 @@
 {# 제안서(PPT) 만들기·내려받기. 구성안이 있을 때만 그린다. 상세 화면과 구성안 화면이 함께 쓴다. #}
 {% if proposal.outline and proposal.outline.slides %}
 {% set job = proposal.active_job %}
-{% set deck_busy = job is not none and job.status in ("pending", "running") %}
+{% set deck_busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set cs = outline_check_summary(proposal.outline) %}
 {% set back = "outline" if request.url.path.endswith("/outline") else "" %}
 <div class="deck-box">

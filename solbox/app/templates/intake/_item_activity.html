@@ -5,7 +5,7 @@
   {{ plan_head(card) }}
   <p class="plan-facts">
     <span data-sum="date">{{ b.date }}</span> · <span data-sum="kind">{{ b.kind_label }}</span>
-    · 후속 조치 {{ b.fu_count }} · 수요 단서 {{ b.ds_count }}
+    · 후속 조치 {{ b.fu_count }} · {{ ont.prop('activity', 'demand_signals') }} {{ b.ds_count }}
     {% if b.dup_count %}<span class="badge decide">비슷한 할 일 {{ b.dup_count }}건 확인</span>{% endif %}
   </p>
   {% if b.dup_rows %}
@@ -51,7 +51,7 @@
         {% endfor %}
       </fieldset>
       <fieldset class="plan-rows">
-        <legend>수요 단서</legend>
+        <legend>{{ ont.prop("activity", "demand_signals") }}</legend>
         {% for row in v.ds_rows + [{"customer": "", "content": ""}] %}
         <div class="row">
           <label>고객 <input name="{{ k }}__ds_customer" value="{{ row.customer }}"></label>
@@ -59,7 +59,7 @@
         </div>
         {% endfor %}
       </fieldset>
-      {% for key, title in (("solution", "솔루션"), ("customer", "고객"), ("business", "기존 사업"), ("partner", "파트너")) %}
+      {% for key, title, _field in ont.activity_link_fields() %}
       {{ check_picker(k ~ "__" ~ key ~ "_ids", title, choices[key], v.selected[key]) }}
       {% for amb in card.ambiguous.get(key, []) %}
       <p class="muted">“{{ amb.name }}”: 여러 항목과 비슷합니다: {{ amb.candidates | join(", ") }} — 위 목록에서 맞는 항목을 직접 선택하세요.</p>

@@ -54,11 +54,11 @@ def test_hold_has_no_current_step_in_the_bar(user_client, db):
 
 
 def test_extra_solution_choices_show_stage_badge(user_client, db):
-    _make(db, "survey")
+    _make(db, "hold")
     from app.models import Customer
     db.add(Customer(name="c"))
     db.commit()
-    assert 'class="badge stage-survey"' in user_client.get("/proposals/new").text
+    assert 'class="badge stage-hold"' in user_client.get("/proposals/new").text
 
 
 def test_current_step_is_disabled_and_same_stage_post_writes_nothing(user_client, db, settings):

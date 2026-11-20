@@ -15,12 +15,12 @@ from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import labels, models, scheduler  # noqa: F401  (모델을 메타데이터에 등록)
+from app import labels, models, ontology, scheduler  # noqa: F401  (모델을 메타데이터에 등록)
 from app.ai.queue import fail_stale_running, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
-from app.knowledge import KnowledgeMirror
+from app.knowledge import KnowledgeMirror, rebuild_if_stale
 from app.models import Intake
 from app.intake import recover as recover_intakes
 from app.intake import recover_applying
@@ -107,6 +107,7 @@ def create_app(settings: Settings) -> FastAPI:
         # 로그 파일은 서버가 도는 동안만 연다 (끝나면 처리기를 떼고 파일을 닫는다).
         logger, handler, previous_level = _open_log_file(settings)
         with app.state.session_factory() as db:
+            rebuild_if_stale(app.state.mirror, db, settings.uploads_dir)
             fail_stale_running(db)
             recover_runs(db)
             recover_intakes(db)
@@ -154,17 +155,20 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["outline_check_summary"] = outline_check_summary
     app.state.templates.env.globals["check_summary_text"] = check_summary_text
     app.state.templates.env.globals["labels"] = labels  # 매크로에서도 쓴다
+    app.state.templates.env.globals["ontology"] = ontology  # 대상 이름·속성 이름표·목록은 템플릿도 여기서 읽는다
+    app.state.templates.env.globals["ont"] = ontology
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
     app.state.templates.env.filters["md"] = render_markdown
 
-    from app.routers import activities, admin, auth, businesses, customers, files, home, intake, jobs, partners, proposal_outline, proposals, research, solutions  # 지연 임포트: 라우터가 render 를 쓴다
+    from app.routers import activities, admin, auth, customers, files, home, intake, jobs, partners, projects, proposal_outline, proposals, research, solutions  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(admin.router)
     app.include_router(partners.router)
     app.include_router(customers.router)
-    app.include_router(businesses.router)
+    app.include_router(projects.router)
+    app.include_router(projects.legacy_router)
     app.include_router(solutions.router)
     app.include_router(files.router)
     app.include_router(intake.router)

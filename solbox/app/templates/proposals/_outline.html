@@ -1,6 +1,6 @@
 {% if proposal.outline %}
 {% set job = proposal.active_job %}
-{% set busy = job is not none and job.status in ("pending", "running") %}
+{% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 <p><strong>{{ proposal.outline.slides | length }}장</strong> · <a href="/proposals/{{ proposal.id }}/outline">구성안 검토·수정</a></p>
 {% if not busy %}
 <form method="post" action="/proposals/{{ proposal.id }}/outline" class="stack">

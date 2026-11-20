@@ -58,7 +58,7 @@ def test_form_values_still_save(user_client, db):
 def test_form_sections_and_save_bar(user_client, db):
     a = _new_activity(db, [])
     html = user_client.get(f"/activities/{a.id}/edit").text
-    for name in ("기본 정보", "원문 메모", "정리본", "후속 조치", "수요 단서", "연결"):
+    for name in ("기본 정보", "원문 메모", "정리본", "후속 조치", "고객 니즈", "연결"):
         assert name in html
     assert re.search(r'<details class="formsec" id="raw-memo" open>', html)
     assert 'class="row savebar"' in html
@@ -76,7 +76,7 @@ def test_draft_page_collapses_raw_memo(app, user_client, db, settings, fake_clau
 
 
 def test_proposal_target_uses_same_picker(user_client, db):
-    s = [Solution(name=f"S{i}", stage="survey") for i in range(3)]
+    s = [Solution(name=f"S{i}", stage="hold") for i in range(3)]
     db.add_all([s[0], s[1], s[2], Customer(name="C")])
     db.commit()
     html = user_client.get("/proposals/new").text
@@ -101,29 +101,29 @@ def test_saving_with_nothing_ticked_clears_links(user_client, db):
     a = _new_activity(db, [s[0], s[1]])
     _post_form(user_client, a)
     db.refresh(a)
-    assert a.solutions == [] and a.customers == [] and a.businesses == [] and a.partners == []
+    assert a.solutions == [] and a.customers == [] and a.projects == [] and a.partners == []
 
 
 def test_saving_a_mix_stores_exactly_the_ticked_links(user_client, db):
-    from app.models import Business, Partner
+    from app.models import Project, Partner
     s = _make(db, 4)
     c, c2 = Customer(name="고객1"), Customer(name="고객2")
     p = Partner(name="파트너1")
     db.add_all([c, c2, p])
     db.flush()
-    b = Business(name="사업1", customer_id=c.id)
+    b = Project(name="사업1", customer_id=c.id)
     db.add(b)
     db.commit()
     a = _new_activity(db, [s[0]])
     _post_form(user_client, a, solution_ids=[str(s[1].id), str(s[3].id)], customer_ids=[str(c2.id)],
-               business_ids=[str(b.id)], partner_ids=[str(p.id)])
+               project_ids=[str(b.id)], partner_ids=[str(p.id)])
     db.refresh(a)
     assert sorted(x.id for x in a.solutions) == sorted([s[1].id, s[3].id])
-    assert [x.id for x in a.customers] == [c2.id] and [x.id for x in a.businesses] == [b.id] and [x.id for x in a.partners] == [p.id]
+    assert [x.id for x in a.customers] == [c2.id] and [x.id for x in a.projects] == [b.id] and [x.id for x in a.partners] == [p.id]
 
 
 def test_proposal_target_page_includes_shared_script(user_client, db):
-    db.add(Solution(name="S", stage="survey"))
+    db.add(Solution(name="S", stage="hold"))
     db.commit()
     html = user_client.get("/proposals/new").text
     assert 'src="/static/app.js"' in html and 'class="picker' in html and "data-count" in html

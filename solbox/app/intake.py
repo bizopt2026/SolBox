@@ -14,12 +14,12 @@ from PIL import Image, ImageOps
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import labels, transcribe
+from app import labels, ontology, transcribe
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
 from app.knowledge import KnowledgeMirror, file_markdown, safe_name
-from app.models import AIJob, Activity, Business, Customer, Intake, IntakeFile, Partner, Solution, User
+from app.models import AIJob, Activity, Customer, Intake, IntakeFile, Partner, Project, Solution, User
 
 if TYPE_CHECKING:
     from app.ai.intake_tasks import IntakePlanOut
@@ -260,9 +260,9 @@ def _prepare_audio(settings: Settings, f: IntakeFile, number: int, folder: Path,
 
 
 def registered_names(db: Session) -> list[str]:
-    """등록된 솔루션·고객·파트너·사업 이름, 최근 것 먼저."""
+    """등록된 솔루션·고객·파트너·프로젝트 이름, 최근 것 먼저."""
     rows: list[tuple[datetime, int, str]] = []
-    for model in (Solution, Customer, Partner, Business):
+    for model in (Solution, Customer, Partner, Project):
         rows.extend((o.created_at or datetime.min, o.id, o.name) for o in db.scalars(select(model)))
     rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
     return [r[2] for r in rows]
@@ -616,7 +616,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
         if unread:
             states = dict.fromkeys(labels.READ_STATUSES.get(by_number[n].read_status, by_number[n].read_status) for n in unread)
             reasons.append("읽을 수 없는 파일 (" + ", ".join(states) + ")")
-        items.append({"kind": "unplaced", "key": "u1", "reason": " · ".join(reasons), "files": unused + unread})
+        items.append({"kind": ontology.INTAKE_ITEM_UNPLACED, "key": "u1", "reason": " · ".join(reasons), "files": unused + unread})
     return {"items": items}
 
 
@@ -708,7 +708,7 @@ def start_analysis(db: Session, intake: Intake, user: User) -> bool:
         db.refresh(intake)
         return False
     db.rollback()  # 읽기 트랜잭션을 끝내고 쓰기를 새로 시작한다
-    job = AIJob(kind="intake_analyze", input={"intake_id": intake_id}, requester_id=user.id, priority=0, status="pending")
+    job = AIJob(kind="intake_analyze", input={"intake_id": intake_id}, requester_id=user.id, priority=0, status=ontology.JOB_PENDING)
     db.add(job)
     db.flush()
     claimed = db.execute(
@@ -746,7 +746,7 @@ def recover(db: Session) -> int:
 
 # ---- 정리안 확인과 저장 ----
 
-SAVEABLE_KINDS = ("new_partner", "new_customer", "new_solution", "add_to_solution", "add_contact", "activity")
+SAVEABLE_KINDS = ontology.INTAKE_SAVEABLE_KINDS  # 정의는 ontology
 NOTHING_TO_SAVE = "저장할 항목이 없습니다."
 APPLY_FAILED = "저장하지 못했습니다. 아무것도 저장되지 않았으니 잠시 후 다시 저장해 주세요. 계속 안 되면 관리자에게 알려 주세요."
 APPLY_INTERRUPTED = "저장하는 도중 서버가 멈췄습니다. 아무것도 저장되지 않았으니 다시 저장해 주세요."
@@ -865,7 +865,7 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
             ds_content=many("ds_content", [x.get("content", "") for x in dss]),
             solution_ids=many("solution_ids", matched.get("solutions", [])),
             customer_ids=many("customer_ids", matched.get("customers", [])),
-            business_ids=many("business_ids", matched.get("businesses", [])),
+            project_ids=many("project_ids", matched["projects"] if "projects" in matched else matched.get("businesses", [])),  # 옛 정리안은 businesses 키
             partner_ids=many("partner_ids", matched.get("partners", [])),
         )
         names = {rel: [n.strip() for n in many(f"new_{rel}", []) if n.strip()] for rel in ("solutions", "customers", "partners")}
@@ -879,7 +879,7 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
         v["fu_drop"] = {n for n in (_digits(x) for x in (fields.many(f"{key}__fu_drop") if use else [])) if n in flagged}
         v["ds_rows"] = [{"customer": c, "content": t} for c, t in _rows(v["ds_customer"], v["ds_content"])]
         v["selected"] = {t: [n for n in (_digits(i) for i in v[f"{t}_ids"]) if n is not None]
-                         for t in ("solution", "customer", "business", "partner")}
+                         for t in ontology.ACTIVITY_LINKS}
     return v
 
 
@@ -966,7 +966,7 @@ def _signature(v: dict) -> dict:
     return sig
 
 
-CONTACT_MODELS = {"partner": Partner, "customer": Customer}
+CONTACT_MODELS = {t: ontology.model_for(t) for t in ontology.CONTACT_TYPES}  # 정의는 ontology
 
 
 def contact_body(v: dict) -> str:
@@ -1072,8 +1072,9 @@ def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
                 "file_status": {file_number(intake, f): f.read_status for f in intake.files}}
         if item["kind"] == "activity":
             for t, (model, rel) in records.LINK_TYPES.items():
-                card["ambiguous"][t] = records.ambiguous_view(db, model, item.get("ambiguous", {}).get(rel, []))
-        if item["kind"] != "unplaced":
+                amb = item.get("ambiguous", {})
+                card["ambiguous"][t] = records.ambiguous_view(db, model, amb[rel] if rel in amb else amb.get("businesses", []) if rel == "projects" else [])
+        if item["kind"] != ontology.INTAKE_ITEM_UNPLACED:
             card["brief"] = _brief(db, item, v, names, intake)
             card["open"] = item_error(item, v) is not None or card["brief"].get("target_changed", False) or (
                 fields is not None and _signature(v) != _signature(item_values(item, None, names)))
@@ -1156,7 +1157,7 @@ class _Run:
         self.file_texts: list[tuple] = []
         self.attached: set[tuple[int, int]] = set()
         # 이 저장 전에 있던 기록의 번호. 그 사이 지워진 번호를 이 저장에서 새로 만든 기록이 물려받아도 (SQLite 는 번호를 다시 쓴다) 섞이지 않는다.
-        self.existing = {m: set(db.scalars(select(m.id))) for m in (Solution, Customer, Partner, Business)}
+        self.existing = {m: set(db.scalars(select(m.id))) for m in (Solution, Customer, Partner, Project)}
 
     def existing_id(self, model, value) -> int | None:
         number = _digits(value)
@@ -1223,7 +1224,7 @@ def _unsaved_files(intake: Intake, chosen: list[tuple[dict, dict]], fields: _Fie
     out: list[dict] = []
     seen: set[int] = set()
     for item in (intake.plan or {}).get("items", []):
-        if item["kind"] == "unplaced":
+        if item["kind"] == ontology.INTAKE_ITEM_UNPLACED:
             reason = str(item.get("reason") or "").strip() or NOT_PLACED
         elif item["kind"] in SAVEABLE_KINDS and fields.flag(f"skip_{item['key']}"):
             title = _item_title(item, item_values(item, fields, names))
@@ -1422,7 +1423,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             db, user, a, kind=v["kind"], date_=v["date"], title=v["title"], raw_text=v["raw_text"].strip(), summary_md=v["summary_md"],
             fu_task=pick(v["fu_task"]), fu_owner=pick(v["fu_owner"]), fu_due=pick(v["fu_due"]), fu_done=[],
             ds_customer=v["ds_customer"], ds_content=v["ds_content"],
-            solution_ids=ids["solution"], customer_ids=ids["customer"], business_ids=ids["business"], partner_ids=ids["partner"],
+            solution_ids=ids["solution"], customer_ids=ids["customer"], project_ids=ids["project"], partner_ids=ids["partner"],
             new_solutions=v["new_names"]["new_solutions"], new_customers=v["new_names"]["new_customers"],
             new_partners=v["new_names"]["new_partners"],
         )

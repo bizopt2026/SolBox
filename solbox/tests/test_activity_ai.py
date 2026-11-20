@@ -6,13 +6,13 @@ import pytest
 from app import labels
 from app.ai.queue import enqueue, process_next
 from app.ai.tasks import ActivityDraft, Mentions, draft_summary_md, load_prompt, match_mentions, normalize_draft
-from app.models import AIJob, Activity, Business, Customer, Partner, Solution
+from app.models import AIJob, Activity, Project, Customer, Partner, Solution
 
 GOOD = {"kind": "tapping", "date": "2026-11-10", "title": "한빛병원 태핑",
         "attendees": ["김과장"], "discussion": ["전력비 부담"], "decisions": ["견적 송부"],
         "follow_ups": [{"task": "견적 송부", "owner": "김과장", "due": "2026-11-20"}],
         "demand_signals": [{"customer": "한빛병원", "content": "전력비 절감 관심"}],
-        "mentions": {"solutions": ["ai 에너지 절감"], "customers": ["한빛병원"], "partners": ["그린테크"], "businesses": []}}
+        "mentions": {"solutions": ["ai 에너지 절감"], "customers": ["한빛병원"], "partners": ["그린테크"], "projects": []}}
 
 
 def _good():
@@ -56,15 +56,15 @@ def test_draft_can_be_saved_via_post_activities(app, user_client, db, settings, 
 
 
 def test_match_mentions_case_insensitive_and_new(db):
-    s = Solution(name="AI 에너지 절감"); c = Customer(name="한빛병원"); b = Business(name="사업A", customer=c)
+    s = Solution(name="AI 에너지 절감"); c = Customer(name="한빛병원"); b = Project(name="사업A", customer=c)
     db.add_all([s, c, b]); db.commit()
-    m = Mentions(solutions=["  ai 에너지 절감 "], customers=["한빛병원"], partners=["그린테크"], businesses=["없는사업"])
+    m = Mentions(solutions=["  ai 에너지 절감 "], customers=["한빛병원"], partners=["그린테크"], projects=["없는사업"])
     out = match_mentions(db, m)
     assert out["solutions"] == {"matched": [s.id], "new": [], "ambiguous": []}
     assert out["customers"] == {"matched": [c.id], "new": [], "ambiguous": []}
     assert out["partners"] == {"matched": [], "new": ["그린테크"], "ambiguous": []}
-    assert out["businesses"] == {"matched": [], "new": [], "ambiguous": []}
-    assert match_mentions(db, Mentions(businesses=["사업a"]))["businesses"]["matched"] == [b.id]
+    assert out["projects"] == {"matched": [], "new": [], "ambiguous": []}
+    assert match_mentions(db, Mentions(projects=["사업a"]))["projects"]["matched"] == [b.id]
 
 
 def test_bad_output_retried_once_then_ok(app, db, settings, fake_claude):
@@ -106,7 +106,7 @@ def test_draft_summary_md():
 
 def test_load_prompt_replaces_placeholders():
     text = load_prompt("activity_structure", raw_text="MEMO", today="2026-01-01",
-                       solutions="S", customers="C", businesses="B", partners="P")
+                       solutions="S", customers="C", projects="B", partners="P")
     assert "MEMO" in text and "{{" not in text
 
 
@@ -228,7 +228,7 @@ def test_match_mentions_containment_does_not_cross_types(db):
 
 def test_draft_page_shows_ambiguous_hint(app, user_client, db, settings, fake_claude):
     a = Customer(name="한빛병원"); b = Customer(name="한빛의원"); db.add_all([a, b]); db.commit()
-    d = {**GOOD, "mentions": {"solutions": [], "customers": ["한빛"], "partners": [], "businesses": []}}
+    d = {**GOOD, "mentions": {"solutions": [], "customers": ["한빛"], "partners": [], "projects": []}}
     fake_claude.set(mode="ok", result=json.dumps(d, ensure_ascii=False))
     url = user_client.post("/activities/draft", data={"raw_text": "메모"}, follow_redirects=False).headers["location"]
     _run(app, settings)

@@ -1,6 +1,6 @@
 {% from "_macros.html" import source_chip, check_badge %}
 {% set job = proposal.active_job %}
-{% set busy = job is not none and job.status in ("pending", "running") %}
+{% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set directions = proposal.directions or [] %}
 {% set confirm_change = "return confirm('방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다. 계속할까요?')" if proposal.outline else "" %}
 {% set FOLD = 5 %}

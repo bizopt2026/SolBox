@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.knowledge import KnowledgeMirror, safe_name
-from app.models import Activity, Business, Customer, Partner, Solution, SolutionFile
+from app.models import Activity, Project, Customer, Partner, Solution, SolutionFile
 
 
 def _read(path):
@@ -51,16 +51,16 @@ def test_safe_name():
     assert len(safe_name("가" * 200)) == 80
 
 
-def test_customer_business_partner_paths_and_links(db, tmp_path):
+def test_customer_project_partner_paths_and_links(db, tmp_path):
     m = KnowledgeMirror(tmp_path)
     c = Customer(name="한빛병원", industry="의료"); db.add(c); db.flush()
-    b = Business(name="스마트 병동", customer_id=c.id, status="진행"); db.add(b); db.commit()
+    b = Project(name="스마트 병동", customer_id=c.id, status="진행"); db.add(b); db.commit()
     m.sync(c); m.sync(b)
     assert m.path_for(c) == tmp_path / "customers" / f"{c.id}.md"
-    assert m.path_for(b) == tmp_path / "businesses" / f"{b.id}.md"
+    assert m.path_for(b) == tmp_path / "projects" / f"{b.id}.md"
     ctext = _read(m.path_for(c))
     assert ctext.startswith("# 한빛병원") and "- 업종: 의료" in ctext
-    assert f"스마트 병동 (businesses/{b.id}.md)" in ctext
+    assert f"스마트 병동 (projects/{b.id}.md)" in ctext
     assert f"- 고객: 한빛병원 (customers/{c.id}.md)" in _read(m.path_for(b))
 
 
@@ -81,7 +81,7 @@ def test_activity_md_sections_and_links(db, tmp_path):
     assert text.startswith("# 태핑") and "고객 태핑" in text
     assert f"한빛병원 (customers/{c.id}.md)" in text
     assert f"AI 에너지 절감 (solutions/{s.id}/card.md)" in text
-    order = [text.index(h) for h in ("## 정리", "## 후속 조치", "## 수요 단서", "## 원문")]
+    order = [text.index(h) for h in ("## 정리본", "## 후속 조치", "## 고객 니즈", "## 원문")]
     assert order == sorted(order)
     assert "자료 송부" in text and "절감 관심" in text and "요약 내용" in text
 

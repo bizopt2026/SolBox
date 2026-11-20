@@ -14,11 +14,11 @@
       {% endfor %}
     </select>
   </label>
-  <label>기존 사업 (선택)
-    <select name="business_id">
+  <label>{{ ont.label("project") }} (선택)
+    <select name="project_id">
       <option value="">선택 안 함</option>
-      {% for b in businesses %}
-      <option value="{{ b.id }}" {{ "selected" if form.business_id == b.id|string }}>{{ b.customer.name }} – {{ b.name }}</option>
+      {% for b in projects %}
+      <option value="{{ b.id }}" {{ "selected" if form.project_id == b.id|string }}>{{ b.customer.name }} – {{ b.name }}</option>
       {% endfor %}
     </select>
   </label>

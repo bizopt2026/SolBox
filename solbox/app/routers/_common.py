@@ -1,4 +1,4 @@
-"""항목 화면(파트너·고객·사업·솔루션 …)이 함께 쓰는 도우미."""
+"""항목 화면(파트너·고객·프로젝트·솔루션 …)이 함께 쓰는 도우미."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Business, Customer, Partner, Solution, User
+from app.models import Activity, Customer, Partner, Project, Solution, User
 from app.security import ensure_can_delete
 
 T = TypeVar("T")
@@ -51,7 +51,7 @@ def name_error(name: str) -> str | None:
 
 
 def activities_linked_to(db: Session, relationship, obj) -> list[Activity]:
-    """`relationship` (예: Activity.businesses) 으로 `obj` 에 연결된 활동 기록."""
+    """`relationship` (예: Activity.projects) 으로 `obj` 에 연결된 활동 기록."""
     return list(db.scalars(select(Activity).where(relationship.any(id=obj.id))))
 
 
@@ -65,9 +65,9 @@ def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Act
 def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
     """`obj` 의 이름이 적히는 다른 사본(상위·하위 항목, 연결된 활동 기록)을 다시 쓴다."""
     if isinstance(obj, Customer):
-        related = [*obj.businesses, *activities_linked_to(db, Activity.customers, obj)]
-    elif isinstance(obj, Business):
-        related = [obj.customer, *activities_linked_to(db, Activity.businesses, obj)]
+        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj)]
+    elif isinstance(obj, Project):
+        related = [obj.customer, *activities_linked_to(db, Activity.projects, obj)]
     elif isinstance(obj, Partner):
         related = [*obj.solutions, *activities_linked_to(db, Activity.partners, obj)]
     elif isinstance(obj, Solution):

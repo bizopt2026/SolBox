@@ -1,6 +1,6 @@
 from sqlalchemy import inspect
 
-from app.models import AIJob, Business, Customer, Proposal, ProposalMessage, Solution, User
+from app.models import AIJob, Project, Customer, Proposal, ProposalMessage, Solution, User
 from app.proposals import candidate_solutions, display_title
 
 # HEAD(ba8ab7c) 모델에서 읽은 기존 테이블의 칼럼 이름.
@@ -20,19 +20,19 @@ EXISTING_COLUMNS = {
 }
 
 
-def _customer_business(db, cname="한빛병원", bname="설비 유지보수"):
+def _customer_project(db, cname="한빛병원", bname="설비 유지보수"):
     c = Customer(name=cname)
     db.add(c)
     db.flush()
-    b = Business(name=bname, customer_id=c.id)
+    b = Project(name=bname, customer_id=c.id)
     db.add(b)
     db.commit()
     return c, b
 
 
 def test_create_proposal(user_client, db):
-    c, b = _customer_business(db)
-    r = user_client.post("/proposals", data={"customer_id": c.id, "business_id": b.id, "request_memo": "에너지 절감 쪽으로"},
+    c, b = _customer_project(db)
+    r = user_client.post("/proposals", data={"customer_id": c.id, "project_id": b.id, "request_memo": "에너지 절감 쪽으로"},
                          follow_redirects=False)
     p = db.query(Proposal).one()
     assert r.headers["location"] == f"/proposals/{p.id}"
@@ -56,13 +56,13 @@ def test_display_title_variants(db):
 
 
 def test_business_must_belong_to_customer(user_client, db):
-    c, b = _customer_business(db)
+    c, b = _customer_project(db)
     other = Customer(name="다른고객")
     db.add(other)
     db.commit()
-    r = user_client.post("/proposals", data={"customer_id": other.id, "business_id": b.id})
+    r = user_client.post("/proposals", data={"customer_id": other.id, "project_id": b.id})
     assert r.status_code == 400
-    assert "선택한 고객의 사업이 아닙니다." in r.text
+    assert "선택한 고객의 프로젝트가 아닙니다." in r.text
     assert db.query(Proposal).count() == 0
 
 
@@ -74,18 +74,19 @@ def test_customer_required(user_client, db):
     assert db.query(Proposal).count() == 0
 
 
-def test_new_form_prefills_and_hides_boxed(user_client, db):
-    c, b = _customer_business(db)
-    db.add_all([Solution(name="박스솔루션", stage="boxed"), Solution(name="조사솔루션", stage="survey")])
+def test_new_form_prefills_and_lists_only_hold_for_manual_add(user_client, db):
+    c, b = _customer_project(db)
+    db.add_all([Solution(name="보류솔루션", stage="hold"), Solution(name="조사솔루션", stage="survey"), Solution(name="박스솔루션", stage="boxed")])
     db.commit()
-    r = user_client.get(f"/proposals/new?customer_id={c.id}&business_id={b.id}")
+    r = user_client.get(f"/proposals/new?customer_id={c.id}&project_id={b.id}")
     assert r.status_code == 200
     assert "한빛병원 – 설비 유지보수" in r.text
-    assert "조사솔루션" in r.text and "박스솔루션" not in r.text
+    assert "보류솔루션" in r.text and "조사솔루션" not in r.text and "박스솔루션" not in r.text  # 보류가 아니면 이미 후보다
+    assert "보류 단계 솔루션도 직접 추가하기" in r.text and "박스 등록이 아닌" not in r.text
 
 
 def test_create_with_extra_solutions(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     s = Solution(name="조사솔루션", stage="survey")
     db.add(s)
     db.commit()
@@ -95,16 +96,20 @@ def test_create_with_extra_solutions(user_client, db):
     assert p.solutions == []  # 방향을 고를 때 채워진다
 
 
-def test_candidate_solutions_boxed_plus_extra(db):
+def test_candidate_solutions_all_but_hold_plus_extra(db):
+    """결정 Q7: 보류를 뺀 모든 단계 + 제안 건에 직접 추가한 솔루션 (보류도 직접 추가하면 후보)."""
     a = Solution(name="가", stage="boxed"); b = Solution(name="나", stage="survey"); c = Solution(name="다", stage="hold")
-    cust = Customer(name="고객"); db.add_all([a, b, c, cust]); db.flush()
-    p = Proposal(customer_id=cust.id, extra_solution_ids=[b.id, a.id]); db.add(p); db.commit()
-    assert [s.name for s in candidate_solutions(db, p)] == ["가", "나"]
+    d = Solution(name="라", stage="intake"); e = Solution(name="마", stage="hold")
+    cust = Customer(name="고객"); db.add_all([a, b, c, d, e, cust]); db.flush()
+    p = Proposal(customer_id=cust.id); db.add(p); db.commit()
+    assert [s.name for s in candidate_solutions(db, p)] == ["가", "나", "라"]
+    p.extra_solution_ids = [c.id, a.id]; db.commit()
+    assert [s.name for s in candidate_solutions(db, p)] == ["가", "나", "다", "라"]
 
 
 def test_update_target(user_client, db):
-    c, _ = _customer_business(db)
-    s = Solution(name="조사솔루션", stage="survey")
+    c, _ = _customer_project(db)
+    s = Solution(name="조사솔루션", stage="hold")
     db.add(s)
     db.commit()
     p = Proposal(customer_id=c.id, request_memo="옛")
@@ -122,7 +127,7 @@ def test_update_target(user_client, db):
 
 
 def test_update_target_keeps_direction_solutions_and_boxed_extras(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     chosen = Solution(name="방향솔루션", stage="boxed")
     was_extra = Solution(name="이제박스", stage="boxed")
     db.add_all([chosen, was_extra]); db.flush()
@@ -135,9 +140,9 @@ def test_update_target_keeps_direction_solutions_and_boxed_extras(user_client, d
 
 
 def test_non_ascii_digit_ids_do_not_crash(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     assert user_client.post("/proposals", data={"customer_id": "²"}).status_code == 400
-    assert user_client.post("/proposals", data={"customer_id": str(c.id), "business_id": "²"}).status_code == 400
+    assert user_client.post("/proposals", data={"customer_id": str(c.id), "project_id": "²"}).status_code == 400
     r = user_client.post("/proposals", data={"customer_id": str(c.id), "extra_solution_ids": ["²", "1" * 30]},
                          follow_redirects=False)
     assert r.status_code == 303
@@ -145,7 +150,7 @@ def test_non_ascii_digit_ids_do_not_crash(user_client, db):
 
 
 def test_busy_notice(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     p = Proposal(customer_id=c.id)
     db.add(p)
     db.commit()
@@ -167,7 +172,7 @@ def test_active_job_relationship(db):
 
 
 def test_any_user_can_open_but_only_owner_or_admin_deletes(user_client, admin_client, app, db, settings):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     owner = db.query(User).filter_by(username="kim").one()
     other = User(username="lee", name="lee", password_hash="x")
     db.add(other)
@@ -229,17 +234,17 @@ def test_list_orders_by_recent_update(user_client, db):
 
 
 def test_customer_detail_lists_proposals_and_new_link(user_client, db):
-    c, b = _customer_business(db)
-    db.add(Proposal(customer_id=c.id, business_id=b.id, title="연결된제안"))
+    c, b = _customer_project(db)
+    db.add(Proposal(customer_id=c.id, project_id=b.id, title="연결된제안"))
     db.commit()
     t = user_client.get(f"/customers/{c.id}").text
     assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}" in t
-    t = user_client.get(f"/businesses/{b.id}").text
-    assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}&amp;business_id={b.id}" in t
+    t = user_client.get(f"/projects/{b.id}").text
+    assert "연결된제안" in t and f"/proposals/new?customer_id={c.id}&amp;project_id={b.id}" in t
 
 
 def test_solution_detail_lists_proposals(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     s = Solution(name="솔루션")
     db.add(s); db.flush()
     p = Proposal(customer_id=c.id, title="들어간제안", solutions=[s])
@@ -258,17 +263,17 @@ def test_customer_with_proposals_cannot_be_deleted(user_client, db):
 
 
 def test_deleting_business_clears_proposal_business(user_client, db):
-    c, b = _customer_business(db)
+    c, b = _customer_project(db)
     b.created_by_id = db.query(User).filter_by(username="kim").one().id
-    p = Proposal(customer_id=c.id, business_id=b.id)
+    p = Proposal(customer_id=c.id, project_id=b.id)
     db.add(p); db.commit()
-    assert user_client.post(f"/businesses/{b.id}/delete", follow_redirects=False).status_code == 303
+    assert user_client.post(f"/projects/{b.id}/delete", follow_redirects=False).status_code == 303
     db.expire_all()
-    assert db.get(Proposal, p.id).business_id is None
+    assert db.get(Proposal, p.id).project_id is None
 
 
 def test_deleting_solution_keeps_proposal(user_client, db):
-    c, _ = _customer_business(db)
+    c, _ = _customer_project(db)
     s = Solution(name="솔루션", created_by_id=db.query(User).filter_by(username="kim").one().id)
     db.add(s); db.flush()
     p = Proposal(customer_id=c.id, solutions=[s], extra_solution_ids=[s.id])

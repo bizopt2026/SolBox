@@ -18,7 +18,7 @@ def test_every_table_is_inside_a_tablewrap(admin_client, db, settings):
     s = Solution(name="S", created_by_id=1)
     db.add_all([s, Partner(name="P"), Customer(name="C"), Activity(raw_text="x", title="t", date=date.today())])
     db.commit()
-    urls = ["/", "/solutions", "/customers", "/businesses", "/partners", "/proposals", "/activities", "/research",
+    urls = ["/", "/solutions", "/customers", "/projects", "/partners", "/proposals", "/activities", "/research",
             f"/solutions/{s.id}", f"/proposals/{p.id}/outline", "/admin/users", "/admin/jobs", "/admin/research", "/admin/system"]
     for url in urls:
         html = admin_client.get(url).text

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from app import checks
+from app import checks, ontology
 from app.checks import NO_EVIDENCE_NOTE as NO_SOURCE_NOTE, check_kind  # noqa: F401  (다른 곳에서 여기서 불러다 쓴다)
 from app.models import AIJob, Proposal, Solution, User
 
@@ -16,26 +16,32 @@ if TYPE_CHECKING:
     from app.ai.proposal_tasks import DirectionsOut, Outline
 
 MAX_DIRECTIONS = 3
-SLIDE_KINDS = ("cover", "bullets", "two_column", "table", "steps", "closing")
+SLIDE_KINDS = tuple(ontology.SLIDE_KINDS)  # 정의는 ontology
+CK = ontology.CHECK_KINDS
 MAX_STEPS = 5
 MAX_SLIDES = 14
 NO_COLUMNS = "표의 열 이름을 입력하세요."
 
 
+def candidate_condition(extra_ids):
+    """제안 후보 규칙 (한 곳): 보류가 아닌 모든 단계의 솔루션 + 제안 건에 직접 추가한 솔루션 (`extra_solution_ids`)."""
+    cond = Solution.stage != ontology.STAGE_HOLD
+    ids = [i for i in (extra_ids or []) if isinstance(i, int)]
+    return or_(cond, Solution.id.in_(ids)) if ids else cond
+
+
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
-    """제안에 조합할 수 있는 솔루션: 박스 등록 단계 + 제안 건에서 따로 고른 것. 이름순, 중복 없음."""
+    """제안에 조합할 수 있는 솔루션: 규칙은 `candidate_condition`. 이름순, 중복 없음."""
     ids = [i for i in (p.extra_solution_ids or []) if isinstance(i, int)]
-    cond = Solution.stage == "boxed"
-    if ids:
-        cond = or_(cond, Solution.id.in_(ids))
+    cond = candidate_condition(ids)
     return list(db.scalars(select(Solution).where(cond).order_by(Solution.name, Solution.id)))
 
 
 def display_title(p: Proposal) -> str:
     if p.title:
         return p.title
-    if p.business is not None:
-        return f"{p.customer.name} · {p.business.name} 제안"
+    if p.project is not None:
+        return f"{p.customer.name} · {p.project.name} 제안"
     return f"{p.customer.name} 제안"
 
 
@@ -227,14 +233,14 @@ def slide_to_form(slide: dict) -> dict:
 
 
 def check_items(texts: list[str] | None, checked: list[str] | None = None) -> list[dict]:
-    """"확인 필요" 문구를 화면용으로 바꾼다: 확인 안 한 근거 문제 → 확인 안 한 정할 값 → 확인한 것 순서(각각 원래 순서)."""
+    """확인 항목 문구를 화면용으로 바꾼다: 확인 안 한 근거 문제 → 확인 안 한 확인할 점 → 확인한 것 순서(각각 원래 순서)."""
     done = set(checked or [])
     items = [{"index": n, "text": t, "kind": check_kind(t), "checked": t in done} for n, t in enumerate(texts or []) if isinstance(t, str)]
     return sorted(items, key=lambda i: (i["checked"], i["kind"] != "evidence"))
 
 
 def slide_check_state(slide: dict) -> dict:
-    """한 장의 확인 현황: 안 한 근거 문제·정할 값 개수, 확인한 개수, 카드에 쓸 단계(evidence / decide / clear)."""
+    """한 장의 확인 현황: 안 한 근거 문제·확인할 점 개수, 확인한 개수, 카드에 쓸 단계(evidence / decide / clear)."""
     items = check_items(slide.get("needs_check"), slide.get("checked"))
     evidence = sum(1 for i in items if not i["checked"] and i["kind"] == "evidence")
     decide = sum(1 for i in items if not i["checked"] and i["kind"] == "decide")
@@ -243,7 +249,7 @@ def slide_check_state(slide: dict) -> dict:
 
 
 def outline_check_summary(outline: dict | None) -> dict:
-    """구성안 전체의 장 수: evidence(근거 확인이 남은 장), decide(정할 값만 남은 장), done(확인을 끝낸 장), open(남은 장 전체)."""
+    """구성안 전체의 장 수: evidence(근거 확인이 남은 장), decide(확인할 점만 남은 장), done(확인을 끝낸 장), open(남은 장 전체)."""
     states = [slide_check_state(s) for s in (outline or {}).get("slides") or [] if isinstance(s, dict)]
     evidence = sum(1 for s in states if s["level"] == "evidence")
     decide = sum(1 for s in states if s["level"] == "decide")
@@ -253,7 +259,7 @@ def outline_check_summary(outline: dict | None) -> dict:
 
 def check_summary_text(cs: dict) -> str:
     """"근거 문제 1장 · 확인할 점 2장" (0장인 부분은 뺀다). 남은 게 없으면 빈 글."""
-    return " · ".join(p for p in (f"근거 문제 {cs['evidence']}장" if cs["evidence"] else "", f"확인할 점 {cs['decide']}장" if cs["decide"] else "") if p)
+    return " · ".join(p for p in (f"{CK['evidence']} {cs['evidence']}장" if cs["evidence"] else "", f"{CK['decide']} {cs['decide']}장" if cs["decide"] else "") if p)
 
 
 def keep_checked(old: dict, new: dict) -> dict:
@@ -292,7 +298,7 @@ def deck_is_stale(p: Proposal) -> bool:
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:
     """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다."""
     db.refresh(p)
-    if p.active_job is not None and p.active_job.status in ("pending", "running"):
+    if p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE:
         return None
     pid, previous = p.id, p.active_job_id
     db.rollback()  # 읽기 트랜잭션을 끝내고 쓰기를 새로 시작한다
@@ -310,9 +316,9 @@ def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | Non
     return job
 
 
-STEPS = (("target", "대상"), ("directions", "방향"), ("chat", "구체화"), ("outline", "구성안"), ("deck", "제안서"))
-_STATUS_STEP = {"new": "directions", "directions": "directions", "refining": "chat", "outlined": "outline", "deck": "deck"}
-_JOB_STEP = {"proposal_directions": "directions", "proposal_chat": "chat", "proposal_outline": "outline"}
+STEPS = tuple(ontology.PROPOSAL_STEPS.items())  # 단계 표시줄 (정의는 ontology)
+_STATUS_STEP = ontology.PROPOSAL_STATUS_STEP
+_JOB_STEP = ontology.JOB_KIND_STEP
 RECENT_MESSAGES = 6
 
 
@@ -345,20 +351,20 @@ def step_states(p: Proposal) -> list[dict]:
 
 def _job_running(p: Proposal) -> bool:
     job = p.active_job
-    return job is not None and job.status in ("pending", "running") and job.kind in _JOB_STEP
+    return job is not None and job.status in ontology.JOB_ACTIVE and job.kind in _JOB_STEP
 
 
 def open_section(p: Proposal) -> str:
     """처음부터 펼쳐 둘 구역. 진행 중인 AI 작업이 있으면 그 작업의 구역, 아니면 상태가 가리키는 구역."""
     job = p.active_job
-    if job is not None and job.status in ("pending", "running") and job.kind in _JOB_STEP:
+    if job is not None and job.status in ontology.JOB_ACTIVE and job.kind in _JOB_STEP:
         return _JOB_STEP[job.kind]
     return _STATUS_STEP.get(p.status, "directions")
 
 
 def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]:
     """접힌 구역에 보이는 한 줄 요약."""
-    who = p.customer.name + (f" · {p.business.name}" if p.business is not None else "")
+    who = p.customer.name + (f" · {p.project.name}" if p.project is not None else "")
     names = [s.name for s in candidates]
     shown = ", ".join(names[:3]) + (f" 외 {len(names) - 3}개" if len(names) > 3 else "")
     target = f"{who} — 조합 솔루션 {shown}" if names else who

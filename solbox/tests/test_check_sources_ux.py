@@ -9,7 +9,7 @@ from pptx import Presentation
 from app.checks import check_kind
 from app.deck import build_deck
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Business, Customer, Partner, Proposal, ResearchReport, ResearchRun, Solution, SolutionFile
+from app.models import Activity, Project, Customer, Partner, Proposal, ResearchReport, ResearchRun, Solution, SolutionFile
 from app.proposals import deck_is_stale, outline_check_summary, section_summaries, slide_check_state
 from app.sources import SourceLookup, describe_source
 from tests.conftest import finished_run, outlined_proposal, sample_outline
@@ -148,9 +148,9 @@ def test_deck_notes_checked_and_labels(tmp_path):
     slide = {"kind": "bullets", "title": "a", "bullets": ["x"], "sources": ["solutions/1/card.md", "x.md"],
              "needs_check": ["근거 자료 없음", "값", "다른 값"], "checked": ["값"]}
     build_deck({"title": "t", "slides": [slide]}, tmp_path / "a.pptx", source_labels={"solutions/1/card.md": "에너지 솔루션"})
-    assert _notes(tmp_path / "a.pptx") == ["[출처]\n에너지 솔루션\nx.md\n\n[확인 필요]\n근거 자료 없음\n다른 값\n\n[확인함]\n값"]
+    assert _notes(tmp_path / "a.pptx") == ["[출처]\n에너지 솔루션\nx.md\n\n[확인 항목]\n근거 자료 없음\n다른 값\n\n[확인함]\n값"]
     build_deck({"title": "t", "slides": [{**slide, "checked": []}]}, tmp_path / "b.pptx")
-    assert _notes(tmp_path / "b.pptx")[0].startswith("[출처]\nsolutions/1/card.md\nx.md\n\n[확인 필요]\n근거 자료 없음\n값\n다른 값")
+    assert _notes(tmp_path / "b.pptx")[0].startswith("[출처]\nsolutions/1/card.md\nx.md\n\n[확인 항목]\n근거 자료 없음\n값\n다른 값")
     assert "[확인함]" not in _notes(tmp_path / "b.pptx")[0]
 
 
@@ -171,7 +171,7 @@ def _world(db, settings):
     cust = Customer(name="한빛병원")
     sol = Solution(name="AI 에너지 절감", stage="boxed")
     db.add_all([partner, cust, sol]); db.flush()
-    biz = Business(name="설비 유지보수", customer_id=cust.id)
+    biz = Project(name="설비 유지보수", customer_id=cust.id)
     act = Activity(kind="meeting", date=date(2026, 3, 4), title="킥오프", raw_text="x")
     undated = Activity(kind="meeting", title="", raw_text="x")
     f = SolutionFile(solution_id=sol.id, kind="brochure", original_name="소개서 v2.pdf", stored_name="s.pdf", size=1)
@@ -190,7 +190,7 @@ def test_describe_source_for_every_record_type(db, settings):
     got = {type(o).__name__ + str(o.id): describe_source(db, m.rel_path(o)) for o in objs}
     assert got[f"Solution{sol.id}"] == {"label": "AI 에너지 절감", "url": f"/solutions/{sol.id}", "kind": "솔루션"}
     assert got[f"Customer{cust.id}"] == {"label": "한빛병원", "url": f"/customers/{cust.id}", "kind": "고객"}
-    assert got[f"Business{biz.id}"] == {"label": "설비 유지보수", "url": f"/businesses/{biz.id}", "kind": "기존 사업"}
+    assert got[f"Project{biz.id}"] == {"label": "설비 유지보수", "url": f"/projects/{biz.id}", "kind": "프로젝트"}
     assert got[f"Partner{partner.id}"] == {"label": "파트너사", "url": f"/partners/{partner.id}", "kind": "파트너"}
     assert got[f"Activity{act.id}"] == {"label": "킥오프 (2026-03-04)", "url": f"/activities/{act.id}", "kind": "활동 기록"}
     assert got[f"Activity{undated.id}"]["url"] == f"/activities/{undated.id}"

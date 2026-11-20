@@ -18,7 +18,7 @@
 
 - 제품·서비스 소개서나 사양서 → 솔루션. 등록된 솔루션과 같은 것이면 `additions`, 처음 보는 것이면 신규 솔루션 후보(`solutions`).
 - 미팅·통화·녹취·현장 사진 → 활동 기록(`activities`). 원문으로 삼을 문서 파일의 번호는 `raw_from` 에 쓰세요 (사진이나 정리한 글뿐이면 `null`).
-- 명함·회사 소개 → 고객(`customers`) 또는 파트너(`partners`). 파트너는 솔루션을 공급하는 회사이고, 고객은 우리 기존 사업의 상대입니다.
+- 명함·회사 소개 → 고객(`customers`) 또는 파트너(`partners`). 파트너는 솔루션을 공급하는 회사이고, 고객은 우리가 프로젝트를 하거나 제안하는 상대입니다.
 - 이미 등록된 파트너·고객의 명함이나 연락처 정보(담당자, 전화, 이메일, 주소)는 `contacts` 에 쓰세요. 위 목록의 `id` 를 `target_id` 에, `partner` 또는 `customer` 를 `target_type` 에 씁니다. 같은 회사를 `partners`·`customers` 로 다시 만들어 중복시키지 말고, `unplaced` 에도 넣지 마세요. 아직 등록되지 않은 회사의 명함만 `partners`·`customers` 로 새로 제안합니다. 명함 한 장은 사람 한 명이므로 `contacts` 항목 하나입니다.
 - 한 파일이 여러 항목에 쓰일 수 있습니다.
 - 같은 할 일이 여러 파일에 나오면 가장 최근이거나 가장 구체적인 활동 기록 한 곳의 `follow_ups` 에만 쓰고, 다른 활동 기록에서는 반복하지 마세요.
@@ -67,7 +67,7 @@ MEMO>>>
         "kind": "meeting", "date": "YYYY-MM-DD", "title": "", "attendees": [], "discussion": [], "decisions": [],
         "follow_ups": [{"task": "", "owner": "", "due": "YYYY-MM-DD"}],
         "demand_signals": [{"customer": "", "content": ""}],
-        "mentions": {"solutions": [], "customers": [], "businesses": [], "partners": []}
+        "mentions": {"solutions": [], "customers": [], "projects": [], "partners": []}
       },
       "raw_from": 3, "files": [3], "reason": ""
     }
@@ -84,5 +84,5 @@ MEMO>>>
 - 신규 솔루션 후보(`solutions`): `name` 솔루션 이름, `summary` 한 줄 소개, `description` 자세한 설명, `tags` 태그(5개 이내), `partner` 공급하는 회사 이름(모르면 빈 문자열).
 - `additions`: `solution_id` 는 위 목록의 `id` 숫자이고, `note` 는 더할 자료에 대한 짧은 메모입니다.
 - `contacts`: `target_type` 은 `partner` 또는 `customer`, `target_id` 는 위 목록의 `id` 숫자입니다. `person` 담당자 이름, `role` 직책·부서, `phone` 전화, `email` 이메일, `address` 주소이고, 자료에 적힌 대로만 쓰세요. 연락처에는 사람 이름, 직책·부서, 전화, 이메일, 주소만 담습니다. `note` 는 그 연락처가 누구의 것인지 알아보게 하는 짧은 말(예: "대표번호", "구매 담당")에만 쓰고, 명함의 슬로건, 제품 설명, 회사 소개 문구는 쓰지 마세요(없으면 빈 문자열). 이 항목은 저장할 때 대상의 연락처 칸에 한 줄로 덧붙여질 뿐 기존 내용은 그대로 남습니다.
-- `activities`: `draft.kind` 는 `meeting`(회의), `partner`(파트너 미팅), `tapping`(고객 태핑), `survey`(수요조사), `other`(기타) 중 하나입니다. `date` 는 `YYYY-MM-DD` 이고 자료에 없으면 오늘 날짜입니다. `follow_ups[].due` 는 모르면 빈 문자열입니다. `mentions` 에는 자료에 나온 솔루션·고객·기존 사업·파트너 이름을 씁니다.
+- `activities`: `draft.kind` 는 {{activity_kind_inline}} 중 하나입니다. `date` 는 `YYYY-MM-DD` 이고 자료에 없으면 오늘 날짜입니다. `follow_ups[].due` 는 모르면 빈 문자열입니다. `mentions` 에는 자료에 나온 솔루션·고객·프로젝트·파트너 이름을 씁니다.
 - 해당하는 것이 없는 목록은 빈 배열 `[]` 로 두세요.

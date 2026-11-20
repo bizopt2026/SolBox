@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% from "_macros.html" import breadcrumb %}
-{% block title %}올리기 {{ intake.id }}번{% endblock %}
+{% block title %}{{ ont.label("intake") }} {{ intake.id }}번{% endblock %}
 {% block content %}
-{{ breadcrumb(("올리기", "/intake"), ("묶음 " ~ intake.id, None)) }}
+{{ breadcrumb(("올리기", "/intake"), (ont.label("intake") ~ " " ~ intake.id, None)) }}
 <div class="page-head">
-  <h1>올린 파일 <span class="count">{{ intake.files | length }}개</span></h1>
+  <h1>{{ ont.label("intake") }} {{ intake.id }}번 <span class="count">{{ ont.label("intake_file") }} {{ intake.files | length }}개</span></h1>
   <span class="badge intake-{{ intake.status }}">{{ labels.INTAKE_STATUSES.get(intake.status, intake.status) }}</span>
 </div>
 {% if skipped %}
@@ -20,7 +20,7 @@
     <dt>올린 때</dt><dd>{{ intake.created_at.strftime("%Y-%m-%d %H:%M") }}</dd>
   </dl>
   <details class="file-list"{% if intake.status != "ready" %} open{% endif %}>
-  <summary>올린 파일 {{ intake.files | length }}개{% if intake.status == "ready" %} (표로 보기){% endif %}</summary>
+  <summary>{{ ont.label("intake_file") }} {{ intake.files | length }}개{% if intake.status == "ready" %} (표로 보기){% endif %}</summary>
   <div class="tablewrap"><table class="file-table">
     <thead><tr><th class="col-num">번호</th><th>이름</th><th>종류</th><th class="col-size">크기</th><th class="col-status">읽기 상태</th><th></th></tr></thead>
     <tbody>
@@ -131,8 +131,8 @@
   <h2>저장한 기록</h2>
   <ul>
     {% for e in saved %}
-    <li>{{ {"partner": "파트너", "customer": "고객", "solution": "솔루션", "activity": "활동 기록"}.get(e.type, e.type) }}
-      <a href="/{{ {"partner": "partners", "customer": "customers", "solution": "solutions", "activity": "activities"}.get(e.type, e.type) }}/{{ e.id }}">{{ e.label }}</a></li>
+    <li>{{ ont.TYPES[e.type].label if e.type in ont.TYPES else e.type }}
+      <a href="{{ ont.detail_url(e.type, e.id) if e.type in ont.TYPES and ont.TYPES[e.type].detail_url else "#" }}">{{ e.label }}</a></li>
     {% else %}<li class="muted">만들어진 기록이 없습니다.</li>{% endfor %}
   </ul>
   {% if not_saved %}

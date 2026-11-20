@@ -1,4 +1,4 @@
-"""시스템이 붙이는 "확인 필요" 문구. 문구를 만드는 코드와 종류를 가르는 `check_kind` 가 같은 상수를 쓴다."""
+"""시스템이 붙이는 확인 항목 문구. 문구는 데이터 안에 저장되므로 옛 문구도 계속 알아본다. 문구를 만드는 코드와 종류를 가르는 `check_kind` 가 같은 상수를 쓴다."""
 from __future__ import annotations
 
 NO_EVIDENCE = "근거 자료 없음"
@@ -24,5 +24,5 @@ def no_evidence(text: str = "") -> str:
 
 
 def check_kind(text: str) -> str:
-    """"evidence"(근거 문제) 또는 "decide"(정하거나 확인할 값)."""
+    """"evidence"(근거 문제) 또는 "decide"(확인할 점). 이름표는 ontology.CHECK_KINDS."""
     return "evidence" if str(text or "").lstrip().startswith(EVIDENCE_PREFIXES) else "decide"

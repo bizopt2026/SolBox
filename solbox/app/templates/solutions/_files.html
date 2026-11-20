@@ -29,7 +29,7 @@
     {% endfor %}
   </tbody>
 </table></div>
-{% else %}<p class="muted">올린 자료 파일이 없습니다.</p>{% endif %}
+{% else %}<p class="muted">올린 자료가 없습니다.</p>{% endif %}
 <form method="post" action="/solutions/{{ solution.id }}/files" enctype="multipart/form-data" class="row">
   <label>파일 <input type="file" name="files" multiple required></label>
   <label>종류

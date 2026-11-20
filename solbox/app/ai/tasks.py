@@ -13,15 +13,16 @@ from datetime import date
 from pathlib import Path
 from typing import TypeVar
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.parsing import parse_json_output
 from app.ai.runner import DEFAULT_TOOLS, ClaudeError, ClaudeRunner
 from app.config import Settings
+from app import ontology
 from app.labels import ACTIVITY_KINDS
-from app.models import Business, Customer, Partner, Solution
+from app.models import Customer, Partner, Solution
 
 log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -34,7 +35,7 @@ AFTER_JOB: dict[str, Callable[[Session, dict], None]] = {}
 CLAIM_GUARDS: dict[str, Callable[[Session, dict], bool]] = {}
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
-NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료 파일이 없습니다."
+NO_READABLE_FILES = "텍스트를 읽을 수 있는 자료가 없습니다."
 MEMO_OPEN, MEMO_CLOSE = "<<<MEMO", "MEMO>>>"
 BAD_OUTPUT_MESSAGE = "AI 응답 형식이 올바르지 않습니다. 다시 시도하세요."
 
@@ -42,7 +43,24 @@ BAD_OUTPUT_MESSAGE = "AI 응답 형식이 올바르지 않습니다. 다시 시�
 def load_prompt(name: str, **values) -> str:
     """`prompts/<name>.md` 를 읽어 `{{키}}` 를 값으로 바꾼다. 한 번에 바꾸므로 값 안의 `{{...}}` 는 다시 바뀌지 않는다."""
     text = (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8")
+    values = {**prompt_constants(), **values}
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(values.get(m.group(1), m.group(0))), text)
+
+
+def prompt_constants() -> dict[str, str]:
+    """프롬프트 글에 끼워 넣는 고정 값. 사본 경로와 용어는 ontology 가 정한 것을 쓴다."""
+    return {
+        "ex_solution": ontology.rel_path("solution", id=3),
+        "ex_customer": ontology.rel_path("customer", id=1),
+        "ex_report": ontology.rel_path("research_report", day="YYYY-MM-DD", tag="market", id=1),
+        "dir_solution": ontology.mirror_dir("solution", id="<id>"),
+        "dir_activities": ontology.mirror_folder("activity") + "/",
+        "dir_research": ontology.mirror_folder("research_report") + "/",
+        "needs_heading": ontology.prop("activity", "demand_signals"),
+        "candidate_rule": ontology.proposal_candidate_rule_text(),
+        "activity_kind_bullets": "\n".join(f"  - `{k}` {v}" for k, v in ontology.ACTIVITY_KINDS.items()),
+        "activity_kind_inline": ", ".join(f"`{k}`({v})" for k, v in ontology.ACTIVITY_KINDS.items()),
+    }
 
 
 def run_json(
@@ -83,14 +101,18 @@ class SignalDraft(BaseModel):
 
 
 class Mentions(BaseModel):
+    """원문에 나온 이름들. 프로젝트의 옛 이름 `businesses` 키도 받는다 (저장된 초안·정리안에 남아 있다)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
     solutions: list[str] = []
     customers: list[str] = []
-    businesses: list[str] = []
+    projects: list[str] = Field(default=[], validation_alias=AliasChoices("projects", "businesses"))
     partners: list[str] = []
 
 
 class ActivityDraft(BaseModel):
-    kind: str = "meeting"
+    kind: str = ontology.ACTIVITY_KIND_DEFAULT
     date: str | None = None
     title: str = ""
     attendees: list[str] = []
@@ -113,16 +135,14 @@ def _valid_day(value: str | None) -> bool:
 
 def normalize_draft(d: ActivityDraft, today: date) -> ActivityDraft:
     return d.model_copy(update={
-        "kind": d.kind if d.kind in ACTIVITY_KINDS else "meeting",
+        "kind": d.kind if d.kind in ACTIVITY_KINDS else ontology.ACTIVITY_KIND_DEFAULT,
         "date": d.date if _valid_day(d.date) else today.isoformat(),
         "title": d.title.strip() or "제목 없음",
         "follow_ups": [f.model_copy(update={"due": f.due if _valid_day(f.due) else ""}) for f in d.follow_ups],
     })
 
 
-_MENTION_MODELS = {
-    "solutions": Solution, "customers": Customer, "businesses": Business, "partners": Partner,
-}
+_MENTION_MODELS = {key: ontology.model_for(code) for key, code in ontology.MENTION_KEYS.items()}
 
 
 def normalize_name(name: str) -> str:
@@ -160,7 +180,7 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
                     matched.append(found[0])
             elif found:
                 ambiguous.append({"name": name.strip(), "candidates": found})
-            elif rel != "businesses":
+            elif rel != "projects":
                 new.append(name.strip())
         result[rel] = {"matched": matched, "new": new, "ambiguous": ambiguous}
     return result
@@ -186,7 +206,7 @@ def _structure_activity(db: Session, input: dict, runner: ClaudeRunner, settings
     prompt = load_prompt(
         "activity_structure", raw_text=memo, today=date.today().isoformat(),
         solutions=_name_list(db, Solution), customers=_name_list(db, Customer),
-        businesses=_name_list(db, Business), partners=_name_list(db, Partner),
+        projects=_name_list(db, _MENTION_MODELS["projects"]), partners=_name_list(db, Partner),
     )
     draft = run_json(db, runner, prompt, ActivityDraft, settings)
     return normalize_draft(draft, date.today()).model_dump_json()
@@ -202,11 +222,11 @@ def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Se
     solution = db.get(Solution, input.get("solution_id"))
     if solution is None:
         raise ClaudeError("unknown", "솔루션을 찾을 수 없습니다.")
-    folder = f"solutions/{solution.id}/files"
-    texts = settings.knowledge_dir / "solutions" / str(solution.id) / "files"
+    folder = ontology.mirror_dir("solution_file", solution_id=solution.id)
+    texts = settings.knowledge_dir / folder
     if not texts.is_dir() or not any(texts.glob("*.md")):
         raise ClaudeError("bad_output", NO_READABLE_FILES)
-    prompt = load_prompt("solution_draft", solution_name=solution.name, folder=f"{folder}/")
+    prompt = load_prompt("solution_draft", solution_name=solution.name, folder=folder)
     return run_json(db, runner, prompt, SolutionDraft, settings).model_dump_json()
 
 

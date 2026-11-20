@@ -60,7 +60,7 @@ def test_sources_and_needs_check_only_in_notes(tmp_path):
     build_deck(o, tmp_path / "a.pptx"); prs = Presentation(tmp_path / "a.pptx")
     body, note = texts(prs.slides[1]), notes(prs.slides[1])
     assert "solutions/1/card.md" not in body and "절감률 수치" not in body
-    assert "[출처]" in note and "solutions/1/card.md" in note and "[확인 필요]" in note and "절감률 수치" in note
+    assert "[출처]" in note and "solutions/1/card.md" in note and "[확인 항목]" in note and "절감률 수치" in note
     assert not prs.slides[2].has_notes_slide
 
 

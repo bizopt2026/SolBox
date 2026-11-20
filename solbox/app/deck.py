@@ -11,11 +11,14 @@ from datetime import date
 from pathlib import Path
 
 from lxml import etree
+
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
+
+from app import ontology
 
 FONT = "맑은 고딕"
 TEXT = RGBColor(0x22, 0x22, 0x22)
@@ -437,7 +440,7 @@ def _notes(slide, data: dict, source_labels: dict[str, str] | None = None):
     if sources:
         blocks.append("\n".join(["[출처]", *sources]))
     if [c for c in checks if c not in done]:
-        blocks.append("\n".join(["[확인 필요]", *[c for c in checks if c not in done]]))
+        blocks.append("\n".join([f"[{ontology.term('check_item')}]", *[c for c in checks if c not in done]]))
     if [c for c in checks if c in done]:
         blocks.append("\n".join(["[확인함]", *[c for c in checks if c in done]]))
     if blocks:

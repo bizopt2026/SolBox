@@ -11,14 +11,14 @@ from sqlalchemy import or_, select
 from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, ontology
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
 from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import AIJob, Activity, Business, Customer, IntakeFile, Partner, Solution, User
+from app.models import AIJob, Activity, Project, Customer, IntakeFile, Partner, Solution, User
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
@@ -48,7 +48,7 @@ def _choices(db: Session) -> dict:
     return {
         "solution": list(db.scalars(select(Solution).order_by(Solution.name))),
         "customer": list(db.scalars(select(Customer).order_by(Customer.name))),
-        "business": list(db.scalars(select(Business).order_by(Business.name))),
+        "project": list(db.scalars(select(Project).order_by(Project.name))),
         "partner": list(db.scalars(select(Partner).order_by(Partner.name))),
     }
 
@@ -56,7 +56,7 @@ def _choices(db: Session) -> dict:
 def blank_values() -> dict:
     """`activities/_form_fields.html` 이 받는 값 묶음의 기본형."""
     return {
-        "kind": "meeting", "date": date.today().isoformat(), "title": "", "raw_text": "", "summary_md": "",
+        "kind": ontology.ACTIVITY_KIND_DEFAULT, "date": date.today().isoformat(), "title": "", "raw_text": "", "summary_md": "",
         "follow_ups": [], "demand_signals": [],
         "selected": {t: [] for t in LINK_TYPES},
         "new_names": {t: [] for t in NEW_TYPES},        # 체크된 채로 보이는 새 이름
@@ -83,10 +83,10 @@ def _form_page(request: Request, db: Session, values: dict, activity: Activity |
 
 def _submitted_values(
     kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
-    solution_ids, customer_ids, business_ids, partner_ids, new_solutions, new_customers, new_partners,
+    solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
 ) -> dict:
     """제출된 값을 오류 화면에 다시 보여 줄 형태로 모은다."""
-    ids = dict(solution=solution_ids, customer=customer_ids, business=business_ids, partner=partner_ids)
+    ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
     return {
         "kind": kind, "date": date_, "title": title, "raw_text": raw_text, "summary_md": summary_md,
         "follow_ups": [{"task": t, "owner": o, "due": d, "done": False} for t, o, d in rows(fu_task, fu_owner, fu_due)],
@@ -101,11 +101,11 @@ def _submitted_values(
 
 
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
-          fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, business_ids,
+          fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
           partner_ids, new_solutions, new_customers, new_partners):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
-        solution_ids, customer_ids, business_ids, partner_ids, new_solutions, new_customers, new_partners,
+        solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
     )
     try:
         text = read_memo(raw_text, memo_file)
@@ -119,7 +119,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         db, user, activity, kind=kind, date_=date_, title=title, raw_text=text, summary_md=summary_md,
         fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done,
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
-        business_ids=business_ids, partner_ids=partner_ids,
+        project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
     )
     db.commit()
@@ -158,7 +158,7 @@ def save_raw(
     except HTTPException as e:
         return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     activity = Activity(
-        kind="meeting", date=date.today(), title=first_line(text), raw_text=text, summary_md="",
+        kind=ontology.ACTIVITY_KIND_DEFAULT, date=date.today(), title=first_line(text), raw_text=text, summary_md="",
         follow_ups=[], demand_signals=[], created_by_id=user.id,
     )
     db.add(activity)
@@ -189,7 +189,7 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
         follow_ups=[{**f.model_dump(), "done": False} for f in d.follow_ups if f.task.strip()],
         demand_signals=[s.model_dump() for s in d.demand_signals if s.content.strip()],
         selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
-                  "business": found["businesses"]["matched"], "partner": found["partners"]["matched"]},
+                  "project": found["projects"]["matched"], "partner": found["partners"]["matched"]},
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
         ambiguous={t: ambiguous_view(db, model, found[rel]["ambiguous"]) for t, (model, rel) in LINK_TYPES.items()},
     )
@@ -214,7 +214,7 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
     job = _draft_job(db, job_id, user)
     raw_text = str((job.input or {}).get("raw_text", ""))
     ctx = dict(job=job, raw_text=raw_text, next=f"/activities/draft/{job.id}", f=None, choices=None, error_kind="")
-    if job.status in ("pending", "running"):
+    if job.status in ontology.JOB_ACTIVE:
         return render(request, "activities/draft.html", position=queue_position(db, job), **ctx)
     draft = None
     if job.status == "done":
@@ -242,19 +242,19 @@ def retry_draft(job_id: int, user: User = Depends(require_user), db: Session = D
 
 
 def _form_params(
-    kind: str = Form("meeting"), date_: str = Form("", alias="date"), title: str = Form(""),
+    kind: str = Form(ontology.ACTIVITY_KIND_DEFAULT), date_: str = Form("", alias="date"), title: str = Form(""),
     raw_text: str = Form(""), memo_file: UploadFile | None = None, summary_md: str = Form(""),
     fu_task: list[str] = Form([]), fu_owner: list[str] = Form([]), fu_due: list[str] = Form([]),
     fu_done: list[str] = Form([]), ds_customer: list[str] = Form([]), ds_content: list[str] = Form([]),
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
-    business_ids: list[str] = Form([]), partner_ids: list[str] = Form([]),
+    project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
 ) -> dict:
     return dict(
         kind=kind, date_=date_, title=title, raw_text=raw_text, memo_file=memo_file, summary_md=summary_md,
         fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done,
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
-        business_ids=business_ids, partner_ids=partner_ids,
+        project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
     )
 

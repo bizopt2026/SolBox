@@ -18,7 +18,7 @@
 <section class="card">
   <h2>발굴 단계</h2>
   <p class="sr-only">현재 단계: <strong>{{ labels.STAGES.get(solution.stage, solution.stage) }}</strong></p>
-  {% set flow = ["intake", "tapping", "survey", "boxed"] %}
+  {% set flow = ontology.STAGE_FLOW %}
   {% set at = flow.index(solution.stage) if solution.stage in flow else -1 %}
   <form method="post" action="/solutions/{{ solution.id }}/stage" class="stagebar">
     <div class="steps">
@@ -26,11 +26,11 @@
       <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at }}{{ labels.STAGES[code] }}</button>
       {% endfor %}
     </div>
-    <button type="submit" name="stage" value="hold" class="step hold{{ ' current' if solution.stage == 'hold' }}"{% if solution.stage == "hold" %} aria-current="step" disabled{% endif %}>{{ labels.STAGES["hold"] }}</button>
+    <button type="submit" name="stage" value="{{ ontology.STAGE_HOLD }}" class="step hold{{ ' current' if solution.stage == ontology.STAGE_HOLD }}"{% if solution.stage == ontology.STAGE_HOLD %} aria-current="step" disabled{% endif %}>{{ labels.STAGES[ontology.STAGE_HOLD] }}</button>
   </form>
 </section>
 <section class="card">
-  <h2>자료 파일</h2>
+  <h2>{{ ont.label("solution_file") }}</h2>
   {% include "solutions/_files.html" ignore missing %}
   {% if solution.files %}
   <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">AI로 소개 초안 만들기</button></form>

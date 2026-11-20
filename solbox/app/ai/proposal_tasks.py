@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app import ontology
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
@@ -25,6 +26,13 @@ CHAT_OPEN, CHAT_CLOSE = "<<<CHAT", "CHAT>>>"
 ROLE_LABELS = {"user": "사용자", "assistant": "AI"}
 OUTLINE_OPEN, OUTLINE_CLOSE = "<<<MATERIAL", "MATERIAL>>>"
 OUTLINE_MIN_SLIDES, OUTLINE_MAX_SLIDES = 6, 14
+
+
+def _project_line(p: Proposal) -> str:
+    """프롬프트의 프로젝트 줄 (프로젝트 사본 경로는 ontology 가 정한다)."""
+    if p.project_id:
+        return f"- 프로젝트 사본: `{ontology.rel_path('project', id=p.project_id)}`"
+    return "- 프로젝트: 지정되지 않음"
 
 
 class Evidence(BaseModel):
@@ -90,14 +98,14 @@ def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settin
         return "deleted"
     candidates = candidate_solutions(db, p)
     if not candidates:
-        raise ClaudeError("bad_output", "박스에 등록된 솔루션이 없습니다.")
+        raise ClaudeError("bad_output", "제안 후보가 될 솔루션이 없습니다. 보류가 아닌 솔루션이 있거나 제안 건에 직접 추가해야 합니다.")
     memo = (p.request_memo or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO")
     prompt = load_prompt(
         "proposal_directions",
-        customer_path=f"customers/{p.customer_id}.md",
-        business_line=f"- 기존 사업 사본: `businesses/{p.business_id}.md`" if p.business_id else "- 기존 사업: 지정되지 않음",
+        customer_path=ontology.rel_path("customer", id=p.customer_id),
+        project_line=_project_line(p),
         request_memo=memo.strip() or "(없음)",
-        solutions="\n".join(f"- id {s.id}: {s.name} (`solutions/{s.id}/`)" for s in candidates),
+        solutions="\n".join(f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates),
     )
     pid = p.id
     out = run_json(db, runner, prompt, DirectionsOut, settings)  # 읽기 트랜잭션은 여기서 끝난다
@@ -166,10 +174,10 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
     prompt = load_prompt(
         "proposal_chat",
         direction=json.dumps(direction, ensure_ascii=False, indent=2),
-        customer_path=f"customers/{p.customer_id}.md",
-        business_line=f"- 기존 사업 사본: `businesses/{p.business_id}.md`" if p.business_id else "- 기존 사업: 지정되지 않음",
+        customer_path=ontology.rel_path("customer", id=p.customer_id),
+        project_line=_project_line(p),
         solutions="\n".join(
-            f"- {s.get('name', '')} (`solutions/{s['solution_id']}/`)"
+            f"- {s.get('name', '')} (`{ontology.mirror_dir('solution', id=s['solution_id'])}`)"
             for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)
         ) or "- (없음)",
         conversation=conversation or "(없음)",
@@ -213,10 +221,10 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     prompt = load_prompt(
         "proposal_outline",
         direction=json.dumps(direction, ensure_ascii=False, indent=2),
-        customer_path=f"customers/{p.customer_id}.md",
-        business_line=f"- 기존 사업 사본: `businesses/{p.business_id}.md`" if p.business_id else "- 기존 사업: 지정되지 않음",
+        customer_path=ontology.rel_path("customer", id=p.customer_id),
+        project_line=_project_line(p),
         solutions="\n".join(
-            f"- {s.get('name', '')} (`solutions/{s['solution_id']}/`)"
+            f"- {s.get('name', '')} (`{ontology.mirror_dir('solution', id=s['solution_id'])}`)"
             for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)
         ) or "- (없음)",
         conversation=conversation if conversation else "(없음)",

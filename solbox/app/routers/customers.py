@@ -17,7 +17,7 @@ from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/customers")
 FIELDS = ("name", "industry", "contact", "memo")
-HAS_BUSINESSES = "이 고객에 연결된 기존 사업이 있어 삭제할 수 없습니다. 사업을 먼저 삭제해 주세요."
+HAS_PROJECTS = "이 고객에 연결된 프로젝트가 있어 삭제할 수 없습니다. 프로젝트를 먼저 삭제해 주세요."
 
 
 HAS_PROPOSALS = "제안 건이 있는 고객은 삭제할 수 없습니다."
@@ -33,7 +33,7 @@ def _form_page(request: Request, form: dict, customer: Customer | None = None, e
 def _detail_page(request: Request, db: Session, user: User, customer: Customer, error: str | None = None):
     return render(
         request, "customers/detail.html", status_code=400 if error else 200,
-        customer=customer, businesses=sorted(customer.businesses, key=lambda b: b.name),
+        customer=customer, projects=sorted(customer.projects, key=lambda b: b.name),
         proposals=sorted(customer.proposals, key=lambda p: p.updated_at, reverse=True),
         activities=newest_first(activities_linked_to(db, Activity.customers, customer)),
         can_delete=can_delete(user, customer), error=error,
@@ -109,8 +109,8 @@ def delete(
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     customer = get_deletable_or_404(db, Customer, customer_id, user)
-    if customer.businesses:
-        return _detail_page(request, db, user, customer, HAS_BUSINESSES)
+    if customer.projects:
+        return _detail_page(request, db, user, customer, HAS_PROJECTS)
     if customer.proposals:
         return _detail_page(request, db, user, customer, HAS_PROPOSALS)
     activities = activities_linked_to(db, Activity.customers, customer)

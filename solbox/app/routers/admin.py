@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import backup, scheduler, transcribe
+from app import backup, ontology, scheduler, transcribe
 from app.ai.queue import enqueue
 from app.db import get_db
 from app.main import render
@@ -20,7 +20,7 @@ from app.system import app_version, folder_size, human_size
 
 router = APIRouter(prefix="/admin")
 
-ROLES = {"admin": "관리자", "user": "일반 사용자"}
+ROLES = ontology.USER_ROLES  # 정의는 ontology
 
 
 def _page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
@@ -216,7 +216,7 @@ def _ping_state(db: Session) -> dict:
     job = db.query(AIJob).filter_by(kind=PING_KIND).order_by(AIJob.id.desc()).first()
     if job is None:
         return {"state": "none"}
-    if job.status in ("pending", "running"):
+    if job.status in ontology.JOB_ACTIVE:
         return {"state": "waiting"}
     if job.status == "done":
         return {"state": "ok", "at": job.finished_at}
@@ -269,7 +269,7 @@ def ai_check_status(request: Request, admin: User = Depends(require_admin), db: 
 
 @router.post("/system/ai-check")
 def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(("pending", "running"))).first()
+    waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(ontology.JOB_ACTIVE)).first()
     if waiting is None:  # 한 번에 하나만 확인한다
         enqueue(db, PING_KIND, {}, admin.id)
     return RedirectResponse("/admin/system", status_code=303)

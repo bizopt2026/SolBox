@@ -121,20 +121,20 @@ def fake_claude(tmp_path, monkeypatch):
 
 
 def make_proposal_world(db, settings):
-    """제안 건 시험용 세계: 고객·사업, 박스 등록 솔루션 둘과 수요조사 솔루션 하나, 지식 사본, 제안 건."""
+    """제안 건 시험용 세계: 고객·프로젝트, 박스 등록 솔루션 둘과 보류 솔루션 하나(보류는 제안 후보가 아니다), 지식 사본, 제안 건."""
     from app.knowledge import KnowledgeMirror
-    from app.models import Business, Customer, Proposal, Solution
+    from app.models import Project, Customer, Proposal, Solution
 
     c = Customer(name="한빛병원")
     db.add(c)
     db.flush()
-    b = Business(name="설비 유지보수", customer_id=c.id)
+    b = Project(name="설비 유지보수", customer_id=c.id)
     s1 = Solution(name="AI 에너지 절감", stage="boxed", summary="전력 절감")
     s2 = Solution(name="스마트 조명", stage="boxed", summary="조명")
-    s3 = Solution(name="안전 관제", stage="survey", summary="안전")
+    s3 = Solution(name="안전 관제", stage="hold", summary="안전")
     db.add_all([b, s1, s2, s3])
     db.flush()
-    p = Proposal(customer_id=c.id, business_id=b.id, request_memo="에너지 절감 쪽으로")
+    p = Proposal(customer_id=c.id, project_id=b.id, request_memo="에너지 절감 쪽으로")
     db.add(p)
     db.commit()
     mirror = KnowledgeMirror(settings.knowledge_dir)
@@ -208,7 +208,7 @@ def make_topics(db):
 
 
 def make_research_world(db, settings):
-    """제안 작업 시험용 세계: 주제, boxed 솔루션 하나, 고객과 최근 활동(수요 단서), 그 지식 사본."""
+    """제안 작업 시험용 세계: 주제, boxed 솔루션 하나, 고객과 최근 활동(고객 니즈), 그 지식 사본."""
     from datetime import date, timedelta
     from types import SimpleNamespace
 

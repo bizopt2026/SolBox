@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import labels
+from app import labels, ontology
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app.db import get_db
@@ -55,7 +55,7 @@ def _parse(db: Session, name, summary, description, partner_id, stage, usage_dir
     """폼 값을 다듬고 오류 문구를 돌려준다. 단계 코드와 파트너가 올바른지 확인한다."""
     values = dict(
         name=name.strip(), summary=summary.strip(), description=description.strip(),
-        partner_id=partner_id.strip(), stage=stage.strip() or "intake",
+        partner_id=partner_id.strip(), stage=stage.strip() or ontology.STAGE_DEFAULT,
         usage_direction=usage_direction.strip(), applicable_types=applicable_types.strip(),
         tags=_normalize_tags(tags),
     )
@@ -86,14 +86,14 @@ def list_solutions(
 
 @router.get("/new")
 def new_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return _form_page(request, db, {**{f: "" for f in FIELDS}, "stage": "intake"})
+    return _form_page(request, db, {**{f: "" for f in FIELDS}, "stage": ontology.STAGE_DEFAULT})
 
 
 @router.post("")
 def create(
     request: Request,
     name: str = Form(""), summary: str = Form(""), description: str = Form(""),
-    partner_id: str = Form(""), stage: str = Form("intake"), usage_direction: str = Form(""),
+    partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
@@ -146,7 +146,7 @@ def edit_form(
         return _form_page(request, db, form, solution)
     job = _draft_job(db, solution, draft_job, user)
     next_url = f"/solutions/{solution.id}/edit?draft_job={job.id}"
-    if job.status in ("pending", "running"):
+    if job.status in ontology.JOB_ACTIVE:
         return _form_page(request, db, form, solution, job=job, position=queue_position(db, job), next=next_url)
     draft = None
     if job.status == "done":
@@ -185,7 +185,7 @@ def change_stage(
 def update(
     solution_id: int, request: Request,
     name: str = Form(""), summary: str = Form(""), description: str = Form(""),
-    partner_id: str = Form(""), stage: str = Form("intake"), usage_direction: str = Form(""),
+    partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),

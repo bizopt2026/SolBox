@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import labels, transcribe
+from app import labels, ontology, transcribe
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
@@ -64,7 +64,7 @@ def ai_problem(db: Session) -> str | None:
 
 def open_proposals(db: Session) -> list[Proposal]:
     """아직 제안서를 끝내지 않은 제안 건, 최근 수정순."""
-    stmt = select(Proposal).where(Proposal.status != "deck")
+    stmt = select(Proposal).where(Proposal.status != ontology.PROPOSAL_STATUS_DECK)
     return list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc()).limit(OPEN_PROPOSAL_LIMIT)))
 
 

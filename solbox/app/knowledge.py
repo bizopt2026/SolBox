@@ -1,6 +1,7 @@
 """DB 항목의 Markdown 사본을 knowledge 폴더에 쓴다 (Claude CLI 가 읽는 용도)."""
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 from datetime import datetime
@@ -10,46 +11,13 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import checks, labels
+from app import checks, labels, ontology
 from app.extract import extract_text
-from app.models import Activity, Business, Customer, Partner, ResearchReport, Solution, SolutionFile
+from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
+from app.models import Activity, AppSetting, Customer, Partner, Project, ResearchReport, Solution, SolutionFile
 
+log = logging.getLogger(__name__)
 _UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
-
-
-# 사본 경로 형식. 경로를 쓰는 `_rel` 과 읽는 `parse_rel` 이 같은 표를 쓴다.
-REL_FORMATS = {
-    "solution": "solutions/{id}/card.md",
-    "customer": "customers/{id}.md",
-    "business": "businesses/{id}.md",
-    "partner": "partners/{id}.md",
-    "activity": "activities/{year}/{id}.md",
-    "file": "solutions/{solution_id}/files/{id}-{name}.md",
-    "report": "research/{day}-{tag}-{id}.md",
-}
-_REL_FIELDS = {
-    "id": r"[0-9]{1,18}", "solution_id": r"[0-9]{1,18}", "year": r"[0-9]{4}|undated", "day": r"[0-9]{4}-[0-9]{2}-[0-9]{2}",
-    "tag": r"[^/-]+", "name": r"[^/]+",
-}
-
-
-def _rel_regex(fmt: str) -> re.Pattern:
-    parts = re.split(r"\{(\w+)\}", fmt)
-    body = "".join(re.escape(x) if i % 2 == 0 else f"(?P<{x}>{_REL_FIELDS[x]})" for i, x in enumerate(parts))
-    return re.compile(body + r"\Z")
-
-
-_REL_PATTERNS = {kind: _rel_regex(fmt) for kind, fmt in REL_FORMATS.items()}
-
-
-def parse_rel(path: str) -> tuple[str, dict[str, str]] | None:
-    """사본 경로를 (항목 종류, 경로 안의 값들) 로 읽는다. 형식이 맞지 않으면 None."""
-    path = str(path or "").strip().replace("\\", "/")
-    for kind, pattern in _REL_PATTERNS.items():
-        m = pattern.match(path)
-        if m:
-            return kind, m.groupdict()
-    return None
 
 
 def safe_name(name: str) -> str:
@@ -93,22 +61,17 @@ class KnowledgeMirror:
 
     # ----- 경로 -----
     def _rel(self, obj) -> str:
-        if isinstance(obj, Solution):
-            return REL_FORMATS["solution"].format(id=obj.id)
-        if isinstance(obj, Customer):
-            return REL_FORMATS["customer"].format(id=obj.id)
-        if isinstance(obj, Business):
-            return REL_FORMATS["business"].format(id=obj.id)
-        if isinstance(obj, Partner):
-            return REL_FORMATS["partner"].format(id=obj.id)
         if isinstance(obj, Activity):
-            return REL_FORMATS["activity"].format(year=obj.date.year if obj.date else "undated", id=obj.id)
+            return rel_path("activity", year=obj.date.year if obj.date else "undated", id=obj.id)
         if isinstance(obj, SolutionFile):
-            return REL_FORMATS["file"].format(solution_id=obj.solution_id, id=obj.id, name=safe_name(obj.original_name))
+            return rel_path("solution_file", solution_id=obj.solution_id, id=obj.id, name=safe_name(obj.original_name))
         if isinstance(obj, ResearchReport):
             day = (obj.created_at or datetime.now()).date().isoformat()
-            return REL_FORMATS["report"].format(day=day, tag=obj.area if obj.kind == "area" else "suggest", id=obj.id)
-        raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}")
+            return rel_path("research_report", day=day, tag=obj.area if obj.kind == "area" else "suggest", id=obj.id)
+        try:
+            return rel_path(ontology.type_of(obj), id=obj.id)
+        except (TypeError, KeyError):
+            raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}") from None
 
     def rel_path(self, obj) -> str:
         return self._rel(obj)
@@ -126,12 +89,12 @@ class KnowledgeMirror:
 
     def sync(self, obj) -> None:
         if isinstance(obj, Activity):
-            for old in (self.root / "activities").glob(f"*/{obj.id}.md"):
+            for old in (self.root / mirror_folder("activity")).glob(f"*/{obj.id}.md"):
                 old.unlink(missing_ok=True)
         render = {
             Solution: self._solution,
             Customer: self._customer,
-            Business: self._business,
+            Project: self._project,
             Partner: self._partner,
             Activity: self._activity,
             ResearchReport: self._report,
@@ -142,9 +105,9 @@ class KnowledgeMirror:
 
     def remove(self, obj) -> None:
         if isinstance(obj, Solution):
-            shutil.rmtree(self.root / "solutions" / str(obj.id), ignore_errors=True)
+            shutil.rmtree(self.root / ontology.mirror_dir("solution", id=obj.id), ignore_errors=True)
         elif isinstance(obj, Activity):
-            for old in (self.root / "activities").glob(f"*/{obj.id}.md"):
+            for old in (self.root / mirror_folder("activity")).glob(f"*/{obj.id}.md"):
                 old.unlink(missing_ok=True)
         else:
             self.path_for(obj).unlink(missing_ok=True)
@@ -159,7 +122,7 @@ class KnowledgeMirror:
         """사본 폴더를 비우고 DB 의 모든 항목과 자료 텍스트를 새로 쓴다."""
         shutil.rmtree(self.root, ignore_errors=True)
         self.root.mkdir(parents=True, exist_ok=True)
-        for model in (Solution, Customer, Business, Partner, Activity):
+        for model in (Solution, Customer, Project, Partner, Activity):
             for obj in db.scalars(select(model).order_by(model.id)):
                 self.sync(obj)
         for report in db.scalars(select(ResearchReport).where(ResearchReport.status == "done").order_by(ResearchReport.id)):
@@ -181,7 +144,7 @@ class KnowledgeMirror:
             key=lambda a: (a.date is not None, a.date.toordinal() if a.date else 0, a.id),
             reverse=True,
         )
-        out = ["", "## 활동 기록", ""]
+        out = ["", f"## {ontology.label('activity')}", ""]
         for a in ordered:
             when = a.date.isoformat() if a.date else "날짜 없음"
             out.append(f"- {when} {a.title or '(제목 없음)'} ({self._rel(a)})")
@@ -196,16 +159,16 @@ class KnowledgeMirror:
     def _solution(self, s: Solution) -> list[str]:
         out = [f"# {s.name}", ""]
         out += _lines(
-            _item("단계", labels.STAGES.get(s.stage, s.stage)),
-            f"- 파트너: {self._ref(s.partner.name, s.partner)}" if s.partner else None,
-            _item("태그", s.tags),
-            _item("한 줄 요약", s.summary),
-            _item("활용 방향", s.usage_direction),
-            _item("적용 대상", s.applicable_types),
+            _item(P("solution", "stage"), labels.STAGES.get(s.stage, s.stage)),
+            f"- {P('solution', 'partner')}: {self._ref(s.partner.name, s.partner)}" if s.partner else None,
+            _item(P("solution", "tags"), s.tags),
+            _item(P("solution", "summary"), s.summary),
+            _item(P("solution", "usage_direction"), s.usage_direction),
+            _item(P("solution", "applicable_types"), s.applicable_types),
         )
-        out += _section("설명", s.description)
+        out += _section(P("solution", "description"), s.description)
         if s.files:
-            out += ["", "## 자료", ""]
+            out += ["", f"## {ontology.label('solution_file')}", ""]
             out += [
                 f"- {labels.FILE_KINDS.get(f.kind, f.kind)}: {f.original_name} ({self._rel(f)})"
                 for f in sorted(s.files, key=lambda f: f.id)
@@ -215,21 +178,21 @@ class KnowledgeMirror:
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
         out += _lines(_item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
-        if c.businesses:
-            out += ["", "## 사업", ""]
-            out += [f"- {self._ref(b.name, b)}" for b in sorted(c.businesses, key=lambda b: b.id)]
+        if c.projects:
+            out += ["", f"## {ontology.label('project')}", ""]
+            out += [f"- {self._ref(b.name, b)}" for b in sorted(c.projects, key=lambda b: b.id)]
         return out + self._activity_log(self._linked_activities(c, Activity.customers))
 
-    def _business(self, b: Business) -> list[str]:
+    def _project(self, b: Project) -> list[str]:
         out = [f"# {b.name}", ""]
         out += _lines(
-            f"- 고객: {self._ref(b.customer.name, b.customer)}" if b.customer else None,
-            _item("기간", b.period),
-            _item("상태", b.status),
-            _item("설명", b.description),
+            f"- {P('project', 'customer')}: {self._ref(b.customer.name, b.customer)}" if b.customer else None,
+            _item(P("project", "period"), b.period),
+            _item(P("project", "status"), b.status),
+            _item(P("project", "description"), b.description),
             _item("메모", b.memo),
         )
-        return out + self._activity_log(self._linked_activities(b, Activity.businesses))
+        return out + self._activity_log(self._linked_activities(b, Activity.projects))
 
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
@@ -242,14 +205,14 @@ class KnowledgeMirror:
     def _activity(self, a: Activity) -> list[str]:
         out = [f"# {a.title or '(제목 없음)'}", ""]
         out += _lines(
-            _item("종류", labels.ACTIVITY_KINDS.get(a.kind, a.kind)),
-            _item("날짜", a.date.isoformat() if a.date else ""),
-            _item("솔루션", ", ".join(self._ref(s.name, s) for s in a.solutions)),
-            _item("고객", ", ".join(self._ref(c.name, c) for c in a.customers)),
-            _item("사업", ", ".join(self._ref(b.name, b) for b in a.businesses)),
-            _item("파트너", ", ".join(self._ref(p.name, p) for p in a.partners)),
+            _item(P("activity", "kind"), labels.ACTIVITY_KINDS.get(a.kind, a.kind)),
+            _item(P("activity", "date"), a.date.isoformat() if a.date else ""),
+            _item(ontology.label("solution"), ", ".join(self._ref(s.name, s) for s in a.solutions)),
+            _item(ontology.label("customer"), ", ".join(self._ref(c.name, c) for c in a.customers)),
+            _item(P("activity", "projects"), ", ".join(self._ref(b.name, b) for b in a.projects)),
+            _item(ontology.label("partner"), ", ".join(self._ref(p.name, p) for p in a.partners)),
         )
-        out += _section("정리", a.summary_md)
+        out += _section(P("activity", "summary_md"), a.summary_md)
         follow = []
         for fu in a.follow_ups or []:
             mark = "x" if fu.get("done") else " "
@@ -260,13 +223,13 @@ class KnowledgeMirror:
                 ) if p
             )
             follow.append(f"- [{mark}] {fu.get('task', '')}" + (f" ({extra})" if extra else ""))
-        out += _section("후속 조치", "\n".join(follow))
+        out += _section(P("activity", "follow_ups"), "\n".join(follow))
         signals = [
             f"- {d.get('customer', '')}: {d.get('content', '')}".replace("- : ", "- ")
             for d in a.demand_signals or []
         ]
-        out += _section("수요 단서", "\n".join(signals))
-        return out + _section("원문", a.raw_text)
+        out += _section(P("activity", "demand_signals"), "\n".join(signals))
+        return out + _section(P("activity", "raw_text"), a.raw_text)
 
     def _report(self, r: ResearchReport) -> list[str]:
         is_area = r.kind == "area"
@@ -294,11 +257,38 @@ class KnowledgeMirror:
                 out += ["", f"### [{kind}] {sug.get('title', '')}", ""]
                 out += _lines(
                     _item("내용", sug.get("detail")),
-                    _item("이유", sug.get("reason")),
+                    _item(ontology.term("reason"), sug.get("reason")),
                     _item("대상 솔루션 id", ", ".join(str(i) for i in sug.get("solution_ids", []))),
-                    _item("근거", ", ".join(sug.get("sources", []))),
+                    _item(ontology.term("source"), ", ".join(sug.get("sources", []))),
                 )
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
+
+
+KNOWLEDGE_FORMAT = 2  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어)
+FORMAT_KEY = "knowledge_format"
+
+
+def rebuild_if_stale(mirror: KnowledgeMirror, db: Session, uploads_dir: Path) -> bool:
+    """사본 형식이 바뀌었거나 옛 폴더(businesses/)가 남아 있으면 사본 전체를 한 번 다시 만든다 (사본이라 지워도 DB 는 그대로).
+    다시 만든 뒤 표시를 남겨 두 번 하지 않는다. 실패해도 서버는 뜬다 (`rebuild-knowledge` 로 다시 할 수 있다)."""
+    setting = db.get(AppSetting, FORMAT_KEY)
+    current = setting is not None and (setting.value or {}).get("version") == KNOWLEDGE_FORMAT
+    stale_folders = [f for f in ontology.legacy_mirror_folders() if (mirror.root / f).exists()]
+    if current and not stale_folders:
+        return False
+    try:
+        mirror.rebuild_all(db, uploads_dir)
+        value = {"version": KNOWLEDGE_FORMAT}
+        if setting is None:
+            db.add(AppSetting(key=FORMAT_KEY, value=value))
+        else:
+            setting.value = value
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        log.exception("지식 사본을 다시 만들지 못했습니다")
+        return False
+    return True
 
 
 def get_mirror(request: Request) -> KnowledgeMirror:

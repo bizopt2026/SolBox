@@ -17,7 +17,7 @@ from app.ai.queue import queue_position
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Activity, Business, Customer, Intake, IntakeFile, Partner, Solution, User
+from app.models import Activity, Customer, Intake, IntakeFile, Partner, Project, Solution, User
 from app.routers._common import get_or_404, paginate
 from app.routers.home import ai_problem
 from app.security import require_user
@@ -77,7 +77,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
             choices={
                 "solution": list(db.scalars(select(Solution).order_by(Solution.name))),
                 "customer": list(db.scalars(select(Customer).order_by(Customer.name))),
-                "business": list(db.scalars(select(Business).order_by(Business.name))),
+                "project": list(db.scalars(select(Project).order_by(Project.name))),
                 "partner": list(db.scalars(select(Partner).order_by(Partner.name))),
             },
         )
@@ -180,7 +180,7 @@ def status(intake_id: int, request: Request, user: User = Depends(require_user),
     if intake is None:  # 그 사이 지워졌다. 조회를 멈추고 목록으로 보낸다.
         if user.role != "admin":  # 남의 묶음과 없는 묶음을 구별할 수 없게 같은 응답을 준다
             raise HTTPException(status_code=403, detail=NOT_YOURS)
-        return Response("올린 묶음이 없습니다.", headers={"HX-Redirect": "/intake"})
+        return Response("올리기 묶음이 없습니다.", headers={"HX-Redirect": "/intake"})
     _ensure_owner(user, intake)
     if intake.status == "analyzing" and intake_lib.finish_failed_analysis(db, intake.id):
         db.refresh(intake)  # 작업이 끝났는데 기록되지 않은 채 남은 묶음을 바로잡았다

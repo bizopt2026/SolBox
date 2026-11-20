@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app import ontology
 from app.ai.runner import DEFAULT_TOOLS, WEB_TOOLS, ClaudeError, ClaudeRunner
 from app.ai.tasks import AFTER_JOB, HANDLERS, load_prompt, run_json
 from app.config import Settings
@@ -130,7 +131,7 @@ def _research_suggest(db: Session, input: dict, runner: ClaudeRunner, settings: 
         if not mirror.path_for(r).is_file():
             _write_copy(db, r, settings)
         copies.append(f"- {RESEARCH_AREAS.get(r.area, r.area)}: `{mirror.rel_path(r)}`")
-    solutions = db.query(Solution).filter_by(stage="boxed").order_by(Solution.id).all()
+    solutions = db.query(Solution).filter_by(stage=ontology.STAGE_BOXED).order_by(Solution.id).all()
     since = date.today() - timedelta(days=ACTIVITY_DAYS)
     activities = (db.query(Activity).filter(Activity.date >= since).order_by(Activity.date.desc(), Activity.id.desc())
                   .limit(MAX_ACTIVITIES).all())
