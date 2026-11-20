@@ -67,6 +67,9 @@ export function build() {
     .replace('<!--KATEX_JS-->', () => `<script>${rd('node_modules/katex/dist/katex.min.js')}</script>`)
     .replace('<!--APP_JS-->', () => `<script id="app-js">${js}</script>`);
   writeFileSync(join(ROOT, 'index.html'), html);
+  // What the artifact viewer serves: the publish skeleton wrapped around the page (used by e2e tests).
+  const shell = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>';
+  writeFileSync(join(ROOT, '.preview.html'), shell + html + '</body></html>');
   return html.length;
 }
 

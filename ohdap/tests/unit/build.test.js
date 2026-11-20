@@ -11,9 +11,15 @@ function appScript(src) {
   return m[1];
 }
 
-test('built page has the document shell and title', () => {
-  assert.match(html, /^<!doctype html>/i);
-  assert.ok(html.includes('<title>오답노트</title>'));
+test('built page is skeleton-free content with title first (publish adds the shell)', () => {
+  assert.ok(!/<!doctype|<html[\s>]|<head>|<body[\s>]/.test(html), "no document shell tags");
+  assert.ok(html.trimStart().startsWith('<title>오답노트</title>'));
+  assert.ok(html.slice(0, 600).includes('claude:viewport-fit-sides'));
+});
+
+test('app never calls confirm/alert/prompt', () => {
+  const code = html.match(/<script id="app-js">([\s\S]*?)<\/script>/)[1];
+  assert.ok(!/\b(window\.)?(confirm|alert|prompt)\(/.test(code));
 });
 
 test('KaTeX is inlined with woff2 fonts as data URIs', () => {

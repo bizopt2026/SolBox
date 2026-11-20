@@ -1,7 +1,7 @@
 import { loadCaps, safeLocalStorage } from './caps.js';
 import { createStore } from './store.js';
 import { isElementary, words } from './grades.js';
-import { route, matchRoute, currentPath } from './ui/router.js';
+import { route, matchRoute, hashPath } from './ui/router.js';
 import { h, toast } from './ui/dom.js';
 import { renderOnboard } from './ui/screens/onboard.js';
 import { renderSettings } from './ui/screens/settings.js';
@@ -46,10 +46,11 @@ export async function boot() {
   catch (e) { store = await createStore({ db: null, user: null, localStorage: ls }); settings = await store.getSettings(); }
 
   let cleanup = null;
+  let path = hashPath() || '/home';
   const ctx = {
     caps, store, ls, settings, draft: null, version: APP_VERSION, solveDraft,
     get words() { return words(ctx.settings.grade); },
-    go(path) { if (currentPath() === path) render(); else location.hash = '#' + path; },
+    go(p) { path = p; render(); },
     refresh() { render(); },
     onLeave(fn) { cleanup = fn; },
     async saveSettings(s) { await store.saveSettings(s); ctx.settings = s; },
@@ -58,8 +59,7 @@ export async function boot() {
 
   async function render() {
     if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
-    let path = currentPath();
-    if (!ctx.settings.onboarded && path !== '/onboard') { location.hash = '#/onboard'; return; }
+    if (!ctx.settings.onboarded && path !== '/onboard') path = '/onboard';
     document.body.classList.toggle('kid', isElementary(ctx.settings.grade));
     const m = matchRoute(path) || matchRoute('/home');
     let el;
@@ -69,7 +69,13 @@ export async function boot() {
     root.appendChild(el);
     window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { const p = hashPath(); if (p) { path = p; render(); } });
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href^="#/"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    ctx.go(a.getAttribute('href').slice(1));
+  });
   render();
 }
 

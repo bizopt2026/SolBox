@@ -116,10 +116,14 @@ export async function renderNote(ctx, params) {
     ctx.refresh();
   } }, '고친 문제로 다시 풀기');
   body.push(h('details', { class: 'fix' }, h('summary', {}, '문제 고쳐 다시 풀기'), fix, fixBtn));
-  body.push(h('button', { class: 'btn danger-link', onclick: async () => {
-    if (!window.confirm('이 노트를 지울까요?')) return;
-    try { await ctx.store.deleteNote(note.id); ctx.go('/home'); } catch (e) { ctx.fail(e); }
-  } }, '노트 지우기'));
+  const delBox = h('div', { class: 'confirm-del', hidden: true, role: 'group', 'aria-label': '노트 지우기 확인' },
+    h('span', {}, '이 노트와 연습 기록을 지울까요? 되돌릴 수 없어요.'),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn', type: 'button', onclick: () => { delBox.hidden = true; } }, '취소'),
+      h('button', { class: 'btn danger', type: 'button', onclick: async () => {
+        try { await ctx.store.deleteNote(note.id); ctx.go('/home'); } catch (e) { ctx.fail(e); }
+      } }, '지우기')));
+  body.push(h('button', { class: 'btn danger-link', type: 'button', onclick: () => { delBox.hidden = false; } }, '노트 지우기'), delBox);
 
   return h('div', { class: 'screen' },
     topbar([note.subject, note.unit].filter(Boolean).join(' · ') || '노트', '/home', star),

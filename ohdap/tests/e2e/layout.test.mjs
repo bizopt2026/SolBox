@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openApp, HELPERS } from './harness.mjs';
-import { seedSettings } from './util.mjs';
+import { seedSettings, nav } from './util.mjs';
 
 const seed = (grade) => `${seedSettings(grade)} (function(){ ${HELPERS}; seedNote('n_1', ${grade.startsWith('초') ? 'KID_SOLUTION' : 'SOLUTION'}, { myAnswer: '3', due: '2000-01-01' }); })();`;
 const ROUTES = ['#/home', '#/upload', '#/note/n_1', '#/board/n_1/0', '#/review', '#/drill/n_1', '#/settings', '#/concepts'];
@@ -12,7 +12,7 @@ for (const grade of ['중3', '초3']) {
     const { page } = app;
     try {
       for (const r of ROUTES) {
-        await page.evaluate((r) => { location.hash = r; }, r);
+        await nav(page, r);
         await page.waitForTimeout(400);
         const sw = await page.evaluate(() => document.documentElement.scrollWidth);
         assert.ok(sw <= 390, `${r} scrollWidth ${sw}`);

@@ -18,7 +18,9 @@ export function matchRoute(path) {
   return null;
 }
 
-export function currentPath() {
+// Paths look like '/note/n_1'. The artifact viewer does not pass '#/path' hashes, so the app keeps
+// its own current path and never writes location.hash; an incoming '#/path' (tests, local file) is read.
+export function hashPath() {
   const p = (location.hash || '').replace(/^#/, '');
-  return p || '/home';
+  return p.startsWith('/') ? p : '';
 }

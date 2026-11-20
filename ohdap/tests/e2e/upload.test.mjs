@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openApp } from './harness.mjs';
-import { pngBuffer, seedSettings, pickPhoto } from './util.mjs';
+import { pngBuffer, seedSettings, pickPhoto, nav } from './util.mjs';
 
 const mocks = (read) => `({ user: makeUser('u1'), db: makeDb(), assets: makeAssets(), sample: makeSample({ read: ${read}, solve: SOLUTION }) })`;
 
 async function upload(page) {
-  await page.goto(page.url().split('#')[0] + '#/upload');
+  await nav(page, '#/upload');
   const buf = await pngBuffer(page, 4000, 3000);
   await pickPhoto(page, buf);
   await page.getByRole('button', { name: 'AI로 정리하기' }).click();
@@ -64,7 +64,7 @@ test('rate limit shows a message and does not retry', async () => {
 test('without AI the upload button is replaced by a notice', async () => {
   const app = await openApp({ mocks: "({ user: makeUser('u1'), db: makeDb() })", setup: seedSettings('중3') });
   try {
-    await app.page.goto(app.page.url().split('#')[0] + '#/upload');
+    await nav(app.page, '#/upload');
     await app.page.getByText('AI 사용을 허용해야 정리할 수 있어요').waitFor();
     assert.equal(await app.page.getByRole('button', { name: 'AI로 정리하기' }).count(), 0);
   } finally { await app.close(); }

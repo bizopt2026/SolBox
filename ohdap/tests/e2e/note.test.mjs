@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openApp } from './harness.mjs';
-import { pngBuffer, seedSettings, pickPhoto } from './util.mjs';
+import { pngBuffer, seedSettings, pickPhoto, nav } from './util.mjs';
 
 const mocks = (solve, extra = 'assets: makeAssets(),') => `({ user: makeUser('u1'), db: makeDb(), ${extra} sample: makeSample({ read: READ_ONE, solve: ${solve} }) })`;
 
 async function toNote(page) {
-  await page.goto(page.url().split('#')[0] + '#/upload');
+  await nav(page, '#/upload');
   await pickPhoto(page, await pngBuffer(page, 800, 600));
   await page.getByRole('button', { name: 'AI로 정리하기' }).click();
   await page.getByRole('button', { name: '맞아요, 풀어 주세요' }).click();

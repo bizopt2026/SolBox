@@ -1,9 +1,5 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>오답노트</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
 <!--KATEX_CSS-->
@@ -43,12 +39,12 @@ button{font:inherit;color:inherit}
 .ic{display:inline-flex;align-items:center;justify-content:center;flex:none}
 .loading{padding:40px 20px;color:var(--muted)}
 .screen{min-height:100vh;padding-bottom:24px}
-.screen.has-tabbar{padding-bottom:110px}
-.page{padding:0 20px;display:flex;flex-direction:column;gap:16px}
+.screen.has-tabbar{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+.page{padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;gap:4px}
 .top-title{margin:0;font-size:17px;font-weight:600;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn,.iconbtn-space{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--ink);cursor:pointer;border-radius:12px}
-.home-head{padding:24px 20px 8px;display:flex;align-items:center;justify-content:space-between}
+.home-head{padding:24px max(20px,env(safe-area-inset-right,0px)) 8px max(20px,env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:space-between}
 .h-big{margin:0;font-size:26px;font-weight:700;letter-spacing:-.5px}
 .h2{margin:0;font-size:18px;font-weight:700}
 .lead{margin:0;font-size:17px;line-height:1.6;color:var(--muted)}
@@ -72,10 +68,10 @@ button{font:inherit;color:inherit}
 .badge{align-self:flex-start;font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px;background:var(--chip);color:var(--muted)}
 .badge.due{background:var(--warn-soft);color:var(--warn-ink)}
 .badge.done{background:var(--primary-soft);color:var(--primary)}
-.onboard{padding:40px 24px 120px;display:flex;flex-direction:column;gap:18px}
+.onboard{padding:40px max(24px,env(safe-area-inset-right,0px)) 140px max(24px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px}
 .logo{width:80px;height:80px;border-radius:26px;background:var(--board);color:var(--marker);display:flex;align-items:center;justify-content:center}
-.bottom-cta{position:fixed;left:0;right:0;bottom:0;padding:16px 24px 28px;background:linear-gradient(to top,var(--bg) 70%,transparent);max-width:520px;margin:0 auto}
-.tabbar{position:fixed;left:0;right:0;bottom:0;height:80px;background:var(--surface);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding-top:8px;max-width:520px;margin:0 auto;z-index:5}
+.bottom-cta{position:fixed;left:0;right:0;bottom:0;padding:16px max(24px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px));background:linear-gradient(to top,var(--bg) 70%,transparent);max-width:520px;margin:0 auto}
+.tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(80px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--surface);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding-top:8px;max-width:520px;margin:0 auto;z-index:5}
 .tab{width:88px;min-height:52px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted)}
 .tab.on{color:var(--primary);font-weight:700}
 .tab-plus{width:56px;height:56px;margin-top:-22px;border-radius:999px;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(31,95,74,.3)}
@@ -191,7 +187,7 @@ textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
 .board-screen .col.focus{background:rgba(242,193,78,.16)}
 .caption-box{margin:0 16px;padding:16px;border-radius:14px;background:rgba(0,0,0,.28);display:flex;gap:10px;color:var(--marker)}
 .caption{margin:0;font-size:16px;line-height:1.65;color:var(--chalk);min-height:52px}
-.board-ctl{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 32px}
+.board-ctl{display:flex;align-items:center;justify-content:space-between;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(32px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
 .bctl{min-width:64px;height:44px;border-radius:999px;border:1px solid rgba(243,241,232,.35);background:transparent;color:var(--chalk);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer}
 .bctl.ghost{border:0}
 .bctl.round{min-width:52px;width:52px;height:52px;border:0;background:rgba(243,241,232,.12)}
@@ -259,6 +255,9 @@ body.kid .result-title{font-size:22px}
 .concept-notes{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 body.kid .ntitle{font-size:17px}
 body.kid .nthumb{border-radius:16px}
+.confirm-del{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--bad-soft);color:var(--bad)}
+.confirm-del[hidden]{display:none}
+.btn.danger{background:var(--bad);color:var(--surface);border-color:var(--bad)}
 /* kid mode: bigger type and targets */
 body.kid .lead,body.kid .mtext{font-size:18px}
 body.kid .muted{font-size:16px}
@@ -268,10 +267,6 @@ body.kid .tab{font-size:14px}
 body.kid .card{border-radius:20px}
 
 </style>
-</head>
-<body>
 <div id="app"></div>
 <!--KATEX_JS-->
 <!--APP_JS-->
-</body>
-</html>

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openApp, HELPERS } from './harness.mjs';
-import { seedSettings } from './util.mjs';
+import { seedSettings, nav } from './util.mjs';
 
 const DRILL = "({ problem: '$x^2+x-6=0$의 큰 근', choices: [], answer: 'x = 2', answer_short: '2', steps: [{ board: '$(x+3)(x-2)=0$', say: '인수분해' }] })";
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -83,10 +83,10 @@ test('review lists due notes and marks one as done after solving; note shows his
     await page.getByText('의 큰 근').waitFor();
     await answer(page, '2');
     await page.getByText('맞았어요!').first().waitFor();
-    await page.goto(page.url().split('#')[0] + '#/review');
+    await nav(page, '#/review');
     await page.locator('.today-item').getByText('맞힘').waitFor();
     assert.equal(await page.locator('.today-item').count(), 2);
-    await page.goto(page.url().split('#')[0] + '#/note/n_1');
+    await nav(page, '#/note/n_1');
     await page.locator('.drill-hist li').first().waitFor();
     assert.equal(await page.locator('.drill-hist li').count(), 1);
   } finally { await app.close(); }

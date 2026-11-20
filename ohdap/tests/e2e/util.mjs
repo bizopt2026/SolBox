@@ -15,3 +15,8 @@ export function seedSettings(grade) {
 export async function pickPhoto(page, buf) {
   await page.locator('input[type=file][data-src=camera]').setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: buf });
 }
+
+// Jump to an app path the way an incoming link would (the app itself never writes location.hash).
+export async function nav(page, path) {
+  await page.evaluate((p) => { location.hash = ''; location.hash = p; }, path);
+}

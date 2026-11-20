@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
-const APP = pathToFileURL(fileURLToPath(new URL('../../index.html', import.meta.url))).href;
+const APP = pathToFileURL(fileURLToPath(new URL('../../.preview.html', import.meta.url))).href;
 const MOCK = readFileSync(fileURLToPath(new URL('./mock-claude.js', import.meta.url)), 'utf8');
 
 /**
