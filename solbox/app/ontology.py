@@ -765,8 +765,10 @@ def _scan(db, model, column, ids, reverse):
 
     out = []
     for row_id, values in db.execute(select(model.id, column)):
-        for v in values or []:
-            if isinstance(v, int):
+        if not isinstance(values, list):  # 옛·깨진 값 (목록이 아닌 것)은 건너뛴다
+            continue
+        for v in values:
+            if isinstance(v, int) and not isinstance(v, bool):
                 out.append((v, row_id) if reverse else (row_id, v))
     wanted = set(ids)
     return [pair for pair in out if pair[0] in wanted]
@@ -795,10 +797,19 @@ def _suggestion_hits(db, report_ids=None):
     for rid, suggestions in db.execute(stmt):
         if report_ids is not None and rid not in report_ids:
             continue
-        for n, sug in enumerate(suggestions or []):
-            for sid in sug.get("solution_ids") or []:
-                if isinstance(sid, int):
-                    yield rid, sid, {"title": sug.get("title") or "(제목 없음)", "kind": sug.get("kind", ""), "n": n}
+        if not isinstance(suggestions, list):
+            continue
+        for n, sug in enumerate(suggestions):
+            if not isinstance(sug, dict):
+                continue
+            sids = sug.get("solution_ids")
+            if not isinstance(sids, list):
+                continue
+            title, kind = sug.get("title"), sug.get("kind")
+            for sid in sids:
+                if isinstance(sid, int) and not isinstance(sid, bool):
+                    yield rid, sid, {"title": title if isinstance(title, str) and title else "(제목 없음)",
+                                     "kind": kind if isinstance(kind, str) else "", "n": n}
 
 
 @_resolver("R18", "research_report", "solution")
@@ -840,7 +851,8 @@ def related(db, obj, *, viewer=None, exclude=None, limit: int = 10):
 
 
 def path_query(db, start, keys):
-    """`start` 에서 관계 키들(예: ["R1", "R14", "R12"], 끝 유형은 "R6:project", 따라가서 얻는 관계는 "D7")을 차례로 따라가 닿은 기록들."""
+    """(앱 코드에서 부르는 곳은 없다. 문서의 확인 질문(`docs/ontology.md`)과 테스트가 이 함수로 따라가기를 검증한다.)
+    `start` 에서 관계 키들(예: ["R1", "R14", "R12"], 끝 유형은 "R6:project", 따라가서 얻는 관계는 "D7")을 차례로 따라가 닿은 기록들."""
     from app import relations
 
     return relations.path_query(db, start, keys)

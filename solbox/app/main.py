@@ -25,7 +25,7 @@ from app.models import Intake
 from app.intake import recover as recover_intakes
 from app.intake import recover_applying
 from app.research import recover_runs
-from app.migrate import add_missing_columns, add_unique_indexes, backfill_origins, copy_activity_json
+from app.migrate import run_startup_migrations
 from app.security import LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
@@ -100,10 +100,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
-    add_missing_columns(engine, settings.db_path)
-    copy_activity_json(engine, settings.db_path)
-    add_unique_indexes(engine)
-    backfill_origins(engine, settings.db_path)
+    run_startup_migrations(engine, settings.db_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

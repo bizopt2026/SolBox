@@ -110,7 +110,22 @@ def _backup(db_path: Path) -> Path:
     return target
 
 
-def add_missing_columns(engine: Engine, db_path: Path, metadata: MetaData | None = None) -> list[str]:
+class MigrationBackup:
+    """한 번 시작할 때의 DB 복사본 하나를 모든 이관 단계가 나눠 쓴다. 바꿀 것이 있는 첫 단계가 `take()` 로 (바꾸기 전에) 한 번 만들고,
+    뒤 단계는 같은 복사본을 다시 쓴다. 바꿀 것이 없으면 아무 단계도 부르지 않아 복사본이 생기지 않는다.
+    되돌릴 때 쓰는 것은 이 복사본 하나다 (그 버전으로 처음 시작했을 때 만들어진 것)."""
+
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self.path: Path | None = None
+
+    def take(self) -> Path:
+        if self.path is None:
+            self.path = _backup(self.db_path)
+        return self.path
+
+
+def add_missing_columns(engine: Engine, db_path: Path, metadata: MetaData | None = None, backup: MigrationBackup | None = None) -> list[str]:
     """빠진 칸을 추가하고 `"테이블.칸"` 목록을 돌려준다. 빠진 칸이 없으면 아무것도 하지 않는다."""
     missing = missing_columns(engine, metadata)
     if not missing:
@@ -119,8 +134,8 @@ def add_missing_columns(engine: Engine, db_path: Path, metadata: MetaData | None
         f"ALTER TABLE {_quote(table)} ADD COLUMN {_column_ddl(table, column)}"
         for table, column in missing
     ]  # 추가할 수 없는 칸이 있으면 복사·변경 전에 여기서 멈춘다
-    backup = _backup(db_path)
-    log.info("DB 구조 변경 전 복사본: %s", backup)
+    copy = (backup or MigrationBackup(db_path)).take()
+    log.info("DB 구조 변경 전 복사본: %s", copy)
     added: list[str] = []
     with engine.begin() as conn:
         for (table, column), sql in zip(missing, statements):
@@ -155,7 +170,31 @@ def _json_rows(raw: object, activity_id: int, column: str, stats: dict) -> list:
     return raw
 
 
-def copy_activity_json(engine: Engine, db_path: Path) -> dict | None:
+_DONE_TRUE = {"true", "1", "yes", "y", "완료"}
+_STRICT_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _legacy_done(value: object) -> bool:
+    """옛 JSON 의 완료 값: 참거짓 값 true 와 글자 "true"·"1"·"yes"·"y"·"완료"(대소문자 무시)만 완료다. "false"·"0"·빈 글자·그 밖은 완료가 아니다."""
+    if isinstance(value, bool):
+        return value
+    return isinstance(value, str) and value.strip().lower() in _DONE_TRUE
+
+
+def _legacy_due(value: object) -> date | None:
+    """옛 JSON 의 기한: 엄격한 `YYYY-MM-DD` 만 (파이썬 버전과 상관없이 `20261120`·`2026-W47-1` 같은 변형은 받지 않는다). 아니면 None."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not _STRICT_DAY.fullmatch(text):
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def copy_activity_json(engine: Engine, db_path: Path, backup: MigrationBackup | None = None) -> dict | None:
     """모든 활동 기록의 옛 JSON(`follow_ups`, `demand_signals`)을 `follow_ups`·`customer_needs` 표로 복사한다.
 
     복사만 한다: JSON 값은 고치지도 지우지도 않는다. `app_settings` 의 표시로 한 번만 하고, 복사할 내용이 있으면 하기 전에
@@ -189,17 +228,16 @@ def copy_activity_json(engine: Engine, db_path: Path) -> dict | None:
                 stats["skipped"] += 1
                 continue
             owner = entry.get("owner") if isinstance(entry.get("owner"), str) else ""
-            due = None
-            if isinstance(entry.get("due"), str) and entry["due"].strip():
-                try:
-                    due = date.fromisoformat(entry["due"].strip())
-                except ValueError:
-                    stats["bad_due"] += 1
+            raw_due = entry.get("due")
+            due = _legacy_due(raw_due)
+            if due is None and raw_due is not None and str(raw_due).strip():
+                stats["bad_due"] += 1  # 받지 않은 기한: 글은 옛 JSON 에 그대로 남는다
+                log.warning("활동 기록 %s 의 후속 조치 기한을 옮기지 않습니다 (YYYY-MM-DD 형식이 아님, 옛 JSON 에는 남아 있음): %r", activity_id, raw_due)
             user_id = index.user_id(owner)
             if owner.strip():
                 stats["owner_linked" if user_id else "owner_unlinked"] += 1
             fu_rows.append(dict(activity_id=activity_id, position=pos, task=task, owner=owner, owner_user_id=user_id,
-                                due=due, done=bool(entry.get("done"))))
+                                due=due, done=_legacy_done(entry.get("done"))))
             pos += 1
         pos = 0
         for entry in _json_rows(raw_ds, activity_id, "demand_signals", stats):
@@ -219,8 +257,8 @@ def copy_activity_json(engine: Engine, db_path: Path) -> dict | None:
     stats["follow_ups"], stats["needs"] = len(fu_rows), len(need_rows)
 
     if fu_rows or need_rows:
-        backup = _backup(db_path)
-        log.info("후속 조치·고객 니즈 복사 전 DB 복사본: %s", backup)
+        copy = (backup or MigrationBackup(db_path)).take()
+        log.info("후속 조치·고객 니즈 복사 전 DB 복사본: %s", copy)
     with engine.begin() as conn:  # 행과 표시를 한 트랜잭션으로: 중간에 멈추면 모두 취소된다
         if fu_rows:
             conn.execute(fu_t.insert(), fu_rows)
@@ -261,7 +299,7 @@ def add_unique_indexes(engine: Engine) -> list[str]:
     return made
 
 
-def backfill_origins(engine: Engine, db_path: Path) -> dict | None:
+def backfill_origins(engine: Engine, db_path: Path, backup: MigrationBackup | None = None) -> dict | None:
     """저장 완료된 모든 올리기 묶음의 `result` 를 읽어, 그 묶음이 만든 기록에 유래(`intake`/묶음 번호)를 채운다.
 
     채우는 조건 (모두): 기록이 아직 있다, 유래가 비어 있다, 결과 줄이 연결·덧붙임이 아니라 새로 만든 것이다(꼬리표),
@@ -332,8 +370,8 @@ def backfill_origins(engine: Engine, db_path: Path) -> dict | None:
     stats["total"] = len(updates)
 
     if updates:
-        backup = _backup(db_path)
-        log.info("유래 채우기 전 DB 복사본: %s", backup)
+        copy = (backup or MigrationBackup(db_path)).take()
+        log.info("유래 채우기 전 DB 복사본: %s", copy)
     with engine.begin() as conn:  # 고치기와 표시를 한 트랜잭션으로: 중간에 멈추면 모두 취소된다
         for kind, number, intake_id in updates:
             t = kinds[kind]  # origin_type 이 아직 비어 있을 때만 쓴다
@@ -344,3 +382,13 @@ def backfill_origins(engine: Engine, db_path: Path) -> dict | None:
         "기록 없음 %(missing)d, 이미 유래 있음 %(already)d, 시각이 맞지 않아 건너뜀 %(outside_window)d", stats,
     )
     return stats
+
+
+def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
+    """시작 때 이관 단계를 순서대로 한 번에 돌린다. DB 복사본은 모든 단계를 통틀어 (바꿀 것이 있을 때만) 하나다."""
+    backup = MigrationBackup(db_path)
+    add_missing_columns(engine, db_path, backup=backup)
+    copy_activity_json(engine, db_path, backup=backup)
+    add_unique_indexes(engine)
+    backfill_origins(engine, db_path, backup=backup)
+    return backup

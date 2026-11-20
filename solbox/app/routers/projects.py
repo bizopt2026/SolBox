@@ -157,7 +157,7 @@ def delete(
     return RedirectResponse("/projects", status_code=303)
 
 
-# ---- 옛 주소 (/businesses...) 는 새 주소로 영구 이동한다 (GET 만. 북마크·옛 링크용) ----
+# ---- 옛 주소 (/businesses...) 는 새 주소로 영구 이동한다 (GET: 북마크·옛 링크용. POST: 업그레이드 때 열려 있던 옛 화면의 저장) ----
 legacy_router = APIRouter()
 
 
@@ -169,3 +169,14 @@ def legacy_redirect(request: Request, rest: str = ""):
     if request.url.query:
         target += "?" + request.url.query
     return RedirectResponse(target, status_code=301)
+
+
+@legacy_router.post("/businesses", include_in_schema=False)
+@legacy_router.post("/businesses/{rest:path}", include_in_schema=False)
+def legacy_post_redirect(request: Request, rest: str = ""):
+    """업그레이드 때 열려 있던 옛 화면의 저장·삭제: 방식과 내용을 그대로 두고 새 주소로 보낸다 (307)."""
+    old, new = next(iter(ontology.LEGACY_URL_PREFIXES.items()))
+    target = new + (f"/{rest}" if rest else "")
+    if request.url.query:
+        target += "?" + request.url.query
+    return RedirectResponse(target, status_code=307)

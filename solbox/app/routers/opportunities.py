@@ -151,7 +151,7 @@ def update(
     values, error = _parse(db, name, customer_id, bm_id, memo)
     form = _submitted(values, need_ids, solution_ids)
     if error is None:
-        error = opps.customer_change_problem(db, opp, values["customer_id"], need_ids)
+        error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
         return _form_page(request, db, form, opp, error)
     before = opps.dependents(db, opp)
@@ -204,6 +204,14 @@ def convert_form(opportunity_id: int, request: Request, user: User = Depends(req
     return _convert_page(request, db, opp, {"mode": "create", "name": opp.name, "project_id": ""})
 
 
+def _lost_claim(request: Request, db: Session, user: User, opp: Opportunity, form: dict, error: str):
+    """프로젝트 자리를 차지하지 못했을 때: 이미 이어진 프로젝트가 있으면 거기로, 없으면(다른 영업기회가 그 프로젝트를 먼저 이은 경우) 오류 화면."""
+    db.refresh(opp)
+    if opp.project_id is not None:
+        return RedirectResponse(f"/projects/{opp.project_id}", status_code=303)
+    return _convert_page(request, db, opp, form, error)
+
+
 @router.post("/{opportunity_id}/convert")
 def convert(
     opportunity_id: int, request: Request,
@@ -223,11 +231,14 @@ def convert(
         project = db.get(Project, pid) if pid is not None else None
         if error := opps.link_problem(db, opp, project):
             return _convert_page(request, db, opp, form, error)
-        opp.project_id = project.id
+        if error := opps.link_project(db, opp, project):
+            return _lost_claim(request, db, user, opp, form, error)
     else:
         if not form["name"]:
             return _convert_page(request, db, opp, form, opps.NAME_REQUIRED)
         project = opps.convert_create(db, opp, form["name"], user)
+        if project is None:  # 그 사이 다른 요청이 먼저 전환했다: 새로 만든 프로젝트는 되돌려졌고 있던 프로젝트를 보여 준다
+            return _lost_claim(request, db, user, opp, form, "")
     db.commit()
     db.refresh(opp)
     mirror.sync(project)

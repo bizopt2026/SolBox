@@ -22,7 +22,9 @@ from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile,
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
-from app.routers._common import clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate
+from app.routers._common import (
+    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, submitted_fields,
+)
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/activities")
@@ -127,7 +129,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids,
+        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (),
     )
     try:
         text = read_memo(raw_text, memo_file)
@@ -274,7 +276,10 @@ def _form_params(
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
     project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]), opportunity_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
+    fields: frozenset = Depends(submitted_fields),
 ) -> dict:
+    if "opportunity_ids" not in fields:  # 영업기회 칸이 없던 옛 화면에서 온 저장: 영업기회 연결은 그대로 둔다 (칸이 와서 비어 있으면 비운다)
+        opportunity_ids = None
     return dict(
         kind=kind, date_=date_, title=title, raw_text=raw_text, memo_file=memo_file, summary_md=summary_md,
         fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done, fu_id=fu_id, ds_id=ds_id,

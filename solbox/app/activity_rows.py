@@ -10,6 +10,7 @@ from datetime import date
 
 from sqlalchemy import select
 
+from app import opportunities
 from app.ai.tasks import normalize_name
 from app.models import Activity, Customer, CustomerNeed, FollowUp, User
 
@@ -97,7 +98,7 @@ def reconcile_needs(
         if need is None:
             need = CustomerNeed(customer_id=index.customer_id(customer))
         elif (need.customer_name or "").strip() != customer.strip():
-            need.customer_id = index.customer_id(customer)
+            opportunities.retarget_need_customer(need, index.customer_id(customer))  # 고객이 달라지면 묶인 영업기회에서 푼다
         need.customer_name, need.content = customer, content
         need.position = len(result)
         result.append(need)

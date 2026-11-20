@@ -52,7 +52,7 @@ def test_cli_adds_missing_columns_to_an_older_database(cfg, monkeypatch):
     from app import migrate
 
     real = migrate.add_missing_columns
-    monkeypatch.setattr(cli, "add_missing_columns", lambda *a, **k: seen.append(1) or real(*a, **k))
+    monkeypatch.setattr(migrate, "add_missing_columns", lambda *a, **k: seen.append(1) or real(*a, **k))
     cli.main(["create-admin", "--username", "boss", "--name", "관리자", "--password", "pw1234"])
     cli.main(["rebuild-knowledge"])
     assert len(seen) == 2

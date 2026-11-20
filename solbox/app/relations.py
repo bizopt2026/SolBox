@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm import Session
 
@@ -246,11 +246,19 @@ def _load(db: Session, code: str, ids, *, order: bool = True, limit: int | None 
         return []
     model = ontology.TYPES[code].model
     opts = _LOAD_OPTIONS.get(code, ())
-    if len(ids) > CHUNK:  # 아주 큰 묶음: 덩어리로 읽고 번호순으로 자른다 (드문 경우)
-        objs = []
+    if len(ids) > CHUNK:  # 아주 큰 묶음: 덩어리마다 SQL 로 순서를 매겨 앞쪽만 뽑고, 뽑힌 번호끼리 한 번 더 SQL 로 순서를 매긴다 (드문 경우)
+        if limit is None or limit >= CHUNK:  # 순서 있는 부분 선택이 의미 없는 크기: 모두 읽어 번호순
+            objs = []
+            for chunk in _chunks(ids):
+                objs.extend(db.scalars(select(model).where(model.id.in_(chunk)).options(*opts)).unique())
+            return sorted(objs, key=lambda o: o.id)[:limit]
+        keep: list[int] = []
         for chunk in _chunks(ids):
-            objs.extend(db.scalars(select(model).where(model.id.in_(chunk)).options(*opts)).unique())
-        return sorted(objs, key=lambda o: o.id)[:limit]
+            stmt = select(model.id).where(model.id.in_(chunk))
+            if order:
+                stmt = stmt.order_by(*_order(code))
+            keep.extend(db.scalars(stmt.limit(limit)))
+        return _load(db, code, keep, order=order, limit=limit, start=start)
     stmt = select(model).where(model.id.in_(ids))
     if opts:
         stmt = stmt.options(*opts)
@@ -259,6 +267,12 @@ def _load(db: Session, code: str, ids, *, order: bool = True, limit: int | None 
     if limit is not None:
         stmt = stmt.limit(limit)
     return list(db.scalars(stmt).unique())
+
+
+def _count_existing(db: Session, code: str, ids) -> int:
+    """`ids` 중 실제로 있는 기록의 수."""
+    model = ontology.TYPES[code].model
+    return sum(db.scalar(select(func.count()).select_from(model).where(model.id.in_(chunk))) or 0 for chunk in _chunks(list(ids)))
 
 
 def _order(code: str):
@@ -465,6 +479,8 @@ def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10) -> 
             total, objs = len(objs), objs[:limit]
         else:
             total, objs = len(ids), _load(db, e.dst, ids, limit=limit)
+            if e.rel in ontology.JSON_BACKED:  # JSON·글에 든 번호는 지워진 기록을 가리킬 수 있다: 있는 것만 센다
+                total = _count_existing(db, e.dst, ids)
         if not objs:
             continue
         desc = _describe(db, e.dst, objs, start)

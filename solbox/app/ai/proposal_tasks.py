@@ -59,6 +59,18 @@ def _priority_section(db: Session, p: Proposal) -> str:
     return "\n".join(lines) + "\n"
 
 
+PROMPT_CANDIDATE_CAP = 200  # 프롬프트에 적는 후보 수의 상한. 검증용 후보 집합(`candidate_solutions`)은 줄이지 않는다
+
+
+def _candidate_lines(candidates: list) -> str:
+    """후보 목록 글: 앞에 둔 솔루션이 먼저, 전체 `PROMPT_CANDIDATE_CAP` 개까지. 넘으면 몇 개를 생략했는지와 나머지를 찾을 지식 폴더를 적는다."""
+    lines = [f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates[:PROMPT_CANDIDATE_CAP]]
+    if len(candidates) > PROMPT_CANDIDATE_CAP:
+        lines.append(f"- 외 {len(candidates) - PROMPT_CANDIDATE_CAP}개는 생략 (나머지 솔루션은 지식 폴더 `{ontology.mirror_folder('solution')}/` 에서 찾을 수 있습니다. "
+                     "후보 규칙에 맞는 것만 쓰세요)")
+    return "\n".join(lines)
+
+
 def directions_prompt(db: Session, p: Proposal) -> str:
     """제안 방향 만들기 프롬프트. 후보 솔루션은 영업기회의 검토 솔루션 → BM 의 솔루션 → 나머지 순서다."""
     candidates = candidate_solutions(db, p)
@@ -69,7 +81,7 @@ def directions_prompt(db: Session, p: Proposal) -> str:
         project_line=_project_line(p),
         opportunity_line=_opportunity_line(p),
         request_memo=memo.strip() or "(없음)",
-        solutions="\n".join(f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates),
+        solutions=_candidate_lines(candidates),
         priority_section=_priority_section(db, p),
     )
 

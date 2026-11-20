@@ -88,9 +88,12 @@ def check_sources(knowledge_dir: Path, sources: list[str]) -> tuple[list[str], l
         )
         if usable:
             try:
-                target = (root / rel).resolve()
+                current = rel  # 저장된 글자는 그대로 두고, 확인할 때만 지금의 사본 경로로 읽는다 (옛 `businesses/N.md` 는 `projects/N.md`)
+                if (parsed := ontology.parse_rel(rel)) is not None:
+                    current = ontology.rel_path(parsed[0], **parsed[1])
+                target = (root / current).resolve()
                 usable = target.is_relative_to(root) and target.is_file()
-            except (OSError, ValueError):
+            except (OSError, ValueError, KeyError):
                 usable = False
         (found if usable else missing).append(PurePosixPath(rel).as_posix() if usable else source)
     return found, missing

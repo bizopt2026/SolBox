@@ -157,7 +157,16 @@ class KnowledgeMirror:
         return _inline(item.label)
 
     def _connections(self, obj) -> list[str]:
-        """"## 연결" 구역. 따라가기는 별도 읽기 세션에서 한다 (커밋된 내용을 읽고, 부르는 쪽 세션의 객체 상태를 건드리지 않는다)."""
+        """"## 연결" 구역. 한 카드의 연결 구역을 만들다 실패해도 (잘못된 행 하나 때문에) 그 구역만 건너뛰고 나머지 카드는 그대로 쓴다.
+        그래야 사본이 반쯤만 만들어진 채 남거나 시작할 때마다 같은 오류로 다시 멈추지 않는다 (실패는 로그에 남는다)."""
+        try:
+            return self._connections_section(obj)
+        except Exception:  # noqa: BLE001
+            log.warning("연결 구역을 만들지 못해 건너뜁니다: %s %s", type(obj).__name__, getattr(obj, "id", None), exc_info=True)
+            return []
+
+    def _connections_section(self, obj) -> list[str]:
+        """"## 연결" 구역 본문. 따라가기는 별도 읽기 세션에서 한다 (커밋된 내용을 읽고, 부르는 쪽 세션의 객체 상태를 건드리지 않는다)."""
         session = object_session(obj)
         if session is None:
             return []

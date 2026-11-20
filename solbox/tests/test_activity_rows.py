@@ -116,7 +116,7 @@ def test_malformed_rows_are_skipped_rest_copied(settings, caplog):
     with caplog.at_level(logging.WARNING, logger="app.migrate"):
         _start(settings)
     _, fus, needs = _snapshot(settings)
-    assert [(f[0], f[2], f[3], f[5], f[6]) for f in fus] == [(1, "정상", "", None, 1), (2, "견적 송부", "김과장", "2026-11-20", 0)]
+    assert [(f[0], f[2], f[3], f[5], f[6]) for f in fus] == [(1, "정상", "", None, 0), (2, "견적 송부", "김과장", "2026-11-20", 0)]
     assert needs == [(1, 0, "", None, "고객이 숫자")]
     assert len([r for r in caplog.records if "건너뜁니다" in r.getMessage()]) >= 8
 

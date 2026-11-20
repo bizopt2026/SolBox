@@ -274,7 +274,10 @@ def test_activity_form_has_opportunity_picker_and_links(user_client, db):
     db.refresh(a)
     assert [x.id for x in a.opportunities] == [o.id]
     assert f"/opportunities/{o.id}" in user_client.get(f"/activities/{a.id}").text
-    user_client.post(f"/activities/{a.id}", data={"raw_text": "r"})
+    user_client.post(f"/activities/{a.id}", data={"raw_text": "r"})  # 영업기회 칸이 아예 안 온 저장 (옛 화면): 연결은 그대로
+    db.refresh(a)
+    assert [x.id for x in a.opportunities] == [o.id]
+    user_client.post(f"/activities/{a.id}", data={"raw_text": "r", "opportunity_ids": ""})  # 새 화면에서 모두 풀면 빈 칸이 온다
     db.refresh(a)
     assert a.opportunities == []
 

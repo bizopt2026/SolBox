@@ -8,9 +8,10 @@
 여기 함수는 커밋하지 않는다 (호출자가 커밋하고, 커밋 뒤에 `dependents` 로 지식 사본을 다시 쓴다)."""
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, true, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import ontology
@@ -92,7 +93,18 @@ def apply_needs(db: Session, opp: Opportunity, raw_ids: Iterable) -> str | None:
         return NEED_NOT_BUNDLABLE
     for need in allowed.values():
         need.opportunity_id = opp.id if need.id in wanted else None
+    # 불변식: 영업기회에 묶인 니즈는 모두 영업기회와 같은 고객이다. 고객이 어긋나 남은 니즈(이 영업기회를 가리키지만 고른 집합에 없는 것)도 푼다.
+    db.execute(update(CustomerNeed).where(CustomerNeed.opportunity_id == opp.id, CustomerNeed.id.not_in(wanted) if wanted else true())
+               .values(opportunity_id=None))
     return None
+
+
+def retarget_need_customer(need: CustomerNeed, new_customer_id: int | None) -> None:
+    """니즈의 고객 연결을 `new_customer_id` 로 바꾼다. 고객이 달라지면(다른 고객이거나 연결이 없어지면) 묶여 있던 영업기회에서 푼다:
+    묶인 니즈는 영업기회와 같은 고객이어야 한다는 불변식. 호출자가 커밋하고 그 영업기회의 사본을 다시 쓴다."""
+    if need.customer_id != new_customer_id:
+        need.opportunity_id = None
+    need.customer_id = new_customer_id
 
 
 def unlinked_same_name_needs(db: Session, customer: Customer | None) -> list[CustomerNeed]:
@@ -106,12 +118,12 @@ def unlinked_same_name_needs(db: Session, customer: Customer | None) -> list[Cus
             if normalize_name(n.customer_name) == key]
 
 
-def customer_change_problem(db: Session, opp: Opportunity, new_customer_id: int, submitted_need_ids: Sequence) -> str | None:
-    """고객을 바꿀 수 있는지: 묶은 니즈를 그대로 두거나, 프로젝트·제안 건이 이어져 있으면 바꿀 수 없다."""
+def customer_change_problem(db: Session, opp: Opportunity, new_customer_id: int) -> str | None:
+    """고객을 바꿀 수 있는지: 묶은 니즈가 있으면 (폼이 어떤 니즈를 보냈든) 바꿀 수 없고, 프로젝트·제안 건이 이어져 있어도 바꿀 수 없다.
+    니즈 선택을 먼저 풀어 저장한 뒤에 바꾼다. 이 잠금이 "묶인 니즈는 영업기회와 같은 고객" 불변식을 지킨다."""
     if new_customer_id == opp.customer_id:
         return None
-    submitted = set(parse_ids(submitted_need_ids) or [])
-    if any(n.id in submitted for n in needs_of(db, opp)):
+    if needs_of(db, opp):
         return CHANGE_HAS_NEEDS
     if opp.project_id is not None or db.scalar(select(func.count()).select_from(Proposal).where(Proposal.opportunity_id == opp.id)):
         return CHANGE_HAS_LINKS
@@ -154,13 +166,39 @@ def link_problem(db: Session, opp: Opportunity, project: Project | None) -> str 
     return None
 
 
-def convert_create(db: Session, opp: Opportunity, name: str, user: User) -> Project:
-    """같은 고객의 새 프로젝트를 만들어(BM 을 물려받는다) 잇는다. 조건은 호출자가 `convert_problem` 으로 확인한다."""
+def claim_project(db: Session, opp: Opportunity, project_id: int) -> bool:
+    """`UPDATE … WHERE project_id IS NULL` 로 이 영업기회의 프로젝트 자리를 차지한다 (한 번만 전환하는 규칙이 동시 요청에도 지켜지게).
+    차지했으면 True, 그 사이 다른 요청이 먼저 이었으면 False. 같은 프로젝트를 다른 영업기회가 먼저 이었으면 유일 색인이 `IntegrityError` 를 낸다
+    (호출자가 `PROJECT_TAKEN` 으로 보여 준다)."""
+    claimed = db.execute(update(Opportunity).where(Opportunity.id == opp.id, Opportunity.project_id.is_(None)).values(project_id=project_id))
+    if claimed.rowcount == 1:
+        db.refresh(opp)
+        return True
+    return False
+
+
+def convert_create(db: Session, opp: Opportunity, name: str, user: User) -> Project | None:
+    """같은 고객의 새 프로젝트를 만들어(BM 을 물려받는다) 잇는다. 조건은 호출자가 `convert_problem` 으로 확인한다.
+    그 사이 다른 요청이 먼저 이었으면 (자리를 차지하지 못하면) 만든 프로젝트를 되돌리고 None 을 돌려준다 (호출자는 `db.rollback()` 된 상태에서 있던 프로젝트로 보낸다)."""
     project = Project(name=name.strip(), customer_id=opp.customer_id, bm_id=opp.bm_id, created_by_id=user.id)
     db.add(project)
     db.flush()
-    opp.project_id = project.id
+    if not claim_project(db, opp, project.id):
+        db.rollback()
+        return None
     return project
+
+
+def link_project(db: Session, opp: Opportunity, project: Project) -> str | None:
+    """기존 프로젝트를 잇는다. 이미 이어졌거나(다른 요청이 먼저) 그 프로젝트가 다른 영업기회와 이어졌으면 오류 문구를 돌려주고 되돌린다."""
+    try:
+        if not claim_project(db, opp, project.id):
+            db.rollback()
+            return f"이미 {L_PROJECT}가 있습니다."
+    except IntegrityError:
+        db.rollback()
+        return PROJECT_TAKEN
+    return None
 
 
 # ---- 지우기 ----
