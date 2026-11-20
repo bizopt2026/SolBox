@@ -8,6 +8,8 @@ import { renderSettings } from './ui/screens/settings.js';
 import { renderHome } from './ui/screens/home.js';
 import { renderUpload } from './ui/screens/upload.js';
 import { renderConfirm } from './ui/screens/confirm.js';
+import { renderNote } from './ui/screens/note.js';
+import { solveDraft } from './ui/solve.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -17,6 +19,7 @@ function registerRoutes() {
   route('/settings', renderSettings);
   route('/upload', renderUpload);
   route('/confirm', renderConfirm);
+  route('/note/:id', renderNote);
 }
 
 export async function boot() {
@@ -35,7 +38,7 @@ export async function boot() {
 
   let cleanup = null;
   const ctx = {
-    caps, store, ls, settings, draft: null, version: APP_VERSION,
+    caps, store, ls, settings, draft: null, version: APP_VERSION, solveDraft,
     get words() { return words(ctx.settings.grade); },
     go(path) { if (currentPath() === path) render(); else location.hash = '#' + path; },
     refresh() { render(); },

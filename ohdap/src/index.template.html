@@ -119,6 +119,58 @@ textarea.input{height:auto;padding:12px;line-height:1.6;resize:vertical}
 .choices{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
 .choices:empty{display:none}
 .hint{display:flex;gap:8px}
+.linkish{border:0;background:none;color:var(--primary);font:inherit;font-size:14px;cursor:pointer;padding:8px 0;min-height:44px}
+.photo-full{width:100%;border-radius:12px}
+.answer-card{padding:14px;border-radius:14px;display:flex;flex-direction:column;gap:4px}
+.answer-card.ok{background:var(--ok-soft);color:var(--ok)}
+.answer-card.bad{background:var(--bad-soft);color:var(--bad)}
+.answer-label{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.answer-val{font-family:'STIX Two Text',serif;font-size:28px;line-height:1.3}
+.answer-long{font-size:14px}
+.why{padding:16px;border-radius:14px;background:var(--warn-soft);display:flex;flex-direction:column;gap:6px}
+.why .h3{color:var(--warn-ink)}
+.h3{margin:0;font-size:16px;font-weight:700}
+.why-text{margin:0;font-size:15px;line-height:1.65}
+.board-link{min-height:60px}
+.play-dot{width:36px;height:36px;border-radius:999px;background:var(--marker);color:#1C2333;display:flex;align-items:center;justify-content:center}
+.sec{display:flex;flex-direction:column;gap:12px}
+.tabs{display:flex;gap:6px;padding:4px;border-radius:12px;background:var(--chip)}
+.tab-btn{flex:1;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer}
+.tab-btn.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:12px;padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.step-n{width:26px;height:26px;flex:none;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step-body{display:flex;flex-direction:column;gap:6px;min-width:0;overflow-x:auto}
+.step-board{font-size:18px}
+.step-say{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+.concept-name{font-size:15px;font-weight:600}
+.formula{text-align:center;padding:10px 0;background:var(--bg);border-radius:10px;overflow-x:auto}
+.concept-sum{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+.kid-concept{border:2px solid var(--primary)}
+.mistakes{margin:0;padding:16px 16px 16px 34px;font-size:14px;line-height:1.6}
+.due-text{font-size:13px;font-weight:600;color:var(--warn-ink)}
+.ladder{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center;font-size:12px;color:var(--muted)}
+.ladder li{display:flex;flex-direction:column;gap:6px}
+.ladder .bar{height:8px;border-radius:4px;background:var(--line)}
+.ladder .done .bar{background:var(--primary)}
+.ladder .on{color:var(--ink);font-weight:600}
+.ladder .on .bar{background:var(--marker)}
+.small{font-size:12px}
+.fix{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.fix summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+.fix[open]{gap:10px}
+.fix textarea{margin:10px 0}
+.danger-link{border:0;background:none;color:var(--bad);font-weight:500}
+.star.on{color:#B7791F}
+.star.on svg{fill:var(--marker)}
+.column-calc{display:flex;justify-content:center;font-family:'STIX Two Text',serif;align-self:center}
+.col{width:44px;display:flex;flex-direction:column;align-items:center;border-radius:10px;padding:4px 0}
+.col.focus{background:rgba(242,193,78,.2)}
+.col-mark{height:22px;font-size:16px;font-weight:700;color:#B7791F;font-family:'IBM Plex Sans KR',sans-serif}
+.col-a,.col-b,.col-result{height:44px;font-size:34px;line-height:44px}
+.col-a.struck{text-decoration:line-through;text-decoration-color:var(--marker);text-decoration-thickness:3px;opacity:.6}
+.col-line{align-self:stretch;height:3px;background:currentColor;margin:4px 0}
+.col-result{font-weight:700}
 /* kid mode: bigger type and targets */
 body.kid .lead,body.kid .mtext{font-size:18px}
 body.kid .muted{font-size:16px}

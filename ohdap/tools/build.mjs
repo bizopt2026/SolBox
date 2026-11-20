@@ -27,6 +27,9 @@ export const FILES = [
   'src/ui/aimsg.js',
   'src/ui/screens/upload.js',
   'src/ui/screens/confirm.js',
+  'src/ui/columnview.js',
+  'src/ui/solve.js',
+  'src/ui/screens/note.js',
   'src/main.js'
 ];
 
