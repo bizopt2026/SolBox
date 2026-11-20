@@ -307,6 +307,9 @@ textarea{resize:vertical;min-height:64px}
 .ws .dot{width:8px;height:8px;border-radius:50%;margin:4px auto 0;background:var(--line)}
 .ws.done .dot{background:var(--ok)} .ws.miss .dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--rec)}
 .ws .kstar{font-style:normal;font-size:12px;color:var(--accent);margin-right:1px}
+/* fixed rows (day · plan · score/dot · RPE) so every day lines up whether or not it has a score or RPE */
+.ws{display:grid;grid-template-rows:18px 20px 16px 19px;justify-items:center;align-content:start;align-items:center}
+.ws>.wsn,.ws>.dot{margin:0}.ws>.rf.sm{margin:0;align-self:end}
 .slg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px;color:var(--muted);align-items:center}
 .slg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:0}
 .slg i.miss{box-shadow:inset 0 0 0 1.5px var(--rec)}
@@ -1504,8 +1507,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.7.2",APP_RELEASED="2026-11-20";
+var APP_VERSION="1.7.3",APP_RELEASED="2026-11-20";
 var VLOG=[
+ ["1.7.3","2026-11-20","이번 주 요일 칸 높이 맞춤","오늘 탭 이번 주 요일 칸에서 점수·RPE가 있는 날과 없는 날의 요일·거리 글자 높이가 어긋나던 문제를 고쳤어요. 모든 요일이 같은 줄에 맞춰 보여요."],
  ["1.7.2","2026-11-20","AI 코치 추천 질문 바로 보내기","AI 코치에서 추천 질문을 누르면 입력창에 남지 않고 바로 질문이 보내져요. 입력창에 글을 쓰던 중(키보드가 열린 상태)에 눌러도 한 번에 보내져요."],
  ["1.7.1","2026-11-20","오늘 탭 요약 줄을 다시 맨 위로","목표·워치 연동·날씨·컨디션 요약 줄과 시작하기를 오늘 탭 맨 위(날짜 줄 위) 원래 자리로 되돌렸어요. 가이드 안내 문구도 '맨 위 요약 줄'로 맞췄어요."],
  ["1.7.0","2026-11-20","디자인 정리: 오늘 훈련 먼저 · 선 아이콘 · 남색과 레이스 오렌지","오늘 탭은 대회 임박 카드와 오늘 훈련을 맨 위로 올리고, 목표·워치·날씨·컨디션 요약 줄과 시작하기는 훈련 카드 아래로 옮겼어요. 로그인 안내는 한 줄로 줄였어요. 화면의 이모지를 한 가지 선 아이콘으로 바꾸고, 강조색을 보라에서 레이스 오렌지로, 장식 그라데이션은 걷어냈어요. 놓친 날은 빨간 '놓침' 대신 회색 '건너뜀'으로, 입력 칸 예시는 '예: 168'처럼 보여요. 최소 글자 12px, 훈련표 주 이름 줄바꿈, 머리글에 앱 이름 '써브쓰리'와 목표 기록, 저장 상태는 점 하나로. AI 코치 추천 질문은 깔끔한 목록으로, 끌어서 요일 바꾸기 안내는 한 줄로 줄였어요."],
