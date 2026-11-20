@@ -16,6 +16,7 @@ export const FILES = [
   'src/ai.js',
   'src/store.js',
   'src/concepts.js',
+  'src/export.js',
   'src/speaker.js',
   'src/caps.js',
   'src/ui/dom.js',
@@ -34,6 +35,7 @@ export const FILES = [
   'src/ui/screens/board.js',
   'src/ui/screens/review.js',
   'src/ui/screens/drill.js',
+  'src/ui/screens/concepts.js',
   'src/main.js'
 ];
 

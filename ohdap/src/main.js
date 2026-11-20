@@ -13,6 +13,7 @@ import { solveDraft } from './ui/solve.js';
 import { renderBoard } from './ui/screens/board.js';
 import { renderReview } from './ui/screens/review.js';
 import { renderDrill } from './ui/screens/drill.js';
+import { renderConcepts } from './ui/screens/concepts.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -27,6 +28,7 @@ function registerRoutes() {
   route('/review', renderReview);
   route('/drill/:id', renderDrill);
   route('/drill/:id/:drillId', renderDrill);
+  route('/concepts', renderConcepts);
 }
 
 export async function boot() {

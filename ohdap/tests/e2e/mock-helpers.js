@@ -103,3 +103,8 @@ function seedNote(id, result, extra) {
   db['data/users/u1/' + id] = n;
   localStorage.setItem('__mockdb', JSON.stringify(db));
 }
+
+function makeDownloads() {
+  window.__downloads = [];
+  return { save: async (f) => { window.__downloads.push({ filename: f.filename, size: String(f.data).length }); } };
+}

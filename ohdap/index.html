@@ -231,6 +231,35 @@ body.kid .board-screen .col{width:56px}
 .hist-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
 body.kid .answer-input{height:68px;font-size:30px;text-align:center}
 body.kid .result-title{font-size:22px}
+.note-list{display:flex;flex-direction:column;gap:10px}
+.note-item{display:flex;gap:12px;padding:12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);color:var(--ink);align-items:center}
+.nthumb{width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted)}
+.nbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ntitle{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nstar{color:#B7791F}.nstar svg{fill:var(--marker)}
+.group-title{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.empty{padding:24px;border-radius:16px;background:var(--surface);border:1px dashed var(--line);text-align:center}
+.empty p{margin:4px 0}
+.today-card{display:flex;align-items:center;gap:14px;padding:18px;border-radius:18px;background:var(--board);color:var(--chalk)}
+.today-card-text{flex:1;display:flex;flex-direction:column;gap:4px}
+.today-card-text b{font-size:19px}
+.pill-marker{padding:10px 16px;border-radius:999px;background:var(--marker);color:#1C2333;font-weight:600}
+.pill-dark{padding:8px 16px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:600;font-size:16px}
+.search{display:flex;align-items:center;gap:10px;height:46px;padding:0 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.search-input{flex:1;border:0;outline:none;background:transparent;font:inherit;font-size:15px;color:var(--ink);min-width:0}
+.row-gap{display:flex;gap:12px}
+.notice.migrate{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--warn-soft);color:var(--warn-ink)}
+.small-btn{min-height:40px;font-size:14px}
+.kid-shoot{min-height:120px;border-radius:24px;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;gap:18px;padding:0 22px}
+.kid-shoot-ic{width:72px;height:72px;flex:none;border-radius:22px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+.kid-shoot-text{display:flex;flex-direction:column;gap:4px}
+.kid-shoot-text b{font-size:22px}
+.kid-challenge{padding:18px;border-radius:20px;background:var(--warn-soft);color:var(--ink);display:flex;flex-direction:column;gap:10px}
+.kid-challenge b{font-size:19px}
+.concept-group summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;min-height:32px}
+.concept-notes{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+body.kid .ntitle{font-size:17px}
+body.kid .nthumb{border-radius:16px}
 /* kid mode: bigger type and targets */
 body.kid .lead,body.kid .mtext{font-size:18px}
 body.kid .muted{font-size:16px}
@@ -745,6 +774,48 @@ function groupConcepts(notes) {
   return [...groups.values()].sort((a, b) => b.notes.length - a.notes.length);
 }
 
+// ---- src/export.js
+const plain = (s) => String(s || '').replace(/\$/g, '');
+
+function filterNotes(notes, { subject, query, onlyOpen, onlyStarred } = {}) {
+  const q = String(query || '').trim().toLowerCase();
+  return notes.filter((n) => {
+    if (subject && subject !== '전체' && n.subject !== subject) return false;
+    if (onlyOpen && n.stage >= 4) return false;
+    if (onlyStarred && !n.starred) return false;
+    if (q) {
+      const hay = [n.problem, n.unit, n.subject, ...(n.tags || []), ...((n.result && n.result.concepts) || []).map((c) => c.name)].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function notesToMarkdown(notes) {
+  const bySubject = new Map();
+  for (const n of notes) {
+    const s = n.subject || '기타';
+    if (!bySubject.has(s)) bySubject.set(s, []);
+    bySubject.get(s).push(n);
+  }
+  const out = ['# 오답노트', ''];
+  for (const [subject, list] of bySubject) {
+    out.push(`## ${subject}`, '');
+    for (const n of list) {
+      out.push(`### ${n.unit || '단원 없음'} — ${plain(n.problem).split('\n')[0].slice(0, 60)}`, '');
+      out.push(`- 문제: ${plain(n.problem)}`);
+      if (n.myAnswer) out.push(`- 내가 쓴 답: ${plain(n.myAnswer)}`);
+      if (n.result) {
+        out.push(`- 정답: ${plain(n.result.answer)}`);
+        const cs = (n.result.concepts || []).map((c) => c.name);
+        if (cs.length) out.push(`- 핵심 개념: ${cs.join(', ')}`);
+      } else out.push('- 아직 정리하지 못했어요');
+      out.push('');
+    }
+  }
+  return out.join('\n');
+}
+
 // ---- src/speaker.js
 const clampRate = (r) => Math.min(1.5, Math.max(0.7, Number(r) || 1));
 const FALLBACK_CODES = ['not_granted', 'unavailable', 'unsupported'];
@@ -1049,6 +1120,9 @@ function renderOnboard(ctx) {
 
 
 
+
+
+
 function renderSettings(ctx) {
   const options = ['auto'].concat(GRADES);
   const btns = options.map((g) => h('button', {
@@ -1069,7 +1143,15 @@ function renderSettings(ctx) {
         h('h2', { class: 'h2' }, '저장 위치'),
         h('p', { class: 'store-where' }, where),
         ctx.store.kind === 'device' ? h('p', { class: 'muted' }, 'claude.ai에 로그인하면 계정에 저장할 수 있어요.') : null),
-      h('div', { id: 'export-slot' }),
+      ctx.caps.downloads ? h('section', { class: 'card' },
+        h('h2', { class: 'h2' }, '내보내기'),
+        h('p', { class: 'muted' }, '노트 전체를 글 파일(.md)로 저장해요.'),
+        h('button', { class: 'btn', onclick: async () => {
+          try {
+            const notes = await ctx.store.listNotes();
+            await ctx.caps.downloads.save({ filename: `오답노트-${todayYmd()}.md`, data: notesToMarkdown(notes) });
+          } catch (e) { if (!(e && (e.code === 'dismissed' || e.code === 'declined'))) toast('저장하지 못했어요.'); }
+        } }, '노트 내보내기')) : null,
       h('p', { class: 'muted center' }, `오답노트 ${ctx.version}`)),
     tabbar(ctx, 'settings'));
 }
@@ -1077,12 +1159,105 @@ function renderSettings(ctx) {
 // ---- src/ui/screens/home.js
 
 
-function renderHome(ctx) {
-  return h('div', { class: 'screen has-tabbar' },
-    h('header', { class: 'home-head' }, h('h1', { class: 'h-big' }, '오답노트')),
-    h('main', { class: 'page' },
-      ctx.store.kind === 'device' ? h('p', { class: 'device-note' }, '이 기기에만 저장됨') : null),
-    tabbar(ctx, 'home'));
+
+
+
+
+function noteTitle(n) {
+  return String(n.problem || '').replace(/\$/g, '').split('\n')[0].slice(0, 80) || '문제';
+}
+
+function badgeClass(n, today) {
+  if (n.stage >= MASTERED) return 'badge done';
+  if (n.status !== 'ready') return 'badge';
+  return n.due && n.due <= today ? 'badge due' : 'badge';
+}
+
+function noteItem(n, today) {
+  return h('a', { class: 'note-item', href: '#/note/' + n.id },
+    n.photoId ? h('img', { class: 'nthumb', src: '/_blob/' + n.photoId, alt: '', loading: 'lazy' }) : h('span', { class: 'nthumb stripe', 'aria-hidden': 'true' }, n.subject ? n.subject.slice(0, 2) : ''),
+    h('span', { class: 'nbody' },
+      h('span', { class: 'muted small' }, [n.subject, n.unit].filter(Boolean).join(' · ')),
+      h('span', { class: 'ntitle' }, noteTitle(n)),
+      h('span', { class: badgeClass(n, today) }, n.status !== 'ready' ? '정리 필요' : stageLabel(n, today))),
+    n.starred ? h('span', { class: 'nstar', 'aria-label': '다시보기 표시' }, icon('star', 16)) : null);
+}
+
+function migrateBanner(ctx) {
+  if (ctx.store.kind !== 'account') return null;
+  const count = deviceNoteCount(ctx.ls);
+  if (!count) return null;
+  const btn = h('button', { class: 'btn primary small-btn', onclick: async () => {
+    btn.disabled = true;
+    try {
+      const r = await migrateDeviceToAccount(ctx.ls, ctx.store);
+      ctx.settings = await ctx.store.getSettings();
+      toast(`노트 ${r.moved}개를 계정으로 옮겼어요.`);
+    } catch (e) { ctx.fail(e); }
+    ctx.refresh();
+  } }, '계정으로 옮기기');
+  return h('div', { class: 'notice migrate' }, h('span', {}, `이 기기에 노트 ${count}개가 있어요.`), btn);
+}
+
+async function renderHome(ctx) {
+  const kid = isElementary(ctx.settings.grade);
+  const w = ctx.words;
+  const today = todayYmd();
+  const notes = await ctx.store.listNotes();
+  const due = dueNotes(notes.filter((n) => n.status === 'ready'), today);
+  const list = h('div', { class: 'note-list' });
+  const st = { subject: '전체', query: '', byUnit: false };
+
+  function paintList() {
+    list.textContent = '';
+    const shown = filterNotes(notes, { subject: st.subject, query: st.query });
+    if (!notes.length) {
+      list.appendChild(h('div', { class: 'empty' }, h('p', {}, '아직 노트가 없어요.'), h('p', { class: 'muted' }, kid ? '틀린 문제를 찍어서 올려 보세요.' : '틀린 문제 사진을 올리면 정답과 풀이를 정리해 줘요.')));
+      return;
+    }
+    if (!shown.length) { list.appendChild(h('p', { class: 'muted' }, '찾는 노트가 없어요.')); return; }
+    if (st.byUnit && !kid) {
+      const groups = new Map();
+      for (const n of shown) { const k = [n.subject, n.unit].filter(Boolean).join(' · ') || '기타'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(n); }
+      for (const [k, ns] of groups) list.append(h('h3', { class: 'group-title' }, `${k} (${ns.length})`), ...ns.map((n) => noteItem(n, today)));
+    } else shown.forEach((n) => list.appendChild(noteItem(n, today)));
+  }
+
+  const head = h('header', { class: 'home-head' }, h('h1', { class: 'h-big' }, '오답노트'),
+    kid ? h('span', { class: 'stars' }, icon('star', 20), `별 ${ctx.settings.stars || 0}개`)
+      : h('a', { class: 'iconbtn', href: '#/settings', 'aria-label': '설정' }, icon('gear')));
+
+  const top = [];
+  const banner = migrateBanner(ctx);
+  if (banner) top.push(banner);
+  if (ctx.store.kind === 'device') top.push(h('p', { class: 'device-note' }, '이 기기에만 저장됨'));
+
+  if (kid) {
+    top.push(h('a', { class: 'kid-shoot', href: '#/upload' }, h('span', { class: 'kid-shoot-ic' }, icon('camera', 40)),
+      h('span', { class: 'kid-shoot-text' }, h('b', {}, w.upload), h('span', {}, '사진을 찍으면 풀이를 알려 줘요'))));
+    if (due.length) top.push(h('a', { class: 'kid-challenge', href: '#/drill/' + due[0].id },
+      h('span', { class: 'row-between' }, h('b', {}, `오늘의 도전 ${due.length}문제`), h('span', { class: 'pill-dark' }, '도전!')),
+      h('span', { class: 'muted' }, '맞히면 별을 받아요')));
+    top.push(h('h2', { class: 'h2' }, '내 오답노트'));
+  } else {
+    if (due.length) top.push(h('a', { class: 'today-card', href: '#/review' },
+      h('span', { class: 'today-card-text' }, h('span', { class: 'small' }, '오늘의 복습'), h('b', {}, `다시 풀 문제 ${due.length}개`)),
+      h('span', { class: 'pill-marker' }, '시작')));
+    const search = h('input', { class: 'search-input', placeholder: '문제, 개념, 단원 검색', 'aria-label': '검색', oninput: (e) => { st.query = e.target.value; paintList(); } });
+    top.push(h('label', { class: 'search' }, icon('search', 18), search));
+    const subjects = ['전체'].concat([...new Set(notes.map((n) => n.subject).filter(Boolean))]);
+    const chips = subjects.map((s) => h('button', { type: 'button', class: 'chip' + (s === '전체' ? ' on' : ''), 'aria-pressed': s === '전체' ? 'true' : 'false', onclick: () => {
+      st.subject = s;
+      chips.forEach((c) => { const on = c.textContent === s; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      paintList();
+    } }, s));
+    if (notes.length) top.push(h('div', { class: 'chips' }, chips));
+    const unitBtn = h('button', { class: 'linkish', type: 'button', 'aria-pressed': 'false', onclick: () => { st.byUnit = !st.byUnit; unitBtn.textContent = st.byUnit ? '최근 순 보기' : '단원별 보기'; unitBtn.setAttribute('aria-pressed', st.byUnit ? 'true' : 'false'); paintList(); } }, '단원별 보기');
+    top.push(h('div', { class: 'row-between' }, h('h2', { class: 'h3' }, '최근 노트'),
+      notes.length ? h('span', { class: 'row-gap' }, h('a', { class: 'linkish', href: '#/concepts' }, '개념 모아 보기'), unitBtn) : null));
+  }
+  paintList();
+  return h('div', { class: 'screen has-tabbar' }, head, h('main', { class: 'page' }, top, list), tabbar(ctx, 'home'));
 }
 
 // ---- src/image.js
@@ -1782,7 +1957,27 @@ async function renderDrill(ctx, params) {
   return el;
 }
 
+// ---- src/ui/screens/concepts.js
+
+
+
+async function renderConcepts(ctx) {
+  const notes = (await ctx.store.listNotes()).filter((n) => n.status === 'ready');
+  const groups = groupConcepts(notes);
+  return h('div', { class: 'screen' },
+    topbar(ctx.words.concepts + ' 모아 보기', '/home'),
+    h('main', { class: 'page' },
+      groups.length ? groups.map((g) => {
+        const c = (g.notes[0].result.concepts || []).find((x) => x.name.replace(/\s+/g, '').toLowerCase() === g.name.replace(/\s+/g, '').toLowerCase()) || {};
+        return h('details', { class: 'card concept-group' },
+          h('summary', {}, h('span', { class: 'concept-name' }, g.name), h('span', { class: 'badge' }, `노트 ${g.notes.length}`)),
+          c.summary ? h('p', { class: 'concept-sum' }, c.summary) : null,
+          h('ul', { class: 'concept-notes' }, g.notes.map((n) => h('li', {}, h('a', { href: '#/note/' + n.id }, String(n.problem).replace(/\$/g, '').slice(0, 50))))));
+      }) : h('p', { class: 'muted' }, '아직 정리된 개념이 없어요.')));
+}
+
 // ---- src/main.js
+
 
 
 
@@ -1811,6 +2006,7 @@ function registerRoutes() {
   route('/review', renderReview);
   route('/drill/:id', renderDrill);
   route('/drill/:id/:drillId', renderDrill);
+  route('/concepts', renderConcepts);
 }
 
 async function boot() {
