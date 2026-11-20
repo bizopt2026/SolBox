@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, save_bar %}
+{% from "_macros.html" import page_header, save_bar, form_token %}
 {% block title %}활동 기록 AI 초안{% endblock %}
 {% block content %}
 {{ page_header("활동 기록 AI 초안", crumbs=ui.crumbs("activity", last="AI 초안")) }}
@@ -10,6 +10,7 @@
   <strong>원문 메모</strong>
   <pre class="raw-text">{{ raw_text }}</pre>
   <form method="post" action="/activities/raw">
+    {{ form_token() }}
     <input type="hidden" name="raw_text" value="{{ raw_text }}">
     <button type="submit">기다리지 않고 원문만 저장</button>
   </form>
@@ -25,6 +26,7 @@
 <p class="muted">AI가 만든 초안입니다. 내용을 확인하고 고친 뒤 저장하세요. 저장하기 전에는 아무것도 기록되지 않습니다. 새로 등록할 이름은 직접 체크하세요.</p>
 {% endif %}
 <form method="post" action="/activities" class="form-page">
+  {{ form_token() }}
   {% set raw_collapsed = not error_kind %}
   {% include "activities/_form_fields.html" %}
   {{ save_bar("/activities") }}

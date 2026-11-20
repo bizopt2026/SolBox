@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar %}
+{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar, rev_fields, form_token %}
 {% block title %}{{ ont.label("bm") }} {{ "수정" if bm else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("bm") %}
 {{ page_header(label ~ " " ~ ("수정" if bm else "등록"), crumbs=ui.crumbs("bm", bm.name if bm else none, ("/bms/" ~ bm.id) if bm else none, "수정" if bm else "등록"), sub=(bm.name if bm else ont.TYPES["bm"].description)) }}
 {{ form_error(error) }}
 <form method="post" action="{{ "/bms/" ~ bm.id if bm else "/bms" }}" class="form-page">
+  {% if bm %}{{ rev_fields(bm, conflict, "/bms/" ~ bm.id) }}{% else %}{{ form_token() }}{% endif %}
   <section class="card">
     <h2>기본 정보</h2>
     <div class="fgrid">

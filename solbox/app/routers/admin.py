@@ -17,12 +17,15 @@ from app.main import render
 from app.labels import ERROR_KINDS, RESEARCH_AREAS, WEEKDAYS
 from app.models import AIJob, ResearchRun, ResearchTopic, User
 from app.research import Schedule, get_schedule, set_schedule
-from app.security import hash_password, require_admin
+from app import guards
+from app.guards import Once, Rev, form_once, rev_form
+from app.security import PASSWORD_RULE, hash_password, password_problem, password_version, require_admin
 from app.system import app_version, folder_size, human_size
 
 router = APIRouter(prefix="/admin")
 
 ROLES = ontology.USER_ROLES  # 정의는 ontology
+USER_CHANGED = "이 사용자 정보가 다른 곳에서 바뀌었거나 다른 계정으로 바뀌었습니다. 저장하지 않았습니다. 아래 목록에서 현재 내용을 확인한 뒤 다시 고쳐 주세요."
 
 
 def _page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
@@ -34,7 +37,8 @@ def _page(request: Request, db: Session, error: str | None = None, status_code: 
     else:
         role = ""
     tabs = ui.seg_tabs(request, "role", list(ROLES.items()), counts, role, total=sum(counts.values()))
-    return render(request, "admin/users.html", status_code=status_code, users=stmt.all(), roles=ROLES, error=error, tabs=tabs, role=role)
+    return render(request, "admin/users.html", status_code=status_code, users=stmt.all(), roles=ROLES, error=error, tabs=tabs, role=role,
+                  password_rule=PASSWORD_RULE)
 
 
 @router.get("/users")
@@ -51,6 +55,7 @@ def create_user(
     role: str = Form("user"),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
+    once: Once = Depends(form_once),
 ):
     username = username.strip()
     if not username or not password:
@@ -59,9 +64,12 @@ def create_user(
         return _page(request, db, "권한 값이 올바르지 않습니다.", 400)
     if db.query(User).filter_by(username=username).first():
         return _page(request, db, "이미 사용 중인 아이디입니다.", 400)
-    db.add(User(username=username, name=name.strip(), password_hash=hash_password(password), role=role))
+    if problem := password_problem(password, username):
+        return _page(request, db, problem, 400)
+    # 관리자가 정해 준 비밀번호: 이 사용자는 처음 로그인한 뒤 새 비밀번호로 바꿔야 다른 화면을 쓸 수 있다
+    db.add(User(username=username, name=name.strip(), password_hash=hash_password(password), role=role, must_change_password=True))
     db.commit()
-    return notices.redirect("/admin/users", "created")
+    return once.done(notices.redirect("/admin/users", "created"))
 
 
 @router.post("/users/{user_id}")
@@ -74,10 +82,13 @@ def update_user(
     password: str = Form(""),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
+    rev: Rev = Depends(rev_form),
 ):
     target = db.get(User, user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if guards.check_rev(target, rev) is not None:  # 사용자 줄은 "그래도 저장" 없이 새로 고쳐 다시 고치게 한다
+        return _page(request, db, USER_CHANGED, 409)
     if role not in ROLES:
         return _page(request, db, "권한 값이 올바르지 않습니다.", 400)
     active = is_active is not None
@@ -87,7 +98,14 @@ def update_user(
     target.role = role
     target.is_active = active
     if password:
+        if problem := password_problem(password, target.username):
+            db.rollback()
+            return _page(request, db, f"{target.username}: {problem}", 400)
         target.password_hash = hash_password(password)
+        if target.id == admin.id:  # 내가 내 비밀번호를 정했다: 이 로그인은 그대로, 바꿔야 하는 표시는 달지 않는다
+            request.session["pv"] = password_version(target)
+        else:  # 정해 준 비밀번호: 이 사용자는 다음 로그인 뒤 바꿔야 한다
+            target.must_change_password = True
     db.commit()
     return notices.redirect("/admin/users", "saved")
 
@@ -153,6 +171,7 @@ def create_topic(
     area: str = Form(""),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
+    once: Once = Depends(form_once),
 ):
     name, keywords = name.strip(), keywords.strip()
     error = _topic_error(name, keywords, area)
@@ -160,7 +179,7 @@ def create_topic(
         return _research_page(request, db, error, 400)
     db.add(ResearchTopic(name=name, keywords=keywords, area=area, created_by_id=admin.id))
     db.commit()
-    return notices.redirect("/admin/research", "created")
+    return once.done(notices.redirect("/admin/research", "created"))
 
 
 @router.post("/research/topics/{topic_id}")
@@ -237,7 +256,7 @@ def _ping_state(db: Session) -> dict:
         return {"state": "waiting"}
     if job.status == "done":
         return {"state": "ok", "at": job.finished_at}
-    text = ERROR_KINDS.get(job.error_kind, ERROR_KINDS["unknown"])
+    text = ERROR_KINDS.get(job.shown_error_kind, ERROR_KINDS["unknown"])
     if job.error_kind == "bad_output" and job.error:
         text = job.error
     return {"state": "failed", "text": text, "at": job.finished_at}
@@ -267,7 +286,7 @@ def _system_page(request: Request, db: Session, error: str | None = None, status
         schedule=schedule,
         next_run=next_run,
         last_failed=last_failed,
-        failed_text=ERROR_KINDS.get(last_failed.error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
+        failed_text=ERROR_KINDS.get(last_failed.shown_error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
         ping=_ping_state(db),
         transcriber=transcribe.label(s),
         error=error,

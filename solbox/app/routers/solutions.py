@@ -12,8 +12,9 @@ from app.idparse import parse_id
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
@@ -32,11 +33,11 @@ BAD_PARTNER = ui.FieldError("존재하지 않는 파트너입니다.", "partner_
 
 def _form_page(
     request: Request, db: Session, form: dict, solution: Solution | None = None, error: str | None = None,
-    **extra,
+    conflict=None, **extra,
 ):
     return render(
-        request, "solutions/form.html", status_code=400 if error else 200,
-        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, **extra,
+        request, "solutions/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, conflict=conflict, **extra,
     )
 
 
@@ -107,7 +108,7 @@ def create(
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
     if error:
@@ -118,7 +119,7 @@ def create(
     mirror.sync(solution)
     if solution.partner:
         mirror.sync(solution.partner)
-    return notices.redirect(f"/solutions/{solution.id}", "created")
+    return once.done(notices.redirect(f"/solutions/{solution.id}", "created"))
 
 
 @router.get("/{solution_id}")
@@ -166,7 +167,7 @@ def edit_form(
         except ValueError:
             draft = None
     if draft is None:
-        kind = job.error_kind if job.status == "failed" else "bad_output"
+        kind = job.shown_error_kind if job.status == "failed" else "bad_output"
         message = job.error if job.error == NO_READABLE_FILES else labels.ERROR_KINDS.get(kind, labels.ERROR_KINDS["unknown"])
         return _form_page(request, db, form, solution, draft_error=message)
     # AI 가 비워 보낸 칸은 기존 값을 그대로 둔다
@@ -199,10 +200,12 @@ def update(
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
     solution = get_or_404(db, Solution, solution_id)
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
+    if conflict := guards.check_rev(solution, rev):
+        return _form_page(request, db, values, solution, conflict=conflict)
     if error:
         return _form_page(request, db, values, solution, error)
     old_partner = solution.partner

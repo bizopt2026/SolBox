@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Activity, Customer, Project, User
@@ -25,11 +26,11 @@ CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 
 
 def _form_page(
-    request: Request, db: Session, form: dict, project: Project | None = None, error: str | None = None
+    request: Request, db: Session, form: dict, project: Project | None = None, error: str | None = None, conflict=None
 ):
     return render(
-        request, "projects/form.html", status_code=400 if error else 200,
-        form=form, project=project, customers=search_by_name(db, Customer), bms=search_by_name(db, BM), error=error,
+        request, "projects/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, project=project, customers=search_by_name(db, Customer), bms=search_by_name(db, BM), error=error, conflict=conflict,
     )
 
 
@@ -81,7 +82,7 @@ def create(
     name: str = Form(""), customer_id: str = Form(""), description: str = Form(""),
     period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields),
+    mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields), once: Once = Depends(form_once),
 ):
     values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None)
     if error:
@@ -93,7 +94,7 @@ def create(
     mirror.sync(project)
     mirror.sync(project.customer)  # 고객 사본의 프로젝트 목록
     resync_objects(db, mirror, [project.bm])  # BM 사본의 따르는 프로젝트 목록
-    return notices.redirect(f"/projects/{project.id}", "created")
+    return once.done(notices.redirect(f"/projects/{project.id}", "created"))
 
 
 @router.get("/{project_id}")
@@ -119,10 +120,12 @@ def update(
     name: str = Form(""), customer_id: str = Form(""), description: str = Form(""),
     period: str = Form(""), status: str = Form(""), memo: str = Form(""), bm_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields),
+    mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields), rev: Rev = Depends(rev_form),
 ):
     project = get_or_404(db, Project, project_id)
     values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None)
+    if conflict := guards.check_rev(project, rev):
+        return _form_page(request, db, {**{f: getattr(project, f) for f in FIELDS}, **values}, project, conflict=conflict)
     if error is None:
         error = opps.project_customer_problem(db, project, values["customer_id"])
     if error:

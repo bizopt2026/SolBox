@@ -226,7 +226,7 @@ def test_default_jobs_registered_once_by_start(app, settings, monkeypatch):
     monkeypatch.setattr(scheduler, "_loop", lambda app, stop: None)
     scheduler.start(app)
     scheduler.start(app)
-    assert len(scheduler.DAILY_JOBS) == 1
+    assert scheduler.DAILY_JOBS == [scheduler._backup_job, scheduler._form_token_job]  # 백업 + 오래된 폼 표 청소, 여러 번 시작해도 한 번씩
     ran = []
     from app import backup
 

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, field_shell, save_bar %}
+{% block title %}내 정보{% endblock %}
+{% block content %}
+{{ page_header("내 정보", crumbs=[("계정", none), ("내 정보", none)], sub="내 계정을 확인하고 비밀번호를 바꿉니다") }}
+{% if must_change %}<p class="notice" role="status"><b>비밀번호를 먼저 바꿔 주세요.</b> 관리자가 정해 준 비밀번호입니다. 새 비밀번호로 바꾸면 다른 화면을 쓸 수 있습니다.</p>{% endif %}
+{{ form_error(error) }}
+<div class="form-page">
+  <section class="card stack">
+    <h2>계정</h2>
+    <dl class="props">
+      <dt>이름</dt><dd>{{ user.name or "(이름 없음)" }}</dd>
+      <dt>아이디</dt><dd>{{ user.username }}</dd>
+      <dt>권한</dt><dd>{{ ont.USER_ROLES.get(user.role, user.role) }}</dd>
+    </dl>
+    <p class="help muted">이름과 권한은 관리자가 바꿉니다.</p>
+  </section>
+  <form method="post" action="/account/password" class="stack">
+    <section class="card stack">
+      <h2>비밀번호 바꾸기</h2>
+      <div class="fgrid">
+        {% for name, label, auto, help in (("current_password", "현재 비밀번호", "current-password", none), ("new_password", "새 비밀번호", "new-password", rule), ("confirm_password", "새 비밀번호 확인", "new-password", none)) %}
+        {% call(err) field_shell(label, name, true, help, false, error) %}
+        <input id="f-{{ name }}" name="{{ name }}" type="password" autocomplete="{{ auto }}" required aria-required="true"{% if err %} aria-invalid="true" aria-describedby="e-{{ name }}"{% elif help %} aria-describedby="h-{{ name }}"{% endif %}>
+        {% endcall %}
+        {% endfor %}
+      </div>
+      <p class="help muted">바꾸면 다른 곳(다른 기기·브라우저)에서 로그인한 상태는 끝나고, 지금 화면은 그대로 쓸 수 있습니다.</p>
+    </section>
+    {{ save_bar("/", "비밀번호 바꾸기") }}
+  </form>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.models import Activity, Project, Customer, Partner, Solution
-from tests.conftest import make_user
+from tests.conftest import make_user, nloc
 
 
 def test_customer_create_search_edit(user_client, db, settings):
@@ -9,7 +9,7 @@ def test_customer_create_search_edit(user_client, db, settings):
     assert r.status_code == 303
     c = db.query(Customer).one()
     assert c.created_by_id is not None
-    assert r.headers["location"] == f"/customers/{c.id}?notice=created"
+    assert nloc(r) == f"/customers/{c.id}?notice=created"
     assert (settings.knowledge_dir / "customers" / f"{c.id}.md").exists()
     assert "한빛병원" in user_client.get("/customers?q=한빛").text
     assert "한빛병원" not in user_client.get("/customers?q=없는이름").text
@@ -51,7 +51,7 @@ def test_delete_removes_row_and_mirror_file(user_client, db, settings):
     md = settings.knowledge_dir / "partners" / f"{p.id}.md"
     assert md.exists()
     r = user_client.post(f"/partners/{p.id}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/partners?notice=deleted"
+    assert r.status_code == 303 and nloc(r) == "/partners?notice=deleted"
     db.expire_all()
     assert db.query(Partner).count() == 0
     assert not md.exists()

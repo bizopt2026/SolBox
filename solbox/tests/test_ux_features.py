@@ -10,7 +10,7 @@ from app.models import (
     Activity, AIJob, Customer, FollowUp, Intake, IntakeFile, Opportunity, Partner, Project, Proposal, ProposalMessage, Solution, User,
 )
 from tests import relfix
-from tests.conftest import make_user, refining_proposal
+from tests.conftest import make_user, refining_proposal, nloc
 
 
 @pytest.fixture
@@ -110,7 +110,7 @@ def test_invalid_prefill_is_ignored(user_client, world):
 
 def test_save_raw_keeps_the_prefilled_link(user_client, db, world):
     r = user_client.post("/activities/raw", data={"raw_text": "메모", "customer_id": str(world.c_green.id), "solution_id": "99999"}, follow_redirects=False)
-    assert r.status_code == 303 and "notice=created" in r.headers["location"]
+    assert r.status_code == 303 and "notice=created" in nloc(r)
     a = db.query(Activity).order_by(Activity.id.desc()).first()
     assert [c.id for c in a.customers] == [world.c_green.id] and a.solutions == []
 

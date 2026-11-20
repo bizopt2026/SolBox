@@ -17,6 +17,11 @@ class Stamped:
     def created_by_id(cls) -> Mapped[int | None]:
         return mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
+    @declared_attr
+    def updated_by_id(cls) -> Mapped[int | None]:
+        """마지막으로 고친 사람. 고칠 때마다 `app/guards.py` 의 flush 처리기가 채운다 (옛 행은 비어 있다)."""
+        return mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
@@ -76,6 +81,19 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, default=ontology.USER_ROLE_DEFAULT)  # admin / user
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    must_change_password: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # 관리자가 정해 준 비밀번호: 다음 로그인 뒤 바꿔야 쓸 수 있다
+
+
+class FormToken(Base):
+    """한 번만 쓰는 폼 표 (app/guards.py): 같은 표로 다시 제출되면 처음 만든 것의 주소로 보낸다 (연타·동시 제출이 기록을 둘 만들지 않게).
+    표는 사용자마다 따로다. 오래된 표는 지운다 (매일 작업·처음 쓸 때)."""
+
+    __tablename__ = "form_tokens"
+
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    token: Mapped[str] = mapped_column(String, primary_key=True)
+    result_url: Mapped[str | None] = mapped_column(String, nullable=True)  # 처음 제출이 만든 것의 주소 (끝나기 전에는 비어 있다)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
 class Partner(Stamped, Origin, Base):
@@ -299,6 +317,13 @@ class AIJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    @property
+    def shown_error_kind(self) -> str:
+        """화면에 보일 오류 종류: 서버 재시작으로 중단된 작업은 (옛 행이 `unknown` 으로 남아 있어도) `restart`."""
+        if self.error_kind == "unknown" and self.error == ontology.RESTART_ERROR_TEXT:
+            return "restart"
+        return self.error_kind
 
 
 class Intake(Stamped, Base):

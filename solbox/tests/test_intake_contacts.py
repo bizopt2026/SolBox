@@ -6,7 +6,7 @@ from app import intake as intake_lib
 from app.ai import intake_tasks
 from app.ai.intake_tasks import Contact, IntakePlanOut, NewCustomer, NewPartner
 from app.models import Customer, Intake, IntakeFile, Partner
-from tests.conftest import form_from_page, ready_bundle
+from tests.conftest import form_from_page, ready_bundle, nloc
 
 TODAY = date(2026, 11, 19)
 CARD = ("명함.txt", "박서연 팀장 02-555-0142 seoyeon@hanbit.example".encode())
@@ -139,7 +139,7 @@ def test_apply_appends_one_line_and_never_overwrites(app, user_client, db, setti
     p, _ = _world(db)
     it = _plan(db, settings, p)
     r = _apply(user_client, it)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_applied"
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_applied"
     db.expire_all()
     p = db.get(Partner, p.id)
     lines = p.contact.split("\n")

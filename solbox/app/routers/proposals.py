@@ -15,8 +15,9 @@ from sqlalchemy.orm import Session, selectinload
 from app.idparse import parse_id
 from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.deck import build_deck
 from app.sources import SourceLookup
 from app.knowledge import safe_name
@@ -133,7 +134,7 @@ def create(
     request: Request,
     customer_id: str = Form(""), project_id: str = Form(""), opportunity_id: str = Form(""), request_memo: str = Form(""),
     extra_solution_ids: list[str] = Form([]),
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
 ):
     form = {
         "customer_id": customer_id.strip(), "project_id": project_id.strip(), "opportunity_id": opportunity_id.strip(),
@@ -165,7 +166,7 @@ def create(
     db.add(proposal)
     db.commit()
     start_job(db, proposal, "proposal_directions", user)
-    return notices.redirect(f"/proposals/{proposal.id}", "created")
+    return once.done(notices.redirect(f"/proposals/{proposal.id}", "created"))
 
 
 @router.get("/{proposal_id}")
@@ -183,7 +184,8 @@ def _detail_page(
 ):
     candidates = candidate_solutions(db, proposal)
     # 방금 실패한 폼이 들어 있는 구역은 열어 둔다
-    open_key = "chat" if extra.get("chat_error") else "deck" if extra.get("deck_error") else open_section(proposal)
+    open_key = ("chat" if extra.get("chat_error") else "deck" if extra.get("deck_error") else "target" if extra.get("target_conflict")
+                else open_section(proposal))
     return render(
         request, "proposals/detail.html", status_code=status_code, proposal=proposal, title=display_title(proposal),
         candidates=candidates, extra_candidates=_extra_candidates(db),
@@ -397,11 +399,15 @@ def download(
 
 @router.post("/{proposal_id}/target")
 def update_target(
-    proposal_id: int,
+    proposal_id: int, request: Request,
     request_memo: str = Form(""), extra_solution_ids: list[str] = Form([]), opportunity_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), fields: frozenset = Depends(submitted_fields),
+    rev: Rev = Depends(rev_form),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
+    if conflict := guards.check_rev(proposal, rev):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
+        return _detail_page(request, db, proposal, user, status_code=409, target_conflict=conflict,
+                            target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids)})
     if len(request_memo.strip()) > MAX_MEMO:
         raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
     if "opportunity_id" in fields:  # 칸이 오지 않으면 그대로 둔다. 비어 오면 비운다. 그 고객의 영업기회여야 한다

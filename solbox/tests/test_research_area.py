@@ -1,5 +1,6 @@
 import json
 import threading
+from app import notices
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ from app.ai.queue import process_next
 from app.labels import ERROR_KINDS
 from app.models import AIJob, ResearchReport, ResearchRun
 from app.research import clean_url, start_run
-from tests.conftest import make_topics
+from tests.conftest import make_topics, nloc
 
 AREA = {"title": "11월 3주 기술 동향", "trends": [
     {"headline": "AI 공조 제어 확산", "summary": "병원 적용 증가", "sources": [{"title": "기사", "url": "https://example.com/a", "opened": True}, {"url": "https://example.com/a"}]},
@@ -34,7 +35,7 @@ def _run_all(app, admin_client, db, settings):
 def test_manual_run_creates_reports_and_jobs(admin_client, db):
     make_topics(db)
     r = admin_client.post("/research/run", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=research_started"
+    assert nloc(r) == "/admin/research?notice=research_started"
     run = db.query(ResearchRun).one()
     assert (run.trigger, run.status, run.slot) == ("manual", "running", None)
     assert sorted(x.area for x in run.reports) == ["policy", "tech"]
@@ -135,9 +136,9 @@ def test_second_run_while_running_is_refused(admin_client, db):
     make_topics(db)
     admin_client.post("/research/run")
     r = admin_client.post("/research/run", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=research_busy"
+    assert nloc(r) == "/admin/research?notice=research_busy"
     assert db.query(ResearchRun).count() == 1 and db.query(AIJob).count() == 2
-    page = admin_client.get("/admin/research?notice=research_busy").text
+    page = admin_client.get(notices.with_notice("/admin/research", "research_busy")).text
     assert "이미 조사가 진행 중입니다." in page
 
 
@@ -161,9 +162,9 @@ def test_start_run_is_atomic_under_threads(app, db):
 
 def test_no_active_topics(admin_client, db):
     r = admin_client.post("/research/run", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=no_topics"
+    assert nloc(r) == "/admin/research?notice=no_topics"
     assert db.query(ResearchRun).count() == 0
-    assert "사용 중인 리서치 주제가 없습니다." in admin_client.get("/admin/research?notice=no_topics").text
+    assert "사용 중인 리서치 주제가 없습니다." in admin_client.get(notices.with_notice("/admin/research", "no_topics")).text
 
 
 def test_start_run_without_topics_raises(db):
@@ -342,7 +343,7 @@ def test_retry_refused_while_another_run_running(app, admin_client, db, settings
     rid = run.reports[0].id
     admin_client.post("/research/run")
     r = admin_client.post(f"/research/reports/{rid}/retry", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=research_busy"
+    assert nloc(r) == "/admin/research?notice=research_busy"
     db.expire_all()
     assert db.get(ResearchReport, rid).status == "failed"
 

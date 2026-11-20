@@ -27,8 +27,8 @@ def test_every_type_matches_orm_and_tables():
 def test_every_orm_model_is_a_type_or_listed():
     mapped = {m.class_.__name__ for m in Base.registry.mappers}
     defined = {t.model_name for t in ontology.TYPES.values() if t.model_name}
-    # 쓰이는 대상이 아닌 보조 표: 제안 대화, 설정
-    assert mapped - defined == {"ProposalMessage", "AppSetting"}
+    # 쓰이는 대상이 아닌 보조 표: 제안 대화, 설정, 한 번 쓰는 폼 표
+    assert mapped - defined == {"ProposalMessage", "AppSetting", "FormToken"}
 
 
 def _route_paths(app) -> set[str]:

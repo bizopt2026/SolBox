@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
 {% block title %}{{ ont.label("project") }} {{ "수정" if project else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("project") %}
 {{ page_header(label ~ " " ~ ("수정" if project else "등록"), crumbs=ui.crumbs("project", project.name if project else none, ("/projects/" ~ project.id) if project else none, "수정" if project else "등록"), sub=(project.name if project else ont.TYPES["project"].description)) }}
 {{ form_error(error) }}
 <form method="post" action="{{ "/projects/" ~ project.id if project else "/projects" }}" class="form-page">
+  {% if project %}{{ rev_fields(project, conflict, "/projects/" ~ project.id) }}{% else %}{{ form_token() }}{% endif %}
   <section class="card">
     <div class="fgrid">
       {{ text_field(ont.prop("project", "name"), "name", form.name, required=true, wide=true, error=error) }}

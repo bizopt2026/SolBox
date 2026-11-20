@@ -34,7 +34,7 @@
   {% if tabs %}{{ seg(tabs, tab_label) }}{% endif %}
   {% if search %}
   <form class="search tool-search" method="get" action="{{ request.url.path }}" role="search" aria-label="목록 검색">
-    {% for k, v in request.query_params.multi_items() if k not in ("q", "page") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    {% for k, v in request.query_params.multi_items() if k not in ("q", "page", "notice", "nt") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
     <label class="sr-only" for="list-q">검색</label>
     <input id="list-q" type="search" name="q" value="{{ q }}" placeholder="{{ placeholder }}" autocomplete="off">
   </form>
@@ -55,7 +55,7 @@
 {# 쪽 넘기기: "51–100 / 전체 120건" 과 이전·다음 #}
 {% macro pager(pg, request) %}
 {% if pg.has_pages %}
-{% set keep = request.query_params.multi_items() | rejectattr(0, "in", ["page", "fu_toggled"]) | list %}
+{% set keep = request.query_params.multi_items() | rejectattr(0, "in", ["page", "fu_toggled", "notice", "nt"]) | list %}
 <nav class="pager" aria-label="페이지">
   {% if pg.page > 1 %}<a href="{{ request.url.path }}?{{ (keep + [("page", pg.page - 1)]) | urlencode }}">이전</a>{% else %}<span class="muted">이전</span>{% endif %}
   <span class="sep" aria-hidden="true">·</span>
@@ -137,6 +137,7 @@
     {% if caller is defined %}{{ caller() }}{% endif %}
     {% if meta.author %}<dt>작성자</dt><dd>{{ meta.author }}</dd>{% endif %}
     <dt>만든 날</dt><dd>{{ time_tag(meta.created) }}</dd>
+    {% if meta.editor %}<dt>고친 사람</dt><dd>{{ meta.editor }}</dd>{% endif %}
     <dt>고친 날</dt><dd>{{ time_tag(meta.updated) }}</dd>
   </dl>
 </section>
@@ -172,6 +173,25 @@
 
 {# 폼 맨 위 오류 알림 #}
 {% macro form_error(error) %}{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}{% endmacro %}
+
+{# 고치기 폼 맨 위(폼 안): 이 기록의 숨은 고침 표시 + 충돌 알림. conflict = guards.Conflict (저장하지 않고 다시 그린 폼), view_url = 지금 기록을 여는 주소.
+   표시는 옛 값 그대로 다시 보낸다(다른 기록으로 바뀐 경우를 계속 막는다). "그래도 내 내용으로 저장" 은 다른 곳에서 바뀐 경우에만 있다. #}
+{% macro rev_fields(obj, conflict=none, view_url=none, rev=none) %}
+{% if obj or rev %}<input type="hidden" name="_rev" value="{{ conflict.rev if conflict else (rev or rev_of(obj)) }}">{% endif %}
+{% if conflict %}
+<div class="conflict" role="alert" data-conflict="{{ conflict.kind }}">
+  <p><b>{{ "다른 기록입니다" if conflict.kind == "replaced" else "저장하지 않았습니다" }}</b></p>
+  <p>{{ conflict.message }}</p>
+  <p class="conflict-acts">
+    {% if view_url %}<a class="button" href="{{ view_url }}" target="_blank" rel="noopener">현재 내용 새 탭에서 열기</a>{% endif %}
+    {% if conflict.can_force %}<button type="submit" name="_force" value="1" class="danger">그래도 내 내용으로 저장</button>{% endif %}
+  </p>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# 만들기 폼 안: 한 번 쓰는 폼 표 (같은 표로 다시 제출되면 처음 결과로 보낸다) #}
+{% macro form_token() %}<input type="hidden" name="_tok" value="{{ new_token() }}">{% endmacro %}
 
 {# 맨 밑 저장 막대: 저장(주) + 취소. 지우기 같은 되돌릴 수 없는 동작은 폼 안에 두지 않는다 #}
 {% macro save_bar(cancel_url, save_label="저장") %}

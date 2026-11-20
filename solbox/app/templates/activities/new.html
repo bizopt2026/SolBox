@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, text_field, filepick %}
+{% from "_macros.html" import page_header, text_field, filepick, form_token %}
 {% block title %}활동 기록 등록{% endblock %}
 {% block content %}
 {{ page_header("활동 기록 등록", crumbs=ui.crumbs("activity", last="등록"), sub="미팅·통화 메모를 붙여 넣거나 텍스트 파일(.txt, .md)을 선택하세요.") }}
 <p class="notice">녹취록·사진·자료는 올리기에서 한 번에 정리할 수 있습니다. <a href="/intake/new">올리기로 가기</a></p>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="/activities/raw" enctype="multipart/form-data" class="form-page">
+  {{ form_token() }}
   {% for c in chips %}<input type="hidden" name="{{ c.param }}" value="{{ c.value }}">{% endfor %}
   {% if chips %}<p class="prefill-chips">이 기록은 {% for c in chips %}<span class="chip">{{ c.label }} {{ c.name }}</span> {% endfor %}에 연결해 저장합니다.</p>{% endif %}
   <section class="card">

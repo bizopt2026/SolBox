@@ -19,7 +19,7 @@ from app.ai.runner import DEFAULT_TOOLS, WEB_TOOLS, ClaudeRunner
 from app.db import make_engine
 from app.migrate import add_missing_columns
 from app.models import Activity, AIJob, Intake, Partner, Solution, SolutionFile, User
-from tests.conftest import form_from_page, make_user, ready_intake
+from tests.conftest import form_from_page, make_user, ready_intake, nloc
 
 
 def _login(app, db, username="kim"):
@@ -55,18 +55,19 @@ def test_recheck_during_live_apply_saves_one_set(app, user_client, db, settings,
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     c2 = _login(app, db)
+    form2 = form_from_page(c2, it)  # 다른 탭은 다른 폼 표를 가진다
     inner = {}
 
     def interfere():
         _age(app, it.id)
         assert c2.post(f"/intake/{it.id}/recheck", follow_redirects=False).status_code == 303
-        r = c2.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
+        r = c2.post(f"/intake/{it.id}/apply", data=form2, follow_redirects=False)
         inner["r"] = (r.status_code, r.headers.get("location"))
 
     _hook_create_records(monkeypatch, interfere)
     r = user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     db.expire_all()
-    assert r.status_code == 303 and "notice=superseded" in r.headers["location"]  # 먼저 시작한 저장은 밀려났다
+    assert r.status_code == 303 and "notice=superseded" in nloc(r)  # 먼저 시작한 저장은 밀려났다
     assert db.query(Activity).count() == 1
     assert db.query(Solution).filter_by(name="스마트 조명 제어").count() == 1
     assert db.query(SolutionFile).count() == 2
@@ -78,11 +79,12 @@ def test_superseded_apply_deletes_its_copied_files(app, user_client, db, setting
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     c2 = _login(app, db)
+    form2 = form_from_page(c2, it)  # 다른 탭은 다른 폼 표를 가진다
 
     def interfere():
         _age(app, it.id)
         c2.post(f"/intake/{it.id}/recheck", follow_redirects=False)
-        c2.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
+        c2.post(f"/intake/{it.id}/apply", data=form2, follow_redirects=False)
 
     _hook_create_records(monkeypatch, interfere)
     user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
@@ -94,6 +96,7 @@ def test_failed_apply_after_recheck_keeps_other_claim(app, user_client, db, sett
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     c2 = _login(app, db)
+    form2 = form_from_page(c2, it)  # 다른 탭은 다른 폼 표를 가진다
 
     def interfere():
         _age(app, it.id)
@@ -118,6 +121,7 @@ def test_reanalysis_after_recheck_not_overwritten_by_old_apply(app, user_client,
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     c2 = _login(app, db)
+    form2 = form_from_page(c2, it)  # 다른 탭은 다른 폼 표를 가진다
 
     def interfere():
         _age(app, it.id)
@@ -128,7 +132,7 @@ def test_reanalysis_after_recheck_not_overwritten_by_old_apply(app, user_client,
     r = user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     db.expire_all()
     cur = db.get(Intake, it.id)
-    assert "notice=superseded" in r.headers["location"]
+    assert "notice=superseded" in nloc(r)
     assert cur.status == "analyzing" and cur.apply_token is None and cur.applied_at is None
     assert db.query(Activity).count() == 0 and db.query(Solution).filter_by(name="스마트 조명 제어").count() == 0
 

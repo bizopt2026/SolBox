@@ -34,10 +34,19 @@ def _backup_job(app) -> None:
     backup.run_backup(app.state.settings)
 
 
+def _form_token_job(app) -> None:
+    """오래된 한 번 쓰는 폼 표를 지운다 (표를 차지할 때도 지우므로 이것은 한가한 날의 청소다)."""
+    from app import guards
+
+    with app.state.session_factory() as db:
+        guards.purge_tokens(db)
+
+
 def register_default_jobs() -> None:
-    """운영에서 쓰는 일일 작업(백업)을 등록한다. 여러 번 불러도 한 번만 등록된다."""
-    if _backup_job not in DAILY_JOBS:
-        DAILY_JOBS.append(_backup_job)
+    """운영에서 쓰는 일일 작업(백업·폼 표 청소)을 등록한다. 여러 번 불러도 한 번씩만 등록된다."""
+    for job in (_backup_job, _form_token_job):
+        if job not in DAILY_JOBS:
+            DAILY_JOBS.append(job)
 
 
 def _set_setting(db: Session, key: str, value: str) -> None:

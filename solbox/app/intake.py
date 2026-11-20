@@ -692,7 +692,7 @@ def job_failure_message(job: AIJob | None) -> str:
         return labels.ERROR_KINDS["unknown"]
     if job.error_kind == "bad_output" and job.error:
         return job.error
-    return labels.ERROR_KINDS.get(job.error_kind or "", labels.ERROR_KINDS["unknown"])
+    return labels.ERROR_KINDS.get(job.shown_error_kind or "", labels.ERROR_KINDS["unknown"])
 
 
 def start_analysis(db: Session, intake: Intake, user: User) -> bool:

@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Customer, Opportunity, Project, Solution, User
@@ -26,13 +27,13 @@ from app.security import can_delete, require_user
 router = APIRouter(prefix="/opportunities")
 
 
-def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | None = None, error: str | None = None, conflict=None):
     cid = opps.parse_id(form.get("customer_id"))
     customer = db.get(Customer, cid) if cid is not None else None
     needs = [SimpleNamespace(id=n.id, name=opps.need_label(n)) for n in opps.bundlable_needs(db, cid, opp)]
     return render(
-        request, "opportunities/form.html", status_code=400 if error else 200,
-        form=form, opp=opp, error=error, customer=customer, customers=search_by_name(db, Customer),
+        request, "opportunities/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, opp=opp, error=error, conflict=conflict, customer=customer, customers=search_by_name(db, Customer),
         bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs,
         unlinked_needs=opps.unlinked_same_name_needs(db, customer),
     )
@@ -117,7 +118,7 @@ def create(
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values, error = _parse(db, name, customer_id, bm_id, memo)
     form = _submitted(values, need_ids, solution_ids)
@@ -134,7 +135,7 @@ def create(
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, opps.dependents(db, opp))
-    return notices.redirect(f"/opportunities/{opp.id}", "created")
+    return once.done(notices.redirect(f"/opportunities/{opp.id}", "created"))
 
 
 @router.get("/{opportunity_id}")
@@ -156,16 +157,19 @@ def update(
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
     form = _submitted(values, need_ids, solution_ids)
+    if conflict := guards.check_rev(opp, rev):
+        return _form_page(request, db, form, opp, conflict=conflict)
     if error is None:
         error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
         return _form_page(request, db, form, opp, error)
     before = opps.dependents(db, opp)
+    needs_before = {n.id for n in opps.needs_of(db, opp)}
     for field, value in values.items():
         setattr(opp, field, value)
     db.flush()
@@ -173,6 +177,8 @@ def update(
         db.rollback()
         return _form_page(request, db, form, opp, error)
     opp.solutions = pick(db, Solution, solution_ids)
+    if {n.id for n in opps.needs_of(db, opp)} != needs_before:
+        guards.touch(opp, user)  # 묶인 니즈만 바뀐 저장도 고친 표시를 올린다 (니즈 줄은 코어 UPDATE 라 기록 자신은 그대로이므로)
     db.commit()
     db.refresh(opp)
     mirror.sync(opp)

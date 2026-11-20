@@ -1,11 +1,16 @@
 """UX 개선 1·2: 결과 알림(한 곳의 코드 표)과 삭제 확인 단계."""
 import re
+import time
 
 import pytest
 
 from app import notices, ontology
 from app.models import Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, ResearchRun, ResearchTopic, Solution, SolutionFile
-from tests.conftest import make_user, route_table
+from tests.conftest import make_user, route_table, nloc
+
+
+def nloc_s(url: str) -> str:
+    return re.sub(r"&nt=\d+", "", url)
 
 
 # ---- 알림 코드 표 ----
@@ -30,25 +35,25 @@ def test_unknown_or_malformed_codes_are_ignored(bad):
 
 
 def test_with_notice_keeps_query_and_fragment():
-    assert notices.with_notice("/a?x=1#h", "saved") == "/a?x=1&notice=saved#h"
-    assert notices.with_notice("/a?notice=old", "saved") == "/a?notice=saved"
-    assert notices.redirect("/a", "saved").headers["location"] == "/a?notice=saved"
+    assert nloc_s(notices.with_notice("/a?x=1#h", "saved")) == "/a?x=1&notice=saved#h"
+    assert nloc_s(notices.with_notice("/a?notice=old&nt=1", "saved")) == "/a?notice=saved"
+    assert nloc_s(notices.redirect("/a", "saved").headers["location"]) == "/a?notice=saved"
 
 
 def test_page_shows_notice_with_dismiss_link_and_ignores_garbage(user_client, db):
     c = Customer(name="한빛병원")
     db.add(c)
     db.commit()
-    page = user_client.get(f"/customers/{c.id}?notice=saved").text
+    page = user_client.get(notices.with_notice(f"/customers/{c.id}", "saved")).text
     assert 'class="flash ok"' in page and "저장했습니다." in page
     assert re.search(r'<a class="flash-x" href="/customers/%d" aria-label="알림 닫기">' % c.id, page)
     for bad in ("nope", "%3Cscript%3Ealert(1)%3C/script%3E", "stage.%3Cb%3E"):
-        html = user_client.get(f"/customers/{c.id}?notice={bad}").text
+        html = user_client.get(f"/customers/{c.id}?notice={bad}&nt={int(time.time())}").text
         assert 'class="flash' not in html and "<script>alert(1)" not in html
 
 
 def test_dismiss_link_keeps_other_query(user_client):
-    page = user_client.get("/customers?q=가&notice=saved").text
+    page = user_client.get(notices.with_notice("/customers?q=가", "saved")).text
     assert re.search(r'class="flash-x" href="/customers\?q=%EA%B0%80"', page)
 
 
@@ -58,8 +63,8 @@ def test_error_tone_notice_is_an_alert(user_client, db):
     it = Intake(note="n", status="applied", created_by_id=db.query(User).filter_by(username="kim").one().id)
     db.add(it)
     db.commit()
-    page = user_client.get(f"/intake/{it.id}?notice=not_ready").text
-    assert 'class="flash error"' in page and 'role="alert"' in page and "이미 저장했거나 저장할 수 없는 상태입니다." in page
+    page = user_client.get(notices.with_notice(f"/intake/{it.id}", "not_ready")).text
+    assert 'class="flash error"' in page and 'role="alert"' in page and "지금 저장할 수 없는 상태" in page  # 실패처럼 읽히는 "이미 저장했거나…" 문구는 더 쓰지 않는다
 
 
 def test_post_error_pages_do_not_show_a_notice(user_client):
@@ -76,13 +81,13 @@ def _follow(client, r):
 
 def test_create_update_delete_show_notices(user_client, db):
     r = user_client.post("/customers", data={"name": "신규 고객"}, follow_redirects=False)
-    assert "notice=created" in r.headers["location"]
+    assert "notice=created" in nloc(r)
     assert "등록했습니다." in _follow(user_client, r)
     cid = db.query(Customer).one().id
     r = user_client.post(f"/customers/{cid}", data={"name": "신규 고객 2"}, follow_redirects=False)
     assert "저장했습니다." in _follow(user_client, r)
     r = user_client.post(f"/customers/{cid}/delete", follow_redirects=False)
-    assert r.headers["location"] == "/customers?notice=deleted"
+    assert nloc(r) == "/customers?notice=deleted"
     assert "삭제했습니다." in _follow(user_client, r)
 
 
@@ -119,7 +124,7 @@ def test_post_notice_codes_exist_in_the_table():
 
 # 라우트 -> 알림 코드 (None 또는 괄호 글은 알림이 없는 이유). 보고서의 표와 같다.
 POST_NOTICES = {
-    "/login": "(로그인: 홈으로)", "/logout": "(로그인 화면으로)",
+    "/login": "(로그인: 홈으로)", "/logout": "(로그인 화면으로)", "/account/password": "password_changed",
     "/solutions": "created", "/solutions/{solution_id}/draft": "(AI 초안 작업 진행 화면)", "/solutions/{solution_id}/stage": "stage.{stage}",
     "/solutions/{solution_id}": "saved", "/solutions/{solution_id}/delete": "deleted",
     "/solutions/{solution_id}/files": "files_uploaded", "/files/{file_id}/kind": "file_kind", "/files/{file_id}/delete": "file_deleted",

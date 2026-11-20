@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
 {% block title %}고객 {{ "수정" if customer else "등록" }}{% endblock %}
 {% block content %}
 {{ page_header("고객 " ~ ("수정" if customer else "등록"), crumbs=ui.crumbs("customer", customer.name if customer else none, ("/customers/" ~ customer.id) if customer else none, "수정" if customer else "등록"), sub=(customer.name if customer else ont.TYPES["customer"].description)) }}
 {{ form_error(error) }}
 <form method="post" action="{{ "/customers/" ~ customer.id if customer else "/customers" }}" class="form-page">
+  {% if customer %}{{ rev_fields(customer, conflict, "/customers/" ~ customer.id) }}{% else %}{{ form_token() }}{% endif %}
   <section class="card">
     <div class="fgrid">
       {{ text_field("이름", "name", form.name, required=true, error=error) }}

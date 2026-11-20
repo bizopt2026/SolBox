@@ -9,6 +9,7 @@ from datetime import datetime
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from app import ontology
 from app.ai import tasks
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.config import Settings
@@ -63,8 +64,8 @@ def jobs_ahead(db: Session, job: AIJob) -> list[AIJob]:
 def fail_stale_running(db: Session) -> int:
     result = db.execute(
         update(AIJob).where(AIJob.status == "running").values(
-            status="failed", error_kind="unknown",
-            error="서버가 재시작되어 중단되었습니다.", finished_at=datetime.now(),
+            status="failed", error_kind="restart",
+            error=ontology.RESTART_ERROR_TEXT, finished_at=datetime.now(),
         )
     )
     db.commit()

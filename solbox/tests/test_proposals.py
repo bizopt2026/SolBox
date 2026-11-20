@@ -1,7 +1,9 @@
 from sqlalchemy import inspect
 
+from app import notices
 from app.models import AIJob, Project, Customer, Proposal, ProposalMessage, Solution, User
 from app.proposals import candidate_solutions, display_title
+from tests.conftest import nloc
 
 # HEAD(ba8ab7c) 모델에서 읽은 기존 테이블의 칼럼 이름.
 EXISTING_COLUMNS = {
@@ -35,7 +37,7 @@ def test_create_proposal(user_client, db):
     r = user_client.post("/proposals", data={"customer_id": c.id, "project_id": b.id, "request_memo": "에너지 절감 쪽으로"},
                          follow_redirects=False)
     p = db.query(Proposal).one()
-    assert r.headers["location"] == f"/proposals/{p.id}?notice=created"
+    assert nloc(r) == f"/proposals/{p.id}?notice=created"
     assert (p.status, p.directions, p.selected_index, p.outline, p.extra_solution_ids) == ("new", [], None, None, [])
     assert p.request_memo == "에너지 절감 쪽으로"
     assert p.created_by_id is not None
@@ -117,7 +119,7 @@ def test_update_target(user_client, db):
     db.commit()
     r = user_client.post(f"/proposals/{p.id}/target", data={"request_memo": "새 메모", "extra_solution_ids": [s.id]},
                          follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}?notice=target_saved"
+    assert r.status_code == 303 and nloc(r) == f"/proposals/{p.id}?notice=target_saved"
     db.refresh(p)
     assert p.request_memo == "새 메모" and p.extra_solution_ids == [s.id]
     assert [x.id for x in candidate_solutions(db, p)] == [s.id]
@@ -154,7 +156,7 @@ def test_busy_notice(user_client, db):
     p = Proposal(customer_id=c.id)
     db.add(p)
     db.commit()
-    assert "이미 AI 작업이 진행 중입니다." in user_client.get(f"/proposals/{p.id}?notice=busy").text
+    assert "이미 AI 작업이 진행 중입니다." in user_client.get(notices.with_notice(f"/proposals/{p.id}", "busy")).text
     assert "이미 AI 작업이 진행 중입니다." not in user_client.get(f"/proposals/{p.id}").text
 
 
@@ -189,7 +191,7 @@ def test_any_user_can_open_but_only_owner_or_admin_deletes(user_client, admin_cl
     assert user_client.post(f"/proposals/{pid}/delete").status_code == 403
     assert db.get(Proposal, pid) is not None and deck_dir.exists()
     r = admin_client.post(f"/proposals/{pid}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/proposals?notice=deleted"
+    assert r.status_code == 303 and nloc(r) == "/proposals?notice=deleted"
     db.expire_all()
     assert db.get(Proposal, pid) is None
     assert db.query(ProposalMessage).count() == 0
@@ -290,5 +292,7 @@ def test_nav_has_proposals(user_client):
 def test_new_tables_do_not_alter_existing(app):
     insp = inspect(app.state.engine)
     for table, cols in EXISTING_COLUMNS.items():
-        assert sorted(c["name"] for c in insp.get_columns(table)) == sorted(cols), table
+        actual = {c["name"] for c in insp.get_columns(table)}
+        assert set(cols) <= actual, table  # 있던 칸은 그대로
+        assert actual - set(cols) <= {"updated_by_id", "must_change_password"}, table  # 더해진 것은 "고친 사람" 과 "비밀번호 바꾸기 표시" 뿐 (다른 변경 없음)
     assert {"proposals", "proposal_messages", "proposal_solutions"} <= set(insp.get_table_names())

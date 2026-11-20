@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill, source_chip, val, confirm_link %}
+{% from "_macros.html" import page_header, pill, source_chip, val, confirm_link, rev_fields %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
@@ -35,17 +35,19 @@
     <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
-  <details class="edit-target">
+  {% set tf = target_form if target_form is defined else none %}
+  <details class="edit-target"{% if target_conflict is defined and target_conflict %} open{% endif %}>
     <summary>대상 수정</summary>
     <form method="post" action="/proposals/{{ proposal.id }}/target" class="fgrid">
+      <div class="wide">{{ rev_fields(proposal, target_conflict if target_conflict is defined else none, "/proposals/" ~ proposal.id) }}</div>
       <div class="fld wide">
         <label for="f-opportunity_id">{{ ont.label("opportunity") }} (선택)</label>
         <select id="f-opportunity_id" name="opportunity_id">
           <option value="">선택 안 함</option>
-          {% for o in customer_opportunities %}<option value="{{ o.id }}" {{ "selected" if proposal.opportunity_id == o.id }}>{{ o.name }}</option>{% endfor %}
+          {% for o in customer_opportunities %}<option value="{{ o.id }}" {{ "selected" if (tf.opportunity_id | string if tf else proposal.opportunity_id | string) == o.id | string }}>{{ o.name }}</option>{% endfor %}
         </select>
       </div>
-      {% set memo = proposal.request_memo %}{% set selected_ids = proposal.extra_solution_ids %}
+      {% set memo = tf.request_memo if tf else proposal.request_memo %}{% set selected_ids = tf.extra_solution_ids if tf else proposal.extra_solution_ids %}
       {% include "proposals/_target_fields.html" %}
       <div class="wide"><button type="submit" class="primary">저장</button></div>
     </form>

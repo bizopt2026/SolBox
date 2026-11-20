@@ -9,9 +9,9 @@ def test_anonymous_is_redirected_to_login(client):
 
 
 def test_login_success_and_wrong_password(client, db):
-    make_user(db, "kim", password="pw1234")
+    make_user(db, "kim", password="pw123456")
     assert client.post("/login", data={"username": "kim", "password": "x"}).status_code == 401
-    r = client.post("/login", data={"username": "kim", "password": "pw1234"}, follow_redirects=False)
+    r = client.post("/login", data={"username": "kim", "password": "pw123456"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/"
 
 
@@ -20,7 +20,7 @@ def test_normal_user_cannot_open_admin(user_client):
 
 
 def test_admin_creates_user_and_duplicate_username_rejected(admin_client, db):
-    data = {"username": "lee", "name": "이대리", "password": "pw1234", "role": "user"}
+    data = {"username": "lee", "name": "이대리", "password": "pw123456", "role": "user"}
     assert admin_client.post("/admin/users", data=data, follow_redirects=False).status_code == 303
     assert db.query(User).filter_by(username="lee").one().role == "user"
     assert admin_client.post("/admin/users", data=data).status_code == 400
@@ -55,11 +55,11 @@ def test_admin_updates_other_user_and_password(admin_client, client, db):
     other = make_user(db, "park")
     r = admin_client.post(
         f"/admin/users/{other.id}",
-        data={"name": "박과장", "role": "user", "is_active": "on", "password": "newpw99"},
+        data={"name": "박과장", "role": "user", "is_active": "on", "password": "newpw9999"},
         follow_redirects=False,
     )
     assert r.status_code == 303
-    ok = client.post("/login", data={"username": "park", "password": "newpw99"}, follow_redirects=False)
+    ok = client.post("/login", data={"username": "park", "password": "newpw9999"}, follow_redirects=False)
     assert ok.status_code == 303
 
 

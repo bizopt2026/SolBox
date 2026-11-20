@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
@@ -16,12 +17,15 @@ from app import labels, origin, transcribe, ui
 from app.ai.queue import queue_position
 from app import notices
 from app.db import get_db
+from app.guards import Once, form_once
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, Intake, IntakeFile, Partner, Project, Solution, User
 from app.routers._common import get_or_404, paginate
 from app.routers.home import ai_problem
 from app.security import require_user
+
+RECENT_APPLY_S = 60  # 방금 저장이 끝난 묶음으로 보는 시간 (표 없이 연타한 진 쪽 요청을 성공으로 보여 준다)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/intake")
@@ -113,7 +117,7 @@ def new_page(request: Request, user: User = Depends(require_user), db: Session =
 @router.post("")
 def create(
     request: Request, files: list[UploadFile | str] = [], note: str = Form(""),
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
 ):
     settings = request.app.state.settings
 
@@ -138,8 +142,8 @@ def create(
         db.rollback()
         log.exception("올리기 묶음 %s 정리 시작 실패", intake.id)
     if skipped:
-        return detail_page(request, user, intake, db, skipped=skipped)
-    return notices.redirect(f"/intake/{intake.id}", "intake_uploaded")
+        return once.done(detail_page(request, user, intake, db, skipped=skipped), url=f"/intake/{intake.id}")
+    return once.done(notices.redirect(f"/intake/{intake.id}", "intake_uploaded"))
 
 
 @router.get("")
@@ -222,21 +226,25 @@ def analyze(
 def apply(
     intake_id: int, request: Request, form: FormData = Depends(read_form),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
-    """정리안을 확인한 대로 저장한다. 한 묶음은 한 번만 저장된다."""
+    """정리안을 확인한 대로 저장한다. 한 묶음은 한 번만 저장된다. 같은 폼 표로 다시 온 제출(연타)은 처음 저장의 성공 결과로 보낸다."""
     intake = get_intake(db, user, intake_id)
     try:
         intake_lib.apply(db, request.app.state.settings, mirror, intake, user, form)
     except intake_lib.Superseded:
         return notices.redirect(f"/intake/{intake.id}", "superseded")
     except intake_lib.NotReady:
+        # 표 없이 온 연타·옛 화면의 진 쪽 요청: 방금(1분 안에) 저장이 끝난 묶음이면 성공으로 보여 준다 (실패처럼 읽히는 문구로 덮지 않는다)
+        if intake.status == "applied":
+            recent = intake.applied_at is not None and (datetime.now() - intake.applied_at).total_seconds() <= RECENT_APPLY_S
+            return notices.redirect(f"/intake/{intake.id}", "intake_applied" if recent else "already_applied")
         return notices.redirect(f"/intake/{intake.id}", "not_ready")
     except ValueError as e:  # 입력 오류: 입력값을 그대로 둔 채 화면을 다시 보여 준다
         return detail_page(request, user, intake, db, notice=str(e), status_code=400, form=form)
     except intake_lib.ApplyFailed:  # 오류 문구는 묶음에 적혀 확인 화면에 보인다
         return detail_page(request, user, intake, db, status_code=500, form=form)
-    return notices.redirect(f"/intake/{intake.id}", "intake_applied")
+    return once.done(notices.redirect(f"/intake/{intake.id}", "intake_applied"))
 
 
 @router.post("/{intake_id}/discard")

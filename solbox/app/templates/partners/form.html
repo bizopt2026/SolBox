@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
 {% block title %}파트너 {{ "수정" if partner else "등록" }}{% endblock %}
 {% block content %}
 {{ page_header("파트너 " ~ ("수정" if partner else "등록"), crumbs=ui.crumbs("partner", partner.name if partner else none, ("/partners/" ~ partner.id) if partner else none, "수정" if partner else "등록"), sub=(partner.name if partner else ont.TYPES["partner"].description)) }}
 {{ form_error(error) }}
 <form method="post" action="{{ "/partners/" ~ partner.id if partner else "/partners" }}" class="form-page">
+  {% if partner %}{{ rev_fields(partner, conflict, "/partners/" ~ partner.id) }}{% else %}{{ form_token() }}{% endif %}
   <section class="card">
     <div class="fgrid">
       {{ text_field("이름", "name", form.name, required=true, wide=true, error=error) }}

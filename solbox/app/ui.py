@@ -98,7 +98,7 @@ class SegTab(NamedTuple):
 def seg_tabs(request, param: str, choices, counts: dict, current: str, total: int, all_label: str = "전체", with_all: bool = True) -> list[SegTab]:
     """목록 위의 구분 탭: `전체` + choices([(코드, 이름)]). 링크는 다른 쪽 조건(검색어·걸러 보기·다른 구분)을 그대로 두고 `param` 만 바꾸며 쪽 번호는 버린다.
     with_all=False 면 `전체` 탭이 없고 모든 탭 링크가 `param` 을 명시한다 (기본값이 있는 구분). 건수는 지금의 검색어·걸러 보기를 적용한 목록 기준이라 누르면 나오는 목록의 건수와 같다."""
-    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in (param, "page", "fu_toggled")]
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in (param, "page", "fu_toggled", "notice", "nt")]
 
     def href(code: str) -> str:
         pairs = keep + ([(param, code)] if code else [])
@@ -127,7 +127,7 @@ def sort_options(request) -> list[SortLink]:
     choices = ontology.LIST_SORTS[code]
     current = request.query_params.get("sort")
     current = current if current in dict(choices) else choices[0][0]
-    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("sort", "page", "fu_toggled")]
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("sort", "page", "fu_toggled", "notice", "nt")]
 
     def href(c: str) -> str:
         pairs = keep + ([("sort", c)] if c != choices[0][0] else [])
@@ -141,7 +141,9 @@ def stamp_info(db, obj) -> dict:
     from app.models import User
 
     author = db.get(User, obj.created_by_id) if getattr(obj, "created_by_id", None) else None
-    return {"author": (author.name or author.username) if author else None, "created": obj.created_at, "updated": obj.updated_at}
+    editor = db.get(User, obj.updated_by_id) if getattr(obj, "updated_by_id", None) else None  # 옛 기록·시스템이 고친 기록은 없다
+    return {"author": (author.name or author.username) if author else None, "created": obj.created_at, "updated": obj.updated_at,
+            "editor": (editor.name or editor.username) if editor else None}
 
 
 class FieldError(str):

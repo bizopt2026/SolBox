@@ -1,7 +1,10 @@
 {# card: {index, slide, form}. 종류에 맞는 칸만 보이고, 서버도 그 종류의 칸만 읽는다. 칸 격자는 폼 화면과 같은 .fgrid. #}
+{% from "_macros.html" import rev_fields %}
 {% set f = card.form %}
 {% set i = card.index %}
+{% set cur_kind = f.kind if f.kind is defined and f.kind else card.slide.kind %}
 <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}" class="slide-form fgrid">
+  <div class="wide">{{ rev_fields(none, card.conflict, "/proposals/" ~ proposal.id ~ "/outline?open=" ~ i, card.rev) }}</div>
   <div class="fld">
     <label for="s{{ i }}-kind">종류</label>
     <select id="s{{ i }}-kind" name="kind" class="kind-select">
@@ -9,7 +12,7 @@
       <option value="cover" selected>{{ slide_kinds["cover"] }}</option>
       {% else %}
       {% for k, name in slide_kinds.items() if k != "cover" %}
-      <option value="{{ k }}"{% if k == card.slide.kind %} selected{% endif %}>{{ name }}</option>
+      <option value="{{ k }}"{% if k == cur_kind %} selected{% endif %}>{{ name }}</option>
       {% endfor %}
       {% endif %}
     </select>

@@ -33,8 +33,16 @@ class Spec:
     blocker: Callable[[Session, object], str | None] | None = None  # 지금은 지울 수 없는 이유 (있으면 버튼을 주지 않는다)
 
 
+def _num(raw) -> int:
+    """주소의 번호 글자를 정수로. 숫자가 아니면(/customers/abc/delete) 없는 항목으로 404."""
+    text = str(raw)
+    if not (text.isascii() and text.isdecimal() and len(text) <= 18):
+        raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
+    return int(text)
+
+
 def _owned(model):
-    return lambda db, user, p: get_deletable_or_404(db, model, int(p["obj_id"]), user)
+    return lambda db, user, p: get_deletable_or_404(db, model, _num(p["obj_id"]), user)
 
 
 def _crumb(code):
@@ -48,7 +56,7 @@ def _customer_blocker(db, c):
 
 
 def _load_file(db, user, p):
-    f = get_or_404(db, SolutionFile, int(p["obj_id"]))
+    f = get_or_404(db, SolutionFile, _num(p["obj_id"]))
     ensure_can_delete(user, f)
     return f
 
@@ -56,14 +64,14 @@ def _load_file(db, user, p):
 def _load_intake(db, user, p):
     from app.routers.intake import get_intake
 
-    return get_intake(db, user, int(p["obj_id"]))
+    return get_intake(db, user, _num(p["obj_id"]))
 
 
 def _load_admin(model, message):
     def load(db, user, p):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="관리자만 할 수 있습니다.")
-        obj = db.get(model, int(p["obj_id"]))
+        obj = db.get(model, _num(p["obj_id"]))
         if obj is None:
             raise HTTPException(status_code=404, detail=message)
         return obj
@@ -71,8 +79,8 @@ def _load_admin(model, message):
 
 
 def _load_slide(db, user, p):
-    proposal = get_or_404(db, Proposal, int(p["obj_id"]))
-    index = int(p["index"])
+    proposal = get_or_404(db, Proposal, _num(p["obj_id"]))
+    index = _num(p["index"])
     slides = (proposal.outline or {}).get("slides") or []
     if not 0 <= index < len(slides):
         raise HTTPException(status_code=404, detail="없는 슬라이드입니다.")

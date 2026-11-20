@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import opportunities as opps, relations, ui
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Solution, User
@@ -20,10 +21,10 @@ router = APIRouter(prefix="/bms")
 FIELDS = ("name", "summary", "target_customers", "revenue_model", "memo")
 
 
-def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, error: str | None = None, conflict=None):
     return render(
-        request, "bms/form.html", status_code=400 if error else 200,
-        form=form, bm=bm, error=error, solutions=search_by_name(db, Solution),
+        request, "bms/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, bm=bm, error=error, solutions=search_by_name(db, Solution), conflict=conflict,
     )
 
 
@@ -56,6 +57,7 @@ def create(
     name: str = Form(""), summary: str = Form(""), target_customers: str = Form(""), revenue_model: str = Form(""),
     memo: str = Form(""), solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+    once: Once = Depends(form_once),
 ):
     values = _values(name, summary, target_customers, revenue_model, memo)
     if error := name_error(name):
@@ -67,7 +69,7 @@ def create(
     db.refresh(bm)
     mirror.sync(bm)
     resync_objects(db, mirror, opps.dependents(db, bm))  # 솔루션 카드의 BM 줄
-    return notices.redirect(f"/bms/{bm.id}", "created")
+    return once.done(notices.redirect(f"/bms/{bm.id}", "created"))
 
 
 @router.get("/{bm_id}")
@@ -87,9 +89,12 @@ def update(
     name: str = Form(""), summary: str = Form(""), target_customers: str = Form(""), revenue_model: str = Form(""),
     memo: str = Form(""), solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+    rev: Rev = Depends(rev_form),
 ):
     bm = get_or_404(db, BM, bm_id)
     values = _values(name, summary, target_customers, revenue_model, memo)
+    if conflict := guards.check_rev(bm, rev):
+        return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, error)
     before = opps.dependents(db, bm)  # 빠지는 솔루션의 카드도 다시 쓴다

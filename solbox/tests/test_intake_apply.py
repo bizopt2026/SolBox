@@ -1,5 +1,6 @@
 import io
 import threading
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ from PIL import Image
 from app import intake as intake_lib
 from app import records
 from app.models import Activity, Customer, Intake, Partner, Solution, SolutionFile, User
-from tests.conftest import form_from_page, make_user, ready_bundle, ready_intake
+from tests.conftest import form_from_page, make_user, ready_bundle, ready_intake, nloc
 
 
 def _apply(client, it, form):
@@ -35,7 +36,7 @@ def _new_solution(db):
 def test_apply_creates_everything(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     r = _apply(user_client, it, form_from_page(user_client, it))
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_applied"
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_applied"
     db.expire_all()
     assert it.status == "applied" and it.applied_at is not None and len(it.result) == 4  # 파트너(루미텍) + 솔루션 + 자료 추가 + 활동 기록
     assert [e["type"] for e in it.result] == ["partner", "solution", "solution", "activity"]
@@ -69,10 +70,16 @@ def test_apply_creates_everything(app, user_client, db, settings):
 def test_apply_twice_creates_once(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
-    assert _apply(user_client, it, form).headers["location"] == f"/intake/{it.id}?notice=intake_applied"
-    r = _apply(user_client, it, form)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=not_ready"
-    assert "이미 저장했거나 저장할 수 없는 상태입니다." in user_client.get(r.headers["location"]).text
+    assert nloc(_apply(user_client, it, form)) == f"/intake/{it.id}?notice=intake_applied"
+    r = _apply(user_client, it, form)  # 같은 폼 표로 다시 온 제출(연타): 성공 결과로 돌려보낸다 (실패처럼 읽히지 않게)
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_applied"
+    assert "정리안을 저장했습니다." in user_client.get(r.headers["location"]).text
+    # 폼 표가 다른 (나중에 연) 화면에서 이미 저장된 묶음을 저장하려 하면 중립 문구
+    it.applied_at = datetime.now() - timedelta(minutes=10)
+    db.commit()
+    later = _apply(user_client, it, {k: v for k, v in form.items() if k != "_tok"})
+    assert nloc(later) == f"/intake/{it.id}?notice=already_applied"
+    assert "이미 저장된 묶음입니다." in user_client.get(later.headers["location"]).text
     assert db.query(Solution).filter_by(name="스마트 조명 제어").count() == 1 and db.query(Activity).count() == 1
     assert db.query(Partner).count() == 1 and db.query(SolutionFile).count() == 2
 
@@ -300,7 +307,7 @@ def test_apply_requires_ready(app, user_client, db, settings):
     it.status = "failed"
     db.commit()
     r = _apply(user_client, it, form)
-    assert r.status_code == 303 and r.headers["location"].endswith("?notice=not_ready")
+    assert r.status_code == 303 and nloc(r).endswith("?notice=not_ready")
     assert db.query(Activity).count() == 0 and db.query(Partner).count() == 0
 
 
@@ -308,7 +315,7 @@ def test_discard_keeps_originals(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     r = user_client.post(f"/intake/{it.id}/discard", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_discarded"
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_discarded"
     db.expire_all()
     assert it.status == "discarded"
     assert not (settings.intake_work_dir / str(it.id)).exists()

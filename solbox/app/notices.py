@@ -2,15 +2,21 @@
 라우터는 `redirect(주소, 코드)` 로 돌려보내기만 하고, 화면은 `main.render` 가 `?notice=<코드>` 를 이 표에서 찾아 그린다.
 - 글은 여기 표에만 있다 (한국어). 주소로 오는 것은 코드뿐이라 사용자가 쓴 글은 비치지 않고, 모르는 코드는 무시한다.
 - 값이 붙는 코드는 `종류.값` (예: `stage.tapping`): 값은 온톨로지의 코드 목록에 있을 때만 이름으로 바뀐다 (없으면 무시).
-- 오류 색의 알림(`error`)은 같은 표에서 `tone` 만 다르다."""
+- 오류 색의 알림(`error`)은 같은 표에서 `tone` 만 다르다.
+- 알림은 한 번만 보인다 (스크립트 없이): 돌려보내는 주소에 짧은 시각 표시 `&nt=<초>` 를 함께 붙이고, 화면은 30초 안의 표시가 있을 때만 알림을 그린다.
+  옛 주소(북마크·히스토리)를 다시 열면 일어나지 않은 일의 알림이 뜨지 않는다. 비밀이 필요 없다: 알림은 해로울 것 없는 글이고, 틀린 표시는 알림을 못 보게 할 뿐이다."""
 from __future__ import annotations
 
+import time
 from typing import Callable, NamedTuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi.responses import RedirectResponse
 
 PARAM = "notice"
+STAMP_PARAM = "nt"
+TTL_S = 30  # 알림이 붙은 주소가 이만큼 지나면 알림을 그리지 않는다
+SKEW_S = 5  # 서버 시계가 조금 어긋나도 받아 주는 폭
 
 
 class Notice(NamedTuple):
@@ -45,7 +51,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "intake_applied": ("ok", "정리안을 저장했습니다."),
     "intake_discarded": ("ok", "이 묶음을 버렸습니다. 올린 원본 파일은 남아 있습니다."),
     "intake_rechecked": ("ok", "다시 확인할 수 있게 풀었습니다."),
-    "not_ready": ("error", "이미 저장했거나 저장할 수 없는 상태입니다."),
+    "already_applied": ("warn", "이미 저장된 묶음입니다."),
+    "not_ready": ("error", "이 묶음은 지금 저장할 수 없는 상태입니다. 화면을 새로 고쳐 상태를 확인해 주세요."),
     # 제안
     "direction_selected": ("ok", "방향을 골랐습니다."),
     "deck_built": ("ok", "제안서 파일을 만들었습니다."),
@@ -61,6 +68,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "research_busy": ("warn", "이미 조사가 진행 중입니다."),
     "no_topics": ("warn", "사용 중인 리서치 주제가 없습니다."),
     "ai_check": ("ok", "AI 점검을 시작했습니다."),
+    "password_changed": ("ok", "비밀번호를 바꿨습니다. 다른 곳에서 로그인한 상태는 끝났습니다."),
+    "weak_password": ("warn", "지금 쓰는 비밀번호가 새 규칙(8자 이상 등)에 맞지 않습니다. 아래에서 새 비밀번호로 바꿔 주세요."),
     "backup_done": ("ok", "백업을 만들었습니다."),
     "candidate_registered": ("ok", "솔루션 후보로 등록했습니다. 내용을 확인해 저장하세요."),
     "already_registered": ("warn", "이미 등록된 솔루션이라 그 화면으로 왔습니다."),
@@ -99,12 +108,22 @@ def lookup(code: str) -> Notice | None:
 
 def dismiss_url(request) -> str:
     """알림 닫기 링크: 지금 화면에서 `notice` 만 뺀 주소 (스크립트 없이 동작)."""
-    rest = [(k, v) for k, v in request.query_params.multi_items() if k != PARAM]
+    rest = [(k, v) for k, v in request.query_params.multi_items() if k not in (PARAM, STAMP_PARAM)]
     return request.url.path + (f"?{urlencode(rest)}" if rest else "")
 
 
+def fresh(stamp, now: float | None = None) -> bool:
+    """`nt` 표시가 방금(30초 안) 붙은 것인가. 없거나 숫자가 아니거나 너무 오래됐으면 False."""
+    if not isinstance(stamp, str) or not stamp.isascii() or not stamp.isdecimal() or len(stamp) > 12:
+        return False
+    age = (time.time() if now is None else now) - int(stamp)
+    return -SKEW_S <= age <= TTL_S
+
+
 def from_request(request) -> dict | None:
-    """화면에 그릴 알림 {"tone", "text", "dismiss"} 또는 None. GET 화면에서만 쓴다."""
+    """화면에 그릴 알림 {"tone", "text", "dismiss"} 또는 None. GET 화면에서만 쓴다. 시각 표시가 없거나 오래됐으면 그리지 않는다."""
+    if not fresh(request.query_params.get(STAMP_PARAM)):
+        return None
     found = lookup(request.query_params.get(PARAM, ""))
     if found is None or not found.text:
         return None
@@ -112,10 +131,17 @@ def from_request(request) -> dict | None:
 
 
 def with_notice(url: str, code: str) -> str:
-    """주소에 `notice` 를 덧붙인다 (이미 있는 질의와 `#조각` 은 그대로 둔다)."""
+    """주소에 `notice` 와 시각 표시 `nt` 를 덧붙인다 (이미 있는 질의와 `#조각` 은 그대로 둔다)."""
     parts = urlsplit(url)
-    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != PARAM]
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query + [(PARAM, code)]), parts.fragment))
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in (PARAM, STAMP_PARAM)]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query + [(PARAM, code), (STAMP_PARAM, str(int(time.time())))]), parts.fragment))
+
+
+def refresh(url: str) -> str:
+    """이미 알림이 붙은 주소의 시각 표시를 지금으로 새로 한다 (같은 제출이 다시 와서 처음 결과로 보낼 때). 알림이 없으면 그대로."""
+    parts = urlsplit(url)
+    code = dict(parse_qsl(parts.query, keep_blank_values=True)).get(PARAM)
+    return with_notice(url, code) if code else url
 
 
 def redirect(url: str, code: str) -> RedirectResponse:

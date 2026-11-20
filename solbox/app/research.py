@@ -193,7 +193,7 @@ def sync_failed_reports(db: Session, run_id: int) -> None:
         if job is None or job.status != "failed":
             continue
         r.status = "failed"
-        r.error = job.error if job.error_kind == "bad_output" and job.error else ERROR_KINDS.get(job.error_kind, ERROR_KINDS["unknown"])
+        r.error = job.error if job.error_kind == "bad_output" and job.error else ERROR_KINDS.get(job.shown_error_kind, ERROR_KINDS["unknown"])
     db.commit()
 
 

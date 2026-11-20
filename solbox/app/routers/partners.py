@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import ontology, origin, relations, same_company, ui
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, Partner, User
@@ -22,10 +23,10 @@ router = APIRouter(prefix="/partners")
 FIELDS = ("name", "contact", "description", "memo")
 
 
-def _form_page(request: Request, db: Session, form: dict, partner: Partner | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, form: dict, partner: Partner | None = None, error: str | None = None, conflict=None):
     return render(
-        request, "partners/form.html", status_code=400 if error else 200,
-        form=form, partner=partner, error=error, customers=same_company.customer_choices(db, partner),
+        request, "partners/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, partner=partner, error=error, customers=same_company.customer_choices(db, partner), conflict=conflict,
     )
 
 
@@ -58,7 +59,7 @@ def create(
     name: str = Form(""), contact: str = Form(""), description: str = Form(""), memo: str = Form(""),
     customer_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
     if error := name_error(name):
@@ -71,7 +72,7 @@ def create(
     mirror.sync(partner)
     if partner.customer is not None:
         mirror.sync(partner.customer)
-    return notices.redirect(f"/partners/{partner.id}", "created")
+    return once.done(notices.redirect(f"/partners/{partner.id}", "created"))
 
 
 @router.get("/{partner_id}")
@@ -91,10 +92,12 @@ def update(
     name: str = Form(""), contact: str = Form(""), description: str = Form(""), memo: str = Form(""),
     customer_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
     partner = get_or_404(db, Partner, partner_id)
     values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
+    if conflict := guards.check_rev(partner, rev):
+        return _form_page(request, db, {**values, "customer_id": customer_id}, partner, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "customer_id": customer_id}, partner, error)
     old_customer = partner.customer

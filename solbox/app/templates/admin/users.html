@@ -8,26 +8,28 @@
 <section class="card stack">
   <h2>사용자 추가</h2>
   <form method="post" action="/admin/users" class="row compact-form">
+    <input type="hidden" name="_tok" value="{{ new_token() }}">
     <label>아이디 <input name="username" required></label>
     <label>이름 <input name="name"></label>
-    <label>비밀번호 <input type="password" name="password" autocomplete="new-password" required></label>
+    <label>비밀번호 <input type="password" name="password" autocomplete="new-password" required minlength="8" aria-describedby="pw-rule"></label>
     <label>권한
       <select name="role">
-        {% for code, text in roles.items() %}<option value="{{ code }}">{{ text }}</option>{% endfor %}
+        {% for code, text in roles.items() %}<option value="{{ code }}"{{ " selected" if code == ont.USER_ROLE_DEFAULT }}>{{ text }}</option>{% endfor %}
       </select>
     </label>
     <button type="submit" class="primary">추가</button>
   </form>
+  <p class="help muted" id="pw-rule">비밀번호는 {{ password_rule }} 정해 준 비밀번호는 그 사용자가 처음 로그인한 뒤 새 비밀번호로 바꿔야 쓸 수 있습니다.</p>
 </section>
 
 <div class="tools">{{ seg(tabs, "권한") }}</div>
 <div class="tablewrap"><table class="inline-table">
-  <thead><tr><th>아이디</th><th>이름</th><th>권한</th><th>사용</th><th>새 비밀번호</th><th></th></tr></thead>
+  <thead><tr><th>아이디</th><th>이름</th><th>권한</th><th>사용</th><th>새 비밀번호 <small class="muted">(정하면 다음 로그인 뒤 바꿔야 함)</small></th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
     {% set f = "u" ~ u.id %}
     <tr>
-      <td><form id="{{ f }}" method="post" action="/admin/users/{{ u.id }}"></form>{{ u.username }}</td>
+      <td><form id="{{ f }}" method="post" action="/admin/users/{{ u.id }}"></form><input form="{{ f }}" type="hidden" name="_rev" value="{{ rev_of(u) }}">{{ u.username }}{% if u.must_change_password %} <span class="badge" title="관리자가 정해 준 비밀번호를 아직 바꾸지 않았습니다">변경 대기</span>{% endif %}</td>
       <td><input form="{{ f }}" name="name" value="{{ u.name }}" aria-label="{{ u.username }} 이름"></td>
       <td>
         <select form="{{ f }}" name="role" aria-label="{{ u.username }} 권한">
@@ -35,7 +37,7 @@
         </select>
       </td>
       <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if u.is_active %}checked{% endif %}><span class="sr-only">{{ u.username }} 사용</span></label></td>
-      <td><input form="{{ f }}" type="password" name="password" autocomplete="new-password" placeholder="변경할 때만 입력" aria-label="{{ u.username }} 새 비밀번호"></td>
+      <td><input form="{{ f }}" type="password" name="password" autocomplete="new-password" placeholder="바꿀 때만 (8자 이상)" aria-label="{{ u.username }} 새 비밀번호"></td>
       <td><button form="{{ f }}" type="submit" class="small" aria-label="{{ u.username }} 저장">저장</button></td>
     </tr>
   {% endfor %}

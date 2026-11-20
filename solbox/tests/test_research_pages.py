@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from app.models import ResearchReport, ResearchRun, Solution
-from tests.conftest import finished_run
+from tests.conftest import finished_run, nloc
 
 
 def _suggest(run):
@@ -55,7 +55,7 @@ def test_candidate_from_suggestion(user_client, db, settings):
     sug = _suggest(run)
     r = user_client.post(f"/research/runs/{run.id}/candidate", data={"source": "suggestion", "report_id": sug.id, "index": 0}, follow_redirects=False)
     s = db.query(Solution).filter_by(name="수요반응(DR) 솔루션 발굴").one()
-    assert r.headers["location"] == f"/solutions/{s.id}/edit?notice=candidate_registered" and s.stage == "intake" and "리서치(" in s.description
+    assert nloc(r) == f"/solutions/{s.id}/edit?notice=candidate_registered" and s.stage == "intake" and "리서치(" in s.description
     assert s.summary == "전기요금 정책 변화" and s.created_by_id is not None
     assert "- 한빛병원 미팅 (" in s.description and "activities/" not in s.description and "DR 사업자 탐색" in s.description
     assert (settings.knowledge_dir / "solutions" / str(s.id) / "card.md").exists()
@@ -148,7 +148,7 @@ def test_delete_run(admin_client, user_client, db, settings):
     assert len(copies) == 2
     assert user_client.post(f"/research/runs/{run_id}/delete").status_code == 403
     r = admin_client.post(f"/research/runs/{run_id}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/research?notice=deleted"
+    assert r.status_code == 303 and nloc(r) == "/research?notice=deleted"
     db.expire_all()
     assert db.get(ResearchRun, run_id) is None and db.query(ResearchReport).count() == 0
     assert not any(p.exists() for p in copies)

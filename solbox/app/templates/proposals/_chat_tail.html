@@ -23,7 +23,7 @@
   <div class="chat-msg assistant partial"><span class="chat-who">AI · 중단된 답변</span><div class="md">{{ job.result | md }}</div></div>
   {% endif %}
   <div class="chat-msg assistant live failed" role="alert"><span class="chat-who">AI</span>
-    <p class="error">{{ labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+    <p class="error">{{ labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
     <form method="post" action="/proposals/{{ proposal.id }}/chat/retry"><button type="submit" class="small">다시 시도</button></form>
     <p class="muted">내 메시지는 그대로 남아 있어요. 다시 시도하거나 아래에 다른 말로 물어볼 수 있어요.</p>
     {% if job.error %}<details class="more"><summary>자세한 오류</summary><pre class="error-detail">{{ job.error }}</pre></details>{% endif %}

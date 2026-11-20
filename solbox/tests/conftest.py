@@ -415,3 +415,10 @@ def route_table(app) -> list[tuple[str, set[str]]]:
             if getattr(x, "methods", None):
                 out.append((x.path, set(x.methods)))
     return out
+
+
+def nloc(response) -> str:
+    """리다이렉트의 `Location` 에서 알림의 시각 표시(`&nt=<초>`)를 뺀 것 (시각은 시험마다 달라 같은 글 비교가 안 된다)."""
+    import re
+
+    return re.sub(r"&nt=\d+", "", response.headers["location"])

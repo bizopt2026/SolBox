@@ -7,6 +7,7 @@
 <div class="dgrid">
   <div class="dmain">
     <form method="post" action="/intake" enctype="multipart/form-data" class="card stack upload-card">
+      <input type="hidden" name="_tok" value="{{ new_token() }}">
       {% set zone_id = "intake" %}{% include "intake/_dropzone.html" %}
       <div class="row savebar-inline">
         <button type="submit" class="primary">올리기</button>

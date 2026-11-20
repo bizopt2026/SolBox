@@ -91,7 +91,7 @@ def test_fail_stale_running(db):
     db.commit()
     assert fail_stale_running(db) == 1
     db.refresh(j)
-    assert j.status == "failed" and "재시작" in j.error and j.error_kind == "unknown"
+    assert j.status == "failed" and "재시작" in j.error and j.error_kind == "restart"  # 재시작으로 중단된 작업은 자기 오류 종류를 가진다
 
 
 def test_workers_process_jobs_and_stop(app, db, settings, fake_claude, monkeypatch):

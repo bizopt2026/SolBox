@@ -6,7 +6,7 @@ from app.ai.queue import enqueue, process_next
 from app.labels import ERROR_KINDS
 from app.models import AIJob, Proposal, ProposalMessage
 from app.proposals import check_sources, start_job
-from tests.conftest import make_proposal_world, make_user
+from tests.conftest import make_proposal_world, make_user, nloc
 
 pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
 
@@ -133,7 +133,7 @@ def test_second_request_while_running_is_ignored(user_client, db, settings):
     p, *_ = make_proposal_world(db, settings)
     user_client.post(f"/proposals/{p.id}/directions")
     r = user_client.post(f"/proposals/{p.id}/directions", follow_redirects=False)
-    assert "notice=busy" in r.headers["location"]
+    assert "notice=busy" in nloc(r)
     assert db.query(AIJob).filter_by(kind="proposal_directions").count() == 1
     assert "이미 AI 작업이 진행 중입니다." in user_client.get(r.headers["location"]).text
 
@@ -178,7 +178,7 @@ def test_failed_job_shows_error_and_retry(app, user_client, db, settings, fake_c
     assert ERROR_KINDS["auth"] in page and "다시 시도" in page
     _set(fake_claude, good_directions(s1, s2))
     r = user_client.post(f"/proposals/{p.id}/directions", follow_redirects=False)
-    assert "notice" not in r.headers["location"]
+    assert "notice" not in nloc(r)
     _run(app, settings)
     db.refresh(p)
     assert p.status == "directions" and db.query(AIJob).count() == 2
@@ -286,7 +286,7 @@ def test_select_refused_while_job_active(user_client, db, settings):
     p, s1, s2 = _with_directions(db, settings)
     user_client.post(f"/proposals/{p.id}/directions")
     r = user_client.post(f"/proposals/{p.id}/select", data={"index": "0"}, follow_redirects=False)
-    assert r.status_code == 303 and "notice=busy" in r.headers["location"]
+    assert r.status_code == 303 and "notice=busy" in nloc(r)
     db.refresh(p)
     assert p.selected_index is None and p.status == "directions"
 

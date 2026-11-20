@@ -6,8 +6,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app import labels, ontology
+from app import guards, labels, ontology
 from app import notices
+from app.guards import Rev, rev_form
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
@@ -55,6 +56,26 @@ def _back(p: Proposal, index: int, renumber: bool = False, notice: str = "") -> 
     return RedirectResponse(notices.with_notice(url, notice) if notice else url, status_code=303)
 
 
+def _outline_page(request: Request, db: Session, p: Proposal, open_index: int | None, status_code: int = 200, conflict=None, submitted: dict | None = None):
+    """구성안 화면. `conflict`·`submitted` 가 있으면 그 장의 폼은 저장하지 않은 충돌 상태(쓴 값 그대로 + 알림)로 그린다."""
+    slides = p.outline["slides"]
+    busy = p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
+    cards = []
+    for i, s in enumerate(slides):
+        checks = check_items(s.get("needs_check"), s.get("checked"))
+        card = {"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s), "rev": guards.slide_rev(p, s),
+                "checks": checks, "unchecked": sum(1 for c in checks if not c["checked"]), "sources": slide_sources(s)}
+        if conflict is not None and i == open_index and submitted is not None:
+            card.update(form=submitted, conflict=conflict)
+        cards.append(card)
+    if open_index is None:  # 고른 장이 없으면 확인할 점이 남은 첫 장만 펼쳐 위에서부터 처리하게 한다
+        open_index = next((c["index"] for c in cards if c["unchecked"]), None)
+    return render(
+        request, "proposals/outline.html", status_code=status_code, proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy,
+        summary=outline_check_summary(p.outline), src=SourceLookup(db), can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
+    )
+
+
 @router.get("")
 def outline_page(
     proposal_id: int, request: Request, open: str = "",
@@ -63,30 +84,25 @@ def outline_page(
     p = _load(db, proposal_id)
     slides = p.outline["slides"]
     open_index = int(open) if open.isascii() and open.isdigit() and len(open) <= 6 and int(open) < len(slides) else None
-    busy = p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
-    cards = []
-    for i, s in enumerate(slides):
-        checks = check_items(s.get("needs_check"), s.get("checked"))
-        cards.append({"index": i, "slide": s, "form": slide_to_form(s), "state": slide_check_state(s),
-                      "checks": checks, "unchecked": sum(1 for c in checks if not c["checked"]), "sources": slide_sources(s)})
-    if open_index is None:  # 고른 장이 없으면 확인할 점이 남은 첫 장만 펼쳐 위에서부터 처리하게 한다
-        open_index = next((c["index"] for c in cards if c["unchecked"]), None)
-    return render(
-        request, "proposals/outline.html", proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy, summary=outline_check_summary(p.outline), src=SourceLookup(db),
-        can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
-    )
+    return _outline_page(request, db, p, open_index)
 
 
 @router.post("/slides/{index}")
 def save_slide(
-    proposal_id: int, index: int, kind: str = Form(""),
+    proposal_id: int, index: int, request: Request, kind: str = Form(""),
     title: str = Form(""), key_message: str = Form(""), subtitle: str = Form(""), bullets: str = Form(""),
     left_title: str = Form(""), left: str = Form(""), right_title: str = Form(""), right: str = Form(""),
     columns: str = Form(""), rows: str = Form(""), steps: str = Form(""),
     sources: str = Form(""), needs_check: str = Form(""),
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    user: User = Depends(require_user), db: Session = Depends(get_db), rev: Rev = Depends(rev_form),
 ):
     p, slides = _load_for_edit(db, proposal_id, index)
+    if conflict := guards.check_rev(p, rev, current=guards.slide_rev(p, slides[index])):
+        # 다른 탭이 이 장을 바꾸거나 옮기거나 지웠다 (번호 자리의 장이 달라졌다): 저장하지 않고 쓴 값 그대로 다시 보여 준다
+        db.rollback()
+        submitted = dict(kind=kind, title=title, key_message=key_message, subtitle=subtitle, bullets=bullets, left_title=left_title, left=left,
+                         right_title=right_title, right=right, columns=columns, rows=rows, steps=steps, sources=sources, needs_check=needs_check)
+        return _outline_page(request, db, p, index, status_code=409, conflict=conflict, submitted=submitted)
     kind = kind.strip() or slides[index]["kind"]
     if kind not in labels.SLIDE_KINDS:
         raise HTTPException(status_code=400, detail="알 수 없는 슬라이드 종류입니다.")

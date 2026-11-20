@@ -27,6 +27,7 @@
 <section class="card stack">
   <h2>주제 추가</h2>
   <form method="post" action="/admin/research/topics" class="row compact-form">
+    <input type="hidden" name="_tok" value="{{ new_token() }}">
     <label>주제 <input name="name" maxlength="100" required></label>
     <label>키워드 <input name="keywords" maxlength="500" placeholder="쉼표로 구분"></label>
     <label>분야

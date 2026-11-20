@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.models import Activity, Customer, CustomerNeed, Opportunity, Project
-from tests.conftest import make_user, need_rows
+from tests.conftest import make_user, need_rows, nloc
 
 
 def _customer(db, name="한빛병원"):
@@ -135,7 +135,7 @@ def test_concurrent_convert_creates_exactly_one_project(app, user_client, db):
     assert o.project_id == db.query(Project).one().id
     # 이긴 요청은 "전환했습니다" 알림과 함께, 진 요청은 이미 이어진 프로젝트로 (알림 없이) 간다
     assert {r.headers["location"].split("?")[0] for r in res} == {f"/projects/{o.project_id}"}
-    assert sum("notice=converted" in r.headers["location"] for r in res) == 1
+    assert sum("notice=converted" in nloc(r) for r in res) == 1
 
 
 def test_concurrent_link_same_project_from_two_opportunities_only_one_wins(app, user_client, db):

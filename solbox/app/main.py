@@ -10,6 +10,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from jinja2 import pass_context
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +20,7 @@ from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import labels, models, notices, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록)
+from app import guards, labels, models, notices, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록, guards 는 flush 처리기를 단다)
 from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
@@ -29,7 +31,7 @@ from app.intake import recover as recover_intakes
 from app.intake import recover_applying
 from app.research import recover_runs
 from app.migrate import run_startup_migrations
-from app.security import LoginRequired
+from app.security import MustChangePassword, LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
 LOG_MAX_BYTES = 5 * 1024 * 1024
@@ -130,6 +132,56 @@ def _login_required_handler(request: Request, exc: LoginRequired) -> Response:
     return RedirectResponse("/login", status_code=303)
 
 
+def _must_change_handler(request: Request, exc: MustChangePassword) -> Response:
+    """관리자가 정해 준 비밀번호를 아직 안 바꿨다: 비밀번호 바꾸기 화면으로 (다른 화면은 바꾼 뒤에)."""
+    if request.headers.get("HX-Request"):
+        return Response(status_code=401, headers={"HX-Redirect": "/account"})
+    return RedirectResponse("/account", status_code=303)
+
+
+def _duplicate_submit_handler(request: Request, exc: guards.DuplicateSubmit) -> Response:
+    """같은 폼 표가 다시 제출됐다: 새로 만들지 않고 처음 결과로 (알림 표시는 새로 붙여 성공 알림이 보이게)."""
+    return RedirectResponse(notices.refresh(exc.url), status_code=303)
+
+
+async def _validation_error_handler(request: Request, exc: RequestValidationError) -> Response:
+    """주소 번호 자리에 글자·소수가 온 GET 화면(/customers/abc)은 다른 없는 주소처럼 "찾을 수 없습니다" 화면으로.
+    그 밖의 검증 오류(POST 폼, HTMX 요청)는 FastAPI 기본 응답 그대로다."""
+    path_only = bool(exc.errors()) and all(e.get("loc", ())[:1] == ("path",) for e in exc.errors())
+    if request.method == "GET" and path_only and not request.headers.get("HX-Request"):
+        if request.url.path in GET_FALLBACKS:  # POST 전용 주소가 다른 상세 주소(/activities/{번호})에 걸려 들어왔다: 404 가 아니라 폼으로
+            return RedirectResponse(GET_FALLBACKS[request.url.path], status_code=303)
+        return _http_error_handler(request, StarletteHTTPException(404, NOT_FOUND_TEXT))
+    return await request_validation_exception_handler(request, exc)
+
+
+NOT_FOUND_TEXT = "항목을 찾을 수 없습니다."
+GET_FALLBACKS = {"/activities/raw": "/activities/new", "/activities/draft": "/activities/new"}
+
+
+def _get_fallback(request: Request) -> str | None:
+    """POST 전용 주소를 GET 으로 열었을 때(오류 화면이 그 주소에 떠 있다가 새로 고침·다시 열기) 405 대신 보낼 화면: 같은 일을 하는 폼·목록·상세 화면.
+    정해 둔 것(`GET_FALLBACKS`)이 없으면 주소의 뒤쪽을 하나씩 떼며 GET 으로 열리는 첫 화면 (/admin/users/1 → /admin/users, /solutions/5/stage → /solutions/5)."""
+    path = request.url.path
+    routes = []
+    for r in request.app.routes:
+        inner = getattr(r, "original_router", None)
+        routes.extend(x for x in (inner.routes if inner is not None else [r]) if getattr(x, "methods", None))
+
+    def opens(candidate: str) -> bool:
+        return any("GET" in x.methods and x.path_regex.match(candidate) for x in routes if hasattr(x, "path_regex"))
+
+    if GET_FALLBACKS.get(path):
+        return GET_FALLBACKS[path]
+    parts = path.rstrip("/").split("/")
+    while len(parts) > 1:
+        parts.pop()
+        candidate = "/".join(parts) or "/"
+        if opens(candidate):
+            return candidate
+    return "/"
+
+
 ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요", 500: "문제가 생겼어요"}
 
 
@@ -153,6 +205,8 @@ def _server_error_handler(request: Request, exc: Exception) -> Response:
 def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """HTTPException 을 브라우저에는 한국어 오류 화면으로, HTMX 요청에는 짧은 글로 돌려준다."""
     message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
+    if exc.status_code == 405 and request.method in ("GET", "HEAD") and not request.headers.get("HX-Request"):
+        return RedirectResponse(_get_fallback(request) or "/", status_code=303)
     if request.headers.get("HX-Request"):
         return PlainTextResponse(message, status_code=exc.status_code, headers=exc.headers)
     response = render(request, "error.html", status_code=exc.status_code, message=message, title=error_title(exc.status_code), code=exc.status_code)
@@ -204,6 +258,9 @@ def create_app(settings: Settings) -> FastAPI:
         https_only=bool(settings.ssl_certfile),
     )
     app.add_exception_handler(LoginRequired, _login_required_handler)
+    app.add_exception_handler(MustChangePassword, _must_change_handler)
+    app.add_exception_handler(guards.DuplicateSubmit, _duplicate_submit_handler)
+    app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
     app.add_exception_handler(Exception, _server_error_handler)
 
@@ -230,6 +287,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["kdatetime"] = lambda d: ui.short_datetime(d, date.today())  # "11월 24일 14:30"
     app.state.templates.env.globals["now_ts"] = lambda: int(time.time())  # "새로 고침" 링크가 늘 새 주소가 되게
     app.state.templates.env.globals["ui"] = ui
+    app.state.templates.env.globals["rev_of"] = guards.rev_of  # 고치기 폼의 숨은 고침 표시 (app/guards.py)
+    app.state.templates.env.globals["new_token"] = guards.new_token  # 만들기 폼의 한 번 쓰는 표
     versions = ui.asset_versions(static_dir)  # 시작할 때 한 번: 파일이 바뀌면 주소가 바뀐다
     app.state.templates.env.globals["asset"] = lambda name: f"/static/{name}?v={versions.get(name, '0')}"
     app.state.templates.env.globals["error_field"] = ui.error_field
@@ -244,10 +303,11 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, confirm, help as help_router,
+        follow_ups, proposals, research, search, solutions, confirm, help as help_router, account,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
+    app.include_router(account.router)
     app.include_router(home.router)
     app.include_router(admin.router)
     app.include_router(partners.router)

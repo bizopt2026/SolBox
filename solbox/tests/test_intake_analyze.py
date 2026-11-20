@@ -17,7 +17,7 @@ from app.ai.queue import fail_stale_running, process_next
 from app.ai.tasks import ActivityDraft, Mentions
 from app.labels import ERROR_KINDS
 from app.models import AIJob, Customer, Intake, Partner, Solution
-from tests.conftest import make_user
+from tests.conftest import make_user, nloc
 
 pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
 
@@ -71,7 +71,7 @@ def test_analysis_flow(app, user_client, db, settings, fake_claude):
     files = [_txt("소개서.txt", "스마트 조명 소개"), _txt("스펙.txt", "공조 스펙"), _txt("녹취.txt", "한빛병원 통화 내용")]
     r = _upload(user_client, files, note="신규 솔루션 후보와 통화 기록")
     it = db.query(Intake).one()
-    assert r.headers["location"] == f"/intake/{it.id}?notice=intake_uploaded" and it.status == "analyzing"
+    assert nloc(r) == f"/intake/{it.id}?notice=intake_uploaded" and it.status == "analyzing"
     assert "대기 1번째" in user_client.get(f"/intake/{it.id}").text
     process_next(app.state.session_factory, app.state.runner, settings)
     db.refresh(it)
@@ -242,7 +242,7 @@ def test_ai_failure_marks_failed_and_reanalyze_works(app, user_client, db, setti
     assert ERROR_KINDS["auth"] in page and "다시 정리" in page and "처음 메모" in page
     fake_claude.set(mode="ok", result=json.dumps({"solutions": [{"name": "새 솔루션", "files": [1]}]}))
     r = user_client.post(f"/intake/{it.id}/analyze", data={"note": "고친 메모"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_analyzing"
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_analyzing"
     db.refresh(it)
     assert it.status == "analyzing" and it.note == "고친 메모" and it.error == "" and it.plan is None
     _run(app, settings)
@@ -270,7 +270,7 @@ def test_restart_recovery(app, user_client, db, settings):
     assert fail_stale_running(db) == 1
     assert intake_lib.recover(db) == 1
     db.refresh(it)
-    assert it.status == "failed" and it.error == ERROR_KINDS["unknown"]
+    assert it.status == "failed" and it.error == ERROR_KINDS["restart"]  # 서버 재시작으로 중단된 작업은 자기 안내를 가진다
     assert intake_lib.recover(db) == 0
     # 앱 시작(lifespan) 때도 불린다
     user_client.post(f"/intake/{it.id}/analyze", data={}, follow_redirects=False)
@@ -549,7 +549,7 @@ def test_start_analysis_error_keeps_bundle_and_redirects(app, user_client, db, s
     monkeypatch.setattr(intake_lib, "start_analysis", boom)
     r = _upload(user_client, [_txt("a.txt", "x")])
     it = db.query(Intake).one()
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_uploaded" and it.status == "uploaded"
+    assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_uploaded" and it.status == "uploaded"
 
 
 def test_uploaded_page_has_start_button(app, user_client, db):

@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, origin, relations, same_company, ui
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, CustomerNeed, Partner, User
@@ -28,10 +29,10 @@ HAS_PROPOSALS = "제안 건이 있는 고객은 삭제할 수 없습니다."
 HAS_OPPORTUNITIES = opps.HAS_OPPORTUNITIES
 
 
-def _form_page(request: Request, db: Session, form: dict, customer: Customer | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, form: dict, customer: Customer | None = None, error: str | None = None, conflict=None):
     return render(
-        request, "customers/form.html", status_code=400 if error else 200,
-        form=form, customer=customer, error=error, partners=same_company.partner_choices(db, customer),
+        request, "customers/form.html", status_code=409 if conflict else 400 if error else 200,
+        form=form, customer=customer, error=error, partners=same_company.partner_choices(db, customer), conflict=conflict,
     )
 
 
@@ -63,7 +64,7 @@ def create(
     request: Request,
     name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if error := name_error(name):
@@ -78,7 +79,7 @@ def create(
     mirror.sync(customer)
     if customer.partner is not None:
         mirror.sync(customer.partner)
-    return notices.redirect(f"/customers/{customer.id}", "created")
+    return once.done(notices.redirect(f"/customers/{customer.id}", "created"))
 
 
 @router.get("/{customer_id}")
@@ -98,10 +99,12 @@ def update(
     customer_id: int, request: Request,
     name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
     customer = get_or_404(db, Customer, customer_id)
     values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
+    if conflict := guards.check_rev(customer, rev):  # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 저장하지 않고 쓴 내용을 그대로 보여 준다
+        return _form_page(request, db, {**values, "partner_id": partner_id}, customer, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, error)
     old_partner = same_company.partner_of(db, customer)

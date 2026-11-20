@@ -92,6 +92,7 @@
 {% set skip_count = saveable | length - save_count %}
 <span class="toggle-all plan-toggle" data-target="plan-cards" hidden><button type="button" class="small" data-open="1">모두 펼치기</button> <button type="button" class="small" data-open="0">모두 접기</button></span>
 <form method="post" action="/intake/{{ intake.id }}/apply" class="stack plan-form" id="plan-form">
+  <input type="hidden" name="_tok" value="{{ new_token() }}">
   <div class="stack" id="plan-cards">
   {% for card in cards %}
   {% with item = card.item, v = card.v %}

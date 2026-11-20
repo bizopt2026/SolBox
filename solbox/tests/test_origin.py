@@ -13,7 +13,7 @@ from app.migrate import ORIGINS_FILLED_KEY, backfill_origins
 from app.models import (
     Activity, AppSetting, Customer, Intake, Partner, ResearchReport, ResearchRun, Solution, User,
 )
-from tests.conftest import finished_run, form_from_page, make_user, ready_intake
+from tests.conftest import finished_run, form_from_page, make_user, ready_intake, nloc
 
 NEW_COLUMNS = {"solutions": ("origin_type", "origin_id", "origin_item"), "activities": ("origin_type", "origin_id"),
                "customers": ("origin_type", "origin_id"), "partners": ("origin_type", "origin_id")}
@@ -127,9 +127,9 @@ def test_research_registration_sets_origin_and_blocks_duplicates(user_client, db
     r = _research_post(user_client, run, sug, 0)
     assert r.status_code == 303
     new = db.query(Solution).filter_by(origin_type="research").one()
-    assert new.origin_id == sug.id and r.headers["location"] == f"/solutions/{new.id}/edit?notice=candidate_registered"
+    assert new.origin_id == sug.id and nloc(r) == f"/solutions/{new.id}/edit?notice=candidate_registered"
     again = _research_post(user_client, run, sug, 0)  # 같은 제안을 다시 등록해도 새로 만들지 않고 이미 등록된 솔루션으로 보낸다
-    assert again.status_code == 303 and again.headers["location"] == f"/solutions/{new.id}?notice=already_registered"
+    assert again.status_code == 303 and nloc(again) == f"/solutions/{new.id}?notice=already_registered"
     assert db.query(Solution).filter_by(origin_type="research").count() == 1
     tech = db.query(ResearchReport).filter_by(run_id=run.id, area="tech").one()
     _research_post(user_client, run, tech, 0, source="trend")  # 같은 보고서가 아니라 다른 항목이면 따로 등록된다

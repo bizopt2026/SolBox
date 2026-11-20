@@ -615,6 +615,22 @@
     });
   })();
 
+  // 같은 폼을 두 번 보내지 않게: 제출을 시작하면 그 폼의 제출 버튼을 잠근다 (연타·더블클릭). 뒤로 가기로 돌아오면(pageshow) 다시 풀린다.
+  // 버튼 값(이름·값)은 제출 때 이미 모였으므로 한 박자 뒤에 잠근다. 서버도 한 번 쓰는 폼 표로 중복을 막는다 (JS 없이도 동작).
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.matches || e.defaultPrevented || (form.method || "").toLowerCase() !== "post") return;
+    if (form.hasAttribute("hx-post") || form.hasAttribute("data-ajax-check") || form.target === "_blank") return;
+    var buttons = Array.prototype.slice.call(form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]'));
+    if (e.submitter && buttons.indexOf(e.submitter) < 0) buttons.push(e.submitter);
+    window.setTimeout(function () {
+      buttons.forEach(function (b) { if (!b.disabled) { b.disabled = true; b.setAttribute("data-busy", "1"); } });
+    }, 0);
+  });
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll("[data-busy]").forEach(function (b) { b.disabled = false; b.removeAttribute("data-busy"); });
+  });
+
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
   document.querySelectorAll(".seg").forEach(function (seg) {
     var cur = seg.querySelector('[aria-current="page"]');

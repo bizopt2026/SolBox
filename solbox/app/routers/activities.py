@@ -18,8 +18,9 @@ from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
-from app import notices
+from app import guards, notices
 from app.db import get_db
+from app.guards import Once, Rev, form_once, rev_form
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -115,10 +116,10 @@ def form_values(a: Activity) -> dict:
     return values
 
 
-def _form_page(request: Request, db: Session, values: dict, activity: Activity | None = None, error: str | None = None):
+def _form_page(request: Request, db: Session, values: dict, activity: Activity | None = None, error: str | None = None, conflict=None):
     return render(
-        request, "activities/form.html", status_code=400 if error else 200,
-        activity=activity, f=values, choices=_choices(db), error=error,
+        request, "activities/form.html", status_code=409 if conflict else 400 if error else 200,
+        activity=activity, f=values, choices=_choices(db), error=error, conflict=conflict,
     )
 
 
@@ -155,12 +156,16 @@ def _submitted_values(
 
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
-          partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=()):
+          partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=(),
+          rev: Rev | None = None, once: Once | None = None):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
         fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (),
     )
+    if activity is not None and rev is not None and (conflict := guards.check_rev(activity, rev)):
+        # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 후속 조치·니즈 줄까지 쓴 내용 그대로 보여 주고 저장하지 않는다
+        return _form_page(request, db, submitted, activity, conflict=conflict)
     try:
         text = read_memo(raw_text, memo_file)
     except HTTPException as e:
@@ -180,7 +185,8 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
-    return notices.redirect(f"/activities/{activity.id}", "created" if is_new else "saved")
+    response = notices.redirect(f"/activities/{activity.id}", "created" if is_new else "saved")
+    return once.done(response) if once is not None else response
 
 
 @router.get("")
@@ -223,7 +229,7 @@ def new_form(request: Request, user: User = Depends(require_user), db: Session =
 def save_raw(
     request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     try:
         text = read_memo(raw_text, memo_file)
@@ -239,7 +245,7 @@ def save_raw(
     db.add(activity)
     db.commit()
     sync_all(mirror, activity)
-    return notices.redirect(f"/activities/{activity.id}", "created")
+    return once.done(notices.redirect(f"/activities/{activity.id}", "created"))
 
 
 DRAFT_KIND = "activity_structure"
@@ -282,7 +288,7 @@ def merge_prefill(values: dict, prefill: dict | None) -> None:
 @router.post("/draft")
 def start_draft(
     request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
 ):
     try:
         text = read_memo(raw_text, memo_file)
@@ -290,7 +296,7 @@ def start_draft(
         return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     prefill = prefill_from(db, pre)
     job = enqueue(db, DRAFT_KIND, {"raw_text": text, **({"prefill": prefill} if prefill else {})}, user.id)
-    return RedirectResponse(f"/activities/draft/{job.id}", status_code=303)
+    return once.done(RedirectResponse(f"/activities/draft/{job.id}", status_code=303))
 
 
 @router.get("/draft/{job_id}")
@@ -311,7 +317,7 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
         values = blank_values()
         values["raw_text"] = raw_text
         merge_prefill(values, (job.input or {}).get("prefill"))
-        ctx["error_kind"] = job.error_kind if job.status == "failed" else "bad_output"
+        ctx["error_kind"] = job.shown_error_kind if job.status == "failed" else "bad_output"
         return render(request, "activities/draft.html", position=0, f=values, **{k: v for k, v in ctx.items() if k != "f"})
     return render(request, "activities/draft.html", position=0, f=draft_values(db, draft, raw_text, (job.input or {}).get("prefill")),
                   **{k: v for k, v in ctx.items() if k != "f"})
@@ -352,9 +358,9 @@ def _form_params(
 def create(
     request: Request, params: dict = Depends(_form_params),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
-    return _save(request, db, user, mirror, None, **params)
+    return _save(request, db, user, mirror, None, **params, once=once)
 
 
 @router.get("/{activity_id}")
@@ -379,9 +385,9 @@ def edit_form(activity_id: int, request: Request, user: User = Depends(require_u
 def update(
     activity_id: int, request: Request, params: dict = Depends(_form_params),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
-    return _save(request, db, user, mirror, get_or_404(db, Activity, activity_id), **params)
+    return _save(request, db, user, mirror, get_or_404(db, Activity, activity_id), **params, rev=rev)
 
 
 @router.post("/{activity_id}/delete")

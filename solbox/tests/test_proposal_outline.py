@@ -6,7 +6,7 @@ from app.ai.proposal_tasks import Outline, Slide, Step
 from app.ai.queue import process_next
 from app.models import AIJob, Proposal
 from app.proposals import clean_outline, start_job
-from tests.conftest import make_proposal_world, make_user, refining_proposal, sample_outline
+from tests.conftest import make_proposal_world, make_user, refining_proposal, sample_outline, nloc
 
 
 def _run(app, settings):
@@ -80,7 +80,7 @@ def test_outline_busy(app, user_client, db, settings):
     p = refining_proposal(db, settings)
     start_job(db, p, "proposal_chat", make_user(db, "kim2"))
     r = user_client.post(f"/proposals/{p.id}/outline", follow_redirects=False)
-    assert r.headers["location"] == f"/proposals/{p.id}?notice=busy"
+    assert nloc(r) == f"/proposals/{p.id}?notice=busy"
     assert db.query(AIJob).count() == 1
 
 

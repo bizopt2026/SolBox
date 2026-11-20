@@ -10,7 +10,7 @@ from app.knowledge import safe_name
 from app.main import create_app
 from app.models import AIJob, Proposal
 from app.proposals import deck_is_stale, display_title
-from tests.conftest import _logged_in_client, outlined_proposal
+from tests.conftest import _logged_in_client, outlined_proposal, nloc
 
 STALE = "구성안이 바뀌었습니다. 다시 생성하세요."
 FAILED = "제안서 파일을 만들지 못했습니다."
@@ -24,7 +24,7 @@ def _files(settings, p):
 def test_build_and_download(user_client, db, settings):
     p = outlined_proposal(db, settings)
     r = user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}?notice=deck_built#deck"
+    assert r.status_code == 303 and nloc(r) == f"/proposals/{p.id}?notice=deck_built#deck"
     db.refresh(p)
     assert p.status == "deck" and (settings.decks_dir / str(p.id) / p.deck_name).exists()
     assert p.deck_built_at is not None
@@ -38,7 +38,7 @@ def test_build_and_download(user_client, db, settings):
 def test_build_back_to_outline(user_client, db, settings):
     p = outlined_proposal(db, settings)
     r = user_client.post(f"/proposals/{p.id}/deck", data={"back": "outline"}, follow_redirects=False)
-    assert r.headers["location"] == f"/proposals/{p.id}/outline?notice=deck_built#deck"
+    assert nloc(r) == f"/proposals/{p.id}/outline?notice=deck_built#deck"
 
 
 def test_rebuild_replaces_old_file(user_client, db, settings):
