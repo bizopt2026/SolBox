@@ -5,7 +5,7 @@
 {{ breadcrumb((ont.label("project"), "/projects"), (project.name, None)) }}
 {{ detail_head(project.name, "/projects", project, can_delete) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<section class="card"><dl><dt>고객</dt><dd><a href="/customers/{{ project.customer_id }}">{{ project.customer.name }}</a></dd><dt>기간</dt><dd>{{ val(project.period) }}</dd><dt>상태</dt><dd>{{ val(project.status) }}</dd><dt>설명</dt><dd>{{ val(project.description) }}</dd><dt>메모</dt><dd>{{ val(project.memo) }}</dd></dl></section>
+<section class="card"><dl><dt>고객</dt><dd><a href="/customers/{{ project.customer_id }}">{{ project.customer.name }}</a></dd><dt>{{ ont.prop("project", "bm") }}</dt><dd>{% if project.bm %}<a href="/bms/{{ project.bm_id }}">{{ project.bm.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd><dt>{{ ont.prop("project", "opportunity") }}</dt><dd>{% if opportunity %}<a href="/opportunities/{{ opportunity.id }}">{{ opportunity.name }}</a> <span class="muted">에서 만들어졌습니다</span>{% else %}<span class="muted">없음</span>{% endif %}</dd><dt>기간</dt><dd>{{ val(project.period) }}</dd><dt>상태</dt><dd>{{ val(project.status) }}</dd><dt>설명</dt><dd>{{ val(project.description) }}</dd><dt>메모</dt><dd>{{ val(project.memo) }}</dd></dl></section>
 {{ proposal_list(proposals, "/proposals/new?customer_id=" ~ project.customer_id ~ "&project_id=" ~ project.id) }}
 {{ activity_list(activities) }}
 {% endblock %}

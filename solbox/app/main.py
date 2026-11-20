@@ -163,13 +163,18 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
     app.state.templates.env.filters["md"] = render_markdown
 
-    from app.routers import activities, admin, auth, customers, files, home, intake, jobs, partners, projects, proposal_outline, proposals, research, solutions  # 지연 임포트: 라우터가 render 를 쓴다
+    from app.routers import (
+        activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
+        proposals, research, solutions,
+    )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(admin.router)
     app.include_router(partners.router)
     app.include_router(customers.router)
+    app.include_router(opportunities.router)
+    app.include_router(bms.router)
     app.include_router(projects.router)
     app.include_router(projects.legacy_router)
     app.include_router(solutions.router)

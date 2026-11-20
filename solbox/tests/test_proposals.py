@@ -11,7 +11,7 @@ EXISTING_COLUMNS = {
     "activity_partners": ['activity_id', 'partner_id'],
     "activity_solutions": ['activity_id', 'solution_id'],
     "ai_jobs": ['created_at', 'error', 'error_kind', 'finished_at', 'id', 'input', 'kind', 'priority', 'requester_id', 'result', 'started_at', 'status'],
-    "businesses": ['created_at', 'created_by_id', 'customer_id', 'description', 'id', 'memo', 'name', 'period', 'status', 'updated_at'],
+    "businesses": ['bm_id', 'created_at', 'created_by_id', 'customer_id', 'description', 'id', 'memo', 'name', 'period', 'status', 'updated_at'],
     "customers": ['contact', 'created_at', 'created_by_id', 'id', 'industry', 'memo', 'name', 'origin_id', 'origin_type', 'updated_at'],
     "partners": ['contact', 'created_at', 'created_by_id', 'customer_id', 'description', 'id', 'memo', 'name', 'origin_id', 'origin_type', 'updated_at'],
     "solution_files": ['created_at', 'created_by_id', 'extract_status', 'id', 'kind', 'original_name', 'size', 'solution_id', 'stored_name', 'updated_at'],

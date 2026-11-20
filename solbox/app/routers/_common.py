@@ -4,18 +4,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence, TypeVar
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Customer, CustomerNeed, IntakeFile, Partner, Project, Solution, User
+from app.opportunities import dependents
+from app.models import BM, Activity, Customer, CustomerNeed, IntakeFile, Opportunity, Partner, Project, Solution, User
 from app.security import ensure_can_delete
 
 T = TypeVar("T")
 
 NOT_FOUND = "항목을 찾을 수 없습니다."
 NAME_REQUIRED = "이름을 입력하세요."
+
+
+async def submitted_fields(request: Request) -> frozenset[str]:
+    """폼으로 실제 온 칸 이름 (빈 값으로 온 칸도 포함). FastAPI 는 빈 폼 값을 "안 옴"으로 보므로 "그대로 둔다" 와 "비운다" 를 가를 때 쓴다."""
+    try:
+        return frozenset((await request.form()).keys())
+    except Exception:  # noqa: BLE001  (폼이 아니거나 읽지 못하면 아무 칸도 안 온 것으로 본다)
+        return frozenset()
 
 
 def get_or_404(db: Session, model: type[T], obj_id: int) -> T:
@@ -73,19 +82,34 @@ def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Act
         mirror.sync(a)
 
 
+def resync_objects(db: Session, mirror: KnowledgeMirror, objs) -> None:
+    """사본이 다른 항목에 걸려 바뀌어야 하는 항목들을 DB 에서 다시 읽어 사본을 다시 쓴다 (이미 지운 항목은 건너뛴다)."""
+    seen = set()
+    for item in objs:
+        if item is None or (type(item), item.id) in seen or db.get(type(item), item.id) is None:
+            continue
+        seen.add((type(item), item.id))
+        db.refresh(item)
+        mirror.sync(item)
+
+
 def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
     """`obj` 의 이름이 적히는 다른 사본(상위·하위 항목, 연결된 활동 기록)을 다시 쓴다."""
     if isinstance(obj, Customer):
-        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj), *activities_with_needs_of(db, obj),
+        related = [*obj.projects, *obj.opportunities, *activities_linked_to(db, Activity.customers, obj), *activities_with_needs_of(db, obj),
                    *([obj.partner] if obj.partner else [])]
     elif isinstance(obj, Project):
-        related = [obj.customer, *activities_linked_to(db, Activity.projects, obj)]
+        related = [obj.customer, obj.bm, *activities_linked_to(db, Activity.projects, obj),
+                   *db.scalars(select(Opportunity).where(Opportunity.project_id == obj.id))]
     elif isinstance(obj, Partner):
         related = [*obj.solutions, *activities_linked_to(db, Activity.partners, obj), *([obj.customer] if obj.customer else [])]
     elif isinstance(obj, Solution):
-        related = [*([obj.partner] if obj.partner else []), *activities_linked_to(db, Activity.solutions, obj)]
+        related = [*([obj.partner] if obj.partner else []), *activities_linked_to(db, Activity.solutions, obj), *obj.bms, *obj.opportunities]
+    elif isinstance(obj, (BM, Opportunity)):
+        related = dependents(db, obj)
     else:
         return
+    related = [item for item in related if item is not None]
     for item in related:
         db.refresh(item)
         mirror.sync(item)

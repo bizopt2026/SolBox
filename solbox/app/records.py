@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app import labels, ontology, origin as origins
 from app.activity_rows import load_index, reconcile_follow_ups, reconcile_needs
@@ -17,7 +17,7 @@ from app.config import Settings
 from app.extract import ExtractResult, extract_text
 from app.intake import extension
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Solution, SolutionFile, User
+from app.models import Activity, Opportunity, Solution, SolutionFile, User
 
 LINK_TYPES = {  # 연결 종류: (모델, Activity 관계 이름). 정의는 ontology.ACTIVITY_LINKS
     t: (ontology.model_for(t), rel) for t, rel in ontology.ACTIVITY_LINKS.items()
@@ -99,7 +99,13 @@ def need_rows(customer, content) -> list[tuple[str, str]]:
 
 
 def linked(a: Activity) -> list:
-    return [obj for _, rel in LINK_TYPES.values() for obj in getattr(a, rel)]
+    """활동 기록에 연결된 항목과, 이 기록의 니즈가 묶인 영업기회 (이들의 사본이 이 기록과 같이 바뀐다)."""
+    out = [obj for _, rel in LINK_TYPES.values() for obj in getattr(a, rel)] + list(a.opportunities)
+    session = object_session(a)
+    ids = {n.opportunity_id for n in a.needs if n.opportunity_id is not None}
+    if session is not None and ids:
+        out += [o for o in session.scalars(select(Opportunity).where(Opportunity.id.in_(ids))) if o not in out]
+    return out
 
 
 def pick(db: Session, model, ids: list[str]) -> list:
@@ -151,7 +157,7 @@ def apply_activity_fields(
     db: Session, user: User, a: Activity, *, kind, date_, title, raw_text, summary_md,
     fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-    fu_id=(), ds_id=(), origin: tuple[str, int | None] = origins.MANUAL,
+    fu_id=(), ds_id=(), origin: tuple[str, int | None] = origins.MANUAL, opportunity_ids: list[str] | None = None,
 ) -> None:
     """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다.
     후속 조치·고객 니즈는 `fu_id`·`ds_id`(줄 번호, 새 줄은 빈 글자) 기준으로 표의 행을 맞춘다 (번호 유지·삭제·추가)."""
@@ -163,6 +169,8 @@ def apply_activity_fields(
     ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
     for t, (model, rel) in LINK_TYPES.items():
         setattr(a, rel, pick(db, model, ids[t]))
+    if opportunity_ids is not None:  # 활동 기록 화면에서만 직접 고른다 (None 이면 올리기 저장처럼 손대지 않는다)
+        a.opportunities = pick(db, Opportunity, opportunity_ids)
     for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners)):
         current = getattr(a, rel)
         for obj in find_or_create(db, NEW_TYPES[rel], names, user, origin):

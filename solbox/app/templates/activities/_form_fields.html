@@ -71,7 +71,7 @@
 
 <section class="formsec">
   <h2>연결</h2>
-  {% for key, title, field in ont.activity_link_fields() %}
+  {% for key, title, field in ont.activity_form_link_fields() %}
   {{ check_picker(field, title, choices[key], f.selected[key]) }}
   {% for amb in (f.ambiguous or {}).get(key, []) %}
   <p class="muted ambiguous-hint">“{{ amb.name }}”: 여러 항목과 비슷합니다: {{ amb.candidates | join(", ") }} — 위 목록에서 맞는 항목을 직접 선택하세요.</p>

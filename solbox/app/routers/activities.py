@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -17,7 +18,7 @@ from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Partner, Solution, User
+from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Opportunity, Partner, Solution, User
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
@@ -49,6 +50,9 @@ def _choices(db: Session) -> dict:
         "customer": list(db.scalars(select(Customer).order_by(Customer.name))),
         "project": list(db.scalars(select(Project).order_by(Project.name))),
         "partner": list(db.scalars(select(Partner).order_by(Partner.name))),
+        # 영업기회는 이름만으로 새로 만들 수 없고 여기서 고르기만 한다. 같은 이름이 있을 수 있어 고객 이름을 앞에 붙인다
+        "opportunity": [SimpleNamespace(id=o.id, name=f"{o.customer.name} · {o.name}") for o in
+                        db.scalars(select(Opportunity).join(Opportunity.customer).order_by(Customer.name, Opportunity.name, Opportunity.id))],
     }
 
 
@@ -57,7 +61,7 @@ def blank_values() -> dict:
     return {
         "kind": ontology.ACTIVITY_KIND_DEFAULT, "date": date.today().isoformat(), "title": "", "raw_text": "", "summary_md": "",
         "follow_ups": [], "demand_signals": [],
-        "selected": {t: [] for t in LINK_TYPES},
+        "selected": {t: [] for t in (*LINK_TYPES, *ontology.ACTIVITY_MANUAL_LINKS)},
         "new_names": {t: [] for t in NEW_TYPES},        # 체크된 채로 보이는 새 이름
         "new_candidates": {t: [] for t in NEW_TYPES},   # 체크 해제로 보이는 새 이름 후보 (AI 초안)
     }
@@ -72,7 +76,8 @@ def form_values(a: Activity) -> dict:
                      "linked": f.owner_user_id is not None} for f in a.follow_ups],
         demand_signals=[{"id": n.id, "customer": n.customer_name, "content": n.content, "customer_id": n.customer_id}
                         for n in a.needs],
-        selected={t: [o.id for o in getattr(a, rel)] for t, (_, rel) in LINK_TYPES.items()},
+        selected={**{t: [o.id for o in getattr(a, rel)] for t, (_, rel) in LINK_TYPES.items()},
+                  **{t: [o.id for o in getattr(a, rel)] for t, rel in ontology.ACTIVITY_MANUAL_LINKS.items()}},
     )
     return values
 
@@ -97,10 +102,10 @@ def _pad(ids: list[str], column: list[str]) -> list[str]:
 def _submitted_values(
     kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-    fu_id=(), ds_id=(), fu_done=(),
+    fu_id=(), ds_id=(), fu_done=(), opportunity_ids=(),
 ) -> dict:
     """제출된 값을 오류 화면에 다시 보여 줄 형태로 모은다."""
-    ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
+    ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids, opportunity=opportunity_ids)
     return {
         "kind": kind, "date": date_, "title": title, "raw_text": raw_text, "summary_md": summary_md,
         "follow_ups": [{"id": _int_or_none(i), "task": t, "owner": o, "due": d, "done": str(n) in set(fu_done)}
@@ -118,11 +123,11 @@ def _submitted_values(
 
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
-          partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=()):
+          partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=()):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done,
+        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids,
     )
     try:
         text = read_memo(raw_text, memo_file)
@@ -138,7 +143,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
         project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
-        fu_id=fu_id, ds_id=ds_id,
+        fu_id=fu_id, ds_id=ds_id, opportunity_ids=opportunity_ids,
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
@@ -207,7 +212,7 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
         follow_ups=[{**f.model_dump(), "id": None, "done": False} for f in d.follow_ups if f.task.strip()],
         demand_signals=[{**s.model_dump(), "id": None} for s in d.demand_signals if s.content.strip()],
         selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
-                  "project": found["projects"]["matched"], "partner": found["partners"]["matched"]},
+                  "project": found["projects"]["matched"], "partner": found["partners"]["matched"], "opportunity": []},
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
         ambiguous={t: ambiguous_view(db, model, found[rel]["ambiguous"]) for t, (model, rel) in LINK_TYPES.items()},
     )
@@ -266,14 +271,14 @@ def _form_params(
     fu_done: list[str] = Form([]), ds_customer: list[str] = Form([]), ds_content: list[str] = Form([]),
     fu_id: list[str] = Form([]), ds_id: list[str] = Form([]),
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
-    project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]),
+    project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]), opportunity_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
 ) -> dict:
     return dict(
         kind=kind, date_=date_, title=title, raw_text=raw_text, memo_file=memo_file, summary_md=summary_md,
         fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done, fu_id=fu_id, ds_id=ds_id,
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
-        project_ids=project_ids, partner_ids=partner_ids,
+        project_ids=project_ids, partner_ids=partner_ids, opportunity_ids=opportunity_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
     )
 
@@ -293,8 +298,9 @@ def detail(activity_id: int, request: Request, user: User = Depends(require_user
     originals = list(db.scalars(  # 올리기로 만든 기록이면 올린 원본 파일
         select(IntakeFile).where(IntakeFile.target_type == "activity", IntakeFile.target_id == a.id).order_by(IntakeFile.id)
     ))
+    bundled = {o.id: o for o in db.scalars(select(Opportunity).where(Opportunity.id.in_({n.opportunity_id for n in a.needs if n.opportunity_id})))}
     return render(request, "activities/detail.html", activity=a, can_delete=can_delete(user, a), originals=originals,
-                  origin=origin.view(db, user, a))
+                  origin=origin.view(db, user, a), need_opportunities=bundled)
 
 
 @router.get("/{activity_id}/edit")

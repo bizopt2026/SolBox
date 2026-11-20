@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, origin_line, same_name_hint %}
+{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, origin_line, same_name_hint, opportunity_badge %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("고객", "/customers"), (customer.name, None)) }}
@@ -13,6 +13,12 @@
   {% if projects %}<ul>{% for b in projects %}<li><a href="/projects/{{ b.id }}">{{ b.name }}</a> {{ b.status }}</li>{% endfor %}</ul>
   {% else %}<p class="muted">등록된 프로젝트가 없습니다.</p>{% endif %}
   <a href="/projects/new?customer_id={{ customer.id }}">+ 프로젝트 등록</a>
+</section>
+<section class="card">
+  <h2>{{ ont.label("opportunity") }}</h2>
+  {% if opportunities %}<ul>{% for o in opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }}</li>{% endfor %}</ul>
+  {% else %}<p class="muted">등록된 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
+  <a href="/opportunities/new?customer_id={{ customer.id }}">+ {{ ont.label("opportunity") }} 만들기</a>
 </section>
 {{ proposal_list(proposals, "/proposals/new?customer_id=" ~ customer.id) }}
 {{ activity_list(activities) }}

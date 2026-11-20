@@ -16,7 +16,7 @@ from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
-    resync_activities, resync_related, search_by_name,
+    resync_activities, resync_objects, resync_related, search_by_name,
 )
 from app.security import can_delete, require_user
 
@@ -216,12 +216,14 @@ def delete(
     solution = get_deletable_or_404(db, Solution, solution_id, user)
     activities = activities_linked_to(db, Activity.solutions, solution)
     partner = solution.partner
+    review_links = [*solution.bms, *solution.opportunities]  # 이 솔루션이 적힌 BM·영업기회 사본 (연결 행은 함께 지워진다)
     mirror.remove(solution)
     shutil.rmtree(request.app.state.settings.uploads_dir / "solutions" / str(solution.id), ignore_errors=True)
     clear_file_targets(db, "solution", solution.id)
     db.delete(solution)
     db.commit()
     resync_activities(db, mirror, activities)
+    resync_objects(db, mirror, review_links)
     if partner is not None:
         mirror.sync(partner)
     return RedirectResponse("/solutions", status_code=303)

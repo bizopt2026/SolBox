@@ -15,7 +15,7 @@ from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
 from app.models import AIJob, Proposal, ProposalMessage
-from app.proposals import candidate_solutions, clean_directions, clean_outline, reset_for_new_direction
+from app.proposals import candidate_solutions, clean_directions, clean_outline, priority_groups, reset_for_new_direction
 
 
 log = logging.getLogger(__name__)
@@ -33,6 +33,45 @@ def _project_line(p: Proposal) -> str:
     if p.project_id:
         return f"- 프로젝트 사본: `{ontology.rel_path('project', id=p.project_id)}`"
     return "- 프로젝트: 지정되지 않음"
+
+
+def _opportunity_line(p: Proposal) -> str:
+    """프롬프트의 영업기회·BM 줄 (사본 경로는 ontology 가 정한다. 이름은 DB 의 것이지만 경로만 적는다)."""
+    if not p.opportunity_id:
+        return f"- {ontology.label('opportunity')}: 지정되지 않음"
+    line = f"- {ontology.label('opportunity')} 사본: `{ontology.rel_path('opportunity', id=p.opportunity_id)}`"
+    if p.opportunity is not None and p.opportunity.bm_id:
+        line += f"\n- {ontology.label('bm')} 사본: `{ontology.rel_path('bm', id=p.opportunity.bm_id)}`"
+    return line
+
+
+def _priority_section(db: Session, p: Proposal) -> str:
+    """후보 앞쪽에 둔 솔루션과 그 이유 (번호와 이름만). 없으면 빈 글."""
+    groups = priority_groups(db, p)
+    if not groups:
+        return ""
+    lines = ["## 우선 검토할 솔루션", "",
+             "아래 솔루션은 같은 후보 목록에서 앞에 둔 것입니다. 이유가 적힌 순서대로 먼저 살펴보되, 후보가 아닌 솔루션은 쓰지 마세요.", ""]
+    for g in groups:
+        lines.append(f"{g['reason']}:")
+        lines += [f"- id {s.id}: {s.name}" for s in g["solutions"]]
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def directions_prompt(db: Session, p: Proposal) -> str:
+    """제안 방향 만들기 프롬프트. 후보 솔루션은 영업기회의 검토 솔루션 → BM 의 솔루션 → 나머지 순서다."""
+    candidates = candidate_solutions(db, p)
+    memo = (p.request_memo or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO")
+    return load_prompt(
+        "proposal_directions",
+        customer_path=ontology.rel_path("customer", id=p.customer_id),
+        project_line=_project_line(p),
+        opportunity_line=_opportunity_line(p),
+        request_memo=memo.strip() or "(없음)",
+        solutions="\n".join(f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates),
+        priority_section=_priority_section(db, p),
+    )
 
 
 class Evidence(BaseModel):
@@ -96,17 +135,9 @@ def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settin
     p = db.get(Proposal, input.get("proposal_id"))
     if p is None:
         return "deleted"
-    candidates = candidate_solutions(db, p)
-    if not candidates:
+    if not candidate_solutions(db, p):
         raise ClaudeError("bad_output", "제안 후보가 될 솔루션이 없습니다. 보류가 아닌 솔루션이 있거나 제안 건에 직접 추가해야 합니다.")
-    memo = (p.request_memo or "").replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO")
-    prompt = load_prompt(
-        "proposal_directions",
-        customer_path=ontology.rel_path("customer", id=p.customer_id),
-        project_line=_project_line(p),
-        request_memo=memo.strip() or "(없음)",
-        solutions="\n".join(f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates),
-    )
+    prompt = directions_prompt(db, p)
     pid = p.id
     out = run_json(db, runner, prompt, DirectionsOut, settings)  # 읽기 트랜잭션은 여기서 끝난다
     p = db.get(Proposal, pid)

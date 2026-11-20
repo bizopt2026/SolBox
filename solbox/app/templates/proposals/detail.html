@@ -48,12 +48,19 @@
   <dl>
     <dt>고객</dt><dd><a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a></dd>
     <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
+    <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>조합 솔루션</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
   <details>
     <summary>대상 수정</summary>
     <form method="post" action="/proposals/{{ proposal.id }}/target" class="stack">
+      <label>{{ ont.label("opportunity") }} (선택)
+        <select name="opportunity_id">
+          <option value="">선택 안 함</option>
+          {% for o in customer_opportunities %}<option value="{{ o.id }}" {{ "selected" if proposal.opportunity_id == o.id }}>{{ o.name }}</option>{% endfor %}
+        </select>
+      </label>
       {% set memo = proposal.request_memo %}{% set selected_ids = proposal.extra_solution_ids %}
       {% include "proposals/_target_fields.html" %}
       <div><button type="submit" class="primary">저장</button></div>

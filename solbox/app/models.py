@@ -43,6 +43,20 @@ activity_solutions = _link_table("activity_solutions", "solution", "solutions")
 activity_customers = _link_table("activity_customers", "customer", "customers")
 activity_projects = _link_table("activity_businesses", "business", "businesses")  # 물리 표 이름은 그대로 (프로젝트 = 옛 사업)
 activity_partners = _link_table("activity_partners", "partner", "partners")
+activity_opportunities = _link_table("activity_opportunities", "opportunity", "opportunities")
+
+bm_solutions = Table(
+    "bm_solutions",
+    Base.metadata,
+    Column("bm_id", ForeignKey("bms.id", ondelete="CASCADE"), primary_key=True),
+    Column("solution_id", ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True),
+)
+opportunity_solutions = Table(
+    "opportunity_solutions",
+    Base.metadata,
+    Column("opportunity_id", ForeignKey("opportunities.id", ondelete="CASCADE"), primary_key=True),
+    Column("solution_id", ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True),
+)
 
 proposal_solutions = Table(
     "proposal_solutions",
@@ -90,6 +104,7 @@ class Customer(Stamped, Origin, Base):
 
     projects: Mapped[list[Project]] = relationship(back_populates="customer")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
+    opportunities: Mapped[list[Opportunity]] = relationship(back_populates="customer")
     partner: Mapped[Partner | None] = relationship(back_populates="customer", uselist=False)
 
 
@@ -105,9 +120,50 @@ class Project(Stamped, Base):
     period: Mapped[str] = mapped_column(String, default="")
     status: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
+    bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id"), nullable=True)  # 프로젝트가 따르는 BM (옛 DB 에는 migrate 가 제약 없이 더한다)
 
     customer: Mapped[Customer] = relationship(back_populates="projects")
+    bm: Mapped[BM | None] = relationship(back_populates="projects")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="project")
+
+
+class BM(Stamped, Base):
+    """BM (사업 모델). 고객에 묶이지 않는다. 특정 고객별로 나뉘는 것은 프로젝트다."""
+
+    __tablename__ = "bms"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    summary: Mapped[str] = mapped_column(String, default="")  # 한 줄 설명
+    target_customers: Mapped[str] = mapped_column(Text, default="")  # 대상 고객 유형
+    revenue_model: Mapped[str] = mapped_column(Text, default="")  # 수익 구조
+    memo: Mapped[str] = mapped_column(Text, default="")
+
+    solutions: Mapped[list[Solution]] = relationship(secondary=bm_solutions, back_populates="bms")
+    projects: Mapped[list[Project]] = relationship(back_populates="bm")
+    opportunities: Mapped[list[Opportunity]] = relationship(back_populates="bm")
+
+
+class Opportunity(Stamped, Base):
+    """영업기회: 한 고객의 니즈들을 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 된다."""
+
+    __tablename__ = "opportunities"
+    __table_args__ = (Index("ux_opportunities_project_id", "project_id", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    stage: Mapped[str] = mapped_column(String, default=ontology.OPPORTUNITY_STAGE_DEFAULT)  # 순서 강제 없음 (ontology.OPPORTUNITY_STAGES)
+    bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id", ondelete="SET NULL"), nullable=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True)  # 이어진 프로젝트
+    memo: Mapped[str] = mapped_column(Text, default="")
+
+    customer: Mapped[Customer] = relationship(back_populates="opportunities")
+    bm: Mapped[BM | None] = relationship(back_populates="opportunities")
+    project: Mapped[Project | None] = relationship()
+    solutions: Mapped[list[Solution]] = relationship(secondary=opportunity_solutions, back_populates="opportunities")
+    activities: Mapped[list[Activity]] = relationship(secondary=activity_opportunities, back_populates="opportunities")
+    proposals: Mapped[list[Proposal]] = relationship(back_populates="opportunity")
 
 
 class Solution(Stamped, Origin, Base):
@@ -134,6 +190,8 @@ class Solution(Stamped, Origin, Base):
     proposals: Mapped[list[Proposal]] = relationship(
         secondary=proposal_solutions, back_populates="solutions"
     )
+    bms: Mapped[list[BM]] = relationship(secondary=bm_solutions, back_populates="solutions")
+    opportunities: Mapped[list[Opportunity]] = relationship(secondary=opportunity_solutions, back_populates="solutions")
 
 
 class SolutionFile(Stamped, Base):
@@ -178,6 +236,7 @@ class Activity(Stamped, Origin, Base):
     customers: Mapped[list[Customer]] = relationship(secondary=activity_customers)
     projects: Mapped[list[Project]] = relationship(secondary=activity_projects)
     partners: Mapped[list[Partner]] = relationship(secondary=activity_partners)
+    opportunities: Mapped[list[Opportunity]] = relationship(secondary=activity_opportunities, back_populates="activities")
 
 
 class FollowUp(Base):
@@ -213,7 +272,8 @@ class CustomerNeed(Base):
     customer_name: Mapped[str] = mapped_column(String, default="")  # 고객 (쓴 그대로)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
     content: Mapped[str] = mapped_column(Text)
-    # 단위 4(영업기회)에서 쓴다. 영업기회 표가 아직 없으므로 외래 키 제약 없이 번호 열만 둔다 (단위 4 가 제약 없이 그대로 쓴다: SQLite 는 열에 제약을 나중에 붙일 수 없다)
+    # 이 니즈가 묶인 영업기회 (R26). 단위 2 에서 만든 외래 키 제약 없는 번호 열을 그대로 쓴다 (SQLite 는 열에 제약을 나중에 붙일 수 없다):
+    # 한 니즈는 영업기회 하나에만, 같은 고객의 니즈만 묶는 규칙과 영업기회를 지울 때 비우는 일은 app/opportunities.py 가 지킨다
     opportunity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -288,6 +348,7 @@ class Proposal(Stamped, Base):
     title: Mapped[str] = mapped_column(String, default="")
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
     project_id: Mapped[int | None] = mapped_column("business_id", ForeignKey("businesses.id"), nullable=True)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id", ondelete="SET NULL"), nullable=True)  # 제안 건이 위한 영업기회
     request_memo: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String, default=ontology.PROPOSAL_STATUS_DEFAULT)
     extra_solution_ids: Mapped[list] = mapped_column(JSON, default=list)
@@ -302,6 +363,7 @@ class Proposal(Stamped, Base):
 
     customer: Mapped[Customer] = relationship(back_populates="proposals")
     project: Mapped[Project | None] = relationship(back_populates="proposals")
+    opportunity: Mapped[Opportunity | None] = relationship(back_populates="proposals")
     solutions: Mapped[list[Solution]] = relationship(
         secondary=proposal_solutions, back_populates="proposals"
     )

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumb, check_picker %}
+{% block title %}{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}{% endblock %}
+{% block content %}
+{% if opp %}{{ breadcrumb((ont.label("opportunity"), "/opportunities"), (opp.name, "/opportunities/" ~ opp.id), ("수정", None)) }}{% else %}{{ breadcrumb((ont.label("opportunity"), "/opportunities"), ("등록", None)) }}{% endif %}
+<h1>{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if not opp and not customer %}
+<form method="get" action="/opportunities/new" class="card stack">
+  <p class="muted">먼저 고객을 고르세요. 그 고객의 {{ ont.label("customer_need") }}를 묶을 수 있습니다.</p>
+  <label>{{ ont.prop("opportunity", "customer") }} (필수)
+    <select name="customer_id">
+      <option value="">선택하세요</option>
+      {% for c in customers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <div class="row"><button type="submit" class="primary">다음</button> <a href="/opportunities">취소</a></div>
+</form>
+{% else %}
+<form method="post" action="{{ "/opportunities/" ~ opp.id if opp else "/opportunities" }}" class="card stack">
+  <label>{{ ont.prop("opportunity", "name") }} (필수) <input name="name" value="{{ form.name }}"></label>
+  <label>{{ ont.prop("opportunity", "customer") }} (필수)
+    <select name="customer_id">
+      <option value="">선택하세요</option>
+      {% for c in customers %}<option value="{{ c.id }}" {% if form.customer_id | string == c.id | string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>{{ ont.prop("opportunity", "bm") }} (선택)
+    <select name="bm_id">
+      <option value="">선택 안 함</option>
+      {% for b in bms %}<option value="{{ b.id }}" {% if form.bm_id | string == b.id | string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>{{ ont.prop("opportunity", "memo") }} <textarea name="memo" rows="3">{{ form.memo }}</textarea></label>
+  {{ check_picker("need_ids", "묶을 " ~ ont.label("customer_need"), needs, form.need_ids) }}
+  <p class="muted help">{{ ont.OPPORTUNITY_RULES.bundle }}. 체크를 풀면 묶음이 풀립니다 (니즈는 지워지지 않습니다).
+    고객을 바꾸고 저장하면 목록이 그 고객의 것으로 바뀝니다.</p>
+  {% if unlinked_needs %}<p class="muted help unlinked-note">{{ ont.OPPORTUNITY_RULES.unlinked_note }}. ({{ unlinked_needs | length }}건)</p>{% endif %}
+  {{ check_picker("solution_ids", ont.prop("opportunity", "solutions"), solutions, form.solution_ids, show_stage=True) }}
+  <div class="row">
+    <button type="submit" class="primary">저장</button>
+    <a href="{{ "/opportunities/" ~ opp.id if opp else "/opportunities" }}">취소</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

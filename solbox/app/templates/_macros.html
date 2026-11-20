@@ -96,6 +96,9 @@
 
 {% macro stage_badge(code) %}<span class="badge stage-{{ code }}">{{ labels.STAGES.get(code, code) }}</span>{% endmacro %}
 
+{# 영업기회 단계 배지: 단계 → CSS 클래스 대응은 ontology.OPPORTUNITY_STAGE_CLASS #}
+{% macro opportunity_badge(code) %}<span class="badge {{ ont.OPPORTUNITY_STAGE_CLASS.get(code, '') }}">{{ ont.OPPORTUNITY_STAGES.get(code, code) }}</span>{% endmacro %}
+
 {# 정보 목록(dl)의 값: 비었으면 흐린 "없음" #}
 {% macro val(v) %}{% if v %}{{ v }}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
 

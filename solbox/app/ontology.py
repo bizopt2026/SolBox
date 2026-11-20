@@ -162,6 +162,25 @@ ERROR_KINDS = {
 # 확인 항목의 종류: 근거 문제 / 확인할 점 (저장된 값이 아니라 문구에서 가려낸다. app/checks.py)
 CHECK_KINDS = {"evidence": "근거 문제", "decide": "확인할 점"}
 
+OPPORTUNITY_STAGES = {  # 영업기회 단계 (순서 강제 없음: 어디서 어디로든 바꿀 수 있다)
+    "discovery": "발굴",
+    "proposing": "제안 중",
+    "negotiating": "협상",
+    "won": "수주",
+    "lost": "실패",
+    "hold": "보류",
+}
+OPPORTUNITY_STAGE_DEFAULT = "discovery"
+OPPORTUNITY_STAGE_WON = "won"
+OPPORTUNITY_FLOW = ("discovery", "proposing", "negotiating", "won")  # 단계 막대에 차례로 보이는 단계
+OPPORTUNITY_SIDE_STAGES = ("lost", "hold")  # 막대 옆에 따로 보이는 단계
+OPPORTUNITY_OPEN_STAGES = ("discovery", "proposing", "negotiating")  # 진행 중
+OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모두
+OPPORTUNITY_STAGE_CLASS = {  # 단계 -> 배지 CSS 클래스 (app.css)
+    "discovery": "opp-discovery", "proposing": "opp-proposing", "negotiating": "opp-negotiating",
+    "won": "opp-won", "lost": "opp-lost", "hold": "opp-hold",
+}
+
 ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
 
@@ -188,6 +207,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("job_kind", "AI 작업 종류", JOB_KINDS),
     CodeList("check_kind", "확인 항목 종류", CHECK_KINDS),
     CodeList("origin_type", "기록의 유래", ORIGINS),
+    CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT),
 )}
 
 # 모델 열이 어느 코드 목록의 값을 담는지 (물리 표 이름, 열 이름). 일관성 검사가 기본값을 대조한다.
@@ -209,6 +229,7 @@ COLUMN_CODES = {
     ("activities", "origin_type"): "origin_type",
     ("customers", "origin_type"): "origin_type",
     ("partners", "origin_type"): "origin_type",
+    ("opportunities", "stage"): "opportunity_stage",
     ("users", "role"): "user_role",
     ("ai_jobs", "status"): "job_status",
     ("ai_jobs", "kind"): "job_kind",
@@ -289,25 +310,37 @@ _TYPE_LIST = [
     ObjectType(
         "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객",
         props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
-               "partner": "같은 회사인 파트너"},
+               "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
     ),
     ObjectType(
         "project", "프로젝트", "핵심", "Project", "businesses", "/projects", "/projects/{id}", "projects/{id}.md",
         legacy_mirror_paths=("businesses/{id}.md",), nav="프로젝트",
-        props={"name": "프로젝트명", "customer": "고객", "description": "설명", "period": "기간", "status": "상태", "memo": "메모"},
+        props={"name": "프로젝트명", "customer": "고객", "description": "설명", "period": "기간", "status": "상태", "memo": "메모",
+               "bm": "BM", "opportunity": "영업기회"},
         physical={"fk_column": "business_id", "link_table": "activity_businesses"},
+    ),
+    ObjectType(
+        "opportunity", "영업기회", "핵심", "Opportunity", "opportunities", "/opportunities", "/opportunities/{id}",
+        "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회",
+        props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
+               "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건"},
+    ),
+    ObjectType(
+        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM",
+        props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조",
+               "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회"},
     ),
     ObjectType(
         "activity", "활동 기록", "핵심", "Activity", "activities", "/activities", "/activities/{id}",
         "activities/{year}/{id}.md", nav="활동 기록",
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
-               "projects": "프로젝트", "partners": "파트너", "origin": "유래"},
+               "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회"},
     ),
     ObjectType(
         "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
-               "directions": "제안 방향", "outline": "구성안"},
+               "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안"},
     ),
     ObjectType(
         "solution_file", "자료", "부속", "SolutionFile", "solution_files",
@@ -318,7 +351,7 @@ _TYPE_LIST = [
     ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups",
                props={"task": "할 일", "owner": "담당", "due": "기한", "done": "완료"}),
     ObjectType("customer_need", TERMS["customer_need"], "부속", "CustomerNeed", "customer_needs",
-               props={"customer": "고객", "content": "내용"}),
+               props={"customer": "고객", "content": "내용", "opportunity": "영업기회"}),
     ObjectType("direction", "제안 방향", "부속", embedded_in="proposals.directions",
                props={"title": "제목", "summary": "한 줄 소개", "solutions": "솔루션", "rationale": "근거", "effects": "기대 효과"}),
     ObjectType("slide", "구성안 장", "부속", embedded_in="proposals.outline",
@@ -357,7 +390,7 @@ NAV_ITEMS = (
     *((t.list_url.strip("/"), t.nav) for t in _TYPE_LIST if t.nav and t.list_url and t.code != "research_run"),
     ("research", TYPES["research_run"].nav),
 )
-_NAV_ORDER = ("intake", "", "solutions", "customers", "projects", "partners", "proposals", "activities", "research")
+_NAV_ORDER = ("intake", "", "solutions", "customers", "opportunities", "projects", "bms", "partners", "proposals", "activities", "research")
 NAV_ITEMS = tuple(sorted(NAV_ITEMS, key=lambda x: _NAV_ORDER.index(x[0])))
 ADMIN_NAV_ITEMS = (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템"))
 
@@ -406,6 +439,15 @@ ACTIVITY_LINKS = {"solution": "solutions", "customer": "customers", "project": "
 def activity_link_fields() -> list[tuple[str, str, str]]:
     """활동 기록 폼의 연결 칸: (유형, 화면 이름, 폼 필드 이름). 순서는 ACTIVITY_LINKS 와 같다."""
     return [(code, TYPES[code].label, f"{code}_ids") for code in ACTIVITY_LINKS]
+
+
+# 활동 기록 화면에서만 직접 고르는 연결 (AI 가 언급하지 않고, 이름만으로 새로 만들지도 않는다): 유형 -> Activity 관계 이름
+ACTIVITY_MANUAL_LINKS = {"opportunity": "opportunities"}
+
+
+def activity_form_link_fields() -> list[tuple[str, str, str]]:
+    """활동 기록 폼의 연결 칸 전체: ACTIVITY_LINKS 다음에 직접 고르는 연결."""
+    return [(code, TYPES[code].label, f"{code}_ids") for code in (*ACTIVITY_LINKS, *ACTIVITY_MANUAL_LINKS)]
 
 
 # 이름만으로 새로 만들 수 있는 대상 (활동 기록 저장·올리기): 관계 이름 -> 유형
@@ -494,14 +536,15 @@ def _r(key, label, source, target, cardinality, storage, physical, note=""):
                     (target,) if isinstance(target, str) else tuple(target), cardinality, storage, physical, note)
 
 
-_CORE = ("solution", "partner", "customer", "project", "activity", "proposal")
+_CORE = ("solution", "partner", "customer", "project", "activity", "proposal", "opportunity", "bm")
 RELATIONS: tuple[Relation, ...] = (
     _r("R1", "공급한다", "partner", "solution", "1:N", "fk", "solutions.partner_id", "솔루션은 파트너가 없을 수 있다"),
     _r("R2", "가진다", "customer", "project", "1:N", "fk", "businesses.customer_id", "프로젝트는 고객이 반드시 있다"),
     _r("R3", "붙는다", "solution", "solution_file", "1:N", "fk", "solution_files.solution_id"),
     _r("R4", "다룬다", "activity", "solution", "N:M", "link", "activity_solutions"),
     _r("R5", "관련된다", "activity", "customer", "N:M", "link", "activity_customers"),
-    _r("R6", "관련된다", "activity", "project", "N:M", "link", "activity_businesses"),
+    _r("R6", "관련된다", "activity", ("project", "opportunity"), "N:M", "link", "activity_businesses activity_opportunities",
+       "R6': 프로젝트는 activity_businesses, 영업기회는 activity_opportunities. 영업기회는 활동 기록 화면에서 직접 고른다 (이름 언급으로 만들지 않는다)"),
     _r("R7", "관련된다", "activity", "partner", "N:M", "link", "activity_partners"),
     _r("R8", "나온다", "activity", "follow_up", "1:N", "fk", "follow_ups.activity_id", "활동 기록을 지우면 함께 지워진다. 옛 JSON 열은 읽지 않는다"),
     _r("R9", "나온다", "activity", "customer_need", "1:N", "fk", "customer_needs.activity_id", "활동 기록을 지우면 함께 지워진다. 옛 JSON 열은 읽지 않는다"),
@@ -515,7 +558,7 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R15", "후보에 더한다", "proposal", "solution", "N:M", "json", "proposals.extra_solution_ids", "직접 추가한 후보"),
     _r("R16", "쓴다", "direction", "solution", "N:M", "json", "proposals.directions", "역할 글과 함께"),
     _r("R17", "근거로 삼는다", ("direction", "slide", "suggestion"),
-       ("solution", "solution_file", "customer", "project", "partner", "activity", "research_report"), "N:M", "text",
+       ("solution", "solution_file", "customer", "project", "partner", "activity", "research_report", "opportunity", "bm"), "N:M", "text",
        "proposals.directions proposals.outline research_reports.suggestions", "지식 사본 경로 글자. 해석은 ontology.parse_rel"),
     _r("R18", "민다", "suggestion", "solution", "N:M", "json", "research_reports.suggestions"),
     _r("R19", "등록된다", "research_report", "solution", "1:N", "fk", "solutions.origin_type solutions.origin_id solutions.origin_item",
@@ -530,6 +573,18 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R23", "낸다", "research_run", "research_report", "1:N", "fk", "research_reports.run_id"),
     _r("R24", "작성한다", "user", _CORE, "1:N", "fk", "partners.created_by_id", "삭제 권한의 기준. 모든 핵심 대상의 created_by_id"),
     _r("R25", "같은 회사다", "partner", "customer", "1:1", "fk", "partners.customer_id", "선택. 한 파트너에 고객 하나, 한 고객에 파트너 하나"),
+    # 단위 4 (13장): 활동 기록 → 고객 니즈 → 영업기회 → 프로젝트. BM 은 고객에 묶이지 않는다
+    _r("R26", "모인다", "customer_need", "opportunity", "N:1", "fk", "customer_needs.opportunity_id",
+       "선택. 한 니즈는 영업기회 하나에만. 같은 고객의 니즈만. 외래 키 제약 없는 번호 열이라 응용 수준에서 지킨다 (영업기회를 지우면 비운다)"),
+    _r("R27", "의 것이다", "opportunity", "customer", "N:1", "fk", "opportunities.customer_id", "필수"),
+    _r("R28", "검토한다", "opportunity", "solution", "N:M", "link", "opportunity_solutions", "제안 후보를 정렬할 때 앞에 둔다"),
+    _r("R29", "위한 것이다", "proposal", "opportunity", "N:1", "fk", "proposals.opportunity_id",
+       "선택. 그 고객의 영업기회여야 한다. 영업기회를 지우면 비운다"),
+    _r("R30", "이어진다", "opportunity", "project", "1:1", "fk", "opportunities.project_id",
+       "선택. 수주(won)일 때 프로젝트로 전환하거나 같은 고객의 기존 프로젝트를 잇는다. 한 영업기회에 프로젝트 하나, 한 프로젝트에 영업기회 하나. 프로젝트를 지우면 비운다"),
+    _r("R31", "따른다", "project", "bm", "N:1", "fk", "businesses.bm_id", "선택"),
+    _r("R32", "접근한다", "opportunity", "bm", "N:1", "fk", "opportunities.bm_id", "선택"),
+    _r("R33", "구성된다", "bm", "solution", "N:M", "link", "bm_solutions", "제안 후보를 정렬할 때 영업기회 다음에 둔다"),
 )
 
 # ======================================================================================
@@ -540,3 +595,13 @@ RELATIONS: tuple[Relation, ...] = (
 def proposal_candidate_rule_text() -> str:
     """제안 후보 규칙 설명 (화면·프롬프트가 같은 말을 쓴다)."""
     return f"{STAGES[STAGE_HOLD]} 단계를 뺀 모든 솔루션과, 제안 건에 직접 추가한 솔루션"
+
+
+# ---- 영업기회·BM 행위 조건 (조건 코드는 app/opportunities.py, 화면 안내 글은 여기 한 곳) ----
+OPPORTUNITY_RULES = {
+    "bundle": "묶을 수 있는 니즈: 이 영업기회의 고객에 연결된 니즈 중 아직 다른 영업기회에 묶이지 않은 것",
+    "unlinked_note": "고객에 연결되지 않은 니즈는 활동 기록에서 고객 이름을 등록된 이름으로 고치면 여기에 나옵니다",
+    "convert": "프로젝트로 전환: 수주 단계이고 아직 프로젝트가 없을 때 한 번만. 같은 고객의 기존 프로젝트를 이을 수도 있습니다",
+    "delete": "삭제하면 묶은 니즈는 풀리고(니즈는 남습니다) 제안 건의 연결은 비워집니다. 프로젝트는 지워지지 않습니다",
+    "bm_delete": "프로젝트나 영업기회가 따르는 BM 은 삭제할 수 없습니다",
+}

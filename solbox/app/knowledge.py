@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session, object_session
 from app import checks, labels, ontology
 from app.extract import extract_text
 from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
-from app.models import Activity, AppSetting, Customer, Partner, Project, ResearchReport, Solution, SolutionFile
+from app.models import (
+    BM, Activity, AppSetting, Customer, CustomerNeed, Opportunity, Partner, Project, ResearchReport, Solution, SolutionFile,
+)
 
 log = logging.getLogger(__name__)
 _UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
@@ -95,6 +97,8 @@ class KnowledgeMirror:
             Solution: self._solution,
             Customer: self._customer,
             Project: self._project,
+            Opportunity: self._opportunity,
+            BM: self._bm,
             Partner: self._partner,
             Activity: self._activity,
             ResearchReport: self._report,
@@ -122,7 +126,7 @@ class KnowledgeMirror:
         """사본 폴더를 비우고 DB 의 모든 항목과 자료 텍스트를 새로 쓴다."""
         shutil.rmtree(self.root, ignore_errors=True)
         self.root.mkdir(parents=True, exist_ok=True)
-        for model in (Solution, Customer, Project, Partner, Activity):
+        for model in (Solution, Customer, Project, Opportunity, BM, Partner, Activity):
             for obj in db.scalars(select(model).order_by(model.id)):
                 self.sync(obj)
         for report in db.scalars(select(ResearchReport).where(ResearchReport.status == "done").order_by(ResearchReport.id)):
@@ -173,7 +177,21 @@ class KnowledgeMirror:
                 f"- {labels.FILE_KINDS.get(f.kind, f.kind)}: {f.original_name} ({self._rel(f)})"
                 for f in sorted(s.files, key=lambda f: f.id)
             ]
+        out += self._bm_lines(s.bms) + self._opportunity_lines(s.opportunities, heading=f"{ontology.label('opportunity')} (검토 중)")
         return out + self._activity_log(list(s.activities))
+
+    def _bm_lines(self, bms) -> list[str]:
+        if not bms:
+            return []
+        return ["", f"## {ontology.label('bm')}", ""] + [f"- {self._ref(b.name, b)}" for b in sorted(bms, key=lambda b: b.id)]
+
+    def _opportunity_lines(self, opps, heading: str | None = None, stage: bool = False) -> list[str]:
+        if not opps:
+            return []
+        out = ["", f"## {heading or ontology.label('opportunity')}", ""]
+        for o in sorted(opps, key=lambda o: o.id):
+            out.append(f"- {self._ref(o.name, o)}" + (f" ({ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage)})" if stage else ""))
+        return out
 
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
@@ -183,6 +201,7 @@ class KnowledgeMirror:
         if c.projects:
             out += ["", f"## {ontology.label('project')}", ""]
             out += [f"- {self._ref(b.name, b)}" for b in sorted(c.projects, key=lambda b: b.id)]
+        out += self._opportunity_lines(c.opportunities, stage=True)
         return out + self._activity_log(self._linked_activities(c, Activity.customers))
 
     def _project(self, b: Project) -> list[str]:
@@ -192,9 +211,48 @@ class KnowledgeMirror:
             _item(P("project", "period"), b.period),
             _item(P("project", "status"), b.status),
             _item(P("project", "description"), b.description),
+            f"- {P('project', 'bm')}: {self._ref(b.bm.name, b.bm)}" if b.bm else None,
             _item("메모", b.memo),
         )
+        session = object_session(b)
+        came_from = list(session.scalars(select(Opportunity).where(Opportunity.project_id == b.id))) if session is not None else []
+        out += self._opportunity_lines(came_from, heading=f"{ontology.label('opportunity')} (이 프로젝트가 된 것)")
         return out + self._activity_log(self._linked_activities(b, Activity.projects))
+
+    def _opportunity(self, o: Opportunity) -> list[str]:
+        out = [f"# {o.name}", ""]
+        out += _lines(
+            f"- {P('opportunity', 'customer')}: {self._ref(o.customer.name, o.customer)}",
+            _item(P("opportunity", "stage"), ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage)),
+            f"- {P('opportunity', 'bm')}: {self._ref(o.bm.name, o.bm)}" if o.bm else None,
+            f"- {P('opportunity', 'project')}: {self._ref(o.project.name, o.project)}" if o.project else None,
+            _item(P("opportunity", "memo"), o.memo),
+        )
+        session = object_session(o)
+        needs = list(session.scalars(select(CustomerNeed).where(CustomerNeed.opportunity_id == o.id).order_by(CustomerNeed.activity_id, CustomerNeed.position))) \
+            if session is not None else []
+        if needs:
+            out += ["", f"## {P('opportunity', 'needs')}", ""]
+            for n in needs:
+                out.append(f"- {' '.join(n.content.split())} ({self._rel(n.activity)})")
+        if o.solutions:
+            out += ["", f"## {P('opportunity', 'solutions')}", ""]
+            out += [f"- {self._ref(s.name, s)}" for s in sorted(o.solutions, key=lambda s: s.id)]
+        return out
+
+    def _bm(self, b: BM) -> list[str]:
+        out = [f"# {b.name}", ""]
+        out += _lines(
+            _item(P("bm", "summary"), b.summary), _item(P("bm", "target_customers"), b.target_customers),
+            _item(P("bm", "revenue_model"), b.revenue_model), _item(P("bm", "memo"), b.memo),
+        )
+        if b.solutions:
+            out += ["", f"## {P('bm', 'solutions')}", ""]
+            out += [f"- {self._ref(s.name, s)}" for s in sorted(b.solutions, key=lambda s: s.id)]
+        if b.projects:
+            out += ["", f"## {P('bm', 'projects')}", ""]
+            out += [f"- {self._ref(p.name, p)}" for p in sorted(b.projects, key=lambda p: p.id)]
+        return out + self._opportunity_lines(b.opportunities, stage=True)
 
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
@@ -215,6 +273,7 @@ class KnowledgeMirror:
             _item(ontology.label("customer"), ", ".join(self._ref(c.name, c) for c in a.customers)),
             _item(P("activity", "projects"), ", ".join(self._ref(b.name, b) for b in a.projects)),
             _item(ontology.label("partner"), ", ".join(self._ref(p.name, p) for p in a.partners)),
+            _item(ontology.label("opportunity"), ", ".join(self._ref(o.name, o) for o in a.opportunities)),
         )
         out += _section(P("activity", "summary_md"), a.summary_md)
         follow = []
@@ -233,7 +292,9 @@ class KnowledgeMirror:
             who = n.customer_name
             if n.customer is not None:  # 등록된 고객 기록과 연결된 줄
                 who = f"{who} ({self._ref(n.customer.name, n.customer)})" if who else self._ref(n.customer.name, n.customer)
-            signals.append(f"- {who}: {n.content}" if who else f"- {n.content}")
+            line = f"- {who}: {n.content}" if who else f"- {n.content}"
+            opp = object_session(a).get(Opportunity, n.opportunity_id) if n.opportunity_id is not None and object_session(a) is not None else None
+            signals.append(line + (f" → {ontology.label('opportunity')} {self._ref(opp.name, opp)}" if opp is not None else ""))
         out += _section(P("activity", "demand_signals"), "\n".join(signals))
         return out + _section(P("activity", "raw_text"), a.raw_text)
 
@@ -270,7 +331,7 @@ class KnowledgeMirror:
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
-KNOWLEDGE_FORMAT = 4  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄)
+KNOWLEDGE_FORMAT = 5  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

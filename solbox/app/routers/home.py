@@ -11,6 +11,7 @@ from app import labels, ontology, transcribe
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
+from app import opportunities as opps
 from app.models import AIJob, Activity, FollowUp, Intake, Proposal, ResearchRun, Solution, User
 from app.routers._common import newest_first
 from app.security import require_user
@@ -93,5 +94,5 @@ def home(request: Request, user: User = Depends(require_user), db: Session = Dep
         intake=intake_summary(db, user), max_files=intake_lib.MAX_FILES,
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
-        stages=stage_counts(db), research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
+        open_opportunities=opps.open_count(db), stages=stage_counts(db), research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
     )

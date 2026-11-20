@@ -11,24 +11,25 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import labels, ontology
+from app import labels, ontology, opportunities as opps
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.deck import build_deck
 from app.sources import SourceLookup
 from app.knowledge import safe_name
 from app.main import render
-from app.models import Customer, Project, Proposal, ProposalMessage, Solution, User
+from app.models import Customer, Opportunity, Project, Proposal, ProposalMessage, Solution, User
 from app.proposals import (
     candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
     step_states,
 )
-from app.routers._common import get_deletable_or_404, get_or_404, paginate, search_by_name
+from app.routers._common import get_deletable_or_404, get_or_404, paginate, search_by_name, submitted_fields
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
 CUSTOMER_REQUIRED = "고객을 선택하세요."
 PROJECT_MISMATCH = "선택한 고객의 프로젝트가 아닙니다."
+OPPORTUNITY_MISMATCH = opps.OPPORTUNITY_MISMATCH
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
 EMPTY_MESSAGE = "메시지를 입력하세요."
 MAX_MESSAGE, MAX_INSTRUCTION, MAX_MEMO = 4000, 500, 2000
@@ -67,7 +68,7 @@ def _new_page(request: Request, db: Session, form: dict, error: str | None = Non
     projects = search_by_name(db, Project)
     return render(
         request, "proposals/new.html", status_code=400 if error else 200,
-        form=form, error=error, customers=customers, projects=projects,
+        form=form, error=error, customers=customers, projects=projects, opportunities=opps.opportunities_of_customer(db, None),
         extra_candidates=_extra_candidates(db),
     )
 
@@ -92,22 +93,29 @@ def list_proposals(
 
 @router.get("/new")
 def new_form(
-    request: Request, customer_id: str = "", project_id: str = "",
+    request: Request, customer_id: str = "", project_id: str = "", opportunity_id: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    form = {"customer_id": customer_id, "project_id": project_id, "request_memo": "", "extra_solution_ids": []}
+    form = {"customer_id": customer_id, "project_id": project_id, "opportunity_id": "", "request_memo": "", "extra_solution_ids": []}
+    oid = _parse_id(opportunity_id)
+    opp = db.get(Opportunity, oid) if oid is not None else None
+    if opp is not None and (not customer_id.strip() or customer_id.strip() == str(opp.customer_id)):
+        # 영업기회에서 만들기: 고객을 채우고, 프로젝트가 이어져 있으면 미리 채운다 (고칠 수 있다)
+        form.update(customer_id=str(opp.customer_id), opportunity_id=str(opp.id))
+        if not project_id.strip() and opp.project_id:
+            form["project_id"] = str(opp.project_id)
     return _new_page(request, db, form)
 
 
 @router.post("")
 def create(
     request: Request,
-    customer_id: str = Form(""), project_id: str = Form(""), request_memo: str = Form(""),
+    customer_id: str = Form(""), project_id: str = Form(""), opportunity_id: str = Form(""), request_memo: str = Form(""),
     extra_solution_ids: list[str] = Form([]),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     form = {
-        "customer_id": customer_id.strip(), "project_id": project_id.strip(),
+        "customer_id": customer_id.strip(), "project_id": project_id.strip(), "opportunity_id": opportunity_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
     }
     if len(form["request_memo"]) > MAX_MEMO:
@@ -122,8 +130,14 @@ def create(
         project = db.get(Project, bid) if bid is not None else None
         if project is None or project.customer_id != customer.id:
             return _new_page(request, db, form, PROJECT_MISMATCH)
+    opportunity = None
+    if form["opportunity_id"]:
+        oid = _parse_id(form["opportunity_id"])
+        opportunity = db.get(Opportunity, oid) if oid is not None else None
+        if opportunity is None or opportunity.customer_id != customer.id:
+            return _new_page(request, db, form, OPPORTUNITY_MISMATCH)
     proposal = Proposal(
-        customer_id=customer.id, project_id=project.id if project else None,
+        customer_id=customer.id, project_id=project.id if project else None, opportunity_id=opportunity.id if opportunity else None,
         request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"],
         created_by_id=user.id,
     )
@@ -154,6 +168,7 @@ def _detail_page(
         candidates=candidates, extra_candidates=_extra_candidates(db),
         notice=notice, can_delete=can_delete(user, proposal),
         position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
+        customer_opportunities=opps.opportunities_of_customer(db, proposal.customer_id),
         summaries=section_summaries(proposal, candidates), src=SourceLookup(db), **extra,
     )
 
@@ -337,12 +352,21 @@ def download(
 @router.post("/{proposal_id}/target")
 def update_target(
     proposal_id: int,
-    request_memo: str = Form(""), extra_solution_ids: list[str] = Form([]),
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    request_memo: str = Form(""), extra_solution_ids: list[str] = Form([]), opportunity_id: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), fields: frozenset = Depends(submitted_fields),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
     if len(request_memo.strip()) > MAX_MEMO:
         raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
+    if "opportunity_id" in fields:  # 칸이 오지 않으면 그대로 둔다. 비어 오면 비운다. 그 고객의 영업기회여야 한다
+        if opportunity_id.strip():
+            oid = _parse_id(opportunity_id)
+            opportunity = db.get(Opportunity, oid) if oid is not None else None
+            if opportunity is None or opportunity.customer_id != proposal.customer_id:
+                raise HTTPException(status_code=400, detail=OPPORTUNITY_MISMATCH)
+            proposal.opportunity_id = opportunity.id
+        else:
+            proposal.opportunity_id = None
     ids = _solution_ids(db, extra_solution_ids)
     # 폼에는 보류 단계 솔루션만 나온다. 그 사이 보류에서 풀린 솔루션의 기존 선택은 그대로 둔다.
     for sid in proposal.extra_solution_ids or []:

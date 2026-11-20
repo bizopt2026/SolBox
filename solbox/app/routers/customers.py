@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
-from app import ontology, origin, same_company
+from app import ontology, opportunities as opps, origin, same_company
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -23,6 +23,7 @@ HAS_PROJECTS = "이 고객에 연결된 프로젝트가 있어 삭제할 수 없
 
 
 HAS_PROPOSALS = "제안 건이 있는 고객은 삭제할 수 없습니다."
+HAS_OPPORTUNITIES = opps.HAS_OPPORTUNITIES
 
 
 def _form_page(request: Request, db: Session, form: dict, customer: Customer | None = None, error: str | None = None):
@@ -36,6 +37,7 @@ def _detail_page(request: Request, db: Session, user: User, customer: Customer, 
     return render(
         request, "customers/detail.html", status_code=400 if error else 200,
         customer=customer, projects=sorted(customer.projects, key=lambda b: b.name),
+        opportunities=opps.opportunities_of_customer(db, customer.id),
         proposals=sorted(customer.proposals, key=lambda p: p.updated_at, reverse=True),
         activities=newest_first(activities_linked_to(db, Activity.customers, customer)),
         can_delete=can_delete(user, customer), error=error, origin=origin.view(db, user, customer),
@@ -151,6 +153,8 @@ def delete(
         return _detail_page(request, db, user, customer, HAS_PROJECTS)
     if customer.proposals:
         return _detail_page(request, db, user, customer, HAS_PROPOSALS)
+    if customer.opportunities:
+        return _detail_page(request, db, user, customer, HAS_OPPORTUNITIES)
     activities = activities_linked_to(db, Activity.customers, customer)
     for a in activities_with_needs_of(db, customer):
         if a not in activities:

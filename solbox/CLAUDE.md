@@ -22,13 +22,14 @@
 - 음성 받아쓰기는 `app/transcribe.py` 의 연결 지점(설정 `transcriber`: `none` 은 "받아쓰기 필요"로 보관만, `faster-whisper` 는 서버 안 CPU 받아쓰기)이다. 설계 `docs/superpowers/specs/2026-11-20-audio-transcription-design.md`. 실제 받아쓰기는 개발 환경에서 돌려 보지 못했다 (모델 저장소 접속 불가).
 
 ## 온톨로지 (단일 정의)
-- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R25), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
+- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R33), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
 - 프로젝트(옛 "기존 사업")는 코드에서 `Project`·`project_id`·`/projects` 이지만 물리 표·열은 `businesses`·`business_id`·`activity_businesses` 그대로다 (표·열 이름을 바꾸거나 지우지 않는다). 옛 `/businesses` 주소는 영구 이동한다. 저장된 옛 값(정리안의 `businesses` 키, 출처 `businesses/N.md`)은 읽을 수 있어야 하고 고쳐 쓰지 않는다.
 - 용어: 프로젝트, 제안 건(메뉴는 "제안", PPT 는 "제안서"), 올리기 묶음/올린 파일, 자료, 고객 니즈(JSON 키는 `demand_signals` 그대로), 확인 항목(근거 문제·확인할 점), 출처/이유. 화면·사본·프롬프트는 `ontology.label/prop/term` 에서 읽는다.
 - 후속 조치·고객 니즈는 `follow_ups`·`customer_needs` 표가 원본이다. `activities.follow_ups`·`demand_signals` JSON 열은 옛 데이터로만 남아 있으니 읽지도 쓰지도 않는다 (ORM 이름 `legacy_*`, 시작 때 한 번 복사하는 `migrate.copy_activity_json` 만 읽는다). 화면에서 저장할 때는 줄 번호(숨은 칸 `fu_id`·`ds_id`)로 행을 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객·담당 연결은 `activity_rows.LinkIndex` 의 정확히 하나 일치 규칙 한 곳만 쓴다.
 - 제안 후보 = 보류가 아닌 모든 솔루션 + 제안 건에 직접 추가한 솔루션 (`proposals.candidate_condition` 한 곳).
 - 유래: 솔루션·활동 기록·고객·파트너의 `origin_type`(직접 입력/올리기/리서치, 비면 모름)·`origin_id`(묶음 번호 또는 보고서 번호, 제약 없는 응용 수준 키)는 `app/origin.py` 로 읽고 지운다. 새로 만들 때만 쓴다(`records.get_or_create(origin=…)` 기본은 직접 입력, 올리기 저장은 묶음 번호; 연결·덧붙임은 건드리지 않는다). 올리기 묶음이나 리서치 실행을 지우는 곳은 같은 트랜잭션에서 `origin.clear_dangling` 을 부른다. 시작 때 한 번 `Intake.result` 로 되짚어 채운다(`migrate.backfill_origins`, 근거 없는 기록은 비워 둔다). 기록을 지울 때는 `clear_file_targets` 로 올린 파일의 `target_*` 도 비운다.
 - 같은 회사: `partners.customer_id`(유일)가 파트너 ↔ 고객 연결의 유일한 저장이고 `app/same_company.py` 가 양쪽 화면의 규칙을 한 곳에 둔다. 이름이 같아도 자동으로 잇지 않는다(올리기 포함, 안내만).
+- BM·영업기회(단위 4): BM 은 사업 모델이고 고객에 묶이지 않으며, 특정 고객별로 나뉘는 것은 프로젝트다. 흐름은 활동 기록 → 고객 니즈 → 영업기회 → 프로젝트. 행위 조건(같은 고객의 아직 묶이지 않은 니즈만 묶기, 수주일 때 한 번만 프로젝트로 전환·같은 고객의 기존 프로젝트 잇기, 영업기회·프로젝트·BM·고객 삭제 규칙)은 `app/opportunities.py` 한 곳에 있고 라우터·템플릿이 그것만 부른다. 단계 목록·배지 클래스·화면 안내 글은 `ontology.py`(`OPPORTUNITY_*`). `customer_needs.opportunity_id` 는 제약 없는 번호 열이라 지울 때 응용 코드가 비운다 (영업기회·`proposals.opportunity_id`·`businesses.bm_id` 는 `migrate.py` 가 옛 DB 에 더한다). AI 정리·올리기는 영업기회·BM 을 제안하거나 만들지 않는다 (활동 기록 화면에서 직접 고른다). 제안 후보의 집합은 그대로이고 순서만 영업기회의 검토 솔루션 → 그 BM(영업기회가 없으면 프로젝트의 BM)의 솔루션 → 나머지다 (`proposals.priority_groups`).
 - 사본 형식이 바뀌면 `knowledge.KNOWLEDGE_FORMAT` 을 올린다. 시작할 때 표시(`app_settings.knowledge_format`)와 다르거나 옛 폴더가 남아 있으면 사본을 한 번 다시 만든다.
 
 ## 꼭 지킬 규칙

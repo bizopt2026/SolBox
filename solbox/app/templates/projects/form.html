@@ -13,6 +13,12 @@
         {% for c in customers %}<option value="{{ c.id }}" {% if form.customer_id | string == c.id | string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
       </select>
     </label>
+    <label>{{ ont.prop("project", "bm") }} (선택)
+      <select name="bm_id">
+        <option value="">선택 안 함</option>
+        {% for b in bms %}<option value="{{ b.id }}" {% if form.bm_id | string == b.id | string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+      </select>
+    </label>
     <label>설명 <textarea name="description" rows="3">{{ form.description }}</textarea></label>
     <label>기간 <input name="period" value="{{ form.period }}"></label>
     <label>상태 <input name="status" value="{{ form.status }}"></label>

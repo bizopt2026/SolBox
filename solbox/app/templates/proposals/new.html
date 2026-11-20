@@ -22,6 +22,15 @@
       {% endfor %}
     </select>
   </label>
+  <label>{{ ont.label("opportunity") }} (선택)
+    <select name="opportunity_id">
+      <option value="">선택 안 함</option>
+      {% for o in opportunities %}
+      <option value="{{ o.id }}" {{ "selected" if form.opportunity_id == o.id|string }}>{{ o.customer.name }} – {{ o.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <p class="muted help">고른 고객의 {{ ont.label("opportunity") }}만 저장됩니다. {{ ont.label("opportunity") }}를 고르면 그 검토 솔루션과 {{ ont.label("bm") }}의 솔루션이 제안 후보 앞쪽에 옵니다.</p>
   {% set memo = form.request_memo %}{% set selected_ids = form.extra_solution_ids %}
   {% include "proposals/_target_fields.html" %}
   <div class="row"><button type="submit" class="primary">만들기</button> <a href="/proposals">취소</a></div>

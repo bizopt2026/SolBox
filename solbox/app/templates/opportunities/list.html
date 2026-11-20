@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import opportunity_badge, list_head, empty_list, pager %}
+{% block title %}{{ ont.label("opportunity") }}{% endblock %}
+{% block content %}
+{{ list_head(ont.label("opportunity"), pg, q or stage, "/opportunities/new") }}
+<form method="get" action="/opportunities" class="row">
+  <label>검색 <input type="search" name="q" value="{{ q }}"></label>
+  <label>단계
+    <select name="stage">
+      <option value="">전체</option>
+      <option value="{{ ont.OPPORTUNITY_FILTER_OPEN }}" {{ "selected" if stage == ont.OPPORTUNITY_FILTER_OPEN }}>진행 중</option>
+      {% for code, name in ont.OPPORTUNITY_STAGES.items() %}<option value="{{ code }}" {{ "selected" if code == stage }}>{{ name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">검색</button>
+</form>
+{% if pg.items %}
+<div class="tablewrap"><table>
+  <thead><tr><th>{{ ont.prop("opportunity", "name") }}</th><th>{{ ont.prop("opportunity", "customer") }}</th><th>{{ ont.prop("opportunity", "stage") }}</th><th>{{ ont.prop("opportunity", "bm") }}</th><th>{{ ont.prop("opportunity", "project") }}</th><th>수정일</th></tr></thead>
+  <tbody>
+  {% for o in pg.items %}
+    <tr>
+      <td><a href="/opportunities/{{ o.id }}">{{ o.name }}</a></td>
+      <td><a href="/customers/{{ o.customer_id }}">{{ o.customer.name }}</a></td>
+      <td>{{ opportunity_badge(o.stage) }}</td>
+      <td>{% if o.bm %}<a href="/bms/{{ o.bm_id }}">{{ o.bm.name }}</a>{% endif %}</td>
+      <td>{% if o.project %}<a href="/projects/{{ o.project_id }}">{{ o.project.name }}</a>{% endif %}</td>
+      <td class="muted">{{ o.updated_at.strftime("%Y-%m-%d") }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{{ pager(pg, request) }}
+{% else %}{{ empty_list(q or stage, "아직 등록된 " ~ ont.label("opportunity") ~ "가 없습니다. 활동 기록의 고객 니즈에서 만들거나 직접 등록하세요.", "/opportunities/new") }}{% endif %}
+{% endblock %}

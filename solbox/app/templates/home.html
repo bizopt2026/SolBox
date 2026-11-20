@@ -55,6 +55,7 @@
   </ul>
   {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
   <p><a href="/proposals">제안 건 목록</a> · <a href="/proposals/new">+ 제안 건 만들기</a></p>
+  <p class="muted open-opps">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ open_opportunities }}건</a></p>
 </section>
 
 <section class="card">

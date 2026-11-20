@@ -30,11 +30,39 @@ def candidate_condition(extra_ids):
     return or_(cond, Solution.id.in_(ids)) if ids else cond
 
 
-def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
-    """제안에 조합할 수 있는 솔루션: 규칙은 `candidate_condition`. 이름순, 중복 없음."""
+def _base_candidates(db: Session, p: Proposal) -> list[Solution]:
     ids = [i for i in (p.extra_solution_ids or []) if isinstance(i, int)]
-    cond = candidate_condition(ids)
-    return list(db.scalars(select(Solution).where(cond).order_by(Solution.name, Solution.id)))
+    return list(db.scalars(select(Solution).where(candidate_condition(ids)).order_by(Solution.name, Solution.id)))
+
+
+def priority_groups(db: Session, p: Proposal, candidates: list[Solution] | None = None) -> list[dict]:
+    """제안 후보 중 앞에 둘 솔루션 묶음 (순서대로): 영업기회의 검토 솔루션, 그 영업기회의 BM 의 솔루션
+    (영업기회가 없으면 프로젝트가 따르는 BM 의 솔루션). 각 묶음은 {"reason": 글, "solutions": [...]} (이름순, 앞 묶음에 든 것은 뺀다).
+    후보가 아닌 솔루션(보류인데 직접 추가하지 않은 것)은 넣지 않는다: 후보의 집합은 `candidate_condition` 그대로다."""
+    pool = {s.id: s for s in (candidates if candidates is not None else _base_candidates(db, p))}
+    opp = p.opportunity
+    bm = opp.bm if opp is not None else (p.project.bm if p.project is not None else None)
+    sources = []
+    if opp is not None:
+        sources.append((f"{ontology.label('opportunity')} '{opp.name}' 의 {ontology.prop('opportunity', 'solutions')}", opp.solutions))
+    if bm is not None:
+        owner = f"{ontology.label('opportunity')}의" if opp is not None else f"{ontology.label('project')}가 따르는"
+        sources.append((f"{owner} {ontology.label('bm')} '{bm.name}' 의 솔루션", bm.solutions))
+    groups, placed = [], set()
+    for reason, solutions in sources:
+        picked = [s for s in sorted(solutions, key=lambda s: (s.name, s.id)) if s.id in pool and s.id not in placed]
+        if picked:
+            placed.update(s.id for s in picked)
+            groups.append({"reason": reason, "solutions": [pool[s.id] for s in picked]})
+    return groups
+
+
+def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
+    """제안에 조합할 수 있는 솔루션: 집합은 `candidate_condition` 이 정한다. 순서만 영업기회의 검토 솔루션 → BM 의 솔루션 → 나머지(이름순)."""
+    base = _base_candidates(db, p)
+    front = [s for g in priority_groups(db, p, base) for s in g["solutions"]]
+    first = {s.id for s in front}
+    return front + [s for s in base if s.id not in first]
 
 
 def display_title(p: Proposal) -> str:
@@ -364,7 +392,7 @@ def open_section(p: Proposal) -> str:
 
 def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]:
     """접힌 구역에 보이는 한 줄 요약."""
-    who = p.customer.name + (f" · {p.project.name}" if p.project is not None else "")
+    who = p.customer.name + (f" · {p.project.name}" if p.project is not None else "") + (f" · {p.opportunity.name}" if p.opportunity is not None else "")
     names = [s.name for s in candidates]
     shown = ", ".join(names[:3]) + (f" 외 {len(names) - 3}개" if len(names) > 3 else "")
     target = f"{who} — 조합 솔루션 {shown}" if names else who

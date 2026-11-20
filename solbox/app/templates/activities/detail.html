@@ -13,6 +13,7 @@
     <dt>고객</dt><dd>{% for o in activity.customers %}<a href="/customers/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
     <dt>{{ ont.label("project") }}</dt><dd>{% for o in activity.projects %}<a href="/projects/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
     <dt>파트너</dt><dd>{% for o in activity.partners %}<a href="/partners/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
+    <dt>{{ ont.label("opportunity") }}</dt><dd>{% for o in activity.opportunities %}<a href="/opportunities/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
   </dl>
 </section>
 {% if activity.summary_md %}
@@ -37,7 +38,9 @@
 {% if activity.needs %}
 <section class="card">
   <h2>{{ ont.prop("activity", "demand_signals") }}</h2>
-  <ul>{% for n in activity.needs %}<li>{% if n.customer_name %}<strong>{{ n.customer_name }}</strong>{% if n.customer_id %} <a class="chip" href="/customers/{{ n.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}: {% endif %}{{ n.content }}</li>{% endfor %}</ul>
+  <ul class="need-list">{% for n in activity.needs %}<li>{% if n.customer_name %}<strong>{{ n.customer_name }}</strong>{% if n.customer_id %} <a class="chip" href="/customers/{{ n.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}: {% endif %}{{ n.content }}
+    {% if n.opportunity_id and n.opportunity_id in need_opportunities %}<span class="need-opp">→ <a class="chip" href="/opportunities/{{ n.opportunity_id }}">{{ ont.label("opportunity") }} · {{ need_opportunities[n.opportunity_id].name }}</a></span>
+    {% elif n.customer_id %}<a class="button small" href="/opportunities/new?customer_id={{ n.customer_id }}&amp;need_id={{ n.id }}">{{ ont.label("opportunity") }} 만들기</a>{% endif %}</li>{% endfor %}</ul>
 </section>
 {% endif %}
 <section class="card">
