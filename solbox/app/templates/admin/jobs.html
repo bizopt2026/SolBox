@@ -5,7 +5,7 @@
 {% call page_header("AI 작업", crumbs=[("관리", none), ("AI 작업", none)], sub=ont.TYPES["ai_job"].description, count=total ~ "건") %}{% endcall %}
 <div class="tools">{{ seg(tabs, "상태") }}</div>
 {% if jobs %}
-<div class="tablewrap"><table class="list-table">
+<div class="tablewrap"><table class="list-table wide-table">
   <thead><tr><th class="num">번호</th><th>종류</th><th>상태</th><th>요청자</th><th>요청 시각</th><th>끝난 시각</th><th>오류</th></tr></thead>
   <tbody>
   {% for j in jobs %}

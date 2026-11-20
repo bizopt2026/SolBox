@@ -5,7 +5,7 @@
 {% set st = intake.status %}
 {% set flow = [] %}{% for c in ("uploaded", "analyzing", "ready", "applied") %}{% set _ = flow.append((c, ont.INTAKE_STATUSES[c])) %}{% endfor %}
 {% set at = {"uploaded": 0, "analyzing": 1, "failed": 1, "ready": 2, "applying": 3, "applied": 4, "discarded": -1}.get(st, 0) %}
-{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[("오늘", none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", st)) %}
+{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[("오늘", none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", st), cls="detail") %}
   {% if st == "uploaded" %}
   <form method="post" action="/intake/{{ intake.id }}/analyze"><button type="submit" class="button primary">정리 시작</button></form>
   {% elif st == "failed" %}<a class="button primary" href="#retry">다시 정리</a>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, text_field %}
+{% from "_macros.html" import page_header, text_field, filepick %}
 {% block title %}활동 기록 등록{% endblock %}
 {% block content %}
 {{ page_header("활동 기록 등록", crumbs=ui.crumbs("activity", last="등록"), sub="미팅·통화 메모를 붙여 넣거나 텍스트 파일(.txt, .md)을 선택하세요.") }}
@@ -9,7 +9,7 @@
   <section class="card">
     <div class="fgrid">
       {{ text_field("메모", "raw_text", raw_text, rows=16, help="미팅·통화 메모를 붙여 넣으세요. 글자 수 제한은 없습니다.", error=error) }}
-      <div class="fld wide"><label for="f-memo_file">텍스트 파일</label><input id="f-memo_file" type="file" name="memo_file" accept=".txt,.md" aria-describedby="h-memo_file"><p class="help" id="h-memo_file">.txt, .md 파일만 올릴 수 있습니다. 메모 칸의 글과 파일 내용이 이어 붙습니다.</p></div>
+      <div class="fld wide"><label for="f-memo_file">텍스트 파일</label>{{ filepick("memo_file", id="f-memo_file", accept=".txt,.md", describedby="h-memo_file") }}<p class="help" id="h-memo_file">.txt, .md 파일만 올릴 수 있습니다. 메모 칸의 글과 파일 내용이 이어 붙습니다.</p></div>
     </div>
   </section>
   <div class="row savebar">

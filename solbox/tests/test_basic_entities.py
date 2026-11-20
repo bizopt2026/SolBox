@@ -77,7 +77,7 @@ def test_deleting_partner_clears_solution_partner(admin_client, db, settings):
 def test_business_requires_customer_and_missing_id_is_404(user_client):
     assert user_client.post("/projects", data={"name": "유지보수"}).status_code == 400
     r = user_client.get("/customers/999")
-    assert r.status_code == 404 and "항목을 찾을 수 없습니다." in r.text
+    assert r.status_code == 404 and "항목을 찾을 수 없습니다" in r.text
 
 
 def test_business_create_search_by_name_or_customer_and_delete_unlinks_activity(user_client, db, settings):

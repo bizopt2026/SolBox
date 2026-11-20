@@ -35,7 +35,7 @@ def test_push_suggestion_links_solution_not_candidate(user_client, db, settings)
     s1 = db.query(Solution).filter_by(name="AI 공조 최적제어").one()
     page = user_client.get(f"/research/runs/{run.id}").text
     assert f'href="/solutions/{s1.id}"' in page
-    assert page.count("후보 등록") >= 3  # new 제안 1 + 동향 2, push 제안은 없음
+    assert page.count(">후보로 등록</button>") >= 3  # new 제안 1 + 동향 2, push 제안은 없음
     sug = _suggest(run)
     assert f'value="{sug.id}"' in page
 

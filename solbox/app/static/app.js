@@ -418,6 +418,19 @@
     show();
   });
 
+  // 파일 고르기 칸: 고른 파일 이름을 보여 준다 (없어도 고르기는 된다)
+  document.querySelectorAll("[data-filepick]").forEach(function (box) {
+    var input = box.querySelector('input[type="file"]');
+    var name = box.querySelector(".filepick-name");
+    if (!input || !name) return;
+    var first = name.textContent;
+    input.addEventListener("change", function () {
+      var n = input.files ? input.files.length : 0;
+      name.textContent = n === 0 ? first : (n === 1 ? input.files[0].name : input.files[0].name + " 외 " + (n - 1) + "개");
+      box.classList.toggle("has-file", n > 0);
+    });
+  });
+
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
   document.querySelectorAll(".seg").forEach(function (seg) {
     var cur = seg.querySelector('[aria-current="page"]');

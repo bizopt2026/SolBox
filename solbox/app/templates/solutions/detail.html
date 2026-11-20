@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, stage_badge, stage_stepper, meta_card %}
+{% from "_macros.html" import filepick, detail_head, val, stage_badge, stage_stepper, meta_card %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
@@ -26,7 +26,7 @@
         <details class="card-add"{% if notice %} open{% endif %}>
           <summary>+ 자료 추가</summary>
           <form method="post" action="/solutions/{{ solution.id }}/files" enctype="multipart/form-data" class="add-panel">
-            <label>파일 <input type="file" name="files" multiple required></label>
+            <div class="fld"><label for="f-files">파일</label>{{ filepick("files", id="f-files", multiple=true, required=true) }}</div>
             <div class="row">
               <label>종류
                 <select name="kind">

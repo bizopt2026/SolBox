@@ -187,7 +187,7 @@ def test_research_run_page_states(user_client, db, settings):
     world = make_research_world(db, settings)
     run = finished_run(db, settings)
     html = user_client.get(f"/research/runs/{run.id}").text
-    assert 'class="tabs"' in html and "trend-card" in html and "후보 등록" in html and "모두 펼치기" in html
+    assert 'class="tabs"' in html and "trend-card" in html and ">후보로 등록</button>" in html and "모두 펼치기" in html
     assert 'class="trend-title"' in html
 
 

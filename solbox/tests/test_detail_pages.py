@@ -37,9 +37,9 @@ def test_header_actions_respect_delete_permission(user_client, db):
     from tests.conftest import make_user
     others = _make(db, make_user(db, "lee", name="lee").id)
     for path in mine:
-        head = re.search(r'<header class="page-header">.*?</header>', user_client.get(f"{path}/{mine[path].id}").text, re.S).group(0)
+        head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"{path}/{mine[path].id}").text, re.S).group(0)
         assert f'action="{path}/{mine[path].id}/delete"' in head and head.index("ghost danger") < head.index("수정"), path
-        head = re.search(r'<header class="page-header">.*?</header>', user_client.get(f"{path}/{others[path].id}").text, re.S).group(0)
+        head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"{path}/{others[path].id}").text, re.S).group(0)
         assert "/delete" not in head and "수정" in head, path
 
 
@@ -49,12 +49,12 @@ def test_primary_actions_link_to_working_routes(user_client, db):
                 "/partners": "/solutions/new?partner_id=", "/opportunities": "/proposals/new?customer_id="}
     for path, prefix in expected.items():
         html = user_client.get(f"{path}/{objs[path].id}").text
-        head = re.search(r'<header class="page-header">.*?</header>', html, re.S).group(0)
+        head = re.search(r'<header class="page-header detail">.*?</header>', html, re.S).group(0)
         href = re.search(r'<a class="button primary" href="([^"]+)"', head).group(1).replace("&amp;", "&")
         assert href.startswith(prefix), (path, href)
         assert user_client.get(href).status_code == 200, href
     for path in ("/bms", "/activities"):  # 자연스러운 다음 동작이 없다
-        head = re.search(r'<header class="page-header">.*?</header>', user_client.get(f"{path}/{objs[path].id}").text, re.S).group(0)
+        head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"{path}/{objs[path].id}").text, re.S).group(0)
         assert "button primary" not in head
 
 
@@ -63,7 +63,7 @@ def test_won_opportunity_primary_is_convert_and_works(user_client, db):
     o = objs["/opportunities"]
     o.stage = "won"
     db.commit()
-    head = re.search(r'<header class="page-header">.*?</header>', user_client.get(f"/opportunities/{o.id}").text, re.S).group(0)
+    head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"/opportunities/{o.id}").text, re.S).group(0)
     assert f'class="button primary" href="/opportunities/{o.id}/convert"' in head
     assert user_client.get(f"/opportunities/{o.id}/convert").status_code == 200
 

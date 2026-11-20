@@ -154,14 +154,14 @@ def test_run_page_marks_registered_suggestions_and_trends(user_client, db, setti
     sug = db.query(ResearchReport).filter_by(run_id=run.id, kind="suggest").one()
     tech = db.query(ResearchReport).filter_by(run_id=run.id, area="tech").one()
     page = user_client.get(f"/research/runs/{run.id}").text
-    assert "후보로 등록됨" not in page and page.count("후보 등록") == 3  # 새 제안 1 + 동향 2 (밀기 제안에는 버튼이 없다)
+    assert "후보로 등록됨" not in page and page.count(">후보로 등록</button>") == 3  # 새 제안 1 + 동향 2 (밀기 제안에는 버튼이 없다)
     _research_post(user_client, run, sug, 0)
     sol = db.query(Solution).filter_by(origin_id=sug.id).one()
     page = user_client.get(f"/research/runs/{run.id}").text
-    assert page.count("후보로 등록됨") == 1 and f'href="/solutions/{sol.id}"' in page and page.count("후보 등록") == 2
+    assert page.count("후보로 등록됨") == 1 and f'href="/solutions/{sol.id}"' in page and page.count(">후보로 등록</button>") == 2
     _research_post(user_client, run, tech, 1, source="trend")
     page = user_client.get(f"/research/runs/{run.id}").text
-    assert page.count("후보로 등록됨") == 2 and page.count("후보 등록") == 1
+    assert page.count("후보로 등록됨") == 2 and page.count(">후보로 등록</button>") == 1
 
 
 # ---- 화면 ----

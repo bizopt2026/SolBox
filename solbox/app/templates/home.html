@@ -18,8 +18,20 @@
 </nav>
 <p class="flow-hold"><a href="/solutions?stage={{ ont.STAGE_HOLD }}" data-stage="{{ ont.STAGE_HOLD }}">{{ ont.STAGES[ont.STAGE_HOLD] }} <b>{{ flow.hold }}</b>건</a></p>
 
+{% if fresh_install %}
+<section class="card guide" aria-labelledby="h-guide">
+  <h2 id="h-guide">처음 시작하기</h2>
+  <ol class="guide-steps">
+    <li><span class="guide-no" aria-hidden="true">1</span><div><b>파일 올리기</b><p class="muted">소개서·녹취록·사진을 한꺼번에 올려요.</p></div></li>
+    <li><span class="guide-no" aria-hidden="true">2</span><div><b>정리안 확인</b><p class="muted">AI가 묶어 둔 정리안을 보고 고쳐서 저장해요.</p></div></li>
+    <li><span class="guide-no" aria-hidden="true">3</span><div><b>제안 만들기</b><p class="muted">저장된 솔루션과 고객으로 제안서를 만들어요.</p></div></li>
+  </ol>
+  <p class="guide-act"><a class="button primary" href="/intake/new">파일 올리기</a> <a class="button" href="/solutions/new">솔루션 직접 입력</a></p>
+</section>
+{% endif %}
 <div class="dash">
-  <section class="card c7" aria-labelledby="h-fu">
+  <div class="dash-col dash-main">
+  <section class="card o1" aria-labelledby="h-fu">
     <header class="card-head"><h2 id="h-fu">후속 조치 <span class="count">기한 14일 이내</span></h2><a href="/follow-ups">모두 보기</a></header>
     {% if follow_ups %}
     <ul class="fu-list">
@@ -29,7 +41,35 @@
     {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
   </section>
 
-  <section class="card c5" aria-labelledby="h-up">
+  <section class="card o4" aria-labelledby="h-act">
+    <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">활동 기록</a></header>
+    {% if recent %}
+    <div class="feed">
+      {% for r in recent %}
+      <a href="/activities/{{ r.a.id }}">
+        <time datetime="{{ r.a.date.isoformat() if r.a.date }}">{{ kdate(r.a.date) if r.a.date else "일자 없음" }}</time>
+        <span><b>{{ r.a.title or "(제목 없음)" }}</b>{% if r.needs or r.follow_ups %}<small>{% if r.needs %}{{ ont.TERMS["customer_need"] }} {{ r.needs }}건{% endif %}{% if r.needs and r.follow_ups %} · {% endif %}{% if r.follow_ups %}후속 조치 {{ r.follow_ups }}건{% endif %}</small>{% endif %}</span>
+        {{ pill("activity_kind", r.a.kind) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">등록된 활동 기록이 없습니다.</p>{% endif %}
+    <p class="card-foot"><a href="/activities/new">+ 활동 기록 등록</a></p>
+  </section>
+
+  <section class="card o6" aria-labelledby="h-res">
+    <header class="card-head"><h2 id="h-res">최신 리서치</h2><a href="/research">리서치 목록</a></header>
+    {% if research %}
+    <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
+    <div class="res-cols">
+      {% if research.insights %}<div><h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if research.suggestions %}<div><h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+    {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
+  </section>
+  </div>
+  <div class="dash-col dash-side">
+  <section class="card o2" aria-labelledby="h-up">
     <header class="card-head"><h2 id="h-up">올리기</h2>{% if intake.ready_count or intake.analyzing_count %}<a href="/intake">올리기 목록</a>{% endif %}</header>
     <form method="post" action="/intake" enctype="multipart/form-data" class="stack">
       {% set zone_id = "home" %}{% include "intake/_dropzone.html" %}
@@ -50,7 +90,7 @@
     {% endif %}
   </section>
 
-  <section class="card c5" aria-labelledby="h-opp">
+  <section class="card o3" aria-labelledby="h-opp">
     <header class="card-head"><h2 id="h-opp">{{ ont.label("opportunity") }}</h2><a href="/opportunities">전체 {{ opp.total }}건</a></header>
     {% if opp.total %}
     <div class="stagebars">
@@ -64,23 +104,7 @@
     <p class="muted open-opps card-foot">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ opp.open }}건</a></p>
   </section>
 
-  <section class="card c7" aria-labelledby="h-act">
-    <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">활동 기록</a></header>
-    {% if recent %}
-    <div class="feed">
-      {% for r in recent %}
-      <a href="/activities/{{ r.a.id }}">
-        <time datetime="{{ r.a.date.isoformat() if r.a.date }}">{{ kdate(r.a.date) if r.a.date else "일자 없음" }}</time>
-        <span><b>{{ r.a.title or "(제목 없음)" }}</b>{% if r.needs or r.follow_ups %}<small>{% if r.needs %}{{ ont.TERMS["customer_need"] }} {{ r.needs }}건{% endif %}{% if r.needs and r.follow_ups %} · {% endif %}{% if r.follow_ups %}후속 조치 {{ r.follow_ups }}건{% endif %}</small>{% endif %}</span>
-        {{ pill("activity_kind", r.a.kind) }}
-      </a>
-      {% endfor %}
-    </div>
-    {% else %}<p class="muted">등록된 활동 기록이 없습니다.</p>{% endif %}
-    <p class="card-foot"><a href="/activities/new">+ 활동 기록 등록</a></p>
-  </section>
-
-  <section class="card c5" aria-labelledby="h-prop">
+  <section class="card o5" aria-labelledby="h-prop">
     <header class="card-head"><h2 id="h-prop">진행 중인 제안 건</h2><a href="/proposals">제안 건 목록</a></header>
     {% if proposals %}
     <div class="queue">
@@ -94,16 +118,6 @@
     {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
     <p class="card-foot"><a href="/proposals/new">+ 제안 건 만들기</a></p>
   </section>
-
-  <section class="card c7" aria-labelledby="h-res">
-    <header class="card-head"><h2 id="h-res">최신 리서치</h2><a href="/research">리서치 목록</a></header>
-    {% if research %}
-    <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
-    <div class="res-cols">
-      {% if research.insights %}<div><h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
-      {% if research.suggestions %}<div><h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul></div>{% endif %}
-    </div>
-    {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
-  </section>
+  </div>
 </div>
 {% endblock %}

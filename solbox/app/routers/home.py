@@ -11,7 +11,7 @@ from app import labels, ontology, transcribe, ui
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
-from app.models import AIJob, Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Proposal, ResearchRun, Solution, User
+from app.models import AIJob, Activity, Customer, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Proposal, ResearchRun, Solution, User
 from app.security import require_user
 
 router = APIRouter()
@@ -123,6 +123,11 @@ def recent_activities(db: Session) -> list[dict]:
     return [{"a": a, "needs": needs.get(a.id, 0), "follow_ups": fus.get(a.id, 0)} for a in rows]
 
 
+def is_fresh_install(db: Session) -> bool:
+    """솔루션·활동 기록·고객이 하나도 없으면 막 설치한 상태다 (홈에 "처음 시작하기" 안내를 보인다)."""
+    return not any(db.scalar(select(func.count()).select_from(m)) for m in (Solution, Activity, Customer))
+
+
 def summary_sentence(overdue: int, ready: int) -> str:
     """제목 줄 한 문장: 실제 숫자로 만들고 0 인 부분은 뺀다. 모두 0 이면 그렇다고 말한다."""
     parts = []
@@ -141,7 +146,7 @@ def home(request: Request, user: User = Depends(require_user), db: Session = Dep
     flow, opp = stage_flow(db, now), opportunity_bars(db)
     recent = recent_activities(db)
     overdue = sum(1 for f in follow_ups if f["overdue"])
-    fresh_install = not (flow["total"] or opp["total"] or recent)
+    fresh_install = is_fresh_install(db)
     return render(
         request, "home.html",
         today=now, date_line=ui.today_line(now), summary=summary_sentence(overdue, intake["ready_count"]), fresh_install=fresh_install,

@@ -120,7 +120,8 @@ def test_home_section_order_and_trimmed_research(user_client, db):
         {"kind": "new", "title": f"제안{i}", "detail": "", "reason": "", "solution_ids": [], "sources": []} for i in range(5)]))
     db.commit()
     page = user_client.get("/").text
-    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-opp"', 'id="h-act"', "진행 중인 제안 건", "최신 리서치")]
+    # 두 줄(왼쪽: 후속 조치·최근 활동·리서치, 오른쪽: 올리기·영업기회·제안 건) 순서로 읽힌다
+    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-act"', 'id="h-res"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"')]
     assert heads == sorted(heads)
     assert "시사점1" in page and "시사점2" not in page
     assert "제안1" in page and "제안2" not in page

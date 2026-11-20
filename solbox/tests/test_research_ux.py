@@ -45,7 +45,7 @@ def test_run_page_cards_are_details_first_three_open(user_client, db, settings):
     sugs = [c for c in cards if c[0]]
     assert len(sugs) == 5 and [bool(c[1]) for c in sugs] == [True, True, True, False, False]
     assert all(not c[1] for c in cards if not c[0])  # 동향 카드는 접힌 채
-    assert "후보 등록" in page and "모두 펼치기" in page and "모두 접기" in page
+    assert ">후보로 등록</button>" in page and "모두 펼치기" in page and "모두 접기" in page
 
 
 def test_trend_summary_shows_link_count_and_needs_check(user_client, db, settings):

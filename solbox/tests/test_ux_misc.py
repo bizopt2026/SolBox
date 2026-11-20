@@ -38,7 +38,8 @@ def test_error_title_400_and_other(user_client, admin_client):
     assert "<h1>항목을 찾을 수 없습니다</h1>" in r.text  # 404 가 먼저
     from app.main import error_title
     assert error_title(400) == "요청을 확인해 주세요"
-    assert error_title(500) == "요청을 처리하지 못했습니다"
+    assert error_title(500) == "문제가 생겼어요"
+    assert error_title(502) == "요청을 처리하지 못했습니다"
     assert error_title(403) == "권한이 없습니다"
 
 

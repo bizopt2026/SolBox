@@ -120,12 +120,24 @@ def _login_required_handler(request: Request, exc: LoginRequired) -> Response:
     return RedirectResponse("/login", status_code=303)
 
 
-ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요"}
+ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요", 500: "문제가 생겼어요"}
 
 
 def error_title(status_code: int) -> str:
     """오류 화면 제목. 상태 코드에 맞추고, 모르는 코드는 일반 문구."""
     return ERROR_TITLES.get(status_code, "요청을 처리하지 못했습니다")
+
+
+def _server_error_handler(request: Request, exc: Exception) -> Response:
+    """처리하지 못한 오류: 예외 내용은 로그에만 남기고, 화면에는 친절한 문구만 보인다 (HTMX 요청에는 짧은 글)."""
+    logging.getLogger("app").error("처리하지 못한 오류 %s %s", request.method, request.url.path, exc_info=exc)
+    message = "서버에서 문제가 생겨 요청을 마치지 못했습니다."
+    if request.headers.get("HX-Request"):
+        return PlainTextResponse(message, status_code=500)
+    try:
+        return render(request, "error.html", status_code=500, message=error_title(500), title=error_title(500), code=500)
+    except Exception:  # 화면을 그리다 또 실패해도 예외 글은 내보내지 않는다
+        return PlainTextResponse(message, status_code=500)
 
 
 def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
@@ -183,6 +195,7 @@ def create_app(settings: Settings) -> FastAPI:
     )
     app.add_exception_handler(LoginRequired, _login_required_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
+    app.add_exception_handler(Exception, _server_error_handler)
 
     static_dir = APP_DIR / "static"
     templates_dir = APP_DIR / "templates"
