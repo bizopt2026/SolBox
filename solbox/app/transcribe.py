@@ -407,9 +407,11 @@ class FasterWhisperTranscriber(Transcriber):
 
                 def report(seconds: float) -> None:
                     nonlocal last
-                    if on_progress and duration:
+                    if not on_progress:
+                        return
+                    if duration:
                         last = max(last, min(1.0, seconds / duration))
-                        on_progress(last)
+                    on_progress(last)  # 길이를 모르는 파일도 부른다: 진행률은 0 이지만 버림·다시 정리 확인이 이 호출에서 된다
 
                 for chunk in split_chunks(src.pieces(), int(chunk_s * SAMPLE_RATE), int(window_s * SAMPLE_RATE)):
                     end = start + len(chunk)
@@ -419,12 +421,16 @@ class FasterWhisperTranscriber(Transcriber):
                     segments, info = model.transcribe(
                         audio, language=lang, vad_filter=vad, condition_on_previous_text=False, hotwords=hints or None,
                     )
-                    if detect and lang is None:  # 자동 감지는 첫 조각에서 한 번만 하고 나머지는 같은 언어로
-                        lang = getattr(info, "language", None) or None
                     offset = start / SAMPLE_RATE
+                    spoke = False
                     for seg in segments:
+                        spoke = True
                         done.append((offset + float(seg.start), offset + float(seg.end), seg.text))
                         report(offset + float(seg.end))
+                    if detect and lang is None and spoke:
+                        # 자동 감지는 말이 나온 첫 조각의 언어로 정하고 나머지는 같은 언어로 한다.
+                        # 말이 없는 조각(무음·음악)은 감지 결과가 제멋대로라 그 언어로 고정하지 않는다.
+                        lang = getattr(info, "language", None) or None
                     start = end
                     report(start / SAMPLE_RATE)
                 if start == 0:

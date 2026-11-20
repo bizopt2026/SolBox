@@ -329,6 +329,33 @@ def test_auto_language_is_detected_once_then_reused(tmp_path, monkeypatch):
     assert all(c["language"] == "en" for c in model.calls[1:])
 
 
+def test_auto_language_is_not_locked_by_a_silent_first_chunk(tmp_path, monkeypatch):
+    # 첫 조각에 말이 없으면(무음·음악) 감지된 언어가 제멋대로이므로 고정하지 않고, 말이 나온 조각에서 정한다.
+    model = ArrayModel(script=lambda i, a: [] if i == 0 else [(0.0, 1.0, f"c{i}")], language="en")
+    t = _engine(tmp_path, monkeypatch, model, FakeAudio(_speech(100)), transcribe_language="auto", transcribe_chunk_minutes=0.5)
+    t.transcribe(_wav(tmp_path))
+    assert model.calls[0]["language"] is None and model.calls[1]["language"] is None
+    assert all(c["language"] == "en" for c in model.calls[2:]) and len(model.calls) >= 3
+
+
+def test_unknown_duration_still_calls_progress_so_cancel_works(tmp_path, monkeypatch):
+    # 길이를 알 수 없는 파일(브라우저 녹음 webm 등)도 진행 콜백을 불러야 버림·다시 정리 확인이 된다.
+    seen = []
+    model = ArrayModel()
+    t = _engine(tmp_path, monkeypatch, model, FakeAudio(_speech(100), duration=None), transcribe_chunk_minutes=0.5)
+    t.transcribe(_wav(tmp_path), on_progress=seen.append)
+    assert seen and set(seen) == {0.0}
+
+    def stop(p):
+        raise transcribe.TranscribeCancelled()
+
+    model2 = ArrayModel()
+    t2 = _engine(tmp_path, monkeypatch, model2, FakeAudio(_speech(100), duration=None), transcribe_chunk_minutes=0.5)
+    with pytest.raises(transcribe.TranscribeCancelled):
+        t2.transcribe(_wav(tmp_path), on_progress=stop)
+    assert len(model2.calls) == 1
+
+
 def test_empty_audio_is_a_damaged_file(tmp_path, monkeypatch):
     t = _engine(tmp_path, monkeypatch, ArrayModel(), FakeAudio(np.zeros(0, np.int16)))
     with pytest.raises(transcribe.TranscribeError, match="손상되었거나"):
