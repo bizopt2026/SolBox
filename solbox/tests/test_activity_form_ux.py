@@ -126,4 +126,4 @@ def test_proposal_target_page_includes_shared_script(user_client, db):
     db.add(Solution(name="S", stage="hold"))
     db.commit()
     html = user_client.get("/proposals/new").text
-    assert 'src="/static/app.js"' in html and 'class="picker' in html and "data-count" in html
+    assert re.search(r'src="/static/app\.js\?v=[0-9a-f]{10}"', html) and 'class="picker' in html and "data-count" in html

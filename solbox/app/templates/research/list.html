@@ -11,7 +11,7 @@
   {% for item in pg.items %}
     {% set run = item.run %}
     <tr>
-      {% call title_cell("/research/runs/" ~ run.id, run.started_at.strftime("%Y-%m-%d") ~ " 조사", item.insight | first_line(110) or none) %}
+      {% call title_cell("/research/runs/" ~ run.id, kdate(run.started_at) ~ " 조사", item.insight | first_line(110) or none) %}
         {{ pill("run_status", run.status) }}<span>{% for name, count in item.counts %}{{ name }} {{ count }}건{{ " · " if not loop.last }}{% else %}<span class="muted">동향 없음</span>{% endfor %}</span>
       {% endcall %}
       <td class="col-sec">

@@ -15,7 +15,7 @@
         <div class="row-meta">{{ pill("proposal_status", p.status) }}<span>{{ kdate(p.updated_at.date()) }}</span></div>
       </td>
       <td class="col-sec">{{ pill("proposal_status", p.status) }}</td>
-      <td class="col-sec num" title="{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}">{{ kdate(p.updated_at.date()) }}</td>
+      <td class="col-sec num" title="{{ kdatetime(p.updated_at) }}">{{ kdate(p.updated_at.date()) }}</td>
     </tr>
   {% endfor %}
   </tbody>

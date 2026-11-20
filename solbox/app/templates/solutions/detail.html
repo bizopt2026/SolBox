@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import filepick, detail_head, val, stage_badge, stage_stepper, meta_card %}
-{% from "_related.html" import related_card %}
+{% from "_macros.html" import filepick, detail_head, props_card, stage_badge, stage_stepper, meta_card %}
+{% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ solution.name }}{% endblock %}
 {% block content %}
 {% set sub = [solution.summary, solution.partner.name if solution.partner else none] | select | join(" · ") %}
@@ -9,17 +9,9 @@
 {{ stage_stepper("/solutions/" ~ solution.id ~ "/stage", ontology.STAGE_FLOW, labels.STAGES, solution.stage, (ontology.STAGE_HOLD,), "발굴 단계") }}
 <div class="dgrid">
   <div class="dmain">
-    <section class="card stack">
-      <div class="card-head"><h2>소개</h2></div>
-      <dl class="props">
-        <dt>한 줄 소개</dt><dd>{{ val(solution.summary) }}</dd>
-        <dt>상세 설명</dt><dd>{{ val(solution.description) }}</dd>
-        <dt>파트너</dt><dd>{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-        <dt>활용 방향</dt><dd>{{ val(solution.usage_direction) }}</dd>
-        <dt>적용 가능 유형</dt><dd>{{ val(solution.applicable_types) }}</dd>
-        <dt>태그</dt><dd>{% if solution.tags %}<span class="chips">{% for t in solution.tags.split(",") if t.strip() %}<span class="tag">{{ t.strip() }}</span>{% endfor %}</span>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-      </dl>
-    </section>
+    {% set partner_link %}{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% endif %}{% endset %}
+    {% set tag_chips %}{% if solution.tags %}<span class="chips">{% for t in solution.tags.split(",") if t.strip() %}<span class="tag">{{ t.strip() }}</span>{% endfor %}</span>{% endif %}{% endset %}
+    {{ props_card("소개", [("한 줄 소개", solution.summary), ("상세 설명", solution.description), ("파트너", partner_link), ("활용 방향", solution.usage_direction), ("적용 가능 유형", solution.applicable_types), ("태그", tag_chips)], "/solutions/" ~ solution.id ~ "/edit") }}
     <section class="card stack" id="files">
       <div class="card-head">
         <h2>{{ ont.label("solution_file") }}{% if solution.files %}<span class="count">{{ solution.files | length }}건</span>{% endif %}</h2>
@@ -43,9 +35,10 @@
       <form method="post" action="/solutions/{{ solution.id }}/draft"><button type="submit">AI로 소개 초안 만들기</button></form>
       {% endif %}
     </section>
+    {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    {{ related_card(related) }}
+    {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta, origin) }}
   </aside>
 </div>

@@ -9,9 +9,10 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.idparse import parse_id
 from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
 from app.db import get_db
@@ -28,7 +29,7 @@ from app.routers._common import get_deletable_or_404, get_or_404, list_filter, p
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
-CUSTOMER_REQUIRED = "고객을 선택하세요."
+CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 PROJECT_MISMATCH = "선택한 고객의 프로젝트가 아닙니다."
 OPPORTUNITY_MISMATCH = opps.OPPORTUNITY_MISMATCH
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
@@ -41,12 +42,12 @@ DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
 DECK_FAILED = "제안서 파일을 만들지 못했습니다."
 PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 NOTICES = {"busy": "이미 AI 작업이 진행 중입니다."}
+CHAT_BUSY = "이미 AI 작업이 진행 중이라 보내지 못했어요. 쓴 글은 아래에 남겨 두었으니 작업이 끝나면 다시 보내세요."
 
 
 def _parse_id(raw: str) -> int | None:
     """ASCII 숫자만 담긴 짧은 문자열이면 정수로, 아니면 None."""
-    raw = raw.strip()
-    return int(raw) if raw.isascii() and raw.isdigit() and len(raw) <= 9 else None
+    return parse_id(raw)
 
 
 def _solution_ids(db: Session, raw: list[str]) -> list[int]:
@@ -173,7 +174,7 @@ def _detail_page(
         position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
         customer_opportunities=opps.opportunities_of_customer(db, proposal.customer_id),
         related=relations.related_for_page(db, proposal, user),
-        summaries=section_summaries(proposal, candidates), src=SourceLookup(db), **extra,
+        summaries=section_summaries(proposal, candidates), src=SourceLookup(db, ui=True), **extra,
     )
 
 
@@ -207,10 +208,14 @@ def chat_live(
     if proposal is None or not _has_selection(proposal):  # 지워졌거나 방향이 바뀌었다. 쪽을 새로 불러온다.
         return Response("", headers={"HX-Redirect": "/proposals" if proposal is None else f"/proposals/{proposal.id}"})
     finished = not _is_busy(proposal)
-    extra = {}
-    if finished:
-        extra = dict(steps=step_states(proposal), summaries=section_summaries(proposal, candidate_solutions(db, proposal)))
-    return render(request, "proposals/_chat_live.html", proposal=proposal, oob_done=finished, **extra)
+    if not finished:  # 아직 대기·진행: 맨 끝 말풍선 한 덩어리만 돌려준다 (앞선 메시지·펼침·입력칸은 그대로)
+        return render(request, "proposals/_chat_tail.html", proposal=proposal, src=SourceLookup(db, ui=True))
+    extra = dict(steps=step_states(proposal), summaries=section_summaries(proposal, candidate_solutions(db, proposal)))
+    response = render(request, "proposals/_chat_live.html", proposal=proposal, oob_done=True, src=SourceLookup(db, ui=True), **extra)
+    # 끝났다: 대화 구역 전체(입력칸 켜짐·최종 말풍선)로 바꾸고, 위쪽 안내·단계 표시줄·요약도 같은 응답으로 바꾼다
+    response.headers["HX-Retarget"] = "#chat-live"
+    response.headers["HX-Reswap"] = "outerHTML"
+    return response
 
 
 def _start(
@@ -278,8 +283,8 @@ def chat(
         return _detail_page(request, db, proposal, user, status_code=400, chat_error=EMPTY_MESSAGE)
     if len(text) > MAX_MESSAGE:
         return _detail_page(request, db, proposal, user, status_code=400, chat_error=TOO_LONG_MESSAGE)
-    if _is_busy(proposal):
-        return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
+    if _is_busy(proposal):  # 쓴 글은 입력칸에 남겨 둔다 (끝난 뒤 다시 보내면 된다)
+        return _detail_page(request, db, proposal, user, status_code=409, chat_error=CHAT_BUSY, chat_text=text)
     pid = proposal.id
     message_row = ProposalMessage(proposal_id=pid, role="user", content=text)
     db.add(message_row)
@@ -290,7 +295,9 @@ def chat(
         if leftover is not None:  # 제안 건이 그 사이 지워졌으면 메시지도 이미 없다
             db.delete(leftover)
             db.commit()
-        return RedirectResponse(f"/proposals/{pid}?notice=busy", status_code=303)
+        if not db.scalar(select(func.count()).select_from(Proposal).where(Proposal.id == pid)):  # 제안 건이 그 사이 지워졌다
+            return RedirectResponse("/proposals", status_code=303)
+        return _detail_page(request, db, proposal, user, status_code=409, chat_error=CHAT_BUSY, chat_text=text)
     return RedirectResponse(f"/proposals/{pid}#chat", status_code=303)
 
 

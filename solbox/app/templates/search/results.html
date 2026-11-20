@@ -6,7 +6,7 @@
 {% if result.state == "empty" %}
 <div class="empty"><p class="muted">찾을 이름이나 제목을 위쪽 검색칸에 입력하세요. (단축키 /)</p></div>
 {% elif result.state == "short" %}
-<div class="empty"><p class="muted">검색어는 두 글자 이상 입력하세요.</p></div>
+<div class="empty"><p class="muted">영문·숫자 검색어는 두 글자 이상 입력하세요. 한글은 한 글자도 찾을 수 있어요.</p></div>
 {% elif result.state == "none" %}
 <div class="empty"><p class="muted">‘{{ result.q }}’에 대한 결과가 없습니다. 다른 이름으로 찾아 보세요.</p></div>
 {% else %}

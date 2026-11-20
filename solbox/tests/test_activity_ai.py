@@ -8,6 +8,8 @@ from app.ai.queue import enqueue, process_next
 from app.ai.tasks import ActivityDraft, Mentions, draft_summary_md, load_prompt, match_mentions, normalize_draft
 from app.models import AIJob, Activity, Project, Customer, Partner, Solution
 
+pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
+
 GOOD = {"kind": "tapping", "date": "2026-11-10", "title": "한빛병원 태핑",
         "attendees": ["김과장"], "discussion": ["전력비 부담"], "decisions": ["견적 송부"],
         "follow_ups": [{"task": "견적 송부", "owner": "김과장", "due": "2026-11-20"}],

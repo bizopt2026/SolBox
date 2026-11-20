@@ -46,6 +46,7 @@ def test_current_nav_item():
     assert cur("/intake/new") == "intake" and cur("/research/runs/2") == "research"
     assert cur("/admin/jobs") == "admin/jobs" and cur("/admin/research") == "admin/research"
     assert cur("/search") is None and cur("/nothing") is None
+    assert cur("/follow-ups") == ""  # 후속 조치 목록은 홈 구역
 
 
 def test_every_nav_url_resolves(admin_client):
@@ -104,8 +105,8 @@ def _status(html):
 
 
 def test_ai_status_states(admin_client, db):
-    # 작업 처리기가 꺼진 시험 설정에서는 쓸 수 없다
-    assert _status(admin_client.get("/").text) == "AI 사용 불가"
+    # 작업 처리기가 꺼진 시험 설정에서는 "AI 꺼짐" (고장이 아니라 꺼 둔 것)
+    assert _status(admin_client.get("/").text) == "AI 꺼짐"
 
 
 @pytest.fixture
@@ -126,7 +127,30 @@ def test_ai_status_available_busy_and_problem(admin_client, db, ai_on):
     db.query(AIJob).delete()
     db.add(AIJob(kind="activity_draft", status="failed", error_kind="auth", finished_at=datetime.now()))
     db.commit()
+    assert _status(admin_client.get("/").text) == "AI 사용 불가"  # 로그인이 안 된 CLI: 모두에게 쓸 수 없다
+
+
+def test_one_failed_job_is_a_warning_not_unavailable(admin_client, db, ai_on):
+    from datetime import datetime, timedelta
+
+    now = datetime.now()
+    db.add(AIJob(kind="intake_analyze", status="failed", error_kind="timeout", finished_at=now))
+    db.commit()
+    html = admin_client.get("/").text
+    assert _status(html) == "마지막 AI 작업 실패 (올린 파일 정리)" and 'class="aistat warn"' in html
+    # 그 뒤에 성공한 작업이 나오면 다시 사용 가능
+    db.add(AIJob(kind="activity_draft", status="done", finished_at=now + timedelta(seconds=5)))
+    db.commit()
+    assert _status(admin_client.get("/").text) == "AI 사용 가능 · 대기 0"
+    # CLI 없음도 사용 불가
+    db.add(AIJob(kind="activity_draft", status="failed", error_kind="not_installed", finished_at=now + timedelta(seconds=9)))
+    db.commit()
     assert _status(admin_client.get("/").text) == "AI 사용 불가"
+
+
+def test_status_text_is_in_the_title_for_the_dot_only_phone_layout(admin_client):
+    html = admin_client.get("/").text
+    assert 'title="AI 꺼짐 · AI 작업 보기"' in html and 'class="aistat-text"' in html
 
 
 def test_ai_status_links_to_jobs_only_for_admin(admin_client, user_client, ai_on):

@@ -1,7 +1,9 @@
 {% set transcribing = intake_files_transcribing | default(none) %}
+{% set stalled = ai_off and (job is none or job.status == "pending") %}
 <div id="intake-status" class="job-status" role="status"
-  hx-get="/intake/{{ intake.id }}/status" hx-trigger="every 2s" hx-swap="outerHTML">
-  {% if job is none or job.status == "pending" %}AI 대기 {{ position or 1 }}번째 (앞 작업이 끝나면 시작합니다){% if job is not none %}{% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}{% endif %}
+  {% if not stalled %}hx-get="/intake/{{ intake.id }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+  {% elif job is none or job.status == "pending" %}AI 대기 {{ position or 1 }}번째 (앞 작업이 끝나면 시작합니다){% if job is not none %}{% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}{% endif %}
   {% elif job.status == "running" %}
     {% if transcribing %}음성 받아쓰는 중 · {{ transcribing.original_name }}{% if transcribing.progress is not none %} · {{ transcribing.progress }}%{% endif %}
       {% if transcribing.progress is not none %}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ transcribing.progress }}" aria-label="받아쓰기 진행"><i style="width:{{ transcribing.progress }}%"></i></div>{% endif %}

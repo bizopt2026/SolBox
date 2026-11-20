@@ -10,6 +10,7 @@ from datetime import date
 
 from sqlalchemy import select
 
+from app.idparse import parse_id
 from app import opportunities
 from app.ai.tasks import normalize_name
 from app.models import Activity, Customer, CustomerNeed, FollowUp, User
@@ -55,7 +56,7 @@ def _pair_ids(raw_ids: Sequence[str], count: int, existing: Sequence) -> list[in
     """폼에 실려 온 줄 번호(숨은 칸)를 줄마다 하나씩 짝짓는다. 번호 칸이 없는 옛 화면이 보낸 것이면 (개수가 안 맞으면)
     줄 위치로 기존 줄과 짝짓는다."""
     if len(raw_ids) == count:
-        return [int(r) if r.strip().isascii() and r.strip().isdecimal() else None for r in raw_ids]
+        return [parse_id(r) for r in raw_ids]
     return [existing[i].id if i < len(existing) else None for i in range(count)]
 
 

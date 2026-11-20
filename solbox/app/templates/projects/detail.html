@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, meta_card %}
-{% from "_related.html" import related_card %}
+{% from "_macros.html" import detail_head, props_card, meta_card %}
+{% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ project.name }}{% endblock %}
 {% block content %}
 {% set sub = [project.customer.name, project.period] | select | join(" · ") %}
@@ -8,23 +8,15 @@
 {{ detail_head(project.name, "/projects", project, can_delete, crumbs=ui.crumbs("project", project.name), sub=sub or none, status=st,
                primary=("+ 제안 만들기", "/proposals/new?customer_id=" ~ project.customer_id ~ "&project_id=" ~ project.id)) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% set customer_link %}<a href="/customers/{{ project.customer_id }}">{{ project.customer.name }}</a>{% endset %}
 <div class="dgrid">
   <div class="dmain">
-    <section class="card stack">
-      <div class="card-head"><h2>기본 정보</h2></div>
-      <dl class="props">
-        <dt>고객</dt><dd><a href="/customers/{{ project.customer_id }}">{{ project.customer.name }}</a></dd>
-        <dt>{{ ont.prop("project", "bm") }}</dt><dd>{% if project.bm %}<a href="/bms/{{ project.bm_id }}">{{ project.bm.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-        <dt>{{ ont.prop("project", "opportunity") }}</dt><dd>{% if opportunity %}<a href="/opportunities/{{ opportunity.id }}">{{ opportunity.name }}</a> <span class="muted">에서 만들어졌습니다</span>{% else %}<span class="muted">없음</span>{% endif %}</dd>
-        <dt>기간</dt><dd>{{ val(project.period) }}</dd>
-        <dt>상태</dt><dd>{{ val(project.status) }}</dd>
-        <dt>설명</dt><dd>{{ val(project.description) }}</dd>
-        <dt>메모</dt><dd>{{ val(project.memo) }}</dd>
-      </dl>
-    </section>
+    {% set bm_link %}{% if project.bm %}<a href="/bms/{{ project.bm_id }}">{{ project.bm.name }}</a>{% endif %}{% endset %}
+    {{ props_card("기본 정보", [("고객", customer_link), (ont.prop("project", "bm"), bm_link), ("기간", project.period), ("상태", project.status), ("설명", project.description), ("메모", project.memo)], "/projects/" ~ project.id ~ "/edit") }}
+    {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    {{ related_card(related, [("+ 제안 만들기", "/proposals/new?customer_id=" ~ project.customer_id ~ "&project_id=" ~ project.id)]) }}
+    {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>
 </div>

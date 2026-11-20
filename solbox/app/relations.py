@@ -348,11 +348,23 @@ class RelatedGroup:
         return max(0, self.total - len(self.items))
 
 
-def _date_text(d) -> str:
-    return d.isoformat() if d else "일자 없음"
+def _iso(d) -> str:
+    return d.isoformat()
 
 
-def _describe(db: Session, code: str, objs: list, start: str) -> dict[int, RelatedItem]:
+def ui_date(d) -> str:
+    """화면용 날짜 글 ("11월 14일", 올해가 아니면 "2025년 11월 14일"). 지식 사본은 `related()` 의 기본 ISO 글을 그대로 쓴다."""
+    from datetime import date as _date
+
+    from app import ui
+
+    return ui.short_date(d.date() if hasattr(d, "date") else d, _date.today())
+
+
+def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[int, RelatedItem]:
+    def _date_text(d) -> str:
+        return fmt(d) if d else "일자 없음"
+
     from app.models import Opportunity
     from app.proposals import display_title
 
@@ -392,7 +404,7 @@ def _describe(db: Session, code: str, objs: list, start: str) -> dict[int, Relat
             it.label = o.task
             it.url = f"/activities/{o.activity_id}"
             it.done = bool(o.done)
-            bits = [f"담당 {o.owner}" if o.owner else "", f"기한 {o.due.isoformat()}" if o.due else "", o.activity.title or "(제목 없음)"]
+            bits = [f"담당 {o.owner}" if o.owner else "", f"기한 {fmt(o.due)}" if o.due else "", o.activity.title or "(제목 없음)"]
             it.note = " · ".join(b for b in bits if b)
         elif code == "intake":
             it.label = f"올리기 묶음 {o.id}번"
@@ -409,7 +421,7 @@ def _describe(db: Session, code: str, objs: list, start: str) -> dict[int, Relat
             it.label = o.title or "리서치 보고서"
             it.url = f"/research/runs/{o.run_id}"
         elif code == "research_run":
-            it.label = f"리서치 {o.started_at.date().isoformat()}"
+            it.label = f"리서치 {fmt(o.started_at.date())}"
         elif code == "user":
             it.label = o.name or o.username
         out[o.id] = it
@@ -446,7 +458,7 @@ def _sorted_edges(start: str, edges: list[Edge]) -> list[Edge]:
     return sorted(edges, key=k)
 
 
-def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10) -> list[RelatedGroup]:
+def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10, fmt=_iso) -> list[RelatedGroup]:
     """`obj` 에서 연결된 것: 저장된 관계(양방향) 그룹 다음에 따라가서 얻는 관계 그룹. 빈 그룹은 만들지 않는다.
     `exclude` 는 관계 키("R4") 또는 "관계 키:도착 유형"("R6:project") 목록. 올리기 묶음에 닿는 그룹은 `viewer` 가 열 수 있는 것만 보인다."""
     start = ontology.type_of(obj)
@@ -471,7 +483,7 @@ def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10) -> 
                 if r is not None:
                     kind = ontology.SUGGESTION_KINDS.get(meta["kind"], meta["kind"])
                     items.append(RelatedItem("suggestion", rid, meta["title"], f"/research/runs/{r.run_id}#suggestions",
-                                             f"{kind} · 리서치 {r.created_at.date().isoformat()}" if r.created_at else kind, obj=r))
+                                             f"{kind} · 리서치 {fmt(r.created_at.date())}" if r.created_at else kind, obj=r))
             items = list({(i.id, i.label): i for i in items}.values())
             groups.append(RelatedGroup(f"{e.rel}:{e.dst}", label, "suggestion", items[:limit], len(items), False, e.storage, more, e.rel))
             continue
@@ -484,7 +496,7 @@ def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10) -> 
                 total = _count_existing(db, e.dst, ids)
         if not objs:
             continue
-        desc = _describe(db, e.dst, objs, start)
+        desc = _describe(db, e.dst, objs, start, fmt)
         groups.append(RelatedGroup(f"{e.rel}:{e.dst}", label, e.dst, [desc[o.id] for o in objs], total, False, e.storage, more, e.rel))
     for d in ontology.DERIVED:
         if d.source != start or _excluded(exclude, d.key):
@@ -493,7 +505,7 @@ def related(db: Session, obj, *, viewer=None, exclude=None, limit: int = 10) -> 
         if not found:
             continue
         objs = _load(db, d.target, list(found), limit=limit)
-        desc = _describe(db, d.target, objs, start)
+        desc = _describe(db, d.target, objs, start, fmt)
         for o in objs:
             desc[o.id].via = via_text(found[o.id], d)
         groups.append(RelatedGroup(d.key, d.label, d.target, [desc[o.id] for o in objs], len(found), True, "derived",
@@ -511,7 +523,42 @@ def via_text(prov: dict[str, set[int]], d: ontology.Derived) -> str:
 
 def related_for_page(db: Session, obj, viewer, **kw) -> list[RelatedGroup]:
     """상세 화면용: 그 화면이 속성 줄·특수 구역으로 이미 보이는 그룹을 뺀다 (ontology.RELATED_EXCLUDE)."""
+    kw.setdefault("fmt", ui_date)
     return related(db, obj, viewer=viewer, exclude=ontology.RELATED_EXCLUDE.get(ontology.type_of(obj), ()), **kw)
+
+
+@dataclass
+class MainCard:
+    """왼쪽 내용 칸의 연결 카드 한 장: 그룹이 비어 있어도(`group` 은 None) 정의에 `show_empty` 가 있으면 카드와 "+ …" 동작을 보인다."""
+    key: str
+    label: str
+    group: RelatedGroup | None
+    action: tuple[str, str] | None
+
+
+def _main_label(code: str, key: str) -> str:
+    if key in ontology.DERIVED_BY_KEY:
+        return ontology.DERIVED_BY_KEY[key].label
+    rel, dst = key.split(":")
+    return ontology.VIEW_LABELS.get((rel, code, dst), ontology.label(dst))
+
+
+def page_related(db: Session, obj, viewer, **kw) -> dict:
+    """상세 화면용: {"main": [MainCard …], "related": [RelatedGroup …]}. 정의(`ontology.MAIN_GROUPS`)에 든 그룹은 왼쪽 칸 카드로,
+    나머지(건너서 연결된 것 등)는 옆 칸 "연결된 것" 으로 간다. 같은 조회(`related_for_page`)에서 나눈다."""
+    code = ontology.type_of(obj)
+    groups = related_for_page(db, obj, viewer, **kw)
+    specs = ontology.MAIN_GROUPS.get(code, ())
+    by_key = {g.key: g for g in groups}
+    fmt = {"id": obj.id, "customer_id": getattr(obj, "customer_id", "")}
+    main = []
+    for spec in specs:
+        g = by_key.get(spec.key)
+        if g is None and not spec.show_empty:
+            continue
+        main.append(MainCard(spec.key, _main_label(code, spec.key), g, (spec.action[0], spec.action[1].format(**fmt)) if spec.action else None))
+    taken = {spec.key for spec in specs}
+    return {"main": main, "related": [g for g in groups if g.key not in taken]}
 
 
 # ======================================================================================

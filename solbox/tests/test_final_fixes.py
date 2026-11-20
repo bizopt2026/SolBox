@@ -1,3 +1,4 @@
+import re
 from urllib.parse import quote
 
 from app.ai.queue import enqueue, process_next
@@ -27,7 +28,7 @@ def test_chat_lost_race_removes_message(user_client, db, settings, monkeypatch):
     p = refining_proposal(db, settings)
     monkeypatch.setattr("app.routers.proposals.start_job", lambda *a, **k: None)
     r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "질문"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}?notice=busy"
+    assert r.status_code == 409 and "질문" in re.search(r"<textarea id=\"chat-message\"[^>]*>(.*?)<\/textarea>", r.text, re.S).group(1)
     assert db.query(ProposalMessage).count() == 0
 
 

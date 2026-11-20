@@ -7,6 +7,8 @@ from app import labels
 from app.ai.queue import enqueue
 from app.models import User
 
+pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
+
 
 def _job(db, kind="solution_draft", **kw):
     kim = db.query(User).filter_by(username="kim").one()

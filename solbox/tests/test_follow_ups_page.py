@@ -117,7 +117,7 @@ def test_toggle_returns_to_filtered_list(app, fus):
     c = login(app, "kim")
     fid = fus.a1.follow_ups[0].id
     r = c.post(f"/follow-ups/{fid}/toggle", headers={"referer": "http://testserver/follow-ups?owner=me"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].endswith("/follow-ups?owner=me")
+    assert r.status_code == 303 and r.headers["location"] == f"/follow-ups?owner=me&fu_toggled={fid}"  # 걸러 보기는 그대로, 안내 번호가 붙는다
     assert sorted(tasks(c.get("/follow-ups?status=done").text)) == ["견적 보내기", "미팅록 정리"]
 
 

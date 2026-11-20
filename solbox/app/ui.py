@@ -1,7 +1,9 @@
 """화면 도우미: 날짜 글(상대 기한·"11월 24일"), 목록의 구분 탭. 템플릿에서도 쓴다 (main 이 전역으로 등록)."""
 from __future__ import annotations
 
+import hashlib
 from datetime import date
+from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import urlencode
 
@@ -13,11 +15,46 @@ class RelDue(NamedTuple):
     tone: str  # "bad" 기한 지남 / "today" 오늘 / "" 보통
 
 
+def asset_versions(static_dir: Path, names=("app.css", "app.js", "htmx.min.js")) -> dict[str, str]:
+    """정적 파일 이름 -> 내용의 짧은 해시 (시작할 때 한 번). 주소 끝에 `?v=` 로 붙여, 배포 뒤 브라우저가 옛 파일을 쓰지 않게 한다."""
+    out = {}
+    for name in names:
+        try:
+            out[name] = hashlib.sha1((static_dir / name).read_bytes()).hexdigest()[:10]
+        except OSError:
+            out[name] = "0"
+    return out
+
+
 def short_date(d: date | None, today: date) -> str:
     """"11월 24일". 올해가 아니면 연도를 붙인다."""
     if d is None:
         return ""
+    if hasattr(d, "hour"):  # datetime 이 와도 날짜만
+        d = d.date()
     return f"{d.month}월 {d.day}일" if d.year == today.year else f"{d.year}년 {d.month}월 {d.day}일"
+
+
+def iso_date_text(text, today: date) -> str:
+    """"2026-11-17" 처럼 ISO 날짜인 글이면 화면의 날짜 모양("11월 17일")으로, 아니면 글 그대로 (사용자가 쓴 글·빈 글)."""
+    import re
+
+    raw = str(text or "")
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw.strip()):
+        try:
+            return short_date(date.fromisoformat(raw.strip()), today)
+        except ValueError:
+            pass
+    return raw
+
+
+def short_datetime(d, today: date) -> str:
+    """"11월 24일 14:30" (올해가 아니면 연도도). 시각이 없는 날짜(date)면 날짜만."""
+    if d is None:
+        return ""
+    if hasattr(d, "hour"):
+        return f"{short_date(d.date(), today)} {d:%H:%M}"
+    return short_date(d, today)
 
 
 def relative_due(due: date | None, today: date, done: bool = False) -> RelDue:
@@ -61,7 +98,7 @@ class SegTab(NamedTuple):
 def seg_tabs(request, param: str, choices, counts: dict, current: str, total: int, all_label: str = "전체", with_all: bool = True) -> list[SegTab]:
     """목록 위의 구분 탭: `전체` + choices([(코드, 이름)]). 링크는 다른 쪽 조건(검색어·걸러 보기·다른 구분)을 그대로 두고 `param` 만 바꾸며 쪽 번호는 버린다.
     with_all=False 면 `전체` 탭이 없고 모든 탭 링크가 `param` 을 명시한다 (기본값이 있는 구분). 건수는 지금의 검색어·걸러 보기를 적용한 목록 기준이라 누르면 나오는 목록의 건수와 같다."""
-    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in (param, "page")]
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in (param, "page", "fu_toggled")]
 
     def href(code: str) -> str:
         pairs = keep + ([(param, code)] if code else [])
@@ -80,12 +117,25 @@ def stamp_info(db, obj) -> dict:
     return {"author": (author.name or author.username) if author else None, "created": obj.created_at, "updated": obj.updated_at}
 
 
+class FieldError(str):
+    """어느 칸의 오류인지 이름을 함께 들고 다니는 오류 글 (보통 문자열처럼 쓴다). 라우터가 아는 칸은 이렇게 알려 주고, `error_field` 는 이것을 먼저 읽는다."""
+    field: str | None
+
+    def __new__(cls, text: str, field: str | None = None):
+        obj = super().__new__(cls, text)
+        obj.field = field
+        return obj
+
+
 def error_field(error: str | None) -> str | None:
-    """폼 맨 위 오류 문구가 가리키는 칸의 이름(칸 옆에도 같은 글을 보이기 위해). 모르면 None: 위쪽 알림만 보인다."""
+    """폼 맨 위 오류 문구가 가리키는 칸의 이름(칸 옆에도 같은 글을 보이기 위해). 오류가 `FieldError` 면 그 칸, 아니면 글에서 짐작한다
+    (대체 수단). 모르면 None: 위쪽 알림만 보인다."""
     from app import ontology
 
     if not error:
         return None
+    if isinstance(error, FieldError) and error.field:
+        return error.field
     rules = (("이름을", "name"), ("고객을 선택", "customer_id"), ("파트너", "partner_id"), ("단계", "stage"),
              (ontology.label("bm"), "bm_id"), ("메모를", "raw_text"))
     return next((field for key, field in rules if key in error), None)

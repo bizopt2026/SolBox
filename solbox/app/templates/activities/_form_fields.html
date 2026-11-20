@@ -102,17 +102,3 @@
   <textarea name="raw_text" rows="10" aria-label="원문 메모">{{ f.raw_text }}</textarea>
 </details>
 
-<script>
-document.querySelectorAll("[data-add-row]").forEach(function (btn) {
-  btn.addEventListener("click", function () {
-    var box = document.getElementById(btn.dataset.addRow);
-    var rows = box.children;
-    var copy = rows[rows.length - 1].cloneNode(true);
-    copy.querySelectorAll(".need-linked").forEach(function (a) { a.remove(); });
-    copy.querySelectorAll("input").forEach(function (i) {
-      if (i.type === "checkbox") { i.checked = false; i.value = rows.length; } else { i.value = ""; }
-    });
-    box.appendChild(copy);
-  });
-});
-</script>

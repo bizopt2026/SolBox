@@ -17,14 +17,18 @@
 {% endmacro %}
 
 {# 옆 칸의 "연결된 것" 카드: 저장된 관계 먼저, 그 밑에 더 조용한 "건너서 연결된 것"(접을 수 있다). 비면 문장 하나. actions = 이 화면에서 새로 이을 수 있는 것 #}
-{% macro related_card(groups, actions=()) %}
+{% macro related_card(groups, actions=(), hide_empty=false) %}
+{% if groups or actions or not hide_empty %}
 {% set stored = groups | rejectattr("derived") | list %}
 {% set via = groups | selectattr("derived") | list %}
 <section class="card related stack" aria-label="연결된 것">
-  <h2>연결된 것</h2>
+  {% set only_via = not stored and via and via | length <= 3 %}
+  <h2>{{ "건너서 연결된 것" if only_via else "연결된 것" }}</h2>
   {% for g in stored %}{{ rel_group(g) }}{% endfor %}
   {% if via %}
-    {% if via | length > 3 %}
+    {% if only_via %}
+    <div class="related-via-only">{% for g in via %}{{ rel_group(g) }}{% endfor %}</div>
+    {% elif via | length > 3 %}
     <details class="related-derived">
       <summary>건너서 연결된 것 <span class="muted">{{ via | length }}가지</span></summary>
       {% for g in via %}{{ rel_group(g) }}{% endfor %}
@@ -39,12 +43,18 @@
   {% if not groups %}<p class="muted rel-empty">아직 연결된 것이 없습니다.</p>{% endif %}
   {% if actions %}<p class="related-actions">{% for label, url in actions %}<a href="{{ url }}">{{ label }}</a>{% endfor %}</p>{% endif %}
 </section>
+{% endif %}
 {% endmacro %}
 
-{# 왼쪽 내용 칸으로 끌어올린 연결 그룹 한 개 (예: 영업기회의 묶은 고객 니즈·검토 솔루션, BM 의 솔루션): 같은 조회, 옆 칸 카드에서는 빠진다 #}
-{% macro lead_card(g, empty="") %}
-<section class="card stack lead">
-  <div class="card-head"><h2>{{ g.label }}<span class="count">{{ g.total }}건</span></h2></div>
+{# 왼쪽 내용 칸의 연결 카드들 (정의: ontology.MAIN_GROUPS, 조립: relations.page_related). 카드 머리: 이름 + 건수, 오른쪽에 "모두 보기"·"+ …" 동작.
+   cards = relations.MainCard 목록. 비어 있어도 정의에 show_empty 가 있으면 "아직 없습니다" + 동작을 보인다. #}
+{% macro main_cards(cards) %}
+{% for c in cards %}{% set g = c.group %}
+<section class="card stack main-rel" aria-label="{{ c.label }}">
+  <div class="card-head"><h2>{{ c.label }}<span class="count">{{ g.total if g else 0 }}건</span></h2>
+    {% if (g and g.more_url) or c.action %}<span class="head-actions">{% if g and g.more_url %}<a href="{{ g.more_url }}">모두 보기</a>{% endif %}{% if c.action %}<a href="{{ c.action[1] }}">{{ c.action[0] }}</a>{% endif %}</span>{% endif %}
+  </div>
+  {% if g %}
   <ul class="sub-list">
     {% for i in g.items %}
     <li class="{{ 'done' if i.done }}">
@@ -55,5 +65,7 @@
     {% endfor %}
   </ul>
   {% if g.hidden %}<p class="muted rel-more">외 {{ g.hidden }}건{% if g.more_url %} · <a href="{{ g.more_url }}">모두 보기</a>{% endif %}</p>{% endif %}
+  {% else %}<p class="muted">아직 없습니다.</p>{% endif %}
 </section>
+{% endfor %}
 {% endmacro %}

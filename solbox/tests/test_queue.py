@@ -10,6 +10,7 @@ from app.ai.tasks import HANDLERS
 from app.models import AIJob, User
 
 
+
 def _echo(monkeypatch):
     monkeypatch.setitem(HANDLERS, "echo", lambda db, inp, runner, s: runner.run(inp["text"], timeout_s=s.ai_timeout_s))
 
@@ -132,6 +133,7 @@ def _kim(db):
     return db.query(User).filter_by(username="kim").one()
 
 
+@pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기 화면
 def test_status_fragment(user_client, db):
     j = _job(db, _kim(db))
     r = user_client.get(f"/jobs/{j.id}/status")

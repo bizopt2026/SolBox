@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app import follow_ups as fu_lib
 from app import labels, ontology, transcribe, ui
 from app.db import get_db
 from app.main import render
@@ -15,7 +16,7 @@ from app.models import AIJob, Activity, Customer, CustomerNeed, FollowUp, Intake
 from app.security import require_user
 
 router = APIRouter()
-RECENT_LIMIT = 10
+RECENT_LIMIT = 8  # 왼쪽 열이 오른쪽보다 길어지지 않게 (나머지는 "모두 보기")
 OPEN_PROPOSAL_LIMIT = 5
 FOLLOW_UP_DAYS = 14
 LATEST_INSIGHTS, LATEST_SUGGESTIONS = 5, 3
@@ -115,7 +116,7 @@ def intake_summary(db: Session, user: User) -> dict:
 
 
 def recent_activities(db: Session) -> list[dict]:
-    """최근 활동 기록 10건 (일자 최신순, 일자 없는 것은 뒤)과 각각의 고객 니즈·후속 조치 수. 질의 세 번."""
+    """최근 활동 기록 8건 (일자 최신순, 일자 없는 것은 뒤)과 각각의 고객 니즈·후속 조치 수. 질의 세 번."""
     rows = list(db.scalars(select(Activity).order_by(Activity.date.is_(None), Activity.date.desc(), Activity.id.desc()).limit(RECENT_LIMIT)))
     ids = [a.id for a in rows]
     needs = dict(db.execute(select(CustomerNeed.activity_id, func.count()).where(CustomerNeed.activity_id.in_(ids)).group_by(CustomerNeed.activity_id)).all()) if ids else {}
@@ -139,7 +140,7 @@ def summary_sentence(overdue: int, ready: int) -> str:
 
 
 @router.get("/")
-def home(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def home(request: Request, fu_toggled: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
     now = today()
     follow_ups = upcoming_follow_ups(db, now)
     intake = intake_summary(db, user)
@@ -155,4 +156,5 @@ def home(request: Request, user: User = Depends(require_user), db: Session = Dep
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
         flow=flow, opp=opp, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
+        toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None,
     )

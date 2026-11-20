@@ -47,17 +47,17 @@
   {% for t in by_area[code] %}
     {% set f = "t" ~ t.id %}
     <tr>
-      <td><form id="{{ f }}" method="post" action="/admin/research/topics/{{ t.id }}"></form><input form="{{ f }}" name="name" value="{{ t.name }}" maxlength="100" required></td>
-      <td><input form="{{ f }}" name="keywords" value="{{ t.keywords }}" maxlength="500"></td>
+      <td><form id="{{ f }}" method="post" action="/admin/research/topics/{{ t.id }}"></form><input form="{{ f }}" name="name" value="{{ t.name }}" maxlength="100" required aria-label="{{ t.name }} 주제 이름"></td>
+      <td><input form="{{ f }}" name="keywords" value="{{ t.keywords }}" maxlength="500" aria-label="{{ t.name }} 키워드"></td>
       <td>
-        <select form="{{ f }}" name="area">
+        <select form="{{ f }}" name="area" aria-label="{{ t.name }} 분야">
           {% for c, label in areas.items() %}<option value="{{ c }}" {% if t.area == c %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </td>
-      <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}><span class="sr-only">사용</span></label></td>
+      <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}><span class="sr-only">{{ t.name }} 사용</span></label></td>
       <td><div class="cell-actions">
-        <button form="{{ f }}" type="submit" class="small">저장</button>
-        <form method="post" action="/admin/research/topics/{{ t.id }}/delete" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit" class="small danger">삭제</button></form>
+        <button form="{{ f }}" type="submit" class="small" aria-label="{{ t.name }} 저장">저장</button>
+        <form method="post" action="/admin/research/topics/{{ t.id }}/delete" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit" class="small danger" aria-label="{{ t.name }} 삭제">삭제</button></form>
       </div></td>
     </tr>
   {% endfor %}

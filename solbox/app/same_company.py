@@ -7,6 +7,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.idparse import parse_id
 from app.ai.tasks import normalize_name
 from app.models import Customer, Partner
 
@@ -15,8 +16,7 @@ NO_PARTNER = "존재하지 않는 파트너입니다."
 
 
 def _id(raw) -> int | None:
-    raw = str(raw if raw is not None else "").strip()
-    return int(raw) if raw.isascii() and raw.isdecimal() else None
+    return parse_id(raw)
 
 
 def conflict(partner: Partner, customer: Customer) -> str:

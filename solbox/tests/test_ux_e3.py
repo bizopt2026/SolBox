@@ -148,5 +148,4 @@ def test_nav_marks_active_and_css_gives_hint(user_client):
     page = user_client.get("/proposals").text
     assert re.search(r'<a href="/proposals" aria-current="page">', page)
     css = user_client.get("/static/app.css").text
-    narrow = css.split("@media (max-width: 1099px)")[1].split("}")[0:12]
     assert ".navg a { flex: none; white-space: nowrap; min-height: 40px;" in css

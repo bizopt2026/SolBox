@@ -68,7 +68,7 @@ def test_proposal_outline_research_and_admin_breadcrumbs(admin_client, db):
     run = ResearchRun(status="done", trigger="manual")
     db.add(run)
     db.commit()
-    day = run.started_at.strftime("%Y-%m-%d")
+    day = f"{run.started_at.month}월 {run.started_at.day}일"  # 화면의 날짜 모양 하나 (올해는 연도 없이)
     assert _crumbs(admin_client.get(f"/research/runs/{run.id}").text) == f"발굴 › 리서치 › {day}"
 
 
@@ -79,3 +79,43 @@ def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings
     html = user_client.get(f"/proposals/{p.id}/outline").text
     assert _crumbs(html).startswith("영업 › 제안 › ") and _crumbs(html).endswith("› 구성안")
     assert f'<a href="/proposals/{p.id}">' in html
+
+
+# ---- 현재 위치 표시를 구역마다 확인 (관리 화면·제안·후속 조치·검색) ----
+
+def test_every_admin_page_marks_its_own_item(admin_client):
+    for path in ("/admin/users", "/admin/jobs", "/admin/research", "/admin/system"):
+        nav = _nav(admin_client.get(path).text)
+        assert f'href="{path}" aria-current="page"' in nav, path
+        assert nav.count('aria-current="page"') == 1, path
+
+
+def test_proposals_and_their_detail_mark_the_proposal_item(user_client, db, settings):
+    assert 'href="/proposals" aria-current="page"' in _nav(user_client.get("/proposals").text)
+    p = refining_proposal(db, settings)
+    nav = _nav(user_client.get(f"/proposals/{p.id}").text)
+    assert 'href="/proposals" aria-current="page"' in nav and nav.count('aria-current="page"') == 1
+    nav = _nav(user_client.get(f"/proposals/{p.id}/outline").text)
+    assert 'href="/proposals" aria-current="page"' in nav
+
+
+def test_follow_ups_highlight_home_and_search_marks_nothing(user_client):
+    nav = _nav(user_client.get("/follow-ups").text)
+    assert 'href="/" aria-current="page"' in nav and nav.count('aria-current="page"') == 1
+    assert _nav(user_client.get("/search?q=ab").text).count("aria-current") == 0
+
+
+def test_sidebar_group_titles_are_not_headings(user_client):
+    html = user_client.get("/").text
+    nav = _nav(html)
+    assert "<h3" not in nav and "<h2" not in nav and 'class="navg-title"' in nav
+    assert 'aria-label="발굴"' in nav  # 이름은 메뉴의 aria-label 로 남는다
+
+
+def test_breadcrumb_group_comes_from_the_nav_definition(user_client, db):
+    from app import ontology
+
+    group = ontology.nav_group_label("intake")
+    assert group == "오늘"
+    assert _crumbs(user_client.get("/intake/new").text).startswith(group + " ›")
+    assert _crumbs(user_client.get("/follow-ups").text).startswith(group + " ›")

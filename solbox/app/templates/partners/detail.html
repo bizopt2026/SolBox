@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, same_name_hint, meta_card %}
-{% from "_related.html" import related_card %}
+{% from "_macros.html" import detail_head, props_card, same_name_hint, meta_card %}
+{% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
 {{ detail_head(partner.name, "/partners", partner, can_delete, crumbs=ui.crumbs("partner", partner.name),
@@ -10,17 +10,11 @@
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    <section class="card stack">
-      <div class="card-head"><h2>기본 정보</h2></div>
-      <dl class="props">
-        <dt>소개</dt><dd>{{ val(partner.description) }}</dd>
-        <dt>연락처</dt><dd>{{ val(partner.contact) }}</dd>
-        <dt>메모</dt><dd>{{ val(partner.memo) }}</dd>
-      </dl>
-    </section>
+    {{ props_card("기본 정보", [("소개", partner.description), ("연락처", partner.contact), ("메모", partner.memo)], "/partners/" ~ partner.id ~ "/edit") }}
+    {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    {{ related_card(related, [("올리기로 " ~ ont.label("solution") ~ " 등록", "/intake/new")]) }}
+    {{ related_card(related, [("올리기로 " ~ ont.label("solution") ~ " 등록", "/intake/new")], hide_empty=true) }}
     {% call meta_card(meta, origin) %}{% if partner.customer %}<dt>같은 회사</dt><dd>고객 <a href="/customers/{{ partner.customer.id }}">{{ partner.customer.name }}</a></dd>{% endif %}{% endcall %}
   </aside>
 </div>

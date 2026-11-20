@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.idparse import parse_id
 from app import opportunities as opps, relations, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -28,7 +29,7 @@ def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, 
 def _detail_page(request: Request, db: Session, user: User, bm: BM, error: str | None = None):
     return render(
         request, "bms/detail.html", status_code=400 if error else 200, bm=bm, error=error,
-        related=relations.related_for_page(db, bm, user), has_dependents=bool(bm.projects or bm.opportunities), can_delete=can_delete(user, bm), meta=ui.stamp_info(db, bm),
+        **relations.page_related(db, bm, user), has_dependents=bool(bm.projects or bm.opportunities), can_delete=can_delete(user, bm), meta=ui.stamp_info(db, bm),
     )
 
 
@@ -57,7 +58,7 @@ def create(
 ):
     values = _values(name, summary, target_customers, revenue_model, memo)
     if error := name_error(name):
-        return _form_page(request, db, {**values, "solution_ids": [int(i) for i in solution_ids if i.strip().isdigit()]}, error=error)
+        return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, error=error)
     bm = BM(**values, created_by_id=user.id)
     bm.solutions = pick(db, Solution, solution_ids)
     db.add(bm)
@@ -89,7 +90,7 @@ def update(
     bm = get_or_404(db, BM, bm_id)
     values = _values(name, summary, target_customers, revenue_model, memo)
     if error := name_error(name):
-        return _form_page(request, db, {**values, "solution_ids": [int(i) for i in solution_ids if i.strip().isdigit()]}, bm, error)
+        return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, error)
     before = opps.dependents(db, bm)  # 빠지는 솔루션의 카드도 다시 쓴다
     for field, value in values.items():
         setattr(bm, field, value)

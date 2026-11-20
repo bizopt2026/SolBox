@@ -1,4 +1,5 @@
 import json
+import pytest
 import threading
 
 from app.ai.queue import enqueue, process_next
@@ -6,6 +7,8 @@ from app.labels import ERROR_KINDS
 from app.models import AIJob, Proposal, ProposalMessage
 from app.proposals import check_sources, start_job
 from tests.conftest import make_proposal_world, make_user
+
+pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
 
 
 def _run(app, settings):

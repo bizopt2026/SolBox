@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import functools
 import logging
+import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from jinja2 import pass_context
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -62,20 +64,25 @@ def _intake_ready_count(session_factory, user) -> int:
         return 0
 
 
-def _ai_status_data(session_factory, settings) -> dict:
-    """상단 줄의 AI 상태: {"state": "ok"|"busy"|"down", "text"}. 작은 조회 두 번 (대기·실행 수, 마지막으로 끝난 작업의 환경 문제 여부)."""
-    from app.routers.home import ai_problem
+AI_HARD_PROBLEMS = ("not_installed", "auth")  # CLI 가 없거나 로그인이 안 됨: 이때만 "사용 불가" (한도·네트워크·시간 초과·형식은 그 작업의 실패일 뿐이다)
 
+
+def _ai_status_data(session_factory, settings) -> dict:
+    """상단 줄의 AI 상태: {"state": "ok"|"busy"|"warn"|"down"|"off", "text"}. 작은 조회 두 번 (대기·실행 수, 마지막으로 끝난 작업).
+    꺼짐(처리기 꺼짐) → 사용 불가(CLI 없음·로그인 안 됨) → 작업 중 → 마지막 작업 실패(주의 색, 성공하는 작업이 나올 때까지) → 사용 가능."""
     if not settings.ai_worker_enabled:
-        return {"state": "down", "text": "AI 사용 불가"}
+        return {"state": "off", "text": labels.AI_OFF_STATUS}
     with session_factory() as db:
         counts = dict(db.execute(select(AIJob.status, func.count()).where(AIJob.status.in_(("pending", "running"))).group_by(AIJob.status)).all())
-        problem = ai_problem(db)
+        last = db.scalars(select(AIJob).where(AIJob.finished_at.is_not(None)).order_by(AIJob.finished_at.desc(), AIJob.id.desc())).first()
+    failed = last if last is not None and last.status == "failed" else None
     pending, running = counts.get("pending", 0), counts.get("running", 0)
-    if problem:
+    if failed is not None and failed.error_kind in AI_HARD_PROBLEMS:
         return {"state": "down", "text": "AI 사용 불가"}
     if running:
         return {"state": "busy", "text": f"AI 작업 중 {running}" + (f" · 대기 {pending}" if pending else "")}
+    if failed is not None:
+        return {"state": "warn", "text": f"마지막 AI 작업 실패 ({labels.JOB_KINDS.get(failed.kind, 'AI 작업')})"}
     return {"state": "ok", "text": f"AI 사용 가능 · 대기 {pending}"}
 
 
@@ -110,6 +117,7 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
     ctx.setdefault("labels", labels)
     ctx.setdefault("queue_ahead", functools.partial(_queue_ahead, request.app.state.session_factory))
     ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.app.state.session_factory, ctx["user"]))
+    ctx.setdefault("ai_off", not request.app.state.settings.ai_worker_enabled)  # 대기 작업이 시작되지 않는다: 화면은 계속 다시 불러오지 않는다
     ctx.setdefault("ai_status", functools.partial(_ai_status, request.app.state.session_factory, request.app.state.settings, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
@@ -217,10 +225,20 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["ont"] = ontology
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
     app.state.templates.env.globals["kdate"] = lambda d: ui.short_date(d, date.today())  # "11월 24일" (올해가 아니면 연도도)
+    app.state.templates.env.globals["kdatetime"] = lambda d: ui.short_datetime(d, date.today())  # "11월 24일 14:30"
+    app.state.templates.env.globals["now_ts"] = lambda: int(time.time())  # "새로 고침" 링크가 늘 새 주소가 되게
     app.state.templates.env.globals["ui"] = ui
+    versions = ui.asset_versions(static_dir)  # 시작할 때 한 번: 파일이 바뀌면 주소가 바뀐다
+    app.state.templates.env.globals["asset"] = lambda name: f"/static/{name}?v={versions.get(name, '0')}"
     app.state.templates.env.globals["error_field"] = ui.error_field
     app.state.templates.env.filters["first_line"] = ui.first_line
-    app.state.templates.env.filters["md"] = render_markdown
+    app.state.templates.env.filters["kdate_text"] = lambda t: ui.iso_date_text(t, date.today())  # ISO 날짜 글 -> "11월 17일"
+    @pass_context
+    def md_filter(ctx, text):
+        """Markdown 조각. 화면이 출처 조회(`src`)를 가졌으면 지식 사본 경로를 출처 칩으로 바꾼다 (제안 대화 답변)."""
+        return render_markdown(text, ctx.get("src"))
+
+    app.state.templates.env.filters["md"] = md_filter
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,

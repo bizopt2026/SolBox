@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% from "_macros.html" import page_header, pill %}
-{% block title %}리서치 {{ run.started_at.strftime("%Y-%m-%d") }}{% endblock %}
+{% block title %}리서치 {{ kdate(run.started_at) }}{% endblock %}
 {% block content %}
 {% set n_trends = areas | map(attribute="trends") | map("length") | sum %}
-{% call page_header("리서치 " ~ run.started_at.strftime("%Y-%m-%d"), crumbs=ui.crumbs("research_run", run.started_at.strftime("%Y-%m-%d")), sub=(areas | length) ~ "개 분야에서 동향 " ~ n_trends ~ "건" ~ (" · 발굴 방향 제안 " ~ (suggestions | length) ~ "건" if suggest else "") ~ "을 모았습니다.", status=pill("run_status", run.status)) %}
-{% if user.role == "admin" and run.status != "running" %}<form method="post" action="/research/runs/{{ run.id }}/delete" onsubmit="return confirm('이 조사 결과를 삭제할까요?')"><button type="submit" class="ghost danger">이 조사 삭제</button></form>{% endif %}
+{% call page_header("리서치 " ~ kdate(run.started_at), crumbs=ui.crumbs("research_run", kdate(run.started_at)), sub=(areas | length) ~ "개 분야에서 동향 " ~ n_trends ~ "건" ~ (" · 발굴 방향 제안 " ~ (suggestions | length) ~ "건" if suggest else "") ~ "을 모았습니다.", status=pill("run_status", run.status)) %}
+{% if user.role == "admin" and run.status != "running" %}<form method="post" class="actions-danger" action="/research/runs/{{ run.id }}/delete" onsubmit="return confirm('이 조사 결과를 삭제할까요?')"><button type="submit" class="ghost danger">이 조사 삭제</button></form>{% endif %}
 {% endcall %}
 <p class="notice research-note">AI가 웹에서 수집한 내용입니다. 링크를 열어 직접 확인하세요.</p>
 {% if run.status == "running" %}

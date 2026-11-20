@@ -1,0 +1,32 @@
+{# 대화 맨 끝의 "지금 일어나는 일" 한 덩어리 (#chat-tail): 대기·진행 중에는 이것만 스스로 다시 불러 바꾼다 (앞선 메시지·"이전 대화" 펼침·입력칸은 건드리지 않는다).
+   실패하면 멈춘 부분 답변(있으면)과 실패 말풍선을 보인다. 대기·진행이 아니면 껍데기만 남는다. #}
+{% import "proposals/_chat_state.html" as cs with context %}
+{% set job = cs.job %}{% set state = cs.state %}{% set stalled = ai_off and state == "pending" %}
+<div id="chat-tail" class="chat-tail" data-state="{{ state }}"
+  {% if state in ("pending", "running") and not stalled %}hx-get="/proposals/{{ proposal.id }}/chat/live" hx-trigger="every {{ '1s' if state == 'running' else '2s' }}" hx-swap="outerHTML"{% endif %}>
+  {% if state == "pending" %}
+  {% set ahead = queue_ahead(job) %}
+  <div class="chat-msg assistant live pending" role="status"><span class="chat-who">AI</span>
+    <p><strong>대기 중</strong>{% if ahead.count %} · 앞에 AI 작업 {{ ahead.count }}개{% endif %}</p>
+    {% if ahead.lines %}<ul class="ahead">{% for line in ahead.lines %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+    {% if stalled %}<p class="error">{{ labels.AI_OFF_NOTICE }}</p>{% else %}<p class="muted">앞 작업이 끝나면 자동으로 시작합니다. 이 화면을 떠나도 됩니다.</p>{% endif %}
+    <noscript><p class="muted">이 화면은 저절로 바뀌지 않아요. <a href="/proposals/{{ proposal.id }}?refresh={{ now_ts() }}#chat">새로 고침</a>으로 상태를 확인하세요.</p></noscript>
+  </div>
+  {% elif state == "running" %}
+  <div class="chat-msg assistant live running"><span class="chat-who">AI</span>
+    {% if job.result %}<div class="md">{{ job.result | md }}</div>{% else %}<p class="muted">답변을 쓰는 중…</p>{% endif %}
+    <p class="live-meta"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> <span class="muted">{% if job.result %}작성 중{% else %}보통 1분 안에 끝납니다{% endif %}{% if job.started_at %} · {{ labels.elapsed_text(job.started_at) }}{% endif %}</span></p>
+    <noscript><p class="muted">이 화면은 저절로 바뀌지 않아요. <a href="/proposals/{{ proposal.id }}?refresh={{ now_ts() }}#chat">새로 고침</a>으로 답변을 확인하세요.</p></noscript>
+  </div>
+  {% elif state == "failed" %}
+  {% if job.result %}
+  <div class="chat-msg assistant partial"><span class="chat-who">AI · 중단된 답변</span><div class="md">{{ job.result | md }}</div></div>
+  {% endif %}
+  <div class="chat-msg assistant live failed" role="alert"><span class="chat-who">AI</span>
+    <p class="error">{{ labels.ERROR_KINDS.get(job.error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+    <form method="post" action="/proposals/{{ proposal.id }}/chat/retry"><button type="submit" class="small">다시 시도</button></form>
+    <p class="muted">내 메시지는 그대로 남아 있어요. 다시 시도하거나 아래에 다른 말로 물어볼 수 있어요.</p>
+    {% if job.error %}<details class="more"><summary>자세한 오류</summary><pre class="error-detail">{{ job.error }}</pre></details>{% endif %}
+  </div>
+  {% endif %}
+</div>

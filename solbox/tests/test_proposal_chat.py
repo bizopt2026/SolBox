@@ -1,3 +1,4 @@
+import re
 from app.ai.queue import process_next
 from app.ai.runner import ClaudeRunner
 from app.labels import ERROR_KINDS
@@ -113,7 +114,9 @@ def test_chat_failure_keeps_user_message_only(app, user_client, db, settings, fa
     db.refresh(p)
     assert _roles(p) == [("user", "질문")]
     page = user_client.get(f"/proposals/{p.id}").text
-    assert ERROR_KINDS["network"] in page and "다시 시도" in page and "반쯤" not in page
+    assert ERROR_KINDS["network"] in page and "다시 시도" in page
+    # 멈춘 부분 답변은 "중단된 답변" 으로 실패 말풍선 위에 보인다 (저장된 메시지는 아니다)
+    assert "중단된 답변" in page and "반쯤" in page and page.index("반쯤") < page.index("chat/retry")
     assert f"/proposals/{p.id}/chat/retry" in page
 
 
@@ -165,7 +168,9 @@ def test_busy_does_not_store_message(user_client, db, settings):
     p = refining_proposal(db, settings)
     user_client.post(f"/proposals/{p.id}/chat", data={"message": "첫째"})
     r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "둘째"}, follow_redirects=False)
-    assert r.headers["location"] == f"/proposals/{p.id}?notice=busy"
+    # 바쁘면 거절하지만 쓴 글은 입력칸에 남는다 (되돌아가도 잃지 않는다)
+    assert r.status_code == 409 and "둘째" in re.search(r"<textarea id=\"chat-message\"[^>]*>(.*?)<\/textarea>", r.text, re.S).group(1)
+    assert "이미 AI 작업이 진행 중" in r.text
     db.expire_all()
     assert [m.content for m in p.messages] == ["첫째"] and db.query(AIJob).count() == 1
 

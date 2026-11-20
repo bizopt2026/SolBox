@@ -14,7 +14,7 @@ def test_system_page(admin_client, user_client, db, settings):
     assert str(settings.data_dir) in r.text
     assert "백업 없음" in r.text
     nxt = scheduler.latest_slot(get_schedule(db), datetime.now()) + timedelta(days=7)
-    assert nxt.strftime("%Y-%m-%d %H:%M") in r.text
+    assert f"{nxt.month}월 {nxt.day}일 {nxt:%H:%M}" in r.text or f"{nxt.year}년 {nxt.month}월 {nxt.day}일 {nxt:%H:%M}" in r.text  # 화면의 날짜 모양 하나
     assert "0.1.0" in r.text
     assert user_client.get("/admin/system").status_code == 403
     assert user_client.post("/admin/system/ai-check").status_code == 403

@@ -66,8 +66,10 @@ def test_caps_each_type_and_reports_the_total(user_client, db):
 
 def test_short_and_empty_queries(user_client, db):
     _world(db)
-    assert "두 글자 이상" in user_client.get("/search?q=한").text
-    assert "한빛" not in user_client.get("/search?q=한").text
+    assert "두 글자 이상" in user_client.get("/search?q=a").text  # 영문·숫자 한 글자는 거절
+    assert "한빛" not in user_client.get("/search?q=a").text
+    one = user_client.get("/search?q=한").text  # 한글 한 글자는 찾는다 (D8)
+    assert "두 글자 이상" not in one and "한빛" in one
     r = user_client.get("/search")
     assert r.status_code == 200 and "찾을 이름이나 제목" in r.text
     assert "두 글자 이상" not in r.text

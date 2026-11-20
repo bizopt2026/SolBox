@@ -15,6 +15,12 @@ from tests.conftest import refining_proposal
 WAIT_REASON = "답변이 끝나면 이어서 물을 수 있어요"
 
 
+@pytest.fixture(autouse=True)
+def _worker_on(app):
+    """작업 처리기가 꺼진 서버는 대기 작업이 시작되지 않아 화면이 다시 불러오지 않는다 (아래 따로 시험). 여기서는 켜 둔 서버를 본다."""
+    app.state.settings.ai_worker_enabled = True
+
+
 def _live(html: str) -> str:
     """대화 구역의 살아 있는 부분(`#chat-live`)만 잘라 낸다."""
     m = re.search(r'<div id="chat-live".*?<!--/chat-live-->', html, re.S)
@@ -134,7 +140,8 @@ def test_done_fragment_has_final_message_enabled_input_no_polling_and_no_redirec
     fake_claude.set(mode="stream", chunks=["범위를 ", "좁힙니다."])
     user_client.post(f"/proposals/{p.id}/chat", data={"message": "공조만 하자"})
     r = user_client.get(f"/proposals/{p.id}/chat/live")
-    assert "hx-get" in r.text and "공조만 하자" in r.text
+    assert "hx-get" in r.text and "대기 중" in r.text  # 기다리는 동안의 조각은 맨 끝 말풍선뿐 (앞선 메시지는 다시 그리지 않는다)
+    assert "공조만 하자" not in r.text and 'id="chat-live"' not in r.text
     process_next(app.state.session_factory, app.state.runner, settings)
     r = user_client.get(f"/proposals/{p.id}/chat/live")
     live = _live(r.text)
@@ -190,13 +197,13 @@ def test_failed_chat_after_assistant_answer_is_not_shown(user_client, db, settin
     assert "chat/retry" not in live
 
 
-def test_failed_job_keeps_partial_text_out_of_the_chat(app, user_client, db, settings, fake_claude):
+def test_failed_job_shows_the_partial_text_marked_as_interrupted(app, user_client, db, settings, fake_claude):
     p = refining_proposal(db, settings)
     fake_claude.set(mode="stream", chunks=["반쯤 ", "온 답"], stream_fail_after=1, stderr="Invalid API key · Please run /login")
     user_client.post(f"/proposals/{p.id}/chat", data={"message": "질문"})
     process_next(app.state.session_factory, app.state.runner, settings)
     live = _live(_page(user_client, p))
-    assert labels.ERROR_KINDS["auth"] in live and "반쯤" not in live
+    assert labels.ERROR_KINDS["auth"] in live and "반쯤" in live and "중단된 답변" in live
 
 
 # ---- 자바스크립트 없이 ----
@@ -205,7 +212,8 @@ def test_no_js_page_shows_state_and_a_refresh_link(user_client, db, settings):
     p = refining_proposal(db, settings)
     _chat_job(db, p, "running", started_ago=3)
     live = _live(_page(user_client, p))
-    assert f'<a href="/proposals/{p.id}#chat">새로 고침</a>' in live
+    # 새로 고침은 조각 이동이 아니라 실제로 다시 불러오는 주소 (매번 다른 쿼리)
+    assert re.search(rf'<a href="/proposals/{p.id}\?refresh=\d+#chat">새로 고침</a>', live)
     assert "<noscript>" in live  # 스크립트가 없을 때만 보이는 안내
 
 
@@ -234,7 +242,7 @@ def test_chat_is_refused_while_a_job_runs(user_client, db, settings):
     p = refining_proposal(db, settings)
     _chat_job(db, p, "running", started_ago=2)
     r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "또"}, follow_redirects=False)
-    assert r.headers["location"].endswith("notice=busy")
+    assert r.status_code == 409 and "또" in re.search(r"<textarea id=\"chat-message\"[^>]*>(.*?)<\/textarea>", r.text, re.S).group(1)
     db.expire_all()
     assert db.query(ProposalMessage).filter_by(proposal_id=p.id).count() == 1
 
@@ -368,3 +376,15 @@ def test_chat_reports_the_fallback_failure_not_the_stream_failure(app, user_clie
     job = db.query(AIJob).one()
     db.refresh(job)
     assert job.status == "failed" and len(fake_claude.calls()) == 2
+
+
+# ---- 처리기가 꺼진 서버: 계속 다시 불러오지 않고 안내한다 ----
+
+def test_pending_chat_with_the_worker_off_shows_a_notice_and_does_not_poll(app, user_client, db, settings):
+    app.state.settings.ai_worker_enabled = False
+    p = refining_proposal(db, settings)
+    _chat_job(db, p, "pending")
+    live = _live(_page(user_client, p))
+    assert labels.AI_OFF_NOTICE in live and "hx-get" not in live and "hx-trigger" not in live
+    frag = user_client.get(f"/proposals/{p.id}/chat/live").text
+    assert labels.AI_OFF_NOTICE in frag and "hx-trigger" not in frag

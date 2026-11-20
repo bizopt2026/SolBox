@@ -32,12 +32,12 @@ def test_home_shows_stage_counts_and_recent(user_client, db):
     assert "<b>2</b>" in cell("boxed") and "<b>0</b>" in cell("intake") and "<b>1</b>" in cell("hold")  # 흐름 띠의 칸(보류는 띠 옆 링크)
 
 
-def test_home_recent_activities_limited_to_ten_newest(user_client, db):
+def test_home_recent_activities_limited_to_eight_newest(user_client, db):
     for i in range(12):
         db.add(Activity(raw_text="x", title=f"기록{i:02d}", date=date(2026, 1, 1) + timedelta(days=i)))
     db.commit()
     page = user_client.get("/").text
-    assert "기록11" in page and "기록02" in page and "기록01" not in page
+    assert "기록11" in page and "기록04" in page and "기록03" not in page  # 여덟 건만, 나머지는 "모두 보기"
 
 
 def test_home_follow_up_has_toggle_and_overdue_mark(user_client, db):
@@ -120,8 +120,8 @@ def test_home_section_order_and_trimmed_research(user_client, db):
         {"kind": "new", "title": f"제안{i}", "detail": "", "reason": "", "solution_ids": [], "sources": []} for i in range(5)]))
     db.commit()
     page = user_client.get("/").text
-    # 두 줄(왼쪽: 후속 조치·최근 활동·리서치, 오른쪽: 올리기·영업기회·제안 건) 순서로 읽힌다
-    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-act"', 'id="h-res"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"')]
+    # 두 열(왼쪽: 후속 조치·최근 활동, 오른쪽: 올리기·영업기회·제안 건) 다음에 가로 전체 폭의 최신 리서치 순서로 읽힌다
+    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-act"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"', 'id="h-res"')]
     assert heads == sorted(heads)
     assert "시사점1" in page and "시사점2" not in page
     assert "제안1" in page and "제안2" not in page

@@ -1,28 +1,18 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, meta_card %}
-{% from "_related.html" import related_card, lead_card %}
+{% from "_macros.html" import detail_head, props_card, meta_card %}
+{% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ bm.name }}{% endblock %}
 {% block content %}
-{% set lead = related | selectattr("key", "in", ["R33:solution"]) | list %}
-{% set rest = related | rejectattr("key", "in", ["R33:solution"]) | list %}
 {{ detail_head(bm.name, "/bms", bm, can_delete, crumbs=ui.crumbs("bm", bm.name), sub=bm.summary or none) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    <section class="card stack">
-      <div class="card-head"><h2>사업 모델</h2></div>
-      <dl class="props">
-        <dt>{{ ont.prop("bm", "summary") }}</dt><dd>{{ val(bm.summary) }}</dd>
-        <dt>{{ ont.prop("bm", "target_customers") }}</dt><dd>{{ val(bm.target_customers) }}</dd>
-        <dt>{{ ont.prop("bm", "revenue_model") }}</dt><dd>{{ val(bm.revenue_model) }}</dd>
-        <dt>{{ ont.prop("bm", "memo") }}</dt><dd>{{ val(bm.memo) }}</dd>
-      </dl>
-    </section>
-    {% for g in lead %}{{ lead_card(g) }}{% endfor %}
+    {{ props_card("사업 모델", [(ont.prop("bm", "summary"), bm.summary), (ont.prop("bm", "target_customers"), bm.target_customers), (ont.prop("bm", "revenue_model"), bm.revenue_model), (ont.prop("bm", "memo"), bm.memo)], "/bms/" ~ bm.id ~ "/edit") }}
+    {{ main_cards(main) }}
     {% if has_dependents %}<p class="muted help">{{ ont.OPPORTUNITY_RULES.bm_delete }}.</p>{% endif %}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    {{ related_card(rest) }}
+    {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>
 </div>

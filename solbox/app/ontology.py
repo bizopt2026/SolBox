@@ -160,6 +160,10 @@ ERROR_KINDS = {
     "unknown": "알 수 없는 오류가 발생했습니다. 잠시 뒤에 다시 시도해 주세요.",
 }
 
+# AI 작업 처리기가 꺼진 서버: 대기 중인 작업은 시작되지 않는다. 화면은 계속 다시 불러오지 않고 이 안내를 보인다.
+AI_OFF_STATUS = "AI 꺼짐"
+AI_OFF_NOTICE = "AI 작업 처리기가 꺼져 있어 작업이 시작되지 않습니다. 관리자에게 문의하세요."
+
 # 확인 항목의 종류: 근거 문제 / 확인할 점 (저장된 값이 아니라 문구에서 가려낸다. app/checks.py)
 CHECK_KINDS = {"evidence": "근거 문제", "decide": "확인할 점"}
 
@@ -429,6 +433,9 @@ TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 # 메뉴: 묶음(NAV_GROUPS) 안의 항목. 대상 유형의 `nav`·`nav_group` 에서 만들고, 대상이 아닌 항목(홈·올리기 묶음)과 관리 항목만 여기서 적는다.
 # 사이드 메뉴(base.html)는 이 정의만 그린다: 새 항목은 묶음이 없으면 안 된다 (tests/test_shell.py).
 NAV_GROUPS = (("today", "오늘"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
+NAV_GROUP_LABELS = dict(NAV_GROUPS)  # 묶음 코드 -> 이름 (화면 제목 위 경로가 읽는다)
+# 메뉴 항목이 아닌 화면이 어느 항목에 속하는지: 주소 앞 조각 -> 항목의 path (후속 조치 목록은 "오늘" 의 홈 구역)
+NAV_ALIASES = {"follow-ups": ""}
 
 
 class NavItem(NamedTuple):
@@ -476,6 +483,13 @@ def nav_groups(is_admin: bool = False) -> list[NavGroup]:
     return out
 
 
+def nav_group_label(first: str) -> str:
+    """주소 앞 조각("intake", "follow-ups" …)이 속한 메뉴 묶음의 이름 (경로의 첫 마디)."""
+    first = NAV_ALIASES.get(first, first)
+    item = next(i for i in (*NAV_ITEMS, *ADMIN_NAV_ITEMS) if i.path == first)
+    return NAV_GROUP_LABELS[item.group]
+
+
 def nav_current(path: str) -> str | None:
     """이 주소가 속한 메뉴 항목의 `path` (상세·수정 화면은 그 구역의 항목). 메뉴에 없는 화면은 None."""
     parts = path.strip("/").split("/")
@@ -483,6 +497,7 @@ def nav_current(path: str) -> str | None:
     if first == "admin":
         key = "/".join(parts[:2])
         return key if any(i.path == key for i in ADMIN_NAV_ITEMS) else None
+    first = NAV_ALIASES.get(first, first)
     return first if any(i.path == first for i in NAV_ITEMS) else None
 
 
@@ -800,12 +815,57 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "solution": ("R1", "R3", "R19", "R21", "R22"),
     "partner": ("R25", "R21", "R22"),
     "customer": ("R25", "R21", "R22"),
-    "project": ("R2", "R30", "R31"),
+    "project": ("R2", "R31"),
     "opportunity": ("R27", "R30", "R32"),
     "bm": (),
     "activity": ("R8", "R9", "R21", "R22"),
     "proposal": ("R12", "R13", "R29"),
 }
+@dataclass(frozen=True)
+class MainGroup:
+    """상세 화면의 왼쪽 내용 칸으로 올라오는 연결 그룹: 그 대상이 "무엇으로 이루어졌는지"를 보이는 저장된 관계들.
+    `key` 는 related() 그룹 키("R27:opportunity", 따라가서 얻는 관계는 "D6"), `action` 은 카드 머리의 "+ …" 동작 (글, 주소: `{id}` 는 이 기록 번호),
+    `show_empty` 가 참이면 비어 있어도 카드를 보여 "+ …" 동작을 건넨다."""
+    key: str
+    action: tuple[str, str] | None = None
+    show_empty: bool = False
+
+
+# 상세 화면 왼쪽 칸의 연결 카드 (순서대로). 여기 든 그룹은 옆 칸 "연결된 것" 에서는 빠지고, 옆 칸에는 건너서 연결된 것만 남는다. 화면마다 손으로 조인하지 않는다.
+MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
+    "customer": (
+        MainGroup("R27:opportunity", ("+ 영업기회 만들기", "/opportunities/new?customer_id={id}"), True),
+        MainGroup("R2:project", ("+ 프로젝트 등록", "/projects/new?customer_id={id}"), True),
+        MainGroup("R12:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={id}"), True),
+        MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("R10:customer_need"),
+        MainGroup("D6"),
+    ),
+    "partner": (
+        MainGroup("R1:solution", ("+ 솔루션 등록", "/solutions/new?partner_id={id}"), True),
+        MainGroup("R7:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+    ),
+    "project": (
+        MainGroup("R13:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={customer_id}&project_id={id}"), True),
+        MainGroup("R6:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("R30:opportunity"),
+    ),
+    "bm": (
+        MainGroup("R33:solution"),
+        MainGroup("R31:project"),
+        MainGroup("R32:opportunity"),
+    ),
+    "opportunity": (
+        MainGroup("R26:customer_need", ("고객 니즈 고르기", "/opportunities/{id}/edit")),
+        MainGroup("R28:solution"),
+        MainGroup("R29:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={customer_id}&opportunity_id={id}")),
+    ),
+    "solution": (
+        MainGroup("R14:proposal"),
+        MainGroup("R4:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+    ),
+}
+
 # 연결 목록의 그룹 순서 (앞에 둘 그룹. 나머지는 관계 번호 순)
 GROUP_ORDER: dict[str, tuple[str, ...]] = {
     "customer": ("R2", "R27", "R12", "R5", "R10"),

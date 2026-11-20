@@ -10,7 +10,7 @@
   <tbody>
   {% for it in pg.items %}
     <tr>
-      {% call title_cell("/intake/" ~ it.id, it.created_at.strftime("%Y-%m-%d %H:%M"), it.note or none) %}
+      {% call title_cell("/intake/" ~ it.id, kdatetime(it.created_at), it.note or none) %}
         {{ pill("intake_status", it.status) }}<span>{{ it.files | length }}개</span>{% if user.role == "admin" %}<span>{{ owners.get(it.created_by_id, "") }}</span>{% endif %}
       {% endcall %}
       {% if user.role == "admin" %}<td class="col-sec">{{ owners.get(it.created_by_id, "") }}</td>{% endif %}

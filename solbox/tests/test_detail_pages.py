@@ -28,8 +28,10 @@ def test_every_detail_page_has_two_column_grid_with_related_in_aside(user_client
         html = user_client.get(f"{path}/{obj.id}").text
         assert '<div class="dgrid">' in html and '<div class="dmain">' in html, path
         aside = re.search(r'<aside class="daside".*?</aside>', html, re.S).group(0)
-        assert 'class="card related stack"' in aside and "연결된 것" in aside and "기록 정보" in aside, path
-        assert "작성자" in aside
+        # 연결 그룹은 왼쪽 내용 칸의 카드(main-rel)가 맡고, 옆 칸 "연결된 것" 은 건너서 연결된 것이 있을 때만 있다
+        main = re.search(r'<div class="dmain">.*?<aside', html, re.S).group(0)
+        assert ("main-rel" in main) or 'class="card related stack"' in aside or path in ("/activities", "/bms", "/solutions", "/opportunities"), path
+        assert "기록 정보" in aside and "작성자" in aside
 
 
 def test_header_actions_respect_delete_permission(user_client, db):

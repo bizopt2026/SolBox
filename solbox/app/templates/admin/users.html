@@ -28,15 +28,15 @@
     {% set f = "u" ~ u.id %}
     <tr>
       <td><form id="{{ f }}" method="post" action="/admin/users/{{ u.id }}"></form>{{ u.username }}</td>
-      <td><input form="{{ f }}" name="name" value="{{ u.name }}"></td>
+      <td><input form="{{ f }}" name="name" value="{{ u.name }}" aria-label="{{ u.username }} 이름"></td>
       <td>
-        <select form="{{ f }}" name="role">
+        <select form="{{ f }}" name="role" aria-label="{{ u.username }} 권한">
           {% for code, text in roles.items() %}<option value="{{ code }}" {% if u.role == code %}selected{% endif %}>{{ text }}</option>{% endfor %}
         </select>
       </td>
-      <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if u.is_active %}checked{% endif %}><span class="sr-only">사용</span></label></td>
-      <td><input form="{{ f }}" type="password" name="password" autocomplete="new-password" placeholder="변경할 때만 입력"></td>
-      <td><button form="{{ f }}" type="submit" class="small">저장</button></td>
+      <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if u.is_active %}checked{% endif %}><span class="sr-only">{{ u.username }} 사용</span></label></td>
+      <td><input form="{{ f }}" type="password" name="password" autocomplete="new-password" placeholder="변경할 때만 입력" aria-label="{{ u.username }} 새 비밀번호"></td>
+      <td><button form="{{ f }}" type="submit" class="small" aria-label="{{ u.username }} 저장">저장</button></td>
     </tr>
   {% endfor %}
   </tbody>

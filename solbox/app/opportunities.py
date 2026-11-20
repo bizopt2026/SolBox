@@ -17,13 +17,14 @@ from sqlalchemy.orm import Session
 from app import ontology
 from app.ai.tasks import normalize_name
 from app.models import BM, Activity, Customer, CustomerNeed, Opportunity, Project, Proposal, User
+from app.ui import FieldError
 
 L_OPP, L_BM, L_PROJECT, L_NEED = (ontology.label("opportunity"), ontology.label("bm"), ontology.label("project"), ontology.term("customer_need"))
 
-NAME_REQUIRED = "이름을 입력하세요."
-CUSTOMER_REQUIRED = "고객을 선택하세요."
-BAD_STAGE = "알 수 없는 단계입니다."
-BAD_BM = f"존재하지 않는 {L_BM}입니다."
+NAME_REQUIRED = FieldError("이름을 입력하세요.", "name")
+CUSTOMER_REQUIRED = FieldError("고객을 선택하세요.", "customer_id")
+BAD_STAGE = FieldError("알 수 없는 단계입니다.", "stage")
+BAD_BM = FieldError(f"존재하지 않는 {L_BM}입니다.", "bm_id")
 NEED_NOT_BUNDLABLE = f"묶을 수 없는 {L_NEED}가 있습니다. 이 고객에 연결된 {L_NEED} 중 다른 {L_OPP}에 묶이지 않은 것만 고를 수 있습니다."
 CHANGE_HAS_NEEDS = f"묶은 {L_NEED}가 있으면 고객을 바꿀 수 없습니다. {L_NEED} 선택을 먼저 풀어 주세요."
 CHANGE_HAS_LINKS = f"{L_PROJECT}나 제안 건이 이어진 {L_OPP}는 고객을 바꿀 수 없습니다."

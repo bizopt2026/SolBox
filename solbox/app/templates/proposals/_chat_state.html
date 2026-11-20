@@ -1,0 +1,8 @@
+{# 대화 구역의 상태 계산 (`_chat.html`, `_chat_tail.html` 이 함께 쓴다: {% import ... as cs with context %}).
+   state: pending / running (대화 작업이 기다림·진행) / failed (마지막 대화 작업이 실패하고 내 메시지가 마지막) / busy (다른 AI 작업 중) / idle #}
+{% set job = proposal.active_job %}
+{% set active = job is not none and job.status in ontology.JOB_ACTIVE %}
+{% set chat_job = job is not none and job.kind == "proposal_chat" %}
+{% set last = proposal.messages[-1] if proposal.messages else none %}
+{% set failed = chat_job and job.status == "failed" and last is not none and last.role == "user" %}
+{% set state = ("pending" if job.status == "pending" else "running") if chat_job and active else "failed" if failed else "busy" if active else "idle" %}

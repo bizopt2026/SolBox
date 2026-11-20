@@ -110,7 +110,7 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
         areas.append({"report": r, "name": RESEARCH_AREAS.get(r.area, r.area), "trends": trends, "insights": insights})
     suggest_insights = [humanize_ids(db, i) for i in (suggest.insights if suggest else None) or []]
     return render(request, "research/run.html", run=run, suggest=suggest, suggestions=suggestions, areas=areas,
-                  suggest_insights=suggest_insights, src=SourceLookup(db), registered=registered)
+                  suggest_insights=suggest_insights, src=SourceLookup(db, ui=True), registered=registered)
 
 
 @router.post("/runs/{run_id}/candidate")

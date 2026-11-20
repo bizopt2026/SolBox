@@ -414,7 +414,7 @@ def test_other_detail_pages_render_shared_card(admin_client, world):
         f"/proposals/{world.pro_hanbit.id}": ["AI 공조 최적제어", "태양광 자가소비 진단"],
     }.items():
         html = admin_client.get(url).text
-        assert 'class="card related stack"' in html, url
+        assert 'class="card related stack"' in html or "main-rel" in html, url  # 연결 그룹은 왼쪽 카드(main-rel) 또는 옆 칸 카드
         for t in texts:
             assert t in html, (url, t)
     html = admin_client.get(f"/activities/{world.a_daesung.id}").text
@@ -423,10 +423,12 @@ def test_other_detail_pages_render_shared_card(admin_client, world):
 
 def test_derived_section_collapses_when_many(admin_client, db, world):
     html = admin_client.get(f"/customers/{world.c_hanbit.id}").text
-    assert "related-derived" not in html and "건너서 연결된 것" in html  # 세 그룹까지는 펼쳐 둔다
-    world.p_sense.customer_id = world.c_hanbit.id  # 같은 회사 파트너가 생겨 D13 이 더해진다 (네 그룹)
+    assert "related-derived" not in html and "건너서 연결된 것" in html  # 세 그룹까지는 펼쳐 둔다 (남은 후속 조치는 왼쪽 카드로 올라갔다)
+    world.p_sense.customer_id = world.c_hanbit.id  # 같은 회사 파트너가 생겨 D13 이 더해진다 (옆 칸 네 그룹)
     db.commit()
     html = admin_client.get(f"/customers/{world.c_hanbit.id}").text
+    assert "같은 회사 파트너가 공급하는 솔루션" in html and "related-derived" not in html  # 옆 칸에는 D1·D2·D13 세 그룹
+    html = admin_client.get(f"/partners/{world.p_sense.id}").text  # 파트너 쪽은 같은 회사 고객 덕에 그룹이 더 많다
     assert re.search(r"<details class=\"related-derived\"", html)
     html = admin_client.get(f"/activities/{world.a_kick.id}").text
     assert "건너서 연결된 것" not in html  # 활동 기록은 따라가서 얻는 관계가 없다

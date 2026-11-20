@@ -20,6 +20,7 @@ from app.migrate import add_missing_columns
 from app.models import AIJob, Customer, Intake, IntakeFile, Partner, Solution
 from tests.conftest import FAKE_CLAUDE
 
+
 AUDIO = ("회의.m4a", b"\x00\x01fake-audio", "audio/mp4")
 AUDIO2 = ("통화.mp3", b"\x00\x02fake-audio", "audio/mpeg")
 DOC = ("자료.txt", "문서 내용".encode(), "text/plain")
@@ -523,6 +524,7 @@ def test_status_fragment_unchanged_for_non_audio(app, user_client, db, settings)
     assert "정리 중…" in text and "보통 1분 안에 끝납니다" in text
 
 
+@pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기 화면
 def test_pending_audio_waiting_shows_pending_not_percent(app, user_client, db, settings, stt):
     _upload(user_client, [AUDIO])
     it = _latest(db)

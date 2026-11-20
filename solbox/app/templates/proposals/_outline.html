@@ -3,7 +3,7 @@
 {% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set slides = proposal.outline.slides %}
 <div class="outline-lead">
-  <p><strong>{{ slides | length }}장</strong>{% if proposal.outline_updated_at %} <span class="muted">· 마지막 저장 {{ proposal.outline_updated_at.strftime("%Y-%m-%d %H:%M") }}</span>{% endif %}</p>
+  <p><strong>{{ slides | length }}장</strong>{% if proposal.outline_updated_at %} <span class="muted">· 마지막 저장 {{ kdatetime(proposal.outline_updated_at) }}</span>{% endif %}</p>
   <a class="button" href="/proposals/{{ proposal.id }}/outline">구성안 검토·수정</a>
 </div>
 <ol class="slide-mini">

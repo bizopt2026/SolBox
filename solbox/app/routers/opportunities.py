@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -60,14 +61,14 @@ def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> t
 
 
 def _submitted(values: dict, need_ids, solution_ids) -> dict:
-    return {**values, "need_ids": [int(i) for i in need_ids if i.strip().isdigit()],
-            "solution_ids": [int(i) for i in solution_ids if i.strip().isdigit()]}
+    return {**values, "need_ids": [n for i in need_ids if (n := parse_id(i)) is not None],
+            "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}
 
 
 def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None):
     return render(
         request, "opportunities/detail.html", status_code=400 if error else 200,
-        opp=opp, error=error, related=relations.related_for_page(db, opp, user),
+        opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
     )
 

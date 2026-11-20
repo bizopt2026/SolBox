@@ -26,13 +26,13 @@ def today() -> date:
 
 @router.get("")
 def list_follow_ups(
-    request: Request, status: str = fu_lib.FU_DEFAULT, customer_id: str = "", owner: str = "", page: str = "1",
+    request: Request, status: str = fu_lib.FU_DEFAULT, customer_id: str = "", owner: str = "", page: str = "1", fu_toggled: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     now = today()
     status = status if status in fu_lib.FU_STATUSES else fu_lib.FU_DEFAULT
     scope, chips = [], []
-    rest = [(k, v) for k, v in request.query_params.multi_items() if k != "page"]
+    rest = [(k, v) for k, v in request.query_params.multi_items() if k not in ("page", fu_lib.NOTICE_PARAM)]
 
     def clear_of(param: str) -> str:
         left = [(k, v) for k, v in rest if k != param]
@@ -71,4 +71,5 @@ def list_follow_ups(
     pairs = [(f, a) for f, a in db.execute(stmt.offset((number - 1) * PER_PAGE).limit(PER_PAGE))]
     pg = Page(items=fu_lib.rows(db, pairs, now, with_customers=True), page=number, pages=pages, total=total, per_page=PER_PAGE)
     tabs = ui.seg_tabs(request, "status", list(fu_lib.FU_STATUSES.items()), counts, status, total=total, with_all=False)
-    return render(request, "follow_ups/list.html", pg=pg, tabs=tabs, status=status, chips=chips, filtered=bool(chips), today=now)
+    return render(request, "follow_ups/list.html", pg=pg, tabs=tabs, status=status, chips=chips, filtered=bool(chips), today=now,
+                  toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None)

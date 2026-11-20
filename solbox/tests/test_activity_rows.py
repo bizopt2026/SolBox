@@ -243,7 +243,7 @@ def test_toggle_by_id_and_by_old_index_url(user_client, db):
     db.add(a); db.commit()
     f0, f1 = a.follow_ups
     r = user_client.post(f"/follow-ups/{f1.id}/toggle", headers={"referer": "http://testserver/"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "http://testserver/"
+    assert r.status_code == 303 and r.headers["location"] == f"/?fu_toggled={f1.id}"  # 홈에서 눌렀으면 되돌리기 안내 번호가 붙는다
     db.expire_all(); assert [f.done for f in db.get(Activity, a.id).follow_ups] == [False, True]
     user_client.post(f"/activities/{a.id}/followups/0/toggle")  # 옛 순번 주소
     db.expire_all(); assert [f.done for f in db.get(Activity, a.id).follow_ups] == [True, True]

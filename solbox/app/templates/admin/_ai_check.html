@@ -1,8 +1,8 @@
 <div id="ai-check-result" role="status"
   {% if ping.state == "waiting" %}hx-get="/admin/system/ai-check/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   {% if ping.state == "waiting" %}확인 중입니다…
-  {% elif ping.state == "ok" %}<strong>AI 연결 정상</strong>{% if ping.at %} ({{ ping.at.strftime("%Y-%m-%d %H:%M:%S") }}){% endif %}
-  {% elif ping.state == "failed" %}<span class="error">AI 연결에 문제가 있습니다. {{ ping.text }}</span>{% if ping.at %} ({{ ping.at.strftime("%Y-%m-%d %H:%M:%S") }}){% endif %}
+  {% elif ping.state == "ok" %}<strong>AI 연결 정상</strong>{% if ping.at %} ({{ kdatetime(ping.at) }}){% endif %}
+  {% elif ping.state == "failed" %}<span class="error">AI 연결에 문제가 있습니다. {{ ping.text }}</span>{% if ping.at %} ({{ kdatetime(ping.at) }}){% endif %}
   {% else %}아직 확인하지 않았습니다.
   {% endif %}
 </div>

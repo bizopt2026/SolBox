@@ -5,7 +5,7 @@
 {% set st = intake.status %}
 {% set flow = [] %}{% for c in ("uploaded", "analyzing", "ready", "applied") %}{% set _ = flow.append((c, ont.INTAKE_STATUSES[c])) %}{% endfor %}
 {% set at = {"uploaded": 0, "analyzing": 1, "failed": 1, "ready": 2, "applying": 3, "applied": 4, "discarded": -1}.get(st, 0) %}
-{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[("오늘", none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", st), cls="detail") %}
+{% call page_header(ont.label("intake") ~ " " ~ intake.id ~ "번", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), (ont.label("intake") ~ " " ~ intake.id, none)], sub=(intake.note or none), count=ont.label("intake_file") ~ " " ~ (intake.files | length) ~ "개", status=pill("intake_status", st), cls="detail") %}
   {% if st == "uploaded" %}
   <form method="post" action="/intake/{{ intake.id }}/analyze"><button type="submit" class="button primary">정리 시작</button></form>
   {% elif st == "failed" %}<a class="button primary" href="#retry">다시 정리</a>
@@ -29,7 +29,7 @@
 <section class="card stack">
   <dl class="props">
     <dt>메모</dt><dd>{% if intake.note %}{{ intake.note }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
-    <dt>올린 때</dt><dd>{{ intake.created_at.strftime("%Y-%m-%d %H:%M") }}</dd>
+    <dt>올린 때</dt><dd>{{ kdatetime(intake.created_at) }}</dd>
   </dl>
   <details class="file-list"{% if intake.status != "ready" %} open{% endif %}>
   <summary>{{ ont.label("intake_file") }} {{ intake.files | length }}개{% if intake.status == "ready" %} (표로 보기){% endif %}</summary>
@@ -151,7 +151,7 @@
   <ul>{% for e in not_saved %}<li class="error">{{ e.label }}
     {% for f in e.files or [] %}<span class="muted">— {{ f.name }} <a href="/intake/files/{{ f.id }}/download">내려받기</a></span>{% endfor %}</li>{% endfor %}</ul>
   {% endif %}
-  <p class="muted">{% if intake.applied_at %}{{ intake.applied_at.strftime("%Y-%m-%d %H:%M") }}에 저장했습니다. {% endif %}올린 원본 파일은 위 표에서 내려받을 수 있습니다.</p>
+  <p class="muted">{% if intake.applied_at %}{{ kdatetime(intake.applied_at) }}에 저장했습니다. {% endif %}올린 원본 파일은 위 표에서 내려받을 수 있습니다.</p>
 </section>
 {% if unsaved_files %}
 <section class="card stack" id="unsaved-files">

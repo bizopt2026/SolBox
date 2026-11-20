@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 
+from app.idparse import parse_id
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
@@ -24,8 +25,8 @@ from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/solutions")
 FIELDS = ("name", "summary", "description", "partner_id", "stage", "usage_direction", "applicable_types", "tags")
-BAD_STAGE = "알 수 없는 단계입니다."
-BAD_PARTNER = "존재하지 않는 파트너입니다."
+BAD_STAGE = ui.FieldError("알 수 없는 단계입니다.", "stage")
+BAD_PARTNER = ui.FieldError("존재하지 않는 파트너입니다.", "partner_id")
 
 
 def _form_page(
@@ -43,7 +44,7 @@ def detail_page(request: Request, db: Session, user: User, solution: Solution, n
         request, "solutions/detail.html",
         solution=solution, notice=notice,
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
-        related=relations.related_for_page(db, solution, user),
+        **relations.page_related(db, solution, user),
         can_delete=can_delete(user, solution), origin=origin.view(db, user, solution), meta=ui.stamp_info(db, solution),
     )
 
@@ -66,9 +67,9 @@ def _parse(db: Session, name, summary, description, partner_id, stage, usage_dir
         return values, BAD_STAGE
     if values["partner_id"]:
         pid = values["partner_id"]
-        if not pid.isdigit() or db.get(Partner, int(pid)) is None:
+        if (partner_pk := parse_id(pid)) is None or db.get(Partner, partner_pk) is None:
             return values, BAD_PARTNER
-        values["partner_id"] = int(pid)
+        values["partner_id"] = partner_pk
     else:
         values["partner_id"] = None
     return values, None
@@ -94,7 +95,7 @@ def list_solutions(
 def new_form(request: Request, partner_id: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
     """`?partner_id=` 는 파트너 화면의 "+ 솔루션 등록": 존재하는 파트너면 미리 골라 둔다."""
     pid = partner_id.strip()
-    chosen = pid if pid.isdigit() and db.get(Partner, int(pid)) is not None else ""
+    chosen = pid if (partner_pk := parse_id(pid)) is not None and db.get(Partner, partner_pk) is not None else ""
     return _form_page(request, db, {**{f: "" for f in FIELDS}, "stage": ontology.STAGE_DEFAULT, "partner_id": chosen})
 
 
@@ -129,7 +130,7 @@ BAD_DRAFT_JOB = "이 솔루션의 AI 초안 작업이 아닙니다."
 
 
 def _draft_job(db: Session, solution: Solution, raw: str, user: User) -> AIJob:
-    job = db.get(AIJob, int(raw)) if raw.isdigit() else None
+    job = db.get(AIJob, job_id) if (job_id := parse_id(raw)) is not None else None
     if (job is None or job.kind != DRAFT_KIND or (job.input or {}).get("solution_id") != solution.id
             or job.requester_id != user.id):
         raise HTTPException(status_code=400, detail=BAD_DRAFT_JOB)

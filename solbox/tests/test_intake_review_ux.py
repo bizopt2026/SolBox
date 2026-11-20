@@ -51,7 +51,7 @@ def test_activity_summary_shows_key_facts(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     page = user_client.get(f"/intake/{it.id}").text
     head, edit = _split(_card(page, "act1"))
-    assert "한빛병원 통화" in head and "2026-11-17" in head and "고객 태핑" in head
+    assert "한빛병원 통화" in head and re.search(r"(2026년 )?11월 17일", head) and "고객 태핑" in head  # 날짜는 화면의 한 가지 모양
     assert "후속 조치 0" in head and "고객 니즈 0" in head
     assert "한빛병원" in head and "AI 공조 최적제어" in head  # 연결된 이름 칩
     assert "미등록 후보: 스마트 조명 제어" in head and "새로 등록:" not in head  # AI가 제안했지만 아직 체크하지 않은 이름

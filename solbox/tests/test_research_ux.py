@@ -68,7 +68,7 @@ def test_area_tabs_markup_has_no_roles_without_script(user_client, db, settings)
 
 def test_page_loads_shared_script(user_client, db, settings):
     page = user_client.get("/proposals/new").text
-    assert '<script src="/static/app.js" defer></script>' in page
+    assert re.search(r'<script src="/static/app\.js\?v=[0-9a-f]{10}" defer></script>', page)
     assert user_client.get("/static/app.js").status_code == 200
 
 

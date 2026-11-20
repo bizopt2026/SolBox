@@ -19,6 +19,8 @@ from app.labels import ERROR_KINDS
 from app.models import AIJob, Customer, Intake, Partner, Solution
 from tests.conftest import make_user
 
+pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
+
 TODAY = date(2026, 11, 19)
 
 

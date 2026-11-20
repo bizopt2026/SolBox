@@ -12,6 +12,8 @@ from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.idparse import parse_id
+from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
@@ -30,7 +32,7 @@ from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/activities")
 
-MEMO_REQUIRED = "메모를 입력하세요."
+MEMO_REQUIRED = ui.FieldError("메모를 입력하세요.", "raw_text")
 BAD_MEMO_FILE = "텍스트 파일(.txt, .md)만 올릴 수 있습니다."
 
 
@@ -93,8 +95,7 @@ def _form_page(request: Request, db: Session, values: dict, activity: Activity |
 
 
 def _int_or_none(raw) -> int | None:
-    raw = str(raw).strip()
-    return int(raw) if raw.isascii() and raw.isdecimal() else None
+    return parse_id(raw)
 
 
 def _pad(ids: list[str], column: list[str]) -> list[str]:
@@ -115,7 +116,7 @@ def _submitted_values(
                        for n, (i, t, o, d) in enumerate(rows(_pad(fu_id, fu_task), fu_task, fu_owner, fu_due))],
         "demand_signals": [{"id": _int_or_none(i), "customer": c, "content": t}
                            for i, c, t in rows(_pad(ds_id, ds_content), ds_customer, ds_content)],
-        "selected": {t: [int(i) for i in v if i.strip().isdigit()] for t, v in ids.items()},
+        "selected": {t: [n for i in v if (n := parse_id(i)) is not None] for t, v in ids.items()},
         "new_names": {
             rel: [n.strip() for n in names if n.strip()]
             for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners))
@@ -352,7 +353,8 @@ def _toggle(db: Session, mirror: KnowledgeMirror, fu: FollowUp, request: Request
     fu.done = not fu.done
     db.commit()
     mirror.sync(fu.activity)
-    return RedirectResponse(request.headers.get("referer") or f"/activities/{fu.activity_id}", status_code=303)
+    back = fu_lib.redirect_after_toggle(request.headers.get("referer"), fu.id)
+    return RedirectResponse(back or request.headers.get("referer") or f"/activities/{fu.activity_id}", status_code=303)
 
 
 @router.post("/{activity_id}/followups/{index}/toggle")

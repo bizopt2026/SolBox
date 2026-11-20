@@ -58,6 +58,12 @@ def db(app):
 
 
 @pytest.fixture
+def worker_on(app):
+    """작업 처리기를 켠 서버로 본다 (꺼진 서버는 대기 작업이 시작되지 않아 화면이 다시 불러오지 않고 안내만 한다)."""
+    app.state.settings.ai_worker_enabled = True
+
+
+@pytest.fixture
 def client(app):
     return TestClient(app)
 

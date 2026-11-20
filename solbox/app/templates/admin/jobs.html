@@ -14,8 +14,8 @@
       <td>{{ labels.JOB_KINDS.get(j.kind, j.kind) }}</td>
       <td>{{ pill("job_status", j.status) }}</td>
       <td>{{ requesters.get(j.requester_id, "-") }}</td>
-      <td class="num">{{ j.created_at.strftime("%Y-%m-%d %H:%M") if j.created_at else "" }}</td>
-      <td class="num">{{ j.finished_at.strftime("%Y-%m-%d %H:%M") if j.finished_at else "" }}</td>
+      <td class="num">{{ kdatetime(j.created_at) if j.created_at else "" }}</td>
+      <td class="num">{{ kdatetime(j.finished_at) if j.finished_at else "" }}</td>
       <td>{% if j.status == "failed" %}{{ labels.ERROR_KINDS.get(j.error_kind, labels.ERROR_KINDS["unknown"]) }}{% endif %}</td>
     </tr>
   {% endfor %}

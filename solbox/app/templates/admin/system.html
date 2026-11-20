@@ -13,17 +13,17 @@
     {% call row("버전", "slate", "정보") %}{{ version }}{% endcall %}
     {% call row("데이터 폴더", "slate", "정보") %}<code class="path">{{ data_dir }}</code> ({{ data_size }}){% endcall %}
     {% call row("최근 백업", "ok" if last_backup else "warn", "정상" if last_backup else "확인 필요", none if last_backup else "아직 백업이 없습니다. 아래 '지금 백업'을 눌러 첫 백업을 만들어 두세요.") %}
-      {% if last_backup %}{{ last_backup.created_at.strftime("%Y-%m-%d %H:%M") }} — <code class="path">{{ last_backup.path }}</code>
+      {% if last_backup %}{{ kdatetime(last_backup.created_at) }} — <code class="path">{{ last_backup.path }}</code>
       {% else %}백업 없음{% endif %}
       <small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
     {% endcall %}
     {% call row("AI 작업", "warn" if (pending + running) else "ok", "대기 있음" if (pending + running) else "한가함") %}대기 {{ pending }}건, 진행 {{ running }}건{% endcall %}
     {% call row("음성 받아쓰기", "slate", "설정", none) %}{{ transcriber }}{% endcall %}
     {% call row("다음 조사 예정", "ok" if next_run else "slate", "예약됨" if next_run else "꺼짐", none if next_run else "자동 조사를 켜려면 '리서치 설정'에서 실행 주기를 켜세요.") %}
-      {% if next_run %}{{ next_run.strftime("%Y-%m-%d %H:%M") }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
+      {% if next_run %}{{ kdatetime(next_run) }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
     {% endcall %}
     {% call row("최근 AI 오류", "bad" if last_failed else "ok", "오류 있음" if last_failed else "없음", "아래 'AI 연결 확인'으로 지금 연결이 되는지 확인해 보세요." if last_failed else none) %}
-      {% if last_failed %}{{ last_failed.finished_at.strftime("%Y-%m-%d %H:%M") if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
+      {% if last_failed %}{{ kdatetime(last_failed.finished_at) if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
       {% else %}없음{% endif %}
     {% endcall %}
   </ul>

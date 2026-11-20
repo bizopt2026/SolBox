@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.idparse import parse_id
 from app import ontology, origin, relations, same_company, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -30,7 +31,7 @@ def _form_page(request: Request, db: Session, form: dict, partner: Partner | Non
 def _detail_page(request: Request, db: Session, user: User, partner: Partner, error: str | None = None):
     return render(
         request, "partners/detail.html", status_code=400 if error else 200, partner=partner,
-        related=relations.related_for_page(db, partner, user),
+        **relations.page_related(db, partner, user),
         can_delete=can_delete(user, partner), error=error, origin=origin.view(db, user, partner), meta=ui.stamp_info(db, partner),
         same_name=same_company.candidate_customer(db, partner),
     )
@@ -118,7 +119,7 @@ def link_same_company(
 ):
     """이름이 같은 고객 안내의 한 번 누르기: 아직 다른 곳과 이어지지 않았을 때만 잇는다."""
     partner = get_or_404(db, Partner, partner_id)
-    customer = db.get(Customer, int(customer_id)) if customer_id.strip().isascii() and customer_id.strip().isdecimal() else None
+    customer = db.get(Customer, cid) if (cid := parse_id(customer_id)) is not None else None
     error = same_company.NO_CUSTOMER if customer is None else same_company.link_unlinked(db, partner, customer)
     if error:
         db.rollback()

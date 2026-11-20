@@ -1,6 +1,9 @@
+import pytest
 from app.ai.queue import enqueue, process_next
 from app.models import Solution
 from tests.conftest import make_user
+
+pytestmark = pytest.mark.usefixtures("worker_on")  # 처리기가 켜진 서버의 대기·진행 화면을 본다
 
 
 def _run(app, settings):

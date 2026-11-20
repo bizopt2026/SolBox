@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 
+from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -19,7 +20,7 @@ from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/projects")
 FIELDS = ("name", "customer_id", "description", "period", "status", "memo", "bm_id")
-CUSTOMER_REQUIRED = "고객을 선택하세요."
+CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 
 
 def _form_page(
@@ -40,15 +41,15 @@ def _parse(name, customer_id, description, period, status, memo, db: Session, bm
     )
     if error := name_error(name):
         return values, error
-    if not values["customer_id"].isdigit() or db.get(Customer, int(values["customer_id"])) is None:
+    if (cid := parse_id(values["customer_id"])) is None or db.get(Customer, cid) is None:
         return values, CUSTOMER_REQUIRED
-    values["customer_id"] = int(values["customer_id"])
+    values["customer_id"] = cid
     if bm_id is not None:
         values["bm_id"] = bm_id.strip()
         if values["bm_id"]:
-            if not values["bm_id"].isdigit() or db.get(BM, int(values["bm_id"])) is None:
+            if (bid := parse_id(values["bm_id"])) is None or db.get(BM, bid) is None:
                 return values, opps.BAD_BM
-            values["bm_id"] = int(values["bm_id"])
+            values["bm_id"] = bid
         else:
             values["bm_id"] = None
     return values, None
@@ -98,7 +99,7 @@ def detail(project_id: int, request: Request, user: User = Depends(require_user)
     project = get_or_404(db, Project, project_id)
     return render(
         request, "projects/detail.html", project=project,
-        related=relations.related_for_page(db, project, user),
+        **relations.page_related(db, project, user),
         opportunity=opps.opportunity_of_project(db, project),
         can_delete=can_delete(user, project), meta=ui.stamp_info(db, project),
     )

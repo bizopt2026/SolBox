@@ -1,5 +1,12 @@
 {# 후속 조치 한 줄 (홈 카드와 후속 조치 목록이 같이 쓴다): 완료 체크(기존 토글 경로) · 할 일 · 출처 활동 기록 + 담당 (+ 고객) · 상대 기한.
    f 는 follow_ups.rows 의 한 항목 #}
+{# 방금 완료 표시를 바꾼 뒤 한 줄 안내: 되돌리기는 같은 토글 경로로 보낸다 (스크립트 없이 동작). toggled = follow_ups.toggled_notice 의 결과 #}
+{% macro fu_notice(toggled) %}{% if toggled %}
+<div class="notice fu-notice" role="status">
+  <span>{{ "완료로 표시했습니다" if toggled.done else "다시 남은 일로 표시했습니다" }}: <b>{{ toggled.task | truncate(40) }}</b></span>
+  <form method="post" action="/follow-ups/{{ toggled.id }}/toggle" class="inline-form"><button type="submit" class="linklike">되돌리기</button></form>
+</div>{% endif %}{% endmacro %}
+
 {% macro fu_item(f, show_customers=false) %}
 <li class="fu{{ ' is-done' if f.done }}">
   <form method="post" action="/follow-ups/{{ f.id }}/toggle">

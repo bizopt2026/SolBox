@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% from "_macros.html" import page_header, pill %}
-{% from "_followups.html" import fu_item %}
+{% from "_followups.html" import fu_item, fu_notice %}
 {% block title %}홈{% endblock %}
 {% block content %}
 {% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button" href="/activities/new">활동 기록 쓰기</a><a class="button primary" href="/intake/new">+ 올리기</a>{% endcall %}
+{{ fu_notice(toggled) }}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 
 <nav class="flow" aria-label="발굴 흐름">
@@ -42,7 +43,7 @@
   </section>
 
   <section class="card o4" aria-labelledby="h-act">
-    <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">활동 기록</a></header>
+    <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">모두 보기</a></header>
     {% if recent %}
     <div class="feed">
       {% for r in recent %}
@@ -57,16 +58,6 @@
     <p class="card-foot"><a href="/activities/new">+ 활동 기록 등록</a></p>
   </section>
 
-  <section class="card o6" aria-labelledby="h-res">
-    <header class="card-head"><h2 id="h-res">최신 리서치</h2><a href="/research">리서치 목록</a></header>
-    {% if research %}
-    <p class="muted">{{ (research.run.finished_at or research.run.started_at).strftime("%Y-%m-%d") }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
-    <div class="res-cols">
-      {% if research.insights %}<div><h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
-      {% if research.suggestions %}<div><h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul></div>{% endif %}
-    </div>
-    {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
-  </section>
   </div>
   <div class="dash-col dash-side">
   <section class="card o2" aria-labelledby="h-up">
@@ -118,6 +109,17 @@
     {% else %}<p class="muted">진행 중인 제안 건이 없습니다.</p>{% endif %}
     <p class="card-foot"><a href="/proposals/new">+ 제안 건 만들기</a></p>
   </section>
+
   </div>
+  <section class="card o6 dash-wide" aria-labelledby="h-res">
+    <header class="card-head"><h2 id="h-res">최신 리서치</h2><a href="/research">리서치 목록</a></header>
+    {% if research %}
+    <p class="muted">{{ kdate(research.run.finished_at or research.run.started_at) }} 조사 · <a href="/research/runs/{{ research.run.id }}">자세히 보기</a></p>
+    <div class="res-cols">
+      {% if research.insights %}<div><h3>시사점</h3><ul>{% for i in research.insights[:2] %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if research.suggestions %}<div><h3>발굴 방향 제안</h3><ul>{% for s in research.suggestions[:2] %}<li>{{ s.title }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+    {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
+  </section>
 </div>
 {% endblock %}

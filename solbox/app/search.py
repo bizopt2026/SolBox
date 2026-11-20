@@ -5,12 +5,14 @@
 """
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import ontology
 
-MIN_CHARS = 2  # 이보다 짧은 검색어는 찾지 않는다
+MIN_CHARS = 2  # 영문·숫자 검색어는 이보다 짧으면 찾지 않는다 (한 글자는 너무 많이 걸린다). 한글 같은 한 글자가 한 낱말인 글자는 한 글자도 찾는다
 PER_TYPE = 8  # 유형마다 보여 주는 최대 수. 나머지는 건수로만 알리고 목록으로 보낸다
 SEARCH_TYPES = ("solution", "customer", "partner", "project", "opportunity", "bm", "proposal", "activity")
 
@@ -44,7 +46,7 @@ def _item(code: str, obj) -> dict:
     if code == "solution":
         note, badge, sub = ontology.STAGES.get(obj.stage, ""), ("stage", obj.stage), ui.first_line(obj.summary, 80)
     elif code == "activity":
-        note, badge, sub = (obj.date.isoformat() if obj.date else ""), ("activity_kind", obj.kind), ui.first_line(obj.summary_md, 80)
+        note, badge, sub = (ui.short_date(obj.date, date.today()) if obj.date else ""), ("activity_kind", obj.kind), ui.first_line(obj.summary_md, 80)
     elif code == "opportunity":
         note, badge, sub = ontology.OPPORTUNITY_STAGES.get(obj.stage, ""), ("opportunity_stage", obj.stage), obj.customer.name
     elif code == "proposal":
@@ -73,7 +75,7 @@ def search(db: Session, q: str) -> dict:
     q = (q or "").strip()
     if not q:
         return {"q": q, "state": "empty", "groups": []}
-    if len(q) < MIN_CHARS:
+    if len(q) < MIN_CHARS and q.isascii():
         return {"q": q, "state": "short", "groups": []}
     like = like_pattern(q)
     groups = []

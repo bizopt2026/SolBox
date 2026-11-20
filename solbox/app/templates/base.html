@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · 솔박스</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232447d6'/%3E%3Crect x='8.5' y='10' width='15' height='12' rx='2' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='8.5' y='10' width='15' height='4' rx='1' fill='%23fff'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/app.css">
-  <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="{{ asset('app.css') }}">
+  <noscript><style>.chat-list.chat-scroll { max-height: none; overflow: visible; }</style></noscript>
+  <script src="{{ asset('htmx.min.js') }}" defer></script>
+  <script src="{{ asset('app.js') }}" defer></script>
 </head>
 <body class="{{ 'shell' if user else 'auth' }}">
 <a class="skip" href="#main">본문으로 건너뛰기</a>
@@ -22,7 +23,7 @@
   <div class="side-nav">
     {% for g in ont.nav_groups(user.role == "admin") %}
     <nav class="navg" aria-label="{{ g.label }}">
-      <h3>{{ g.label }}</h3>
+      <span class="navg-title" aria-hidden="true">{{ g.label }}</span>
       {% for item in g.items %}
       <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span>{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
       {% endfor %}
@@ -46,8 +47,8 @@
       <kbd aria-hidden="true">/</kbd>
     </form>
     {% if ai %}
-    {% if user.role == "admin" %}<a class="aistat {{ ai.state }}" href="/admin/jobs" title="AI 작업 보기"><i class="pulse" aria-hidden="true"></i><span>{{ ai.text }}</span></a>
-    {% else %}<span class="aistat {{ ai.state }}"><i class="pulse" aria-hidden="true"></i><span>{{ ai.text }}</span></span>{% endif %}
+    {% if user.role == "admin" %}<a class="aistat {{ ai.state }}" href="/admin/jobs" title="{{ ai.text }} · AI 작업 보기"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></a>
+    {% else %}<span class="aistat {{ ai.state }}" title="{{ ai.text }}"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></span>{% endif %}
     {% endif %}
   </div>
   {% else %}

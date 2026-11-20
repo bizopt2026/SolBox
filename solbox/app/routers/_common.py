@@ -8,7 +8,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from app import ontology, relations
+from app import ontology, relations, ui
 from app.search import like_pattern
 from app.knowledge import KnowledgeMirror
 from app.opportunities import dependents
@@ -18,7 +18,7 @@ from app.security import ensure_can_delete
 T = TypeVar("T")
 
 NOT_FOUND = "항목을 찾을 수 없습니다."
-NAME_REQUIRED = "이름을 입력하세요."
+NAME_REQUIRED = ui.FieldError("이름을 입력하세요.", "name")
 
 
 async def submitted_fields(request: Request) -> frozenset[str]:

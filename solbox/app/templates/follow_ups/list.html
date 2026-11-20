@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% from "_macros.html" import page_header, seg, filter_note, empty_list, pager %}
-{% from "_followups.html" import fu_item %}
+{% from "_followups.html" import fu_item, fu_notice %}
 {% block title %}{{ ont.label("follow_up") }}{% endblock %}
 {% block content %}
-{% call page_header(ont.label("follow_up"), crumbs=[("오늘", none), (ont.label("follow_up"), none)], sub=ont.TYPES["follow_up"].description, count=pg.total ~ "건") %}<a class="button" href="/activities/new">활동 기록 쓰기</a>{% endcall %}
+{% call page_header(ont.label("follow_up"), crumbs=[(ont.nav_group_label("follow-ups"), none), (ont.label("follow_up"), none)], sub=ont.TYPES["follow_up"].description, count=pg.total ~ "건") %}<a class="button" href="/activities/new">활동 기록 쓰기</a>{% endcall %}
+{{ fu_notice(toggled) }}
 <div class="tools">{{ seg(tabs, "구분") }}</div>
 {% if chips %}<p class="filter-chips">{% for f in chips %}<a class="chip chip-x filter-note" href="{{ f["clear"] }}"><span>{{ f.label }}만 보는 중</span><span class="chip-close" aria-hidden="true">×</span><span class="sr-only">걸러 보기 해제</span></a>{% endfor %}</p>{% endif %}
 {% if pg.items %}

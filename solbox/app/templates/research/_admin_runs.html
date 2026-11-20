@@ -10,7 +10,7 @@
     <tbody>
     {% for run in runs %}
       <tr>
-        <td>{{ run.started_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ kdatetime(run.started_at) }}</td>
         <td>{{ "예약" if run.trigger == "schedule" else "수동" }}</td>
         <td>
           {% if run.status == "running" %}{{ pill("run_status", "running") }}

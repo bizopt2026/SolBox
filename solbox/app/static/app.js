@@ -29,6 +29,7 @@
   if (globalSearch) {
     document.addEventListener("keydown", function (e) {
       if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      if (e.isComposing || e.keyCode === 229) return; // 한글 조합 중에는 가로채지 않는다
       var t = e.target, tag = t && t.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (t && t.isContentEditable)) return;
       e.preventDefault();
@@ -84,49 +85,75 @@
     reveal(hashId());
   }
 
-  // 제안 대화: 답을 기다리는 동안 갱신되는 대화 구역. 사용자가 보고 있던 위치를 존중하고, 끝나면 입력칸으로 돌아온다
+  // 제안 대화: 답을 기다리는 동안은 맨 끝 말풍선(#chat-tail)만 갱신된다. 읽던 자리를 존중한다:
+  // 사용자가 끝에서 40px 안에 있었을 때만 끝으로 따라가고, 위로 올려 읽는 중이면 그대로 둔다.
+  // 답이 끝나면(대화 구역 전체 교체) 이전 대화 펼침·쓰던 글을 되살리고, 따라가던 중이면 새 답변의 첫머리가 보이게 한다.
   (function () {
-    var live = function () { return document.getElementById("chat-live"); };
-    var waiting = function (state) { return state === "pending" || state === "running"; };
-    var first = live();
-    var prev = first ? first.dataset.state : null;
-    var following = false;
-    // 대화 카드는 높이를 제한하고 안쪽만 스크롤한다 (스크립트가 없으면 쪽이 그냥 길어진다). 늘 가장 새 메시지에서 시작
-    var pin = function () {
-      var box = document.querySelector("[data-chat-scroll]");
-      if (!box) return;
-      box.classList.add("chat-scroll");
-      box.scrollTop = box.scrollHeight;
+    var NEAR = 40;
+    var box = function () { return document.querySelector("[data-chat-scroll]"); };
+    var tailState = function () {
+      var t = document.getElementById("chat-tail");
+      return t ? t.dataset.state : null;
     };
+    var waiting = function (state) { return state === "pending" || state === "running"; };
+    var prev = tailState();
+    var atBottom = function (b) { return b.scrollHeight - b.scrollTop - b.clientHeight <= NEAR; };
+    var pin = function () { var b = box(); if (b) b.scrollTop = b.scrollHeight; };
     pin();
     var chatSection = document.getElementById("chat");
     if (chatSection) chatSection.addEventListener("toggle", function () { if (chatSection.open) pin(); });
+    var snap = null;
     document.body.addEventListener("htmx:beforeSwap", function () {
-      var el = live();
-      if (!el) return;
-      var r = el.getBoundingClientRect();
-      following = r.top < window.innerHeight && r.bottom > 0 && r.bottom < window.innerHeight + 160; // 대화 끝이 보이는 자리에 있다
+      var b = box();
+      if (!b) { snap = null; return; }
+      var ta = document.getElementById("chat-message");
+      snap = { follow: atBottom(b), top: b.scrollTop, more: !!document.querySelector("#chat-live details.more[open]"), draft: ta ? ta.value : "" };
     });
-    document.body.addEventListener("htmx:afterSettle", function () {
-      var el = live();
-      if (!el) return;
-      var state = el.dataset.state;
-      pin();
-      var msgs = el.querySelectorAll(".chat-msg");
-      var last = msgs[msgs.length - 1];
+    // afterSwap: 바뀐 직후(그리기 전)에 되돌려, 펼침이 잠깐 닫혔다 열리는 깜빡임이 없다
+    document.body.addEventListener("htmx:afterSwap", function () {
+      var b = box();
+      if (!b || !snap) return;
+      var state = tailState();
       var finished = waiting(prev) && !waiting(state);
-      if (following && last) {
-        if (finished && state === "idle") last.scrollIntoView({ block: "start" }); // 새 답변의 첫머리부터
-        else last.scrollIntoView({ block: "nearest" });
-      }
+      var s = snap;
+      snap = null;
       if (finished) {
-        var ta = el.querySelector("textarea");
+        if (s.more) { var more = document.querySelector("#chat-live details.more"); if (more) more.open = true; }
+        var ta = document.getElementById("chat-message");
+        if (ta && s.draft && !ta.value) ta.value = s.draft;
+        if (s.follow) {
+          var answers = b.querySelectorAll(".chat-msg.assistant:not(.live):not(.partial)");
+          var last = answers[answers.length - 1];
+          if (state === "idle" && last) b.scrollTop += last.getBoundingClientRect().top - b.getBoundingClientRect().top - 8; // 새 답변의 첫머리부터
+          else pin();
+        } else {
+          b.scrollTop = s.top;
+        }
         var a = document.activeElement;
-        if (ta && !ta.disabled && (!a || a === document.body || el.contains(a))) ta.focus({ preventScroll: true });
+        if (ta && !ta.disabled && (!a || a === document.body || a.closest("#chat-live"))) ta.focus({ preventScroll: true });
+      } else if (s.follow) {
+        pin();
+      } else {
+        b.scrollTop = s.top;
       }
       prev = state;
     });
   })();
+
+  // 활동 기록 폼: "+ 줄 추가" 는 마지막 줄을 복사해 비운 채 덧붙인다 (후속 조치·고객 니즈 줄)
+  document.querySelectorAll("[data-add-row]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var box = document.getElementById(btn.dataset.addRow);
+      if (!box || !box.children.length) return;
+      var rows = box.children;
+      var copy = rows[rows.length - 1].cloneNode(true);
+      copy.querySelectorAll(".need-linked").forEach(function (a) { a.remove(); });
+      copy.querySelectorAll("input").forEach(function (i) {
+        if (i.type === "checkbox") { i.checked = false; i.value = rows.length; } else { i.value = ""; }
+      });
+      box.appendChild(copy);
+    });
+  });
 
   // 구성안: 확인이 남은 장만 보기
   document.querySelectorAll(".remaining-toggle").forEach(function (btn) {
@@ -263,6 +290,13 @@
       target.querySelectorAll("details.trend-card, details.plan-edit").forEach(function (d) { d.open = b.dataset.open === "1"; });
     });
   });
+  // 날짜 글: "2026-11-17" -> "11월 17일" (올해가 아니면 "2025년 11월 17일"). 서버의 ui.short_date 와 같은 모양
+  function kdateText(text) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((text || "").trim());
+    if (!m) return text;
+    var day = (+m[2]) + "월 " + (+m[3]) + "일";
+    return +m[1] === new Date().getFullYear() ? day : m[1] + "년 " + day;
+  }
   // 올리기 확인 화면: 고치기를 닫을 때 요약 갱신, 제외 체크에 따라 저장 막대의 건수 갱신
   document.querySelectorAll(".plan-item").forEach(function (card) {
     var edit = card.querySelector("details.plan-edit");
@@ -283,6 +317,7 @@
         var input = card.querySelector('[name="' + key + "__" + el.dataset.sum + '"]');
         if (!input) return;
         var text = input.tagName === "SELECT" ? (input.selectedOptions[0] || {}).textContent : input.value;
+        if (el.dataset.sum === "date") text = kdateText(text); // 서버와 같은 날짜 모양
         if (text && text.trim()) el.textContent = text.trim();
         else if (el.dataset.empty) el.textContent = el.dataset.empty; // 칸을 비우면 처음 서버가 그린 자리 표시 글로
       });
@@ -298,10 +333,17 @@
       planBar.querySelector("[data-save-button]").textContent = "이대로 저장 (" + saved + "건)";
       planBar.querySelector("[data-save-count]").textContent = saved + "건 저장" + (skipped ? " · " + skipped + "건 제외" : "");
     };
+    var markSkipped = function () {
+      planForm.querySelectorAll(".plan-item").forEach(function (card) {
+        var box = card.querySelector(".plan-skip input");
+        card.classList.toggle("is-skipped", !!(box && box.checked)); // :has 를 못 쓰는 브라우저용 (CSS 는 둘 다 있다)
+      });
+    };
     planForm.addEventListener("change", function (e) {
-      if (e.target.closest && e.target.closest(".plan-skip")) planCount();
+      if (e.target.closest && e.target.closest(".plan-skip")) { planCount(); markSkipped(); }
     });
     planCount();
+    markSkipped();
   }
   var wrap = document.getElementById("area-tabs");
   if (wrap) {

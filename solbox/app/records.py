@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
+from app.idparse import parse_id
 from app import labels, ontology, origin as origins
 from app.activity_rows import load_index, reconcile_follow_ups, reconcile_needs
 from app.ai.tasks import normalize_name
@@ -112,10 +113,11 @@ def pick(db: Session, model, ids: list[str]) -> list:
     """id 문자열 목록에서 실제로 있는 항목만 (중복 없이) 고른다."""
     picked, seen = [], set()
     for raw in ids:
-        if not (raw.strip().isascii() and raw.strip().isdecimal()) or int(raw) in seen:
+        n = parse_id(raw)
+        if n is None or n in seen:
             continue
-        seen.add(int(raw))
-        if (obj := db.get(model, int(raw))) is not None:
+        seen.add(n)
+        if (obj := db.get(model, n)) is not None:
             picked.append(obj)
     return picked
 

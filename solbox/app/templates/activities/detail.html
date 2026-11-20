@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, val, meta_card, pill %}
+{% from "_macros.html" import detail_head, props_card, meta_card, pill, time_tag %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
@@ -8,13 +8,8 @@
 {{ detail_head(title, "/activities", activity, can_delete, crumbs=ui.crumbs("activity", title), sub=sub or none) }}
 <div class="dgrid">
   <div class="dmain">
-    <section class="card stack">
-      <div class="card-head"><h2>기본 정보</h2></div>
-      <dl class="props">
-        <dt>{{ ont.prop("activity", "kind") }}</dt><dd>{{ pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind)) }}</dd>
-        <dt>{{ ont.prop("activity", "date") }}</dt><dd>{{ val(activity.date) }}</dd>
-      </dl>
-    </section>
+    {% set date_tag %}{% if activity.date %}{{ time_tag(activity.date) }}{% endif %}{% endset %}
+    {{ props_card("기본 정보", [(ont.prop("activity", "kind"), pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind))), (ont.prop("activity", "date"), date_tag)], "/activities/" ~ activity.id ~ "/edit") }}
     {% if activity.summary_md %}
     <section class="card stack"><div class="card-head"><h2>{{ ont.prop("activity", "summary_md") }}</h2></div><div class="md">{{ activity.summary_md | md }}</div></section>
     {% endif %}
@@ -29,7 +24,7 @@
           </form>
           <div class="fu-body">
             <span class="fu-task">{{ fu.task }}</span>
-            {% if fu.owner or fu.due %}<small class="fu-src">{% if fu.owner %}담당 {{ fu.owner }}{% endif %}{% if fu.owner and fu.due %} · {% endif %}{% if fu.due %}기한 {{ fu.due.isoformat() }}{% endif %}</small>{% endif %}
+            {% if fu.owner or fu.due %}<small class="fu-src">{% if fu.owner %}담당 {{ fu.owner }}{% endif %}{% if fu.owner and fu.due %} · {% endif %}{% if fu.due %}기한 <time datetime="{{ fu.due.isoformat() }}">{{ kdate(fu.due) }}</time>{% endif %}</small>{% endif %}
           </div>
           <span class="muted fu-state">{{ "완료" if fu.done else "진행" }}</span>
         </li>

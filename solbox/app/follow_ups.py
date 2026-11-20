@@ -23,6 +23,31 @@ def status_condition(status: str, today: date):
     return FollowUp.done.is_(False)
 
 
+NOTICE_PARAM = "fu_toggled"  # 방금 완료 표시를 바꾼 후속 조치 번호: 홈·목록이 "되돌리기" 안내를 보인다
+NOTICE_PAGES = ("/", "/follow-ups")
+
+
+def redirect_after_toggle(referer: str | None, follow_up_id: int) -> str | None:
+    """완료 표시를 바꾼 요청이 홈·후속 조치 목록에서 왔으면 그 화면으로 돌아갈 주소(안내 번호 포함), 아니면 None (활동 기록 화면 등은 줄이 그대로 보여 안내가 필요 없다)."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit
+
+    if not referer:
+        return None
+    parts = urlsplit(referer)
+    if parts.path not in NOTICE_PAGES:
+        return None
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != NOTICE_PARAM]
+    return parts.path + "?" + urlencode(query + [(NOTICE_PARAM, str(follow_up_id))])
+
+
+def toggled_notice(db: Session, raw: str) -> dict | None:
+    """`?fu_toggled=<번호>` 가 가리키는 후속 조치의 안내: {"id", "task", "done"}. 없는 번호면 None."""
+    from app.idparse import parse_id
+
+    fu = db.get(FollowUp, parse_id(raw)) if parse_id(raw) is not None else None
+    return {"id": fu.id, "task": fu.task, "done": fu.done} if fu is not None else None
+
+
 def customers_of(db: Session, activity_ids: Sequence[int]) -> dict[int, list[tuple[int, str]]]:
     """활동 기록 번호 -> 연결된 고객 [(번호, 이름)] (이름순). 질의 한 번."""
     out: dict[int, list[tuple[int, str]]] = {}

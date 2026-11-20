@@ -106,7 +106,7 @@ def test_chat_bubbles_carry_time_meta(user_client, db, settings):
     db.add(ProposalMessage(proposal_id=p.id, role="user", content="공조만 하자", created_at=datetime(2026, 11, 20, 14, 14)))
     db.commit()
     html = user_client.get(f"/proposals/{p.id}").text
-    assert "나 · 11-20 14:14" in html and "data-chat-scroll" in html
+    assert re.search(r"나 · (2026년 )?11월 20일 14:14", html) and "data-chat-scroll" in html
 
 
 # ---- 올리기 ----
