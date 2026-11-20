@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Activity, Customer, User
+from app.models import Activity, Customer, CustomerNeed, User
 from app.routers._common import (
-    activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first,
+    activities_linked_to, activities_with_needs_of, get_deletable_or_404, get_or_404, name_error, newest_first,
     resync_activities, resync_related, search_by_name, paginate,
 )
 from app.security import can_delete, require_user
@@ -114,6 +115,11 @@ def delete(
     if customer.proposals:
         return _detail_page(request, db, user, customer, HAS_PROPOSALS)
     activities = activities_linked_to(db, Activity.customers, customer)
+    for a in activities_with_needs_of(db, customer):
+        if a not in activities:
+            activities.append(a)
+    # 고객 니즈 줄은 남기고 고객 연결만 푼다 (고객 이름 글자는 그대로). DB 의 SET NULL 규칙과 같지만 열려 있는 세션에도 반영한다
+    db.execute(sql_update(CustomerNeed).where(CustomerNeed.customer_id == customer.id).values(customer_id=None))
     mirror.remove(customer)
     db.delete(customer)
     db.commit()

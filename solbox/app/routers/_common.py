@@ -9,7 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Customer, Partner, Project, Solution, User
+from app.models import Activity, Customer, CustomerNeed, Partner, Project, Solution, User
 from app.security import ensure_can_delete
 
 T = TypeVar("T")
@@ -55,6 +55,11 @@ def activities_linked_to(db: Session, relationship, obj) -> list[Activity]:
     return list(db.scalars(select(Activity).where(relationship.any(id=obj.id))))
 
 
+def activities_with_needs_of(db: Session, customer: Customer) -> list[Activity]:
+    """고객 니즈 줄이 이 고객 기록에 연결된 활동 기록 (이름이 사본에 적힌다)."""
+    return list(db.scalars(select(Activity).where(Activity.needs.any(CustomerNeed.customer_id == customer.id))))
+
+
 def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Activity]) -> None:
     """연결 대상이 지워진 뒤 활동 기록 사본을 다시 쓴다."""
     for a in activities:
@@ -65,7 +70,7 @@ def resync_activities(db: Session, mirror: KnowledgeMirror, activities: list[Act
 def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
     """`obj` 의 이름이 적히는 다른 사본(상위·하위 항목, 연결된 활동 기록)을 다시 쓴다."""
     if isinstance(obj, Customer):
-        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj)]
+        related = [*obj.projects, *activities_linked_to(db, Activity.customers, obj), *activities_with_needs_of(db, obj)]
     elif isinstance(obj, Project):
         related = [obj.customer, *activities_linked_to(db, Activity.projects, obj)]
     elif isinstance(obj, Partner):

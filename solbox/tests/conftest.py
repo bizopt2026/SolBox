@@ -62,6 +62,26 @@ def client(app):
     return TestClient(app)
 
 
+def fu_rows(*rows):
+    """후속 조치 행들: (할 일, 담당, 기한 글자, 완료) 튜플 또는 dict -> FollowUp 목록 (활동 기록의 follow_ups 에 대입한다)."""
+    from datetime import date
+
+    from app.models import FollowUp
+
+    out = []
+    for i, r in enumerate(rows):
+        task, owner, due, done = r if isinstance(r, tuple) else (r["task"], r.get("owner", ""), r.get("due", ""), r.get("done", False))
+        out.append(FollowUp(position=i, task=task, owner=owner, due=date.fromisoformat(due) if due else None, done=done))
+    return out
+
+
+def need_rows(*rows):
+    """고객 니즈 행들: (고객 글, 내용) 튜플 -> CustomerNeed 목록."""
+    from app.models import CustomerNeed
+
+    return [CustomerNeed(position=i, customer_name=c, content=t) for i, (c, t) in enumerate(rows)]
+
+
 def make_user(db, username, role="user", password="pw1234", name=None):
     from app.models import User
     from app.security import hash_password
@@ -221,7 +241,7 @@ def make_research_world(db, settings):
     db.add_all([s1, customer])
     db.flush()
     activity = Activity(kind="meeting", date=date.today() - timedelta(days=10), title="한빛병원 미팅", raw_text="전기요금 부담 논의",
-                        demand_signals=[{"customer": "한빛병원", "content": "전기요금 절감 요청"}])
+                        needs=need_rows(("한빛병원", "전기요금 절감 요청")))
     activity.solutions = [s1]
     activity.customers = [customer]
     db.add(activity)

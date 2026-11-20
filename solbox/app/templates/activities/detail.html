@@ -23,20 +23,20 @@
   <ul>
     {% for fu in activity.follow_ups %}
     <li>
-      <form method="post" action="/activities/{{ activity.id }}/followups/{{ loop.index0 }}/toggle" class="row">
+      <form method="post" action="/follow-ups/{{ fu.id }}/toggle" class="row">
         <button type="submit" class="small">{{ "완료 취소" if fu.done else "완료" }}</button>
         <span>{% if fu.done %}<s>{{ fu.task }}</s>{% else %}{{ fu.task }}{% endif %}
-          {% if fu.owner %}· 담당 {{ fu.owner }}{% endif %}{% if fu.due %}· 기한 {{ fu.due }}{% endif %}</span>
+          {% if fu.owner %}· 담당 {{ fu.owner }}{% endif %}{% if fu.due %}· 기한 {{ fu.due.isoformat() }}{% endif %}</span>
       </form>
     </li>
     {% endfor %}
   </ul>
   {% else %}<p class="muted">후속 조치가 없습니다.</p>{% endif %}
 </section>
-{% if activity.demand_signals %}
+{% if activity.needs %}
 <section class="card">
   <h2>{{ ont.prop("activity", "demand_signals") }}</h2>
-  <ul>{% for ds in activity.demand_signals %}<li>{% if ds.customer %}<strong>{{ ds.customer }}</strong>: {% endif %}{{ ds.content }}</li>{% endfor %}</ul>
+  <ul>{% for n in activity.needs %}<li>{% if n.customer_name %}<strong>{{ n.customer_name }}</strong>{% if n.customer_id %} <a class="chip" href="/customers/{{ n.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}: {% endif %}{{ n.content }}</li>{% endfor %}</ul>
 </section>
 {% endif %}
 <section class="card">

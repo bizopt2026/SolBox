@@ -25,7 +25,7 @@ from app.models import Intake
 from app.intake import recover as recover_intakes
 from app.intake import recover_applying
 from app.research import recover_runs
-from app.migrate import add_missing_columns
+from app.migrate import add_missing_columns, copy_activity_json
 from app.security import LoginRequired
 
 APP_DIR = Path(__file__).resolve().parent
@@ -101,6 +101,7 @@ def create_app(settings: Settings) -> FastAPI:
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
     add_missing_columns(engine, settings.db_path)
+    copy_activity_json(engine, settings.db_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -174,6 +175,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(intake.router)
     app.include_router(jobs.router)
     app.include_router(activities.router)
+    app.include_router(activities.follow_up_router)
     app.include_router(proposals.router)
     app.include_router(proposal_outline.router)
     app.include_router(research.router)

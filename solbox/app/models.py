@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, func
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, func
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from app import ontology
@@ -147,17 +147,69 @@ class Activity(Stamped, Base):
     title: Mapped[str] = mapped_column(String, default="")
     raw_text: Mapped[str] = mapped_column(Text)
     summary_md: Mapped[str] = mapped_column(Text, default="")
-    # [{"task","owner","due","done"}]
-    follow_ups: Mapped[list] = mapped_column(JSON, default=list)
-    # [{"customer","content"}]
-    demand_signals: Mapped[list] = mapped_column(JSON, default=list)
+    # 옛 JSON 열 (물리 열 이름 follow_ups / demand_signals 그대로). 단위 2 이후 읽지도 쓰지도 않는다: 복사 이관(migrate.copy_activity_json)만 읽는다.
+    # 후속 조치·고객 니즈는 follow_ups / customer_needs 표(아래 `follow_ups`·`needs` 관계)에 있다.
+    legacy_follow_ups: Mapped[list] = mapped_column("follow_ups", JSON, default=list)
+    legacy_demand_signals: Mapped[list] = mapped_column("demand_signals", JSON, default=list)
 
+    follow_ups: Mapped[list[FollowUp]] = relationship(
+        back_populates="activity", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="(FollowUp.position, FollowUp.id)",
+    )
+    needs: Mapped[list[CustomerNeed]] = relationship(
+        back_populates="activity", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="(CustomerNeed.position, CustomerNeed.id)",
+    )
     solutions: Mapped[list[Solution]] = relationship(
         secondary=activity_solutions, back_populates="activities"
     )
     customers: Mapped[list[Customer]] = relationship(secondary=activity_customers)
     projects: Mapped[list[Project]] = relationship(secondary=activity_projects)
     partners: Mapped[list[Partner]] = relationship(secondary=activity_partners)
+
+
+class FollowUp(Base):
+    """활동 기록에서 나온 할 일 한 줄. 활동 기록을 지우면 함께 지워진다."""
+
+    __tablename__ = "follow_ups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)  # 활동 기록 안의 순서
+    task: Mapped[str] = mapped_column(Text)
+    owner: Mapped[str] = mapped_column(String, default="")  # 담당 (쓴 그대로)
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    due: Mapped[date | None] = mapped_column(Date, nullable=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
+    )
+
+    activity: Mapped[Activity] = relationship(back_populates="follow_ups")
+    owner_user: Mapped[User | None] = relationship()
+
+
+class CustomerNeed(Base):
+    """활동 기록에서 드러난 고객의 필요 한 줄 (옛 "수요 단서")."""
+
+    __tablename__ = "customer_needs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    customer_name: Mapped[str] = mapped_column(String, default="")  # 고객 (쓴 그대로)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
+    content: Mapped[str] = mapped_column(Text)
+    # 단위 4(영업기회)에서 쓴다. 영업기회 표가 아직 없으므로 외래 키 제약 없이 번호 열만 둔다 (단위 4 가 제약 없이 그대로 쓴다: SQLite 는 열에 제약을 나중에 붙일 수 없다)
+    opportunity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
+    )
+
+    activity: Mapped[Activity] = relationship(back_populates="needs")
+    customer: Mapped[Customer | None] = relationship()
 
 
 class AIJob(Base):

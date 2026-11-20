@@ -12,7 +12,7 @@ def test_create_app_creates_folders_and_tables(app, settings, db):
     db.add(a); db.commit()
     assert s.stage == "intake" and a.kind == "meeting"
     assert s.activities == [a] and c.projects == [b]
-    assert a.follow_ups == [] and a.demand_signals == []
+    assert a.follow_ups == [] and a.needs == [] and a.legacy_follow_ups == [] and a.legacy_demand_signals == []
 
 
 def test_labels_cover_spec_values():

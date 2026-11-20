@@ -25,6 +25,7 @@
 - `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R24), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
 - 프로젝트(옛 "기존 사업")는 코드에서 `Project`·`project_id`·`/projects` 이지만 물리 표·열은 `businesses`·`business_id`·`activity_businesses` 그대로다 (표·열 이름을 바꾸거나 지우지 않는다). 옛 `/businesses` 주소는 영구 이동한다. 저장된 옛 값(정리안의 `businesses` 키, 출처 `businesses/N.md`)은 읽을 수 있어야 하고 고쳐 쓰지 않는다.
 - 용어: 프로젝트, 제안 건(메뉴는 "제안", PPT 는 "제안서"), 올리기 묶음/올린 파일, 자료, 고객 니즈(JSON 키는 `demand_signals` 그대로), 확인 항목(근거 문제·확인할 점), 출처/이유. 화면·사본·프롬프트는 `ontology.label/prop/term` 에서 읽는다.
+- 후속 조치·고객 니즈는 `follow_ups`·`customer_needs` 표가 원본이다. `activities.follow_ups`·`demand_signals` JSON 열은 옛 데이터로만 남아 있으니 읽지도 쓰지도 않는다 (ORM 이름 `legacy_*`, 시작 때 한 번 복사하는 `migrate.copy_activity_json` 만 읽는다). 화면에서 저장할 때는 줄 번호(숨은 칸 `fu_id`·`ds_id`)로 행을 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객·담당 연결은 `activity_rows.LinkIndex` 의 정확히 하나 일치 규칙 한 곳만 쓴다.
 - 제안 후보 = 보류가 아닌 모든 솔루션 + 제안 건에 직접 추가한 솔루션 (`proposals.candidate_condition` 한 곳).
 - 사본 형식이 바뀌면 `knowledge.KNOWLEDGE_FORMAT` 을 올린다. 시작할 때 표시(`app_settings.knowledge_format`)와 다르거나 옛 폴더가 남아 있으면 사본을 한 번 다시 만든다.
 

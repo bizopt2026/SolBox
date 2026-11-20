@@ -168,8 +168,9 @@ def test_user_edits_are_used(app, user_client, db, settings):
     assert new.partner.name == "다른회사" and db.query(Partner).filter_by(name="루미텍").count() == 0
     a = db.query(Activity).one()
     assert (a.title, a.kind, a.date.isoformat(), a.summary_md) == ("고친 제목", "meeting", "2026-11-18", "## 고친 정리")
-    assert a.follow_ups == [{"task": "견적 보내기", "owner": "김", "due": "2026-12-01", "done": False}]
-    assert a.demand_signals == [{"customer": "한빛병원", "content": "조명 교체 문의"}]
+    assert [(f.task, f.owner, f.due.isoformat(), f.done) for f in a.follow_ups] == [("견적 보내기", "김", "2026-12-01", False)]
+    assert [(n.customer_name, n.content) for n in a.needs] == [("한빛병원", "조명 교체 문의")]
+    assert a.legacy_follow_ups == [] and a.legacy_demand_signals == []
 
 
 def test_add_target_can_be_changed_to_existing_solution(app, user_client, db, settings):

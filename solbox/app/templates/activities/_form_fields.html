@@ -30,6 +30,7 @@
   <div id="fu-rows">
     {% for fu in fus %}
     <div class="row fu-row">
+      <input type="hidden" name="fu_id" value="{{ fu.id if fu.id else '' }}">
       <label>할 일 <input name="fu_task" value="{{ fu.task }}"></label>
       <label>담당 <input name="fu_owner" value="{{ fu.owner }}"></label>
       <label>기한 <input type="date" name="fu_due" value="{{ fu.due }}"></label>
@@ -37,6 +38,7 @@
     </div>
     {% endfor %}
     <div class="row fu-row">
+      <input type="hidden" name="fu_id" value="">
       <label>할 일 <input name="fu_task"></label>
       <label>담당 <input name="fu_owner"></label>
       <label>기한 <input type="date" name="fu_due"></label>
@@ -51,15 +53,19 @@
   <div id="ds-rows">
     {% for ds in dss %}
     <div class="row ds-row">
-      <label>고객 <input name="ds_customer" value="{{ ds.customer }}"></label>
+      <input type="hidden" name="ds_id" value="{{ ds.id if ds.id else '' }}">
+      <label>고객 <input name="ds_customer" value="{{ ds.customer }}" list="ds-customer-list" autocomplete="off"></label>
+      {% if ds.customer_id %}<a class="chip need-linked" href="/customers/{{ ds.customer_id }}" title="등록된 고객 기록과 연결됨">연결됨</a>{% endif %}
       <label>내용 <input name="ds_content" value="{{ ds.content }}"></label>
     </div>
     {% endfor %}
     <div class="row ds-row">
-      <label>고객 <input name="ds_customer"></label>
+      <input type="hidden" name="ds_id" value="">
+      <label>고객 <input name="ds_customer" list="ds-customer-list" autocomplete="off"></label>
       <label>내용 <input name="ds_content"></label>
     </div>
   </div>
+  <datalist id="ds-customer-list">{% for c in choices.customer %}<option value="{{ c.name }}">{% endfor %}</datalist>
   <button type="button" data-add-row="ds-rows">+ {{ ont.prop("activity", "demand_signals") }} 추가</button>
 </section>
 
@@ -95,6 +101,7 @@ document.querySelectorAll("[data-add-row]").forEach(function (btn) {
     var box = document.getElementById(btn.dataset.addRow);
     var rows = box.children;
     var copy = rows[rows.length - 1].cloneNode(true);
+    copy.querySelectorAll(".need-linked").forEach(function (a) { a.remove(); });
     copy.querySelectorAll("input").forEach(function (i) {
       if (i.type === "checkbox") { i.checked = false; i.value = rows.length; } else { i.value = ""; }
     });

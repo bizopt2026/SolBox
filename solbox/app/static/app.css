@@ -449,3 +449,4 @@ html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
 /* 올리기 확인: 접힌 요약에서 비슷한 할 일을 바로 빼는 체크 */
 .plan-item .plan-dup-drop { display:flex; flex-direction:column; gap:2px; margin:0 0 8px; }
 .plan-item .plan-dup-drop label.check { align-items:flex-start; overflow-wrap:anywhere; }
+.need-linked { align-self:flex-start; flex:none; }

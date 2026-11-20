@@ -65,7 +65,7 @@ def _card(page, key):
 
 def _tasks(db):
     db.expire_all()
-    return sorted(a.title + ":" + ",".join(f["task"] for f in a.follow_ups) for a in db.query(Activity))
+    return sorted(a.title + ":" + ",".join(f.task for f in a.follow_ups) for a in db.query(Activity))
 
 
 def test_flagged_follow_up_has_checkbox_in_collapsed_summary(app, user_client, db, settings):

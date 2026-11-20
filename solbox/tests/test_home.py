@@ -4,20 +4,19 @@ from datetime import date, datetime, timedelta
 from app.labels import ERROR_KINDS
 from app.models import AIJob, Activity, Solution
 from app.routers.home import upcoming_follow_ups
+from tests.conftest import fu_rows
 
 
 def test_upcoming_follow_ups_window(db):
     today = date(2026, 11, 18)
-    a = Activity(raw_text="x", title="회의", date=today, follow_ups=[
-        {"task": "지난 일", "owner": "", "due": "2026-11-10", "done": False},
-        {"task": "곧", "owner": "김", "due": "2026-11-25", "done": False},
-        {"task": "먼 일", "owner": "", "due": "2026-12-20", "done": False},
-        {"task": "끝난 일", "owner": "", "due": "2026-11-19", "done": True},
-        {"task": "기한 없음", "owner": "", "due": "", "done": False}])
+    a = Activity(raw_text="x", title="회의", date=today, follow_ups=fu_rows(
+        ("지난 일", "", "2026-11-10", False), ("곧", "김", "2026-11-25", False), ("먼 일", "", "2026-12-20", False),
+        ("끝난 일", "", "2026-11-19", True), ("기한 없음", "", "", False)))
     db.add(a); db.commit()
     items = upcoming_follow_ups(db, today)
     assert [(i["task"], i["overdue"], i["index"]) for i in items] == [("지난 일", True, 0), ("곧", False, 1)]
     assert items[1]["due"] == date(2026, 11, 25) and items[1]["owner"] == "김" and items[1]["activity"].id == a.id
+    assert items[1]["id"] == a.follow_ups[1].id
 
 
 def test_home_shows_stage_counts_and_recent(user_client, db):
@@ -42,12 +41,12 @@ def test_home_recent_activities_limited_to_ten_newest(user_client, db):
 
 
 def test_home_follow_up_has_toggle_and_overdue_mark(user_client, db):
-    a = Activity(raw_text="x", title="회의", date=date.today(), follow_ups=[
-        {"task": "견적 보내기", "owner": "", "due": (date.today() - timedelta(days=2)).isoformat(), "done": False}])
+    a = Activity(raw_text="x", title="회의", date=date.today(), follow_ups=fu_rows(
+        ("견적 보내기", "", (date.today() - timedelta(days=2)).isoformat(), False)))
     db.add(a); db.commit()
     page = user_client.get("/").text
     assert "견적 보내기" in page and "기한 지남" in page
-    assert f'action="/activities/{a.id}/followups/0/toggle"' in page
+    assert f'action="/follow-ups/{a.follow_ups[0].id}/toggle"' in page
 
 
 def test_home_shows_ai_problem_banner(user_client, db):
@@ -128,11 +127,11 @@ def test_home_section_order_and_trimmed_research(user_client, db):
 
 
 def test_home_follow_up_row_has_check_button_and_no_bullets(user_client, db):
-    a = Activity(raw_text="x", title="회의", date=date.today(), follow_ups=[
-        {"task": "자료 보내기", "owner": "김", "due": (date.today() + timedelta(days=1)).isoformat(), "done": False}])
+    a = Activity(raw_text="x", title="회의", date=date.today(), follow_ups=fu_rows(
+        ("자료 보내기", "김", (date.today() + timedelta(days=1)).isoformat(), False)))
     db.add(a); db.commit()
     page = user_client.get("/").text
-    assert f'action="/activities/{a.id}/followups/0/toggle"' in page
+    assert f'action="/follow-ups/{a.follow_ups[0].id}/toggle"' in page
     assert 'aria-label="완료로 표시"' in page
     assert 'class="followups"' in page
 

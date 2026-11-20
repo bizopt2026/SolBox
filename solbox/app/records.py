@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import labels, ontology
+from app.activity_rows import load_index, reconcile_follow_ups, reconcile_needs
 from app.ai.tasks import normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -87,17 +88,14 @@ def rows(*columns: list[str]) -> list[tuple[str, ...]]:
     return [tuple((c[i] if i < len(c) else "").strip() for c in columns) for i in range(count)]
 
 
-def follow_ups(task, owner, due, done) -> list[dict]:
+def follow_up_rows(task, owner, due, done) -> list[tuple[str, str, str, bool]]:
+    """폼의 반복 필드를 (할 일, 담당, 기한 글자, 완료) 줄로 묶는다. 기한이 날짜가 아니면 빈 글자. 완료는 줄 위치(문자열)로 온다."""
     flags = set(done)
-    return [
-        {"task": t, "owner": o, "due": valid_due(d), "done": str(i) in flags}
-        for i, (t, o, d) in enumerate(rows(task, owner, due))
-        if t
-    ]
+    return [(t, o, valid_due(d), str(i) in flags) for i, (t, o, d) in enumerate(rows(task, owner, due))]
 
 
-def demand_signals(customer, content) -> list[dict]:
-    return [{"customer": c, "content": t} for c, t in rows(customer, content) if t]
+def need_rows(customer, content) -> list[tuple[str, str]]:
+    return list(rows(customer, content))
 
 
 def linked(a: Activity) -> list:
@@ -152,15 +150,15 @@ def apply_activity_fields(
     db: Session, user: User, a: Activity, *, kind, date_, title, raw_text, summary_md,
     fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
+    fu_id=(), ds_id=(),
 ) -> None:
-    """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다."""
+    """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다.
+    후속 조치·고객 니즈는 `fu_id`·`ds_id`(줄 번호, 새 줄은 빈 글자) 기준으로 표의 행을 맞춘다 (번호 유지·삭제·추가)."""
     a.kind = kind if kind in labels.ACTIVITY_KINDS else ontology.ACTIVITY_KIND_OTHER
     a.date = parse_date(date_)
     a.raw_text = raw_text
     a.title = title.strip() or first_line(raw_text) or first_line(summary_md)
     a.summary_md = summary_md.strip()
-    a.follow_ups = follow_ups(fu_task, fu_owner, fu_due, fu_done)
-    a.demand_signals = demand_signals(ds_customer, ds_content)
     ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
     for t, (model, rel) in LINK_TYPES.items():
         setattr(a, rel, pick(db, model, ids[t]))
@@ -169,6 +167,9 @@ def apply_activity_fields(
         for obj in find_or_create(db, NEW_TYPES[rel], names, user):
             if obj not in current:
                 current.append(obj)
+    index = load_index(db)  # 새로 등록한 고객도 포함하도록 연결 뒤에 맞춘다
+    reconcile_follow_ups(a, fu_id, follow_up_rows(fu_task, fu_owner, fu_due, fu_done), index)
+    reconcile_needs(a, ds_id, need_rows(ds_customer, ds_content), index)
 
 
 def sync_all(mirror: KnowledgeMirror, a: Activity, extra: list = ()) -> None:

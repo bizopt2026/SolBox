@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 
 from app import ontology
 from app.ai.tasks import ActivityDraft, Mentions, match_mentions
-from app.knowledge import KnowledgeMirror, rebuild_if_stale
+from app.knowledge import KNOWLEDGE_FORMAT, KnowledgeMirror, rebuild_if_stale
 from app.models import Activity, AppSetting, Customer, Project, Proposal, Solution
 from app.sources import describe_source
-from tests.conftest import ready_intake
+from tests.conftest import need_rows, ready_intake
 
 
 def _world(db):
@@ -54,7 +54,7 @@ def test_nav_and_pages_use_new_terms(user_client, db):
 def test_activity_pages_say_customer_needs(user_client, db):
     c, p = _world(db)
     a = Activity(raw_text="원문", title="킥오프", date=date(2026, 1, 5), projects=[p],
-                 demand_signals=[{"customer": "한빛병원", "content": "전력 절감"}])
+                 needs=need_rows(("한빛병원", "전력 절감")))
     db.add(a); db.commit()
     detail = user_client.get(f"/activities/{a.id}").text
     assert "고객 니즈" in detail and "수요 단서" not in detail
@@ -73,7 +73,7 @@ def test_mirror_headings_and_fields_use_ontology_terms(db, tmp_path):
     c, p = _world(db)
     s = Solution(name="S", summary="소개", applicable_types="병원", description="설명", stage="boxed")
     a = Activity(raw_text="원문", summary_md="내용", date=date(2026, 1, 5), projects=[p], solutions=[s],
-                 demand_signals=[{"customer": "한빛병원", "content": "절감"}])
+                 needs=need_rows(("한빛병원", "절감")))
     db.add_all([s, a]); db.commit()
     m = KnowledgeMirror(tmp_path)
     m.sync(s); m.sync(c); m.sync(p); m.sync(a)
@@ -165,7 +165,7 @@ def test_startup_rebuilds_mirror_once_when_old_folder_exists(app, db, settings):
     assert not stale.exists()
     assert (settings.knowledge_dir / "projects" / f"{p.id}.md").exists()
     db.expire_all()
-    assert db.get(AppSetting, "knowledge_format").value == {"version": 2}
+    assert db.get(AppSetting, "knowledge_format").value == {"version": KNOWLEDGE_FORMAT}
     # 표시가 있으면 다시 만들지 않는다
     marker = settings.knowledge_dir / "marker.md"
     marker.write_text("x", encoding="utf-8")

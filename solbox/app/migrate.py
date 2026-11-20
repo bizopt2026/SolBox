@@ -127,3 +127,108 @@ def add_missing_columns(engine: Engine, db_path: Path, metadata: MetaData | None
             added.append(f"{table}.{column.name}")
             log.info("칸 추가: %s.%s", table, column.name)
     return added
+
+
+# ---- 후속 조치·고객 니즈: 옛 JSON 열 -> 표 (한 번의 복사) ----
+
+ROWS_COPIED_KEY = "activity_rows_copied"  # app_settings 표시: 있으면 복사를 다시 하지 않는다
+
+
+def _json_rows(raw: object, activity_id: int, column: str, stats: dict) -> list:
+    """JSON 열 값을 목록으로. 비었거나 목록이 아니면 빈 목록 (목록이 아니면 로그를 남긴다)."""
+    if raw is None:
+        return []
+    if isinstance(raw, (str, bytes)):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            log.warning("활동 기록 %s 의 %s 를 읽을 수 없어 건너뜁니다 (JSON 형식 오류)", activity_id, column)
+            stats["skipped"] += 1
+            return []
+    if raw in (None, [], ""):
+        return []
+    if not isinstance(raw, list):
+        log.warning("활동 기록 %s 의 %s 가 목록이 아니어서 건너뜁니다", activity_id, column)
+        stats["skipped"] += 1
+        return []
+    return raw
+
+
+def copy_activity_json(engine: Engine, db_path: Path) -> dict | None:
+    """모든 활동 기록의 옛 JSON(`follow_ups`, `demand_signals`)을 `follow_ups`·`customer_needs` 표로 복사한다.
+
+    복사만 한다: JSON 값은 고치지도 지우지도 않는다. `app_settings` 의 표시로 한 번만 하고, 복사할 내용이 있으면 하기 전에
+    DB 파일을 복사해 둔다. 행 삽입과 표시는 한 트랜잭션이라 중간에 멈추면 아무것도 남지 않는다.
+    이미 새 표에 행이 있는 활동 기록은 건너뛴다 (표시를 잃은 경우에도 중복되지 않게).
+    복사했으면 요약(dict)을, 이미 했으면 None 을 돌려준다."""
+    from app.activity_rows import load_index  # 늦게 불러온다 (models 가 필요하다)
+    from app import models  # noqa: F401  (표를 등록한다)
+
+    tables = Base.metadata.tables
+    settings_t, fu_t, need_t = tables["app_settings"], tables["follow_ups"], tables["customer_needs"]
+    with engine.connect() as conn:
+        if conn.execute(settings_t.select().where(settings_t.c.key == ROWS_COPIED_KEY)).first() is not None:
+            return None
+        legacy = conn.exec_driver_sql("SELECT id, follow_ups, demand_signals FROM activities ORDER BY id").all()
+        have = {r[0] for r in conn.exec_driver_sql("SELECT activity_id FROM follow_ups UNION SELECT activity_id FROM customer_needs")}
+        index = load_index(conn)
+
+    stats = {"activities": 0, "follow_ups": 0, "needs": 0, "skipped": 0, "bad_due": 0,
+             "customer_linked": 0, "customer_unlinked": 0, "owner_linked": 0, "owner_unlinked": 0}
+    fu_rows: list[dict] = []
+    need_rows: list[dict] = []
+    for activity_id, raw_fu, raw_ds in legacy:
+        if activity_id in have:
+            continue
+        pos = 0
+        for entry in _json_rows(raw_fu, activity_id, "follow_ups", stats):
+            task = entry.get("task") if isinstance(entry, dict) else None
+            if not isinstance(task, str) or not task.strip():
+                log.warning("활동 기록 %s 의 후속 조치 한 줄을 건너뜁니다 (형식 오류 또는 할 일 없음): %r", activity_id, entry)
+                stats["skipped"] += 1
+                continue
+            owner = entry.get("owner") if isinstance(entry.get("owner"), str) else ""
+            due = None
+            if isinstance(entry.get("due"), str) and entry["due"].strip():
+                try:
+                    due = date.fromisoformat(entry["due"].strip())
+                except ValueError:
+                    stats["bad_due"] += 1
+            user_id = index.user_id(owner)
+            if owner.strip():
+                stats["owner_linked" if user_id else "owner_unlinked"] += 1
+            fu_rows.append(dict(activity_id=activity_id, position=pos, task=task, owner=owner, owner_user_id=user_id,
+                                due=due, done=bool(entry.get("done"))))
+            pos += 1
+        pos = 0
+        for entry in _json_rows(raw_ds, activity_id, "demand_signals", stats):
+            content = entry.get("content") if isinstance(entry, dict) else None
+            if not isinstance(content, str) or not content.strip():
+                log.warning("활동 기록 %s 의 고객 니즈 한 줄을 건너뜁니다 (형식 오류 또는 내용 없음): %r", activity_id, entry)
+                stats["skipped"] += 1
+                continue
+            name = entry.get("customer") if isinstance(entry.get("customer"), str) else ""
+            customer_id = index.customer_id(name)
+            if name.strip():
+                stats["customer_linked" if customer_id else "customer_unlinked"] += 1
+            need_rows.append(dict(activity_id=activity_id, position=pos, customer_name=name, customer_id=customer_id,
+                                  content=content))
+            pos += 1
+    stats["activities"] = len({r["activity_id"] for r in fu_rows} | {r["activity_id"] for r in need_rows})
+    stats["follow_ups"], stats["needs"] = len(fu_rows), len(need_rows)
+
+    if fu_rows or need_rows:
+        backup = _backup(db_path)
+        log.info("후속 조치·고객 니즈 복사 전 DB 복사본: %s", backup)
+    with engine.begin() as conn:  # 행과 표시를 한 트랜잭션으로: 중간에 멈추면 모두 취소된다
+        if fu_rows:
+            conn.execute(fu_t.insert(), fu_rows)
+        if need_rows:
+            conn.execute(need_t.insert(), need_rows)
+        conn.execute(settings_t.insert().values(key=ROWS_COPIED_KEY, value=stats))
+    log.info(
+        "후속 조치·고객 니즈 복사: 활동 기록 %(activities)d건, 후속 조치 %(follow_ups)d줄(담당 연결 %(owner_linked)d, 미연결 %(owner_unlinked)d), "
+        "고객 니즈 %(needs)d줄(고객 연결 %(customer_linked)d, 미연결 %(customer_unlinked)d), 건너뜀 %(skipped)d, 기한 형식 오류 %(bad_due)d",
+        stats,
+    )
+    return stats

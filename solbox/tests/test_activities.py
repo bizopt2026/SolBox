@@ -32,8 +32,9 @@ def test_save_structured_with_links_and_new_entities(user_client, db, settings):
             "solution_ids": [str(s.id)], "customer_ids": [str(c.id)], "new_partners": ["그린테크", " 그린테크 "]}
     user_client.post("/activities", data=data)
     a = db.query(Activity).one()
-    assert a.follow_ups == [{"task": "견적 송부", "owner": "김과장", "due": "2026-11-20", "done": False}]
-    assert a.demand_signals == [{"customer": "한빛병원", "content": "전력비 절감 관심"}]
+    assert [(f.task, f.owner, f.due, f.done, f.position) for f in a.follow_ups] == [("견적 송부", "김과장", date(2026, 11, 20), False, 0)]
+    assert [(n.customer_name, n.customer_id, n.content) for n in a.needs] == [("한빛병원", c.id, "전력비 절감 관심")]
+    assert a.legacy_follow_ups == [] and a.legacy_demand_signals == []  # 옛 JSON 열은 쓰지 않는다
     assert [p.name for p in a.partners] == ["그린테크"] and db.query(Partner).count() == 1
     card = (settings.knowledge_dir / "solutions" / str(s.id) / "card.md").read_text(encoding="utf-8")
     assert "한빛병원 태핑" in card
@@ -62,14 +63,14 @@ def test_unlinking_updates_old_entity_mirror(user_client, db, settings):
 def test_toggle_follow_up(user_client, db):
     user_client.post("/activities", data={"raw_text": "x", "fu_task": ["할 일"], "fu_owner": [""], "fu_due": ["어제"]})
     a = db.query(Activity).one()
-    assert a.follow_ups == [{"task": "할 일", "owner": "", "due": "", "done": False}]
+    assert [(f.task, f.owner, f.due, f.done) for f in a.follow_ups] == [("할 일", "", None, False)]
     url = f"/activities/{a.id}/followups/0/toggle"
     r = user_client.post(url, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/activities/{a.id}"
-    db.refresh(a); assert a.follow_ups[0]["done"] is True
+    db.refresh(a); assert a.follow_ups[0].done is True
     r = user_client.post(url, headers={"referer": "http://testserver/activities"}, follow_redirects=False)
     assert r.headers["location"] == "http://testserver/activities"
-    db.refresh(a); assert a.follow_ups[0]["done"] is False
+    db.refresh(a); assert a.follow_ups[0].done is False
     assert user_client.post(f"/activities/{a.id}/followups/5/toggle").status_code == 404
 
 
@@ -79,7 +80,7 @@ def test_edit_keeps_done_flags(user_client, db):
     user_client.post(f"/activities/{a.id}/followups/1/toggle")
     user_client.post(f"/activities/{a.id}", data={"raw_text": "x", "fu_task": ["a", "b"], "fu_owner": ["", ""], "fu_due": ["", ""], "fu_done": ["1"]})
     db.refresh(a)
-    assert [f["done"] for f in a.follow_ups] == [False, True]
+    assert [f.done for f in a.follow_ups] == [False, True]
 
 
 def test_invalid_date_falls_back_to_today(user_client, db):

@@ -30,7 +30,7 @@
   <ul class="followups">
     {% for f in follow_ups %}
     <li>
-      <form method="post" action="/activities/{{ f.activity.id }}/followups/{{ f.index }}/toggle">
+      <form method="post" action="/follow-ups/{{ f.id }}/toggle">
         <button type="submit" class="check" aria-label="완료로 표시" title="완료로 표시"></button>
       </form>
       <div class="fu-body">

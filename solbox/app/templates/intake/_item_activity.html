@@ -54,10 +54,11 @@
         <legend>{{ ont.prop("activity", "demand_signals") }}</legend>
         {% for row in v.ds_rows + [{"customer": "", "content": ""}] %}
         <div class="row">
-          <label>고객 <input name="{{ k }}__ds_customer" value="{{ row.customer }}"></label>
+          <label>고객 <input name="{{ k }}__ds_customer" value="{{ row.customer }}" list="ds-customer-list-{{ k }}" autocomplete="off"></label>
           <label class="grow">내용 <input name="{{ k }}__ds_content" value="{{ row.content }}"></label>
         </div>
         {% endfor %}
+        <datalist id="ds-customer-list-{{ k }}">{% for c in choices.customer %}<option value="{{ c.name }}">{% endfor %}</datalist>
       </fieldset>
       {% for key, title, _field in ont.activity_link_fields() %}
       {{ check_picker(k ~ "__" ~ key ~ "_ids", title, choices[key], v.selected[key]) }}

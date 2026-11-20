@@ -18,7 +18,7 @@ from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import AIJob, Activity, Project, Customer, IntakeFile, Partner, Solution, User
+from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Partner, Solution, User
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
@@ -68,7 +68,11 @@ def form_values(a: Activity) -> dict:
     values = blank_values()
     values.update(
         kind=a.kind, date=a.date.isoformat() if a.date else "", title=a.title, raw_text=a.raw_text,
-        summary_md=a.summary_md, follow_ups=list(a.follow_ups or []), demand_signals=list(a.demand_signals or []),
+        summary_md=a.summary_md,
+        follow_ups=[{"id": f.id, "task": f.task, "owner": f.owner, "due": f.due.isoformat() if f.due else "", "done": f.done,
+                     "linked": f.owner_user_id is not None} for f in a.follow_ups],
+        demand_signals=[{"id": n.id, "customer": n.customer_name, "content": n.content, "customer_id": n.customer_id}
+                        for n in a.needs],
         selected={t: [o.id for o in getattr(a, rel)] for t, (_, rel) in LINK_TYPES.items()},
     )
     return values
@@ -81,16 +85,29 @@ def _form_page(request: Request, db: Session, values: dict, activity: Activity |
     )
 
 
+def _int_or_none(raw) -> int | None:
+    raw = str(raw).strip()
+    return int(raw) if raw.isascii() and raw.isdecimal() else None
+
+
+def _pad(ids: list[str], column: list[str]) -> list[str]:
+    """줄 번호 칸이 없거나 개수가 안 맞는 옛 화면의 제출은 번호 없이 보여 준다."""
+    return list(ids) if len(ids) == len(column) else [""] * len(column)
+
+
 def _submitted_values(
     kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
+    fu_id=(), ds_id=(), fu_done=(),
 ) -> dict:
     """제출된 값을 오류 화면에 다시 보여 줄 형태로 모은다."""
     ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids)
     return {
         "kind": kind, "date": date_, "title": title, "raw_text": raw_text, "summary_md": summary_md,
-        "follow_ups": [{"task": t, "owner": o, "due": d, "done": False} for t, o, d in rows(fu_task, fu_owner, fu_due)],
-        "demand_signals": [{"customer": c, "content": t} for c, t in rows(ds_customer, ds_content)],
+        "follow_ups": [{"id": _int_or_none(i), "task": t, "owner": o, "due": d, "done": str(n) in set(fu_done)}
+                       for n, (i, t, o, d) in enumerate(rows(_pad(fu_id, fu_task), fu_task, fu_owner, fu_due))],
+        "demand_signals": [{"id": _int_or_none(i), "customer": c, "content": t}
+                           for i, c, t in rows(_pad(ds_id, ds_content), ds_customer, ds_content)],
         "selected": {t: [int(i) for i in v if i.strip().isdigit()] for t, v in ids.items()},
         "new_names": {
             rel: [n.strip() for n in names if n.strip()]
@@ -102,10 +119,11 @@ def _submitted_values(
 
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
-          partner_ids, new_solutions, new_customers, new_partners):
+          partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=()):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
+        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done,
     )
     try:
         text = read_memo(raw_text, memo_file)
@@ -121,6 +139,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
         project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
+        fu_id=fu_id, ds_id=ds_id,
     )
     db.commit()
     sync_all(mirror, activity, old)
@@ -159,7 +178,7 @@ def save_raw(
         return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
     activity = Activity(
         kind=ontology.ACTIVITY_KIND_DEFAULT, date=date.today(), title=first_line(text), raw_text=text, summary_md="",
-        follow_ups=[], demand_signals=[], created_by_id=user.id,
+        created_by_id=user.id,
     )
     db.add(activity)
     db.commit()
@@ -186,8 +205,8 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
     values = blank_values()
     values.update(
         kind=d.kind, date=d.date, title=d.title, raw_text=raw_text, summary_md=draft_summary_md(d),
-        follow_ups=[{**f.model_dump(), "done": False} for f in d.follow_ups if f.task.strip()],
-        demand_signals=[s.model_dump() for s in d.demand_signals if s.content.strip()],
+        follow_ups=[{**f.model_dump(), "id": None, "done": False} for f in d.follow_ups if f.task.strip()],
+        demand_signals=[{**s.model_dump(), "id": None} for s in d.demand_signals if s.content.strip()],
         selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
                   "project": found["projects"]["matched"], "partner": found["partners"]["matched"]},
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
@@ -246,13 +265,14 @@ def _form_params(
     raw_text: str = Form(""), memo_file: UploadFile | None = None, summary_md: str = Form(""),
     fu_task: list[str] = Form([]), fu_owner: list[str] = Form([]), fu_due: list[str] = Form([]),
     fu_done: list[str] = Form([]), ds_customer: list[str] = Form([]), ds_content: list[str] = Form([]),
+    fu_id: list[str] = Form([]), ds_id: list[str] = Form([]),
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
     project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
 ) -> dict:
     return dict(
         kind=kind, date_=date_, title=title, raw_text=raw_text, memo_file=memo_file, summary_md=summary_md,
-        fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done,
+        fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done, fu_id=fu_id, ds_id=ds_id,
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
         project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
@@ -309,18 +329,33 @@ def delete(
     return RedirectResponse("/activities", status_code=303)
 
 
+def _toggle(db: Session, mirror: KnowledgeMirror, fu: FollowUp, request: Request) -> RedirectResponse:
+    fu.done = not fu.done
+    db.commit()
+    mirror.sync(fu.activity)
+    return RedirectResponse(request.headers.get("referer") or f"/activities/{fu.activity_id}", status_code=303)
+
+
 @router.post("/{activity_id}/followups/{index}/toggle")
-def toggle_follow_up(
+def toggle_follow_up_by_index(
     activity_id: int, index: int, request: Request,
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
+    """옛 주소: 열려 있던 화면이 순번으로 보내는 요청. 순번은 그 활동 기록 안의 위치(순서)로 행을 찾는다."""
     a = get_or_404(db, Activity, activity_id)
-    items = [dict(f) for f in a.follow_ups or []]
-    if not 0 <= index < len(items):
+    if not 0 <= index < len(a.follow_ups):
         raise HTTPException(status_code=404, detail="후속 조치를 찾을 수 없습니다.")
-    items[index]["done"] = not items[index].get("done", False)
-    a.follow_ups = items
-    db.commit()
-    mirror.sync(a)
-    return RedirectResponse(request.headers.get("referer") or f"/activities/{a.id}", status_code=303)
+    return _toggle(db, mirror, a.follow_ups[index], request)
+
+
+follow_up_router = APIRouter(prefix="/follow-ups")
+
+
+@follow_up_router.post("/{follow_up_id}/toggle")
+def toggle_follow_up(
+    follow_up_id: int, request: Request,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    return _toggle(db, mirror, get_or_404(db, FollowUp, follow_up_id), request)

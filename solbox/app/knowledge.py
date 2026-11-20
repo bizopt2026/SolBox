@@ -214,20 +214,22 @@ class KnowledgeMirror:
         )
         out += _section(P("activity", "summary_md"), a.summary_md)
         follow = []
-        for fu in a.follow_ups or []:
-            mark = "x" if fu.get("done") else " "
+        for fu in a.follow_ups:
+            mark = "x" if fu.done else " "
             extra = ", ".join(
                 p for p in (
-                    f"담당 {fu['owner']}" if fu.get("owner") else "",
-                    f"기한 {fu['due']}" if fu.get("due") else "",
+                    f"담당 {fu.owner}" if fu.owner else "",
+                    f"기한 {fu.due.isoformat()}" if fu.due else "",
                 ) if p
             )
-            follow.append(f"- [{mark}] {fu.get('task', '')}" + (f" ({extra})" if extra else ""))
+            follow.append(f"- [{mark}] {fu.task}" + (f" ({extra})" if extra else ""))
         out += _section(P("activity", "follow_ups"), "\n".join(follow))
-        signals = [
-            f"- {d.get('customer', '')}: {d.get('content', '')}".replace("- : ", "- ")
-            for d in a.demand_signals or []
-        ]
+        signals = []
+        for n in a.needs:
+            who = n.customer_name
+            if n.customer is not None:  # 등록된 고객 기록과 연결된 줄
+                who = f"{who} ({self._ref(n.customer.name, n.customer)})" if who else self._ref(n.customer.name, n.customer)
+            signals.append(f"- {who}: {n.content}" if who else f"- {n.content}")
         out += _section(P("activity", "demand_signals"), "\n".join(signals))
         return out + _section(P("activity", "raw_text"), a.raw_text)
 
@@ -264,7 +266,7 @@ class KnowledgeMirror:
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
-KNOWLEDGE_FORMAT = 2  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어)
+KNOWLEDGE_FORMAT = 3  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로)
 FORMAT_KEY = "knowledge_format"
 
 

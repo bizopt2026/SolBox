@@ -2,6 +2,7 @@ from datetime import date
 
 from app.knowledge import KnowledgeMirror, safe_name
 from app.models import Activity, Project, Customer, Partner, Solution, SolutionFile
+from tests.conftest import fu_rows, need_rows
 
 
 def _read(path):
@@ -71,8 +72,8 @@ def test_activity_md_sections_and_links(db, tmp_path):
     a = Activity(
         kind="tapping", date=date(2026, 5, 3), title="태핑", raw_text="원문 메모",
         summary_md="요약 내용",
-        follow_ups=[{"task": "자료 송부", "owner": "김", "due": "2026-05-10", "done": False}],
-        demand_signals=[{"customer": "한빛병원", "content": "절감 관심"}],
+        follow_ups=fu_rows(("자료 송부", "김", "2026-05-10", False)),
+        needs=need_rows(("한빛병원", "절감 관심")),
         customers=[c], solutions=[s],
     )
     db.add(a); db.commit()

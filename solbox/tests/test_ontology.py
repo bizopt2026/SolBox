@@ -9,7 +9,7 @@ from app import models, ontology
 from app.db import Base
 
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
-EMBEDDED_ONLY = {"follow_up", "customer_need", "direction", "slide", "check_item", "plan_item", "suggestion"}
+EMBEDDED_ONLY = {"direction", "slide", "check_item", "plan_item", "suggestion"}
 
 
 def test_every_type_matches_orm_and_tables():

@@ -11,7 +11,7 @@ from app import labels, ontology, transcribe
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
-from app.models import AIJob, Activity, Intake, Proposal, ResearchRun, Solution, User
+from app.models import AIJob, Activity, FollowUp, Intake, Proposal, ResearchRun, Solution, User
 from app.routers._common import newest_first
 from app.security import require_user
 
@@ -24,27 +24,18 @@ INTAKE_LINK_LIMIT = 5
 AI_PROBLEMS = ("not_installed", "auth", "limit", "network")
 
 
-def _parse_due(value) -> date | None:
-    try:
-        return date.fromisoformat(str(value))
-    except ValueError:
-        return None
-
-
 def upcoming_follow_ups(db: Session, today: date, days: int = FOLLOW_UP_DAYS) -> list[dict]:
     """끝나지 않은 후속 조치 중 기한이 `today + days` 이내(지난 것 포함)인 것. 기한순."""
     limit = today + timedelta(days=days)
-    items = []
-    for a in db.scalars(select(Activity).order_by(Activity.id)):
-        for index, fu in enumerate(a.follow_ups or []):
-            due = _parse_due(fu.get("due") or "")
-            if fu.get("done") or due is None or due > limit:
-                continue
-            items.append({
-                "activity": a, "index": index, "task": fu.get("task", ""),
-                "owner": fu.get("owner", ""), "due": due, "overdue": due < today,
-            })
-    return sorted(items, key=lambda i: (i["due"], i["activity"].id, i["index"]))
+    stmt = (
+        select(FollowUp, Activity).join(Activity, FollowUp.activity_id == Activity.id)
+        .where(FollowUp.done.is_(False), FollowUp.due.is_not(None), FollowUp.due <= limit)
+        .order_by(FollowUp.due, Activity.id, FollowUp.position, FollowUp.id)
+    )
+    return [
+        {"activity": a, "id": fu.id, "index": fu.position, "task": fu.task, "owner": fu.owner, "due": fu.due, "overdue": fu.due < today}
+        for fu, a in db.execute(stmt)
+    ]
 
 
 def stage_counts(db: Session) -> list[tuple[str, str, int]]:
