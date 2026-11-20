@@ -325,7 +325,7 @@ def test_convert_only_when_won_and_once(user_client, db, settings):
     p = db.query(Project).one()
     db.refresh(o)
     assert (p.name, p.customer_id, p.bm_id, o.project_id) == ("한빛 전력 절감", c.id, bm.id, p.id)
-    assert r.headers["location"] == f"/projects/{p.id}" and p.created_by_id is not None
+    assert r.headers["location"] == f"/projects/{p.id}?notice=converted" and p.created_by_id is not None
     # 두 번째 시도는 새로 만들지 않고 있던 프로젝트를 보여 준다
     r = user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": "또 하나"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/projects/{p.id}" and db.query(Project).count() == 1
@@ -415,7 +415,7 @@ def test_opportunity_delete_rules(user_client, db, settings):
     assert stranger.post(f"/opportunities/{o.id}/delete").status_code == 403
     oid = o.id
     r = user_client.post(f"/opportunities/{oid}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/opportunities"
+    assert r.status_code == 303 and r.headers["location"] == "/opportunities?notice=deleted"
     db.expire_all()
     assert db.get(Opportunity, oid) is None
     assert db.get(CustomerNeed, n.id).opportunity_id is None  # 니즈는 남고 묶음만 풀린다

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, opportunity_badge %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash, opportunity_badge %}
 {% block title %}{{ ont.label("opportunity") }}{% endblock %}
 {% block content %}
 {{ list_head(ont.label("opportunity"), pg, q or stage or flt, "/opportunities/new", type="opportunity") }}
@@ -16,8 +16,8 @@
         <div class="row-meta">{{ opportunity_badge(o.stage) }}{% if o.bm %}<span>{{ o.bm.name }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
       </td>
       <td class="col-sec">{{ opportunity_badge(o.stage) }}</td>
-      <td class="col-sec">{% if o.bm %}<a href="/bms/{{ o.bm_id }}">{{ o.bm.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</td>
-      <td class="col-sec">{% if o.project %}<a href="/projects/{{ o.project_id }}">{{ o.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</td>
+      <td class="col-sec">{% if o.bm %}<a href="/bms/{{ o.bm_id }}">{{ o.bm.name }}</a>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if o.project %}<a href="/projects/{{ o.project_id }}">{{ o.project.name }}</a>{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>

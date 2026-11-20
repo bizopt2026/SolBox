@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date
+from urllib.parse import urlencode
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,7 @@ from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
+from app import notices
 from app.db import get_db
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -26,7 +28,7 @@ from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
 from app.routers._common import (
-    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, row_info, submitted_fields,
+    clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate, row_info, submitted_fields, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -47,6 +49,32 @@ def read_memo(raw_text: str, memo_file: UploadFile | None) -> str:
     if not text:
         raise HTTPException(status_code=400, detail=MEMO_REQUIRED)
     return text
+
+
+def prefill_from(db: Session, params) -> dict[str, list[int]]:
+    """`?customer_id=` 같은 미리 고르기 값 중 실제로 있는 기록만 {유형: [번호]} 로 (숫자가 아니거나 없는 번호는 무시한다)."""
+    out: dict[str, list[int]] = {}
+    for param, code in ontology.ACTIVITY_PREFILL.items():
+        n = parse_id(params.get(param))
+        if n is not None and db.get(ontology.TYPES[code].model, n) is not None:
+            out[code] = [n]
+    return out
+
+
+def prefill_form(customer_id: str = Form(""), partner_id: str = Form(""), project_id: str = Form(""), solution_id: str = Form(""),
+                 opportunity_id: str = Form("")) -> dict[str, str]:
+    """등록 화면이 숨은 칸으로 다시 보내는 미리 고르기 값."""
+    return {"customer_id": customer_id, "partner_id": partner_id, "project_id": project_id, "solution_id": solution_id, "opportunity_id": opportunity_id}
+
+
+def prefill_chips(db: Session, selected: dict[str, list[int]]) -> list[dict]:
+    """화면에 보일 "연결: 고객 한빛병원" 칩과 다시 보낼 숨은 칸 (param, value)."""
+    param_of = {code: param for param, code in ontology.ACTIVITY_PREFILL.items()}
+    chips = []
+    for code, ids in selected.items():
+        obj = db.get(ontology.TYPES[code].model, ids[0])
+        chips.append({"code": code, "label": ontology.label(code), "name": obj.name, "param": param_of[code], "value": ids[0]})
+    return chips
 
 
 def _choices(db: Session) -> dict:
@@ -138,6 +166,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     except HTTPException as e:
         return _form_page(request, db, submitted, activity, e.detail)
     old = linked(activity) if activity is not None else []
+    is_new = activity is None
     if activity is None:
         activity = Activity(created_by_id=user.id, raw_text=text, origin_type=ontology.ORIGIN_MANUAL)
         db.add(activity)
@@ -151,7 +180,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
-    return RedirectResponse(f"/activities/{activity.id}", status_code=303)
+    return notices.redirect(f"/activities/{activity.id}", "created" if is_new else "saved")
 
 
 @router.get("")
@@ -164,7 +193,7 @@ def list_activities(
         escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (Activity.title, Activity.raw_text, Activity.summary_md))))
-    rows, flt = list_filter(db, request, "activity", newest_first(db.scalars(stmt)))
+    rows, flt = list_filter(db, request, "activity", sort_rows(request, "activity", newest_first(db.scalars(stmt)), lambda a: a.title or ""))
     counts = Counter(a.kind for a in rows)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     total = len(rows)
     if kind in labels.ACTIVITY_KINDS:
@@ -177,13 +206,22 @@ def list_activities(
 
 
 @router.get("/new")
-def new_form(request: Request, user: User = Depends(require_user)):
-    return render(request, "activities/new.html", error=None, raw_text="")
+def new_form(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """`?customer_id=`·`?partner_id=`·`?project_id=`·`?solution_id=`·`?opportunity_id=` 는 상세 화면의 "+ 활동 기록 쓰기": 그 연결을 미리 골라 둔다.
+    메모 화면에서는 저장·AI 정리가 그 연결을 이어받고, `?manual=1` 은 모든 칸이 있는 직접 입력 폼의 연결 칸에 미리 고른다."""
+    selected = prefill_from(db, request.query_params)
+    if request.query_params.get("manual") == "1":
+        values = blank_values()
+        values["selected"].update(selected)
+        return _form_page(request, db, values)
+    chips = prefill_chips(db, selected)
+    manual = "/activities/new?" + urlencode([("manual", "1")] + [(c["param"], c["value"]) for c in chips])
+    return render(request, "activities/new.html", error=None, raw_text="", chips=chips, manual_url=manual)
 
 
 @router.post("/raw")
 def save_raw(
-    request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None,
+    request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
@@ -195,10 +233,13 @@ def save_raw(
         kind=ontology.ACTIVITY_KIND_DEFAULT, date=date.today(), title=first_line(text), raw_text=text, summary_md="",
         created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL,
     )
+    for code, ids in prefill_from(db, pre).items():  # 상세 화면에서 시작했으면 그 연결을 이어받는다
+        rel = LINK_TYPES[code][1] if code in LINK_TYPES else ontology.ACTIVITY_MANUAL_LINKS[code]
+        getattr(activity, rel).append(db.get(ontology.TYPES[code].model, ids[0]))
     db.add(activity)
     db.commit()
-    mirror.sync(activity)
-    return RedirectResponse(f"/activities/{activity.id}", status_code=303)
+    sync_all(mirror, activity)
+    return notices.redirect(f"/activities/{activity.id}", "created")
 
 
 DRAFT_KIND = "activity_structure"
@@ -213,7 +254,7 @@ def _draft_job(db: Session, job_id: int, user: User) -> AIJob:
     return job
 
 
-def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
+def draft_values(db: Session, d: ActivityDraft, raw_text: str, prefill: dict | None = None) -> dict:
     """AI 초안을 정리 폼 값으로 바꾼다. 새 이름은 체크 해제 후보로 둔다."""
     d = normalize_draft(d, date.today())
     found = match_mentions(db, d.mentions)
@@ -227,19 +268,28 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str) -> dict:
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
         ambiguous={t: ambiguous_view(db, model, found[rel]["ambiguous"]) for t, (model, rel) in LINK_TYPES.items()},
     )
+    merge_prefill(values, prefill)
     return values
+
+
+def merge_prefill(values: dict, prefill: dict | None) -> None:
+    """등록 화면에서 이어받은 연결을 폼 값의 선택에 더한다 (AI 가 찾은 연결은 그대로 두고 중복은 뺀다). 형식이 틀린 값은 무시한다."""
+    for code, ids in (prefill or {}).items():
+        if code in values["selected"] and isinstance(ids, list):
+            values["selected"][code] += [i for i in ids if isinstance(i, int) and i not in values["selected"][code]]
 
 
 @router.post("/draft")
 def start_draft(
-    request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None,
+    request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     try:
         text = read_memo(raw_text, memo_file)
     except HTTPException as e:
         return render(request, "activities/new.html", status_code=400, error=e.detail, raw_text=raw_text)
-    job = enqueue(db, DRAFT_KIND, {"raw_text": text}, user.id)
+    prefill = prefill_from(db, pre)
+    job = enqueue(db, DRAFT_KIND, {"raw_text": text, **({"prefill": prefill} if prefill else {})}, user.id)
     return RedirectResponse(f"/activities/draft/{job.id}", status_code=303)
 
 
@@ -260,9 +310,10 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
     if draft is None:
         values = blank_values()
         values["raw_text"] = raw_text
+        merge_prefill(values, (job.input or {}).get("prefill"))
         ctx["error_kind"] = job.error_kind if job.status == "failed" else "bad_output"
         return render(request, "activities/draft.html", position=0, f=values, **{k: v for k, v in ctx.items() if k != "f"})
-    return render(request, "activities/draft.html", position=0, f=draft_values(db, draft, raw_text),
+    return render(request, "activities/draft.html", position=0, f=draft_values(db, draft, raw_text, (job.input or {}).get("prefill")),
                   **{k: v for k, v in ctx.items() if k != "f"})
 
 
@@ -346,7 +397,7 @@ def delete(
     db.commit()
     for obj in related:
         mirror.sync(obj)
-    return RedirectResponse("/activities", status_code=303)
+    return notices.redirect("/activities", "deleted")
 
 
 def _toggle(db: Session, mirror: KnowledgeMirror, fu: FollowUp, request: Request) -> RedirectResponse:

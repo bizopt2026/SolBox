@@ -1,3 +1,4 @@
+{% from "_macros.html" import confirm_link %}
 {% if notice %}<p class="error" role="alert">{{ notice }}</p>{% endif %}
 {% if solution.files %}
 <ul class="files">
@@ -20,9 +21,7 @@
       </form>
       <a class="button small" href="/files/{{ f.id }}/download">내려받기</a>
       {% if can_delete_files[f.id] %}
-      <form method="post" action="/files/{{ f.id }}/delete" onsubmit="return confirm('파일을 삭제할까요?')">
-        <button type="submit" class="small ghost danger">삭제</button>
-      </form>
+      {{ confirm_link("/files/" ~ f.id ~ "/delete", cls="small ghost danger", ask="정말 지울까요?", aria=f.original_name ~ " 삭제") }}
       {% endif %}
     </div>
   </li>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill, source_chip, val %}
+{% from "_macros.html" import page_header, pill, source_chip, val, confirm_link %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
@@ -10,9 +10,7 @@
 {% set who %}<a href="/customers/{{ proposal.customer_id }}">{{ proposal.customer.name }}</a>{% if proposal.opportunity %} · <a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% endif %}{% if proposal.project %} · <a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% endif %}{% endset %}
 {% call page_header(title, crumbs=ui.crumbs("proposal", title), sub=who, status=pill("proposal_status", proposal.status), cls="detail") %}
   {% if can_delete %}
-  <form method="post" class="actions-danger" action="/proposals/{{ proposal.id }}/delete" onsubmit="return confirm('삭제할까요? 만든 제안서 파일도 함께 지워집니다.')">
-    <button type="submit" class="ghost danger">삭제</button>
-  </form>
+  <span class="actions-danger">{{ confirm_link("/proposals/" ~ proposal.id ~ "/delete", ask="정말 삭제할까요? 만든 제안서 파일도 지워집니다.") }}</span>
   {% endif %}
   {% include "proposals/_primary.html" %}
 {% endcall %}

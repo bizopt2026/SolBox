@@ -12,6 +12,7 @@ from app.idparse import parse_id
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -19,7 +20,7 @@ from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
     list_filter,
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
-    resync_activities, resync_objects, resync_related, row_info, search_by_name,
+    resync_activities, resync_objects, resync_related, row_info, search_by_name, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -81,7 +82,7 @@ def list_solutions(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags, loaders=(selectinload(Solution.partner),))
-    solutions, flt = list_filter(db, request, "solution", solutions)
+    solutions, flt = list_filter(db, request, "solution", sort_rows(request, "solution", solutions))
     counts = Counter(s.stage for s in solutions)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준 (탭을 누르면 나오는 건수와 같다)
     total = len(solutions)
     if stage:
@@ -117,7 +118,7 @@ def create(
     mirror.sync(solution)
     if solution.partner:
         mirror.sync(solution.partner)
-    return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}", "created")
 
 
 @router.get("/{solution_id}")
@@ -188,7 +189,7 @@ def change_stage(
         solution.stage = stage
         db.commit()
         mirror.sync(solution)
-    return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}", f"stage.{stage}")
 
 
 @router.post("/{solution_id}")
@@ -214,7 +215,7 @@ def update(
     if old_partner is not None and old_partner.id != solution.partner_id:  # 옛 파트너 사본
         db.refresh(old_partner)
         mirror.sync(old_partner)
-    return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}", "saved")
 
 
 @router.post("/{solution_id}/delete")
@@ -236,4 +237,4 @@ def delete(
     resync_objects(db, mirror, review_links)
     if partner is not None:
         mirror.sync(partner)
-    return RedirectResponse("/solutions", status_code=303)
+    return notices.redirect("/solutions", "deleted")

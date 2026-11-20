@@ -198,8 +198,8 @@
     }
     saveOpen();
     // 주소의 ?open=, ?renumber= 는 한 번 쓰고 지운다. 새로고침하면 기억해 둔 상태를 따른다
-    if (params.has("open") || params.has("renumber")) {
-      params.delete("open"); params.delete("renumber");
+    if (params.has("open") || params.has("renumber") || params.has("notice")) {
+      params.delete("open"); params.delete("renumber"); params.delete("notice");
       var rest = params.toString();
       try { history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (e) { /* 그대로 둔다 */ }
     }
@@ -472,6 +472,148 @@
       box.classList.toggle("has-file", n > 0);
     });
   });
+
+  // ---- 사용성 보강 (모두 선택 사항: 스크립트가 없으면 서버가 그린 화면 그대로 쓴다) ----
+  var reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function isComposing(e) { return e.isComposing || e.keyCode === 229; }
+
+  // 결과 알림(.flash): 닫기 링크는 스크립트 없이도 동작한다. 스크립트가 있으면 주소에서 notice 를 지워 새로 고쳐도 다시 나오지 않게 하고,
+  // 성공 알림은 잠시 뒤 서서히 사라진다 (움직임을 줄이는 설정이면 사라지지 않고 닫기를 눌러야 한다. 오류·주의 알림은 늘 남는다).
+  (function () {
+    var flash = document.querySelector("[data-flash]");
+    if (!flash) return;
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.has("notice")) {
+        u.searchParams.delete("notice");
+        history.replaceState(null, "", u.pathname + u.search + u.hash);
+      }
+    } catch (e) { /* 주소를 못 고쳐도 알림은 보인다 */ }
+    var gone = function () { if (flash.parentNode) flash.parentNode.removeChild(flash); };
+    var hide = function () {
+      if (reduceMotion) { gone(); return; }
+      flash.classList.add("fading");
+      setTimeout(gone, 400);
+    };
+    var x = flash.querySelector(".flash-x");
+    if (x) x.addEventListener("click", function (e) { e.preventDefault(); hide(); });
+    if (flash.classList.contains("ok") && !reduceMotion) setTimeout(hide, 6000);
+  })();
+
+  // 되돌릴 수 없는 동작의 그 자리 되묻기: "정말 삭제할까요? [삭제] [취소]". 키보드로 쓸 수 있고(처음 초점은 취소, Esc 로 취소) 브라우저 기본 확인창을 쓰지 않는다.
+  // 스크립트가 없으면 링크(data-confirm-post)가 서버의 확인 화면으로 가고, 폼(data-confirm)은 바로 보낸다.
+  function askInline(trigger, ask, ok, onOk) {
+    if (trigger.nextElementSibling && trigger.nextElementSibling.classList.contains("confirm-inline")) return;
+    var box = document.createElement("span");
+    box.className = "confirm-inline";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", ask);
+    var q = document.createElement("span");
+    q.className = "confirm-q";
+    q.textContent = ask;
+    var yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "small danger";
+    yes.textContent = ok;
+    var no = document.createElement("button");
+    no.type = "button";
+    no.className = "small";
+    no.textContent = "취소";
+    box.appendChild(q); box.appendChild(yes); box.appendChild(no);
+    trigger.hidden = true;
+    trigger.parentNode.insertBefore(box, trigger.nextSibling);
+    var close = function () { if (box.parentNode) box.parentNode.removeChild(box); trigger.hidden = false; trigger.focus(); };
+    no.addEventListener("click", close);
+    yes.addEventListener("click", function () { yes.disabled = true; onOk(); });
+    box.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } });
+    no.focus();
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[data-confirm-post]");
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    askInline(a, a.dataset.ask || "정말 삭제할까요?", a.dataset.ok || "삭제", function () {
+      var f = document.createElement("form");
+      f.method = "post";
+      f.action = a.dataset.confirmPost;
+      f.hidden = true;
+      document.body.appendChild(f);
+      f.submit();
+    });
+  });
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form.matches || !form.matches("form[data-confirm]") || form.dataset.confirmed === "1") return;
+    e.preventDefault();
+    var trigger = e.submitter || form.querySelector('button[type="submit"]');
+    if (!trigger) return;
+    askInline(trigger, form.dataset.confirm, form.dataset.ok || "계속", function () { form.dataset.confirmed = "1"; form.submit(); });
+  });
+
+  // 글 칸 높이: 쓰는 만큼 늘어나고 (CSS 의 최대 높이에서 멈추고 그 뒤로는 스크롤), 접힌 칸이 열릴 때·HTMX 로 바뀔 때도 맞춘다
+  function fit(t) {
+    if (!t || t.tagName !== "TEXTAREA" || !t.offsetParent) return; // 숨겨진 칸은 열릴 때 맞춘다
+    t.style.height = "auto";
+    t.style.height = t.scrollHeight + 2 + "px";
+  }
+  function fitAll(root) { (root || document).querySelectorAll("textarea").forEach(fit); }
+  document.addEventListener("input", function (e) { if (e.target.tagName === "TEXTAREA") fit(e.target); });
+  document.addEventListener("toggle", function (e) { if (e.target.tagName === "DETAILS") fitAll(e.target); }, true);
+  document.body.addEventListener("htmx:afterSwap", function (e) { fitAll(e.target); });
+  window.addEventListener("resize", function () { fitAll(); });
+  fitAll();
+
+  // 제안 대화: 입력칸에서 Ctrl/⌘+Enter 로 보낸다 (Enter 는 줄바꿈. 한글 조합 중에는 가로채지 않는다). 시작 질문 칩은 칸에 글을 채운다.
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (!t || t.id !== "chat-message" || e.key !== "Enter" || !(e.ctrlKey || e.metaKey) || isComposing(e)) return;
+    e.preventDefault();
+    if (t.value.trim() && !t.disabled && t.form) t.form.requestSubmit();
+  });
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest && e.target.closest("[data-starter]");
+    var ta = document.getElementById("chat-message");
+    if (!chip || !ta || ta.disabled) return;
+    e.preventDefault();
+    ta.value = chip.value || chip.dataset.starter;
+    fit(ta);
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+
+  // 목록 표: 줄의 빈 곳을 눌러도 제목 링크로 간다 (링크·버튼·입력칸을 누른 것과 글자를 끌어 고른 것은 그대로). 키보드는 제목 링크를 쓴다.
+  document.querySelectorAll("table.list-table").forEach(function (t) { if (t.querySelector("a.row-title")) t.classList.add("row-click"); });
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var tr = e.target.closest && e.target.closest("table.row-click tbody tr");
+    if (!tr || e.target.closest("a, button, input, select, textarea, label, summary, details")) return;
+    var link = tr.querySelector("a.row-title");
+    if (!link || (window.getSelection && String(window.getSelection()).length)) return;
+    link.click();
+  });
+
+  // 저장하지 않은 변경 지킴이: 폼 칸을 고친 채 다른 곳으로 가려 하면 브라우저가 한 번 묻는다 (저장 버튼으로 보낼 때·검색용 GET 폼은 제외)
+  (function () {
+    var forms = Array.prototype.slice.call(document.querySelectorAll("form.form-page"));
+    var plan = document.querySelector(".plan-savebar");
+    if (plan && plan.closest("form")) forms.push(plan.closest("form"));
+    forms = forms.filter(function (f) { return f.method !== "get"; });
+    if (!forms.length) return;
+    var snap = function (f) {
+      var parts = [];
+      new FormData(f).forEach(function (v, k) { parts.push(k + "=" + (typeof v === "string" ? v : "file:" + v.name + ":" + v.size)); });
+      return parts.join("&");
+    };
+    var base = forms.map(snap);
+    var submitting = false;
+    forms.forEach(function (f) { f.addEventListener("submit", function () { submitting = true; }); });
+    window.addEventListener("pageshow", function () { submitting = false; });
+    window.addEventListener("beforeunload", function (e) {
+      if (submitting || !forms.some(function (f, i) { return snap(f) !== base[i]; })) return;
+      e.preventDefault();
+      e.returnValue = "";
+    });
+  })();
 
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
   document.querySelectorAll(".seg").forEach(function (seg) {

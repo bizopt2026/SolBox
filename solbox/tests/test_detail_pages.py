@@ -40,7 +40,7 @@ def test_header_actions_respect_delete_permission(user_client, db):
     others = _make(db, make_user(db, "lee", name="lee").id)
     for path in mine:
         head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"{path}/{mine[path].id}").text, re.S).group(0)
-        assert f'action="{path}/{mine[path].id}/delete"' in head and head.index("ghost danger") < head.index("수정"), path
+        assert f'data-confirm-post="{path}/{mine[path].id}/delete"' in head and head.index("ghost danger") < head.index("수정"), path
         head = re.search(r'<header class="page-header detail">.*?</header>', user_client.get(f"{path}/{others[path].id}").text, re.S).group(0)
         assert "/delete" not in head and "수정" in head, path
 

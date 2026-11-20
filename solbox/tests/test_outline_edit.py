@@ -35,7 +35,7 @@ def test_edit_slide_text_fields(user_client, db, settings):
         "kind": "table", "title": "비교", "key_message": "연 10% 절감",
         "columns": "항목 | 현재 | 제안", "rows": "전력 | 100 | 90\n인력 | 3",
         "needs_check": "수치 근거\n"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}/outline?open=1#slide-1"
+    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}/outline?open=1&notice=slide_saved#slide-1"
     db.refresh(p)
     s = p.outline["slides"][1]
     assert (s["kind"], s["columns"]) == ("table", ["항목", "현재", "제안"])
@@ -95,7 +95,7 @@ def test_delete_move_add_rules(user_client, db, settings):
     assert user_client.post(f"{base}/0/move", data={"dir": "down"}).status_code == 400
     assert user_client.post(f"{base}/2/move", data={"dir": "sideways"}).status_code == 400
     r = user_client.post(f"{base}", data={"after": "3"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"].endswith("?open=4&renumber=1#slide-4")
+    assert r.status_code == 303 and r.headers["location"].endswith("?open=4&renumber=1&notice=slide_added#slide-4")
     slides = _slides(db, p)
     assert len(slides) == 9 and slides[4]["title"] == "새 슬라이드" and slides[4]["kind"] == "bullets"
     assert user_client.post(f"{base}/4/delete").status_code == 200
@@ -191,11 +191,11 @@ def test_redirects_open_the_touched_slide(user_client, db, settings):
     base = f"/proposals/{p.id}/outline/slides"
     loc = lambda r: r.headers["location"]
     r = user_client.post(f"{base}/3/move", data={"dir": "up"}, follow_redirects=False)
-    assert loc(r) == f"/proposals/{p.id}/outline?open=2&renumber=1#slide-2"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=2&renumber=1&notice=slide_moved#slide-2"
     r = user_client.post(f"{base}/3/delete", follow_redirects=False)
-    assert loc(r) == f"/proposals/{p.id}/outline?open=3&renumber=1#slide-3"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=3&renumber=1&notice=slide_deleted#slide-3"
     r = user_client.post(f"{base}/6/delete", follow_redirects=False)  # 마지막 장이면 이전 장
-    assert loc(r) == f"/proposals/{p.id}/outline?open=5&renumber=1#slide-5"
+    assert loc(r) == f"/proposals/{p.id}/outline?open=5&renumber=1&notice=slide_deleted#slide-5"
 
 
 def test_check_all_route(user_client, db, settings):

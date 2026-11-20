@@ -388,12 +388,14 @@ _TYPE_LIST = [
         mirror_path="solutions/{solution_id}/files/{id}-{name}.md", mirror_dir_format="solutions/{solution_id}/files/",
         parent=("solution", "solution_id"),
         props={"original_name": "파일 이름", "kind": "자료 종류", "extract_status": "글 추출 상태", "size": "크기"},
+        description="솔루션에 붙여 올린 소개·스펙·관련 파일. 글을 뽑아 두어 AI 가 읽을 수 있습니다",
     ),
     ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups", "/follow-ups",
                description="활동 기록에서 나온 할 일",
                props={"task": "할 일", "owner": "담당", "due": "기한", "done": "완료"}),
     ObjectType("customer_need", TERMS["customer_need"], "부속", "CustomerNeed", "customer_needs",
-               props={"customer": "고객", "content": "내용", "opportunity": "영업기회"}),
+               props={"customer": "고객", "content": "내용", "opportunity": "영업기회"},
+               description="활동 기록에서 드러난 고객의 필요. 같은 고객의 니즈를 묶어 영업기회로 만듭니다"),
     ObjectType("direction", "제안 방향", "부속", embedded_in="proposals.directions",
                props={"title": "제목", "summary": "한 줄 소개", "solutions": "솔루션", "rationale": "근거", "effects": "기대 효과"}),
     ObjectType("slide", "구성안 장", "부속", embedded_in="proposals.outline",
@@ -555,6 +557,10 @@ ACTIVITY_MANUAL_LINKS = {"opportunity": "opportunities"}
 def activity_form_link_fields() -> list[tuple[str, str, str]]:
     """활동 기록 폼의 연결 칸 전체: ACTIVITY_LINKS 다음에 직접 고르는 연결."""
     return [(code, TYPES[code].label, f"{code}_ids") for code in (*ACTIVITY_LINKS, *ACTIVITY_MANUAL_LINKS)]
+
+
+# 활동 기록 등록 화면의 `?<파라미터>=<번호>` 미리 고르기 (다른 화면의 "+ 활동 기록 쓰기"): 파라미터 -> 유형. 있는 기록일 때만 쓰고 아니면 무시한다.
+ACTIVITY_PREFILL = {"customer_id": "customer", "partner_id": "partner", "project_id": "project", "solution_id": "solution", "opportunity_id": "opportunity"}
 
 
 # 이름만으로 새로 만들 수 있는 대상 (활동 기록 저장·올리기): 관계 이름 -> 유형
@@ -789,6 +795,7 @@ class Derived:
     target: str
     paths: tuple[tuple, ...]
     direct_note: str = ""  # 한 걸음짜리 경로로 닿았을 때 붙일 말
+    minus: tuple[str, ...] = ()  # "A 빼기 B": 경로로 닿은 것에서, 같은 출발 기록이 다른 Derived 키들로 닿는 것을 뺀다 (차집합)
 
 
 DERIVED: tuple[Derived, ...] = (
@@ -807,6 +814,8 @@ DERIVED: tuple[Derived, ...] = (
     Derived("D11", "같은 회사 고객의 영업기회", "partner", "opportunity", ((_f("R25"), _b("R27")),)),
     Derived("D12", "같은 회사 고객에게 한 제안 건", "partner", "proposal", ((_f("R25"), _b("R12")),)),
     Derived("D13", "같은 회사 파트너가 공급하는 솔루션", "customer", "solution", ((_b("R25"), _f("R1")),)),
+    # 이 고객과 이야기했거나(활동 기록 D1) 영업기회에서 검토했지만(R27→R28) 아직 제안 건에 들어가지 않은(D2) 솔루션: 만들 제안의 후보
+    Derived("D14", "이야기했지만 아직 제안하지 않은 솔루션", "customer", "solution", (("D1",), (_b("R27"), _f("R28"))), minus=("D2",)),
 )
 DERIVED_BY_KEY = {d.key: d for d in DERIVED}
 
@@ -829,6 +838,7 @@ class MainGroup:
     key: str
     action: tuple[str, str] | None = None
     show_empty: bool = False
+    item_action: tuple[str, str] | None = None  # 항목마다 붙는 동작 (글, 주소): `{id}` 는 이 기록 번호, `{item}` 은 항목 번호
 
 
 # 상세 화면 왼쪽 칸의 연결 카드 (순서대로). 여기 든 그룹은 옆 칸 "연결된 것" 에서는 빠지고, 옆 칸에는 건너서 연결된 것만 남는다. 화면마다 손으로 조인하지 않는다.
@@ -837,17 +847,18 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R27:opportunity", ("+ 영업기회 만들기", "/opportunities/new?customer_id={id}"), True),
         MainGroup("R2:project", ("+ 프로젝트 등록", "/projects/new?customer_id={id}"), True),
         MainGroup("R12:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={id}"), True),
-        MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("D14", None, False, ("제안 만들기", "/proposals/new?customer_id={id}&solution_id={item}")),
+        MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new?customer_id={id}"), True),
         MainGroup("R10:customer_need"),
         MainGroup("D6"),
     ),
     "partner": (
         MainGroup("R1:solution", ("+ 솔루션 등록", "/solutions/new?partner_id={id}"), True),
-        MainGroup("R7:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("R7:activity", ("+ 활동 기록 쓰기", "/activities/new?partner_id={id}"), True),
     ),
     "project": (
         MainGroup("R13:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={customer_id}&project_id={id}"), True),
-        MainGroup("R6:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("R6:activity", ("+ 활동 기록 쓰기", "/activities/new?project_id={id}"), True),
         MainGroup("R30:opportunity"),
     ),
     "bm": (
@@ -862,7 +873,7 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
     ),
     "solution": (
         MainGroup("R14:proposal"),
-        MainGroup("R4:activity", ("+ 활동 기록 쓰기", "/activities/new")),
+        MainGroup("R4:activity", ("+ 활동 기록 쓰기", "/activities/new?solution_id={id}"), True),
     ),
 }
 
@@ -897,6 +908,19 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
     ("solution", "partner_id"): ("partner", "R1"),
     ("solution", "bm_id"): ("bm", "R33"),
     ("solution", "opportunity_id"): ("opportunity", "R28"),
+}
+
+# 목록의 `?sort=` 정렬: 유형 -> ((코드, 이름), …). 첫 항목이 지금의 기본 순서이고 (`?sort` 가 없거나 틀리면 이것), 나머지는 고르는 순서다.
+# 코드 뜻: name 이름(제목)순, recent 최근 수정순, date 활동 일자순 (최근 것이 위).
+LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "solution": (("name", "이름순"), ("recent", "최근 수정순")),
+    "customer": (("name", "이름순"), ("recent", "최근 수정순")),
+    "partner": (("name", "이름순"), ("recent", "최근 수정순")),
+    "project": (("name", "이름순"), ("recent", "최근 수정순")),
+    "bm": (("name", "이름순"), ("recent", "최근 수정순")),
+    "opportunity": (("recent", "최근 수정순"), ("name", "이름순")),
+    "proposal": (("recent", "최근 수정순"), ("name", "이름순")),
+    "activity": (("date", "일자순"), ("recent", "최근 수정순"), ("name", "제목순")),
 }
 
 # 걸러 보기 파라미터가 아닌 "모두 보기" 목적지: (기준 유형, 그룹 키) -> 주소 ({id} 는 기준 기록 번호). 후속 조치 목록은 고객별로 모아 본다.
@@ -1046,3 +1070,42 @@ OPPORTUNITY_RULES = {
     "delete": "삭제하면 묶은 니즈는 풀리고(니즈는 남습니다) 제안 건의 연결은 비워집니다. 프로젝트는 지워지지 않습니다",
     "bm_delete": "프로젝트나 영업기회가 따르는 BM 은 삭제할 수 없습니다",
 }
+
+
+# ---- 삭제 확인 화면의 "지우면 이렇게 됩니다" (각 삭제 라우터의 규칙을 그대로 옮겨 적은 것. 확인 화면 `routers/confirm.py` 가 읽는다) ----
+DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
+    "solution": ("올린 자료 파일과 지식 사본이 함께 지워집니다.",
+                 "이 솔루션이 적힌 활동 기록·BM·영업기회·제안 건의 연결이 풀립니다 (그 기록들은 남습니다)."),
+    "partner": ("이 파트너의 솔루션은 남고 파트너 칸만 비워집니다.",
+                "같은 회사로 이은 고객 연결이 풀립니다 (고객 기록은 남습니다).",
+                "활동 기록과의 연결이 풀립니다."),
+    "customer": ("고객 니즈 줄은 남고 고객 연결만 풀립니다 (적힌 고객 이름은 그대로).",
+                 "같은 회사로 이은 파트너 연결이 풀립니다 (파트너 기록은 남습니다)."),
+    "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다)."),
+    "bm": ("솔루션과의 연결이 풀립니다 (솔루션은 남습니다).",),
+    "opportunity": (OPPORTUNITY_RULES["delete"] + ".",),
+    "activity": ("후속 조치와 고객 니즈 줄이 함께 지워집니다.",
+                 "연결된 솔루션·고객·파트너·프로젝트는 남습니다.",
+                 "이 기록을 만든 올린 원본 파일은 남습니다."),
+    "proposal": ("대화·방향·구성안과 만든 제안서 파일이 함께 지워집니다.", "대상 고객과 솔루션 기록은 남습니다."),
+    "solution_file": ("올린 자료 파일이 지워지고 지식 사본에서도 빠집니다.", "솔루션 기록은 남습니다."),
+    "intake_discard": ("정리안은 버려지고 저장되지 않습니다 (아무 기록도 만들어지지 않습니다).", "올린 원본 파일은 남습니다."),
+    "research_run": ("이 조사의 보고서(동향·제안)가 모두 지워집니다.", "보고서에서 등록한 솔루션은 남고 유래 표시만 비워집니다."),
+    "research_topic": ("이 주제는 다음 조사부터 빠집니다. 이미 끝난 조사 결과는 남습니다.",),
+    "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
+}
+
+
+# 제안 대화 입력칸 위의 시작 질문 (아직 이 방향의 대화가 없을 때만 화면에 칩으로 나온다)
+PROPOSAL_CHAT_STARTERS: tuple[str, ...] = (
+    "예산을 절반으로 줄이면 어떻게 구성할까요?",
+    "1단계에 꼭 넣어야 할 범위만 남겨 주세요",
+    "이 고객이 가장 걱정할 점과 답변을 정리해 주세요",
+    "경쟁 방식과 비교한 강점을 알려 주세요",
+    "도입 일정을 단계별로 제안해 주세요",
+)
+
+
+# 도움말 화면(`/help`)의 용어 풀이: 대상 유형 코드 순서. 이름·뜻은 위 유형 정의(label·description)에서 읽는다 (여기에 다시 적지 않는다).
+HELP_GLOSSARY: tuple[str, ...] = ("solution", "partner", "customer", "opportunity", "project", "bm", "activity", "customer_need",
+                                  "follow_up", "proposal", "intake", "solution_file")

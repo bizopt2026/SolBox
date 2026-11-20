@@ -29,7 +29,9 @@
       {% endfor %}
     </nav>
     {% endfor %}
+    <a class="side-help in-nav" href="/help"{% if path == '/help' %} aria-current="page"{% endif %}>도움말</a>{# 좁은 화면에서만 (위쪽 줄이 비좁아 메뉴 줄 끝으로 옮긴다) #}
   </div>
+  <a class="side-help{{ ' current' if path == '/help' }}" href="/help"{% if path == '/help' %} aria-current="page"{% endif %}>도움말</a>
   <div class="who">
     <span class="av" aria-hidden="true">{{ (user.name or user.username)[:1] }}</span>
     <div class="who-name"><span>{{ user.name or user.username }}</span><small>{{ ont.USER_ROLES.get(user.role, user.role) }}</small></div>
@@ -55,6 +57,7 @@
   <div class="auth-brand">{{ brand() }}</div>
   {% endif %}
   <main id="main" class="page" tabindex="-1">
+{% if flash %}<div class="flash {{ flash.tone }}" data-flash role="{{ 'alert' if flash.tone == 'error' else 'status' }}"><span class="flash-text">{{ flash.text }}</span><a class="flash-x" href="{{ flash.dismiss }}" aria-label="알림 닫기">닫기</a></div>{% endif %}
 {% block content %}{% endblock %}
   </main>
 </div>

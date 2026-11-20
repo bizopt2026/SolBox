@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import ontology, origin, relations, same_company, ui
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, Partner, User
 from app.routers._common import (
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first,
-    resync_activities, resync_related, row_info, search_by_name, paginate,
+    resync_activities, resync_related, row_info, search_by_name, paginate, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -42,7 +43,7 @@ def list_partners(
     request: Request, q: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    pg = paginate(search_by_name(db, Partner, q), page)
+    pg = paginate(sort_rows(request, "partner", search_by_name(db, Partner, q)), page)
     return render(request, "partners/list.html", pg=pg, q=q.strip(), info=row_info(db, "partner", pg.items))
 
 
@@ -70,7 +71,7 @@ def create(
     mirror.sync(partner)
     if partner.customer is not None:
         mirror.sync(partner.customer)
-    return RedirectResponse(f"/partners/{partner.id}", status_code=303)
+    return notices.redirect(f"/partners/{partner.id}", "created")
 
 
 @router.get("/{partner_id}")
@@ -108,7 +109,7 @@ def update(
     if old_customer is not None and old_customer is not partner.customer:  # 풀린 고객의 사본
         db.refresh(old_customer)
         mirror.sync(old_customer)
-    return RedirectResponse(f"/partners/{partner.id}", status_code=303)
+    return notices.redirect(f"/partners/{partner.id}", "saved")
 
 
 @router.post("/{partner_id}/same-company")
@@ -129,7 +130,7 @@ def link_same_company(
     db.refresh(customer)
     mirror.sync(partner)
     mirror.sync(customer)
-    return RedirectResponse(f"/partners/{partner.id}", status_code=303)
+    return notices.redirect(f"/partners/{partner.id}", "same_company")
 
 
 @router.post("/{partner_id}/delete")
@@ -155,4 +156,4 @@ def delete(
         db.refresh(s)
         mirror.sync(s)
     resync_activities(db, mirror, activities)
-    return RedirectResponse("/partners", status_code=303)
+    return notices.redirect("/partners", "deleted")

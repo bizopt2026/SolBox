@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill %}
+{% from "_macros.html" import page_header, pill, confirm_link %}
 {% block title %}{{ ont.label("intake") }} {{ intake.id }}번{% endblock %}
 {% block content %}
 {% set st = intake.status %}
@@ -68,9 +68,7 @@
 <section class="card state-card stack">
   <h2>아직 정리를 시작하지 않았어요</h2>
   <p class="muted">위의 "정리 시작"을 누르면 AI가 파일을 읽고 정리안을 만듭니다. 저장하기 전에는 아무것도 등록되지 않아요.</p>
-  <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
-    <button type="submit" class="danger">이 묶음 버리기</button>
-  </form>
+  {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
 </section>
 {% elif intake.status == "failed" %}
 <section class="card state-card failed stack" id="retry">
@@ -82,13 +80,12 @@
     </label>
     <div class="row"><button type="submit" class="primary">다시 정리</button></div>
   </form>
-  <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
-    <button type="submit" class="danger">이 묶음 버리기</button>
-  </form>
+  {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
 </section>
 {% elif intake.status == "ready" %}
 {% if intake.error %}<p class="error" role="alert">{{ intake.error }}</p>{% endif %}
 {% set saveable = cards | rejectattr("item.kind", "equalto", "unplaced") | list %}
+<p class="plan-summary" id="plan-summary"><b>{{ plan_summary }}</b></p>
 {% if saveable %}
 <p class="muted">AI가 제안한 정리안입니다. 저장하기 전에는 아무것도 등록되지 않아요. 고칠 곳은 "고치기", 뺄 항목은 "이 항목 제외"를 쓰세요.</p>
 {% set save_count = saveable | rejectattr("v.skip") | list | length %}
@@ -125,9 +122,7 @@
       </label>
       <button type="submit">다시 정리</button>
     </form>
-    <form method="post" action="/intake/{{ intake.id }}/discard" onsubmit="return confirm('이 묶음을 버릴까요? 올린 원본 파일은 남습니다.')">
-      <button type="submit" class="danger">이 묶음 버리기</button>
-    </form>
+    {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
   </div>
 </section>
 {% elif intake.status == "applying" %}
@@ -139,7 +134,7 @@
 </section>
 {% elif intake.status == "applied" %}
 <section class="card stack">
-  <h2>저장한 기록</h2>
+  <h2>저장한 기록{% if outcome %} <span class="count">{{ outcome }}</span>{% endif %}</h2>
   <ul class="result-rows">
     {% for e in saved %}
     <li><span class="badge tone-brand">{{ ont.TYPES[e.type].label if e.type in ont.TYPES else e.type }}</span>

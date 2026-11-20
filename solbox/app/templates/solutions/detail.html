@@ -5,7 +5,7 @@
 {% block content %}
 {% set sub = [solution.summary, solution.partner.name if solution.partner else none] | select | join(" · ") %}
 {{ detail_head(solution.name, "/solutions", solution, can_delete, crumbs=ui.crumbs("solution", solution.name), sub=sub or none,
-               status=stage_badge(solution.stage), primary=("이 솔루션으로 제안 만들기", "/proposals/new")) }}
+               status=stage_badge(solution.stage), primary=("이 솔루션으로 제안 만들기", "/proposals/new?solution_id=" ~ solution.id)) }}
 {{ stage_stepper("/solutions/" ~ solution.id ~ "/stage", ontology.STAGE_FLOW, labels.STAGES, solution.stage, (ontology.STAGE_HOLD,), "발굴 단계") }}
 <div class="dgrid">
   <div class="dmain">

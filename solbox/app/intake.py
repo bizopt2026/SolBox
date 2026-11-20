@@ -1057,6 +1057,25 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
     return b
 
 
+def plan_summary(intake: Intake) -> str:
+    """정리안 확인 화면 맨 위 한 줄 (저장된 정리안 기준): "파일 7개에서 6건을 제안했습니다 · 새 고객 1 · 솔루션에 자료 추가 2 · …".
+    종류 이름은 ontology.INTAKE_ITEM_KINDS, 0 건인 종류는 뺀다 (정리하지 못한 파일은 건수에 넣지 않고 종류로만 센다)."""
+    items = (intake.plan or {}).get("items", [])
+    counts = {kind: sum(1 for it in items if it.get("kind") == kind) for kind in ontology.INTAKE_ITEM_KINDS}
+    proposed = sum(n for kind, n in counts.items() if kind in SAVEABLE_KINDS)
+    parts = [f"{ontology.INTAKE_ITEM_KINDS[kind]} {n}" for kind, n in counts.items() if n]
+    return " · ".join([f"파일 {len(intake.files)}개에서 {proposed}건을 제안했습니다", *parts])
+
+
+def outcome_text(intake: Intake) -> str:
+    """저장을 마친 묶음의 결과 한 줄: "6건 중 5건 저장 · 1건 제외" (저장 때 `plan["outcome"]` 에 적어 둔다. 옛 묶음은 빈 글)."""
+    o = (intake.plan or {}).get("outcome")
+    if not isinstance(o, dict) or not isinstance(o.get("proposed"), int):
+        return ""
+    text = f"{o['proposed']}건 중 {o['saved']}건 저장"
+    return text + (f" · {o['excluded']}건 제외" if o.get("excluded") else "")
+
+
 def review_cards(db: Session, intake: Intake, form=None) -> list[dict]:
     """정리안 확인 화면의 항목 카드: `{"item", "v", "files", "ambiguous", "brief", "open"}`. `form` 이 있으면 제출한 값을 유지한다.
     `open` 은 고치기를 펼쳐 둘 카드 (저장할 수 없는 입력이거나, 제출한 값이 기본값과 다른 카드)."""
@@ -1515,10 +1534,13 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         run = _Run(db, settings, intake, user, extracted, copied)
         run.unsaved = _unsaved_files(intake, chosen, fields, names)
         _create_records(run, chosen)
+        proposed = sum(1 for it in (plan or {}).get("items", []) if it["kind"] in SAVEABLE_KINDS)
+        saved_n = len(chosen) - len(run.skipped)  # 제외 = 직접 뺀 항목 + 저장하지 못하고 건너뛴 항목
+        outcome = {"proposed": proposed, "saved": saved_n, "excluded": proposed - saved_n}
         # 끝내는 전환은 내 선점일 때만 된다: 그 사이 "다시 확인" 으로 풀렸거나 다른 저장·정리가 시작됐으면 모두 되돌린다
         done = db.execute(
             update(Intake).where(Intake.id == intake_id, Intake.status == "applying", Intake.apply_token == token)
-            .values(status="applied", result=list(run.result), applied_at=datetime.now(), error="", apply_token=None)
+            .values(status="applied", result=list(run.result), plan={**(plan or {}), "outcome": outcome}, applied_at=datetime.now(), error="", apply_token=None)
         )
         if done.rowcount != 1:
             raise Superseded(SAVE_SUPERSEDED)

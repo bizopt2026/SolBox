@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.idparse import parse_id
 from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
+from app import notices
 from app.db import get_db
 from app.deck import build_deck
 from app.sources import SourceLookup
@@ -25,7 +26,7 @@ from app.proposals import (
     candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
     step_states,
 )
-from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields
+from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields, sort_rows
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
@@ -41,7 +42,6 @@ TOO_LONG_MEMO = f"요청 메모는 {MAX_MEMO}자까지 쓸 수 있습니다."
 DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
 DECK_FAILED = "제안서 파일을 만들지 못했습니다."
 PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-NOTICES = {"busy": "이미 AI 작업이 진행 중입니다."}
 CHAT_BUSY = "이미 AI 작업이 진행 중이라 보내지 못했어요. 쓴 글은 아래에 남겨 두었으니 작업이 끝나면 다시 보내세요."
 
 
@@ -65,13 +65,13 @@ def _extra_candidates(db: Session) -> list[Solution]:
     return list(db.scalars(select(Solution).where(Solution.stage == ontology.STAGE_HOLD).order_by(Solution.name, Solution.id)))
 
 
-def _new_page(request: Request, db: Session, form: dict, error: str | None = None):
+def _new_page(request: Request, db: Session, form: dict, error: str | None = None, prefill_note: str | None = None):
     customers = search_by_name(db, Customer)
     projects = search_by_name(db, Project)
     return render(
         request, "proposals/new.html", status_code=400 if error else 200,
         form=form, error=error, customers=customers, projects=projects, opportunities=opps.opportunities_of_customer(db, None),
-        extra_candidates=_extra_candidates(db),
+        extra_candidates=_extra_candidates(db), prefill_note=prefill_note,
     )
 
 
@@ -85,7 +85,7 @@ def list_proposals(
     q = q.strip()
     if q:
         proposals = [p for p in proposals if q in display_title(p) or q in p.customer.name]
-    proposals, flt = list_filter(db, request, "proposal", proposals)
+    proposals, flt = list_filter(db, request, "proposal", sort_rows(request, "proposal", proposals, display_title))
     counts = Counter(p.status for p in proposals)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     total = len(proposals)
     status = status if status in labels.PROPOSAL_STATUSES else ""
@@ -97,18 +97,35 @@ def list_proposals(
 
 @router.get("/new")
 def new_form(
-    request: Request, customer_id: str = "", project_id: str = "", opportunity_id: str = "",
+    request: Request, customer_id: str = "", project_id: str = "", opportunity_id: str = "", solution_id: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    form = {"customer_id": customer_id, "project_id": project_id, "opportunity_id": "", "request_memo": "", "extra_solution_ids": []}
+    """`?customer_id=`·`?project_id=`·`?opportunity_id=`·`?solution_id=` 는 다른 화면의 "+ 제안 만들기": 있는 기록일 때만 미리 채우고 틀린 값은 무시한다.
+    `solution_id`: 제안 후보 규칙은 그대로다. 보류 단계 솔루션이면 "직접 추가" 칸에 미리 체크하고(그래야 후보가 된다),
+    아니면 이미 후보이므로 요청 메모에 "<이름> 중심으로 제안" 을 적어 둔다 (AI 가 방향을 만들 때 읽는 글이다. 후보 순서는 바뀌지 않는다)."""
+    cid = _parse_id(customer_id)
+    pid = _parse_id(project_id)
+    form = {"customer_id": str(cid) if cid is not None and db.get(Customer, cid) is not None else "",
+            "project_id": str(pid) if pid is not None and db.get(Project, pid) is not None else "",
+            "opportunity_id": "", "request_memo": "", "extra_solution_ids": []}
+    note = None
+    sid = _parse_id(solution_id)
+    focus = db.get(Solution, sid) if sid is not None else None
+    if focus is not None:
+        form["request_memo"] = f"{focus.name} 중심으로 제안"
+        if focus.stage == ontology.STAGE_HOLD:
+            form["extra_solution_ids"] = [focus.id]
+            note = f"'{focus.name}' 은 {ontology.STAGES[ontology.STAGE_HOLD]} 단계라 아래 \"직접 추가\" 칸에서 미리 골라 두었습니다. 요청 메모에도 중심으로 적었습니다."
+        else:
+            note = f"이 솔루션을 우선 검토하도록 요청 메모에 적었습니다 ('{focus.name}' 중심으로 제안). 후보 순서가 바뀌지는 않고, AI 가 방향을 만들 때 메모를 참고합니다."
     oid = _parse_id(opportunity_id)
     opp = db.get(Opportunity, oid) if oid is not None else None
     if opp is not None and (not customer_id.strip() or customer_id.strip() == str(opp.customer_id)):
         # 영업기회에서 만들기: 고객을 채우고, 프로젝트가 이어져 있으면 미리 채운다 (고칠 수 있다)
         form.update(customer_id=str(opp.customer_id), opportunity_id=str(opp.id))
-        if not project_id.strip() and opp.project_id:
+        if not form["project_id"] and opp.project_id:
             form["project_id"] = str(opp.project_id)
-    return _new_page(request, db, form)
+    return _new_page(request, db, form, prefill_note=note)
 
 
 @router.post("")
@@ -148,16 +165,16 @@ def create(
     db.add(proposal)
     db.commit()
     start_job(db, proposal, "proposal_directions", user)
-    return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
+    return notices.redirect(f"/proposals/{proposal.id}", "created")
 
 
 @router.get("/{proposal_id}")
 def detail(
-    proposal_id: int, request: Request, notice: str = "",
+    proposal_id: int, request: Request,
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
-    return _detail_page(request, db, proposal, user, notice=NOTICES.get(notice))
+    return _detail_page(request, db, proposal, user)
 
 
 def _detail_page(
@@ -222,8 +239,9 @@ def _start(
     db: Session, proposal: Proposal, kind: str, user: User, extra: dict | None = None, anchor: str = "",
 ) -> RedirectResponse:
     started = start_job(db, proposal, kind, user, extra)
-    suffix = anchor if started else "?notice=busy"
-    return RedirectResponse(f"/proposals/{proposal.id}{suffix}", status_code=303)
+    if not started:
+        return notices.redirect(f"/proposals/{proposal.id}", "busy")
+    return RedirectResponse(f"/proposals/{proposal.id}{anchor}", status_code=303)  # 작업이 시작됨: 진행 표시가 알림을 대신한다
 
 
 @router.post("/{proposal_id}/directions")
@@ -242,7 +260,7 @@ def select_direction(
     proposal = get_or_404(db, Proposal, proposal_id)
     job = proposal.active_job
     if job is not None and job.status in ontology.JOB_ACTIVE:
-        return RedirectResponse(f"/proposals/{proposal.id}?notice=busy", status_code=303)
+        return notices.redirect(f"/proposals/{proposal.id}", "busy")
     i = _parse_id(index)
     directions = proposal.directions or []
     if i is None or i >= len(directions):
@@ -259,7 +277,7 @@ def select_direction(
     if not proposal.title:
         proposal.title = chosen.get("title", "")
     db.commit()
-    return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
+    return notices.redirect(f"/proposals/{proposal.id}", "direction_selected")
 
 
 def _has_selection(p: Proposal) -> bool:
@@ -361,7 +379,7 @@ def build(
     if old_name and old_name != name:
         (folder / old_name).unlink(missing_ok=True)
     suffix = "/outline#deck" if back == "outline" else "#deck"
-    return RedirectResponse(f"/proposals/{p.id}{suffix}", status_code=303)
+    return notices.redirect(f"/proposals/{p.id}{suffix}", "deck_built")
 
 
 @router.get("/{proposal_id}/deck")
@@ -404,7 +422,7 @@ def update_target(
     proposal.request_memo = request_memo.strip()
     proposal.extra_solution_ids = ids
     db.commit()
-    return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
+    return notices.redirect(f"/proposals/{proposal.id}", "target_saved")
 
 
 @router.post("/{proposal_id}/delete")
@@ -417,4 +435,4 @@ def delete(
     db.delete(proposal)
     db.commit()
     shutil.rmtree(request.app.state.settings.decks_dir / str(pid), ignore_errors=True)
-    return RedirectResponse("/proposals", status_code=303)
+    return notices.redirect("/proposals", "deleted")

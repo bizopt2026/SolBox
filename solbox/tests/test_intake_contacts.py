@@ -139,7 +139,7 @@ def test_apply_appends_one_line_and_never_overwrites(app, user_client, db, setti
     p, _ = _world(db)
     it = _plan(db, settings, p)
     r = _apply(user_client, it)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_applied"
     db.expire_all()
     p = db.get(Partner, p.id)
     lines = p.contact.split("\n")

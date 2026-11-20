@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import labels, models, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록)
+from app import labels, models, notices, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록)
 from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
@@ -118,6 +118,8 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
     ctx.setdefault("queue_ahead", functools.partial(_queue_ahead, request.app.state.session_factory))
     ctx.setdefault("nav_ready_count", functools.partial(_intake_ready_count, request.app.state.session_factory, ctx["user"]))
     ctx.setdefault("ai_off", not request.app.state.settings.ai_worker_enabled)  # 대기 작업이 시작되지 않는다: 화면은 계속 다시 불러오지 않는다
+    if request.method == "GET" and status_code < 400:
+        ctx.setdefault("flash", notices.from_request(request))  # 결과 알림 (app/notices.py): 맨 위 한 줄
     ctx.setdefault("ai_status", functools.partial(_ai_status, request.app.state.session_factory, request.app.state.settings, ctx["user"]))
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
@@ -242,7 +244,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions,
+        follow_ups, proposals, research, search, solutions, confirm, help as help_router,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(auth.router)
@@ -265,4 +267,6 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(proposals.router)
     app.include_router(proposal_outline.router)
     app.include_router(research.router)
+    app.include_router(help_router.router)
+    app.include_router(confirm.router)  # 삭제 확인 화면 (GET …/delete): 기존 POST 라우터와 같은 주소
     return app

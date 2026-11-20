@@ -143,6 +143,22 @@ def list_filter(db: Session, request: Request, list_type: str, rows) -> tuple[li
     return rows, notes
 
 
+def sort_rows(request: Request, list_type: str, rows, name_of=None) -> list:
+    """목록의 `?sort=` (정의: ontology.LIST_SORTS). 화이트리스트가 아니면 기본 순서. 기본 순서는 각 목록이 이미 정해 둔 대로 두고 다른 것만 다시 정렬한다."""
+    rows = list(rows)
+    choices = ontology.LIST_SORTS[list_type]
+    chosen = request.query_params.get("sort")
+    sort = chosen if chosen in dict(choices) else choices[0][0]
+    if sort == choices[0][0]:
+        return rows
+    name = name_of or (lambda o: getattr(o, "name", "") or "")
+    if sort == "name":
+        return sorted(rows, key=lambda o: (name(o), o.id))
+    if sort == "date":
+        return newest_first(rows)
+    return sorted(rows, key=lambda o: (o.updated_at, o.id), reverse=True)  # recent
+
+
 def row_info(db: Session, type_code: str, items) -> dict[int, dict]:
     """목록 한 쪽의 "연결" 건수와 "최근 활동" 일자: {번호: {"links": [(이름, 건수)], "latest": 일자|None}}.
     건수는 쪽의 번호들만 묶어서 센다 (relations.link_counts: 줄 수와 상관없이 질의 수가 일정)."""

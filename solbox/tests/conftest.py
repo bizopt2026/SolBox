@@ -404,3 +404,14 @@ def ready_intake(db, settings, owner="kim"):
                         "raw_from": 3, "files": [3], "reason": "통화 녹취록"}],
     }
     return ready_bundle(db, settings, files, owner, **plan), s1, c1
+
+
+def route_table(app) -> list[tuple[str, set[str]]]:
+    """앱의 모든 (경로, 방법들). 포함된 라우터(`_IncludedRouter`)의 경로는 이미 접두어가 붙어 있다."""
+    out = []
+    for r in app.routes:
+        inner = getattr(r, "original_router", None)
+        for x in (inner.routes if inner is not None else [r]):
+            if getattr(x, "methods", None):
+                out.append((x.path, set(x.methods)))
+    return out

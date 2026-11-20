@@ -131,7 +131,7 @@ def test_change_kind_resyncs_card_and_text(user_client, db, settings):
     user_client.post(f"/solutions/{s.id}/files", files=[("files", ("a.txt", b"hi", "text/plain"))])
     f = db.query(SolutionFile).one()
     r = user_client.post(f"/files/{f.id}/kind", data={"kind": "spec"}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/solutions/{s.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/solutions/{s.id}?notice=file_kind"
     db.refresh(f)
     assert f.kind == "spec"
     base = settings.knowledge_dir / "solutions" / str(s.id)
@@ -147,7 +147,7 @@ def test_delete_file_removes_original_and_mirror(user_client, db, settings):
     f = db.query(SolutionFile).one()
     fid, stored = f.id, f.stored_name
     r = user_client.post(f"/files/{fid}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/solutions/{s.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/solutions/{s.id}?notice=file_deleted"
     db.expire_all()
     assert db.query(SolutionFile).count() == 0
     assert not (settings.uploads_dir / "solutions" / str(s.id) / stored).exists()

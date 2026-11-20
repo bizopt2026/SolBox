@@ -34,7 +34,7 @@ def _run_all(app, admin_client, db, settings):
 def test_manual_run_creates_reports_and_jobs(admin_client, db):
     make_topics(db)
     r = admin_client.post("/research/run", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research"
+    assert r.headers["location"] == "/admin/research?notice=research_started"
     run = db.query(ResearchRun).one()
     assert (run.trigger, run.status, run.slot) == ("manual", "running", None)
     assert sorted(x.area for x in run.reports) == ["policy", "tech"]
@@ -135,9 +135,9 @@ def test_second_run_while_running_is_refused(admin_client, db):
     make_topics(db)
     admin_client.post("/research/run")
     r = admin_client.post("/research/run", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=busy"
+    assert r.headers["location"] == "/admin/research?notice=research_busy"
     assert db.query(ResearchRun).count() == 1 and db.query(AIJob).count() == 2
-    page = admin_client.get("/admin/research?notice=busy").text
+    page = admin_client.get("/admin/research?notice=research_busy").text
     assert "이미 조사가 진행 중입니다." in page
 
 
@@ -342,7 +342,7 @@ def test_retry_refused_while_another_run_running(app, admin_client, db, settings
     rid = run.reports[0].id
     admin_client.post("/research/run")
     r = admin_client.post(f"/research/reports/{rid}/retry", follow_redirects=False)
-    assert r.headers["location"] == "/admin/research?notice=busy"
+    assert r.headers["location"] == "/admin/research?notice=research_busy"
     db.expire_all()
     assert db.get(ResearchReport, rid).status == "failed"
 

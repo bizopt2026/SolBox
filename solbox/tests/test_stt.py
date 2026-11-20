@@ -604,23 +604,82 @@ def test_restart_recovery_via_app_start(app, user_client, db, settings, stt):
     assert _latest(db).status == "failed"
 
 
-def test_only_one_transcription_at_a_time(app, user_client, db, settings, stt, fake_claude):
+class _CountingLock:
+    """`transcribe._RUN_LOCK` 대신 쓰는 자물쇠: 들어가려고 시도한 횟수를 세어, 시험이 "두 번째 워커가 이미 자물쇠 앞에 섰다"를 기다릴 수 있게 한다."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._cond = threading.Condition()
+        self.attempts = 0
+
+    def __enter__(self):
+        with self._cond:
+            self.attempts += 1
+            self._cond.notify_all()
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, *exc):
+        self._lock.release()
+
+    def locked(self):
+        return self._lock.locked()
+
+    def wait_attempts(self, n, timeout=10):
+        with self._cond:
+            return self._cond.wait_for(lambda: self.attempts >= n, timeout)
+
+
+def test_only_one_transcription_at_a_time(app, user_client, db, settings, stt, fake_claude, monkeypatch):
+    """두 묶음을 두 워커가 동시에 집어도 받아쓰기는 한 번에 하나뿐이다. 시간(sleep)에 기대지 않고 순서를 못 박는다:
+    두 워커가 둘 다 작업을 집은 뒤에야 받아쓰기로 들어가게 하고, 첫 워커가 받아쓰는 동안 둘째가 자물쇠 앞에 설 때까지 붙잡아 둔다."""
     fake_claude.set(mode="ok", result=PLAN)
     _upload(user_client, [AUDIO])
     _upload(user_client, [AUDIO2])
-    stt.pause_s = 0.3
+    lock = _CountingLock()
+    monkeypatch.setattr(transcribe, "_RUN_LOCK", lock)
+    both_claimed = threading.Barrier(2)
+    real_claim = queue._claim_next
+
+    def claim(session_factory):
+        found = real_claim(session_factory)
+        if found is not None:
+            both_claimed.wait(timeout=10)  # 둘 다 집은 뒤에 같이 출발
+        return found
+
+    monkeypatch.setattr(queue, "_claim_next", claim)
+    first_inside, release = threading.Event(), threading.Event()
+    entered = []
+
+    def hold_first(name, step):
+        entered.append(name)
+        if len(entered) == 1 and step == 0:  # 맨 처음 받아쓰기만 붙잡는다
+            first_inside.set()
+            assert release.wait(timeout=10)
+
+    stt.on_step = hold_first
     results = []
-    barrier = threading.Barrier(2)
-
-    def work():
-        barrier.wait()
-        results.append(_run(app, settings))
-
-    threads = [threading.Thread(target=work) for _ in range(2)]
+    threads = [threading.Thread(target=lambda: results.append(_run(app, settings))) for _ in range(2)]
     [t.start() for t in threads]
-    [t.join(timeout=60) for t in threads]
+    assert first_inside.wait(timeout=10)
+    assert lock.wait_attempts(2)  # 둘째 워커도 자물쇠에 닿았다 (첫째는 받아쓰는 중)
+    assert stt.active == 1 and len(stt.calls) == 1  # 둘째는 들어오지 못하고 기다린다
+    release.set()
+    [t.join(timeout=30) for t in threads]
+    assert not any(t.is_alive() for t in threads)
     assert results == [True, True] and len(stt.calls) == 2
     assert stt.max_active == 1
+
+
+def test_busy_engine_leaves_second_audio_analysis_for_later(app, user_client, db, settings, stt, fake_claude):
+    """받아쓰는 중에 다른 워커가 오면 둘째 음성 정리는 집지 않고 남겨 둔다 (기다리며 자리만 잡지 않는다). 풀리면 처리된다."""
+    fake_claude.set(mode="ok", result=PLAN)
+    _upload(user_client, [AUDIO])
+    _upload(user_client, [AUDIO2])
+    with transcribe._RUN_LOCK:
+        assert _run(app, settings) is False
+    assert _run(app, settings) is True and _run(app, settings) is True
+    assert len(stt.calls) == 2
 
 
 def test_claim_skips_analysis_that_needs_busy_engine(app, user_client, db, settings, stt, fake_claude):

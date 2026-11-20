@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import backup, ontology, scheduler, transcribe, ui
 from app.ai.queue import enqueue
+from app import notices
 from app.db import get_db
 from app.main import render
 from app.labels import ERROR_KINDS, RESEARCH_AREAS, WEEKDAYS
@@ -60,7 +61,7 @@ def create_user(
         return _page(request, db, "이미 사용 중인 아이디입니다.", 400)
     db.add(User(username=username, name=name.strip(), password_hash=hash_password(password), role=role))
     db.commit()
-    return RedirectResponse("/admin/users", status_code=303)
+    return notices.redirect("/admin/users", "created")
 
 
 @router.post("/users/{user_id}")
@@ -88,7 +89,7 @@ def update_user(
     if password:
         target.password_hash = hash_password(password)
     db.commit()
-    return RedirectResponse("/admin/users", status_code=303)
+    return notices.redirect("/admin/users", "saved")
 
 
 @router.get("/jobs")
@@ -159,7 +160,7 @@ def create_topic(
         return _research_page(request, db, error, 400)
     db.add(ResearchTopic(name=name, keywords=keywords, area=area, created_by_id=admin.id))
     db.commit()
-    return RedirectResponse("/admin/research", status_code=303)
+    return notices.redirect("/admin/research", "created")
 
 
 @router.post("/research/topics/{topic_id}")
@@ -185,7 +186,7 @@ def update_topic(
     topic.area = area
     topic.is_active = is_active is not None
     db.commit()
-    return RedirectResponse("/admin/research", status_code=303)
+    return notices.redirect("/admin/research", "saved")
 
 
 @router.post("/research/topics/{topic_id}/delete")
@@ -195,7 +196,7 @@ def delete_topic(topic_id: int, admin: User = Depends(require_admin), db: Sessio
         raise HTTPException(status_code=404, detail="주제를 찾을 수 없습니다.")
     db.delete(topic)
     db.commit()
-    return RedirectResponse("/admin/research", status_code=303)
+    return notices.redirect("/admin/research", "deleted")
 
 
 def _parse_int(text: str, low: int, high: int) -> int | None:
@@ -222,7 +223,7 @@ def save_schedule(
             request, db, "요일은 0~6, 시는 0~23, 분은 0~59 사이의 숫자로 입력해 주세요.", 400
         )
     set_schedule(db, Schedule(enabled=enabled is not None, weekday=day, hour=hh, minute=mm))
-    return RedirectResponse("/admin/research", status_code=303)
+    return notices.redirect("/admin/research", "saved")
 
 
 PING_KIND = "ai_ping"
@@ -288,7 +289,7 @@ def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)
     waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(ontology.JOB_ACTIVE)).first()
     if waiting is None:  # 한 번에 하나만 확인한다
         enqueue(db, PING_KIND, {}, admin.id)
-    return RedirectResponse("/admin/system", status_code=303)
+    return notices.redirect("/admin/system", "ai_check")
 
 
 @router.post("/system/backup")
@@ -297,4 +298,4 @@ def manual_backup(request: Request, admin: User = Depends(require_admin), db: Se
         backup.run_backup(request.app.state.settings)
     except (OSError, ValueError, sqlite3.Error) as e:
         return _system_page(request, db, f"백업하지 못했습니다: {e}")
-    return RedirectResponse("/admin/system", status_code=303)
+    return notices.redirect("/admin/system", "backup_done")

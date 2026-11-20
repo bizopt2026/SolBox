@@ -109,6 +109,33 @@ def seg_tabs(request, param: str, choices, counts: dict, current: str, total: in
     return tabs
 
 
+class SortLink(NamedTuple):
+    code: str
+    label: str
+    href: str
+    active: bool
+
+
+def sort_options(request) -> list[SortLink]:
+    """목록 도구줄의 정렬 링크 (정의: ontology.LIST_SORTS). 이 주소가 정렬을 가진 목록이 아니면 빈 목록. 다른 조건(검색어·구분·걸러 보기)은 그대로 두고
+    쪽 번호만 버린다. 기본 순서의 링크에는 `sort` 를 붙이지 않는다."""
+    from app import ontology
+
+    code = next((c for c in ontology.LIST_SORTS if ontology.TYPES[c].list_url == request.url.path), None)
+    if code is None:
+        return []
+    choices = ontology.LIST_SORTS[code]
+    current = request.query_params.get("sort")
+    current = current if current in dict(choices) else choices[0][0]
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("sort", "page", "fu_toggled")]
+
+    def href(c: str) -> str:
+        pairs = keep + ([("sort", c)] if c != choices[0][0] else [])
+        return request.url.path + (f"?{urlencode(pairs)}" if pairs else "")
+
+    return [SortLink(c, label, href(c), c == current) for c, label in choices]
+
+
 def stamp_info(db, obj) -> dict:
     """상세 화면 옆 칸의 "작성자·수정일": 작성자 이름(없으면 None), 만든 때, 고친 때."""
     from app.models import User

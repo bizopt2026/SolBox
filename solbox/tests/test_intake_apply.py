@@ -35,7 +35,7 @@ def _new_solution(db):
 def test_apply_creates_everything(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     r = _apply(user_client, it, form_from_page(user_client, it))
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_applied"
     db.expire_all()
     assert it.status == "applied" and it.applied_at is not None and len(it.result) == 4  # 파트너(루미텍) + 솔루션 + 자료 추가 + 활동 기록
     assert [e["type"] for e in it.result] == ["partner", "solution", "solution", "activity"]
@@ -69,7 +69,7 @@ def test_apply_creates_everything(app, user_client, db, settings):
 def test_apply_twice_creates_once(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
-    assert _apply(user_client, it, form).headers["location"] == f"/intake/{it.id}"
+    assert _apply(user_client, it, form).headers["location"] == f"/intake/{it.id}?notice=intake_applied"
     r = _apply(user_client, it, form)
     assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=not_ready"
     assert "이미 저장했거나 저장할 수 없는 상태입니다." in user_client.get(r.headers["location"]).text
@@ -308,7 +308,7 @@ def test_discard_keeps_originals(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     form = form_from_page(user_client, it)
     r = user_client.post(f"/intake/{it.id}/discard", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/intake/{it.id}?notice=intake_discarded"
     db.expire_all()
     assert it.status == "discarded"
     assert not (settings.intake_work_dir / str(it.id)).exists()
@@ -392,7 +392,7 @@ def test_review_page_shows_cards_and_fields(app, user_client, db, settings):
                  "a1__solution", "a1__kind_2", "skip_a1", "act1__kind", "act1__date", "act1__title", "act1__summary_md", "act1__raw_text",
                  "act1__fu_task", "act1__ds_content", "act1__solution_ids", "act1__customer_ids", "skip_act1"):
         assert f'name="{name}"' in page, name
-    assert f'action="/intake/{it.id}/discard"' in page and page.count('class="primary"') == 1
+    assert f'data-confirm-post="/intake/{it.id}/discard"' in page and page.count('class="primary"') == 1
 
 
 def test_review_page_unplaced_guidance(app, user_client, db, settings):

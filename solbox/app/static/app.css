@@ -114,6 +114,10 @@ body.shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr);
 .dot { width: 8px; height: 8px; flex: none; border-radius: 2px; background: var(--line-2); }
 [aria-current="page"] > .dot { background: var(--brand); }
 .nav-badge { display: inline-block; margin-left: auto; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--brand); color: var(--brand-ink); font-size: 11px; font-weight: var(--fw-display); line-height: 18px; text-align: center; }
+.side-help { flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: var(--r-sm); color: var(--ink-3); font-size: var(--fs-note); font-weight: 500; }
+.side-help.in-nav { display: none; }
+.side-help:hover { background: var(--sunken); color: var(--ink-2); text-decoration: none; }
+.side-help[aria-current="page"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
 .who { flex: none; margin: 0 -12px; padding: 10px 20px; background: var(--surface); display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
 .av { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--violet-soft); color: var(--violet); display: grid; place-items: center; font-weight: var(--fw-display); }
 .who-name { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; font-weight: var(--fw-strong); }
@@ -173,6 +177,8 @@ body.auth .page { padding: 0; max-width: 400px; margin: 0; }
   .brand { order: 1; padding: 0; min-height: 40px; }
   .brand small { display: none; }
   .cta { order: 2; margin-left: auto; padding: 0 var(--s4); min-height: 40px; white-space: nowrap; }
+  .side-help:not(.in-nav) { display: none; }
+  .side-help.in-nav { display: flex; flex: none; align-items: center; min-height: 40px; padding: 0 var(--s3); white-space: nowrap; border-left: 1px solid var(--line); border-radius: 0 var(--r-sm) var(--r-sm) 0; margin-left: var(--s2); }
   .who { order: 3; position: static; margin: 0; padding: 0; border-top: 0; background: none; }
   .who-name { display: none; }
   .logout { margin: 0; }
@@ -506,6 +512,39 @@ details.more[open] > summary, details.dir-more[open] > summary { margin-bottom: 
 .source-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 sup a { padding: 0 2px; font-weight: var(--fw-strong); }
 .slide-sources .source-list { margin-top: 4px; }
+
+/* --- 결과 알림(.flash): 쪽 맨 위, 저장·삭제·단계 변경 뒤 한 줄. 닫기 링크는 스크립트 없이도 동작하고 성공 알림은 스크립트가 서서히 치운다 --- */
+.flash { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); padding: 10px 14px; border: 1px solid var(--ok-line); border-radius: var(--r-sm); background: var(--ok-soft); color: var(--ok); font-weight: var(--fw-strong); transition: opacity .35s ease; }
+.flash.warn { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.flash.error { border-color: var(--bad-line); background: var(--bad-soft); color: var(--bad); }
+.flash.fading { opacity: 0; }
+.flash-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.flash-x { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: var(--r-sm); color: inherit; font-size: var(--fs-note); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.flash-x:hover { background: rgba(255, 255, 255, .6); }
+@media (prefers-reduced-motion: reduce) { .flash { transition: none; } }
+
+/* --- 되묻기: 지우기 링크가 그 자리에서 "정말 삭제할까요? [삭제] [취소]" 로 바뀐다 (스크립트 없으면 서버의 확인 화면) --- */
+.confirm-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: 4px 6px 4px 10px; border: 1px solid var(--bad-line); border-radius: var(--r-sm); background: var(--bad-soft); }
+.confirm-q { font-size: var(--fs-note); font-weight: var(--fw-strong); color: var(--bad); }
+.confirm-inline button.danger, .confirm-actions button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+.confirm-inline button.danger:hover, .confirm-actions button.danger:hover { background: #8f1d17; border-color: #8f1d17; }
+.confirm-card { max-width: 640px; }
+.confirm-effects { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.confirm-actions { align-items: center; }
+
+/* --- 정렬 막대(목록 도구줄) · 빈 칸 표시 · 줄 전체 누르기 --- */
+.sortbar { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-size: var(--fs-note); color: var(--ink-3); }
+.sortbar .sort-label { margin-right: 6px; }
+.sortbar a { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border-radius: var(--r-sm); color: var(--ink-2); white-space: nowrap; }
+.sortbar a:hover { background: var(--sunken); text-decoration: none; }
+.sortbar a[aria-current="true"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
+.dash-none { color: var(--ink-3); }
+table.row-click tbody tr { cursor: pointer; }
+table.row-click tbody tr:hover { background: var(--sunken); }
+@media (max-width: 600px) { .sortbar { margin-left: 0; flex: 1 1 100%; } }
+
+/* --- 글 칸: 쓰는 만큼 늘어난다 (스크립트가 높이를 맞추고, 여기 최대 높이를 넘으면 칸 안에서 스크롤) --- */
+textarea { max-height: min(60vh, 520px); overflow-y: auto; }
 
 /* ============================================================ 5. 화면별 */
 
@@ -1110,3 +1149,64 @@ select:disabled { background-color: var(--sunken); }
 .notice.fu-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); border-color: var(--line); background: var(--sunken); color: var(--ink-2); }
 .notice.fu-notice .inline-form { margin: 0 0 0 auto; }
 .notice.fu-notice button.linklike { min-height: 32px; font-weight: var(--fw-strong); }
+
+/* --- 제안 대화: 시작 질문 칩, 입력 안내 --- */
+.starters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); }
+.starters-title { flex: 1 1 100%; font-size: var(--fs-note); }
+button.chip.starter { min-height: 32px; padding: 4px 12px; border-radius: var(--r-pill); border: 1px solid var(--brand-soft); background: var(--brand-soft); color: var(--brand-deep); font-size: var(--fs-note); font-weight: 500; text-align: left; line-height: 1.4; }
+button.chip.starter:hover { border-color: var(--brand); background: var(--brand-soft); }
+.composer .composer-hint { grid-column: 1 / -1; margin: 0; font-size: var(--fs-small); }
+.composer textarea { max-height: 220px; }
+@media (max-width: 600px) { button.chip.starter { min-height: 40px; } }
+
+/* --- 활동 기록 등록: 이어받은 연결, 제안 만들기 안내, 올리기 요약, 항목별 동작 --- */
+.prefill-chips { margin: 0 0 var(--s3); color: var(--ink-2); }
+.prefill-note { max-width: 920px; margin-left: auto; margin-right: auto; }
+.plan-summary { margin: 0 0 var(--s3); padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); overflow-wrap: anywhere; }
+.sub-list .li-row .item-act { margin-left: auto; }
+@media (max-width: 600px) { .sub-list .li-row .item-act { min-height: 40px; } }
+
+/* --- 도움말 화면: 업무 흐름 그림, 용어, 이럴 땐 이렇게, 단축키 --- */
+.help-flow .flowrow { display: flex; align-items: flex-start; gap: var(--s3); }
+.help-flow .flow-title { flex: none; width: 44px; padding-top: 8px; font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--ink-3); letter-spacing: .06em; }
+.flowline { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s2) 28px; }
+.flowline > li { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.flowline > li + li::before { content: "→"; position: absolute; left: -22px; top: 6px; color: var(--ink-3); font-size: 16px; line-height: 1.6; }
+.fnode { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid var(--brand-soft); border-radius: var(--r); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
+.fnode:hover { border-color: var(--brand); text-decoration: none; }
+.fnode.alt { background: var(--violet-soft); border-color: var(--violet-soft); color: var(--violet); }
+.fnote { font-size: var(--fs-small); color: var(--ink-3); }
+.substeps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.substeps li { display: inline-flex; align-items: center; }
+.substeps li + li::before { content: "›"; margin: 0 4px; color: var(--ink-3); }
+.substeps a { padding: 2px 8px; border-radius: var(--r-pill); background: var(--sunken); color: var(--ink-2); font-size: var(--fs-note); }
+.substeps a:hover { background: var(--line); text-decoration: none; }
+.flow-bm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin: 0 0 0 56px; }
+.flow-sum { margin: 0; }
+.glossary, .keys { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.gl-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--s3); padding: 10px 0; border-top: 1px solid var(--line); }
+.gl-row:first-child { border-top: 0; }
+.glossary dt { font-weight: var(--fw-strong); }
+.glossary dd { margin: 0; color: var(--ink-2); }
+.howto { display: grid; gap: var(--s2); }
+.howto details { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--s4); background: var(--surface); }
+.howto summary { cursor: pointer; padding: 12px 0; min-height: 44px; font-weight: var(--fw-strong); }
+.howto details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: var(--s3); }
+.howto ol { margin: 0 0 var(--s3); padding-left: 22px; display: grid; gap: 6px; }
+.howto p { margin: 0 0 var(--s3); }
+.keys { gap: var(--s2); }
+.keys > div { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
+.keys dt { margin: 0; }
+.keys dd { margin: 0; color: var(--ink-2); }
+kbd { font: inherit; font-size: var(--fs-small); padding: 1px 6px; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); color: var(--ink); }
+.search kbd { border-bottom-width: 1px; }
+code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: var(--sunken); border-radius: 4px; }
+@media (max-width: 700px) {
+  .help-flow .flowrow { flex-direction: column; gap: var(--s2); }
+  .help-flow .flow-title { width: auto; padding-top: 0; }
+  .flowline { flex-direction: column; gap: 22px; }
+  .flowline > li + li::before { content: "↓"; left: 14px; top: -22px; }
+  .flow-bm { margin-left: 0; }
+  .gl-row { grid-template-columns: 1fr; gap: 2px; }
+  .keys > div { grid-template-columns: 1fr; gap: 2px; }
+}

@@ -1,6 +1,6 @@
 {% from "_macros.html" import check_picker, text_field %}
 {{ text_field("요청 메모", "request_memo", memo, rows=4, wide=true, placeholder="고객이 요청한 내용, 강조할 점 등") }}
-<details class="wide extra-pick">
+<details class="wide extra-pick"{% if selected_ids %} open{% endif %}>
   <summary>보류 단계 솔루션도 직접 추가하기</summary>
   {% if extra_candidates %}
   {{ check_picker("extra_solution_ids", "포함할 솔루션", extra_candidates, selected_ids or [], show_stage=True) }}

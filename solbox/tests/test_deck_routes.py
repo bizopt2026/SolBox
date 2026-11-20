@@ -24,7 +24,7 @@ def _files(settings, p):
 def test_build_and_download(user_client, db, settings):
     p = outlined_proposal(db, settings)
     r = user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}#deck"
+    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}?notice=deck_built#deck"
     db.refresh(p)
     assert p.status == "deck" and (settings.decks_dir / str(p.id) / p.deck_name).exists()
     assert p.deck_built_at is not None
@@ -38,7 +38,7 @@ def test_build_and_download(user_client, db, settings):
 def test_build_back_to_outline(user_client, db, settings):
     p = outlined_proposal(db, settings)
     r = user_client.post(f"/proposals/{p.id}/deck", data={"back": "outline"}, follow_redirects=False)
-    assert r.headers["location"] == f"/proposals/{p.id}/outline#deck"
+    assert r.headers["location"] == f"/proposals/{p.id}/outline?notice=deck_built#deck"
 
 
 def test_rebuild_replaces_old_file(user_client, db, settings):

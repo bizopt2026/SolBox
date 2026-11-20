@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app import labels
+from app import notices
 from app.db import get_db
 from app.extract import extract_text
 from app.intake import clean_name, write_upload
@@ -74,7 +75,7 @@ def upload_files(
     if skipped:
         notice = f"크기 제한({max_mb}MB)을 넘어 건너뛴 파일: {', '.join(skipped)}"
         return detail_page(request, db, user, solution, notice=notice)
-    return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}", "files_uploaded")
 
 
 @router.post("/files/{file_id}/kind")
@@ -93,7 +94,7 @@ def change_kind(
         if result.status == "ok":
             mirror.write_file_text(f, file_markdown(f, result.text))
     mirror.sync(f.solution)
-    return RedirectResponse(f"/solutions/{f.solution_id}", status_code=303)
+    return notices.redirect(f"/solutions/{f.solution_id}", "file_kind")
 
 
 @router.get("/files/{file_id}/download")
@@ -126,4 +127,4 @@ def delete_file(
     db.commit()
     db.refresh(solution)
     mirror.sync(solution)
-    return RedirectResponse(f"/solutions/{solution.id}", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}", "file_deleted")

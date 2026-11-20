@@ -133,7 +133,9 @@ def test_concurrent_convert_creates_exactly_one_project(app, user_client, db):
     db.expire_all()
     assert db.query(Project).count() == 1
     assert o.project_id == db.query(Project).one().id
-    assert {r.headers["location"] for r in res} == {f"/projects/{o.project_id}"}
+    # 이긴 요청은 "전환했습니다" 알림과 함께, 진 요청은 이미 이어진 프로젝트로 (알림 없이) 간다
+    assert {r.headers["location"].split("?")[0] for r in res} == {f"/projects/{o.project_id}"}
+    assert sum("notice=converted" in r.headers["location"] for r in res) == 1
 
 
 def test_concurrent_link_same_project_from_two_opportunities_only_one_wins(app, user_client, db):

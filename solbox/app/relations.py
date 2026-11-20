@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -224,6 +225,20 @@ def _run_path(db: Session, start: str, ids, steps) -> tuple[str, dict[int, dict[
 
 
 def _derived_ids(db: Session, d: ontology.Derived, ids) -> dict[int, dict[str, set[int]]]:
+    if d.minus:  # A 빼기 B: 출발 기록마다 따로 (여러 기록을 한꺼번에 줘도 서로의 것을 빼지 않는다)
+        base = dataclasses.replace(d, minus=())
+        out: dict[int, dict[str, set[int]]] = {}
+        for one in dict.fromkeys(ids):
+            gone: set[int] = set()
+            for key in d.minus:
+                gone.update(_derived_ids(db, ontology.DERIVED_BY_KEY[key], [one]))
+            for b, prov in _derived_ids(db, base, [one]).items():
+                if b in gone:
+                    continue
+                entry = out.setdefault(b, {})
+                for t, s in prov.items():
+                    entry.setdefault(t, set()).update(s)
+        return out
     merged: dict[int, dict[str, set[int]]] = {}
     for steps in _flatten(d.key):
         _, found, _m = _run_path(db, d.source, ids, steps)
@@ -534,6 +549,7 @@ class MainCard:
     label: str
     group: RelatedGroup | None
     action: tuple[str, str] | None
+    item_action: tuple[str, str] | None = None  # 항목마다 붙는 동작: (글, 주소 틀) 주소 틀의 `{item}` 은 항목 번호
 
 
 def _main_label(code: str, key: str) -> str:
@@ -556,7 +572,8 @@ def page_related(db: Session, obj, viewer, **kw) -> dict:
         g = by_key.get(spec.key)
         if g is None and not spec.show_empty:
             continue
-        main.append(MainCard(spec.key, _main_label(code, spec.key), g, (spec.action[0], spec.action[1].format(**fmt)) if spec.action else None))
+        item_action = (spec.item_action[0], spec.item_action[1].format(item="{item}", **fmt)) if spec.item_action else None
+        main.append(MainCard(spec.key, _main_label(code, spec.key), g, (spec.action[0], spec.action[1].format(**fmt)) if spec.action else None, item_action))
     taken = {spec.key for spec in specs}
     return {"main": main, "related": [g for g in groups if g.key not in taken]}
 
@@ -618,6 +635,10 @@ def _reach(db: Session, start: str, ids: list[int], key: str, to: str | None) ->
         for b, origins in frontier.items():
             for o in origins:
                 out[o].add(b)
+    if key in ontology.DERIVED_BY_KEY:
+        for gone_key in ontology.DERIVED_BY_KEY[key].minus:  # 차집합
+            for o, gone in _reach(db, start, ids, gone_key, None).items():
+                out[o] -= gone
     return out
 
 

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -18,7 +19,7 @@ from app.models import BM, Customer, Opportunity, Project, Solution, User
 from app.records import pick
 from app.routers._common import (
     list_filter,
-    get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, row_info, search_by_name,
+    get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, row_info, search_by_name, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -80,8 +81,8 @@ def list_opportunities(
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
                            loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
-    found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)
-    found, flt = list_filter(db, request, "opportunity", found)
+    found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
+    found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found))
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -102,7 +103,8 @@ def new_form(
     request: Request, customer_id: str = "", need_id: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    form = _blank_form(customer_id.strip())
+    cid = opps.parse_id(customer_id)
+    form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "")  # 없는 고객 번호는 무시한다
     nid = opps.parse_id(need_id)
     if nid is not None and any(n.id == nid for n in opps.bundlable_needs(db, opps.parse_id(customer_id))):
         form["need_ids"] = [nid]  # 고객 니즈에서 만들기: 그 니즈를 체크해 둔다 (그 고객의, 아직 묶이지 않은 니즈일 때만)
@@ -132,7 +134,7 @@ def create(
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, opps.dependents(db, opp))
-    return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
+    return notices.redirect(f"/opportunities/{opp.id}", "created")
 
 
 @router.get("/{opportunity_id}")
@@ -175,7 +177,7 @@ def update(
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, [*before, *opps.dependents(db, opp)])
-    return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
+    return notices.redirect(f"/opportunities/{opp.id}", "saved")
 
 
 @router.post("/{opportunity_id}/stage")
@@ -193,7 +195,7 @@ def change_stage(
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
-    return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
+    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
 
 
 def _convert_page(request: Request, db: Session, opp: Opportunity, form: dict, error: str | None = None):
@@ -253,7 +255,7 @@ def convert(
     mirror.sync(project)
     mirror.sync(opp)
     resync_objects(db, mirror, [opp.customer, opp.bm])
-    return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    return notices.redirect(f"/projects/{project.id}", "linked_project" if form["mode"] == "link" else "converted")
 
 
 @router.post("/{opportunity_id}/delete")
@@ -269,4 +271,4 @@ def delete(
     db.delete(opp)
     db.commit()
     resync_objects(db, mirror, related)
-    return RedirectResponse("/opportunities", status_code=303)
+    return notices.redirect("/opportunities", "deleted")

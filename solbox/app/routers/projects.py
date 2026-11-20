@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, relations, ui
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -14,7 +15,7 @@ from app.models import BM, Activity, Customer, Project, User
 from app.routers._common import (
     list_filter,
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, submitted_fields,
-    resync_activities, resync_objects, resync_related, row_info, search_by_name, paginate,
+    resync_activities, resync_objects, resync_related, row_info, search_by_name, paginate, sort_rows,
 )
 from app.security import can_delete, require_user
 
@@ -61,7 +62,7 @@ def list_projects(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     projects = search_by_name(db, Project, q, Customer.name, joins=(Project.customer,), loaders=(selectinload(Project.customer),))
-    projects, flt = list_filter(db, request, "project", projects)
+    projects, flt = list_filter(db, request, "project", sort_rows(request, "project", projects))
     pg = paginate(projects, page)
     return render(request, "projects/list.html", pg=pg, q=q.strip(), flt=flt, info=row_info(db, "project", pg.items))
 
@@ -70,7 +71,8 @@ def list_projects(
 def new_form(
     request: Request, customer_id: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)
 ):
-    return _form_page(request, db, {**{f: "" for f in FIELDS}, "customer_id": customer_id})
+    cid = parse_id(customer_id)
+    return _form_page(request, db, {**{f: "" for f in FIELDS}, "customer_id": str(cid) if cid is not None and db.get(Customer, cid) is not None else ""})
 
 
 @router.post("")
@@ -91,7 +93,7 @@ def create(
     mirror.sync(project)
     mirror.sync(project.customer)  # 고객 사본의 프로젝트 목록
     resync_objects(db, mirror, [project.bm])  # BM 사본의 따르는 프로젝트 목록
-    return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    return notices.redirect(f"/projects/{project.id}", "created")
 
 
 @router.get("/{project_id}")
@@ -136,7 +138,7 @@ def update(
         db.refresh(old_customer)
         mirror.sync(old_customer)
     resync_objects(db, mirror, [old_bm])  # 옛 BM 사본의 따르는 프로젝트 목록 (새 BM 은 resync_related 가 다시 쓴다)
-    return RedirectResponse(f"/projects/{project.id}", status_code=303)
+    return notices.redirect(f"/projects/{project.id}", "saved")
 
 
 @router.post("/{project_id}/delete")
@@ -156,7 +158,7 @@ def delete(
     mirror.sync(customer)
     resync_activities(db, mirror, activities)
     resync_objects(db, mirror, [*freed, bm])
-    return RedirectResponse("/projects", status_code=303)
+    return notices.redirect("/projects", "deleted")
 
 
 # ---- 옛 주소 (/businesses...) 는 새 주소로 영구 이동한다 (GET: 북마크·옛 링크용. POST: 업그레이드 때 열려 있던 옛 화면의 저장) ----

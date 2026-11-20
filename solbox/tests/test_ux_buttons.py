@@ -12,7 +12,7 @@ def test_detail_head_orders_delete_edit_then_primary_in_title_row(user_client, d
     head = re.search(r'<header class="page-header detail">(.*?)</header>', html, re.S).group(1)
     assert "<h1>AI 에너지 절감 " in head  # 제목 옆에 단계 배지
     # 삭제(조용한 위험) → 수정 → 다음 동작(주 버튼) 차례
-    assert head.index('class="ghost danger"') < head.index(f'class="button" href="/solutions/{s.id}/edit"') < head.index('class="button primary"')
+    assert head.index('class="button ghost danger"') < head.index(f'class="button" href="/solutions/{s.id}/edit"') < head.index('class="button primary"')
 
 
 def test_forms_have_one_primary_button(user_client):

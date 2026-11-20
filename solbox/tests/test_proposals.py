@@ -35,7 +35,7 @@ def test_create_proposal(user_client, db):
     r = user_client.post("/proposals", data={"customer_id": c.id, "project_id": b.id, "request_memo": "에너지 절감 쪽으로"},
                          follow_redirects=False)
     p = db.query(Proposal).one()
-    assert r.headers["location"] == f"/proposals/{p.id}"
+    assert r.headers["location"] == f"/proposals/{p.id}?notice=created"
     assert (p.status, p.directions, p.selected_index, p.outline, p.extra_solution_ids) == ("new", [], None, None, [])
     assert p.request_memo == "에너지 절감 쪽으로"
     assert p.created_by_id is not None
@@ -117,7 +117,7 @@ def test_update_target(user_client, db):
     db.commit()
     r = user_client.post(f"/proposals/{p.id}/target", data={"request_memo": "새 메모", "extra_solution_ids": [s.id]},
                          follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}"
+    assert r.status_code == 303 and r.headers["location"] == f"/proposals/{p.id}?notice=target_saved"
     db.refresh(p)
     assert p.request_memo == "새 메모" and p.extra_solution_ids == [s.id]
     assert [x.id for x in candidate_solutions(db, p)] == [s.id]
@@ -189,7 +189,7 @@ def test_any_user_can_open_but_only_owner_or_admin_deletes(user_client, admin_cl
     assert user_client.post(f"/proposals/{pid}/delete").status_code == 403
     assert db.get(Proposal, pid) is not None and deck_dir.exists()
     r = admin_client.post(f"/proposals/{pid}/delete", follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/proposals"
+    assert r.status_code == 303 and r.headers["location"] == "/proposals?notice=deleted"
     db.expire_all()
     assert db.get(Proposal, pid) is None
     assert db.query(ProposalMessage).count() == 0

@@ -24,10 +24,19 @@
   {% include "proposals/_chat_tail.html" %}
 </div>
 {% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
+{% set current_msgs = msgs if proposal.chat_from_id is none else msgs | selectattr("id", "gt", proposal.chat_from_id) | list %}
+{% if not current_msgs and not active %}
+{# 아직 이 방향의 대화가 없을 때만: 시작 질문 칩 (스크립트가 있으면 칸에 채우고, 없으면 칩 자체가 그 글을 보내는 작은 폼 버튼) #}
+<form method="post" action="/proposals/{{ proposal.id }}/chat" class="starters" aria-label="이렇게 물어볼 수 있어요">
+  <span class="starters-title muted">이렇게 물어볼 수 있어요</span>
+  {% for text in ont.PROPOSAL_CHAT_STARTERS %}<button type="submit" name="message" value="{{ text }}" class="chip starter" data-starter="{{ text }}">{{ text }}</button>{% endfor %}
+</form>
+{% endif %}
 <form method="post" action="/proposals/{{ proposal.id }}/chat" class="composer" id="chat-form">
   <label class="sr-only" for="chat-message">메시지</label>
   <textarea id="chat-message" name="message" rows="2" required placeholder="범위, 강조점, 솔루션 추가·제외를 말해 보세요"{% if active %} disabled aria-describedby="chat-wait"{% endif %}>{% if chat_text is defined and chat_text %}{{ chat_text }}{% endif %}</textarea>
   <button type="submit"{% if proposal.outline %} class="primary"{% endif %}{% if active %} disabled{% endif %}>보내기</button>
+  <p class="composer-hint muted" id="chat-hint">Enter 는 줄바꿈, Ctrl+Enter(Mac 은 ⌘+Enter)로 보냅니다.</p>
   {% if active %}<p id="chat-wait" class="composer-note muted">{{ "답변이 끝나면 이어서 물을 수 있어요" if chat_job else "AI 작업이 끝나면 이어서 물을 수 있어요" }}</p>{% endif %}
 </form>
 <form method="post" action="/proposals/{{ proposal.id }}/outline" class="chat-next">

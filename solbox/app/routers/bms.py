@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import opportunities as opps, relations, ui
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Solution, User
 from app.records import pick
-from app.routers._common import get_deletable_or_404, get_or_404, name_error, paginate, resync_objects, row_info, search_by_name
+from app.routers._common import get_deletable_or_404, get_or_404, name_error, paginate, resync_objects, row_info, search_by_name, sort_rows
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/bms")
@@ -40,7 +41,7 @@ def _values(name, summary, target_customers, revenue_model, memo) -> dict:
 
 @router.get("")
 def list_bms(request: Request, q: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    pg = paginate(search_by_name(db, BM, q, BM.summary), page)
+    pg = paginate(sort_rows(request, "bm", search_by_name(db, BM, q, BM.summary)), page)
     return render(request, "bms/list.html", pg=pg, q=q.strip(), info=row_info(db, "bm", pg.items))
 
 
@@ -66,7 +67,7 @@ def create(
     db.refresh(bm)
     mirror.sync(bm)
     resync_objects(db, mirror, opps.dependents(db, bm))  # 솔루션 카드의 BM 줄
-    return RedirectResponse(f"/bms/{bm.id}", status_code=303)
+    return notices.redirect(f"/bms/{bm.id}", "created")
 
 
 @router.get("/{bm_id}")
@@ -99,7 +100,7 @@ def update(
     db.refresh(bm)
     mirror.sync(bm)
     resync_objects(db, mirror, [*before, *opps.dependents(db, bm)])
-    return RedirectResponse(f"/bms/{bm.id}", status_code=303)
+    return notices.redirect(f"/bms/{bm.id}", "saved")
 
 
 @router.post("/{bm_id}/delete")
@@ -115,4 +116,4 @@ def delete(
     db.delete(bm)  # 솔루션과의 연결 행만 함께 지워진다
     db.commit()
     resync_objects(db, mirror, related)
-    return RedirectResponse("/bms", status_code=303)
+    return notices.redirect("/bms", "deleted")

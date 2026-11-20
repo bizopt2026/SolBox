@@ -14,6 +14,7 @@ from starlette.datastructures import FormData
 from app import intake as intake_lib
 from app import labels, origin, transcribe, ui
 from app.ai.queue import queue_position
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -27,7 +28,6 @@ router = APIRouter(prefix="/intake")
 
 NOT_YOURS = "올린 사람과 관리자만 볼 수 있습니다."
 NOTE_TOO_LONG = f"메모는 {intake_lib.MAX_NOTE}자까지 쓸 수 있습니다."
-NOTICES = {"not_ready": "이미 저장했거나 저장할 수 없는 상태입니다.", "superseded": intake_lib.SAVE_SUPERSEDED}
 CANNOT_DISCARD = "저장 중이거나 저장이 끝난 묶음은 버릴 수 없습니다."
 _ASCII_UNSAFE = re.compile(r'[^\x20-\x7e]|["\\%]')
 
@@ -85,6 +85,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice, can_transcribe=can_transcribe,
         skipped=skipped or [], intake_files_transcribing=intake_lib.transcribing_file(intake),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
+        plan_summary=intake_lib.plan_summary(intake), outcome=intake_lib.outcome_text(intake),
         saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),
         not_saved=_result_of(intake, lambda t: t == "skipped"),
         unsaved_files=_result_of(intake, lambda t: t == "unsaved"),
@@ -138,7 +139,7 @@ def create(
         log.exception("올리기 묶음 %s 정리 시작 실패", intake.id)
     if skipped:
         return detail_page(request, user, intake, db, skipped=skipped)
-    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+    return notices.redirect(f"/intake/{intake.id}", "intake_uploaded")
 
 
 @router.get("")
@@ -175,9 +176,9 @@ def download(file_id: int, request: Request, user: User = Depends(require_user),
 
 
 @router.get("/{intake_id}")
-def detail(intake_id: int, request: Request, notice: str = "",
+def detail(intake_id: int, request: Request,
            user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return detail_page(request, user, get_intake(db, user, intake_id), db, notice=NOTICES.get(notice, ""))
+    return detail_page(request, user, get_intake(db, user, intake_id), db)
 
 
 @router.get("/{intake_id}/status")
@@ -214,7 +215,7 @@ def analyze(
             db.commit()
         intake_lib.ensure_workdir(request.app.state.settings, intake)  # 준비가 덜 끝난 묶음은 여기서 다시 준비한다
         intake_lib.start_analysis(db, intake, user)
-    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+    return notices.redirect(f"/intake/{intake.id}", "intake_analyzing")
 
 
 @router.post("/{intake_id}/apply")
@@ -228,14 +229,14 @@ def apply(
     try:
         intake_lib.apply(db, request.app.state.settings, mirror, intake, user, form)
     except intake_lib.Superseded:
-        return RedirectResponse(f"/intake/{intake.id}?notice=superseded", status_code=303)
+        return notices.redirect(f"/intake/{intake.id}", "superseded")
     except intake_lib.NotReady:
-        return RedirectResponse(f"/intake/{intake.id}?notice=not_ready", status_code=303)
+        return notices.redirect(f"/intake/{intake.id}", "not_ready")
     except ValueError as e:  # 입력 오류: 입력값을 그대로 둔 채 화면을 다시 보여 준다
         return detail_page(request, user, intake, db, notice=str(e), status_code=400, form=form)
     except intake_lib.ApplyFailed:  # 오류 문구는 묶음에 적혀 확인 화면에 보인다
         return detail_page(request, user, intake, db, status_code=500, form=form)
-    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+    return notices.redirect(f"/intake/{intake.id}", "intake_applied")
 
 
 @router.post("/{intake_id}/discard")
@@ -244,7 +245,7 @@ def discard(intake_id: int, request: Request, user: User = Depends(require_user)
     intake = get_intake(db, user, intake_id)
     if not intake_lib.discard(db, request.app.state.settings, intake):
         raise HTTPException(status_code=400, detail=CANNOT_DISCARD)
-    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+    return notices.redirect(f"/intake/{intake.id}", "intake_discarded")
 
 
 @router.post("/{intake_id}/recheck")
@@ -252,4 +253,4 @@ def recheck(intake_id: int, user: User = Depends(require_user), db: Session = De
     """오래 저장 중으로 멈춘 묶음을 확인 대기로 되돌린다 (아직 저장 중인 묶음은 그대로 둔다)."""
     intake = get_intake(db, user, intake_id)
     intake_lib.recheck_applying(db, intake)
-    return RedirectResponse(f"/intake/{intake.id}", status_code=303)
+    return notices.redirect(f"/intake/{intake.id}", "intake_rechecked")

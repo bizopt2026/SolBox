@@ -39,6 +39,8 @@
     <input id="list-q" type="search" name="q" value="{{ q }}" placeholder="{{ placeholder }}" autocomplete="off">
   </form>
   {% endif %}
+  {% set sorts = ui.sort_options(request) %}
+  {% if sorts %}<nav class="sortbar" aria-label="정렬"><span class="sort-label">정렬</span>{% for s in sorts %}<a href="{{ s.href }}"{% if s.active %} aria-current="true"{% endif %}>{{ s.label }}</a>{% endfor %}</nav>{% endif %}
   {% if extra %}{{ extra }}{% endif %}
 </div>
 {{ filter_note(flt) }}
@@ -75,10 +77,12 @@
 {% endmacro %}
 
 {# 연결 칸의 내용: info.links = [(이름, 건수)] #}
-{% macro links_text(info) %}{% if info and info.links %}{% for text, n in info.links %}{{ text }} {{ n }}{{ " · " if not loop.last }}{% endfor %}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
+{% macro links_text(info) %}{% if info and info.links %}{% for text, n in info.links %}{{ text }} {{ n }}{{ " · " if not loop.last }}{% endfor %}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
+{# 목록 표의 빈 선택 칸: 흐린 "–" (화면 읽기 프로그램에는 "없음"). 상세 화면의 빈 항목은 이 표시를 쓰지 않고 props_card 가 한 줄로 모은다. #}
+{% macro none_dash() %}<span class="dash-none muted" role="img" aria-label="없음">–</span>{% endmacro %}
 {# 날짜(시각) 글 + 기계가 읽는 <time datetime>. 한 곳의 날짜 모양: "11월 14일", 올해가 아니면 "2025년 11월 14일", 시각이 있으면 "11월 14일 14:30" #}
-{% macro time_tag(d, clock=false) %}{% if d %}<time datetime="{{ d.isoformat() }}">{{ kdatetime(d) if clock else kdate(d) }}</time>{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
-{% macro date_text(d) %}{% if d %}{{ kdate(d) }}{% else %}<span class="muted">없음</span>{% endif %}{% endmacro %}
+{% macro time_tag(d, clock=false) %}{% if d %}<time datetime="{{ d.isoformat() }}">{{ kdatetime(d) if clock else kdate(d) }}</time>{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
+{% macro date_text(d) %}{% if d %}{{ kdate(d) }}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
 
 {# 화면 제목 위 경로. 앞 마디는 (이름, 주소), 마지막 마디는 (이름, None). 예: breadcrumb(("솔루션", "/solutions"), (solution.name, None)) #}
 {% macro breadcrumb() %}
@@ -94,16 +98,16 @@
    caller 본문은 수정 뒤·주 버튼 앞에 놓을 동작(안전한 HTML). #}
 {% macro detail_head(title, path, obj, can_delete, crumbs=none, sub=none, status=none, primary=none) %}
 {% call page_header(title, crumbs=crumbs, sub=sub, status=status, cls="detail") %}
-  {% if can_delete %}
-  <form method="post" class="actions-danger" action="{{ path }}/{{ obj.id }}/delete" onsubmit="return confirm('삭제할까요?')">
-    <button type="submit" class="ghost danger">삭제</button>
-  </form>
-  {% endif %}
+  {% if can_delete %}<span class="actions-danger">{{ confirm_link(path ~ "/" ~ obj.id ~ "/delete", cls="ghost danger") }}</span>{% endif %}
   <a class="button" href="{{ path }}/{{ obj.id }}/edit">수정</a>
   {% if caller is defined %}{{ caller() }}{% endif %}
   {% if primary %}<a class="button primary" href="{{ primary[1] }}">{{ primary[0] }}</a>{% endif %}
 {% endcall %}
 {% endmacro %}
+
+{# 지우기·버리기 같은 되돌릴 수 없는 동작: 링크다. 스크립트가 없으면 서버가 그린 확인 화면(GET, routers/confirm.py)으로 가서 거기서 POST 하고,
+   스크립트가 있으면 그 자리에서 "정말 삭제할까요? [삭제] [취소]" 로 바뀐다 (app.js). url 은 삭제 POST 라우터와 같은 주소. #}
+{% macro confirm_link(url, label="삭제", ask="정말 삭제할까요?", ok=none, cls="ghost danger", aria=none) %}<a class="button {{ cls }}" href="{{ url }}" data-confirm-post="{{ url }}" data-ask="{{ ask }}" data-ok="{{ ok or label }}"{% if aria %} aria-label="{{ aria }}"{% endif %}>{{ label }}</a>{% endmacro %}
 
 {# 제목 줄 밑 단계 막대 (한 번 누르면 그 단계로: 같은 POST). flow = 차례로 나아가는 코드들, names = {코드: 이름}, side = 막대 옆 따로 선 코드들(보류·실패) #}
 {% macro stage_stepper(action, flow, names, current, side=(), label="단계") %}

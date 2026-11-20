@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import ontology, origin, ui
 from app.ai.queue import queue_position
+from app import notices
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.labels import RESEARCH_AREAS
@@ -133,7 +134,7 @@ def register_candidate(
     already = db.scalar(select(Solution).where(Solution.origin_type == ontology.ORIGIN_RESEARCH, Solution.origin_id == report.id,
                                                Solution.origin_item == item_key).order_by(Solution.id))
     if already is not None:  # 같은 제안·동향을 두 번 등록하지 않는다 (지워졌으면 다시 등록할 수 있다)
-        return RedirectResponse(f"/solutions/{already.id}", status_code=303)
+        return notices.redirect(f"/solutions/{already.id}", "already_registered")
     lines: list[str] = []
     if source == "suggestion":
         name, summary = humanize_ids(db, item.get("title", "")), humanize_ids(db, item.get("reason", ""))
@@ -155,7 +156,7 @@ def register_candidate(
     db.add(solution)
     db.commit()
     mirror.sync(solution)
-    return RedirectResponse(f"/solutions/{solution.id}/edit", status_code=303)
+    return notices.redirect(f"/solutions/{solution.id}/edit", "candidate_registered")
 
 
 @router.post("/runs/{run_id}/delete")
@@ -171,7 +172,7 @@ def delete_run(run_id: int, admin: User = Depends(require_admin), db: Session = 
     origin.clear_dangling(db, ontology.ORIGIN_RESEARCH, [r.id for r in run.reports])  # 같은 트랜잭션에서 유래의 번호를 비운다
     db.delete(run)
     db.commit()
-    return RedirectResponse("/research", status_code=303)
+    return notices.redirect("/research", "deleted")
 
 
 @router.post("/run")
@@ -179,8 +180,8 @@ def run_now(admin: User = Depends(require_admin), db: Session = Depends(get_db))
     try:
         run = start_run(db, "manual", admin.id)
     except ValueError:
-        return RedirectResponse(f"{ADMIN_PAGE}?notice=no_topics", status_code=303)
-    return RedirectResponse(ADMIN_PAGE if run else f"{ADMIN_PAGE}?notice=busy", status_code=303)
+        return notices.redirect(ADMIN_PAGE, "no_topics")
+    return notices.redirect(ADMIN_PAGE, "research_started" if run else "research_busy")
 
 
 @router.get("/runs/{run_id}/status")
@@ -208,7 +209,7 @@ def retry_report(report_id: int, admin: User = Depends(require_admin), db: Sessi
     if run.status != "running":
         other = db.query(ResearchRun.id).filter(ResearchRun.status == "running", ResearchRun.id != run.id).first()
         if other is not None:  # 조사는 한 번에 하나만 돈다.
-            return RedirectResponse(f"{ADMIN_PAGE}?notice=busy", status_code=303)
+            return notices.redirect(ADMIN_PAGE, "research_busy")
     rid, run_id = report.id, run.id
     job_kind = "research_area" if report.kind == "area" else "research_suggest"
     db.rollback()  # 쓰기를 새로 시작한다

@@ -447,12 +447,12 @@ def test_detail_header_keeps_delete_apart_and_aligned_with_the_title():
     assert ".actions-danger { order: 9" in phone and "border-top" in phone.split(".actions-danger")[1].split("}")[0]
 
 
-def test_delete_forms_are_marked_so_the_phone_layout_can_separate_them(user_client, db):
+def test_delete_actions_are_marked_so_the_phone_layout_can_separate_them(user_client, db):
     from tests.test_detail_pages import _make
 
     obj = _make(db, 1)["/customers"]
     html = user_client.get(f"/customers/{obj.id}").text
-    assert re.search(r'<form method="post" class="actions-danger" action="/customers/\d+/delete"', html)
+    assert re.search(r'<span class="actions-danger"><a class="button ghost danger" href="/customers/\d+/delete"', html)
 
 
 def test_phone_top_row_is_one_line_with_a_dot_only_status():

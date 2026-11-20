@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash %}
 {% block title %}파트너{% endblock %}
 {% block content %}
 {{ list_head("파트너", pg, q, "/partners/new", type="partner") }}
@@ -15,7 +15,7 @@
       {% call title_cell("/partners/" ~ p.id, p.name, p.description | first_line(80)) %}
         {% if lines %}<span>{{ lines[0] }}</span>{% endif %}<span>{{ links_text(i) }}</span>
       {% endcall %}
-      <td class="col-sec">{% if lines %}{{ lines[0] }}{% if lines | length > 1 %} <span class="muted">외 {{ lines | length - 1 }}줄</span>{% endif %}{% else %}<span class="muted">없음</span>{% endif %}</td>
+      <td class="col-sec">{% if lines %}{{ lines[0] }}{% if lines | length > 1 %} <span class="muted">외 {{ lines | length - 1 }}줄</span>{% endif %}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>

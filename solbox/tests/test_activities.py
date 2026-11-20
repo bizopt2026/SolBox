@@ -8,7 +8,7 @@ def test_save_raw_only(user_client, db, settings):
     assert r.status_code == 303
     a = db.query(Activity).one()
     assert a.title == "한빛병원 미팅" and a.kind == "meeting" and a.date == date.today() and a.summary_md == ""
-    assert r.headers["location"] == f"/activities/{a.id}"
+    assert r.headers["location"] == f"/activities/{a.id}?notice=created"
     assert (settings.knowledge_dir / "activities" / str(a.date.year) / f"{a.id}.md").exists()
 
 

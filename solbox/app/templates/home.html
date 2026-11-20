@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill %}
+{% from "_macros.html" import page_header, pill, seg %}
 {% from "_followups.html" import fu_item, fu_notice %}
 {% block title %}홈{% endblock %}
 {% block content %}
@@ -27,18 +27,20 @@
     <li><span class="guide-no" aria-hidden="true">2</span><div><b>정리안 확인</b><p class="muted">AI가 묶어 둔 정리안을 보고 고쳐서 저장해요.</p></div></li>
     <li><span class="guide-no" aria-hidden="true">3</span><div><b>제안 만들기</b><p class="muted">저장된 솔루션과 고객으로 제안서를 만들어요.</p></div></li>
   </ol>
-  <p class="guide-act"><a class="button primary" href="/intake/new">파일 올리기</a> <a class="button" href="/solutions/new">솔루션 직접 입력</a></p>
+  <p class="guide-act"><a class="button primary" href="/intake/new">파일 올리기</a> <a class="button" href="/solutions/new">솔루션 직접 입력</a> <a href="/help">도움말 보기</a></p>
 </section>
 {% endif %}
 <div class="dash">
   <div class="dash-col dash-main">
   <section class="card o1" aria-labelledby="h-fu">
     <header class="card-head"><h2 id="h-fu">후속 조치 <span class="count">기한 14일 이내</span></h2><a href="/follow-ups">모두 보기</a></header>
+    {{ seg(fu_tabs, "후속 조치 보기") }}
     {% if follow_ups %}
     <ul class="fu-list">
       {% for f in follow_ups %}{{ fu_item(f) }}{% endfor %}
     </ul>
     {% if follow_up_more %}<p class="muted card-foot">외 {{ follow_up_more }}건 · <a href="/follow-ups">모두 보기</a></p>{% endif %}
+    {% elif mine_only %}<p class="muted">내 담당 후속 조치가 없습니다. 활동 기록의 후속 조치 <b>담당</b> 칸에 내 이름({{ user.name or user.username }})을 그대로 쓰면 내 할 일로 모입니다.{% if fu_tabs[0].count %} 전체 보기에는 {{ fu_tabs[0].count }}건이 있습니다.{% endif %}</p>
     {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
   </section>
 

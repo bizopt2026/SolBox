@@ -2,7 +2,7 @@
 {% set job = proposal.active_job %}
 {% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set directions = proposal.directions or [] %}
-{% set confirm_change = "return confirm('방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다. 계속할까요?')" if proposal.outline else "" %}
+{% set confirm_change = "방향을 바꾸면 만들어 둔 구성안과 제안서가 지워집니다. 계속할까요?" if proposal.outline else "" %}
 {% set FOLD = 5 %}
 {% macro rationale_li(ev, i) %}<li>{{ ev.text }}{% for n in ev.refs %}<sup><a href="#d{{ i }}-src-{{ n }}">{{ n }}</a></sup>{% endfor %}{% if not ev.refs %} <span class="badge tone-bad">출처 없음</span>{% endif %}</li>{% endmacro %}
 {% macro check_li(it) %}<li class="{{ it.kind }}">{{ check_badge(it.kind) }}<span class="check-text">{{ it.text }}</span></li>{% endmacro %}
@@ -51,7 +51,7 @@
       </dl>
     </details>
     {% if proposal.selected_index != i %}
-    <form method="post" action="/proposals/{{ proposal.id }}/select"{% if confirm_change and proposal.selected_index is not none %} onsubmit="{{ confirm_change }}"{% endif %}>
+    <form method="post" action="/proposals/{{ proposal.id }}/select"{% if confirm_change and proposal.selected_index is not none %} data-confirm="{{ confirm_change }}" data-ok="바꾸기"{% endif %}>
       <input type="hidden" name="index" value="{{ i }}">
       <button type="submit" class="primary">이 방향으로 구체화</button>
     </form>
@@ -83,7 +83,7 @@
 </div>
 {% endif %}
 {% if directions and not busy %}
-<form method="post" action="/proposals/{{ proposal.id }}/directions" class="dir-rebuild"{% if confirm_change %} onsubmit="{{ confirm_change }}"{% endif %}>
+<form method="post" action="/proposals/{{ proposal.id }}/directions" class="dir-rebuild"{% if confirm_change %} data-confirm="{{ confirm_change }}" data-ok="다시 만들기"{% endif %}>
   <button type="submit" class="small">방향 다시 만들기</button>
 </form>
 {% endif %}

@@ -40,7 +40,7 @@ def upcoming_follow_ups(db: Session, today: date, days: int = FOLLOW_UP_DAYS) ->
     )
     return [
         {"activity": a, "id": fu.id, "index": fu.position, "task": fu.task, "owner": fu.owner, "due": fu.due, "overdue": fu.due < today,
-         "done": False, "rel": ui.relative_due(fu.due, today), "customers": []}
+         "done": False, "rel": ui.relative_due(fu.due, today), "customers": [], "owner_user_id": fu.owner_user_id}
         for fu, a in db.execute(stmt)
     ]
 
@@ -140,18 +140,25 @@ def summary_sentence(overdue: int, ready: int) -> str:
 
 
 @router.get("/")
-def home(request: Request, fu_toggled: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
     now = today()
     follow_ups = upcoming_follow_ups(db, now)
+    mine_only = fu == "mine"  # 후속 조치 카드의 "내 할 일" 보기: 주소로만 기억한다. 내 것 = 담당 칸이 내 이름과 정확히 일치해 연결된 것 (owner_user_id)
+    mine_count = sum(1 for f in follow_ups if f["owner_user_id"] == user.id)
+    all_count = len(follow_ups)
+    overdue = sum(1 for f in follow_ups if f["overdue"])  # 제목 줄 문장은 보기와 상관없이 전체 기준
+    if mine_only:
+        follow_ups = [f for f in follow_ups if f["owner_user_id"] == user.id]
+    fu_tabs = [ui.SegTab("", "전체", all_count, "/", not mine_only), ui.SegTab("mine", "내 할 일", mine_count, "/?fu=mine", mine_only)]
     intake = intake_summary(db, user)
     flow, opp = stage_flow(db, now), opportunity_bars(db)
     recent = recent_activities(db)
-    overdue = sum(1 for f in follow_ups if f["overdue"])
     fresh_install = is_fresh_install(db)
     return render(
         request, "home.html",
         today=now, date_line=ui.today_line(now), summary=summary_sentence(overdue, intake["ready_count"]), fresh_install=fresh_install,
-        recent=recent, follow_ups=follow_ups[:FOLLOW_UP_SHOWN], follow_up_more=max(0, len(follow_ups) - FOLLOW_UP_SHOWN),
+        recent=recent, follow_ups=follow_ups[:FOLLOW_UP_SHOWN], fu_tabs=fu_tabs, mine_only=mine_only,
+        follow_up_more=max(0, len(follow_ups) - FOLLOW_UP_SHOWN),
         intake=intake, max_files=intake_lib.MAX_FILES,
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),

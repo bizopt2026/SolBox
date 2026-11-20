@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header %}
+{% block title %}도움말{% endblock %}
+{% block content %}
+{# 이름·단계·용어는 온톨로지(ont)에서 읽는다. 아래 "이럴 땐 이렇게" 의 글만 손으로 쓴 안내다 (화면 이름은 ont.label 로 붙인다). #}
+{{ page_header("도움말", crumbs=[("도움말", none)], sub="솔박스가 다루는 것의 흐름, 용어, 자주 하는 일을 한곳에 모았습니다.") }}
+
+<section class="card stack help-flow" aria-labelledby="h-flow">
+  <h2 id="h-flow">업무 흐름</h2>
+  <p class="muted">위 줄은 솔루션을 발굴해 박스에 올리는 흐름, 아래 줄은 고객과 이야기해 사업이 되는 흐름입니다. 두 줄은 솔루션에서 만납니다.</p>
+  <div class="flowrow" role="group" aria-label="솔루션 발굴 흐름">
+    <span class="flow-title">발굴</span>
+    <ol class="flowline">
+      <li><a class="fnode" href="/partners">{{ ont.label("partner") }}</a></li>
+      <li><a class="fnode" href="/solutions">{{ ont.label("solution") }}</a>
+        <ol class="substeps" aria-label="발굴 단계">{% for code in ont.STAGE_FLOW %}<li><a href="/solutions?stage={{ code }}">{{ ont.STAGES[code] }}</a></li>{% endfor %}</ol></li>
+    </ol>
+  </div>
+  <div class="flowrow" role="group" aria-label="영업 흐름">
+    <span class="flow-title">영업</span>
+    <ol class="flowline">
+      <li><a class="fnode" href="/activities">{{ ont.label("activity") }}</a></li>
+      <li><a class="fnode" href="/opportunities">{{ ont.label("customer_need") }}</a><small class="fnote">활동 기록 안의 줄</small></li>
+      <li><a class="fnode" href="/opportunities">{{ ont.label("opportunity") }}</a></li>
+      <li><a class="fnode" href="/proposals">{{ ont.label("proposal") }}</a></li>
+      <li><a class="fnode" href="/projects">{{ ont.label("project") }}</a></li>
+    </ol>
+  </div>
+  <p class="flow-bm"><a class="fnode alt" href="/bms">{{ ont.label("bm") }}</a>
+    <span class="muted">{{ ont.TYPES["bm"].description }}. {{ ont.label("solution") }}·{{ ont.label("opportunity") }}·{{ ont.label("project") }}와 이어 둘 수 있습니다.</span></p>
+  <p class="muted flow-sum">{{ ont.label("opportunity") }}이 수주되면 {{ ont.label("project") }}로 전환하고, {{ ont.label("proposal") }}은 고객(과 {{ ont.label("opportunity") }}·{{ ont.label("project") }})을 대상으로 만듭니다. {{ ont.label("solution") }}은 {{ ont.label("activity") }}·{{ ont.label("opportunity") }}·{{ ont.label("proposal") }}에서 다시 만납니다.</p>
+</section>
+
+<section class="card stack" aria-labelledby="h-terms">
+  <h2 id="h-terms">용어</h2>
+  <dl class="glossary">
+    {% for g in glossary %}
+    <div class="gl-row"><dt>{% if g.url %}<a href="{{ g.url }}">{{ g.label }}</a>{% else %}{{ g.label }}{% endif %}</dt><dd>{{ g.text }}</dd></div>
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="card stack" aria-labelledby="h-how">
+  <h2 id="h-how">이럴 땐 이렇게</h2>
+  <div class="howto">
+    <details open><summary>자료를 올려 솔루션 등록하기</summary>
+      <ol>
+        <li>왼쪽 위 <a href="/intake/new">+ 올리기</a>에서 소개서·스펙 같은 파일을 끌어다 놓거나 골라 올립니다 (한 번에 {{ max_files }}개까지, 문서·사진·음성).</li>
+        <li>AI 가 정리하는 동안 기다리면 {{ ont.label("intake") }} 화면이 정리안으로 바뀝니다. 저장하기 전에는 아무것도 등록되지 않습니다.</li>
+        <li>정리안 카드에서 "고치기"로 이름·내용을 고치고, 필요 없는 항목은 "이 항목 제외"를 체크한 뒤 "이대로 저장"을 누릅니다.</li>
+      </ol>
+      <p class="muted">파일 없이 직접 쓰려면 <a href="/solutions/new">{{ ont.label("solution") }} 직접 입력</a>을 씁니다.</p>
+    </details>
+    <details><summary>미팅 메모 남기기</summary>
+      <ol>
+        <li><a href="/activities/new">{{ ont.label("activity") }} 등록</a>에서 메모를 붙여 넣거나 텍스트 파일(.txt, .md)을 고릅니다.</li>
+        <li>"AI로 정리"는 제목·연결·후속 조치·{{ ont.label("customer_need") }} 초안을 만들어 주고, "원문만 저장"은 메모만 바로 저장합니다. "칸을 직접 채우기"로 모든 칸을 손으로 채울 수도 있습니다.</li>
+        <li>초안은 확인하고 고친 뒤 저장해야 반영됩니다. 고객·솔루션 화면의 "+ 활동 기록 쓰기"에서 시작하면 그 연결이 미리 골라져 있습니다.</li>
+      </ol>
+    </details>
+    <details><summary>니즈를 영업기회로 묶기</summary>
+      <ol>
+        <li>활동 기록 화면의 "{{ ont.label("customer_need") }}" 줄에 고객 이름(등록된 이름과 같게)과 내용을 적어 저장합니다. 이름이 등록된 고객과 맞으면 그 고객에 연결됩니다.</li>
+        <li><a href="/opportunities/new">{{ ont.label("opportunity") }} 만들기</a>에서 고객을 고르면 그 고객의 아직 묶이지 않은 니즈가 나옵니다. 묶을 니즈를 체크해 저장합니다.</li>
+        <li>단계는 {{ ont.OPPORTUNITY_STAGES.values() | join(" · ") }} 중에서 상세 화면 위의 단계 막대로 바꿉니다 (순서 제한은 없습니다).</li>
+      </ol>
+    </details>
+    <details><summary>제안서 만들기</summary>
+      <ol>
+        <li><a href="/proposals/new">{{ ont.label("proposal") }} 만들기</a>에서 고객(필요하면 {{ ont.label("project") }}·{{ ont.label("opportunity") }})과 요청 메모를 적습니다. 고객 화면의 "+ 제안 만들기"로 시작하면 고객이 미리 채워집니다.</li>
+        <li>AI 가 제안 방향을 몇 가지 만들면 하나를 골라 "이 방향으로 구체화"를 누르고, 대화로 범위·강조점을 다듬습니다.</li>
+        <li>"구성안 만들기" 뒤 장별 내용을 고치고 확인 항목을 확인한 다음 "제안서 만들기"로 PPT 파일을 받습니다 ({{ ont.PROPOSAL_STEPS.values() | join(" → ") }}).</li>
+      </ol>
+    </details>
+    <details><summary>수주 후 프로젝트로 전환하기</summary>
+      <ol>
+        <li><a href="/opportunities">{{ ont.label("opportunity") }}</a> 상세에서 단계를 "{{ ont.OPPORTUNITY_STAGES["won"] }}"로 바꿉니다.</li>
+        <li>"프로젝트로 전환"을 눌러 새 {{ ont.label("project") }}를 만들거나 같은 고객의 기존 {{ ont.label("project") }}에 잇습니다. 전환은 영업기회마다 한 번만 됩니다.</li>
+      </ol>
+    </details>
+    <details><summary>내 할 일 보기</summary>
+      <ol>
+        <li><a href="/">홈</a>의 후속 조치 카드에서 "내 할 일"을 누르면 내가 맡은 것만 모아 보입니다 (주소 <code>/?fu=mine</code>).</li>
+        <li>내 것이 되려면 활동 기록의 후속 조치 "담당" 칸에 로그인 이름과 같은 이름을 적어야 합니다. 전체는 <a href="/follow-ups">{{ ont.label("follow_up") }}</a> 화면에서 봅니다.</li>
+      </ol>
+    </details>
+    <details><summary>검색하기</summary>
+      <ol>
+        <li>위쪽 검색칸에 이름이나 제목을 쓰고 Enter 를 누릅니다. 입력칸 밖에서 <kbd>/</kbd> 키를 눌러도 검색칸으로 옮겨 갑니다.</li>
+        <li>솔루션·고객·파트너·프로젝트·영업기회·BM·제안·활동 기록의 이름과 제목에서 찾습니다 (본문 내용은 찾지 않습니다). 각 목록 화면에는 따로 검색칸이 있습니다.</li>
+      </ol>
+    </details>
+    <details><summary>AI가 응답하지 않을 때 확인할 것</summary>
+      <ol>
+        <li>위쪽 줄의 AI 상태를 봅니다. "AI 사용 불가"는 AI 도구가 없거나 로그인이 풀린 것, "마지막 AI 작업 실패"는 그 작업만 실패한 것입니다.</li>
+        <li>기다리는 작업이 많으면 순서를 기다립니다. 실패한 작업은 화면의 "다시 시도"로 다시 보낼 수 있습니다.</li>
+        <li>AI 가 안 되어도 조회와 직접 입력은 됩니다. {% if is_admin %}관리자는 <a href="/admin/system">시스템 점검</a>에서 AI 점검을, <a href="/admin/jobs">AI 작업</a>에서 대기열을 볼 수 있습니다.{% else %}계속 안 되면 관리자에게 알려 주세요.{% endif %}</li>
+      </ol>
+    </details>
+  </div>
+</section>
+
+<section class="card stack" aria-labelledby="h-keys">
+  <h2 id="h-keys">단축키</h2>
+  <dl class="keys">
+    <div><dt><kbd>/</kbd></dt><dd>전체 검색칸으로 이동 (입력칸 밖에서)</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>제안 대화에서 메시지 보내기 (Mac 은 <kbd>⌘</kbd> + <kbd>Enter</kbd>). <kbd>Enter</kbd> 는 줄바꿈입니다</dd></div>
+    <div><dt><kbd>Esc</kbd></dt><dd>"정말 삭제할까요?" 되묻기 닫기</dd></div>
+  </dl>
+</section>
+{% endblock %}

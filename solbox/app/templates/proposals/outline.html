@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, source_chip, check_badge, pill %}
+{% from "_macros.html" import page_header, source_chip, check_badge, pill, confirm_link %}
 {% block title %}구성안 · {{ title }}{% endblock %}
 {% block content %}
 {{ page_header("구성안 검토·수정", crumbs=ui.crumbs("proposal", title, "/proposals/" ~ proposal.id, "구성안"), sub="슬라이드를 열어 고치고, 확인할 점을 하나씩 체크하세요.", status=pill("proposal_status", proposal.status)) }}
@@ -46,7 +46,7 @@
   <div class="slide-actions">
     {% if card.index > 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="위로" aria-label="위로" class="small">&uarr;</button></form>{% endif %}
     {% if card.index < cards | length - 1 %}<form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="아래로" aria-label="아래로" class="small">&darr;</button></form>{% endif %}
-    <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/delete" onsubmit="return confirm('이 슬라이드를 지울까요?')"><button type="submit" class="small danger">삭제</button></form>
+    {{ confirm_link("/proposals/" ~ proposal.id ~ "/outline/slides/" ~ card.index ~ "/delete", cls="small danger", ask="이 슬라이드를 지울까요?", ok="지우기", aria="슬라이드 " ~ (card.index + 1) ~ " 삭제") }}
   </div>
   {% endif %}
   {% if s.key_message %}<p><strong>{{ s.key_message }}</strong></p>{% endif %}

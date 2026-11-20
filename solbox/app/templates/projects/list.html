@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash %}
 {% block title %}{{ ont.label("project") }}{% endblock %}
 {% block content %}
 {{ list_head(ont.label("project"), pg, q or flt, "/projects/new", type="project") }}
@@ -15,7 +15,7 @@
         <small class="row-sub"><a href="/customers/{{ b.customer_id }}">{{ b.customer.name }}</a>{% if b.period %} · {{ b.period }}{% endif %}</small>
         <div class="row-meta">{% if b.status %}<span class="badge">{{ b.status }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
       </td>
-      <td class="col-sec">{% if b.status %}<span class="badge">{{ b.status }}</span>{% else %}<span class="muted">없음</span>{% endif %}</td>
+      <td class="col-sec">{% if b.status %}<span class="badge">{{ b.status }}</span>{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>

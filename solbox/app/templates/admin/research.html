@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, confirm_link %}
 {% block title %}리서치 설정{% endblock %}
 {% block content %}
 {{ page_header("리서치 설정", crumbs=[("관리", none), ("리서치 설정", none)], sub="매주 자동으로 조사할 주제와 실행 주기를 정합니다.") }}
@@ -57,7 +57,7 @@
       <td class="c-check"><label class="check"><input form="{{ f }}" type="checkbox" name="is_active" value="on" {% if t.is_active %}checked{% endif %}><span class="sr-only">{{ t.name }} 사용</span></label></td>
       <td><div class="cell-actions">
         <button form="{{ f }}" type="submit" class="small" aria-label="{{ t.name }} 저장">저장</button>
-        <form method="post" action="/admin/research/topics/{{ t.id }}/delete" onsubmit="return confirm('이 주제를 삭제할까요?')"><button type="submit" class="small danger" aria-label="{{ t.name }} 삭제">삭제</button></form>
+        {{ confirm_link("/admin/research/topics/" ~ t.id ~ "/delete", cls="small danger", aria=t.name ~ " 삭제") }}
       </div></td>
     </tr>
   {% endfor %}

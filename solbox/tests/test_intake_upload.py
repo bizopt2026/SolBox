@@ -30,7 +30,7 @@ def test_upload_creates_intake_and_workdir(user_client, db, settings):
              ("files", ("녹취.txt", "한빛병원 통화 내용".encode(), "text/plain"))]
     r = user_client.post("/intake", data={"note": "신규 솔루션 후보"}, files=files, follow_redirects=False)
     it = db.query(Intake).one()
-    assert r.headers["location"] == f"/intake/{it.id}" and it.status == "analyzing" and it.note == "신규 솔루션 후보"
+    assert r.headers["location"] == f"/intake/{it.id}?notice=intake_uploaded" and it.status == "analyzing" and it.note == "신규 솔루션 후보"
     assert [(f.original_name, f.kind, f.read_status) for f in it.files] == [("소개서.txt", "document", "ok"), ("녹취.txt", "document", "ok")]
     work = settings.intake_work_dir / str(it.id)
     assert (work / "1-소개서.txt.md").read_text(encoding="utf-8").startswith("# 소개서.txt")
