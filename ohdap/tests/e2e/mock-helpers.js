@@ -2,9 +2,12 @@
 function makeUser(id) { return { id: async () => id, isOwner: () => true, canEdit: () => true }; }
 function makeDb(seed) {
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('__mockdb') || 'null'); } catch (e) {}
+  // file:// localStorage writes can be lost across a quick reload, so the mock db also rides in window.name,
+  // which a tab keeps across reloads. Seeds written by test setup scripts still go to localStorage.
+  try { if (window.name.startsWith('__mockdb:')) saved = JSON.parse(window.name.slice(9)); } catch (e) {}
+  try { const ls = JSON.parse(localStorage.getItem('__mockdb') || 'null'); if (ls) saved = Object.assign({}, ls, saved || {}); } catch (e) {}
   const docs = new Map(Object.entries(saved || seed || {}));
-  const persist = () => localStorage.setItem('__mockdb', JSON.stringify(Object.fromEntries(docs)));
+  const persist = () => { const j = JSON.stringify(Object.fromEntries(docs)); window.name = '__mockdb:' + j; localStorage.setItem('__mockdb', j); };
   window.__db = docs;
   const snap = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => (docs.has(path) ? JSON.parse(JSON.stringify(docs.get(path))) : undefined), metadata: {} });
   function query(colPath, filters) {
