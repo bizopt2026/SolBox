@@ -9,6 +9,7 @@ const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
 // Bundle order: dependencies first. Every top-level name must be unique across files.
 export const FILES = [
   'src/grades.js',
+  'src/review.js',
   'src/main.js'
 ];
 
