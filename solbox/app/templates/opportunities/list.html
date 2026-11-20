@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import opportunity_badge, list_head, empty_list, pager %}
+{% from "_macros.html" import filter_note, filter_hidden, opportunity_badge, list_head, empty_list, pager %}
 {% block title %}{{ ont.label("opportunity") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("opportunity"), pg, q or stage, "/opportunities/new") }}
+{{ list_head(ont.label("opportunity"), pg, q or stage or flt, "/opportunities/new") }}
+{{ filter_note(flt) }}
 <form method="get" action="/opportunities" class="row">
+  {{ filter_hidden(flt) }}
   <label>검색 <input type="search" name="q" value="{{ q }}"></label>
   <label>단계
     <select name="stage">
@@ -31,5 +33,5 @@
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or stage, "아직 등록된 " ~ ont.label("opportunity") ~ "가 없습니다. 활동 기록의 고객 니즈에서 만들거나 직접 등록하세요.", "/opportunities/new") }}{% endif %}
+{% else %}{{ empty_list(q or stage or flt, "아직 등록된 " ~ ont.label("opportunity") ~ "가 없습니다. 활동 기록의 고객 니즈에서 만들거나 직접 등록하세요.", "/opportunities/new") }}{% endif %}
 {% endblock %}

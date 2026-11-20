@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
-from app import ontology, opportunities as opps, origin, same_company
+from app import ontology, opportunities as opps, origin, relations, same_company
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -36,10 +36,7 @@ def _form_page(request: Request, db: Session, form: dict, customer: Customer | N
 def _detail_page(request: Request, db: Session, user: User, customer: Customer, error: str | None = None):
     return render(
         request, "customers/detail.html", status_code=400 if error else 200,
-        customer=customer, projects=sorted(customer.projects, key=lambda b: b.name),
-        opportunities=opps.opportunities_of_customer(db, customer.id),
-        proposals=sorted(customer.proposals, key=lambda p: p.updated_at, reverse=True),
-        activities=newest_first(activities_linked_to(db, Activity.customers, customer)),
+        customer=customer, related=relations.related_for_page(db, customer, user),
         can_delete=can_delete(user, customer), error=error, origin=origin.view(db, user, customer),
         same_name=same_company.candidate_partner(db, customer),
     )

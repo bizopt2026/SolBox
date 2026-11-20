@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import ontology, origin, same_company
+from app import ontology, origin, relations, same_company
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
@@ -30,7 +30,7 @@ def _form_page(request: Request, db: Session, form: dict, partner: Partner | Non
 def _detail_page(request: Request, db: Session, user: User, partner: Partner, error: str | None = None):
     return render(
         request, "partners/detail.html", status_code=400 if error else 200, partner=partner,
-        activities=newest_first(activities_linked_to(db, Activity.partners, partner)),
+        related=relations.related_for_page(db, partner, user),
         can_delete=can_delete(user, partner), error=error, origin=origin.view(db, user, partner),
         same_name=same_company.candidate_customer(db, partner),
     )

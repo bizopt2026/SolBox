@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, breadcrumb, val, opportunity_badge %}
+{% from "_macros.html" import detail_head, breadcrumb, val %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ bm.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb((ont.label("bm"), "/bms"), (bm.name, None)) }}
@@ -11,20 +12,6 @@
   <dt>{{ ont.prop("bm", "revenue_model") }}</dt><dd>{{ val(bm.revenue_model) }}</dd>
   <dt>{{ ont.prop("bm", "memo") }}</dt><dd>{{ val(bm.memo) }}</dd>
 </dl></section>
-<section class="card">
-  <h2>{{ ont.prop("bm", "solutions") }}</h2>
-  {% if solutions %}<ul>{% for s in solutions %}<li><a href="/solutions/{{ s.id }}">{{ s.name }}</a>{% if s.summary %} <span class="muted">{{ s.summary }}</span>{% endif %}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">이 {{ ont.label("bm") }}에 든 솔루션이 없습니다.</p>{% endif %}
-</section>
-<section class="card">
-  <h2>이 {{ ont.label("bm") }}을 따르는 {{ ont.label("project") }}</h2>
-  {% if projects %}<ul>{% for p in projects %}<li><a href="/projects/{{ p.id }}">{{ p.name }}</a> <span class="muted">{{ p.customer.name }}</span></li>{% endfor %}</ul>
-  {% else %}<p class="muted">따르는 {{ ont.label("project") }}가 없습니다.</p>{% endif %}
-</section>
-<section class="card">
-  <h2>이 {{ ont.label("bm") }}으로 접근하는 {{ ont.label("opportunity") }}</h2>
-  {% if opportunities %}<ul>{% for o in opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }} <span class="muted">{{ o.customer.name }}</span></li>{% endfor %}</ul>
-  {% else %}<p class="muted">접근하는 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
-  {% if projects or opportunities %}<p class="muted help">{{ ont.OPPORTUNITY_RULES.bm_delete }}.</p>{% endif %}
-</section>
+{{ related_card(related) }}
+{% if has_dependents %}<p class="muted help">{{ ont.OPPORTUNITY_RULES.bm_delete }}.</p>{% endif %}
 {% endblock %}

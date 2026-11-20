@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import labels, ontology, opportunities as opps
+from app import labels, ontology, opportunities as opps, relations
 from app.ai.queue import queue_position
 from app.db import get_db
 from app.deck import build_deck
@@ -23,7 +23,7 @@ from app.proposals import (
     candidate_solutions, display_title, open_section, reset_for_new_direction, section_summaries, start_job,
     step_states,
 )
-from app.routers._common import get_deletable_or_404, get_or_404, paginate, search_by_name, submitted_fields
+from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/proposals")
@@ -85,8 +85,9 @@ def list_proposals(
     q = q.strip()
     if q:
         proposals = [p for p in proposals if q in display_title(p) or q in p.customer.name]
+    proposals, flt = list_filter(db, request, "proposal", proposals)
     return render(
-        request, "proposals/list.html", pg=paginate(proposals, page), q=q,
+        request, "proposals/list.html", pg=paginate(proposals, page), q=q, flt=flt,
         status=status if status in labels.PROPOSAL_STATUSES else "",
     )
 
@@ -169,6 +170,7 @@ def _detail_page(
         notice=notice, can_delete=can_delete(user, proposal),
         position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
         customer_opportunities=opps.opportunities_of_customer(db, proposal.customer_id),
+        related=relations.related_for_page(db, proposal, user),
         summaries=section_summaries(proposal, candidates), src=SourceLookup(db), **extra,
     )
 

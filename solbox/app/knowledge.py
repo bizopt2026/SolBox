@@ -11,7 +11,7 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import checks, labels, ontology
+from app import checks, labels, ontology, relations
 from app.extract import extract_text
 from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
 from app.models import (
@@ -105,7 +105,10 @@ class KnowledgeMirror:
         }.get(type(obj))
         if render is None:
             raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}")
-        self._write(self.path_for(obj), "\n".join(render(obj)).rstrip() + "\n")
+        lines = render(obj)
+        if type(obj) in CONNECTED:
+            lines = lines + self._connections(obj)
+        self._write(self.path_for(obj), "\n".join(lines).rstrip() + "\n")
 
     def remove(self, obj) -> None:
         if isinstance(obj, Solution):
@@ -137,6 +140,40 @@ class KnowledgeMirror:
             if result.status == "ok":
                 self.write_file_text(f, file_markdown(f, result.text))
         db.commit()
+
+    # ----- 연결 구역: 화면의 "연결된 것" 과 같은 related() 에서 만든다 -----
+    def _item_ref(self, item) -> str:
+        """연결 항목 하나: 이름과 사본 경로. 사본이 없는 것은 이름만 (고객 니즈·후속 조치는 나온 활동 기록의 경로)."""
+        o = item.obj
+        try:
+            if item.type in relations.MIRRORED_TYPES or item.type in ("research_report", "suggestion"):
+                return f"{_inline(item.label)} ({self._rel(o)})"
+            if item.type in ("customer_need", "follow_up"):
+                return f"{_inline(item.label)} ({self._rel(o.activity)})"
+        except TypeError:
+            pass
+        if item.type == "proposal":
+            return f"{_inline(item.label)} (제안 건 {item.id}번)"
+        return _inline(item.label)
+
+    def _connections(self, obj) -> list[str]:
+        """"## 연결" 구역. 따라가기는 별도 읽기 세션에서 한다 (커밋된 내용을 읽고, 부르는 쪽 세션의 객체 상태를 건드리지 않는다)."""
+        session = object_session(obj)
+        if session is None:
+            return []
+        with Session(session.get_bind()) as reader:
+            found = reader.get(type(obj), obj.id)
+            if found is None:  # 아직 커밋 전인 새 항목: 연결 구역은 다음에 다시 쓸 때 채워진다
+                return []
+            groups = relations.related(reader, found, viewer=None, exclude=CARD_EXCLUDE, limit=CARD_LIMIT)
+            if not groups:
+                return []
+            out = ["", f"## {CONNECTIONS_HEADING}", ""]
+            for g in groups:
+                more = f" 외 {g.hidden}건" if g.hidden else ""
+                title = f"{g.label} (건너서)" if g.derived else g.label
+                out.append(f"- {title}: " + ", ".join(self._item_ref(i) for i in g.items) + more)
+            return out
 
     # ----- 항목별 본문 -----
     def _activity_log(self, activities: list[Activity]) -> list[str]:
@@ -331,7 +368,11 @@ class KnowledgeMirror:
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
-KNOWLEDGE_FORMAT = 5  # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM)  # "## 연결" 구역이 있는 사본
+CONNECTIONS_HEADING = "연결"
+CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
+CARD_EXCLUDE = ("R3", "R19", "R21", "R22")  # 사본이 이미 따로 적은 것(자료)과 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다)
+KNOWLEDGE_FORMAT = 6  # (6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

@@ -8,13 +8,14 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import ontology, opportunities as opps
+from app import ontology, opportunities as opps, relations
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Customer, Opportunity, Project, Solution, User
 from app.records import pick
 from app.routers._common import (
+    list_filter,
     get_deletable_or_404, get_or_404, newest_first, paginate, resync_objects, search_by_name,
 )
 from app.security import can_delete, require_user
@@ -65,8 +66,7 @@ def _submitted(values: dict, need_ids, solution_ids) -> dict:
 def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None):
     return render(
         request, "opportunities/detail.html", status_code=400 if error else 200,
-        opp=opp, error=error, needs=opps.needs_of(db, opp), solutions=sorted(opp.solutions, key=lambda s: s.name),
-        activities=newest_first(opp.activities), proposals=sorted(opp.proposals, key=lambda p: p.updated_at, reverse=True),
+        opp=opp, error=error, related=relations.related_for_page(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp),
     )
 
@@ -84,7 +84,8 @@ def list_opportunities(
     else:
         stage = ""
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)
-    return render(request, "opportunities/list.html", pg=paginate(found, page), q=q.strip(), stage=stage)
+    found, flt = list_filter(db, request, "opportunity", found)
+    return render(request, "opportunities/list.html", pg=paginate(found, page), q=q.strip(), stage=stage, flt=flt)
 
 
 @router.get("/new")

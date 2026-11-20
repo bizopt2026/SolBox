@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import breadcrumb %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("제안", "/proposals"), (title, None)) }}
@@ -79,4 +80,5 @@
 {% call section("deck", "제안서") %}
   {% include "proposals/_deck.html" %}
 {% endcall %}
+{% if related %}{{ related_card(related) }}{% endif %}
 {% endblock %}

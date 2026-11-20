@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app import labels, ontology, origin
+from app import labels, ontology, origin, relations
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft
 from app.db import get_db
@@ -22,7 +22,7 @@ from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile,
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
 )
-from app.routers._common import clear_file_targets, get_deletable_or_404, get_or_404, newest_first, paginate
+from app.routers._common import clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, paginate
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/activities")
@@ -162,7 +162,8 @@ def list_activities(
         stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (Activity.title, Activity.raw_text, Activity.summary_md))))
     if kind in labels.ACTIVITY_KINDS:
         stmt = stmt.where(Activity.kind == kind)
-    return render(request, "activities/list.html", pg=paginate(newest_first(db.scalars(stmt)), page), q=q, kind=kind)
+    rows, flt = list_filter(db, request, "activity", newest_first(db.scalars(stmt)))
+    return render(request, "activities/list.html", pg=paginate(rows, page), q=q, kind=kind, flt=flt)
 
 
 @router.get("/new")
@@ -300,7 +301,8 @@ def detail(activity_id: int, request: Request, user: User = Depends(require_user
     ))
     bundled = {o.id: o for o in db.scalars(select(Opportunity).where(Opportunity.id.in_({n.opportunity_id for n in a.needs if n.opportunity_id})))}
     return render(request, "activities/detail.html", activity=a, can_delete=can_delete(user, a), originals=originals,
-                  origin=origin.view(db, user, a), need_opportunities=bundled)
+                  origin=origin.view(db, user, a), need_opportunities=bundled,
+                  related=relations.related_for_page(db, a, user))
 
 
 @router.get("/{activity_id}/edit")

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, opportunity_badge %}
+{% from "_macros.html" import detail_head, breadcrumb, val, opportunity_badge %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ opp.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb((ont.label("opportunity"), "/opportunities"), (opp.name, None)) }}
@@ -30,22 +31,5 @@
     {% endfor %}
   </form>
 </section>
-<section class="card">
-  <h2>{{ ont.prop("opportunity", "needs") }}</h2>
-  {% if needs %}
-  <ul class="need-list">
-    {% for n in needs %}
-    <li>{{ n.content }} <span class="muted">— <a href="/activities/{{ n.activity_id }}">{{ n.activity.title or "(제목 없음)" }}</a>{% if n.activity.date %} ({{ n.activity.date }}){% endif %}</span></li>
-    {% endfor %}
-  </ul>
-  {% else %}<p class="muted">묶은 {{ ont.label("customer_need") }}가 없습니다.</p>{% endif %}
-  <a href="/opportunities/{{ opp.id }}/edit">{{ ont.label("customer_need") }} 고르기</a>
-</section>
-<section class="card">
-  <h2>{{ ont.prop("opportunity", "solutions") }}</h2>
-  {% if solutions %}<ul>{% for s in solutions %}<li><a href="/solutions/{{ s.id }}">{{ s.name }}</a>{% if s.summary %} <span class="muted">{{ s.summary }}</span>{% endif %}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">검토 중인 솔루션이 없습니다.</p>{% endif %}
-</section>
-{{ proposal_list(proposals, "/proposals/new?customer_id=" ~ opp.customer_id ~ "&opportunity_id=" ~ opp.id) }}
-{{ activity_list(activities) }}
+{{ related_card(related, [(ont.label("customer_need") ~ " 고르기", "/opportunities/" ~ opp.id ~ "/edit"), ("+ 제안 만들기", "/proposals/new?customer_id=" ~ opp.customer_id ~ "&opportunity_id=" ~ opp.id)]) }}
 {% endblock %}

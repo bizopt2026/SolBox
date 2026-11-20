@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, breadcrumb, stage_badge, val, origin_line, same_name_hint %}
+{% from "_macros.html" import detail_head, breadcrumb, val, origin_line, same_name_hint %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("파트너", "/partners"), (partner.name, None)) }}
@@ -8,10 +9,5 @@
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}
 <section class="card"><dl>{% if partner.customer %}<dt>같은 회사</dt><dd>고객 <a href="/customers/{{ partner.customer.id }}">{{ partner.customer.name }}</a></dd>{% endif %}<dt>연락처</dt><dd>{{ val(partner.contact) }}</dd><dt>소개</dt><dd>{{ val(partner.description) }}</dd><dt>메모</dt><dd>{{ val(partner.memo) }}</dd></dl></section>
-<section class="card">
-  <h2>솔루션</h2>
-  {% if partner.solutions %}<ul>{% for s in partner.solutions %}<li><a href="/solutions/{{ s.id }}">{{ s.name }}</a> {{ stage_badge(s.stage) }}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">연결된 솔루션이 없습니다.</p>{% endif %}
-</section>
-{{ activity_list(activities) }}
+{{ related_card(related) }}
 {% endblock %}

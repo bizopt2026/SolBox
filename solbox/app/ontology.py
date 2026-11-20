@@ -588,6 +588,265 @@ RELATIONS: tuple[Relation, ...] = (
 )
 
 # ======================================================================================
+# 따라가기 정의 (저장된 관계의 보는 이름, 따라가지 않는 관계, 따라가서 얻는 관계, 목록 걸러 보기)
+# 따라가는 엔진은 app/relations.py 이고, 여기에는 정의만 둔다. 저장된 관계(fk·link)는 위 RELATIONS 의
+# 물리 위치(ORM 메타데이터)로 자동으로 따라간다. JSON·글에 든 관계만 아래 RESOLVERS 에 작은 해석기를 등록한다.
+# ======================================================================================
+
+# 다른 기록 안에 들어 있는 유형 -> 그것을 담은 기록 유형 (따라갈 때는 담은 기록을 대신 쓴다)
+HOLDERS = {"suggestion": "research_report", "direction": "proposal"}
+
+# 따라가지 않는 저장된 관계와 그 이유 (비어 있지 않아야 한다)
+UNTRAVERSED = {
+    "R16": "방향은 제안 건의 JSON 안에만 있어 따라갈 대상 기록이 없다 (선택한 방향의 솔루션은 R14 로 따라간다)",
+    "R17": "근거는 방향·장·제안 안의 지식 사본 경로 글자라 대상 기록이 없다. 해석은 parse_rel / sources.py",
+}
+# 연결 목록에 올리지 않는 관계 (모든 대상에 붙어 소음이 된다). 따라가기(path_query)는 된다.
+QUIET_RELATIONS = {"R24": "작성자는 모든 핵심 대상에 붙어 연결 목록에 올리지 않는다"}
+
+# 유래 관계(R19·R22)의 짝 유형 -> origin_type 값
+ORIGIN_PARENTS = {"intake": ORIGIN_INTAKE, "research_report": ORIGIN_RESEARCH}
+# 올리기 묶음에 닿는 유형: 열 수 있는 사람만 보인다 (origin.can_open_intake)
+INTAKE_BACKED_TYPES = ("intake", "intake_file")
+
+
+def _vl(key, pairs):
+    return {(key, a, b): label for (a, b), label in pairs.items()}
+
+
+# (관계 키, 출발 유형, 도착 유형) -> 출발한 대상의 눈으로 본 한국어 이름
+VIEW_LABELS: dict[tuple[str, str, str], str] = {}
+for _key, _pairs in {
+    "R1": {("partner", "solution"): "공급하는 솔루션", ("solution", "partner"): "공급 파트너"},
+    "R2": {("customer", "project"): "프로젝트", ("project", "customer"): "고객"},
+    "R3": {("solution", "solution_file"): "자료", ("solution_file", "solution"): "솔루션"},
+    "R4": {("activity", "solution"): "솔루션", ("solution", "activity"): "활동 기록"},
+    "R5": {("activity", "customer"): "고객", ("customer", "activity"): "활동 기록"},
+    "R6": {("activity", "project"): "프로젝트", ("activity", "opportunity"): "영업기회",
+           ("project", "activity"): "활동 기록", ("opportunity", "activity"): "활동 기록"},
+    "R7": {("activity", "partner"): "파트너", ("partner", "activity"): "활동 기록"},
+    "R8": {("activity", "follow_up"): "후속 조치", ("follow_up", "activity"): "나온 활동 기록"},
+    "R9": {("activity", "customer_need"): "고객 니즈", ("customer_need", "activity"): "나온 활동 기록"},
+    "R10": {("customer_need", "customer"): "고객", ("customer", "customer_need"): "고객 니즈"},
+    "R11": {("follow_up", "user"): "담당 사용자", ("user", "follow_up"): "맡은 후속 조치"},
+    "R12": {("proposal", "customer"): "대상 고객", ("customer", "proposal"): "제안 건"},
+    "R13": {("proposal", "project"): "발판 프로젝트", ("project", "proposal"): "제안 건"},
+    "R14": {("proposal", "solution"): "조합한 솔루션", ("solution", "proposal"): "이 솔루션이 들어간 제안 건"},
+    "R15": {("proposal", "solution"): "후보에 더한 솔루션", ("solution", "proposal"): "후보로 더한 제안 건"},
+    "R18": {("research_report", "solution"): "민 솔루션", ("solution", "research_report"): "언급한 리서치 제안"},
+    "R19": {("research_report", "solution"): "등록된 솔루션", ("solution", "research_report"): "등록된 리서치 보고서"},
+    "R20": {("intake", "intake_file"): "올린 파일", ("intake_file", "intake"): "올리기 묶음"},
+    "R21": {**{("intake_file", t): "원본이 된 기록" for t in ("activity", "solution", "partner", "customer")},
+            **{(t, "intake_file"): "원본 올린 파일" for t in ("activity", "solution", "partner", "customer")}},
+    "R22": {**{("intake", t): "만들어진 기록" for t in ("activity", "solution", "partner", "customer")},
+            **{(t, "intake"): "만들어진 올리기 묶음" for t in ("activity", "solution", "partner", "customer")}},
+    "R23": {("research_run", "research_report"): "보고서", ("research_report", "research_run"): "조사 실행"},
+    "R24": {**{("user", t): "작성한 기록" for t in _CORE}, **{(t, "user"): "작성자" for t in _CORE}},
+    "R25": {("partner", "customer"): "같은 회사 고객", ("customer", "partner"): "같은 회사 파트너"},
+    "R26": {("customer_need", "opportunity"): "영업기회", ("opportunity", "customer_need"): "고객 니즈"},
+    "R27": {("opportunity", "customer"): "고객", ("customer", "opportunity"): "영업기회"},
+    "R28": {("opportunity", "solution"): "검토 솔루션", ("solution", "opportunity"): "검토 중인 영업기회"},
+    "R29": {("proposal", "opportunity"): "영업기회", ("opportunity", "proposal"): "제안 건"},
+    "R30": {("opportunity", "project"): "이어진 프로젝트", ("project", "opportunity"): "이 프로젝트가 된 영업기회"},
+    "R31": {("project", "bm"): "BM", ("bm", "project"): "따르는 프로젝트"},
+    "R32": {("opportunity", "bm"): "BM", ("bm", "opportunity"): "접근하는 영업기회"},
+    "R33": {("bm", "solution"): "솔루션", ("solution", "bm"): "BM"},
+}.items():
+    VIEW_LABELS.update(_vl(_key, _pairs))
+
+
+@dataclass(frozen=True)
+class Step:
+    """경로의 한 걸음: 저장된 관계 `rel` 을 따라간다 (reverse 면 도착 쪽에서 출발 쪽으로). `to` 는 관계의 끝이 여럿일 때 도착 유형,
+    `where` 는 도착한 기록의 속성이 같아야 한다는 조건 ((속성, 값) 묶음)."""
+    rel: str
+    reverse: bool = False
+    to: str | None = None
+    where: tuple[tuple[str, object], ...] = ()
+
+
+def _f(rel, to=None, where=()):
+    return Step(rel, False, to, tuple(where))
+
+
+def _b(rel, to=None, where=()):
+    return Step(rel, True, to, tuple(where))
+
+
+@dataclass(frozen=True)
+class Derived:
+    """따라가서 얻는 관계. 저장하지 않고 경로로만 정의한다. `paths` 는 경로 후보들(합집합), 경로의 문자열 원소는 다른 Derived 키(펼쳐 넣는다)."""
+    key: str
+    label: str  # 출발한 대상의 눈으로 본 이름
+    source: str
+    target: str
+    paths: tuple[tuple, ...]
+    direct_note: str = ""  # 한 걸음짜리 경로로 닿았을 때 붙일 말
+
+
+DERIVED: tuple[Derived, ...] = (
+    Derived("D1", "이야기된 솔루션", "customer", "solution", ((_b("R5"), _f("R4")),)),
+    Derived("D2", "제안된 솔루션", "customer", "solution", ((_b("R12"), _f("R14")),)),
+    Derived("D3", "솔루션이 들어간 제안 건", "partner", "proposal", ((_f("R1"), _b("R14")),)),
+    Derived("D4", "솔루션이 닿은 고객", "partner", "customer", ((_f("R1"), "D7"),)),
+    Derived("D5", "이야기된 프로젝트", "solution", "project", ((_b("R4"), _f("R6", "project")),)),
+    Derived("D5b", "활동에서 이야기된 영업기회", "solution", "opportunity", ((_b("R4"), _f("R6", "opportunity")),)),
+    Derived("D6", "남은 후속 조치", "customer", "follow_up", ((_b("R5"), _f("R8", where=(("done", False),))),)),
+    Derived("D7", "관심을 보인 고객", "solution", "customer",
+            ((_b("R4"), _f("R5")), (_b("R14"), _f("R12")), (_b("R28"), _f("R27")))),
+    Derived("D8", "따르는 프로젝트의 고객", "bm", "customer", ((_b("R31"), _b("R2")),)),
+    Derived("D9", "니즈가 나온 활동 기록", "opportunity", "activity", ((_b("R26"), _b("R9")),)),
+    Derived("D10", "같은 회사 고객의 프로젝트", "partner", "project", ((_f("R25"), _f("R2")),)),
+    Derived("D11", "같은 회사 고객의 영업기회", "partner", "opportunity", ((_f("R25"), _b("R27")),)),
+    Derived("D12", "같은 회사 고객에게 한 제안 건", "partner", "proposal", ((_f("R25"), _b("R12")),)),
+    Derived("D13", "같은 회사 파트너가 공급하는 솔루션", "customer", "solution", ((_b("R25"), _f("R1")),)),
+)
+DERIVED_BY_KEY = {d.key: d for d in DERIVED}
+
+# 화면이 이미 속성 줄·특수 구역으로 보여 주어 연결 목록에서 뺄 그룹 (유형 -> 관계 키 또는 "관계 키:도착 유형")
+RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
+    "solution": ("R1", "R3", "R19", "R21", "R22"),
+    "partner": ("R25", "R21", "R22"),
+    "customer": ("R25", "R21", "R22"),
+    "project": ("R2", "R30", "R31"),
+    "opportunity": ("R27", "R30", "R32"),
+    "bm": (),
+    "activity": ("R8", "R9", "R21", "R22"),
+    "proposal": ("R12", "R13", "R29"),
+}
+# 연결 목록의 그룹 순서 (앞에 둘 그룹. 나머지는 관계 번호 순)
+GROUP_ORDER: dict[str, tuple[str, ...]] = {
+    "customer": ("R2", "R27", "R12", "R5", "R10"),
+    "partner": ("R1", "R7"),
+    "solution": ("R14", "R4", "R28", "R33"),
+    "project": ("R13", "R6"),
+    "opportunity": ("R26", "R28", "R29", "R6"),
+    "bm": ("R33", "R31", "R32"),
+    "activity": ("R4", "R5", "R6", "R7"),
+}
+
+# 목록 화면의 `?<파라미터>=<번호>` 걸러 보기: (목록 유형, 파라미터) -> (기준 유형, 그룹 키). 연결 목록의 "모두 보기" 도 같은 표에서 만든다.
+LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
+    ("activity", "customer_id"): ("customer", "R5"),
+    ("activity", "solution_id"): ("solution", "R4"),
+    ("activity", "partner_id"): ("partner", "R7"),
+    ("activity", "project_id"): ("project", "R6"),
+    ("activity", "opportunity_id"): ("opportunity", "R6"),
+    ("proposal", "customer_id"): ("customer", "R12"),
+    ("proposal", "solution_id"): ("solution", "R14"),
+    ("proposal", "project_id"): ("project", "R13"),
+    ("proposal", "opportunity_id"): ("opportunity", "R29"),
+    ("proposal", "partner_id"): ("partner", "D3"),
+    ("opportunity", "customer_id"): ("customer", "R27"),
+    ("opportunity", "bm_id"): ("bm", "R32"),
+    ("opportunity", "solution_id"): ("solution", "R28"),
+    ("project", "customer_id"): ("customer", "R2"),
+    ("project", "bm_id"): ("bm", "R31"),
+    ("solution", "partner_id"): ("partner", "R1"),
+    ("solution", "bm_id"): ("bm", "R33"),
+    ("solution", "opportunity_id"): ("opportunity", "R28"),
+}
+
+# ---- JSON·글에 든 관계의 해석기 ----
+# (관계 키, 출발 유형, 도착 유형) -> 함수(db, 출발 번호들) -> [(출발 번호, 도착 번호, 덧붙임|None)]. 모델은 늦게 불러온다.
+RESOLVERS: dict[tuple[str, str, str], object] = {}
+
+
+def _resolver(rel, src, dst):
+    def deco(fn):
+        RESOLVERS[(rel, src, dst)] = fn
+        return fn
+    return deco
+
+
+def _scan(db, model, column, ids, reverse):
+    """JSON 번호 목록 열을 훑어 (담은 기록 번호, 가리키는 번호) 쌍을 만든다. 거꾸로는 모든 행을 훑는다 (행이 적은 표에서만 쓴다)."""
+    from sqlalchemy import select
+
+    out = []
+    for row_id, values in db.execute(select(model.id, column)):
+        for v in values or []:
+            if isinstance(v, int):
+                out.append((v, row_id) if reverse else (row_id, v))
+    wanted = set(ids)
+    return [pair for pair in out if pair[0] in wanted]
+
+
+@_resolver("R15", "proposal", "solution")
+def _r15_forward(db, ids):  # proposals.extra_solution_ids (JSON, 직접 추가한 후보)
+    from app.models import Proposal
+
+    return [(a, b, None) for a, b in _scan(db, Proposal, Proposal.extra_solution_ids, ids, False)]
+
+
+@_resolver("R15", "solution", "proposal")
+def _r15_reverse(db, ids):
+    from app.models import Proposal
+
+    return [(a, b, None) for a, b in _scan(db, Proposal, Proposal.extra_solution_ids, ids, True)]
+
+
+def _suggestion_hits(db, report_ids=None):
+    from sqlalchemy import select
+
+    from app.models import ResearchReport
+
+    stmt = select(ResearchReport.id, ResearchReport.suggestions)
+    for rid, suggestions in db.execute(stmt):
+        if report_ids is not None and rid not in report_ids:
+            continue
+        for n, sug in enumerate(suggestions or []):
+            for sid in sug.get("solution_ids") or []:
+                if isinstance(sid, int):
+                    yield rid, sid, {"title": sug.get("title") or "(제목 없음)", "kind": sug.get("kind", ""), "n": n}
+
+
+@_resolver("R18", "research_report", "solution")
+def _r18_forward(db, ids):  # research_reports.suggestions[].solution_ids (JSON)
+    return [(rid, sid, meta) for rid, sid, meta in _suggestion_hits(db, set(ids))]
+
+
+@_resolver("R18", "solution", "research_report")
+def _r18_reverse(db, ids):
+    wanted = set(ids)
+    return [(sid, rid, meta) for rid, sid, meta in _suggestion_hits(db) if sid in wanted]
+
+
+def _r21_pairs(db, ids, target_type, reverse):
+    from sqlalchemy import select
+
+    from app.models import IntakeFile
+
+    stmt = select(IntakeFile.id, IntakeFile.target_id).where(IntakeFile.target_type == target_type, IntakeFile.target_id.is_not(None))
+    pairs = [(fid, tid) for fid, tid in db.execute(stmt)]
+    wanted = set(ids)
+    if reverse:
+        return [(tid, fid, None) for fid, tid in pairs if tid in wanted]
+    return [(fid, tid, None) for fid, tid in pairs if fid in wanted]
+
+
+for _t in ("activity", "solution", "partner", "customer"):  # intake_files.target_type/target_id (글: 종류+번호)
+    RESOLVERS[("R21", "intake_file", _t)] = (lambda db, ids, _t=_t: _r21_pairs(db, ids, _t, False))
+    RESOLVERS[(("R21"), _t, "intake_file")] = (lambda db, ids, _t=_t: _r21_pairs(db, ids, _t, True))
+# 해석기가 JSON·글 기반임을 표시한다 (화면과 문서가 "글에서 찾음" 으로 구분한다)
+JSON_BACKED = {"R15", "R18", "R21"}
+
+
+def related(db, obj, *, viewer=None, exclude=None, limit: int = 10):
+    """`obj` 에서 연결된 것을 그룹별로: 저장된 관계(양방향) 다음에 따라가서 얻는 관계. app/relations.py 가 따라간다."""
+    from app import relations
+
+    return relations.related(db, obj, viewer=viewer, exclude=exclude, limit=limit)
+
+
+def path_query(db, start, keys):
+    """`start` 에서 관계 키들(예: ["R1", "R14", "R12"], 끝 유형은 "R6:project", 따라가서 얻는 관계는 "D7")을 차례로 따라가 닿은 기록들."""
+    from app import relations
+
+    return relations.path_query(db, start, keys)
+
+
+# ======================================================================================
 # 규칙
 # ======================================================================================
 

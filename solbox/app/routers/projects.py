@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import ontology, opportunities as opps
+from app import ontology, opportunities as opps, relations
 from app.db import get_db
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import BM, Activity, Customer, Project, User
 from app.routers._common import (
+    list_filter,
     activities_linked_to, get_deletable_or_404, get_or_404, name_error, newest_first, submitted_fields,
     resync_activities, resync_objects, resync_related, search_by_name, paginate,
 )
@@ -59,7 +60,8 @@ def list_projects(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     projects = search_by_name(db, Project, q, Customer.name, joins=(Project.customer,))
-    return render(request, "projects/list.html", pg=paginate(projects, page), q=q.strip())
+    projects, flt = list_filter(db, request, "project", projects)
+    return render(request, "projects/list.html", pg=paginate(projects, page), q=q.strip(), flt=flt)
 
 
 @router.get("/new")
@@ -95,8 +97,7 @@ def detail(project_id: int, request: Request, user: User = Depends(require_user)
     project = get_or_404(db, Project, project_id)
     return render(
         request, "projects/detail.html", project=project,
-        activities=newest_first(activities_linked_to(db, Activity.projects, project)),
-        proposals=sorted(project.proposals, key=lambda p: p.updated_at, reverse=True),
+        related=relations.related_for_page(db, project, user),
         opportunity=opps.opportunity_of_project(db, project),
         can_delete=can_delete(user, project),
     )

@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
+from app import ontology, relations
 from app.knowledge import KnowledgeMirror
 from app.opportunities import dependents
 from app.models import BM, Activity, Customer, CustomerNeed, IntakeFile, Opportunity, Partner, Project, Solution, User
@@ -109,10 +110,37 @@ def resync_related(db: Session, mirror: KnowledgeMirror, obj) -> None:
         related = dependents(db, obj)
     else:
         return
-    related = [item for item in related if item is not None]
-    for item in related:
+    # 정의(레지스트리)로 한 걸음 닿는 사본 기록도 함께: 양쪽 카드의 "## 연결" 구역이 새 관계를 따라간다 (따라가서 얻는 구역은 조금 늦을 수 있다:
+    # 그 카드가 다시 쓰일 때나 `rebuild-knowledge` 때 맞춰진다)
+    seen: set = set()
+    for item in [*related, *relations.mirror_neighbors(db, obj)]:
+        if item is None or (type(item), item.id) in seen:
+            continue
+        seen.add((type(item), item.id))
         db.refresh(item)
         mirror.sync(item)
+
+
+def list_filter(db: Session, request: Request, list_type: str, rows) -> tuple[list, list[dict]]:
+    """목록 화면의 `?customer_id=` 같은 걸러 보기 (정의는 ontology.LIST_FILTERS, 뜻은 연결 목록의 "모두 보기" 와 같다).
+    숫자가 아니거나 없는 번호면 빈 목록이고 오류가 아니다. (걸러진 목록, 화면에 보일 걸러 보기 안내들)."""
+    rows, notes = list(rows), []
+    for (lt, param), (owner, _key) in ontology.LIST_FILTERS.items():
+        raw = request.query_params.get(param)
+        if lt != list_type or raw in (None, ""):
+            continue
+        keep = set(relations.filter_ids(db, lt, param, raw) or [])
+        rows = [r for r in rows if r.id in keep]
+        text = raw.strip()
+        found = db.get(ontology.TYPES[owner].model, int(text)) if text.isascii() and text.isdecimal() and len(text) <= 18 else None
+        name = getattr(found, "name", None) or getattr(found, "title", None) or ""
+        rest = [(k, v) for k, v in request.query_params.multi_items() if k not in (param, "page")]
+        from urllib.parse import urlencode
+
+        clear = ontology.TYPES[list_type].list_url + (f"?{urlencode(rest)}" if rest else "")
+        notes.append({"label": f"{ontology.label(owner)} '{name}'" if found is not None else f"{ontology.label(owner)} {raw[:20]} (없는 항목)",
+                      "param": param, "value": raw, "clear": clear})
+    return rows, notes
 
 
 def newest_first(activities) -> list[Activity]:

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, empty_list, pager %}
+{% from "_macros.html" import filter_note, filter_hidden, list_head, empty_list, pager %}
 {% block title %}제안{% endblock %}
 {% block content %}
-{{ list_head("제안", pg, q or status, "/proposals/new", "+ 제안 만들기") }}
+{{ list_head("제안", pg, q or status or flt, "/proposals/new", "+ 제안 만들기") }}
+{{ filter_note(flt) }}
 <form method="get" action="/proposals" class="row">
+  {{ filter_hidden(flt) }}
   <label>검색 <input type="search" name="q" value="{{ q }}"></label>
   <label>상태
     <select name="status">
@@ -30,5 +32,5 @@
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or status, "아직 등록된 제안 건이 없습니다.", "/proposals/new", "+ 제안 만들기") }}{% endif %}
+{% else %}{{ empty_list(q or status or flt, "아직 등록된 제안 건이 없습니다.", "/proposals/new", "+ 제안 만들기") }}{% endif %}
 {% endblock %}

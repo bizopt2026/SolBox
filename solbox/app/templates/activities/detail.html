@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import detail_head, breadcrumb, val, origin_line %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("활동 기록", "/activities"), ((activity.title or "(제목 없음)"), None)) }}
@@ -9,13 +10,9 @@
   <dl>
     <dt>{{ ont.prop("activity", "kind") }}</dt><dd>{{ labels.ACTIVITY_KINDS.get(activity.kind, activity.kind) }}</dd>
     <dt>{{ ont.prop("activity", "date") }}</dt><dd>{{ val(activity.date) }}</dd>
-    <dt>솔루션</dt><dd>{% for o in activity.solutions %}<a href="/solutions/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
-    <dt>고객</dt><dd>{% for o in activity.customers %}<a href="/customers/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
-    <dt>{{ ont.label("project") }}</dt><dd>{% for o in activity.projects %}<a href="/projects/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
-    <dt>파트너</dt><dd>{% for o in activity.partners %}<a href="/partners/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
-    <dt>{{ ont.label("opportunity") }}</dt><dd>{% for o in activity.opportunities %}<a href="/opportunities/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">없음</span>{% endfor %}</dd>
   </dl>
 </section>
+{{ related_card(related) }}
 {% if activity.summary_md %}
 <section class="card"><h2>{{ ont.prop("activity", "summary_md") }}</h2><div class="md">{{ activity.summary_md | md }}</div></section>
 {% endif %}

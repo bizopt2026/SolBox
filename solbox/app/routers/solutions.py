@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app import labels, ontology, origin
+from app import labels, ontology, origin, relations
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app.db import get_db
@@ -15,6 +15,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Partner, Solution, User
 from app.routers._common import (
+    list_filter,
     activities_linked_to, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, paginate,
     resync_activities, resync_objects, resync_related, search_by_name,
 )
@@ -41,8 +42,7 @@ def detail_page(request: Request, db: Session, user: User, solution: Solution, n
         request, "solutions/detail.html",
         solution=solution, notice=notice,
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
-        activities=newest_first(activities_linked_to(db, Activity.solutions, solution)),
-        proposals=sorted(solution.proposals, key=lambda p: p.updated_at, reverse=True),
+        related=relations.related_for_page(db, solution, user),
         can_delete=can_delete(user, solution), origin=origin.view(db, user, solution),
     )
 
@@ -81,7 +81,8 @@ def list_solutions(
     solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags)
     if stage:
         solutions = [s for s in solutions if s.stage == stage]
-    return render(request, "solutions/list.html", pg=paginate(solutions, page), q=q.strip(), stage=stage)
+    solutions, flt = list_filter(db, request, "solution", solutions)
+    return render(request, "solutions/list.html", pg=paginate(solutions, page), q=q.strip(), stage=stage, flt=flt)
 
 
 @router.get("/new")

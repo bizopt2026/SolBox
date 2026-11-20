@@ -1,0 +1,38 @@
+{# 공통 연결 구역: related() 의 그룹들을 그린다. 저장된 관계 먼저, 그 다음 "건너서 연결된 것"(따라가서 얻는 관계).
+   groups = relations.related_for_page(...), actions = [(글, 주소)] 는 이 화면에서 새로 이을 수 있는 것 #}
+{% macro rel_group(g) %}
+<div class="rel-group">
+  <h3>{{ g.label }} <span class="count">{{ g.total }}</span></h3>
+  <ul class="rel-list">
+    {% for i in g.items %}
+    <li class="{{ 'done' if i.done }}">{% if i.url %}<a href="{{ i.url }}">{{ i.label }}</a>{% else %}<span>{{ i.label }}</span>{% endif %}
+      {% if i.badge %}<span class="badge {{ i.badge[0] }}">{{ i.badge[1] }}</span>{% endif %}
+      {% if i.note %}<span class="muted rel-note">{{ i.note }}</span>{% endif %}
+      {% if i.via %}<span class="muted rel-via">{{ i.via }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% if g.hidden %}<p class="muted rel-more">외 {{ g.hidden }}건{% if g.more_url %} · <a href="{{ g.more_url }}">모두 보기</a>{% endif %}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro related_card(groups, actions=()) %}
+{% set stored = groups | rejectattr("derived") | list %}
+{% set via = groups | selectattr("derived") | list %}
+<section class="card related">
+  <h2>연결된 것</h2>
+  {% for g in stored %}{{ rel_group(g) }}{% endfor %}
+  {% if via %}
+    {% if via | length > 3 %}
+    <details class="related-derived">
+      <summary>건너서 연결된 것 <span class="muted">{{ via | length }}가지</span></summary>
+      {% for g in via %}{{ rel_group(g) }}{% endfor %}
+    </details>
+    {% else %}
+    <h3 class="related-sub">건너서 연결된 것</h3>
+    {% for g in via %}{{ rel_group(g) }}{% endfor %}
+    {% endif %}
+  {% endif %}
+  {% if not groups %}<p class="muted">아직 연결된 것이 없습니다.</p>{% endif %}
+  {% if actions %}<p class="related-actions">{% for label, url in actions %}<a href="{{ url }}">{{ label }}</a>{% endfor %}</p>{% endif %}
+</section>
+{% endmacro %}

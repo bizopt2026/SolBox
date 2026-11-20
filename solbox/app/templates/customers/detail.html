@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import activity_list, detail_head, proposal_list, breadcrumb, val, origin_line, same_name_hint, opportunity_badge %}
+{% from "_macros.html" import detail_head, breadcrumb, val, origin_line, same_name_hint %}
+{% from "_related.html" import related_card %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block content %}
 {{ breadcrumb(("고객", "/customers"), (customer.name, None)) }}
@@ -8,18 +9,5 @@
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("파트너", same_name.name, "/customers/" ~ customer.id ~ "/same-company", "partner_id", same_name.id) }}{% endif %}
 <section class="card"><dl>{% if customer.partner %}<dt>같은 회사</dt><dd>파트너 <a href="/partners/{{ customer.partner.id }}">{{ customer.partner.name }}</a></dd>{% endif %}<dt>업종</dt><dd>{{ val(customer.industry) }}</dd><dt>연락처</dt><dd>{{ val(customer.contact) }}</dd><dt>메모</dt><dd>{{ val(customer.memo) }}</dd></dl></section>
-<section class="card">
-  <h2>{{ ont.label("project") }}</h2>
-  {% if projects %}<ul>{% for b in projects %}<li><a href="/projects/{{ b.id }}">{{ b.name }}</a> {{ b.status }}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">등록된 프로젝트가 없습니다.</p>{% endif %}
-  <a href="/projects/new?customer_id={{ customer.id }}">+ 프로젝트 등록</a>
-</section>
-<section class="card">
-  <h2>{{ ont.label("opportunity") }}</h2>
-  {% if opportunities %}<ul>{% for o in opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">등록된 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
-  <a href="/opportunities/new?customer_id={{ customer.id }}">+ {{ ont.label("opportunity") }} 만들기</a>
-</section>
-{{ proposal_list(proposals, "/proposals/new?customer_id=" ~ customer.id) }}
-{{ activity_list(activities) }}
+{{ related_card(related, [("+ 프로젝트 등록", "/projects/new?customer_id=" ~ customer.id), ("+ " ~ ont.label("opportunity") ~ " 만들기", "/opportunities/new?customer_id=" ~ customer.id), ("+ 제안 만들기", "/proposals/new?customer_id=" ~ customer.id)]) }}
 {% endblock %}
