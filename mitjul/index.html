@@ -3568,6 +3568,11 @@ body[data-theme="dark"] .pen-tr span{background:#2C2440;color:#C9B2EE}
 body[data-theme="dark"] .pen-k,body[data-theme="dark"] .wk-pen{color:#B9A6E0}
 
 .wh-none{padding:22px 16px;border-radius:16px;border:1px dashed var(--line);background:var(--card);text-align:center;font-size:13px;line-height:1.7;color:var(--muted)}
+
+.pen-b b,.wh-w b,.wk-title{text-wrap:balance}
+.wh-w em .wk-pen{font-weight:600}
+.pen-b b .nw{white-space:nowrap}
+.wh-w b{word-break:keep-all}
 </style>
 </head>
 <body>
@@ -3718,7 +3723,7 @@ function render(){
   if (S.view in stMap) { if (S.view === 'archive') S.recTab = 'talks'; else if (S.view === 'quotes') S.recTab = 'quotes'; else if (S.view === 'gift') S.giftOpen = true; S.view = 'home'; }
   const tabs = $('#tabs');
   tabs.style.display = S.view === 'chat' || S.view === 'visit' ? 'none' : '';
-  const ht = { library: '밑줄채집', quotes: '밑줄사유', archive: '밑줄사유', trophy: '밑줄각인', gift: '밑줄나눔', journey: '밑줄 여정', book: S.docs[S.bookId] ? splitTitle(S.docs[S.bookId].title).main : '', quote: '밑줄', talk: '사유', report: '독서 결산', search: '찾기', stats: '밑줄 현황', write: '여백의 글방', work: S.docs[S.workId] ? `${WK_TYPE[S.docs[S.workId].type] || '원고'}` : '여백의 원고' }[S.view] || '';
+  const ht = { library: '밑줄채집', quotes: '밑줄사유', archive: '밑줄사유', trophy: '밑줄각인', gift: '밑줄나눔', journey: '밑줄 여정', book: S.docs[S.bookId] ? splitTitle(S.docs[S.bookId].title).main : '', quote: '밑줄', talk: '사유', report: '독서 결산', search: '찾기', stats: '밑줄 현황', write: '여백의 글방', work: S.docs[S.workId] ? `${WK_TYPE[S.docs[S.workId].type] || '원고'}` : WR.id === S.workId && WR.spec ? WK_TYPE[WR.spec.type] || '원고' : '여백의 원고' }[S.view] || '';
   const SEC = { journey: '여정', library: '채집', quotes: '사유', archive: '사유', trophy: '각인', gift: '나눔' }[S.view];
   const br = document.querySelector('.top .brand');
   const detailHd = !SEC && !['visit', 'chat', 'home'].includes(S.view);
@@ -6510,7 +6515,7 @@ function workView(){
     const { title, paras } = parseWork(WR.text, spec);
     return `<div class="wk"><div class="wk-meta">${meta}</div><h1 class="wk-title" id="wkTitle">${live ? (/^(?:제목\s*[:：]|#)/.test(WR.text.trim()) ? esc(title) : '<span class="wk-wait">여백이가 쓰고 있어요</span>') : '글을 받지 못했어요'}</h1>
       <article class="wk-paper"><div class="wk-body" id="wkBody">${live ? wkBodyHTML(paras, true) : `<p class="wk-err">${WR.err === 'rate' ? '요청이 많아요. 잠시 후 다시 맡겨 주세요.' : WR.err === 'stop' ? '쓰기를 멈췄어요.' : '여백이가 글을 마치지 못했어요.'}</p>`}</div></article>
-      ${live ? `<div class="wk-run"><span class="wk-ink"><i></i><i></i><i></i></span><span>${WR.pen ? '좋아하는 작가들의 문장을 살피며 필력을 다듬는 중' : `사유 ${spec.sources.length}개를 읽고 한 문장씩 엮는 중`}</span><button data-action="wStop">멈추기</button></div>`
+      ${live ? `<div class="wk-run"><span class="wk-ink"><i></i><i></i><i></i></span><span>${WR.pen ? '좋아하는 작가의 문장을 살피는 중' : `사유 ${spec.sources.length}개를 읽고 한 문장씩 엮는 중`}</span><button data-action="wStop">멈추기</button></div>`
         : `<div class="wk-acts one"><button class="btn accent" data-action="wRetry">다시 맡기기</button></div>`}</div>`;
   }
   if (S.wkEdit === id) return `<div class="wk"><div class="wk-meta">${meta}</div>
@@ -6589,7 +6594,7 @@ function penCard(){
   const fresh = p && p.sig === bs.sig;
   return `<section class="pen${on ? '' : ' off'}"><div class="pen-h"><span class="pen-k">여백의 필력</span>${sw}</div>
     <div class="pen-b"><span class="pen-cv">${bs.books.map(b => coverHTML(S.docs[b.bookId], 'sm')).join('')}</span>
-      <div><b>${esc(penAuthors(bs))}의 결</b><small>밑줄을 가장 많이 그은 ${bs.books.map(b => `『${esc(shortTitle(b.title, 10))}』 ${b.n}줄`).join(' · ')}</small></div></div>
+      <div><b>${[...new Set(bs.books.map(b => b.author || `『${b.title}』`))].map((a, i, l) => `<span class="nw">${esc(a)}${i === l.length - 1 ? '의 결' : ' ·'}</span>`).join(' ')}</b><small>밑줄을 가장 많이 그은 ${bs.books.map(b => `『${esc(shortTitle(b.title, 10))}』 ${b.n}줄`).join(' · ')}</small></div></div>
     ${p ? `<p class="pen-sum">“${esc(p.summary)}”</p>${(p.traits || []).length ? `<div class="pen-tr">${p.traits.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}` : '<p class="pen-sum dim">아직 문체를 살피기 전이에요. 첫 글을 맡길 때 살펴요.</p>'}
     <div class="pen-f"><small>${on ? (fresh ? `${fmtDate(p.at)}에 다듬음 · 밑줄이 쌓이면 필력도 자라요` : p ? '밑줄이 늘어 필력을 새로 다듬을 수 있어요' : '여백이가 이 문체를 참고해 써요') : '꺼 두면 담백한 기본 문체로 써요'}</small>${sample && on ? `<button data-action="penRefresh">${p ? '다시 다듬기' : '지금 다듬기'}</button>` : ''}</div></section>`;
 }
@@ -6607,12 +6612,12 @@ function writerHome(){
   return `<div class="wh">
     <div class="wh-hero"><span class="wh-av">${WK_IC.feather}</span><div><b>여백이</b><p>책 여백에 생각을 적듯,<br>나눈 사유를 당신의 목소리로 엮어 드려요.</p></div>
       <div class="wh-st"><span><b>${ts.length}</b>사유</span><span><b>${qs.length}</b>밑줄</span><span><b>${ws.length}</b>원고</span></div></div>
-    ${penCard()}
+    ${can || ws.length ? penCard() : ''}
     ${can ? `<div class="wh-go"><button data-action="wDiary"><i class="d">일기</i><b>하루를 일기로</b><small>그날의 밑줄과 사유로<br>한 편의 일기를</small></button>
       <button data-action="wEssay"><i class="e">수필</i><b>한 주제를 수필로</b><small>같은 마음에 머문 사유를<br>엮어 한 편의 수필을</small></button></div>`
       : `<div class="wh-empty">아직 글감이 없어요. 밑줄을 긋고 선명이와 사유를 나누면<br>여백이가 그 이야기로 글을 써 드려요.</div>`}
-    <div class="sp-lb">나의 원고 <span>${ws.length}</span></div>
-    ${ws.length ? `<div class="wh-list">${ws.map(w => `<button class="wh-w" data-action="wOpen" data-id="${esc(w.id)}"><span class="wk-tag ${w.type}">${WK_TYPE[w.type] || '글'}</span><b>${esc(w.title)}</b><small>${ex(w)}…</small><em>${w.type === 'diary' && w.date ? dayLabel(w.date).replace(/^\d{4}년 /, '') : fmtDate(w.updatedAt)} · 재료 ${(w.sources || []).length}개</em></button>`).join('')}</div>`
+    ${!can && !ws.length ? '' : `<div class="sp-lb">나의 원고 <span>${ws.length}</span></div>`}
+    ${!can && !ws.length ? '' : ws.length ? `<div class="wh-list">${ws.map(w => `<button class="wh-w" data-action="wOpen" data-id="${esc(w.id)}"><span class="wk-tag ${w.type}">${WK_TYPE[w.type] || '글'}</span><b>${esc(w.title)}</b><small>${ex(w)}…</small><em>${[w.type === 'diary' && w.date ? dayLabel(w.date).replace(/^\d{4}년 /, '') : fmtDate(w.updatedAt), w.type === 'essay' && w.theme ? `주제 · ${esc(w.theme)}` : '', `재료 ${(w.sources || []).length}개`].filter(Boolean).join(' · ')}${w.pen ? ` <span class="wk-pen">· ${esc(w.pen)}의 결</span>` : ''}</em></button>`).join('')}</div>`
       : '<div class="wh-none">아직 쓴 원고가 없어요.<br>위에서 일기나 수필을 여백이에게 맡겨 보세요.</div>'}
     <p class="dn-tip">여백이는 당신이 고른 사유만 읽어요. 글은 내 기록에만 저장되고,<br>쓸 때마다 Claude 사용량을 조금 써요.</p>
   </div>`;
