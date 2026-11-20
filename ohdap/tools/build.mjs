@@ -15,6 +15,7 @@ export const FILES = [
   'src/column.js',
   'src/ai.js',
   'src/store.js',
+  'src/speaker.js',
   'src/main.js'
 ];
 
