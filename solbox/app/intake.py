@@ -42,6 +42,7 @@ HINT_MAX_CHARS = 200  # 받아쓰기 힌트(초기 프롬프트) 전체 글자 �
 HINT_NOTE_CHARS = 80
 TRANSCRIPT_SUFFIX = ".transcript.txt"
 TRANSCRIPT_HEADER = "#model: "
+TRANSCRIPT_LANGUAGE = "#language: "
 AUDIO_LISTED_KIND = "음성(받아쓰기)"
 
 _EXT = re.compile(r"\.[a-z0-9]{1,10}")
@@ -210,22 +211,22 @@ def transcript_cache_path(settings: Settings, f: IntakeFile) -> Path:
     return stored_path(settings, f).with_name(f.stored_name + TRANSCRIPT_SUFFIX)
 
 
-def read_transcript_cache(settings: Settings, f: IntakeFile, model: str) -> str | None:
-    """저장해 둔 받아쓴 글. 없거나 다른 모델이 받아쓴 것이면 None."""
+def read_transcript_cache(settings: Settings, f: IntakeFile, model: str, language: str = "") -> str | None:
+    """저장해 둔 받아쓴 글. 없거나 다른 모델·다른 언어 설정으로 받아쓴 것이면 None. (`f` 는 `stored_name` 등을 가진 어떤 객체든 된다.)"""
     try:
-        head, _, body = transcript_cache_path(settings, f).read_text(encoding="utf-8").partition("\n")
-    except OSError:
+        head, lang, body = transcript_cache_path(settings, f).read_text(encoding="utf-8").split("\n", 2)
+    except (OSError, ValueError):
         return None
-    if head != TRANSCRIPT_HEADER + model:
+    if head != TRANSCRIPT_HEADER + model or lang != TRANSCRIPT_LANGUAGE + language:
         return None
     return body.strip() or None
 
 
-def write_transcript_cache(settings: Settings, f: IntakeFile, model: str, text: str) -> None:
+def write_transcript_cache(settings: Settings, f: IntakeFile, model: str, text: str, language: str = "") -> None:
     path = transcript_cache_path(settings, f)
     tmp = path.with_name(path.name + ".tmp")
     try:
-        tmp.write_text(f"{TRANSCRIPT_HEADER}{model}\n{text}\n", encoding="utf-8")
+        tmp.write_text(f"{TRANSCRIPT_HEADER}{model}\n{TRANSCRIPT_LANGUAGE}{language}\n{text}\n", encoding="utf-8")
         tmp.replace(path)
     except OSError:
         tmp.unlink(missing_ok=True)
@@ -250,7 +251,7 @@ def _prepare_audio(settings: Settings, f: IntakeFile, number: int, folder: Path,
     if not transcriber.available():
         f.read_status = "needs_transcript"
         return ""
-    cached = read_transcript_cache(settings, f, transcriber.model_name())
+    cached = read_transcript_cache(settings, f, transcriber.model_name(), transcriber.language_name())
     if cached:
         f.read_status = "ok"
         return write_audio_copy(folder, number, f, cached)
@@ -386,6 +387,9 @@ def needs_prepare(settings: Settings, intake: Intake) -> bool:
     """작업 폴더 준비가 끝나지 않았거나(읽기 상태가 비었거나 읽지 못함) 파일목록이 없으면 True."""
     if any(f.read_status in ("", "failed") for f in intake.files):
         return True
+    if intake.status not in ("applied", "discarded") and any(f.kind == "audio" and f.read_status == "needs_transcript" for f in intake.files):
+        if transcribe.get(settings).available():  # 엔진을 나중에 켰다: 받아쓰기 필요였던 음성을 대기로 바꾼다
+            return True
     return not (work_dir(settings, intake) / FILE_LIST_NAME).is_file()
 
 
@@ -715,6 +719,9 @@ def start_analysis(db: Session, intake: Intake, user: User) -> bool:
         db.rollback()
         db.refresh(intake)
         return False
+    # 새 정리를 시작하면 지난 받아쓰기의 퍼센트·실패 이유는 지운다 (묵은 값이 화면에 남지 않게)
+    db.execute(update(IntakeFile).where(IntakeFile.intake_id == intake_id, IntakeFile.kind == "audio")
+               .values(progress=None, read_error=None))
     db.commit()
     db.refresh(intake)
     return True
@@ -880,8 +887,15 @@ def kept_follow_up_positions(item: dict, v: dict) -> list[int]:
     """폼의 후속 조치 줄 번호(위치) 중 저장할 것. `v["fu_drop"]` 은 정리안에서 표시된 행 번호(빈 할 일을 뺀 줄 순서가
     아니라 초안의 행 번호)이므로, 표시된 행이 폼에서 몇 번째 줄인지 정리안의 초안으로 센다."""
     rows = (item.get("draft") or {}).get("follow_ups", [])
-    drop_positions = {sum(1 for r in rows[:n] if str(r.get("task", "")).strip()) for n in v.get("fu_drop", ())
-                      if n < len(rows) and str(rows[n].get("task", "")).strip()}
+    tasks = v.get("fu_task", [])
+    drop_positions = set()
+    for n in v.get("fu_drop", ()):
+        if n >= len(rows) or not str(rows[n].get("task", "")).strip():
+            continue
+        pos = sum(1 for r in rows[:n] if str(r.get("task", "")).strip())
+        # 그 줄의 글을 사용자가 고쳐 다른 할 일이 됐다면 빼지 않는다
+        if pos < len(tasks) and " ".join(str(tasks[pos]).split()) == " ".join(str(rows[n]["task"]).split()):
+            drop_positions.add(pos)
     return [i for i in range(len(v["fu_task"])) if i not in drop_positions]
 
 

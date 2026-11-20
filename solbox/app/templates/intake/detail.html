@@ -27,9 +27,10 @@
     {% for f in intake.files %}
       {% set active = intake.status not in ("applied", "discarded") %}
       {% set audio_note = f.read_status == "needs_transcript" and active %}
-      {% set status_text = ("받아쓰는 중 " ~ f.progress ~ "%") if (f.read_status == "pending_transcript" and f.progress is not none and intake.status == "analyzing") else labels.READ_STATUSES.get(f.read_status, f.read_status) %}
-      {% set fail_note = f.kind == "audio" and f.read_status == "failed" and (f.read_error or active) %}
-      {% set note_html %}{% if audio_note %}<span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% elif fail_note %}<span class="file-note">{{ f.read_error or "" }}{% if f.read_error and active %} · {% endif %}{% if active %}다시 정리를 누르면 다시 받아씁니다.{% endif %}</span>{% endif %}{% endset %}
+      {% set status_text = ("받아쓰는 중 " ~ f.progress ~ "%") if (f.read_status == "pending_transcript" and f.progress is not none and intake.status == "analyzing" and intake.job is not none and intake.job.status == "running") else labels.READ_STATUSES.get(f.read_status, f.read_status) %}
+      {% set redo = active and intake.status != "analyzing" %}
+      {% set fail_note = f.kind == "audio" and f.read_status == "failed" and (f.read_error or redo) %}
+      {% set note_html %}{% if audio_note and can_transcribe %}<span class="file-note">이제 음성을 받아쓸 수 있어요. 다시 정리를 눌러 주세요.</span>{% elif audio_note %}<span class="file-note">받아쓰기 필요 · 글자로 풀어 올려 주세요</span>{% elif fail_note %}<span class="file-note">{{ f.read_error or "" }}{% if f.read_error and redo %} · {% endif %}{% if redo %}다시 정리를 누르면 다시 받아씁니다.{% endif %}</span>{% endif %}{% endset %}
       <tr>
         <td class="col-num">{{ loop.index }}</td>
         <td>{{ f.original_name }}

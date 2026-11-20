@@ -66,6 +66,10 @@ def _result_of(intake: Intake, wanted) -> list[dict]:
 def detail_page(request: Request, user: User, intake: Intake, db: Session, notice: str = "",
                 skipped: list[str] | None = None, status_code: int = 200, form: FormData | None = None):
     ready = intake.status == "ready"
+    # 엔진이 꺼져 있을 때 올린 음성이 있고 지금은 받아쓸 수 있으면, 다시 정리를 누르라고 안내한다
+    can_transcribe = (intake.status not in ("analyzing", "applied", "discarded")
+                      and any(f.kind == "audio" and f.read_status == "needs_transcript" for f in intake.files)
+                      and transcribe.get(request.app.state.settings).available())
     ctx = {}
     if ready:
         ctx = dict(
@@ -78,7 +82,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
             },
         )
     return render(
-        request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice,
+        request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice, can_transcribe=can_transcribe,
         skipped=skipped or [], intake_files_transcribing=intake_lib.transcribing_file(intake),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),

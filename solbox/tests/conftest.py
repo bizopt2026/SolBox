@@ -20,6 +20,16 @@ def _no_daily_jobs(monkeypatch):
     monkeypatch.setattr(scheduler, "DAILY_JOBS", [])
 
 
+@pytest.fixture(autouse=True)
+def _keep_hf_home(monkeypatch):
+    """받아쓰기 엔진을 만들면 `HF_HOME` 이 정해진다. 시험이 끝나면 원래대로 돌린다."""
+    import os
+
+    monkeypatch.setenv("HF_HOME", os.environ.get("HF_HOME", ""))
+    if not os.environ["HF_HOME"]:
+        monkeypatch.delenv("HF_HOME")
+
+
 @pytest.fixture
 def settings(tmp_path):
     return Settings(

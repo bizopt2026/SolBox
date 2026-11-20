@@ -6,7 +6,7 @@ import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-from app.transcribe import MODEL_NAMES, TRANSCRIBERS
+from app.transcribe import MODEL_NAMES, TRANSCRIBERS, whisper_languages
 
 
 @dataclass
@@ -30,7 +30,8 @@ class Settings:
     transcribe_model: str = "small"
     transcribe_language: str = "ko"
     transcribe_threads: int = 0
-    transcribe_max_minutes: int = 180
+    transcribe_max_minutes: int = 120
+    transcribe_chunk_minutes: int = 10
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:
@@ -69,7 +70,7 @@ def _bad(key: str, why: str) -> SystemExit:
     return SystemExit(f"설정 파일의 '{key}' 값이 올바르지 않습니다: {why}")
 
 
-def _check_transcribe_settings(raw: dict, config_path: Path) -> None:
+def _check_transcribe_settings(raw: dict, config_path: Path, models_dir: Path) -> None:
     """음성 받아쓰기 설정을 검사한다. 모델이 폴더 경로면 설정 파일 기준 절대 경로로 바꿔 둔다."""
     if "transcribe_model" in raw:
         model = raw["transcribe_model"]
@@ -88,8 +89,13 @@ def _check_transcribe_settings(raw: dict, config_path: Path) -> None:
         lang = raw["transcribe_language"]
         if not isinstance(lang, str) or not lang.strip():
             raise _bad("transcribe_language", f"{lang!r} (예: \"ko\", 자동 감지는 \"auto\")")
-        raw["transcribe_language"] = lang.strip().lower()
-    for key, minimum in (("transcribe_threads", 0), ("transcribe_max_minutes", 1)):
+        lang = lang.strip().lower()
+        # 받아쓰기를 켠 경우에만 설치된 라이브러리의 언어 목록을 본다 (아니면 내장 목록)
+        known = whisper_languages(models_dir if raw.get("transcriber") == "faster-whisper" else None)
+        if lang != "auto" and lang not in known:
+            raise _bad("transcribe_language", f"{lang!r} (Whisper 언어 코드가 아닙니다. 예: \"ko\", 자동 감지는 \"auto\")")
+        raw["transcribe_language"] = lang
+    for key, minimum in (("transcribe_threads", 0), ("transcribe_max_minutes", 1), ("transcribe_chunk_minutes", 1)):
         if key in raw:
             v = raw[key]
             if isinstance(v, bool) or not isinstance(v, int) or v < minimum:
@@ -132,7 +138,7 @@ def load_settings(path: Path | None = None) -> Settings:
     if not data_dir.is_absolute():
         data_dir = path.resolve().parent / data_dir
     raw["data_dir"] = data_dir
-    _check_transcribe_settings(raw, path)
+    _check_transcribe_settings(raw, path, data_dir / "models")
     if "backup_dir" in raw:
         backup_dir = Path(raw["backup_dir"])
         if not backup_dir.is_absolute():

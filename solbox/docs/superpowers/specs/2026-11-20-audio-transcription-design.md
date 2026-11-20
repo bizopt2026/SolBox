@@ -48,9 +48,13 @@
 | `transcribe_model` | `small` | tiny, base, small, medium, large-v3, large-v3-turbo 또는 모델 폴더 경로 |
 | `transcribe_language` | `ko` | 언어 코드, 자동은 `auto` |
 | `transcribe_threads` | `0` | CPU 스레드 수, 0은 라이브러리 기본값 |
-| `transcribe_max_minutes` | `180` | 이보다 긴 음성은 실패 (안내: 나눠서 올리기) |
+| `transcribe_max_minutes` | `120` | 이보다 긴 음성은 모델을 부르기 전에 길이만 보고 실패 (안내: 나눠서 올리기) |
+| `transcribe_chunk_minutes` | `10` | 음성을 이 길이씩 나눠 받아쓴다 (메모리 한도) |
 
-옵션: VAD 켬, `condition_on_previous_text=False`(반복 루프 줄임), 힌트는 `initial_prompt`(등록 이름 최근 순 + 메모, 전체 200자 이내).
+옵션: VAD 켬, `condition_on_previous_text=False`(반복 루프 줄임). 힌트(등록 이름 최근 순 + 메모, 전체 200자 이내)는 `hotwords=` 로 준다. `initial_prompt` 는 첫 30초 창에만 적용되고 `condition_on_previous_text=False` 이면 다음 창부터 비워지므로(개발 중 확인: 창마다 프롬프트 토큰 수 [3,0,0,0]) 쓰지 않는다. `hotwords` 는 모든 창의 앞에 붙고 라이브러리가 223 토큰에서 뒤를 자른다(그래서 최근 이름이 앞에 온다). 둘을 함께 주면 첫 창에 같은 글이 두 번 들어가므로 `hotwords` 만 쓴다. 조각마다 같은 힌트를 준다.
+### 6.1 길이 확인과 조각 나누기 (메모리)
+`model.transcribe(경로)` 는 파일 전체를 한꺼번에 읽고 VAD·특징 계산까지 마친 뒤에야 돌려주므로 메모리가 녹음 길이에 비례한다(개발 중 합성 음성으로 측정: 60분 음성에 최고 3384 MB. 모델 메모리 제외). 그래서 ① PyAV 로 파일을 열어 길이(컨테이너·스트림 정보, 모르면 읽으면서 확인)를 `transcribe_max_minutes` 와 견줘 모델을 부르기 전에 거절하고, ② 16 kHz 모노로 조금씩 읽어 `transcribe_chunk_minutes` 마다 끊어(조각 끝 10초 안의 가장 조용한 50 ms 칸에서 자름) 조각을 numpy 배열로 `model.transcribe` 에 준다. 시각·진행률은 조각 시작만큼 더하고, 조각이 끝날 때마다(글이 없어도) 진행을 알려 취소(버림)도 확인한다. 언어 자동(`auto`)은 첫 조각에서 정한 언어를 나머지에 쓴다. 개발 중 합성 음성으로 측정한 최고 메모리(모델 제외): 10분 조각 845 MB, 5분 조각 548 MB. 모델은 첫 사용 때 불러온 뒤 프로세스가 끝날 때까지 메모리에 계속 올라가 있다(`_MODELS`).
+
 출력은 조각마다 한 줄, 약 60초마다 줄 앞에 `[12:00]` 표시. 화자 표시 없음.
 
 ## 7. 동시성과 대기열
@@ -75,4 +79,11 @@
 
 ## 11. 확인하지 못한 것
 - **개발 환경에서 모델을 받을 수 없어(모델 저장소 접속 차단) 실제 받아쓰기를 한 번도 돌려 보지 못했다.** 시험은 가짜 엔진으로 했고, 실제 라이브러리는 모델이 없을 때의 오류 처리까지만 확인했다.
-- 한국어 정확도, 모델별 속도, 메모리 사용, 긴 녹음의 실제 소요 시간, Windows 에서의 모델 저장(링크 대신 복사)과 오디오 형식(m4a, wma 등) 지원은 서버 PC에서 `stt-setup`, `stt-test` 와 README 수동 확인으로 직접 확인해야 한다.
+- 한국어 정확도, 모델별 속도, 실제 모델의 메모리 사용(개발 중 합성 음성으로 측정한 값은 모델을 뺀 음성 부분뿐), 긴 녹음의 실제 소요 시간, Windows 에서의 모델 저장(링크 대신 복사)과 오디오 형식(m4a, wma 등) 지원은 서버 PC에서 `stt-setup`, `stt-test` 와 README 수동 확인으로 직접 확인해야 한다.
+
+## 12. 수정 묶음에서 정한 것 (리뷰 반영)
+- **PyAV 19:** faster-whisper 1.2.1 의 `decode_audio` 가 `av.open(metadata_errors=...)` 를 부르는데 PyAV 19 는 거절(TypeError)한다. 선택 설치에 `av<19` 를 묶었다. 조각 읽기는 이 인자를 쓰지 않는 자체 PyAV 코드라 PyAV 19 에서도 돌았지만(개발 중 확인), 라이브러리의 다른 경로를 위해 핀은 유지한다.
+- **오류 분류:** 오디오 디코더(`av.error.FFmpegError` 계열, 메모리·입출력 제외)가 낸 오류만 "손상되었거나 지원하지 않는 형식"으로 안내하고, 나머지(TypeError·ImportError·AttributeError·MemoryError·OSError·모델 오류)는 "받아쓰기 프로그램 오류입니다 (종류)" 로 알리며 자세한 내용은 로그와 명령줄에만 낸다.
+- **준비 확인:** 모델 폴더에 `model.bin`(비어 있지 않음), `tokenizer.json`, `vocabulary.*` 가 있어야 준비된 것이다 (라이브러리 1.2.1 에서 하나씩 빼 보며 확인; `config.json` 은 없어도 읽힌다). 준비 확인 결과는 부를 때마다 파일을 다시 본다.
+- **엔진을 나중에 켠 경우:** `needs_transcript` 음성은 설명 화면의 안내와 "정리 시작/다시 정리" 로 `pending_transcript` 가 된다.
+- **저장본:** 받아쓴 글 파일의 머리는 `#model:` 과 `#language:` 두 줄이다.

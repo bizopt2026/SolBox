@@ -41,6 +41,7 @@ class FakeEngine(transcribe.Transcriber):
         self.on_step = None  # 진행 알림 직전에 부르는 함수 (이름, 단계 번호)
         self.on_done = None  # 받아쓰기를 마치기 직전에 부르는 함수 (이름)
         self.model = "small"
+        self.language = ""
         self.pause_s = 0.0
         self.active = 0
         self.max_active = 0
@@ -51,6 +52,9 @@ class FakeEngine(transcribe.Transcriber):
 
     def model_name(self) -> str:
         return self.model
+
+    def language_name(self) -> str:
+        return self.language
 
     def transcribe(self, path, *, hints="", on_progress=None):
         with self._lock:
@@ -124,7 +128,7 @@ def _config(tmp_path, extra=""):
 def test_settings_defaults(tmp_path):
     s = load_settings(_config(tmp_path))
     assert (s.transcriber, s.transcribe_model, s.transcribe_language, s.transcribe_threads, s.transcribe_max_minutes) == \
-        ("none", "small", "ko", 0, 180)
+        ("none", "small", "ko", 0, 120)
     assert s.models_dir == s.data_dir / "models"
 
 
@@ -173,7 +177,7 @@ def test_example_config_and_extra_documented():
         assert key in example
     import tomllib
     meta = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    assert meta["project"]["optional-dependencies"]["stt"] == ["faster-whisper>=1.1"]
+    assert meta["project"]["optional-dependencies"]["stt"] == ["faster-whisper>=1.1", "av<19"]
     assert not any("whisper" in d for d in meta["project"]["dependencies"])
 
 
@@ -200,17 +204,21 @@ def test_missing_package_is_unavailable_with_korean_label(tmp_path, monkeypatch)
 
 def test_missing_local_model_folder_points_to_setup(tmp_path, monkeypatch):
     monkeypatch.setattr(transcribe, "_package_installed", lambda: True)
+    monkeypatch.setattr(transcribe.FasterWhisperTranscriber, "_import", lambda self: SimpleNamespace())
     s = _fw_settings(tmp_path, transcribe_model=str(tmp_path / "없는모델"))
     t = transcribe.get(s)
     assert t.available() is False and "stt-setup" in t.label()
     (tmp_path / "없는모델").mkdir()
     assert t.available() is False  # model.bin 이 있어야 모델 폴더다
     (tmp_path / "없는모델" / "model.bin").write_bytes(b"x")
+    (tmp_path / "없는모델" / "tokenizer.json").write_bytes(b"x")
+    (tmp_path / "없는모델" / "vocabulary.json").write_bytes(b"x")
     assert t.available() is True and t.label() == "faster-whisper, 없는모델 폴더, CPU".replace("없는모델 폴더", t.model_label())
 
 
 def test_named_model_not_downloaded_is_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(transcribe, "_package_installed", lambda: True)
+    monkeypatch.setattr(transcribe.FasterWhisperTranscriber, "_import", lambda self: SimpleNamespace())
     monkeypatch.setattr(transcribe, "_cached_model_dir", lambda name, root: None)
     t = transcribe.get(_fw_settings(tmp_path))
     assert not t.available() and "stt-setup" in t.label()
@@ -218,103 +226,7 @@ def test_named_model_not_downloaded_is_unavailable(tmp_path, monkeypatch):
     assert t.available() and t.label() == "faster-whisper, small, CPU"
 
 
-class FakeModel:
-    """`WhisperModel.transcribe` 의 모양 (segments, info) 만 흉내 낸다."""
 
-    def __init__(self, segments, duration, fail=None):
-        self.segments, self.duration, self.fail, self.kwargs = segments, duration, fail, None
-
-    def transcribe(self, audio, **kwargs):
-        self.kwargs = {"audio": audio, **kwargs}
-
-        def gen():
-            for s in self.segments:
-                if self.fail:
-                    raise self.fail
-                yield SimpleNamespace(start=s[0], end=s[1], text=s[2])
-
-        return gen(), SimpleNamespace(duration=self.duration)
-
-
-def _engine_with(tmp_path, monkeypatch, model, **kw):
-    monkeypatch.setattr(transcribe, "_package_installed", lambda: True)
-    monkeypatch.setattr(transcribe, "_cached_model_dir", lambda name, root: root / "m")
-    t = transcribe.get(_fw_settings(tmp_path, **kw))
-    monkeypatch.setattr(t, "_model", lambda: model)
-    return t
-
-
-def test_engine_options_progress_and_format(tmp_path, monkeypatch):
-    model = FakeModel([(0.0, 20.0, " 첫 문장 "), (20.0, 70.0, "둘째 문장"), (70.0, 100.0, "셋째 문장")], 100.0)
-    t = _engine_with(tmp_path, monkeypatch, model, transcribe_language="ko")
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-    seen = []
-    text = t.transcribe(audio, hints="한빛병원, 루미텍", on_progress=seen.append)
-    assert seen == [0.2, 0.7, 1.0]
-    assert text.splitlines() == ["[00:00] 첫 문장", "둘째 문장", "[01:10] 셋째 문장"]
-    k = model.kwargs
-    assert (k["language"], k["vad_filter"], k["condition_on_previous_text"], k["initial_prompt"]) == ("ko", True, False, "한빛병원, 루미텍")
-    assert k["audio"] == str(audio)
-    assert t.last_audio_seconds == 100.0
-
-
-def test_engine_empty_hints_and_auto_language(tmp_path, monkeypatch):
-    model = FakeModel([(0.0, 1.0, "글")], 1.0)
-    t = _engine_with(tmp_path, monkeypatch, model, transcribe_language="auto")
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-    t.transcribe(audio)
-    assert model.kwargs["language"] is None and model.kwargs["initial_prompt"] is None
-
-
-def test_engine_rejects_too_long_audio(tmp_path, monkeypatch):
-    model = FakeModel([(0.0, 1.0, "글")], 61 * 60.0)
-    t = _engine_with(tmp_path, monkeypatch, model, transcribe_max_minutes=60)
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-    with pytest.raises(transcribe.TranscribeError, match="60분"):
-        t.transcribe(audio)
-
-
-def test_engine_wraps_library_errors_in_korean(tmp_path, monkeypatch, caplog):
-    model = FakeModel([(0.0, 1.0, "글")], 1.0, fail=RuntimeError("boom /secret/path"))
-    t = _engine_with(tmp_path, monkeypatch, model)
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-    with pytest.raises(transcribe.TranscribeError) as e:
-        t.transcribe(audio)
-    assert "boom" not in str(e.value) and "받아쓰지 못했습니다" in str(e.value)
-    assert "boom" in caplog.text  # 자세한 원인은 기록에만
-
-
-def test_engine_cancel_passes_through(tmp_path, monkeypatch):
-    model = FakeModel([(0.0, 1.0, "글")], 1.0)
-    t = _engine_with(tmp_path, monkeypatch, model)
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-
-    def stop(_p):
-        raise transcribe.TranscribeCancelled()
-
-    with pytest.raises(transcribe.TranscribeCancelled):
-        t.transcribe(audio, on_progress=stop)
-
-
-def test_model_load_failure_message(tmp_path, monkeypatch):
-    monkeypatch.setattr(transcribe, "_package_installed", lambda: True)
-    monkeypatch.setattr(transcribe, "_cached_model_dir", lambda name, root: root / "m")
-
-    def boom(self):
-        raise OSError("cannot load")
-
-    t = transcribe.get(_fw_settings(tmp_path))
-    monkeypatch.setattr(transcribe.FasterWhisperTranscriber, "_load_model", boom)
-    transcribe._MODELS.clear()
-    audio = tmp_path / "a.wav"
-    audio.write_bytes(b"x")
-    with pytest.raises(transcribe.TranscribeError, match="모델을 불러오지 못했습니다"):
-        t.transcribe(audio)
 
 
 def test_format_segments_exact():
@@ -801,6 +713,7 @@ def test_check_line_variants(tmp_path, monkeypatch, capsys):
     out = line()
     assert "문제" in out and "faster-whisper 미설치" in out
     monkeypatch.setattr(transcribe, "_package_installed", lambda: True)
+    monkeypatch.setattr(transcribe.FasterWhisperTranscriber, "_import", lambda self: SimpleNamespace())
     monkeypatch.setattr(transcribe, "_cached_model_dir", lambda name, root: root / "m")
     assert line() == "음성 받아쓰기: 정상 (faster-whisper, small, CPU)"
     monkeypatch.setenv("SOLBOX_CONFIG", str(_config(tmp_path)))

@@ -4,11 +4,13 @@ from __future__ import annotations
 import logging
 import time
 from datetime import date
+from types import SimpleNamespace
 
 from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ValidationError, model_validator
 from sqlalchemy import select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app import intake as intake_lib
@@ -21,6 +23,8 @@ from app.models import Customer, Intake, IntakeFile, Partner, Solution
 log = logging.getLogger(__name__)
 
 PROGRESS_INTERVAL_S = 2.0  # 받아쓰기 진행을 DB 에 적는 최소 간격
+WRITE_RETRIES = 4  # 파일 한 줄 쓰기가 DB 잠금 등으로 실패했을 때 시도 횟수
+WRITE_RETRY_SLEEP_S = 1.0
 TRANSCRIBE_UNEXPECTED = "받아쓰는 중 오류가 났습니다. 다시 정리를 눌러 보시고, 계속 안 되면 관리자에게 알려 주세요."
 TRANSCRIBE_EMPTY = "음성에서 글을 찾지 못했습니다 (소리가 없거나 알아들을 수 없습니다)."
 
@@ -188,10 +192,19 @@ def _drop(settings: Settings, intake: Intake) -> str:
 
 
 def _write_file(engine, file_id: int, **values) -> None:
-    """파일 한 줄을 짧은 독립 트랜잭션으로 고친다 (작업의 트랜잭션을 쥐거나 다른 쓰기를 막지 않는다)."""
-    with Session(engine) as s:
-        s.execute(update(IntakeFile).where(IntakeFile.id == file_id).values(**values))
-        s.commit()
+    """파일 한 줄을 짧은 독립 트랜잭션으로 고친다 (작업의 트랜잭션을 쥐거나 다른 쓰기를 막지 않는다).
+    DB 가 잠겨 있으면 몇 번 다시 시도한다 (몇십 분 받아쓴 일이 알 수 없는 실패로 끝나지 않게). 끝내 안 되면 위로 올린다."""
+    for attempt in range(1, WRITE_RETRIES + 1):
+        try:
+            with Session(engine) as s:
+                s.execute(update(IntakeFile).where(IntakeFile.id == file_id).values(**values))
+                s.commit()
+            return
+        except OperationalError:
+            log.warning("파일 %s 기록 실패 (%s/%s)", file_id, attempt, WRITE_RETRIES, exc_info=True)
+            if attempt == WRITE_RETRIES:
+                raise
+            time.sleep(WRITE_RETRY_SLEEP_S)
 
 
 def _progress_writer(engine, file_id: int, intake_id: int, job_id: int):
@@ -237,7 +250,7 @@ def _transcribe_pending(db: Session, settings: Settings, intake_id: int, job_id:
     if not todo:
         return None
     transcriber = transcribe.get(settings)
-    model = transcriber.model_name()
+    model, language = transcriber.model_name(), transcriber.language_name()
     hints = intake_lib.build_hints(intake_lib.registered_names(db), intake.note or "")
     engine = db.get_bind()
     folder = intake_lib.work_dir(settings, intake)
@@ -248,8 +261,10 @@ def _transcribe_pending(db: Session, settings: Settings, intake_id: int, job_id:
             return _stop_result(db, settings, intake_id)
         f = db.get(IntakeFile, file_id)
         number, src, name = intake_lib.file_number(intake, f), intake_lib.stored_path(settings, f), f.original_name
-        db.rollback()  # 오래 걸리는 동안 읽기 트랜잭션을 쥐지 않는다
-        text, error = intake_lib.read_transcript_cache(settings, f, model), ""
+        # 롤백하면 ORM 객체가 만료돼 속성을 읽을 때마다 읽기 트랜잭션이 다시 열리므로, 필요한 값은 롤백 전에 복사해 둔다
+        f = SimpleNamespace(id=f.id, intake_id=f.intake_id, stored_name=f.stored_name, original_name=f.original_name, kind=f.kind)
+        db.rollback()  # 오래 걸리는 동안 읽기 트랜잭션(연결)을 쥐지 않는다
+        text, error = intake_lib.read_transcript_cache(settings, f, model, language), ""
         cached = text is not None
         if not cached:
             _write_file(engine, file_id, progress=0)
@@ -269,7 +284,7 @@ def _transcribe_pending(db: Session, settings: Settings, intake_id: int, job_id:
             return _stop_result(db, settings, intake_id)
         if not error:
             if not cached:
-                intake_lib.write_transcript_cache(settings, f, model, text)
+                intake_lib.write_transcript_cache(settings, f, model, text, language)
             try:
                 folder.mkdir(parents=True, exist_ok=True)
                 intake_lib.write_audio_copy(folder, number, f, text)

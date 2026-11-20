@@ -62,5 +62,8 @@ transcribe_language = "ko"
 # 받아쓸 때 쓰는 CPU 스레드 수. 0 이면 라이브러리 기본값.
 transcribe_threads = 0
 
-# 이보다 긴 음성은 받아쓰지 않고 실패로 둔다(분).
-transcribe_max_minutes = 180
+# 이보다 긴 음성은 받아쓰지 않고 실패로 둔다(분). 모델을 부르기 전에 길이만 먼저 확인한다.
+transcribe_max_minutes = 120
+
+# 음성을 이 길이(분)씩 나눠 받아쓴다. 작게 할수록 메모리를 덜 쓴다 (운영 가이드 12번).
+transcribe_chunk_minutes = 10
