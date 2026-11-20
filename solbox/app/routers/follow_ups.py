@@ -26,7 +26,7 @@ def today() -> date:
 
 @router.get("")
 def list_follow_ups(
-    request: Request, status: str = fu_lib.FU_DEFAULT, customer_id: str = "", owner: str = "", page: str = "1", fu_toggled: str = "",
+    request: Request, status: str = fu_lib.FU_DEFAULT, customer_id: str = "", owner: str = "", q: str = "", page: str = "1", fu_toggled: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     now = today()
@@ -45,6 +45,11 @@ def list_follow_ups(
         ids = [f.id for f in relations.path_query(db, found, ["R5", "R8"])] if found is not None else []
         scope.append(FollowUp.id.in_(ids))
         chips.append({"label": f"고객 '{found.name}'" if found else f"고객 {cid[:20]} (없는 항목)", "clear": clear_of("customer_id")})
+    q = q.strip()
+    if q:  # 할 일 글에서 찾기 (전체 검색의 "모두 보기"가 여기로 온다)
+        from app.search import like_pattern
+
+        scope.append(FollowUp.task.like(like_pattern(q), escape="\\"))
     if owner == OWNER_ME:
         scope.append(FollowUp.owner_user_id == user.id)
         chips.append({"label": "내 담당", "clear": clear_of("owner")})
@@ -71,5 +76,5 @@ def list_follow_ups(
     pairs = [(f, a) for f, a in db.execute(stmt.offset((number - 1) * PER_PAGE).limit(PER_PAGE))]
     pg = Page(items=fu_lib.rows(db, pairs, now, with_customers=True), page=number, pages=pages, total=total, per_page=PER_PAGE)
     tabs = ui.seg_tabs(request, "status", list(fu_lib.FU_STATUSES.items()), counts, status, total=total, with_all=False)
-    return render(request, "follow_ups/list.html", pg=pg, tabs=tabs, status=status, chips=chips, filtered=bool(chips), today=now,
+    return render(request, "follow_ups/list.html", pg=pg, tabs=tabs, q=q, status=status, chips=chips, filtered=bool(chips) or bool(q), today=now,
                   toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None)

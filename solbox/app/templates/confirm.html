@@ -5,7 +5,7 @@
 {{ page_header(kind ~ " " ~ verb ~ " 확인", crumbs=crumbs) }}
 <section class="card stack confirm-card" aria-labelledby="confirm-q">
   {% set ask = "삭제할까요?" if verb == "삭제" else "버릴까요?" %}
-  <h2 id="confirm-q">{{ kind }} 「{{ obj_name }}」을(를) {{ ask }}</h2>
+  <h2 id="confirm-q">{{ kind }} {{ josa("「" ~ obj_name ~ "」", "을/를") }} {{ ask }}</h2>
   {% if problem %}
   <p class="error" role="alert">{{ problem }}</p>
   <p><a class="button" href="{{ back }}">돌아가기</a></p>

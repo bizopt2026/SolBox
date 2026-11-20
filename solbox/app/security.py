@@ -63,9 +63,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
         request.session.clear()
         raise LoginRequired()
     version = request.session.get("pv")
-    if version is None:  # 이 값이 생기기 전에 한 로그인: 한 번 받아 주고 이제부터 따라간다
-        request.session["pv"] = password_version(user)
-    elif version != password_version(user):  # 다른 곳에서 비밀번호를 바꿨다 (이 로그인은 끝난다)
+    if version != password_version(user):  # 값이 없거나(이 값이 생기기 전의 로그인: 업그레이드 뒤 한 번 다시 로그인) 다른 곳에서 비밀번호를 바꿨다 (이 로그인은 끝난다)
         request.session.clear()
         raise LoginRequired()
     request.state.user = user

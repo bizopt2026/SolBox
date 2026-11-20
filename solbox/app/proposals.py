@@ -170,18 +170,25 @@ def _unique(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
 
-# 고객에게 보이는 글에 섞인 "작성자에게 하는 말"을 알아보는 작고 보수적인 목록. 줄 끝(마침표·괄호 제외)이 아래로 끝날 때만 본다.
-# 명사형으로 끝나는 보통 문구("단계별 로드맵 제시")는 목적격 조사(을/를)가 없으면 건드리지 않는다.
-_AUTHOR_DO = r"(?:제시|기재|명시|기입|작성|입력|삽입|보완)"
+# 고객에게 보이는 글에 섞인 "작성자에게 하는 말"을 알아보는 작고 보수적인 목록: 줄에 분명한 지시 표지가 있을 때만 본다.
+# "AI가 초안을 작성", "한계를 보완", "책임 범위를 명시", "○○시청 도입 사례" 같은 보통 문구는 동사만으로는 건드리지 않는다.
+_AUTHOR_DO = r"(?:제시|기재|명시|기입|작성|입력|삽입|보완|확인|수정|추가|포함|첨부)"
+_PLACEHOLDER = r"(?:○{2,}|O{3,}|△{2,}|□{2,})"
 AUTHOR_INSTRUCTION_PATTERNS = tuple(re.compile(p) for p in (
-    rf"[을를]\s*(?:함께\s*|반드시\s*)?{_AUTHOR_DO}$",                    # "총액과 견적 유효기간을 함께 제시"
-    rf"(?:{_AUTHOR_DO}|추가|확인|포함)\s*할\s*것$",                      # "담당자 연락처를 추가할 것"
-    rf"{_AUTHOR_DO}\s*(?:하세요|해\s*주세요|바랍니다|요망)$",
+    rf"함께\s*{_AUTHOR_DO}$",                                            # "총액과 견적 유효기간을 함께 제시"
+    rf"반드시\b.*{_AUTHOR_DO}$",                                         # "보안 정책을 반드시 명시"
+    r"할\s*것$|요망$|바랍니다$",                                           # "담당자 연락처를 추가할 것"
+    rf"{_AUTHOR_DO}\s*(?:하세요|해\s*주세요)$",                           # "수치를 입력하세요"
     r"(?:확인|기재|입력|보완|작성|수정)\s*필요$",                           # "금액 확인 필요"
-    r"\b(?:TBD|TODO)\b|○○|OOO",                                         # 채우지 않은 자리표시
+    r"\b(?:TBD|TODO)\b",                                                 # 채우지 않은 자리표시
+    rf"^[\(\[]?\s*{_PLACEHOLDER}\s*[\)\]]?$",                          # 줄 전체가 "○○" / "(OOO)"
+    rf"[:：]\s*[\(\[]?{_PLACEHOLDER}[\)\]]?\s*[^\s:：]{{0,3}}$",         # "담당자: ○○○", "비용: ○○원"
 ))
 _LINE_TAIL = re.compile(r"[\s.。)\]]+$")
-_CONTACT_LINE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+|0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}|^\s*(?:담당|연락처|문의|Tel|TEL|E-?mail|Contact)\b")
+# 마무리 장에서 AI 가 쓴 연락처 줄: 전화번호·이메일이 든 줄, 또는 "담당: 홍길동"/"연락처:" 같은 이름표만 있는 줄. "문의 환영" 같은 인사는 둔다.
+_CONTACT_LINE = re.compile(
+    r"[\w.+-]+@[\w-]+\.[\w.-]+|0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}"
+    r"|^\s*(?:담당자?|담당\s*부서|연락처|문의처?|Tel|TEL|E-?mail|Email|Contact)\s*[:：]\s*(?:[^\s:：]+(?:\s+[^\s:：]+)?)?\s*$")
 
 
 def is_author_instruction(text: str) -> bool:
@@ -405,6 +412,13 @@ def reset_for_new_direction(p: Proposal, decks_dir: Path) -> None:
 def deck_is_stale(p: Proposal) -> bool:
     """만든 PPT 보다 구성안이 나중에 바뀌었으면 True."""
     return p.deck_built_at is not None and p.outline_updated_at is not None and p.outline_updated_at > p.deck_built_at
+
+
+def deck_is_old(p: Proposal, decks_dir: Path) -> bool:
+    """두 파일로 나누기 전에 만든 제안서인가: 파일 이름은 있는데 내부 검토용(`-internal`) 짝이 없다. 이 파일은 노트가 든 것이라 내려받지 못하게 하고 다시 만들게 한다."""
+    if not p.deck_name:
+        return False
+    return not internal_deck_path(Path(decks_dir) / str(p.id) / p.deck_name).is_file()
 
 
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:

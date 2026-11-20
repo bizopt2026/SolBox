@@ -295,7 +295,7 @@ def add_unique_indexes(engine: Engine) -> list[str]:
                     made.append(index.name)
                     log.info("색인 추가: %s", index.name)
                 except Exception:  # noqa: BLE001
-                    log.warning("유일 색인 %s 을(를) 만들지 못했습니다 (중복 값). 응용 코드가 중복을 막습니다.", index.name, exc_info=True)
+                    log.warning("유일 색인 %s: 만들지 못했습니다 (중복 값). 응용 코드가 중복을 막습니다.", index.name, exc_info=True)
     return made
 
 

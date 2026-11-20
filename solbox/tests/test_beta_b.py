@@ -80,21 +80,28 @@ def test_deck_routes_serve_two_versions(user_client, db, settings):
 
 
 def test_legacy_single_deck_is_not_sent_as_customer_file(user_client, db, settings):
-    """두 파일로 나누기 전에 만든 제안서(노트가 든 한 파일)는 그대로 고객용으로 나가지 않는다."""
+    """두 파일로 나누기 전에 만든 제안서(노트가 든 한 파일)는 어느 쪽으로도 내려가지 않고, 읽기 요청이 파일을 다시 쓰지도 않는다."""
     p = outlined_proposal(db, settings)
     user_client.post(f"/proposals/{p.id}/deck")
     db.refresh(p)
     folder = settings.decks_dir / str(p.id)
     (folder / p.deck_name.replace(".pptx", "-internal.pptx")).unlink()
     build_deck(p.outline, folder / p.deck_name, audience="internal")  # 옛 파일처럼 노트가 든다
-    import io
-    prs = Presentation(io.BytesIO(user_client.get(f"/proposals/{p.id}/deck").content))
-    assert all(not s.has_notes_slide or not s.notes_slide.notes_text_frame.text for s in prs.slides)
+    before = (folder / p.deck_name).read_bytes()
+    for version in ("customer", "internal"):
+        r = user_client.get(f"/proposals/{p.id}/deck?version={version}", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith(f"/proposals/{p.id}?notice=deck_old")
+    assert (folder / p.deck_name).read_bytes() == before and sorted(f.name for f in folder.iterdir()) == [p.deck_name]  # 파일을 건드리지 않았다
+    page = user_client.get(f"/proposals/{p.id}").text.split('id="deck"')[1]
+    assert "다시 만들어 주세요" in page and "고객용 PPT 내려받기" not in page and "내부 검토용 PPT" not in page
+    assert "고객용·내부 검토용으로 나누기 전에 만든" in user_client.get(r.headers["location"]).text  # 알림
+    user_client.post(f"/proposals/{p.id}/deck")  # 다시 만들면 두 파일이 생기고 내려받을 수 있다
+    assert user_client.get(f"/proposals/{p.id}/deck").content[:2] == b"PK"
 
 
 # ---- B2 ----
 @pytest.mark.parametrize("line", [
-    "총액과 견적 유효기간을 함께 제시", "담당자 이름을 기재.", "금액 확인 필요", "연락처를 추가할 것", "일정을 작성", "[TBD] 비용",
+    "총액과 견적 유효기간을 함께 제시", "담당자 이름을 기재해 주세요.", "금액 확인 필요", "연락처를 추가할 것", "일정을 작성할 것", "[TBD] 비용",
     "수치를 입력하세요", "절감률 보완 필요",
 ])
 def test_author_instruction_lines_detected(line):
@@ -115,7 +122,7 @@ def test_clean_outline_moves_instructions_to_needs_check(tmp_path, caplog):
         {"kind": "bullets", "title": "비용", "key_message": "합리적인 비용입니다.", "bullets": ["총액과 견적 유효기간을 함께 제시", "월 운영비는 300만원입니다"],
          "sources": [], "needs_check": []},
         {"kind": "table", "title": "표", "columns": ["항목", "값"], "rows": [["총액", "금액 확인 필요"], ["기간", "3개월"]]},
-        {"kind": "steps", "title": "단계", "steps": [{"name": "착수", "detail": "일정을 작성"}]},
+        {"kind": "steps", "title": "단계", "steps": [{"name": "착수", "detail": "일정을 작성할 것"}]},
         {"kind": "closing", "title": "마무리", "bullets": ["담당 김민수 대리 010-1234-5678", "다음 단계 협의"]},
     ]}
     with caplog.at_level("INFO", logger="app.proposals"):
@@ -124,7 +131,7 @@ def test_clean_outline_moves_instructions_to_needs_check(tmp_path, caplog):
     assert s[1]["bullets"] == ["월 운영비는 300만원입니다"]
     assert "총액과 견적 유효기간을 함께 제시" in s[1]["needs_check"]
     assert s[2]["rows"] == [["총액", ""], ["기간", "3개월"]] and "금액 확인 필요" in s[2]["needs_check"]
-    assert s[3]["steps"][0]["detail"] == "" and "일정을 작성" in s[3]["needs_check"]
+    assert s[3]["steps"][0]["detail"] == "" and "일정을 작성할 것" in s[3]["needs_check"]
     assert s[4]["bullets"] == ["다음 단계 협의"]
     assert "3 author-instruction lines" in caplog.text and "1 contact" in caplog.text
 

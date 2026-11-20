@@ -437,8 +437,10 @@ def mirror_folders() -> tuple[str, ...]:
     return tuple(sorted(names | set(ontology.legacy_mirror_folders())))
 
 
-# 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로(`opportunities/2.md`)
-_MIRROR_PATH = re.compile(r"\b(?:" + "|".join(map(re.escape, mirror_folders())) + r")/[\w가-힣\-./]*|[\w가-힣\-./]+\.md\b")
+# 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로 모양 (`opportunities/2.md`, `solutions/3/card.md`, `customers/12`).
+# 폴더 이름은 온톨로지에서 읽고, 폴더 뒤에 `/<번호…>` 가 와야 하며, 주소(`https://…/solutions/…`)·낱말·경로 조각 뒤에 붙은 것은 사본 경로가 아니다.
+_SEG = r"[\w가-힣.\-]"
+_MIRROR_PATH = re.compile(r"(?<![\w/.:\-])(?:" + "|".join(map(re.escape, mirror_folders())) + rf")/\d{_SEG}*(?:/{_SEG}+)*")
 
 
 def has_internal_mark(text) -> bool:
@@ -446,16 +448,27 @@ def has_internal_mark(text) -> bool:
     return bool(_MIRROR_PATH.search(_clean(text)))
 
 
-def _scrub_customer(slide: dict) -> dict:
-    """고객용 장에서 내부 경로가 든 줄을 뺀다 (구성안 정리가 이미 막지만, 손으로 넣은 글까지 한 번 더 막는 마지막 안전망)."""
+def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:
+    """고객용 장에서 내부 경로가 든 줄을 뺀다 (구성안 정리가 이미 막지만, 손으로 넣은 글까지 한 번 더 막는 마지막 안전망).
+    뺀 줄 수는 `stats["removed"]` 에 더한다."""
+    removed = 0
     out = copy.deepcopy(slide)
     for key in ("bullets", "left", "right"):
-        out[key] = [i for i in _list(out, key) if not has_internal_mark(i)]
-    out["rows"] = [r for r in _list(out, "rows") if not any(has_internal_mark(c) for c in (r if isinstance(r, (list, tuple)) else [r]))]
-    out["steps"] = [st for st in _list(out, "steps") if isinstance(st, dict) and not has_internal_mark(st.get("name")) and not has_internal_mark(st.get("detail"))]
+        items = _list(out, key)
+        out[key] = [i for i in items if not has_internal_mark(i)]
+        removed += len(items) - len(out[key])
+    rows = _list(out, "rows")
+    out["rows"] = [r for r in rows if not any(has_internal_mark(c) for c in (r if isinstance(r, (list, tuple)) else [r]))]
+    removed += len(rows) - len(out["rows"])
+    steps = _list(out, "steps")
+    out["steps"] = [st for st in steps if isinstance(st, dict) and not has_internal_mark(st.get("name")) and not has_internal_mark(st.get("detail"))]
+    removed += len(steps) - len(out["steps"])
     for key in ("title", "key_message", "subtitle", "left_title", "right_title"):
         if has_internal_mark(out.get(key)):
             out[key] = ""
+            removed += 1
+    if stats is not None:
+        stats["removed"] = stats.get("removed", 0) + removed
     return out
 
 
@@ -502,21 +515,25 @@ def _draw_body(slide, data: dict):
 
 def build_deck(
     outline: dict, out_path: Path, *, customer_name: str = "", today: date | None = None,
-    source_labels: dict[str, str] | None = None, audience: str = "internal", contact: list[str] | None = None,
+    source_labels: dict[str, str] | None = None, audience: str = "internal", contact: list[str] | None = None, stats: dict | None = None,
 ) -> int:
     """구성안으로 .pptx 를 쓰고 만든 슬라이드 수를 돌려준다.
 
     `audience="customer"`(고객용)는 발표자 노트를 비워 두고 내부 경로가 든 줄도 뺀다. `"internal"`(내부 검토용)은 노트에 출처(`source_labels`:
-    경로→이름이 있으면 이름)와 확인 항목을 적는다. `contact` 는 마무리 장 맨 아래에 붙는 연락처 줄(서버가 만든 사람 정보로 채운다)."""
+    경로→이름이 있으면 이름)와 확인 항목을 적는다. `contact` 는 마무리 장 맨 아래에 붙는 연락처 줄(서버가 만든 사람 정보로 채운다).
+    `stats` 를 주면 고객용에서 뺀 줄 수를 `stats["removed"]` 로 돌려준다. 파일은 임시 파일에 쓴 뒤 바꿔치기한다 (쓰다 멈춰도 반쪽 파일이 남지 않는다)."""
     if audience not in ("customer", "internal"):
         raise ValueError(audience)
     source = (outline or {}).get("slides")
     if not isinstance(source, list) or not source:
         raise ValueError("구성안에 슬라이드가 없습니다.")
     today = today or date.today()
-    pages = [page for s in source if isinstance(s, dict) for page in paginate(_with_contact(s, contact))]
+    stats = stats if stats is not None else {}
+    stats["removed"] = 0
+    slides = [_with_contact(s, contact) for s in source if isinstance(s, dict)]
     if audience == "customer":
-        pages = [_scrub_customer(page) for page in pages]
+        slides = [_scrub_customer(s, stats) for s in slides]  # 쪽을 나누기 전에 한 번: 줄 수가 쪽마다 겹쳐 세어지지 않는다
+    pages = [page for s in slides for page in paginate(s)]
     if not pages:
         raise ValueError("구성안에 슬라이드가 없습니다.")
     prs = Presentation()
@@ -533,5 +550,10 @@ def build_deck(
             _notes(slide, data, source_labels)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    prs.save(out_path)
+    part = out_path.with_name(out_path.name + ".part")
+    try:
+        prs.save(part)
+        part.replace(out_path)
+    finally:
+        part.unlink(missing_ok=True)
     return len(pages)

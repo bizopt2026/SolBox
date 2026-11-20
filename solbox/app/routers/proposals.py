@@ -367,10 +367,10 @@ def build(
     old_name = p.deck_name
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        _write_deck_pair(db, p, temp, user)
+        removed = _write_deck_pair(db, p, temp, user)
         temp.replace(final)
         internal_temp.replace(internal_deck_path(final))
-        p.deck_name, p.deck_built_at, p.status = name, now, "deck"
+        p.deck_name, p.deck_built_at, p.status, p.deck_removed = name, now, "deck", removed
         db.commit()
     except Exception:
         db.rollback()
@@ -385,12 +385,15 @@ def build(
     return notices.redirect(f"/proposals/{p.id}{suffix}", "deck_built")
 
 
-def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User) -> None:
-    """같은 구성안으로 고객용(`customer_path`)과 내부 검토용(그 옆 `-internal`) 파일을 쓴다."""
+def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User) -> int:
+    """같은 구성안으로 고객용(`customer_path`)과 내부 검토용(그 옆 `-internal`) 파일을 쓴다 (각각 임시 파일에 쓴 뒤 바꿔치기: `build_deck`).
+    고객용에서 뺀 줄 수를 돌려준다."""
     paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
     common = dict(customer_name=p.customer.name, today=date.today(), contact=contact_lines(user))
-    build_deck(p.outline, customer_path, audience="customer", **common)
+    stats: dict = {}
+    build_deck(p.outline, customer_path, audience="customer", stats=stats, **common)
     build_deck(p.outline, internal_deck_path(customer_path), audience="internal", source_labels=SourceLookup(db).labels(paths), **common)
+    return stats.get("removed", 0)
 
 
 DECK_VERSIONS = {"customer": "고객용", "internal": "내부검토용"}  # 파일 이름에 붙는 말
@@ -409,15 +412,11 @@ def download(
     if customer_path is None or not customer_path.is_file():
         raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
     internal_path = internal_deck_path(customer_path)
-    if not internal_path.is_file() and p.outline and p.outline.get("slides"):
-        # 두 파일로 나누기 전에 만든 제안서: 옛 파일은 노트가 든 것이라 그대로 고객용으로 내려보내지 않고 지금 구성안으로 두 파일을 다시 쓴다
-        try:
-            _write_deck_pair(db, p, customer_path, user)
-        except Exception:
-            raise HTTPException(status_code=500, detail=DECK_FAILED) from None
+    if not internal_path.is_file():
+        # 두 파일로 나누기 전에 만든 제안서: 그 파일은 노트가 든 것이라 고객용으로도 내부용으로도 내려보내지 않는다.
+        # 읽기 요청 안에서 파일을 다시 쓰지 않고, 제안 화면으로 돌려보내 사용자가 "다시 만들기" 를 누르게 한다.
+        return notices.redirect(f"/proposals/{p.id}#deck", "deck_old")
     path = customer_path if version == "customer" else internal_path
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
     suffix = f"_{DECK_VERSIONS[version]}.pptx"
     disposition = f'attachment; filename="proposal-{p.id}-{DECK_ASCII[version]}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + suffix)
     return FileResponse(path, media_type=PPTX_TYPE, headers={"Content-Disposition": disposition})

@@ -229,6 +229,7 @@ def apply(
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
     """정리안을 확인한 대로 저장한다. 한 묶음은 한 번만 저장된다. 같은 폼 표로 다시 온 제출(연타)은 처음 저장의 성공 결과로 보낸다."""
+    once.sticky = False  # 저장 상태(`applying`→실패하면 `ready`)를 이 라우터가 스스로 되돌린다: 선점 커밋 뒤 실패해도 같은 표로 다시 저장할 수 있어야 한다
     intake = get_intake(db, user, intake_id)
     try:
         intake_lib.apply(db, request.app.state.settings, mirror, intake, user, form)

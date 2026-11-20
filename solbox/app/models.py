@@ -94,6 +94,7 @@ class FormToken(Base):
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     token: Mapped[str] = mapped_column(String, primary_key=True)
     result_url: Mapped[str | None] = mapped_column(String, nullable=True)  # 처음 제출이 만든 것의 주소 (끝나기 전에는 비어 있다)
+    body_hash: Mapped[str | None] = mapped_column(String, nullable=True)  # 제출한 폼 내용의 해시(표 칸 제외): 같은 표로 내용을 바꿔 다시 내면 새 제출로 본다 (옛 줄은 비어 있고 같은 내용으로 본다)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
@@ -386,6 +387,7 @@ class Proposal(Stamped, Base):
     outline_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deck_name: Mapped[str] = mapped_column(String, default="")
     deck_built_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deck_removed: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 마지막으로 만든 고객용 파일에서 뺀 줄 수 (사본 경로가 든 줄). 옛 제안 건은 비어 있다
     active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
     chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 현재 방향의 것이 아니다
 

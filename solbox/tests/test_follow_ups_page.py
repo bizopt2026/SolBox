@@ -67,7 +67,7 @@ def test_overdue_and_done_tabs(app, fus):
     assert tasks(c.get("/follow-ups?status=overdue").text) == ["견적 보내기"]
     done = c.get("/follow-ups?status=done").text
     assert tasks(done) == ["미팅록 정리"] and 'class="check on"' in done
-    assert 'name="status"' not in done
+    assert done.count('name="status"') == 1  # 검색 칸이 구분을 이어 간다 (다른 폼에는 없다)
     assert tasks(c.get("/follow-ups?status=bogus").text)[0] == "견적 보내기"  # 모르는 값은 남은 일
 
 

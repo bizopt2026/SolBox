@@ -56,6 +56,7 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     # 제안
     "direction_selected": ("ok", "방향을 골랐습니다."),
     "deck_built": ("ok", "제안서 파일을 만들었습니다."),
+    "deck_old": ("warn", "이 제안서 파일은 고객용·내부 검토용으로 나누기 전에 만든 것이라 내려받을 수 없습니다. 아래에서 '다시 만들기'를 눌러 주세요."),
     "target_saved": ("ok", "제안 대상을 저장했습니다."),
     "slide_saved": ("ok", "슬라이드를 저장했습니다."),
     "slide_added": ("ok", "슬라이드를 추가했습니다."),

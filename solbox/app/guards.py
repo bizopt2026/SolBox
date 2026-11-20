@@ -18,15 +18,17 @@ import secrets
 import time
 from collections.abc import Iterator
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from typing import NamedTuple
 
 from fastapi import Depends, Form, HTTPException, Request
-from sqlalchemy import event
+from sqlalchemy import event, select, text
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.orm import Session, object_session
 
 from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Stamped, User
+from app.db import get_db
 from app.security import require_user
 
 REV_FIELD = "_rev"
@@ -48,20 +50,22 @@ def _iso(value) -> str:
     return value.isoformat() if value is not None else ""
 
 
-def _change_of(obj) -> str:
+def _change_of(obj, model=None) -> str:
     """마지막 변경을 나타내는 글. 보통 `updated_at`. 제안 건은 AI 작업이 `updated_at` 을 자주 올리므로 제안 대상 폼이 다루는 값 자체로 본다.
-    사용자 계정은 `updated_at` 이 없어 값으로 본다."""
-    if isinstance(obj, Proposal):
+    사용자 계정은 `updated_at` 이 없어 값으로 본다. (`model`: 기록이 아니라 표에서 읽은 줄을 볼 때 그 줄의 모델)"""
+    model = model or type(obj)
+    if issubclass(model, Proposal):
         return json.dumps([obj.customer_id, obj.project_id, obj.opportunity_id, obj.request_memo, list(obj.extra_solution_ids or [])], ensure_ascii=False)
-    if isinstance(obj, User):
+    if issubclass(model, User):
         return json.dumps([obj.name, obj.role, bool(obj.is_active), obj.password_hash], ensure_ascii=False)
     return _iso(getattr(obj, "updated_at", None))
 
 
-def rev_of(obj) -> str:
-    """기록의 고침 표시: "<신원>.<마지막 변경>" (뜻을 알 수 없는 짧은 글)."""
-    ident = f"{type(obj).__tablename__}:{obj.id}:{_iso(getattr(obj, 'created_at', None))}"
-    return f"{_h(ident)}.{_h(_change_of(obj))}"
+def rev_of(obj, model=None) -> str:
+    """기록의 고침 표시: "<신원>.<마지막 변경>" (뜻을 알 수 없는 짧은 글). `model` 은 `_change_of` 와 같다."""
+    model = model or type(obj)
+    ident = f"{model.__tablename__}:{obj.id}:{_iso(getattr(obj, 'created_at', None))}"
+    return f"{_h(ident)}.{_h(_change_of(obj, model))}"
 
 
 def slide_rev(proposal: Proposal, slide: dict) -> str:
@@ -98,20 +102,72 @@ async def rev_form(request: Request) -> Rev:
     return Rev(value if isinstance(value, str) else "", bool(form.get(FORCE_FIELD)))
 
 
-def check_rev(obj, rev: Rev, current: str | None = None) -> Conflict | None:
-    """제출된 표시가 지금 기록과 맞는지: 맞거나 표시가 없으면 None, 아니면 충돌. (`current` 는 기록 말고 다른 단위의 표시를 비교할 때: 슬라이드)"""
+class StaleWrite(HTTPException):
+    """검사를 통과한 뒤 저장하는 사이에 다른 곳에서 같은 기록이 바뀌었다: 저장하지 않는다."""
+
+    def __init__(self):
+        super().__init__(status_code=409, detail="저장하는 사이에 다른 곳에서 이 기록이 바뀌었습니다. 저장하지 않았으니 화면을 새로 열어 다시 고쳐 주세요.")
+
+
+def check_rev(obj, rev: Rev, current: str | None = None, fresh=None) -> Conflict | None:
+    """제출된 표시가 지금 기록과 맞는지: 맞거나 표시가 없으면 None, 아니면 충돌. (`current` 는 기록 말고 다른 단위의 표시를 비교할 때: 슬라이드,
+    그때 `fresh(줄)` 은 DB 에서 막 읽은 줄로 같은 표시를 다시 계산하는 함수.)
+    통과하면 "저장 직전 다시 확인" 을 세션에 걸어 둔다: 첫 쓰기 flush 때 `_verify_checks` 가 쓰기 잠금을 잡은 뒤 DB 의 표시를 다시 읽어, 검사와 저장 사이에
+    다른 곳이 바꿨으면 `StaleWrite`(409)로 저장을 막는다. 모든 고치기 라우터가 이 함수를 쓰므로 한곳에서 지켜진다."""
     submitted = rev.value.strip()
     if not submitted:
         return None
     current = current or rev_of(obj)
     if submitted == current:
+        _arm(obj, submitted, fresh, identity_only=False)
         return None
     same_record = submitted.partition(".")[0] == current.partition(".")[0]
     if not same_record:
         return Conflict("replaced", submitted, REPLACED)
     if rev.force:
+        _arm(obj, submitted.partition(".")[0], fresh, identity_only=True)  # 강제 저장: 같은 기록이기만 하면 된다
         return None
     return Conflict("changed", submitted, CHANGED_ELSEWHERE)
+
+
+def _arm(obj, expected: str, fresh, identity_only: bool) -> None:
+    session = object_session(obj)
+    if session is None or not sa_inspect(obj).persistent:
+        return
+    session.info.setdefault("rev_checks", []).append((obj, expected, fresh, identity_only))
+
+
+def _row_view(model, row) -> SimpleNamespace:
+    """표에서 읽은 줄을 기록처럼 읽을 수 있게 한다 (열 이름 -> 모델 속성 이름: 프로젝트의 `business_id` 가 `project_id` 인 식)."""
+    mapper = sa_inspect(model)
+    return SimpleNamespace(**{mapper.get_property_by_column(col).key: row._mapping[col] for col in model.__table__.columns})
+
+
+def _verify_checks(session: Session) -> None:
+    """첫 쓰기 flush 직전: 걸어 둔 검사마다 쓰기 잠금을 잡고(내용을 바꾸지 않는 UPDATE) 그 트랜잭션 안에서 줄을 다시 읽어 표시를 견준다."""
+    checks = session.info.pop("rev_checks", None)
+    if not checks:
+        return
+    conn = session.connection()
+    for obj, expected, fresh, identity_only in checks:
+        model = type(obj)
+        table = model.__table__
+        try:
+            conn.execute(text(f'UPDATE "{table.name}" SET id = id WHERE id = :id'), {"id": obj.id})  # 쓰기 잠금: 이 뒤로는 다른 쓰기가 끼어들지 못한다
+            row = conn.execute(select(table).where(table.c.id == obj.id)).one_or_none()
+        except OperationalError:  # 잠금을 못 잡음/옛 읽기 스냅숏: 그 사이 다른 쓰기가 있었다
+            raise StaleWrite() from None
+        if row is None:
+            raise StaleWrite()
+        try:
+            view = _row_view(model, row)
+            now = fresh(view) if fresh is not None else rev_of(view, model)
+        except Exception:  # noqa: BLE001  (줄이 달라져 표시를 못 만들면 바뀐 것)
+            raise StaleWrite() from None
+        if identity_only:
+            now = now.partition(".")[0]
+        if now != expected:
+            raise StaleWrite()
 
 
 def touch(obj, user: User | None = None) -> None:
@@ -125,6 +181,7 @@ def touch(obj, user: User | None = None) -> None:
 
 @event.listens_for(Session, "before_flush")
 def _stamp_changes(session: Session, flush_context, instances) -> None:
+    _verify_checks(session)
     uid = session.info.get("user_id")
     now = datetime.now()
     parents: set[int] = set()
@@ -183,13 +240,24 @@ def purge_tokens(db: Session, now: datetime | None = None) -> int:
     return deleted
 
 
-class Once:
-    """한 번 제출된 폼 하나. 처음 제출이 `claim` 으로 차지하고, 끝나면 `done(응답)` 으로 결과 주소를 남긴다 (끝내지 못하면 표를 풀어 다시 낼 수 있게)."""
+def _fallback_url(path: str) -> str:
+    """결과 주소를 모를 때(저장은 끝났는데 뒤 처리에서 예외가 난 경우) 같은 표로 다시 오면 보내는 곳: 만들기 주소의 목록 화면."""
+    parts = [p for p in path.split("/") if p]
+    while len(parts) > 1 and parts[-1] in {"raw", "draft", "topics", "apply"}:
+        parts.pop()
+    return "/" + "/".join(parts)
 
-    def __init__(self, factory, user_id: int, token: str):
-        self.factory, self.user_id, self.token = factory, user_id, token
+
+class Once:
+    """한 번 제출된 폼 하나. 처음 제출이 `claim` 으로 차지하고, 끝나면 `done(응답)` 으로 결과 주소를 남긴다 (끝내지 못하면 표를 풀어 다시 낼 수 있게).
+    같은 표라도 폼 내용(`digest`)이 다르면 새 제출이다 (뒤로 가서 고쳐 낸 경우). 기록을 커밋한 뒤에는 표를 풀지 않는다 (`keep`)."""
+
+    def __init__(self, factory, user_id: int, token: str, digest: str = "", fallback: str = "/"):
+        self.factory, self.user_id, self.token, self.digest, self.fallback = factory, user_id, token, digest, fallback
         self.claimed = False
         self.finished = False
+        self.committed = False
+        self.sticky = True  # 커밋한 뒤 예외가 나도 표를 풀지 않는다. 저장 상태를 스스로 되돌리는 라우터(올리기 저장)만 False 로 둔다
 
     def claim(self) -> None:
         if not self.token or len(self.token) > 120:
@@ -200,7 +268,7 @@ class Once:
             with self.factory() as db:
                 purge_tokens(db)
                 try:
-                    db.add(FormToken(user_id=self.user_id, token=self.token))
+                    db.add(FormToken(user_id=self.user_id, token=self.token, body_hash=self.digest))
                     db.commit()
                     self.claimed = True
                     return
@@ -208,40 +276,98 @@ class Once:
                     db.rollback()
                 row = db.get(FormToken, (self.user_id, self.token))
                 url = row.result_url if row is not None else None
+                old_hash = row.body_hash if row is not None else None
+                if row is not None and url and old_hash and old_hash != self.digest:
+                    # 같은 표인데 내용이 바뀌었다: 새 제출이다. 끝난 줄을 이 제출이 이어받는다 (그 사이 다른 제출이 먼저 이어받았으면 다시 돈다)
+                    taken = db.query(FormToken).filter(
+                        FormToken.user_id == self.user_id, FormToken.token == self.token,
+                        FormToken.result_url == url, FormToken.body_hash == old_hash,
+                    ).update({"result_url": None, "body_hash": self.digest, "created_at": datetime.now()})
+                    db.commit()
+                    if taken:
+                        self.claimed = True
+                        return
+                    continue
             if row is not None and url:
                 raise DuplicateSubmit(url)
             if row is not None and time.monotonic() > deadline:
                 raise HTTPException(status_code=409, detail="같은 내용을 처리하는 중입니다. 잠시 뒤 목록에서 확인해 주세요.")
             time.sleep(0.05)  # 처음 제출이 끝나길 기다린다 (실패해 표를 풀면 다음 바퀴에서 내가 차지한다)
 
+    def _mine(self, db):
+        return db.query(FormToken).filter(FormToken.user_id == self.user_id, FormToken.token == self.token, FormToken.body_hash == self.digest)
+
     def done(self, response, url: str | None = None):
         """성공한 응답(보통 303)의 이동 주소를 표에 적는다 (이동이 아닌 성공 화면이면 `url` 로 따로 준다). 응답을 그대로 돌려준다."""
         url = url or response.headers.get("location")
         if self.claimed and url:
             with self.factory() as db:
-                row = db.get(FormToken, (self.user_id, self.token))
-                if row is not None:
-                    row.result_url = url
-                    db.commit()
+                self._mine(db).update({"result_url": url})
+                db.commit()
             self.finished = True
         return response
+
+    def keep(self) -> None:
+        """기록을 이미 커밋했는데 뒤 처리에서 예외가 났다: 표를 풀면 다시 낼 때 같은 기록이 또 생기므로 목록 주소로 끝낸 것으로 남긴다."""
+        if self.claimed and not self.finished:
+            with self.factory() as db:
+                self._mine(db).filter(FormToken.result_url.is_(None)).update({"result_url": self.fallback})
+                db.commit()
+            self.finished = True
 
     def release(self) -> None:
         if self.claimed and not self.finished:
             with self.factory() as db:
-                db.query(FormToken).filter(FormToken.user_id == self.user_id, FormToken.token == self.token,
-                                           FormToken.result_url.is_(None)).delete()
+                self._mine(db).filter(FormToken.result_url.is_(None)).delete()
                 db.commit()
             self.claimed = False
 
 
-def form_once(request: Request, tok: str = Form("", alias=TOKEN_FIELD), user: User = Depends(require_user)) -> Iterator[Once]:
-    """만들기 POST 의 의존성: 같은 표가 이미 처리됐으면 처음 결과로 돌려보내고(`DuplicateSubmit`), 아니면 이 제출이 표를 차지한다.
-    라우터는 성공했을 때 `return once.done(응답)` 한다. 검증 오류로 폼을 다시 그리거나 예외가 나면 표를 풀어 같은 폼으로 다시 낼 수 있다."""
+async def form_digest(request: Request) -> str:
+    """폼 내용의 해시 (표 칸 제외). 올린 파일은 이름과 크기만 넣어 내용을 다시 읽지 않는다."""
+    try:
+        form = await request.form()
+    except Exception:  # noqa: BLE001  (폼이 아니면 내용 없음)
+        return ""
+    parts = []
+    for key, value in form.multi_items():
+        if key == TOKEN_FIELD:
+            continue
+        parts.append([key, value] if isinstance(value, str) else [key, "file", getattr(value, "filename", "") or "", getattr(value, "size", 0) or 0])
+    return hashlib.sha256(json.dumps(parts, ensure_ascii=False).encode("utf-8")).hexdigest()[:32]
+
+
+def form_once(request: Request, tok: str = Form("", alias=TOKEN_FIELD), digest: str = Depends(form_digest),
+              user: User = Depends(require_user), db: Session = Depends(get_db)) -> Iterator[Once]:
+    """만들기 POST 의 의존성: 같은 표·같은 내용이 이미 처리됐으면 처음 결과로 돌려보내고(`DuplicateSubmit`), 아니면 이 제출이 표를 차지한다
+    (같은 표라도 내용이 바뀌었으면 새 제출). 라우터는 성공했을 때 `return once.done(응답)` 한다. 검증 오류로 폼을 다시 그리거나 예외가 나면 표를 풀어
+    같은 폼으로 다시 낼 수 있다. 단 요청의 세션이 커밋한 뒤에는 풀지 않는다 (이미 기록이 있다: 뒤 처리 예외로 중복이 생기지 않게)."""
     tok = tok.strip()
-    once = Once(request.app.state.session_factory, user.id, f"{request.url.path}|{tok}"[:120] if tok else "")  # 같은 폼 표를 다른 주소(원문 저장 / AI 정리)에 쓰면 서로 막지 않는다
+    once = Once(request.app.state.session_factory, user.id, f"{request.url.path}|{tok}"[:120] if tok else "", digest, _fallback_url(request.url.path))  # 같은 폼 표를 다른 주소(원문 저장 / AI 정리)에 쓰면 서로 막지 않는다
     once.claim()
+
+    def _on_commit(_session) -> None:
+        once.committed = True
+
+    wrote = []
+
+    def _on_flush(_session, _ctx) -> None:
+        wrote.append(True)
+
+    event.listen(db, "after_commit", _on_commit)
+    event.listen(db, "after_flush", _on_flush)
     try:
         yield once
     finally:
-        once.release()
+        event.remove(db, "after_commit", _on_commit)
+        event.remove(db, "after_flush", _on_flush)
+        if once.committed and once.sticky:
+            once.keep()
+        else:
+            if wrote:  # 쓰다가 멈춘 요청이 쓰기 잠금을 쥔 채면 표를 풀 때 잠긴다: 먼저 되돌린다 (쓰지 않았으면 기록을 만료시키지 않는다: 오류 화면이 사용자를 읽는다)
+                db.rollback()
+                try:
+                    db.refresh(user)  # 되돌리면 만료된다: 오류 화면이 이 사용자를 읽을 수 있게 다시 읽어 둔다
+                except Exception:  # noqa: BLE001
+                    pass
+            once.release()

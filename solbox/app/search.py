@@ -2,10 +2,11 @@
 
 찾는 곳은 솔루션·고객·파트너·프로젝트·영업기회·BM·제안 건·활동 기록과 활동 기록에서 나온 후속 조치·고객 니즈 (유형 이름·주소는 온톨로지에서 읽는다).
 유형마다 찾는 칸은 `FIELDS` 한 곳이고, 결과 줄에는 이름·제목이 아닌 칸에서 맞았을 때 맞은 칸의 이름과 짧은 발췌(맞은 글자는 `<mark>`)가 붙는다.
-올리기 묶음은 만든 사람만 보는 기록이라 찾지 않는다. 질의 수는 유형마다 (건수 1 + 줄 1) 로 일정하다 (기록 수와 무관).
+올리기 묶음은 만든 사람만 보는 기록이라 찾지 않는다. 질의 수는 모든 유형의 건수 질의(유형 수 10) + 맞은 유형의 줄 질의 1 + 줄이 보여 주는 연결을 미리 읽는 질의(프로젝트·영업기회 1: 고객, 제안 건 2: 고객·프로젝트, 후속 조치·고객 니즈 1: 활동 기록)로 일정하다 (기록 수와 무관).
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from markupsafe import Markup, escape
@@ -32,6 +33,9 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "follow_up": ("task",),
     "customer_need": ("content", "customer_name"),
 }
+# "목록에서 모두 보기" 가 가는 곳: 그 유형의 글을 실제로 찾아 주는 목록만. 후속 조치는 `/follow-ups?q=`(할 일 글), 고객 니즈는 찾는 목록이 없어 링크를 두지 않는다.
+MORE_LIST = {code: ontology.TYPES[code].list_url for code in SEARCH_TYPES if code != "customer_need" and ontology.TYPES[code].list_url}
+MORE_LIST["follow_up"] = "/follow-ups"
 FIELD_LABELS = {"summary_md": "정리본", "raw_text": "원문", "task": "할 일", "content": "내용", "customer_name": "고객", "tags": "태그"}
 
 
@@ -71,9 +75,17 @@ def _find(text: str, q: str) -> int:
     return low.find(ql) if len(low) == len(text) else text.find(q)
 
 
+_MARKER = re.compile(r"(?m)^[ \t]*(?:#{1,6}|[-*+>]|\d+[.)])[ \t]+|^[ \t]*[*>#]+(?=\S)")
+
+
+def _plain(text: str) -> str:
+    """발췌용 글: 줄 앞 마크다운 표지(`#`·`-`·`*`·`>`)를 떼고 공백을 한 칸으로 모은다 (이스케이프는 발췌가 한다)."""
+    return " ".join(_MARKER.sub("", str(text or "")).split())
+
+
 def excerpt(text: str, q: str) -> Markup | None:
     """`text` 에서 `q`(대소문자 무시)가 처음 나온 곳 둘레의 짧은 발췌. 글은 이스케이프하고 맞은 글자만 `<mark>`. 없으면 None."""
-    text = " ".join(str(text or "").split())
+    text = _plain(text)
     at = _find(text, q)
     if at < 0:
         return None
@@ -159,13 +171,15 @@ def search(db: Session, q: str) -> dict:
         if not total:
             continue
         loaders = [selectinload(model.customer)] if code in ("opportunity", "proposal", "project") else []
+        if code == "proposal":
+            loaders.append(selectinload(model.project))  # display_title 이 제목이 빈 제안 건에서 프로젝트 이름을 읽는다
         if code in ("follow_up", "customer_need"):
             loaders = [selectinload(model.activity)]
         rows = list(db.scalars(select(model).options(*loaders).where(cond).order_by(*order).limit(PER_TYPE)))
         from urllib.parse import urlencode
 
         more = None
-        if total > len(rows):
-            more = f"{ontology.TYPES['activity'].list_url if code in ('follow_up', 'customer_need') else t.list_url}?{urlencode({'q': q})}"
+        if total > len(rows) and code in MORE_LIST:
+            more = f"{MORE_LIST[code]}?{urlencode({'q': q})}"
         groups.append({"code": code, "label": t.label, "total": total, "rows": [_item(code, o, q) for o in rows], "more_url": more})
     return {"q": q, "state": "found" if groups else "none", "groups": groups}

@@ -271,10 +271,11 @@ def create_app(settings: Settings) -> FastAPI:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.templates = Jinja2Templates(directory=templates_dir)
     from app.markdown_lite import render_markdown
-    from app.proposals import check_items, check_summary_text, number_sources, deck_is_stale, display_title, outline_check_summary, unresolved_check_count
+    from app.proposals import check_items, check_summary_text, number_sources, deck_is_old, deck_is_stale, display_title, outline_check_summary, unresolved_check_count
 
     app.state.templates.env.globals["display_title"] = display_title
     app.state.templates.env.globals["deck_is_stale"] = deck_is_stale
+    app.state.templates.env.globals["deck_is_old"] = deck_is_old
     app.state.templates.env.globals["check_items"] = check_items
     app.state.templates.env.globals["number_sources"] = number_sources
     app.state.templates.env.globals["outline_check_summary"] = outline_check_summary

@@ -14,6 +14,7 @@ from importlib import metadata
 from pathlib import Path
 
 from app import transcribe
+from app.korean import josa
 from app.config import Settings
 
 MIN_PYTHON = (3, 11)
@@ -111,7 +112,7 @@ def _check_claude(settings: Settings) -> Check:
     name = settings.claude_cmd[0] if settings.claude_cmd else ""
     exe = shutil.which(name) if name else None
     if exe is None:
-        return ("Claude CLI", f"'{name}' 을(를) 찾을 수 없습니다. 설치하고 PATH 를 확인하세요.", "")
+        return ("Claude CLI", josa("'" + name + "'", "을/를") + f" 찾을 수 없습니다. 설치하고 PATH 를 확인하세요.", "")
     try:
         done = subprocess.run(
             [exe, *settings.claude_cmd[1:], "--version"],
