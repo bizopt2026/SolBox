@@ -2588,7 +2588,7 @@ body[data-theme="dark"] .gs-s:nth-child(3) .gs-i{color:#F7DC6F;background:rgba(2
 .sp-note p{margin:0;font-size:12px;line-height:1.7}
 .sp-link{display:block;margin:16px auto 2px;padding:8px 12px;font-size:var(--t4);font-weight:500;color:var(--accent)}
 /* 백업 */
-.bk-sum{display:grid;grid-template-columns:repeat(3,1fr);padding:16px 4px 0}
+.bk-sum{display:grid;grid-template-columns:repeat(4,1fr);padding:16px 4px 0}
 .bk-sum>div{display:grid;justify-items:center;gap:2px}
 .bk-sum>div+div{border-left:1px solid var(--line)}
 .bk-sum b{font-size:var(--t1);font-weight:700}
@@ -3566,6 +3566,8 @@ body[data-theme="dark"] .wk-src i.q,body[data-theme="dark"] .we-m em:not(.t){bac
 .wk-pen{color:#7A6A9C;font-weight:600}
 body[data-theme="dark"] .pen-tr span{background:#2C2440;color:#C9B2EE}
 body[data-theme="dark"] .pen-k,body[data-theme="dark"] .wk-pen{color:#B9A6E0}
+
+.wh-none{padding:22px 16px;border-radius:16px;border:1px dashed var(--line);background:var(--card);text-align:center;font-size:13px;line-height:1.7;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -6611,7 +6613,7 @@ function writerHome(){
       : `<div class="wh-empty">아직 글감이 없어요. 밑줄을 긋고 선명이와 사유를 나누면<br>여백이가 그 이야기로 글을 써 드려요.</div>`}
     <div class="sp-lb">나의 원고 <span>${ws.length}</span></div>
     ${ws.length ? `<div class="wh-list">${ws.map(w => `<button class="wh-w" data-action="wOpen" data-id="${esc(w.id)}"><span class="wk-tag ${w.type}">${WK_TYPE[w.type] || '글'}</span><b>${esc(w.title)}</b><small>${ex(w)}…</small><em>${w.type === 'diary' && w.date ? dayLabel(w.date).replace(/^\d{4}년 /, '') : fmtDate(w.updatedAt)} · 재료 ${(w.sources || []).length}개</em></button>`).join('')}</div>`
-      : '<div class="pempty">아직 쓴 원고가 없어요. 위에서 일기나 수필을 맡겨 보세요.</div>'}
+      : '<div class="wh-none">아직 쓴 원고가 없어요.<br>위에서 일기나 수필을 여백이에게 맡겨 보세요.</div>'}
     <p class="dn-tip">여백이는 당신이 고른 사유만 읽어요. 글은 내 기록에만 저장되고,<br>쓸 때마다 Claude 사용량을 조금 써요.</p>
   </div>`;
 }
@@ -6839,8 +6841,8 @@ function libraryView(){
 const sheetHead = (title, sub, lead = '') => `<div class="sp-h">${lead}<div class="sp-ht"><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div><button class="sp-x" id="fx" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
 const SP_CHEV = '<svg class="sp-cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 function guideSheet(){
-  openSheet(`${sheetHead('긋고, 되묻고, 건네다', '밑줄을 쓰는 다섯 가지 방법', `<span class="sp-av">${SM_AVATAR(40)}</span>`)}
-    <ol class="gs"><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 4.2l4.6 4.6-7.4 7.4H6.8v-4.6z"/><path d="M7.4 11l4.6 4.6"/></svg></span><div><b>긋기</b><p>페이지를 찍고 문장 위를 그어요. 전자책은 스크린샷이나 직접 입력으로.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.6.3-.8.7-.8 1.2"/></svg></span><div><b>되묻기</b><p>${AI_NAME}이가 왜 멈췄는지 물어요. 답하다 보면 한 편의 사유로 남아요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="4.5" stroke-dasharray="2 2"/></svg></span><div><b>각인</b><p>오래 간직할 밑줄에는 각인 도장을 찍어 둬요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.7S9.6 3.9 12 9zM12 9c2.5 0 4.5-1 4.5-2.7S14.4 3.9 12 9z"/></svg></span><div><b>선물하기</b><p>아끼는 한 줄을 카드에 담고, 선명이와 함께 쓴 편지를 붙여 보내요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></span><div><b>돌아보기</b><p>위쪽 막대 아이콘에서 한 달 동안의 밑줄을 돌아봐요.</p></div></li></ol>
+  openSheet(`${sheetHead('긋고, 되묻고, 건네다', '밑줄을 쓰는 여섯 가지 방법', `<span class="sp-av">${SM_AVATAR(40)}</span>`)}
+    <ol class="gs"><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 4.2l4.6 4.6-7.4 7.4H6.8v-4.6z"/><path d="M7.4 11l4.6 4.6"/></svg></span><div><b>긋기</b><p>페이지를 찍고 문장 위를 그어요. 전자책은 스크린샷이나 직접 입력으로.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.6.3-.8.7-.8 1.2"/></svg></span><div><b>되묻기</b><p>${AI_NAME}이가 왜 멈췄는지 물어요. 답하다 보면 한 편의 사유로 남아요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-7 0-12 4-13 11l-2 5"/><path d="M20 4c0 7-4 12-11 13"/><path d="M9 15l5-5"/></svg></span><div><b>쓰기</b><p>위쪽 깃펜 아이콘의 여백이가 사유를 모아 일기·수필로 엮어요. 밑줄을 많이 그은 작가의 결을 닮게.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="4.5" stroke-dasharray="2 2"/></svg></span><div><b>각인</b><p>오래 간직할 밑줄에는 각인 도장을 찍어 둬요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.7S9.6 3.9 12 9zM12 9c2.5 0 4.5-1 4.5-2.7S14.4 3.9 12 9z"/></svg></span><div><b>선물하기</b><p>아끼는 한 줄을 카드에 담고, 선명이와 함께 쓴 편지를 붙여 보내요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></span><div><b>돌아보기</b><p>위쪽 막대 아이콘에서 한 달의 독서 캘린더와 다 읽은 책을 돌아봐요.</p></div></li></ol>
     <details class="sp-g sp-fold"><summary><span><b>선물을 보내고 받는 법</b><small>카드 · 편지</small></span>${SP_CHEV}</summary>
       <div class="sp-fb">
       <b class="gd-gh">보내는 사람</b>
@@ -6866,14 +6868,14 @@ function backupData(){
 }
 function backupStats(docs){
   const v = Object.values(docs || {});
-  return { books: v.filter(d => d.kind === 'book').length, quotes: v.filter(d => d.kind === 'quote').length, talks: v.filter(d => d.kind === 'talk' && d.status === 'saved').length };
+  return { books: v.filter(d => d.kind === 'book').length, quotes: v.filter(d => d.kind === 'quote').length, talks: v.filter(d => d.kind === 'talk' && d.status === 'saved').length, works: v.filter(d => d.kind === 'work').length };
 }
 function backupBlock(){
   const st = backupStats(S.docs), last = (S.docs.settings || {}).backupAt;
   const row = (id, icon, t, d) => `<button class="sp-row" id="${id}"><span class="sp-ri">${icon}</span><span><b>${t}</b><small>${d}</small></span>${SP_CHEV}</button>`;
   const svg = p => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   return `<div class="bkp2">
-    <div class="sp-g bk-sum"><div><b>${st.books}</b><span>책</span></div><div><b>${st.quotes}</b><span>밑줄</span></div><div><b>${st.talks}</b><span>사유</span></div>
+    <div class="sp-g bk-sum"><div><b>${st.books}</b><span>책</span></div><div><b>${st.quotes}</b><span>밑줄</span></div><div><b>${st.talks}</b><span>사유</span></div><div><b>${st.works}</b><span>원고</span></div>
       <p class="bk-last">${last ? `마지막 백업 · ${fmtDate(last)}` : '아직 따로 백업한 적이 없어요'}</p></div>
     <div class="sp-lb">백업하기</div>
     <div class="sp-g">${row('bkCopy', svg('<rect x="8" y="8" width="11" height="12" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>'), '백업 코드 복사', '메모 앱에 붙여 두면 언제든 되살릴 수 있어요')}
@@ -6922,7 +6924,7 @@ function wireBackup(){
 function restoreConfirm(at, st, now){
   return new Promise(res => {
     openSheet(`${sheetHead('백업으로 복원할까요?', '')}
-      <div class="rs-cmp"><div><small>지금 기록</small><b>책 ${now.books} · 밑줄 ${now.quotes} · 사유 ${now.talks}</b></div><i>→</i><div class="to"><small>${fmtDate(at || Date.now())} 백업</small><b>책 ${st.books} · 밑줄 ${st.quotes} · 사유 ${st.talks}</b></div></div>
+      <div class="rs-cmp"><div><small>지금 기록</small><b>책 ${now.books} · 밑줄 ${now.quotes} · 사유 ${now.talks}${now.works ? ` · 원고 ${now.works}` : ''}</b></div><i>→</i><div class="to"><small>${fmtDate(at || Date.now())} 백업</small><b>책 ${st.books} · 밑줄 ${st.quotes} · 사유 ${st.talks}${st.works ? ` · 원고 ${st.works}` : ''}</b></div></div>
       <p class="rs-warn">지금 기록은 <b>모두 지워지고</b> 백업한 때의 기록으로 바뀌어요. 백업 뒤에 새로 남긴 밑줄·사유·원고도 사라져요.</p>
       <p class="rs-sub">복원 직후 잠깐 뜨는 ‘되돌리기’로 복원 전 기록을 되살릴 수 있어요.</p>
       <div class="acts"><button class="btn ghost" id="cNo">취소</button><button class="btn rs-go" id="cOk">지우고 복원</button></div>`);
@@ -7014,7 +7016,7 @@ function moreSheet(){
   openSheet(`${sheetHead('더보기', '')}
     <div class="mr2-me">${SM_AVATAR(40)}<span><b>나의 밑줄</b><small>책 ${st.books}권 · 밑줄 ${st.quotes}개 · 사유 ${st.talks}개</small></span></div>
     <div class="sp-g">
-    ${row('mrG', '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4M12 16.5h.01"/>', '이용 안내', `긋고, 되묻고, 건네는 법 · ${AI_NAME}이 소개`)}
+    ${row('mrG', '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4M12 16.5h.01"/>', '이용 안내', `긋고, 되묻고, 쓰는 법 · ${AI_NAME}이와 여백이`)}
     ${row('mrS', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', '환경설정', `화면 ${theme} · ${AI_NAME}이 말 걸기 ${PREF.smAuto === 'off' ? '끔' : '켬'}`)}
     ${row('mrB', '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', '백업 · 복원', last ? `마지막 백업 ${fmtDate(last)}` : '아직 따로 백업한 적이 없어요')}</div>
     <p class="mr2-v">밑줄 · 긋고, 되묻고, 건네다</p>`);
