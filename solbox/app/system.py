@@ -133,7 +133,7 @@ def _wait_exit(proc, timeout: float) -> None:
     """자식이 끝날 때까지 `timeout` 초 기다린다. POSIX 에서는 끝난 자식을 **회수하지 않고**(`waitid(WNOWAIT)`: 좀비로 남아 프로세스 번호가 다른 프로세스에 재사용되지 않는다) 기다려서,
     자식이 끝난 뒤 손자가 파이프를 쥐고 있어 프로세스 그룹을 죽여야 할 때 그 번호가 엉뚱한 그룹을 가리키지 않게 한다. 회수는 `proc.wait()` 가 한다."""
     waitid = getattr(os, "waitid", None)
-    if sys.platform == "win32" or waitid is None or not isinstance(proc, subprocess.Popen):
+    if sys.platform == "win32" or waitid is None or not isinstance(getattr(proc, "pid", None), int):
         proc.wait(timeout=max(timeout, 0))
         return
     deadline = time.monotonic() + max(timeout, 0)
