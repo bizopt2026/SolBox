@@ -146,3 +146,23 @@ def test_g4_intake_analyze_note_not_saved_when_busy(app, user_client, db, settin
     assert r.status_code == 503
     db.expire_all()
     assert db.get(Intake, iid).note == "원래 메모"
+
+
+# ---- G5: 작성자 말투 ----
+
+@pytest.mark.parametrize("text", [
+    "제안 내용을 검토해 주세요", "유지보수 기간 중 기능 업데이트 예정", "2차 사업 기간에 센서 300대 추가 예정", "월간 실적 보고서 자동 작성 예정",
+    "유지보수 기간 연장 시 별도 계약 추가 필요", "예산 수립 시 운영비 포함 필요", "보안 점검 내용 연 1회 업데이트 필요",
+])
+def test_g5_customer_lines_stay(text):
+    from app.proposals import is_author_instruction
+    assert not is_author_instruction(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "출처 확인 필요", "고객사명 확인 필요", "담당자 확인 필요", "도입 시기 확인 필요", "TODO: 수치 확인", "TBD: 일정", "이 슬라이드는 삭제할 것",
+    "규모 확인 요망", "작성 예정", "금액 미정",
+])
+def test_g5_author_notes_move(text):
+    from app.proposals import is_author_instruction
+    assert is_author_instruction(text), text
