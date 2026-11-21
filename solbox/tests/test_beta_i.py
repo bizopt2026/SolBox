@@ -119,6 +119,11 @@ DECK_REMOVE = {
         'decks/4/deck-20261121-101500-ab12cd.pptx.part', 'data/models/.hf_home', 'data/models/models--Systran--faster-whisper-small/snapshots/x/model.bin',
         'solbox/data/logs/x', 'C:\\solbox\\data\\models\\foo',
     ],
+    'beta M (review10 d1: only real remote schemes are addresses; `data/decks/7`-like ends)': [
+        'C://solbox/data/app.db', '경로:C://solbox/data/uploads/solutions/3/a.pdf', 'C://Users/kim/solbox/data/decks/7/deck-20261121-101500-ab12cd.pptx', 'c://solbox/data/logs/app.log',
+        'sqlite:///C:/solbox/data/app.db', 'sqlite:///data/app.db', 'x://data/uploads/solutions/3/a.pdf', 'path://data/app.db', 'note://decks/4/deck-20261121-101500-ab12cd.pptx',
+        '(x://intake_work/5/1-회의록.md)', 'data/decks/7', 'data\\decks\\7', 'data/uploads/solutions', 'data/uploads/intake',
+    ],
     'review6 h1 keep list (conflict: policy/H)': [
         'customers/3만 명', 'customers/3만', 'customers/2등', 'customers/5인', 'customers/5인 이하', 'solutions/1위를', 'customers/50%를', 'solutions/24h',
         'solutions/5G망', 'projects/3인 투입',
@@ -181,6 +186,9 @@ DECK_KEEP = {
         '데이터 레이크(data/models/logs) 구성', 'S3 버킷 data/uploads/ 에 저장', '고객사 서버 /data/models/ 에 모델 배포', 'D:\\data\\logs\\ 보관 90일',
         'HDFS /user/data/models/v1', 's3://kt-lake/data/logs/2026/', 'gs://bucket/data/models/v3',
     ],
+    'beta M (review10 d1: remote schemes on the allowlist stay addresses)': [
+        's3://kt-lake/data/decks/7', 'hdfs://nn:8020/data/uploads/solutions', 'sftp://files.kt.com/data/uploads/intake', 'jdbc:postgresql://db/data/app.db', 'gs://bucket/data/uploads/solutions/3/x.pdf',
+    ],
     'policy M-4': [
         'solutions/3Mbps', 'partners/2개사가 참여', 'solutions/10Gbps', 'solutions/100MB', 'solutions/1GB', 'research/2026년에는', 'partners/2개사가',
         'customers/100명의', 'solutions/3개를', 'projects/6개월의',
@@ -235,6 +243,10 @@ AUTHOR_MOVE = {
         '고객에게 보여주지 말 것', '보여주지 말 것', '(수치 입력)', '(금액 입력)', '(입력)', 'XX% 절감', '절감률 XX%', 'OO 절감', 'OO원 절감', '○○', '약 ○○억 규모', 'OO 개사', '로고 넣기', '고객 로고 넣기',
         '제목 수정 필요',
     ],
+    'beta M (review10 a1: memo-shaped lines of the fixed vocabulary still move)': [
+        '작성자 확인 필요', '팀장님 검토 요망', '법무팀 검토 필요', '내부 검토용', '초안', '오타 수정', '폰트 통일 필요', '슬라이드 순서 조정 필요', '제목 수정 필요', '로고 넣기', '고객에게 보여주지 말 것',
+        'XX% 절감 (수치 입력)', '[초안] 금액 수정 필요', '문서 작성자 확인',
+    ],
 }
 
 AUTHOR_STAY = {
@@ -284,6 +296,13 @@ AUTHOR_STAY = {
     'beta L (review9 l3/l7: customer bullets that share a word with the fixed vocabulary)': [
         '초안 검토 후 최종안 제출', '설계 초안 제출 2주', '내부망 연동', '폰트 라이선스 포함', '오타 없는 OCR 인식률 99%', '팀장급 PM 투입', '로그인 화면 (ID 입력)', '내부용 서버 구축', 'OO건설 사례',
         'XX전자 협력', 'OOO 시스템 도입', '시범 데이터는 실제 운영 데이터로 교체 예정',
+    ],
+    'beta M (review10 a1: customer feature sentences that contain a fixed-vocabulary word)': [
+        '작성자 이력 관리 기능', '문서 작성자·승인자 추적', '작성자 본인만 수정 가능', '작성자', '법무팀 검토 프로세스 자동화', '계약서 법무팀 검토 기간 5일 → 1일 단축', '초안: 2주 내 제출', '(초안) 일정표',
+        '1차 산출물: 설계서 (초안)', '음성 인식 후 오타 검토 단계 제공', '상담 기록의 맞춤법·오타 수정 자동화', '문서 내 오타 발견 시 알림', '폰트 변경 기능 제공', '사용자별 테마·폰트 변경 지원',
+        '보고서 템플릿 폰트 통일 기능', '배포 대상: 내부용', '사내 직원 내부용', '대상: 임직원 (내부용)', '용도: 내부용', '슬라이드 순서 자동 정렬', '발표 자료 슬라이드 순서 추천 기능', '로고 넣기 기능',
+        '보고서에 회사 로고 넣기 지원', '제목 수정 필요 시 관리자 문의', '게시글 제목 수정 필요 시 이력 저장', '(금액 입력) 화면', '견적 요청 화면 (수량 입력)', '주문 화면 [수량 입력]', '조회 조건 (기간 입력)',
+        '신청서 (이름 입력) 단계 생략', '내부 검토용 대시보드 제공', '팀장님 승인 한 번으로 결재 완료', '고객에게 보여주지 말아야 할 정보 자동 마스킹',
     ],
 }
 

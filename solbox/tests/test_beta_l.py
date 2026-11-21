@@ -252,9 +252,11 @@ def _alive(pid: int) -> bool:
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX")
 def test_l6_child_exits_when_its_parent_dies(tmp_path):
     root = str(Path(_linear.__file__).resolve().parent.parent)
-    child = f"import sys, time\nsys.path.insert(0, {root!r})\nfrom tests import _linear\n_linear._exit_when_parent_dies()\ntime.sleep(120)\n"
-    parent = ("import subprocess, sys, os\n"
+    child = f"import sys, time\nsys.path.insert(0, {root!r})\nfrom tests import _linear\n_linear._exit_when_parent_dies()\nopen({str(tmp_path / 'ready')!r}, 'w').close()\ntime.sleep(120)\n"
+    # 베타 M: 자식은 뜰 때의 부모를 기준으로 잡으므로, 부모는 자식이 기준을 잡은 뒤(표지 파일)에 끝난다
+    parent = ("import subprocess, sys, os, time\n"
               f"p = subprocess.Popen([sys.executable, '-c', {child!r}], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={{**os.environ, {_linear.PARENT_ENV!r}: str(os.getpid())}})\n"
+              f"for _ in range(200):\n    if os.path.exists({str(tmp_path / 'ready')!r}):\n        break\n    time.sleep(0.1)\n"
               "print(p.pid, flush=True)\nos._exit(0)\n")
     out = subprocess.run([sys.executable, "-c", parent], capture_output=True, text=True, timeout=60).stdout.split()
     pid = int(out[0])
