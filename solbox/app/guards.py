@@ -111,6 +111,27 @@ class StaleWrite(HTTPException):
         super().__init__(status_code=409, detail="저장하는 사이에 다른 곳에서 이 기록이 바뀌었습니다. 저장하지 않았으니 화면을 새로 열어 다시 고쳐 주세요.")
 
 
+LOCK_BUSY_TEXT = "다른 사람이 저장하는 중이라 지금은 저장하지 못했습니다. 잠시 후 다시 시도해 주세요. 저장하지 않았으니 입력한 내용은 브라우저의 뒤로 가기로 다시 볼 수 있습니다."
+
+
+class WriteBusy(HTTPException):
+    """쓰기 잠금을 제때 잡지 못했다 (다른 쓰기가 오래 걸린다): 저장하지 않았다. 충돌이 아니므로 잠시 뒤 다시 하면 된다 (503)."""
+
+    def __init__(self):
+        super().__init__(status_code=503, detail=LOCK_BUSY_TEXT, headers={"Retry-After": "5"})
+
+
+_SQLITE_BUSY_SNAPSHOT = 517  # SQLITE_BUSY_SNAPSHOT: 읽기 시작 뒤 다른 쓰기가 커밋됐다 (읽은 내용이 더는 최신이 아니다)
+
+
+def lock_failure(exc: OperationalError) -> HTTPException:
+    """쓰기 잠금 단계에서 난 `OperationalError` 를 사용자에게 줄 오류로. 읽은 뒤 다른 쓰기가 커밋된 경우(스냅숏이 낡음)만 바뀐 것(`StaleWrite`),
+    잠금 대기 시간 초과 같은 나머지는 충돌이 아니므로 "잠시 후 다시"(`WriteBusy`)."""
+    if getattr(exc.orig, "sqlite_errorcode", None) == _SQLITE_BUSY_SNAPSHOT:
+        return StaleWrite()
+    return WriteBusy()
+
+
 EXCERPT_LEN = 60
 
 
@@ -203,8 +224,8 @@ def _verify_checks(session: Session) -> None:
         try:
             conn.execute(text(f'UPDATE "{table.name}" SET id = id WHERE id = :id'), {"id": obj.id})  # 쓰기 잠금: 이 뒤로는 다른 쓰기가 끼어들지 못한다
             row = conn.execute(select(table).where(table.c.id == obj.id)).one_or_none()
-        except OperationalError:  # 잠금을 못 잡음/옛 읽기 스냅숏: 그 사이 다른 쓰기가 있었다
-            raise StaleWrite() from None
+        except OperationalError as e:  # 읽은 뒤 다른 쓰기가 커밋됐으면 바뀐 것, 잠금 대기 초과면 "잠시 후 다시"
+            raise lock_failure(e) from None
         if row is None:
             raise StaleWrite()
         try:

@@ -596,6 +596,12 @@
   window.addEventListener("resize", function () { fitAll(); });
   fitAll();
 
+  // 오류 화면의 "뒤로 가기": 브라우저가 폼에 쓰던 내용을 되살린다 (저장하지 않은 409·503 화면)
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-history-back]");
+    if (b) { e.preventDefault(); history.back(); }
+  });
+
   // 제안 대화: 입력칸에서 Ctrl/⌘+Enter 로 보낸다 (Enter 는 줄바꿈. 한글 조합 중에는 가로채지 않는다). 시작 질문 칩은 누르면 바로 보낸다 (칩이 곧 제출 버튼이라 따로 할 일이 없다).
   document.addEventListener("keydown", function (e) {
     var t = e.target;

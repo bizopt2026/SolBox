@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}오류{% endblock %}
 {% block content %}
-{% set hint = {404: "주소가 바뀌었거나 이미 지워진 항목일 수 있어요. 목록에서 다시 찾아보세요.", 403: "이 화면은 관리자만 열 수 있거나 다른 사람이 올린 항목이에요. 필요하면 관리자에게 알려 주세요.", 400: "입력한 내용이나 주소를 한 번 더 확인해 주세요.", 500: "잠시 뒤에 다시 해 보세요. 계속 안 되면 관리자에게 알려 주세요. 입력하던 내용은 저장되지 않았을 수 있어요."}.get(code | default(0), "잠시 뒤에 다시 해 보세요. 계속 안 되면 관리자에게 알려 주세요.") %}
+{% set hint = {404: "주소가 바뀌었거나 이미 지워진 항목일 수 있어요. 목록에서 다시 찾아보세요.", 403: "이 화면은 관리자만 열 수 있거나 다른 사람이 올린 항목이에요. 필요하면 관리자에게 알려 주세요.", 400: "입력한 내용이나 주소를 한 번 더 확인해 주세요.", 500: "잠시 뒤에 다시 해 보세요. 계속 안 되면 관리자에게 알려 주세요. 입력하던 내용은 저장되지 않았을 수 있어요.", 409: "내용은 저장하지 않았어요. 브라우저의 뒤로 가기(아래 버튼)를 누르면 쓰던 내용이 그대로 남아 있어요. 복사해 두고 화면을 새로 열어 다시 고쳐 주세요.", 503: "내용은 저장하지 않았어요. 잠시 뒤에 브라우저의 뒤로 가기(아래 버튼)로 돌아가 다시 저장해 보세요. 쓰던 내용은 그대로 남아 있어요."}.get(code | default(0), "잠시 뒤에 다시 해 보세요. 계속 안 되면 관리자에게 알려 주세요.") %}
 <section class="card auth-card error-card stack" role="alert">
   {% if code is defined and code %}<p class="error-code" aria-hidden="true">{{ code }}</p>{% endif %}
   <h1>{{ title }}</h1>
@@ -9,8 +9,9 @@
   <p class="muted">{{ hint }}</p>
   <div class="row">
     {% if user %}
-    <a class="button primary" href="/">홈으로</a>
-    <a class="button" href="/search">검색하기</a>
+    {% if code | default(0) in (409, 503) %}<button type="button" class="button primary" data-history-back>뒤로 가기</button><a class="button" href="/">홈으로</a>
+    {% else %}<a class="button primary" href="/">홈으로</a>
+    <a class="button" href="/search">검색하기</a>{% endif %}
     {% else %}
     <a class="button primary" href="/login">로그인</a>
     {% endif %}

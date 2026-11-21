@@ -395,3 +395,86 @@ def test_e7_author_lines_move(line):
 @pytest.mark.parametrize("line", CUSTOMER_LINES)
 def test_e7_customer_lines_stay(line):
     assert not is_author_instruction(line), line
+
+
+# ---- E8 잠금 시간 초과는 충돌이 아니다 ----
+
+import sqlite3
+
+from sqlalchemy import event as sa_event
+from sqlalchemy.exc import OperationalError
+
+from app import guards
+from app.models import Customer
+
+
+class _Orig(Exception):
+    def __init__(self, code=None):
+        super().__init__("database is locked")
+        if code is not None:
+            self.sqlite_errorcode = code
+
+
+def test_lock_failure_maps_snapshot_to_stale_and_timeout_to_busy():
+    assert isinstance(guards.lock_failure(OperationalError("s", {}, _Orig(517))), guards.StaleWrite)
+    busy = guards.lock_failure(OperationalError("s", {}, _Orig(5)))
+    assert isinstance(busy, guards.WriteBusy) and busy.status_code == 503 and "잠시 후 다시 시도" in busy.detail
+    assert isinstance(guards.lock_failure(OperationalError("s", {}, _Orig())), guards.WriteBusy)
+
+
+def _hold_write_lock(app):
+    """다른 연결이 쓰기 잠금을 쥔다 (이 앱의 연결은 대기 50ms 로 줄인다)."""
+    engine = app.state.engine
+    sa_event.listen(engine, "connect", lambda c, r: c.execute("PRAGMA busy_timeout=50"))
+    engine.dispose()
+    raw = sqlite3.connect(str(app.state.settings.db_path), timeout=0, isolation_level=None)
+    raw.execute("BEGIN IMMEDIATE")
+    return raw
+
+
+def test_lock_timeout_gives_try_again_screen_not_conflict(app, user_client, db):
+    c = Customer(name="한빛병원")
+    db.add(c)
+    db.commit()
+    cid = c.id
+    page = user_client.get(f"/customers/{cid}/edit").text
+    stamp = re.search(r'name="_rev" value="([^"]+)"', page).group(1)
+    raw = _hold_write_lock(app)
+    try:
+        r = user_client.post(f"/customers/{cid}", data={"name": "바뀐 이름", "_rev": stamp}, follow_redirects=False)
+    finally:
+        raw.execute("ROLLBACK")
+        raw.close()
+    assert r.status_code == 503 and "잠시 후 다시 시도" in r.text and "다른 곳에서 이 기록이 바뀌었습니다" not in r.text
+    assert "저장하지 않았" in r.text and "data-history-back" in r.text
+    db.expire_all()
+    assert db.get(Customer, cid).name == "한빛병원"
+    ok = user_client.post(f"/customers/{cid}", data={"name": "바뀐 이름", "_rev": stamp}, follow_redirects=False)  # 풀린 뒤 같은 내용으로 다시 저장된다
+    assert ok.status_code == 303
+
+
+def test_stale_write_page_says_not_saved_and_offers_back(user_client, db, monkeypatch):
+    c = Customer(name="한빛병원")
+    db.add(c)
+    db.commit()
+    stamp = re.search(r'name="_rev" value="([^"]+)"', user_client.get(f"/customers/{c.id}/edit").text).group(1)
+
+    def stale(session):
+        raise guards.StaleWrite()
+
+    monkeypatch.setattr(guards, "_verify_checks", stale)
+    r = user_client.post(f"/customers/{c.id}", data={"name": "바뀐 이름", "_rev": stamp}, follow_redirects=False)
+    assert r.status_code == 409 and "저장하지 않았습니다" in r.text
+    assert "data-history-back" in r.text and "쓰던 내용이 그대로 남아 있어요" in r.text
+
+
+def test_idmarks_lock_timeout_is_try_again(app, user_client, db):
+    raw = _hold_write_lock(app)
+    try:
+        r = user_client.post("/customers", data={"name": "새 고객"}, follow_redirects=False)
+    finally:
+        raw.execute("ROLLBACK")
+        raw.close()
+    assert r.status_code == 503 and "잠시 후 다시 시도" in r.text
+    db.expire_all()
+    assert db.query(Customer).count() == 0

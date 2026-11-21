@@ -19,6 +19,7 @@ import weakref
 
 from sqlalchemy import Connection, Engine, event, text
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.db import Base
@@ -108,7 +109,12 @@ def _assign_ids(session: Session, flush_context, instances) -> None:
             continue
         mapper = sa_inspect(type(group["new"][0] if group["new"] else group["deleted"][0]))
         key = mapper.get_property_by_column(mapper.local_table.c[col]).key
-        mark, top = _lock_and_mark(conn, table, col)
+        try:
+            mark, top = _lock_and_mark(conn, table, col)
+        except OperationalError as e:  # 쓰기 잠금을 제때 못 잡았다: 저장하지 않고 "잠시 후 다시" (guards.lock_failure)
+            from app import guards
+
+            raise guards.lock_failure(e) from None
         base = max(mark, top)
         fresh = []
         for obj in group["new"]:

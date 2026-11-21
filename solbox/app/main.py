@@ -222,7 +222,7 @@ def _get_fallback(request: Request) -> str | None:
     return "/"
 
 
-ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요", 500: "문제가 생겼어요"}
+ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요", 500: "문제가 생겼어요", 409: "저장하지 않았습니다", 503: "잠시 후 다시 시도해 주세요"}
 
 
 def error_title(status_code: int) -> str:
