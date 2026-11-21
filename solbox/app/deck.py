@@ -454,7 +454,7 @@ def mirror_folders() -> tuple[str, ...]:
 # - 영문·숫자에 붙은 것(`a-solutions/3`)은 남긴다.
 # - 번호 뒤가 띄어쓰기인 낱말(`solutions/3 단계로 구성`, `research/2026 보고서 인용`, `activities/2026 계획`)은 맨 경로와 구별할 수 없어 지운다 (안전한 쪽).
 _SEP = r"[/\\／]"
-_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(?:\.?{_SEP})*(\d+(?:,\d{{3}})*)", re.I)  # `customers/1,200명` 의 천 단위 쉼표도 번호의 일부
+_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(?:\.?{_SEP})*(?:undated{_SEP}(?:\.?{_SEP})*)?(\d+(?:,\d{{3}})*)", re.I)  # `activities/undated/12.md`(날짜 없는 활동의 사본 모양)도 번호 앞에 둔다  # `customers/1,200명` 의 천 단위 쉼표도 번호의 일부
 _KNOWLEDGE_SEG = re.compile(rf"(?<![\w.\-])knowledge{_SEP}", re.I)
 _URL_HEAD = re.compile(r"https?://", re.I)
 _FILE_HEAD = re.compile(r"(?<![\w])file:[/\\]{2,3}", re.I)
@@ -592,20 +592,65 @@ class _Token:
         return self.file_tail(end + (n or 0))  # 단위 뒤의 확장자(`3개.md`)·`/card.md` 도 파일 경로다
 
 
-# 번호 없는 사본·데이터 파일: `knowledge/index.md`·`knowledge/solutions/card.md`·`data/app.db` (주소 속이 아닐 때만)
+# 번호 없는 사본·데이터 파일: 앱이 실제로 쓰는 이름만 본다 (베타 K). 지식 사본 폴더의 `knowledge/index.md`·`knowledge/solutions/card.md` 와 데이터 폴더의 `data/app.db`·`data/solbox.db`.
+# `docs/knowledge/guide.md`·`Obsidian vault(knowledge/notes.md)`·`kt.com/data/app.db`·`/var/lib/app.db`·`node_modules/app.db` 같은 일반 글은 둔다.
+# 파일 이름 뒤에는 영문·숫자·`_` 만 아니면 된다 (`knowledge/index.md의 목록`·`data/app.db를 백업` 의 한글 조사).
 _MIRROR_FILE = re.compile(
-    rf"(?<![\w.\-])knowledge{_SEP}(?:(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP})?[^\s/\\／]+\.(?:md|json|db)(?![\w])"
-    rf"|(?<=[/\\／])(?:app|solbox)\.db(?![\w])", re.I)
+    rf"(?<![\w.\-])knowledge{_SEP}(?:(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP})?(?:index|card)\.md(?![A-Za-z0-9_])", re.I)
+_DB_FILE = re.compile(rf"(?<![\w.\-])data{_SEP}(?:app|solbox)\.db(?![A-Za-z0-9_])", re.I)
+# 데이터 폴더의 그 밖의 모양 (앱이 쓰는 것만): 작업 폴더(`intake_work/<번호>/…`·`research_work/…`), 올린 파일(`uploads/solutions|intake/<번호>/…`), 제안서 파일(`decks/<번호>/deck-<날짜>-<시각>-<6자>[-internal].pptx`),
+# 백업(`backups/<날짜>-<시각>[.partial]/…`), 로그(`logs/app.log[.N]`), 그리고 `data/` 아래 그 폴더들(`data/models/…`). 일반 낱말(`models/`·`logs/`·`uploads/` 만 있는 글)은 둔다.
+_DATA_SHAPE = re.compile(
+    rf"(?<![\w.\-])(?:(?:intake_work|research_work){_SEP}|uploads{_SEP}(?:solutions|intake){_SEP}[^\s/\\／]|decks{_SEP}\d+{_SEP}"
+    rf"|backups{_SEP}\d{{8}}-\d{{6}}(?![A-Za-z0-9_])|logs{_SEP}app\.log(?:\.\d+)?(?![A-Za-z0-9_]))"
+    r"|(?<![\w.\-])deck-\d{8}-\d{6}-[0-9a-f]{6}(?:-internal)?\.pptx(?![A-Za-z0-9_])", re.I)
+_DATA_SUBDIR = re.compile(rf"(?<![\w.\-])data{_SEP}(?:logs|models|uploads|decks|backups|intake_work|research_work){_SEP}", re.I)
+_URL_SPAN = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*", re.I)  # 주소의 끝은 `,`·`;`·한글·공백에서 끝난다 (`https://kt.com,knowledge/index.md` 의 파일은 주소 밖)
+_DB_LABEL_CUT = re.compile(r"[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
+_DB_ANCHORED = re.compile(r"^(?:[/\\~$%]|[A-Za-z]:[/\\]|file:)", re.I)
+
+
+def _url_spans(tok: str) -> tuple[list[int], list[int]]:
+    spans = [(u.start(), u.end()) for u in _URL_SPAN.finditer(tok)]
+    return [a for a, _ in spans], [b for _, b in spans]
+
+
+def _in_url(spans: tuple[list[int], list[int]], pos: int) -> bool:
+    """`pos` 가 주소 안인가 (낱말마다 주소 범위를 한 번만 구해 이진 탐색: 같은 파일 이름이 아주 많이 이어져도 선형)."""
+    starts, ends = spans
+    i = bisect.bisect_right(starts, pos) - 1
+    return i >= 0 and pos < ends[i]
+
+
+def _db_file_is_ours(tok: str, m: re.Match) -> bool:
+    """`data/app.db` 앞 머리말이 없거나, 닻 있는 경로(`C:\\`·`/srv/`·`~/`)이거나 `solbox` 마디가 있으면 우리 파일이다 (`R&D/data/app.db`·`kt.com/data/app.db` 는 아니다)."""
+    head = _DB_LABEL_CUT.split(tok[max(0, m.start() - 300):m.start()])[-1]  # 앞 300자까지만 본다 (같은 낱말에 후보가 많아도 선형)
+    head = _LABEL_LEAD.sub("", head) if _LABEL_LEAD.match(head) else head
+    return head == "" or _DB_ANCHORED.match(head) is not None or "solbox" in head.lower()
 
 
 def _has_mirror_file(t: str) -> bool:
     for tm in _TOKEN.finditer(t):
         tok = tm.group()
-        if "." not in tok:
+        if "." not in tok and "_" not in tok and "/" not in tok and "\\" not in tok and "／" not in tok:
             continue
-        m = _MIRROR_FILE.search(tok)
-        if m is not None and not any(u.end() <= m.start() for u in _URL_HEAD.finditer(tok)):
-            return True
+        spans = None
+        for m in _MIRROR_FILE.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()):
+                return True
+        for m in _DB_FILE.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()) and _db_file_is_ours(tok, m):
+                return True
+        for m in _DATA_SHAPE.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()):
+                return True
+        for m in _DATA_SUBDIR.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()) and _db_file_is_ours(tok, m):
+                return True
     return False
 
 
