@@ -223,16 +223,17 @@ def _function(group: str):
 def _exit_when_parent_dies() -> None:
     """부모(시험)가 죽으면 자식도 스스로 끝낸다 (베타 L): 제곱 시간 규칙에 갇힌 자식이 시험이 끝난 뒤에도 CPU 를 쓰며 남지 않게. `re` 가 GIL 을 놓지 않으면 이 스레드도 못 돌 수 있어,
     부모가 죽여 주는 쪽(`run_group` 의 `finally`)이 첫째 안전장치고 이것은 부모가 아예 사라진 경우의 둘째 장치다."""
-    parent = int(os.environ.get(PARENT_ENV) or os.getppid())  # 부모가 알려 준 번호 (자식이 뜨는 사이 부모가 이미 죽었어도 알아챈다)
+    parent = os.getppid()  # 자식이 뜬 순간의 부모가 기준이다 (부모가 알려 준 번호와 견주지 않는다: 낡은 번호·재사용된 번호로 시작하자마자 끝나지 않게). 이 번호가 바뀔 때만 끝낸다
 
     def watch() -> None:
         while True:
             time.sleep(1.0)
-            if os.getppid() != parent:
+            now = os.getppid()
+            if now != parent:
+                sys.stderr.write(f"_linear child: parent changed from {parent} to {now}; exiting\n")
+                sys.stderr.flush()
                 os._exit(3)
 
-    if os.getppid() != parent:
-        os._exit(3)
     threading.Thread(target=watch, daemon=True).start()
 
 
