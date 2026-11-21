@@ -328,7 +328,7 @@ class AIJob(Base):
     error: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)  # 상단 줄 AI 상태가 "마지막으로 끝난 작업" 을 이 열로 찾는다
 
     @property
     def shown_error_kind(self) -> str:

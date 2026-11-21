@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, seg, pill, empty_list, ai_attrs %}
+{% from "_macros.html" import page_header, seg, pill, empty_list, ai_attrs, ai_note %}
 {% block title %}AI 작업{% endblock %}
 {% block content %}
 {% call page_header("AI 작업", crumbs=[("관리", none), ("AI 작업", none)], sub=ont.TYPES["ai_job"].description, count=total ~ "건") %}{% endcall %}
@@ -15,6 +15,7 @@
   </form>
 </div>
 {% if rows %}
+{% call ai_note(ai_gate(), id="ai-note") %}{% endcall %}
 <div class="tablewrap"><table class="list-table wide-table">
   <thead><tr><th class="num">번호</th><th>종류</th><th>상태</th><th>요청자</th><th>요청 시각</th><th class="num">대기 시간</th><th class="num">소요 시간</th><th>끝난 시각</th><th>오류</th></tr></thead>
   <tbody>
@@ -22,7 +23,7 @@
     <tr>
       <td class="num">{{ j.id }}</td>
       <td>{{ labels.JOB_KINDS.get(j.kind, j.kind) }}</td>
-      <td>{{ pill("job_status", j.status) }}{% if r.retry %} <form method="post" action="{{ r.retry }}" class="inline-form"><button type="submit" class="small" aria-label="작업 {{ j.id }} 다시 시도"{{ ai_attrs(ai_gate()) }}>다시 시도</button></form>{% endif %}</td>
+      <td>{{ pill("job_status", j.status) }}{% if r.retry %} <form method="post" action="{{ r.retry }}" class="inline-form"><button type="submit" class="small" aria-label="작업 {{ j.id }} 다시 시도"{{ ai_attrs(ai_gate(), "ai-note") }}>다시 시도</button></form>{% endif %}</td>
       <td>{{ requesters.get(j.requester_id, "-") }}</td>
       <td class="num">{{ kdatetime(j.created_at) if j.created_at else "" }}</td>
       <td class="num">{{ r.wait or ("대기 중" if j.status == "pending" else "") }}</td>

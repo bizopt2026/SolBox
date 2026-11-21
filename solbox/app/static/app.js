@@ -601,6 +601,8 @@
     var b = e.target.closest && e.target.closest("[data-history-back]");
     if (b) { e.preventDefault(); history.back(); }
   });
+  // 단추는 JS 가 있을 때만 보인다 (없으면 "브라우저의 뒤로 가기" 안내 글이 대신 보인다: error.html)
+  document.querySelectorAll("[data-history-back][hidden]").forEach(function (b) { b.hidden = false; });
 
   // 제안 대화: 입력칸에서 Ctrl/⌘+Enter 로 보낸다 (Enter 는 줄바꿈. 한글 조합 중에는 가로채지 않는다). 시작 질문 칩은 누르면 바로 보낸다 (칩이 곧 제출 버튼이라 따로 할 일이 없다).
   document.addEventListener("keydown", function (e) {

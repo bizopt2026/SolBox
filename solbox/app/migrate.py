@@ -276,12 +276,13 @@ def copy_activity_json(engine: Engine, db_path: Path, backup: MigrationBackup | 
 # ---- 올리기로 만든 기록의 유래: `Intake.result` 로 되짚어 채우기 (한 번) ----
 
 ORIGINS_FILLED_KEY = "origins_filled"  # app_settings 표시: 있으면 되짚지 않는다
+ADDED_INDEXES = ("ix_ai_jobs_finished_at",)  # 옛 DB 에 모델의 이 보통 색인을 더한다 (값은 바뀌지 않는다)
 UNIQUE_INDEXES = ("ux_partners_customer_id",)  # 옛 DB 에 모델의 이 유일 색인을 더한다 (열이 새로 생겨 모두 비어 있으므로 안전하다)
 _LINKED_ONLY = re.compile(r" \((연락처 추가|자료 \d+개 추가|이미 등록된 솔루션에 자료 \d+개 추가)\)$")  # 새로 만들지 않고 연결·덧붙인 결과 줄의 꼬리표
 
 
 def add_unique_indexes(engine: Engine) -> list[str]:
-    """모델에 있는데 옛 DB 에 없는 유일 색인(`UNIQUE_INDEXES`)을 더한다. 중복이 있어 못 만들면 로그만 남긴다 (응용 코드가 따로 지킨다)."""
+    """모델에 있는데 옛 DB 에 없는 색인(`UNIQUE_INDEXES`, `ADDED_INDEXES`)을 더한다. 유일 색인은 중복이 있어 못 만들면 로그만 남긴다 (응용 코드가 따로 지킨다)."""
     insp = inspect(engine)
     made: list[str] = []
     for table in Base.metadata.sorted_tables:
@@ -289,7 +290,7 @@ def add_unique_indexes(engine: Engine) -> list[str]:
             continue
         have = {i["name"] for i in insp.get_indexes(table.name)}
         for index in table.indexes:
-            if index.name in UNIQUE_INDEXES and index.name not in have:
+            if (index.name in UNIQUE_INDEXES or index.name in ADDED_INDEXES) and index.name not in have:
                 try:
                     index.create(engine)
                     made.append(index.name)

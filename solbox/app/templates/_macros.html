@@ -32,9 +32,9 @@
 
 {# AI 를 쓰는 동작 곁 안내 (상단 줄의 AI 상태와 같은 값): aig = ai_gate() 의 결과. AI 꺼짐·사용 불가일 때만 한 줄을 그린다. 호출 본문은 그 화면에서 실제로 일어나는 일(덧붙임).
    한 곳의 규칙: 화면마다 상태를 다시 판단하지 않는다. #}
-{% macro ai_note(aig, down="") %}{% if aig and aig.blocked %}<p class="notice ai-down" role="note" data-ai-blocked="{{ aig.state }}"><b>{{ aig.text }}</b> · {{ aig.reason }}.{% if caller is defined %} {{ caller() }}{% endif %}</p>{% elif aig and aig.down %}<p class="notice ai-down" role="note" data-ai-down="1"><b>{{ aig.text }}</b> · {{ aig.reason }}. {{ down }}{{ " " if down }}{{ ontology.AI_DOWN_RETRY }} {% if aig.admin %}계속 실패하면 <a href="/admin/system">관리 › 시스템</a>에서 "AI 연결 확인"을 해 주세요.{% else %}계속 실패하면 관리자에게 알려 주세요 (관리 › 시스템 › "AI 연결 확인").{% endif %}</p>{% endif %}{% endmacro %}
-{# AI 를 쓰는 버튼에 붙이는 속성: 처리기가 꺼진 때("off")만 누를 수 없다. 사용 불가("down")는 누를 수 있다 (다시 시도가 연결을 다시 확인한다) #}
-{% macro ai_attrs(aig) %}{% if aig and aig.blocked %} disabled aria-disabled="true" title="{{ aig.text }}: {{ aig.reason }}"{% endif %}{% endmacro %}
+{% macro ai_note(aig, down="", id="") %}{% if aig and aig.blocked %}<p class="notice ai-down" role="note"{% if id %} id="{{ id }}"{% endif %} data-ai-blocked="{{ aig.state }}"><b>{{ aig.text }}</b> · {{ aig.reason }}.{% if caller is defined %} {{ caller() }}{% endif %}</p>{% elif aig and aig.down %}<p class="notice ai-down" role="note"{% if id %} id="{{ id }}"{% endif %} data-ai-down="1"><b>{{ aig.text }}</b> · {{ aig.reason }}. {{ down }}{{ " " if down }}{{ ontology.AI_DOWN_RETRY }} {% if aig.admin %}계속 실패하면 <a href="/admin/system">관리 › 시스템</a>에서 "AI 연결 확인"을 해 주세요.{% else %}계속 실패하면 관리자에게 알려 주세요 (관리 › 시스템 › "AI 연결 확인").{% endif %}</p>{% endif %}{% endmacro %}
+{# AI 를 쓰는 버튼에 붙이는 속성: 처리기가 꺼진 때("off")만 누를 수 없다. `by` 는 이유를 적은 `ai_note(…, id=)` 의 id (화면 읽기용 연결). 이유 줄은 쪽마다 한 번만 둔다. 사용 불가("down")는 누를 수 있다 (다시 시도가 연결을 다시 확인한다) #}
+{% macro ai_attrs(aig, by="") %}{% if aig and aig.blocked %} disabled aria-disabled="true" title="{{ aig.text }}: {{ aig.reason }}"{% if by %} aria-describedby="{{ by }}"{% endif %}{% endif %}{% endmacro %}
 
 {# 목록 도구줄: 구분 탭 + 작은 검색칸(GET, 엔터로 보냄, 글자 없는 이름표는 화면 읽기용) + 걸러 보기 칩.
    검색을 보낼 때 지금의 다른 조건(구분·걸러 보기 …)은 숨은 칸으로 따라간다 (쪽 번호만 버린다). #}
