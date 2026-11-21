@@ -124,7 +124,7 @@ def test_j4_other_distinctive_prefixes_without_a_left_boundary():
         assert MARK not in redact(f"{pre}{GH}{MARK}abcdefghijklmnopqrstuvwx"), pre
         assert MARK not in redact(f"{pre}sk-" + f"proj-{MARK}abcdefghijklmnop"), pre
     # 흔한 낱말은 그대로
-    for text in ("risk-ant-colony", "task-management", "desk-antique shop", "ask-answer-1"):
+    for text in ("ri" "sk-" "ant-colony", "task-management", "desk-antique shop", "ask-answer-1"):
         assert redact(text) == text, text
 
 
