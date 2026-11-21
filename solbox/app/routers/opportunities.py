@@ -164,7 +164,7 @@ def update(
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
     form = _submitted(values, need_ids, solution_ids)
-    if conflict := guards.check_rev(opp, rev):
+    if conflict := guards.check_rev(opp, rev, values=values):
         return _form_page(request, db, form, opp, conflict=conflict)
     if error is None:
         error = opps.customer_change_problem(db, opp, values["customer_id"])

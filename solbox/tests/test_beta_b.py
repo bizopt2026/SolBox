@@ -441,7 +441,7 @@ def test_same_name_create_warns_then_confirms(user_client, db, path, label, name
     assert first.status_code == 303
     extra = {"customer_id": str(c.id)} if path == "/projects" else {}
     again = user_client.post(path, data={"name": f" {name.replace(' ', '')} ", **extra})  # 공백·표기만 다른 같은 이름
-    assert again.status_code == 200 and f"같은 이름의 {label}" in again.text and "기존 것 열기" in again.text and "그래도 새로 등록" in again.text
+    assert again.status_code == 200 and (f"비슷한 이름의 {label}" in again.text or f"같은 이름의 {label}" in again.text) and "기존 것 열기" in again.text and "그래도 새로 등록" in again.text
     assert 'name="confirm_dup" value="1"' in again.text and 'name="_tok"' in again.text and f"{path}/" in again.text
     from tests.test_beta_b import _count
 
@@ -618,7 +618,7 @@ def test_stage_tooltips_legend_and_help_blocks(user_client, db):
     db.commit()
     page = user_client.get(f"/solutions/{s.id}").text
     assert 'title="기존 고객에게 이 솔루션에 관심이 있는지 미리 알아보는 단계입니다."' in page
-    assert 'class="stage-legend card" data-legend="stage"' in page and 'data-legend-close hidden' in page and "박스 등록" in page
+    assert '<details class="stage-legend" data-legend="stage">' in page and "<summary>단계 설명</summary>" in page and "박스 등록" in page
     assert 'data-legend="opportunity_stage"' in user_client.get(f"/opportunities/{o.id}").text
     h = user_client.get("/help").text
     assert 'id="help-stage"' in h and 'id="help-opportunity_stage"' in h and "발굴 단계" in h and "영업기회 단계" in h and "아이템 접수" in h
@@ -976,7 +976,7 @@ def test_follow_up_done_button_has_name_tooltip_and_visible_check(user_client, d
     page = user_client.get(f"/activities/{a.id}").text
     assert 'aria-label="완료로 표시" title="완료로 표시"' in page
     css = (Path(__file__).parent.parent / "app/static/app.css").read_text(encoding="utf-8")
-    assert "button.check:not(.on)::before" in css  # 비어 있어도 흐린 체크 모양이 보인다
+    assert "button.check:not(.on)::before" not in css and "button.check.on::before" in css  # 남은 일은 빈 상자, 끝낸 일에만 체크 표시
 
 
 def test_outline_anchor_script_and_counts_agree(user_client, db, settings):
@@ -1002,7 +1002,7 @@ def test_mobile_css_keeps_one_upload_button_and_room_for_the_save_bar(user_clien
 
     css = (Path(__file__).parent.parent / "app/static/app.css").read_text(encoding="utf-8")
     assert ".page-header .actions a.to-intake { display: none; }" in css and "body:has(.dash) .side .cta { display: none; }" in css
-    assert ".plan-form { padding-bottom: 96px; }" in css and "scroll-margin-bottom" in css
+    assert ".plan-form { padding-bottom: 0; }" in css and "scroll-margin-bottom" in css
     assert 'class="button primary to-intake" href="/intake/new"' in user_client.get("/solutions").text
 
 

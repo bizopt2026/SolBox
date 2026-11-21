@@ -10,7 +10,7 @@
 {% macro fu_item(f, show_customers=false) %}
 <li class="fu{{ ' is-done' if f.done }}">
   <form method="post" action="/follow-ups/{{ f.id }}/toggle">
-    <button type="submit" class="check{{ ' on' if f.done }}" aria-label="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}" title="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}"></button>
+    <button type="submit" class="check{{ ' on' if f.done }}" role="checkbox" aria-checked="{{ 'true' if f.done else 'false' }}" aria-label="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}" title="{{ '다시 남은 일로 표시' if f.done else '완료로 표시' }}"></button>
   </form>
   <div class="fu-body">
     <span class="fu-task">{{ f.task }}</span>

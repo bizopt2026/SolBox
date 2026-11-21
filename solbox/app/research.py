@@ -146,6 +146,8 @@ def clean_suggestions(db: Session, out: SuggestOut, knowledge_dir: Path) -> dict
         title = s.title.strip()
         if not title:
             continue
+        if len(title) < 2 or any(len(x.strip()) == 1 for x in (s.detail, s.reason)):  # 'd'·'r' 처럼 한 글자만 채워 온 제안은 뜻이 없어 버린다 (베타 D18)
+            continue
         ids = list(dict.fromkeys(i for i in s.solution_ids if i in existing))
         kind = s.kind if s.kind in ("new", "push") else "new"
         if kind == "push" and not ids:

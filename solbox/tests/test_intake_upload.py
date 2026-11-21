@@ -199,9 +199,9 @@ def test_nav_has_upload_first(user_client, admin_client):
     for c in (user_client, admin_client):
         side = re.search(r'<aside class="side".*?</aside>', c.get("/").text, re.S).group(0)
         assert side.index('href="/intake/new">+ 올리기') < side.index('href="/intake"')  # 올리기 버튼이 메뉴보다 먼저, 항상 보인다
-        assert '<span class="dot" aria-hidden="true"></span>올리기 묶음' in side
+        assert re.search(r'<svg class="ni"[^>]*>.*?</svg>올리기 묶음', side, re.S)
     html = user_client.get("/intake/new").text
-    assert re.search(r'<a href="/intake" aria-current="page"><span class="dot"[^>]*></span>올리기 묶음', html)
+    assert re.search(r'<a href="/intake" aria-current="page"><svg class="ni".*?</svg>올리기 묶음', html, re.S)
 
 
 def test_intake_cascades_files(user_client, db):

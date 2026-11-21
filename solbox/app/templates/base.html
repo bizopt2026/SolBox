@@ -26,7 +26,7 @@
     <nav class="navg" aria-label="{{ g.label }}">
       <span class="navg-title" aria-hidden="true">{{ g.label }}</span>
       {% for item in g.items %}
-      <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span>{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
+      <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}>{{ ont.nav_icon(item.path) }}{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
       {% endfor %}
     </nav>
     {% endfor %}

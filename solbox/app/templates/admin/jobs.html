@@ -28,7 +28,8 @@
       <td class="num">{{ r.wait or ("대기 중" if j.status == "pending" else "") }}</td>
       <td class="num">{{ r.took or ("진행 중" if j.status == "running" else "") }}</td>
       <td class="num">{{ kdatetime(j.finished_at) if j.finished_at else "" }}</td>
-      <td>{% if j.status == "failed" %}{{ labels.ERROR_KINDS.get(j.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}{% endif %}</td>
+      <td class="err-cell">{% if j.status == "failed" %}{% set msg = labels.ERROR_KINDS.get(j.shown_error_kind, labels.ERROR_KINDS["unknown"]) %}
+        <details class="err-more"><summary title="{{ msg }}">{{ msg | truncate(34, true, "…") }}</summary><p>{{ msg }}</p></details>{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>

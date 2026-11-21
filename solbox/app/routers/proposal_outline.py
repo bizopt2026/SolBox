@@ -98,7 +98,10 @@ def save_slide(
 ):
     p, slides = _load_for_edit(db, proposal_id, index)
     if conflict := guards.check_rev(p, rev, current=guards.slide_rev(p, slides[index]),
-                                           fresh=lambda row: guards.slide_rev(row, row.outline["slides"][index])):
+                                           fresh=lambda row: guards.slide_rev(row, row.outline["slides"][index]),
+                                           values=dict(kind=kind, title=title, key_message=key_message, subtitle=subtitle, bullets=bullets, left_title=left_title, left=left,
+                                                       right_title=right_title, right=right, columns=columns, rows=rows, steps=steps, sources=sources, needs_check=needs_check),
+                                           stored={**slide_to_form(slides[index]), "kind": slides[index].get("kind", "")}, labels=ontology.SLIDE_FORM_LABELS):
         # 다른 탭이 이 장을 바꾸거나 옮기거나 지웠다 (번호 자리의 장이 달라졌다): 저장하지 않고 쓴 값 그대로 다시 보여 준다
         db.rollback()
         submitted = dict(kind=kind, title=title, key_message=key_message, subtitle=subtitle, bullets=bullets, left_title=left_title, left=left,

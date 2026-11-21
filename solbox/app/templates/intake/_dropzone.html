@@ -11,7 +11,10 @@
   <ul class="dropzone-list"></ul>
   <p class="error dropzone-warn" role="alert" hidden></p>
 </div>
-{% if ai_problem %}
+{% from "_macros.html" import ai_note %}{% set aig = ai_gate() %}
+{% if aig and aig.blocked %}
+{% call ai_note(aig) %}{{ aig.upload }} 급하면 <a href="/solutions/new">솔루션 직접 입력</a> · <a href="/activities/new">활동 기록 직접 입력</a>{% endcall %}
+{% elif ai_problem %}
 <p class="notice ai-down" role="note">지금은 AI 정리를 쓸 수 없어요. 파일은 올려 둘 수 있고, 급하면 직접 입력을 써 주세요.
   <a href="/solutions/new">솔루션 직접 입력</a> · <a href="/activities/new">활동 기록 직접 입력</a></p>
 {% endif %}

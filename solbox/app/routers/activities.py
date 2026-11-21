@@ -163,7 +163,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
         fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (),
     )
-    if activity is not None and rev is not None and (conflict := guards.check_rev(activity, rev)):
+    if activity is not None and rev is not None and (conflict := guards.check_rev(activity, rev, values={k: submitted[k] for k in ("kind", "date", "title", "raw_text", "summary_md")})):
         # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 후속 조치·니즈 줄까지 쓴 내용 그대로 보여 주고 저장하지 않는다
         return _form_page(request, db, submitted, activity, conflict=conflict)
     try:

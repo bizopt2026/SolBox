@@ -27,6 +27,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, object_session
 
+from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
 from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Stamped, User
 from app.db import get_db
 from app.security import require_user
@@ -81,6 +82,7 @@ class Conflict(NamedTuple):
     kind: str  # "changed" 다른 곳에서 바뀜 / "replaced" 같은 번호의 다른 기록
     rev: str  # 사용자가 가져온(옛) 표시: 다시 그리는 폼이 그대로 다시 보낸다
     message: str
+    diff: tuple = ()  # 저장된 내용과 쓴 내용이 다른 칸 [(칸 이름표, 저장된 값 발췌)] (`diff_fields`). 비교할 수 없는 폼은 빈 목록
 
     @property
     def can_force(self) -> bool:
@@ -109,9 +111,55 @@ class StaleWrite(HTTPException):
         super().__init__(status_code=409, detail="저장하는 사이에 다른 곳에서 이 기록이 바뀌었습니다. 저장하지 않았으니 화면을 새로 열어 다시 고쳐 주세요.")
 
 
-def check_rev(obj, rev: Rev, current: str | None = None, fresh=None) -> Conflict | None:
+EXCERPT_LEN = 60
+
+
+def _text_of(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return "\n".join(str(v) for v in value)
+    return str(value).replace("\r\n", "\n").strip()
+
+
+def _excerpt(text: str) -> str:
+    """저장된 값의 짧은 발췌: 첫 줄 앞부분 (길면 줄임표, 줄이 더 있으면 줄임표)."""
+    first, _, rest = text.partition("\n")
+    out = first[:EXCERPT_LEN].rstrip()
+    return out + ("…" if len(first) > EXCERPT_LEN or rest.strip() else "")
+
+
+def diff_fields(obj, typed: dict | None, stored: dict | None = None, labels: dict | None = None) -> tuple:
+    """저장된 기록과 사용자가 쓴 값이 다른 칸: [(칸 이름표, 저장된 값 발췌)]. `typed` = {칸 이름: 쓴 값}. 칸 이름표는 온톨로지 속성 이름표(`labels` 로 바꿀 수 있다).
+    저장된 값은 기록의 같은 이름 속성(`stored` 가 주어지면 그 {칸 이름: 값}). 이름표가 없는 칸(연결 번호 `…_id` 따위)은 비교하지 않는다.
+    코드 칸(발굴 단계 …)은 코드 이름으로 보인다. 비교는 앞뒤 공백·줄바꿈 모양을 무시한다."""
+    from app import ontology
+
+    if not typed:
+        return ()
+    if labels is None:
+        code = ontology.type_for_model(type(obj))
+        labels = ontology.TYPES[code].props
+    else:
+        code = None
+    out = []
+    for field, value in typed.items():
+        label = labels.get(field)
+        if label is None:
+            continue
+        current = stored.get(field) if stored is not None else getattr(obj, field, None)
+        a, b = _text_of(current), _text_of(value)
+        if a == b:
+            continue
+        key = ontology.CONFLICT_CODE_FIELDS.get((code, field))
+        shown = ontology.CODE_LISTS[key].items.get(a, a) if key and a else a
+        out.append((label, _excerpt(shown) if shown else "(비어 있음)"))
+    return tuple(out)
+
+
+def check_rev(obj, rev: Rev, current: str | None = None, fresh=None, values: dict | None = None, stored: dict | None = None, labels: dict | None = None) -> Conflict | None:
     """제출된 표시가 지금 기록과 맞는지: 맞거나 표시가 없으면 None, 아니면 충돌. (`current` 는 기록 말고 다른 단위의 표시를 비교할 때: 슬라이드,
-    그때 `fresh(줄)` 은 DB 에서 막 읽은 줄로 같은 표시를 다시 계산하는 함수.)
+    그때 `fresh(줄)` 은 DB 에서 막 읽은 줄로 같은 표시를 다시 계산하는 함수. `values` 는 사용자가 쓴 {칸 이름: 값}: 충돌일 때 저장된 내용과 다른 칸을 `Conflict.diff` 에 싣는다.)
     통과하면 "저장 직전 다시 확인" 을 세션에 걸어 둔다: 첫 쓰기 flush 때 `_verify_checks` 가 쓰기 잠금을 잡은 뒤 DB 의 표시를 다시 읽어, 검사와 저장 사이에
     다른 곳이 바꿨으면 `StaleWrite`(409)로 저장을 막는다. 모든 고치기 라우터가 이 함수를 쓰므로 한곳에서 지켜진다."""
     submitted = rev.value.strip()
@@ -127,7 +175,7 @@ def check_rev(obj, rev: Rev, current: str | None = None, fresh=None) -> Conflict
     if rev.force:
         _arm(obj, submitted.partition(".")[0], fresh, identity_only=True)  # 강제 저장: 같은 기록이기만 하면 된다
         return None
-    return Conflict("changed", submitted, CHANGED_ELSEWHERE)
+    return Conflict("changed", submitted, CHANGED_ELSEWHERE, diff_fields(obj, values, stored, labels))
 
 
 def _arm(obj, expected: str, fresh, identity_only: bool) -> None:

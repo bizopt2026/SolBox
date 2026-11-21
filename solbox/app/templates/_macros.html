@@ -13,8 +13,8 @@
 {% endmacro %}
 
 {# 목록 제목 줄: 제목 + 건수, 한 줄 설명(온톨로지의 뜻), 오른쪽 끝에 주 버튼. searching 이 참이면 "검색 결과 N건".
-   type 은 대상 유형 코드(없으면 sub 를 직접). 주 버튼은 new_url, 보조는 alt_url (기본 "직접 입력"). #}
-{% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", crumbs=none, sub=none, type=none) %}
+   type 은 대상 유형 코드(없으면 sub 를 직접). 주 버튼은 new_url, 보조는 alt_url (기본 "+ 등록": 손으로 만들기. 주 버튼이 "올리기"인 목록에서도 모든 목록이 같은 말). #}
+{% macro list_head(title, pg, searching, new_url=None, new_label="+ 등록", alt_url=None, alt_label="+ 등록", crumbs=none, sub=none, type=none) %}
 {% call page_header(title, crumbs=crumbs, sub=(sub or (ont.TYPES[type].description if type else none)), count=("검색 결과 " if searching else "") ~ pg.total ~ "건") %}
 {% if new_url %}{% if alt_url %}<a class="button" href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}<a class="button primary{{ ' to-intake' if new_url == '/intake/new' }}" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
 {% endcall %}
@@ -30,12 +30,24 @@
 </nav>
 {% endmacro %}
 
+{# AI 를 쓰는 동작 곁 안내 (상단 줄의 AI 상태와 같은 값): aig = ai_gate() 의 결과. AI 꺼짐·사용 불가일 때만 한 줄을 그린다. 호출 본문은 그 화면에서 실제로 일어나는 일(덧붙임).
+   한 곳의 규칙: 화면마다 상태를 다시 판단하지 않는다. #}
+{% macro ai_note(aig) %}{% if aig and aig.blocked %}<p class="notice ai-down" role="note" data-ai-blocked="{{ aig.state }}"><b>{{ aig.text }}</b> · {{ aig.reason }}.{% if caller is defined %} {{ caller() }}{% endif %}</p>{% endif %}{% endmacro %}
+{# AI 를 쓰는 버튼에 붙이는 속성: 꺼짐·사용 불가이면 누를 수 없고 이유가 마우스를 올리면 뜬다 #}
+{% macro ai_attrs(aig) %}{% if aig and aig.blocked %} disabled aria-disabled="true" title="{{ aig.text }}: {{ aig.reason }}"{% endif %}{% endmacro %}
+
 {# 목록 도구줄: 구분 탭 + 작은 검색칸(GET, 엔터로 보냄, 글자 없는 이름표는 화면 읽기용) + 걸러 보기 칩.
    검색을 보낼 때 지금의 다른 조건(구분·걸러 보기 …)은 숨은 칸으로 따라간다 (쪽 번호만 버린다). #}
+{% macro origin_box(origin_tabs, cls="") %}<span class="origin-tools{{ " " ~ cls if cls }}"><span class="sort-label">유래</span>{{ seg(origin_tabs, "유래") }}</span>{% endmacro %}
+{% macro sort_box(sorts, cls="") %}<nav class="sortbar{{ " " ~ cls if cls }}" aria-label="정렬"><span class="sort-label">정렬</span>{% for s in sorts %}<a href="{{ s.href }}"{% if s.active %} aria-current="true"{% endif %}>{{ s.label }}</a>{% endfor %}</nav>{% endmacro %}
 {% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none, origin_tabs=none) %}
+{% set sorts = ui.sort_options(request) %}
+{# 좁은 화면(≤600px)에서는 유래 탭과 정렬이 "걸러 보기·정렬" 펼침 하나로 접힌다 (스크립트 없이 <details> 로). 넓은 화면은 지금처럼 한 줄.
+   두 벌을 그리고 CSS 가 폭에 따라 한 벌만 보이게 한다 (안 보이는 쪽은 display:none 이라 화면 읽기·키보드에도 없다). 기본이 아닌 걸러 보기·정렬이 걸려 있으면 펼침 이름 옆에 개수 표시. #}
+{% set more_n = ((1 if origin_tabs and not origin_tabs[0].active else 0) + (1 if sorts and not sorts[0].active else 0)) %}
 <div class="tools">
   {% if tabs %}{{ seg(tabs, tab_label) }}{% endif %}
-  {% if origin_tabs %}<span class="origin-tools"><span class="sort-label">유래</span>{{ seg(origin_tabs, "유래") }}</span>{% endif %}
+  {% if origin_tabs %}{{ origin_box(origin_tabs, "tool-desk") }}{% endif %}
   {% if search %}
   <form class="search tool-search" method="get" action="{{ request.url.path }}" role="search" aria-label="목록 검색">
     {% for k, v in request.query_params.multi_items() if k not in ("q", "page", "notice", "nt") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
@@ -43,15 +55,23 @@
     <input id="list-q" type="search" name="q" value="{{ q }}" placeholder="{{ placeholder }}" autocomplete="off">
   </form>
   {% endif %}
-  {% set sorts = ui.sort_options(request) %}
-  {% if sorts %}<nav class="sortbar" aria-label="정렬"><span class="sort-label">정렬</span>{% for s in sorts %}<a href="{{ s.href }}"{% if s.active %} aria-current="true"{% endif %}>{{ s.label }}</a>{% endfor %}</nav>{% endif %}
+  {% if sorts %}{{ sort_box(sorts, "tool-desk") }}{% endif %}
+  {% if origin_tabs or sorts %}
+  <details class="tool-more"{% if more_n %} data-active="{{ more_n }}"{% endif %}>
+    <summary>걸러 보기·정렬{% if more_n %} <span class="more-dot" role="img" aria-label="적용 중 {{ more_n }}개">{{ more_n }}</span>{% endif %}</summary>
+    <div class="tool-more-body">
+      {% if origin_tabs %}{{ origin_box(origin_tabs) }}{% endif %}
+      {% if sorts %}{{ sort_box(sorts) }}{% endif %}
+    </div>
+  </details>
+  {% endif %}
   {% if extra %}{{ extra }}{% endif %}
 </div>
 {{ filter_note(flt) }}
 {% endmacro %}
 
 {# 빈 화면. 조건(검색·구분·걸러 보기)이 걸렸으면 문장 하나 + 조건 지우기, 아니면 문장 하나 + 주 동작 #}
-{% macro empty_list(searching, text, new_url=None, new_label="+ 등록", alt_url=None, alt_label="직접 입력", clear_url=None) %}
+{% macro empty_list(searching, text, new_url=None, new_label="+ 등록", alt_url=None, alt_label="+ 등록", clear_url=None) %}
 {% if searching %}<div class="empty filtered"><p class="muted">조건에 맞는 항목이 없습니다.</p><a class="button" href="{{ clear_url or '?' }}">조건 지우기</a></div>
 {% else %}<div class="empty"><p class="muted">{{ text }}</p>{% if new_url %}<a class="button{{ " primary" if alt_url }}" href="{{ new_url }}">{{ new_label }}</a>{% if alt_url %}<a href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}{% endif %}</div>{% endif %}
 {% endmacro %}
@@ -71,11 +91,11 @@
 {% endif %}
 {% endmacro %}
 
-{# 목록 표의 첫 칸: 굵은 제목 링크 + 한 줄 보조 글 + 태그 칩. 호출 본문은 좁은 화면(≤600px)에서만 제목 밑에 접혀 보이는 보조 칸들(.row-meta). #}
+{# 목록 표의 첫 칸 (모든 목록이 쓴다): 굵은 제목 링크 + 둘째 줄 하나(보조 글은 한 줄로 줄임표, 태그는 같은 줄 끝에 둘까지 + 나머지 개수).
+   호출 본문은 좁은 화면(≤600px)에서만 제목 밑에 접혀 보이는 보조 칸들(.row-meta). #}
 {% macro title_cell(url, title, sub=none, tags=none) %}
 <td class="c-title"><a href="{{ url }}" class="row-title">{{ title }}</a>
-  {% if sub %}<small class="row-sub">{{ sub }}</small>{% endif %}
-  {% if tags %}<span class="row-tags">{% for t in tags %}<span class="tag">{{ t }}</span>{% endfor %}</span>{% endif %}
+  {% if sub or tags %}<div class="row-line">{% if sub %}<small class="row-sub" title="{{ sub }}">{{ sub }}</small>{% endif %}{% if tags %}<span class="row-tags">{% for t in tags[:2] %}<span class="tag">{{ t }}</span>{% endfor %}{% if tags | length > 2 %}<span class="tag tag-more" title="{{ tags[2:] | join(', ') }}">+{{ tags | length - 2 }}</span>{% endif %}</span>{% endif %}</div>{% endif %}
   {% if caller is defined %}<div class="row-meta">{{ caller() }}</div>{% endif %}
 </td>
 {% endmacro %}
@@ -128,10 +148,10 @@
   {% endfor %}
 </form>
 {% if key %}
-<div class="stage-legend card" data-legend="{{ key }}" role="note">
-  <p class="legend-head"><b>{{ label }}</b>은 이렇게 쓰입니다 <button type="button" class="linklike legend-close" data-legend-close hidden>닫기</button></p>
+<details class="stage-legend" data-legend="{{ key }}">
+  <summary>단계 설명</summary>
   <ul>{% for code in flow %}<li><b>{{ names[code] }}</b> {{ ont.code_help(key, code) }}</li>{% endfor %}{% for code in side %}<li><b>{{ names[code] }}</b> {{ ont.code_help(key, code) }}</li>{% endfor %}</ul>
-</div>
+</details>
 {% endif %}
 {% endmacro %}
 
@@ -192,6 +212,8 @@
 <div class="conflict" role="alert" data-conflict="{{ conflict.kind }}">
   <p><b>{{ "다른 기록입니다" if conflict.kind == "replaced" else "저장하지 않았습니다" }}</b></p>
   <p>{{ conflict.message }}</p>
+  {% if conflict.diff %}<div class="conflict-diff"><p><b>저장된 내용과 다른 칸</b> <span class="muted">(지금 저장돼 있는 값)</span></p>
+    <ul>{% for label, shown in conflict.diff %}<li><span class="cd-label">{{ label }}</span><span class="cd-val">{{ shown }}</span></li>{% endfor %}</ul></div>{% endif %}
   <p class="conflict-acts">
     {% if view_url %}<a class="button" href="{{ view_url }}" target="_blank" rel="noopener">현재 내용 새 탭에서 열기</a>{% endif %}
     {% if conflict.can_force %}<button type="submit" name="_force" value="1" class="danger">그래도 내 내용으로 저장</button>{% endif %}
@@ -204,8 +226,8 @@
 {% macro form_token() %}<input type="hidden" name="_tok" value="{{ new_token() }}">{% endmacro %}
 
 {# 맨 밑 저장 막대: 저장(주) + 취소. 지우기 같은 되돌릴 수 없는 동작은 폼 안에 두지 않는다 #}
-{% macro save_bar(cancel_url, save_label="저장") %}
-<div class="row savebar">
+{% macro save_bar(cancel_url, save_label="저장", sticky=true) %}
+<div class="row savebar{{ "" if sticky else " static" }}">
   <button type="submit" class="primary">{{ save_label }}</button>
   <a class="button" href="{{ cancel_url }}">취소</a>
 </div>
@@ -215,8 +237,8 @@
 {% macro dup_warning(duplicate, go_label="그래도 새로 등록") %}
 {% if duplicate %}
 <div class="dup-warning notice" role="alert" data-dup="1">
-  <p><b>같은 이름의 {{ josa(duplicate.label, "이/가") }} 이미 있어요.</b> 이미 등록한 것을 다시 만드는 것이 아닌지 먼저 확인하세요.</p>
-  <ul>{% for r in duplicate.records %}<li><a href="{{ r.url }}">{{ r.name }}</a></li>{% endfor %}</ul>
+  <p><b>{{ "비슷한" if duplicate.similar else "같은" }} 이름의 {{ josa(duplicate.label, "이/가") }} 이미 있어요.</b> 이미 등록한 것을 다시 만드는 것이 아닌지 먼저 확인하세요.{% if duplicate.similar %} (공백·기호·대소문자{% if duplicate.label in ("고객", "파트너") %}·㈜/(주)/주식회사{% endif %}만 다른 이름도 같은 곳일 수 있어요.){% endif %}</p>
+  <ul>{% for r in duplicate.records %}<li><a href="{{ r.url }}">{{ r.name }}</a>{% if r.similar %}<span class="dup-kind">비슷한 이름</span>{% endif %}</li>{% endfor %}</ul>
   <p class="dup-acts"><a class="button" href="{{ duplicate.open_url }}">기존 것 열기</a> <button type="submit" name="confirm_dup" value="1" class="primary">{{ go_label }}</button></p>
 </div>
 {% endif %}

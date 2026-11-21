@@ -177,6 +177,15 @@ RESTART_ERROR_TEXT = "서버가 재시작되어 중단되었습니다."  # 옛 �
 # AI 작업 처리기가 꺼진 서버: 대기 중인 작업은 시작되지 않는다. 화면은 계속 다시 불러오지 않고 이 안내를 보인다.
 AI_OFF_STATUS = "AI 꺼짐"
 AI_OFF_NOTICE = "AI 작업 처리기가 꺼져 있어 작업이 시작되지 않습니다. 관리자에게 문의하세요."
+# AI 를 쓰는 동작 곁에 보이는 한 줄 (상단 줄의 AI 상태와 같은 값에서 정한다: main.ai_gate). 상태 코드 → (이유, 올리기에서 일어나는 일)
+AI_BLOCK_REASONS = {
+    "off": "AI 작업 처리기가 꺼져 있어요",
+    "down": "AI(Claude)를 쓸 수 없어요 (설치되지 않았거나 로그인이 필요해요)",
+}
+AI_BLOCK_UPLOAD = {
+    "off": "파일은 올려 두면 그대로 보관돼요. AI 처리기가 다시 켜질 때까지 정리는 시작되지 않은 채 기다려요.",
+    "down": "파일은 올려 두면 그대로 보관돼요. 하지만 정리는 바로 실패로 끝나요. AI 를 다시 쓸 수 있게 되면 올리기 묶음에서 '다시 정리'를 눌러 주세요.",
+}
 
 # 확인 항목의 종류: 근거 문제 / 확인할 점 (저장된 값이 아니라 문구에서 가려낸다. app/checks.py)
 CHECK_KINDS = {"evidence": "근거 문제", "decide": "확인할 점"}
@@ -499,6 +508,34 @@ NAV_ITEMS = (
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
                         (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템")))
+
+
+# 메뉴 항목마다 다른 작은 선 그림 (24×24, 외부 파일 없이 SVG 조각 그대로). 키 = NavItem.path. 새 메뉴 항목은 여기에도 더한다 (tests/test_beta_d.py 가 빠짐·겹침을 본다).
+NAV_ICONS = {
+    "": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+    "intake": '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+    "activities": '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+    "solutions": '<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+    "partners": '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c3 .2 5 2.3 5 5.8"/>',
+    "research": '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+    "customers": '<path d="M5 21V5l8-2v18"/><path d="M13 9h6v12"/><path d="M8 8h2M8 12h2M8 16h2M3 21h18"/>',
+    "opportunities": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>',
+    "proposals": '<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M7 14l3-3 3 2 4-5"/><path d="M8 21h8"/>',
+    "projects": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    "bms": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    "admin/users": '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+    "admin/jobs": '<path d="M5 6h14M5 12h14M5 18h9"/>',
+    "admin/research": '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+    "admin/system": '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
+}
+
+
+def nav_icon(path: str):
+    """사이드 메뉴 항목의 작은 그림 (장식이라 화면 읽기에서는 숨긴다). 안전한 SVG 조각이라 Markup 으로 돌려준다."""
+    from markupsafe import Markup
+
+    return Markup('<svg class="ni" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                  + NAV_ICONS.get(path, "") + "</svg>")
 
 
 def nav_groups(is_admin: bool = False) -> list[NavGroup]:
@@ -1173,3 +1210,13 @@ RELATION_WORDS: tuple[tuple[str, str], ...] = (
 # 도움말 화면(`/help`)의 용어 풀이: 대상 유형 코드 순서. 이름·뜻은 위 유형 정의(label·description)에서 읽는다 (여기에 다시 적지 않는다).
 HELP_GLOSSARY: tuple[str, ...] = ("solution", "partner", "customer", "opportunity", "project", "bm", "activity", "customer_need",
                                   "follow_up", "proposal", "intake", "solution_file")
+
+
+# 구성안 슬라이드 편집 폼의 칸 이름 (충돌 안내가 어느 칸이 다른지 보일 때 쓴다: 장 종류·제목·핵심 메시지·출처는 위 속성 이름표 그대로)
+SLIDE_FORM_LABELS = {
+    **TYPES["slide"].props,
+    "subtitle": "부제", "bullets": "글머리", "left_title": "왼쪽 제목", "left": "왼쪽 내용", "right_title": "오른쪽 제목", "right": "오른쪽 내용",
+    "columns": "표의 열", "rows": "표의 줄", "steps": "단계", "needs_check": "확인할 점",
+}
+# 충돌 비교에서 값을 코드 이름으로 바꿀 칸: (대상 유형, 칸) -> 코드 목록
+CONFLICT_CODE_FIELDS = {("solution", "stage"): "stage", ("opportunity", "stage"): "opportunity_stage", ("activity", "kind"): "activity_kind"}

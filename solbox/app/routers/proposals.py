@@ -430,7 +430,7 @@ def update_target(
     rev: Rev = Depends(rev_form),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
-    if conflict := guards.check_rev(proposal, rev):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
+    if conflict := guards.check_rev(proposal, rev, values={"request_memo": request_memo}):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
         return _detail_page(request, db, proposal, user, status_code=409, target_conflict=conflict,
                             target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids)})
     if len(request_memo.strip()) > MAX_MEMO:

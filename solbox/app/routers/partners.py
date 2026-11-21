@@ -99,7 +99,7 @@ def update(
 ):
     partner = get_or_404(db, Partner, partner_id)
     values = dict(name=name.strip(), contact=contact.replace("\r\n", "\n").strip(), description=description.strip(), memo=memo.strip())
-    if conflict := guards.check_rev(partner, rev):
+    if conflict := guards.check_rev(partner, rev, values=values):
         return _form_page(request, db, {**values, "customer_id": customer_id}, partner, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "customer_id": customer_id}, partner, error)

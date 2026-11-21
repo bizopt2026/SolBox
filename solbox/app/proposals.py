@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from app import checks, ontology
+from app import checks, ontology, ui
 from app.checks import NO_EVIDENCE_NOTE as NO_SOURCE_NOTE, check_kind  # noqa: F401  (다른 곳에서 여기서 불러다 쓴다)
 from app.models import AIJob, Proposal, Solution, User
 
@@ -504,7 +504,7 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
     if not _has_selection(p):
         chat = "방향을 선택하면 시작할 수 있습니다"
     elif p.messages:
-        chat = f"대화 {len(p.messages)}개 · 마지막 메시지 {p.messages[-1].created_at:%Y-%m-%d %H:%M}"
+        chat = f"대화 {len(p.messages)}개 · 마지막 메시지 {ui.short_datetime(p.messages[-1].created_at, date.today())}"
     else:
         chat = "대화 없음"
     if _has_outline(p):
@@ -513,5 +513,5 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
         outline = f"{len(slides)}장" + (f" · {left}" if left else "")
     else:
         outline = "아직 만들지 않음"
-    deck = f"마지막 생성 {p.deck_built_at:%Y-%m-%d %H:%M}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"
+    deck = f"마지막 생성 {ui.short_datetime(p.deck_built_at, date.today())}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"
     return {"target": target, "directions": direction, "chat": chat, "outline": outline, "deck": deck}

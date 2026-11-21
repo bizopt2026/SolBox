@@ -55,22 +55,33 @@ def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=(), lo
     return list(db.scalars(stmt.order_by(model.name, model.id)).unique())
 
 
+def _same_text(text: str | None) -> str:
+    """글자까지 같은지 보는 모양: 앞뒤·가운데 공백 정리 + 대소문자 무시 (그 밖의 기호·㈜ 따위가 다르면 "비슷한" 이름)."""
+    return " ".join((text or "").split()).casefold()
+
+
 def duplicate_warning(db: Session, model, name: str, confirm: str = "", exclude: object | None = None) -> dict | None:
-    """같은 종류에 정규형(공백·기호·대소문자 무시)이 같은 이름이 이미 있으면 폼에 보일 경고 `{"label", "name", "records": [{"name", "url"}], "open_url"}`.
-    `confirm == "1"`("그래도 새로 등록")이면 None. 이름을 고치는 폼은 `exclude` 로 자기 자신을 빼고, 이름이 그대로면 묻지 않는다."""
+    """같은 종류에 정규형(`normalize_name`: 공백·기호·대소문자 무시, 고객·파트너는 ㈜·(주)·주식회사 도 무시)이 같은 이름이 이미 있으면 폼에 보일 경고
+    `{"label", "name", "similar", "records": [{"name", "url", "similar"}], "open_url"}`. 공백 정리·대소문자만 무시하고 글자가 같은 이름이 하나라도 있으면 "같은 이름",
+    없고 정규형만 같으면 `similar` (화면은 "비슷한 이름"). `confirm == "1"`("그래도 새로 등록")이면 None.
+    이름을 고치는 폼은 `exclude` 로 자기 자신을 빼고, 이름이 그대로면 묻지 않는다."""
     from app.ai.tasks import normalize_name
 
-    key = normalize_name(name or "")
+    company = model.__name__ in ("Customer", "Partner")
+    key = normalize_name(name or "", company)
     if confirm == "1" or not key:
         return None
-    if exclude is not None and normalize_name(exclude.name or "") == key:
+    if exclude is not None and normalize_name(exclude.name or "", company) == key:
         return None
     code = next(t.code for t in ontology.TYPES.values() if t.model_name == model.__name__)
-    records = [{"name": n, "url": ontology.detail_url(code, i)}
-               for i, n in db.execute(select(model.id, model.name).order_by(model.id)) if normalize_name(n or "") == key and (exclude is None or i != exclude.id)]
+    typed = (name or "").strip()
+    records = [{"name": n, "url": ontology.detail_url(code, i), "similar": _same_text(n) != _same_text(typed)}
+               for i, n in db.execute(select(model.id, model.name).order_by(model.id))
+               if normalize_name(n or "", company) == key and (exclude is None or i != exclude.id)]
     if not records:
         return None
-    return {"label": ontology.label(code), "name": name.strip(), "records": records, "open_url": records[0]["url"]}
+    records.sort(key=lambda r: r["similar"])  # 글자까지 같은 것이 위
+    return {"label": ontology.label(code), "name": typed, "similar": records[0]["similar"], "records": records, "open_url": records[0]["url"]}
 
 
 def name_error(name: str) -> str | None:

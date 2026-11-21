@@ -75,20 +75,20 @@ def link_unlinked(db: Session, partner: Partner, customer: Customer) -> str | No
 
 
 def candidate_customer(db: Session, partner: Partner) -> Customer | None:
-    """이름(정규화)이 같고 아직 파트너와 이어지지 않은 고객이 정확히 하나일 때 그 고객 (이미 이어진 파트너에는 없다)."""
-    key = normalize_name(partner.name)
+    """이름(정규화, ㈜·(주)·주식회사 무시)이 같고 아직 파트너와 이어지지 않은 고객이 정확히 하나일 때 그 고객 (이미 이어진 파트너에는 없다)."""
+    key = normalize_name(partner.name, True)
     if partner.customer_id is not None or not key:
         return None
     linked = set(db.scalars(select(Partner.customer_id).where(Partner.customer_id.is_not(None))))
-    found = [c for c in db.scalars(select(Customer).order_by(Customer.id)) if c.id not in linked and normalize_name(c.name) == key]
+    found = [c for c in db.scalars(select(Customer).order_by(Customer.id)) if c.id not in linked and normalize_name(c.name, True) == key]
     return found[0] if len(found) == 1 else None
 
 
 def candidate_partner(db: Session, customer: Customer) -> Partner | None:
-    key = normalize_name(customer.name)
+    key = normalize_name(customer.name, True)
     if not key or partner_of(db, customer) is not None:
         return None
-    found = [p for p in db.scalars(select(Partner).order_by(Partner.id)) if p.customer_id is None and normalize_name(p.name) == key]
+    found = [p for p in db.scalars(select(Partner).order_by(Partner.id)) if p.customer_id is None and normalize_name(p.name, True) == key]
     return found[0] if len(found) == 1 else None
 
 

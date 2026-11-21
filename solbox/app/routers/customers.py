@@ -108,7 +108,7 @@ def update(
 ):
     customer = get_or_404(db, Customer, customer_id)
     values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
-    if conflict := guards.check_rev(customer, rev):  # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 저장하지 않고 쓴 내용을 그대로 보여 준다
+    if conflict := guards.check_rev(customer, rev, values=values):  # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 저장하지 않고 쓴 내용을 그대로 보여 준다
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, error)

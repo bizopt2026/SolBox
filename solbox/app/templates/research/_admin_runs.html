@@ -1,7 +1,8 @@
-{% from "_macros.html" import pill %}
+{% from "_macros.html" import pill, ai_note, ai_attrs %}{% set aig = ai_gate() %}
 <section class="card stack">
   <h2>조사 실행</h2>
-  <form method="post" action="/research/run"><button type="submit" class="primary">지금 조사</button></form>
+  <form method="post" action="/research/run"><button type="submit" class="primary"{{ ai_attrs(aig) }}>지금 조사</button></form>
+  {% call ai_note(aig) %}조사는 AI 가 웹에서 모으는 일이라 지금은 시작할 수 없어요. 예약 조사도 AI 를 다시 쓸 수 있을 때까지 돌지 않아요.{% endcall %}
   {% if runs %}
   <div class="tablewrap"><table>
     <thead><tr><th>시작</th><th>방식</th><th>상태</th></tr></thead>

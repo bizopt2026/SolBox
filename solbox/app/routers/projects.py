@@ -137,7 +137,7 @@ def update(
 ):
     project = get_or_404(db, Project, project_id)
     values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None)
-    if conflict := guards.check_rev(project, rev):
+    if conflict := guards.check_rev(project, rev, values=values):
         return _form_page(request, db, {**{f: getattr(project, f) for f in FIELDS}, **values}, project, conflict=conflict)
     if error is None:
         error = opps.project_customer_problem(db, project, values["customer_id"])

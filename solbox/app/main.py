@@ -98,6 +98,15 @@ def _ai_status(session_factory, settings, user) -> dict | None:
         return None
 
 
+def ai_gate(status: dict | None) -> dict | None:
+    """AI 를 쓰는 동작 곁 안내용: 상단 줄과 같은 상태(`_ai_status`)에 `blocked`(꺼짐·사용 불가), `reason`, `upload` 를 더한다. 읽지 못했으면 None."""
+    if status is None:
+        return None
+    blocked = status.get("state") in ontology.AI_BLOCK_REASONS
+    return {**status, "blocked": blocked, "reason": ontology.AI_BLOCK_REASONS.get(status.get("state"), ""),
+            "upload": ontology.AI_BLOCK_UPLOAD.get(status.get("state"), "")}
+
+
 GENERIC_AHEAD_AFTER_S = 5  # 이만큼 기다리게 되면 일반 대기 안내에도 앞선 작업을 적는다
 
 
@@ -122,7 +131,16 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
     ctx.setdefault("ai_off", not request.app.state.settings.ai_worker_enabled)  # 대기 작업이 시작되지 않는다: 화면은 계속 다시 불러오지 않는다
     if request.method == "GET" and status_code < 400:
         ctx.setdefault("flash", notices.from_request(request))  # 결과 알림 (app/notices.py): 맨 위 한 줄
-    ctx.setdefault("ai_status", functools.partial(_ai_status, request.app.state.session_factory, request.app.state.settings, ctx["user"]))
+    ai_cache: dict = {}
+
+    def cached_ai_status():
+        """상단 줄과 동작 곁 안내가 한 번만 조회하도록 요청마다 한 번 저장한다."""
+        if "v" not in ai_cache:
+            ai_cache["v"] = _ai_status(request.app.state.session_factory, request.app.state.settings, ctx["user"])
+        return ai_cache["v"]
+
+    ctx.setdefault("ai_status", cached_ai_status)
+    ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status()))  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 

@@ -16,9 +16,9 @@ def test_prompt_limits_contact_note_to_identifying_words():
     from app.ai.tasks import load_prompt
     prompt = load_prompt("intake_analyze", today="2026-11-19", note="(없음)", solutions="(없음)", customers="(없음)", partners="(없음)")
     rule = next(line for line in prompt.splitlines() if line.startswith("- `contacts`"))
-    assert "사람 이름, 직책·부서, 전화, 이메일, 주소만" in rule
+    assert "사람 이름, 직책, 부서, 전화, 이메일(필요하면 주소)만" in rule
     assert "대표번호" in rule and "구매 담당" in rule
-    assert "슬로건" in rule and "제품 설명" in rule and "회사 소개 문구" in rule
+    assert "슬로건" in rule and "제품·서비스 소개" in rule and "홍보 문구" in rule
 
 
 def _partner_plan(db, settings, note):

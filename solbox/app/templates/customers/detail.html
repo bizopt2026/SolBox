@@ -13,7 +13,7 @@
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    {{ related_card(related, hide_empty=true) }}
+    {{ related_card(related, [("명함·연락처 올리기", "/intake/new")], hide_empty=true) }}
     {% call meta_card(meta, origin) %}{% if customer.partner %}<dt>같은 회사</dt><dd>파트너 <a href="/partners/{{ customer.partner.id }}">{{ customer.partner.name }}</a></dd>{% endif %}{% endcall %}
   </aside>
 </div>

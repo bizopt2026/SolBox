@@ -145,7 +145,7 @@ def test_models_tables_and_columns(app):
 def test_nav_has_opportunity_and_bm_in_order(user_client):
     html = user_client.get("/").text
     nav = re.search(r'<aside class="side".*?</aside>', html, re.S).group(0)
-    names = re.findall(r'<a href="/([a-z]*)"[^>]*><span class="dot"[^>]*></span>([^<]+)', nav)
+    names = re.findall(r'<a href="/([a-z]*)"[^>]*><svg class="ni".*?</svg>([^<]+)', nav, re.S)
     order = [h for h, _ in names]
     # 영업 묶음: 고객 → 영업기회 → 제안 → 프로젝트 → BM
     assert order.index("customers") + 1 == order.index("opportunities") and order.index("opportunities") + 1 == order.index("proposals")

@@ -1,10 +1,16 @@
 """제안 상세 화면: 단계 표시줄, 구역 접기, 구역 요약."""
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from conftest import make_proposal_world, outlined_proposal, refining_proposal
 from app.models import AIJob, ProposalMessage
 from app.proposals import candidate_solutions, open_section, section_summaries, step_states
+
+
+def _kdt(d):
+    from app import ui
+
+    return ui.short_datetime(d, date.today())
 
 
 def _states(p):
@@ -63,7 +69,7 @@ def test_section_summaries(db, settings):
     p.messages.append(ProposalMessage(role="user", content="안녕"))
     p.messages.append(ProposalMessage(role="assistant", content="네", created_at=datetime(2026, 5, 3, 14, 5)))
     db.commit()
-    assert section_summaries(p, [])["chat"] == "대화 2개 · 마지막 메시지 2026-05-03 14:05"
+    assert section_summaries(p, [])["chat"] == "대화 2개 · 마지막 메시지 " + _kdt(datetime(2026, 5, 3, 14, 5))
     p.selected_index = None
     assert section_summaries(p, [])["directions"] == "방향 2개"
 
@@ -74,7 +80,7 @@ def test_section_summaries_outline_and_deck(db, settings):
     assert s["outline"] == "8장 · 확인할 점 1장"
     assert s["deck"] == "아직 만들지 않음"
     p.deck_name, p.deck_built_at = "a.pptx", datetime(2026, 5, 4, 9, 30)
-    assert section_summaries(p, [])["deck"] == "마지막 생성 2026-05-04 09:30"
+    assert section_summaries(p, [])["deck"] == "마지막 생성 " + _kdt(datetime(2026, 5, 4, 9, 30))
 
 
 def _open_ids(html):

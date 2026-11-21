@@ -95,7 +95,7 @@ def update(
 ):
     bm = get_or_404(db, BM, bm_id)
     values = _values(name, summary, target_customers, revenue_model, memo)
-    if conflict := guards.check_rev(bm, rev):
+    if conflict := guards.check_rev(bm, rev, values=values):
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}, bm, error)

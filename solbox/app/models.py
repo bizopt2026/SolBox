@@ -98,6 +98,15 @@ class FormToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
+class IdMark(Base):
+    """표마다 지금까지 쓴 가장 큰 번호 (app/idmarks.py). SQLite 는 AUTOINCREMENT 없이 만든 표에서 지운 번호를 다시 쓰므로, 새 줄의 번호를 이 표시보다 크게 직접 정한다."""
+
+    __tablename__ = "id_marks"
+
+    table_name: Mapped[str] = mapped_column(String, primary_key=True)
+    last_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class Partner(Stamped, Origin, Base):
     __tablename__ = "partners"
     __table_args__ = (Index("ux_partners_customer_id", "customer_id", unique=True),)

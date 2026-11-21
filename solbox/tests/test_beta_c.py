@@ -451,7 +451,7 @@ def test_duplicate_customer_warning_reads_naturally(user_client, db):
     db.add(Customer(name="한빛병원"))
     db.commit()
     html = user_client.post("/customers", data={"name": "한빛 병원", "_tok": "t-dup"}).text
-    assert "같은 이름의 고객이 이미 있어요" in html and "이(가)" not in html
+    assert "비슷한 이름의 고객이 이미 있어요" in html and "이(가)" not in html
 
 
 def test_no_literal_particle_alternatives_in_user_facing_text():

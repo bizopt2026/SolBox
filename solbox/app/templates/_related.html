@@ -23,7 +23,8 @@
 {% set via = groups | selectattr("derived") | list %}
 <section class="card related stack" aria-label="연결된 것">
   {% set only_via = not stored and via and via | length <= 3 %}
-  <h2>{{ "건너서 연결된 것" if only_via else "연결된 것" }}</h2>
+  <h2>연결된 것</h2>
+  {% if via %}<p class="muted related-hint">{% if only_via %}다른 항목을 거쳐 이어진 것(건너서 연결된 것)만 있어요.{% else %}직접 이은 것 밑에, 다른 항목을 거쳐 이어진 것은 "건너서 연결된 것"으로 따로 모았어요.{% endif %}</p>{% endif %}
   {% for g in stored %}{{ rel_group(g) }}{% endfor %}
   {% if via %}
     {% if only_via %}

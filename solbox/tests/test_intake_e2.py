@@ -103,7 +103,7 @@ def test_nav_badge_counts_own_ready_bundles(user_client, admin_client, db):
     assert _nav_badge(user_client.get("/solutions").text) == ("확인 대기 2건", "2")
     assert _nav_badge(admin_client.get("/").text) == ("확인 대기 1건", "1")  # 관리자도 내 것만
     page = user_client.get("/solutions").text
-    assert re.search(r'<a href="/intake"[^>]*><span class="dot"[^>]*></span>올리기 묶음\s*<span class="nav-badge"', page)
+    assert re.search(r'<a href="/intake"[^>]*><svg class="ni".*?</svg>올리기 묶음\s*<span class="nav-badge"', page, re.S)
 
 
 def test_nav_badge_is_one_cheap_count_and_login_page_is_safe(app, user_client, db):
@@ -148,22 +148,31 @@ def _failed_job(db, kind="auth"):
     db.commit()
 
 
-def test_ai_down_notice_on_new_and_home(user_client, db):
-    for url in ("/intake/new", "/"):
-        assert AI_DOWN not in user_client.get(url).text
-    _failed_job(db)
+def test_ai_down_notice_on_new_and_home(user_client, db, worker_on):
     for url in ("/intake/new", "/"):
         page = user_client.get(url).text
-        assert AI_DOWN in page
+        assert AI_DOWN not in page and "data-ai-blocked" not in page
+    _failed_job(db, "limit")  # 한도·네트워크: 쓸 수는 있지만 안 되는 중 (예전 안내)
+    for url in ("/intake/new", "/"):
+        page = user_client.get(url).text
+        assert AI_DOWN in page and "data-ai-blocked" not in page
+        assert 'href="/solutions/new"' in page and 'href="/activities/new"' in page
+    db.query(AIJob).delete()
+    db.commit()
+    _failed_job(db)  # 로그인 안 됨: 상단 줄도 "AI 사용 불가" 이고 모든 AI 동작 곁에 같은 안내가 나온다
+    for url in ("/intake/new", "/"):
+        page = user_client.get(url).text
+        assert 'data-ai-blocked="down"' in page and "정리는 바로 실패로 끝나요" in page
         assert 'href="/solutions/new"' in page and 'href="/activities/new"' in page
     # 오류가 아닌 실패(기타)는 AI 가 안 되는 것으로 보지 않는다
     db.query(AIJob).delete()
     db.commit()
     _failed_job(db, "unknown")
-    assert AI_DOWN not in user_client.get("/intake/new").text
+    page = user_client.get("/intake/new").text
+    assert AI_DOWN not in page and "data-ai-blocked" not in page
 
 
-def test_ai_down_notice_on_new_page_after_error(user_client, db):
-    _failed_job(db)
+def test_ai_down_notice_on_new_page_after_error(user_client, db, worker_on):
+    _failed_job(db, "limit")
     r = user_client.post("/intake", data={"note": ""}, files=[])
     assert r.status_code == 400 and AI_DOWN in r.text

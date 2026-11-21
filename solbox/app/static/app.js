@@ -24,19 +24,29 @@
     syncNav();
   }
 
-  // 단계 범례: 처음엔 보이고, 닫으면 이 브라우저에서 다시 보이지 않는다 (스크립트가 없으면 늘 보인다)
-  document.querySelectorAll("[data-legend]").forEach(function (box) {
-    var storeKey = "solbox.legend." + box.getAttribute("data-legend"), closed = false;
-    try { closed = window.localStorage.getItem(storeKey) === "1"; } catch (e) { /* 저장을 쓸 수 없으면 늘 보인다 */ }
-    if (closed) { box.hidden = true; return; }
-    var close = box.querySelector("[data-legend-close]");
-    if (!close) return;
-    close.hidden = false;
-    close.addEventListener("click", function () {
-      box.hidden = true;
-      try { window.localStorage.setItem(storeKey, "1"); } catch (e) { /* 기억하지 못해도 이번 화면에서는 닫힌다 */ }
+  // 옆으로 미는 줄(단계 막대·제안 단계·구분 탭): 현재 항목이 보이게 그 줄 안에서만 옮기고, 더 밀 곳이 있는 쪽 가장자리를 흐리게 한다 (HTMX 로 바뀐 줄도)
+  var SCROLLERS = ".stagebar .steps, .stepbar ol, .tools > .seg, .tool-more-body .seg, .tablewrap";
+  function initScrollers(root) {
+    (root || document).querySelectorAll(SCROLLERS).forEach(function (el) {
+      if (el.dataset.sf) return;
+      el.dataset.sf = "1";
+      el.classList.add("fade-x");
+      var sync = function () {
+        el.classList.toggle("can-left", el.scrollLeft > 2);
+        el.classList.toggle("can-right", el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+      };
+      var cur = el.querySelector('[aria-current], .current');
+      if (cur && el.scrollWidth > el.clientWidth) {
+        el.scrollLeft += cur.getBoundingClientRect().left - el.getBoundingClientRect().left - (el.clientWidth - cur.offsetWidth) / 2;
+      }
+      el.addEventListener("scroll", sync);
+      window.addEventListener("resize", sync);
+      sync();
     });
-  });
+  }
+  initScrollers();
+  document.body.addEventListener("htmx:oobAfterSwap", function (e) { initScrollers(e.target.parentNode || document); });
+  document.body.addEventListener("htmx:afterSwap", function (e) { initScrollers(e.target); });
 
   // 전체 검색: "/" 를 누르면 검색칸으로 (입력칸에 글을 쓰는 중에는 그냥 "/" 가 입력된다)
   var globalSearch = document.getElementById("global-search");
@@ -525,7 +535,8 @@
   // 되돌릴 수 없는 동작의 그 자리 되묻기: "정말 삭제할까요? [삭제] [취소]". 키보드로 쓸 수 있고(처음 초점은 취소, Esc 로 취소) 브라우저 기본 확인창을 쓰지 않는다.
   // 스크립트가 없으면 링크(data-confirm-post)가 서버의 확인 화면으로 가고, 폼(data-confirm)은 바로 보낸다.
   function askInline(trigger, ask, ok, onOk) {
-    if (trigger.nextElementSibling && trigger.nextElementSibling.classList.contains("confirm-inline")) return;
+    var header = trigger.closest ? trigger.closest(".page-header") : null; // 제목 줄의 삭제: 확인은 제목 줄 밑 따로 선 줄에 놓는다 (제목을 좁히지 않는다)
+    if (header ? header.querySelector(":scope > .confirm-inline") : (trigger.nextElementSibling && trigger.nextElementSibling.classList.contains("confirm-inline"))) return;
     var box = document.createElement("span");
     box.className = "confirm-inline";
     box.setAttribute("role", "group");
@@ -543,7 +554,7 @@
     no.textContent = "취소";
     box.appendChild(q); box.appendChild(yes); box.appendChild(no);
     trigger.hidden = true;
-    trigger.parentNode.insertBefore(box, trigger.nextSibling);
+    if (header) header.appendChild(box); else trigger.parentNode.insertBefore(box, trigger.nextSibling);
     var close = function () { if (box.parentNode) box.parentNode.removeChild(box); trigger.hidden = false; trigger.focus(); };
     no.addEventListener("click", close);
     yes.addEventListener("click", function () { yes.disabled = true; onOk(); });

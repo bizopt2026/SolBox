@@ -21,8 +21,8 @@
       {% call(err) field_shell("연락처", "contact", false, "제안서 마무리 장에 이름과 함께 들어갑니다. 전화나 이메일을 한 줄로 쓰세요. 비워 두면 이름만 들어갑니다.", false, error) %}
       <input id="f-contact" name="contact" type="text" maxlength="200" value="{{ user.contact or '' }}" autocomplete="tel"{% if err %} aria-invalid="true" aria-describedby="e-contact"{% else %} aria-describedby="h-contact"{% endif %}>
       {% endcall %}
+      {{ save_bar("/", "연락처 저장", false) }}
     </section>
-    {{ save_bar("/", "연락처 저장") }}
   </form>
   <form method="post" action="/account/password" class="stack">
     <section class="card stack">
@@ -35,8 +35,8 @@
         {% endfor %}
       </div>
       <p class="help muted">바꾸면 다른 곳(다른 기기·브라우저)에서 로그인한 상태는 끝나고, 지금 화면은 그대로 쓸 수 있습니다.</p>
+      {{ save_bar("/", "비밀번호 바꾸기", false) }}
     </section>
-    {{ save_bar("/", "비밀번호 바꾸기") }}
   </form>
 </div>
 {% endblock %}

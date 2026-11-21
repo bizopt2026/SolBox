@@ -147,9 +147,15 @@ def normalize_draft(d: ActivityDraft, today: date) -> ActivityDraft:
 _MENTION_MODELS = {key: ontology.model_for(code) for key, code in ontology.MENTION_KEYS.items()}
 
 
-def normalize_name(name: str) -> str:
-    """이름 비교용 정규형: NFKC, 대소문자 무시, 공백·문장부호·기호를 모두 없앤다 (모든 문자의 글자·숫자·결합 문자는 남긴다)."""
+COMPANY_MARKER = re.compile(r"\(\s*주\s*\)|주식회사")  # NFKC 가 ㈜ 를 (주) 로 바꾼 뒤의 글
+
+
+def normalize_name(name: str, company: bool = False) -> str:
+    """이름 비교용 정규형: NFKC, 대소문자 무시, 공백·문장부호·기호를 모두 없앤다 (모든 문자의 글자·숫자·결합 문자는 남긴다).
+    company=True (고객·파트너 이름을 견줄 때)면 회사 표지 ㈜·(주)·주식회사 도 없애 "㈜한빛" "(주) 한빛" "한빛 주식회사" 를 같은 이름으로 본다."""
     folded = unicodedata.normalize("NFKC", name).casefold()
+    if company:
+        folded = COMPANY_MARKER.sub("", folded)
     return "".join(ch for ch in folded if unicodedata.category(ch)[0] in "LNM")
 
 

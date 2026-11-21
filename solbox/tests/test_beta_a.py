@@ -131,9 +131,10 @@ def test_reused_id_is_a_different_record_and_cannot_be_forced(user_client, db, k
     db.delete(obj)
     db.commit()
     new = CASES[kind]["make"](db)
+    new.id = old_id  # 번호 재사용은 이제 막혀 있지만(app/idmarks.py), 표시가 생기기 전에 지워진 번호는 다시 쓰일 수 있다: 같은 번호로 직접 넣어 그 경우를 만든다
     db.add(new)
     db.commit()
-    assert new.id == old_id  # SQLite 는 가장 큰 번호를 다시 쓴다
+    assert new.id == old_id
     r = user_client.post(base, data={**_data(kind, new), "_rev": stamp, "_force": "1"}, follow_redirects=False)  # 강제 저장도 안 된다
     assert r.status_code == 409
     assert "삭제되고 같은 번호로 새 기록이 만들어졌습니다" in r.text

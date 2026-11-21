@@ -207,7 +207,7 @@ def update(
 ):
     solution = get_or_404(db, Solution, solution_id)
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
-    if conflict := guards.check_rev(solution, rev):
+    if conflict := guards.check_rev(solution, rev, values=values):
         return _form_page(request, db, values, solution, conflict=conflict)
     if error:
         return _form_page(request, db, values, solution, error)

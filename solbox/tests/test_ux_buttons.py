@@ -21,7 +21,7 @@ def test_forms_have_one_primary_button(user_client):
     assert 'class="primary">저장' in html
 
 
-def test_run_now_is_primary_on_research_settings(admin_client):
+def test_run_now_is_primary_on_research_settings(admin_client, worker_on):
     assert 'class="primary">지금 조사' in admin_client.get("/admin/research").text
 
 
@@ -39,7 +39,7 @@ def test_each_form_has_exactly_one_primary(user_client, db):
     assert login.count('class="primary"') == 1
 
 
-def test_chat_section_has_one_primary_before_and_after_outline(user_client, db, settings):
+def test_chat_section_has_one_primary_before_and_after_outline(user_client, db, settings, worker_on):
     from tests.conftest import refining_proposal
     p = refining_proposal(db, settings)
     chat = lambda: re.search(r'<details class="card section" id="chat".*?</details>', user_client.get(f"/proposals/{p.id}").text, re.S).group(0)

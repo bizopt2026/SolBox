@@ -444,7 +444,7 @@ def test_detail_header_keeps_delete_apart_and_aligned_with_the_title():
     css = _css()
     assert 'grid-template-areas: "crumb crumb" "title actions" "sub sub"' in css  # 동작은 제목 줄에
     phone = css.split("@media (max-width: 600px)")[1]
-    assert ".actions-danger { order: 9" in phone and "border-top" in phone.split(".actions-danger")[1].split("}")[0]
+    assert ".actions-danger { order: 2" in phone and "border-top" not in phone.split(".actions-danger")[1].split("}")[0]  # 휴대폰: 삭제는 수정과 같은 줄
 
 
 def test_delete_actions_are_marked_so_the_phone_layout_can_separate_them(user_client, db):

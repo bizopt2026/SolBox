@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -117,7 +118,7 @@ SPECS: tuple[Spec, ...] = (
     Spec("/intake/{obj_id}/discard", "intake_discard", _load_intake, lambda o: f"올리기 묶음 {o.id}번", lambda o: f"/intake/{o.id}",
          lambda o, name: [(ontology.nav_group_label("intake"), None), (ontology.label("intake"), "/intake"), (name, f"/intake/{o.id}"), ("버리기", None)], "올리기 묶음", verb="버리기", blocker=_intake_blocker),
     Spec("/research/runs/{obj_id}/delete", "research_run", _load_admin(ResearchRun, "조사 실행을 찾을 수 없습니다."),
-         lambda o: f"{o.started_at:%Y-%m-%d} 조사 결과", lambda o: f"/research/runs/{o.id}",
+         lambda o: f"{ui.short_date(o.started_at, date.today())} 조사 결과", lambda o: f"/research/runs/{o.id}",
          lambda o, name: ui.crumbs("research_run", name, f"/research/runs/{o.id}", "삭제"), "조사 결과", blocker=_run_blocker),
     Spec("/admin/research/topics/{obj_id}/delete", "research_topic", _load_admin(ResearchTopic, "주제를 찾을 수 없습니다."),
          lambda o: o.name, lambda o: "/admin/research", lambda o, name: [("관리", None), ("리서치 설정", "/admin/research"), (name, None), ("삭제", None)], "리서치 주제"),

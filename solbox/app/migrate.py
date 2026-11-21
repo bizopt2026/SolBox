@@ -391,4 +391,7 @@ def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
     copy_activity_json(engine, db_path, backup=backup)
     add_unique_indexes(engine)
     backfill_origins(engine, db_path, backup=backup)
+    from app import idmarks  # 지운 번호를 다시 쓰지 않는 표시 (새 작은 표만 쓴다: 기존 표·값은 그대로)
+
+    idmarks.ensure_marks(engine)
     return backup
