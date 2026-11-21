@@ -36,7 +36,7 @@ _AUTH_PATTERNS = re.compile(
     r"|\bunauthori[sz]ed\b(?!\s+tool)|\bunauthenticated\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
     # Claude 의 환경 변수 이름만 (`ANTHROPIC_API_KEY`·`CLAUDE_CODE_OAUTH_TOKEN`·`ANTHROPIC_BEDROCK_API_KEY`): `OPENAI_API_KEY`·`MY_ANTHROPIC_API_KEY` 는 아니다.
     # 이름 뒤 `:` 나 빈칸 (`\s*[:\s]\s*` 는 빈칸이 많이 이어지면 제곱으로 느려졌다: 두 갈래로 나눠 선형)
-    rf"|\b{_ENV_NAME}(?:\s+environment variable)?(?:\s*:\s*|\s+)(?:(?:is|are|was)\s+)?{_ENV_BAD}\b|\b(?:missing|invalid|no|(?:could not|couldn't|cannot|can't|unable to|failed to) find)\s+{_ENV_NAME}\b"
+    rf"|\b{_ENV_NAME}(?:[ \t]+environment variable)?(?:[ \t]*:[ \t]*|[ \t]+)(?:(?:is|are|was)[ \t]+)?{_ENV_BAD}\b|\b(?:missing|invalid|no|(?:could not|couldn't|cannot|can't|unable to|failed to) find)\s+{_ENV_NAME}\b"
     # 401 은 상태 줄(`API Error: 401`, `HTTP 401`, `status 401`)로만 본다: 초·줄 번호·파일 번호·금액 속 401 은 로그인 문제가 아니다.
     r"|\b(?:error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+401\b(?![\w/]|\.\w)"
     # `oauth` 는 낱말 하나만으로 보지 않는다 (`oauth-proxy` 같은 이름).
@@ -70,7 +70,7 @@ _NETWORK_WORDS = ("enotfound", "econnrefused", "network", "getaddrinfo", "timed 
 # 짧은 이름(`pass`·`pwd`·`auth`)은 이름 전체일 때만 본다 (앞에 `_`·`-` 말고 글자가 붙은 `compass`·`bypass`·`OAuth`·`OLDPWD` 는 아니다).
 # `max_token`·`min_token` 은 한도 값이다. `API_KEY_V2` 처럼 `_v2`·`_2` 꼬리는 붙어도 된다.
 _KEYWORD = (
-    r"(?:api[ _.\-]?(?:key|키)|(?:auth|oauth|access|refresh|id|session|bearer|bot)[_\-]?token|secret(?:[_\-]?(?:access[_\-]?)?key)?(?:[_\-]?base)?|passw(?:or)?d|passphrase|private[_\-]?key"
+    r"(?:api[ _.\-]?(?:key|키)|(?:auth|oauth|access|refresh|id|session|bearer|bot)[_\-]?token(?:[_\-](?:bedrock|value))?|secret(?:[_\-]?(?:access[_\-]?)?key)?(?:[_\-]?base)?|passw(?:or)?d|passphrase|private[ _\-]?key"
     r"|(?:access|anthropic|encryption|signing|license|master)[_\-]?key|credentials?|(?<![A-Za-z0-9])(?:pass|pwd|pw|auth)|(?<!max_)(?<!max-)(?<!min_)(?<!min-)token|비밀번호|패스워드|토큰|비번)"
 )
 _NAME = rf"(?P<name>(?<![A-Za-z0-9_\-])(?<!xpected )[A-Za-z0-9_\-]{{0,40}}{_KEYWORD}(?:[_\-]v?\d{{1,2}})?(?![A-Za-z0-9_]))"
@@ -120,20 +120,24 @@ _LOOSE = re.compile(rf"(?P<head>{_NAME}{_LOOSE_SEP}){_ANY_VALUE}", re.I)
 _BARE = re.compile(rf"(?P<head>{_NAME}[ \t]+)(?P<value>{_VALUE})", re.I)
 _AUTHORIZATION = re.compile(
     r"(?P<head>\bAuthorization[\"']?[ \t]*[=:][ \t]*(?P<scheme>(?:Bearer|Basic|Token|Digest|Negotiate|NTLM|AWS4-HMAC-SHA256|Bot|ApiKey)[ \t]+)?)"
-    r"(?P<value>[\"'][^\n]{3,500}|\[[^\[\]\n]{0,500}\]|\{[^{}\n]{0,500}\}|\S{1,300})", re.I)
+    r"(?P<value>\"[^\"\n]{3,500}\"|'[^'\n]{3,500}'|[\"'][^\n]{3,500}|\[[^\[\]\n]{0,500}\]|\{[^{}\n]{0,500}\}|\S{1,300})", re.I)
 _AUTH_LINE = re.compile(r"(?P<head>\bAuthorization[\"']?[ \t]*[=:][ \t]*(?:Digest|AWS4-HMAC-SHA256)[ \t]+)(?P<value>[^\n]{1,500})", re.I)
 _COOKIE = re.compile(r"(?P<head>(?<![A-Za-z0-9_\-])(?:set-)?cookie[ \t]*[=:][ \t]*)(?P<value>[^\n]{1,500})", re.I)
 _CLI_FLAG = re.compile(r"(?P<head>(?<![\w\-])(?:x-api-key|--(?:api[-_]?key|token|password|secret|access[-_]?token|auth[-_]?token))(?:[ \t]+|=))(?P<value>" + _VALUE + ")", re.I)
 _QUERY = re.compile(r"(?P<head>(?<=[?&])(?:key|sig|signature|api[_\-]?key|apikey|token|access_token)=)(?P<value>[^&\s#]{4,300})", re.I)
 _BEARER = re.compile(r"(?P<head>\bBearer\s+)(?P<value>(?=[A-Za-z]*[\d._~+/=\-])[A-Za-z0-9._~+/=\-]{12,}|sk-[A-Za-z0-9_\-]{3,})", re.I)
-_USERINFO = re.compile(r"(?P<head>\b(?!mailto\b)[a-z][a-z0-9+.\-]{1,15}://)(?P<value>[^\s/@:]{0,100}:[^\s/]{1,200})(?=@)", re.I)  # 비밀번호 속 `@` 가 있으면 마지막 `@` 앞까지
+_USERINFO = re.compile(r"(?P<head>\b(?!mailto\b)[a-z][a-z0-9+.\-]{1,15}://)(?P<value>[^\s/@:]{0,100}:[^\s/?#]{1,200})(?=@)", re.I)  # 비밀번호 속 `@` 가 있으면 마지막 `@` 앞까지
 _USERINFO_TOKEN = re.compile(  # `http://TOKEN@proxy`: 이름 없이 값만 (`ssh://git@host` 의 사용자 이름은 비밀 모양이 아니라 둔다)
     r"(?P<head>\b(?!mailto\b)[a-z][a-z0-9+.\-]{1,15}://)(?P<value>(?=[A-Za-z0-9._~+=\-]{0,10}\d)[A-Za-z0-9._~+=\-]{8,100}|[A-Za-z0-9._~+=\-]{16,100})(?=@)", re.I)
-_CURL_USER = re.compile(r"(?P<head>(?<![\w\-])-u[ \t]+)(?P<value>[^\s:]{1,100}:\S{3,300})")
+_CURL_USER = re.compile(r"(?P<head>(?<![\w\-])(?:-[uU]|--(?:proxy-)?user)(?:[ \t]+|=))(?P<value>(?![\d]+:\d)[^\s:]{1,100}:(?=\S{5,300})(?=[^\s]*[A-Za-z0-9])\S{5,300})")  # `-u 1000:1000`(숫자 사용자)·`sort -u a:bcd`(짧은 값)는 아니다
+_ARGV_FLAG = re.compile(
+    r"(?P<head>(?P<fq>[\"'])--?(?:api[-_]?key|token|password|passwd|secret|access[-_]?token|auth[-_]?token|proxy-user|user)(?P=fq)[ \t]*,[ \t]*)(?P<q>[\"'])(?!\*{3}(?P=q))(?P<value>[^\"'\n]{1,300})(?P=q)", re.I)
 _PEM = re.compile(r"-----BEGIN[A-Z ]{0,30}PRIVATE KEY-----(?:[A-Za-z0-9+/=\s]|\\[nrt]){0,8000}(?:-----END[A-Z ]{0,30}PRIVATE KEY-----)?")  # 줄바꿈이 글자 `\n` 으로 든 것도
 _WHOLE = tuple(re.compile(p) for p in (
     # 이 머리는 흔치 않아 왼쪽 경계가 필요 없다 (`KEY_sk-ant-…`·`\\nsk-ant-…`·`한글sk-ant-…`). 꼬리의 `.`·`/`·`+`·`=` 도 함께. `risk-ant-colony` 는 숫자·16자 모양이 아니라 둔다.
-    r"sk-ant-(?=[A-Za-z0-9_\-]{0,30}\d|[A-Za-z0-9_\-]{16})[A-Za-z0-9_\-./+=]+",
+    # 앞에 영문자가 붙으면(`task-ant-1`·`disk-ant-2`) 진짜 키 모양(`api03-`·`oat01-`·`ort01-`·`admin01-`·`sid01-`)일 때만, 영문자가 없으면(`KEY_`·`0`·한글·줄 시작) 8자 이상이거나 숫자가 든 꼬리.
+    r"(?<![A-Za-z])sk-ant-(?=[A-Za-z0-9_\-]{0,30}\d|[A-Za-z0-9_\-]{8})[A-Za-z0-9_\-./+=]+",
+    r"(?<=[A-Za-z])sk-ant-(?:api03|oat01|ort01|admin01|sid01)-[A-Za-z0-9_\-./+=]*",
     r"sk-(?:proj|svcacct|admin|live|test)-[A-Za-z0-9_\-]{12,}",
     r"\bsk-(?=[A-Za-z0-9_\-]{0,60}\d)[A-Za-z0-9_\-]{20,}",
     r"\bsk-[A-Za-z0-9]{20,}",
@@ -144,35 +148,57 @@ MASK = "***"
 
 
 _PATH_VALUE = re.compile(r"(?:~?/|\.{1,2}/|[A-Za-z]:[\\/])\S")
+_PATH_ROOT = re.compile(r"^(?:~|\.{1,2}|[A-Za-z]:)?[\\/]+")
+_REAL_PATH = re.compile(r"[^\s\\/]*[\\/]\S*|\S*\.[A-Za-z0-9]{1,6}")  # 뿌리(`/`·`./`·`~/`·`C:\`)를 뗀 나머지에 마디가 더 있거나 확장자가 있는 경로 (`/s3cr3t`·`./secret1` 은 아니다)
 _SMALL_NUMBER = re.compile(r"\d{1,4}[,.;)]*")
+_COUNT_VALUE = re.compile(r"[\d,]+(?:[가-힣]+)?[,.;)]*")  # `210000`·`210000개`·`8자`
+_ALGO_VALUE = re.compile(r"(?:[RHEP]S\d{3}|EdDSA|aes[-_]?\d{3}(?:[-_][a-z0-9]+)*|chacha20(?:-poly1305)?|sha-?\d{3}|rsa(?:-\d+)?)[,.;)]*", re.I)  # `signing_key=RS256`·`ENCRYPTION_KEY=aes-256-gcm`
 _AUTH_METHODS = frozenset("oauth apikey api bearer basic none login sso cookie session token key".split())
 _TAIL = re.compile(r"(pwd|credentials?|auth|pass)(?:[_\-]v?\d{1,2})?\Z", re.I)
 
 
 def _name_says_not_secret(name: str, value: str, sep: str) -> bool:
     """이름이 비밀 이름이어도 값이 그 이름의 다른 뜻이면 그대로 둔다: `PWD=/home/…`(작업 폴더), `credentials: /home/kim/.claude/.credentials.json`(파일),
-    `auth: 401`·`pass: 3`(숫자), `auth: OAuth`(방식), `getAccessToken(/usr/lib/cli.js:1:2)`(스택 줄)."""
+    `auth: 401`·`pass: 3`(숫자), `auth: OAuth`(방식), `getAccessToken(/usr/lib/cli.js:1:2)`(스택 줄), `signing_key=RS256`(알고리즘), `토큰: 210000`(개수).
+    숫자·방식 예외는 이름이 `pass`·`auth` 하나뿐일 때만 (`DB_PASS=1234`·`PROXY_AUTH=session` 은 비밀이다)."""
     first = value.split(None, 1)[0] if value.strip() else ""
+    word = first.strip("\"'`“”‘’")
     if sep == "(" and _PATH_VALUE.match(first):
         return True
+    if _ALGO_VALUE.fullmatch(word):
+        return True
+    if name.endswith(("토큰", "비밀번호", "패스워드")) and name != "" and _COUNT_VALUE.fullmatch(word) and (word[0].isdigit() and (name.endswith("토큰") or not word.isdigit())):
+        return True  # `입력 토큰: 210000`·`비밀번호: 8자 이상이어야 합니다` (비밀번호는 숫자만이면 비밀일 수 있어 단위가 붙은 때만)
     tail = _TAIL.search(name)
     if not tail:
         return False
     kind = tail.group(1).lower()
-    if kind in ("pwd", "credential", "credentials") and _PATH_VALUE.match(first):
+    bare = tail.start() == 0
+    if kind == "pwd" and bare and _PATH_VALUE.match(first):
         return True
-    if kind in ("auth", "pass") and _SMALL_NUMBER.fullmatch(first):
+    if kind in ("pwd", "credential", "credentials") and _PATH_VALUE.match(first) and _REAL_PATH.fullmatch(_PATH_ROOT.sub("", first.rstrip(",;"), count=1)):
         return True
-    return kind == "auth" and first.rstrip(".,;)").lower() in _AUTH_METHODS
+    if bare and kind in ("auth", "pass") and _SMALL_NUMBER.fullmatch(first):
+        return True
+    return bare and kind == "auth" and first.rstrip(".,;)").lower() in _AUTH_METHODS
 
 
 def _mask_loose(m: re.Match) -> str:
     sep = m.group("sep").strip()[-1:] if m.group("sep") else ""
-    if _is_diagnostic(m.group("value"), m.string[m.end():m.end() + 40], m.groupdict().get("op")):
+    value = m.group("value")
+    if value.lstrip("\"'`“‘").startswith(MASK):
+        return m.group(0)  # 이미 가린 값 (두 번 가려도 같다)
+    if _is_diagnostic(value, m.string[m.end():m.end() + 40], m.groupdict().get("op")):
         return m.group(0)
-    if _name_says_not_secret(m.group("name"), m.group("value"), "(" if sep == "(" else ""):
+    if _name_says_not_secret(m.group("name"), value, "(" if sep == "(" else ""):
         return m.group(0)
+    close = _CLOSERS.get(value[0])
+    if close is not None and len(value) >= 5 and value[-1] == close:
+        return m.group("head") + value[0] + MASK + close  # 따옴표를 지킨다: `{"api_key":"***","model":"x"}` 가 계속 JSON 이다
     return m.group("head") + MASK
+
+
+_CLOSERS = {'"': '"', "'": "'", "`": "`", "“": "”", "‘": "’"}
 
 
 _FLAG_VALUE = re.compile(r"[\"'`]--?[A-Za-z][\w\-]*[\"'`]")
@@ -196,6 +222,8 @@ def _mask_authorization(m: re.Match) -> str:
     if scheme in ("digest", "aws4-hmac-sha256") or (scheme and not _LOWER_WORD.fullmatch(value.rstrip(".,;)"))) or (
         not scheme and not _is_diagnostic(value, m.string[m.end():m.end() + 40], ":")
     ):
+        if len(value) >= 5 and value[0] in "\"'" and value[-1] == value[0]:
+            return m.group("head") + value[0] + MASK + value[0]  # 따옴표를 지킨다
         return m.group("head") + MASK
     return m.group(0)  # `Authorization: required`, `Bearer authentication failed`, `Authorization: Bearer token expired`
 
@@ -204,21 +232,48 @@ def _mask_value(m: re.Match) -> str:
     return m.group("head") + MASK
 
 
+_HOST_PORT_THEN_LIST = re.compile(r"[^:]*\.[A-Za-z]{2,}:\d{1,5}[,;]")
+_KEBAB_ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9.]+){2,}")
+
+
+def _mask_userinfo(m: re.Match) -> str:
+    if _HOST_PORT_THEN_LIST.match(m.group("value")):
+        return m.group(0)  # `http://a.com:80,kim@kt.com`: 주소 다음에 쉼표로 이은 이메일
+    return m.group("head") + MASK
+
+
+def _mask_userinfo_token(m: re.Match) -> str:
+    if _KEBAB_ID.fullmatch(m.group("value")):
+        return m.group(0)  # `vertex://claude-sonnet-4-5@20250929`: 모델 이름@버전
+    return m.group("head") + MASK
+
+
+def _mask_quoted_pair(m: re.Match) -> str:
+    """`['--api-key', 'X']`·`["claude","--token","X"]`: 따옴표를 지키고 값만 가린다."""
+    q = m.group("q")
+    return m.group("head") + q + MASK + q
+
+
 def redact(text: str) -> str:
     """오류 글의 비밀 값(`sk-ant-…` 토큰, `*_API_KEY=…`·`"api_key": "…"`, `Authorization: Bearer …`, `x-api-key: …`, `password=…`, 주소 속 `user:pass@`, JWT)을 `***` 로 바꾼다."""
-    return _redact_all(_cap(text or ""))
+    text = text or ""
+    if len(text) <= MAX_TEXT:
+        return _redact_all(text)
+    head, tail = _cap_parts(text)
+    return _redact_all(head) + "\n…\n" + _redact_all(tail)  # 반쪽을 따로 가린다: 자르는 자리에 걸친 키가 반쪽만 보이지 않게
 
 
 def _redact_all(out: str) -> str:
     out = _PEM.sub(MASK, out)
     for pat in _WHOLE:
         out = pat.sub(MASK, out)
-    out = _USERINFO.sub(_mask_value, out)
-    out = _USERINFO_TOKEN.sub(_mask_value, out)
+    out = _USERINFO.sub(_mask_userinfo, out)
+    out = _USERINFO_TOKEN.sub(_mask_userinfo_token, out)
     out = _AUTH_LINE.sub(_mask_value, out)
     out = _AUTHORIZATION.sub(_mask_authorization, out)
     out = _COOKIE.sub(_mask_cookie, out)
     out = _CURL_USER.sub(_mask_value, out)
+    out = _ARGV_FLAG.sub(_mask_quoted_pair, out)
     out = _CLI_FLAG.sub(_mask_value, out)
     out = _QUERY.sub(_mask_value, out)
     out = _BEARER.sub(_mask_value, out)
@@ -256,23 +311,86 @@ def assert_tool_separation(allowed_tools: tuple[str, ...] | list[str]) -> None:
 MAX_TEXT = 200_000  # 분류·가리기에 쓰는 글의 최대 길이 (앞 절반 + 뒤 절반: 상태 줄은 보통 처음이나 끝에 있다)
 
 
+_CUT_WINDOW = 2000
+
+
+def _cap_parts(text: str) -> tuple[str, str]:
+    """긴 글의 앞 절반과 뒤 절반. 자르는 자리는 공백에서 맞춘다(창 안에 공백이 없으면 뒤 조각의 앞 창을 버린다): 낱말 한가운데를 잘라 키의 뒷부분이 따로 남지 않게."""
+    half = MAX_TEXT // 2
+    head, tail = text[:half], text[-half:]
+    cut = max(head.rfind(" ", half - _CUT_WINDOW), head.rfind("\n", half - _CUT_WINDOW))
+    if cut > 0:
+        head = head[:cut]
+    k = min((i for i in (tail.find(" ", 0, _CUT_WINDOW), tail.find("\n", 0, _CUT_WINDOW)) if i >= 0), default=-1)
+    tail = tail[k + 1:] if k >= 0 else tail[_CUT_WINDOW:]
+    return head, tail
+
+
 def _cap(text: str) -> str:
     """아주 긴 글은 앞뒤만 남긴다 (정규식이 선형이어도 수 MB 를 여러 번 훑지 않게)."""
     if len(text) <= MAX_TEXT:
         return text
-    half = MAX_TEXT // 2
-    return text[:half] + "\n…\n" + text[-half:]
+    head, tail = _cap_parts(text)
+    return head + "\n…\n" + tail
+
+
+# 잘려 나간 가운데의 상태 줄만 싸게 찾는다 (정규식 한 개, 선형): 401·429·407 이 가운데에 있어도 놓치지 않게.
+_MIDDLE_STATUS = re.compile(r"\b(?:api error|error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+\(?(?P<a>401|429|407)\b(?![\w/]|\.\w)|\"status\"\s*:\s*(?P<b>401|429|407)\b", re.I)
+_MIDDLE_KIND = {"407": "network", "401": "auth", "429": "limit"}
 
 
 def classify_error(text: str) -> str:
-    return _classify(_cap(text or ""))
+    text = text or ""
+    if len(text) <= MAX_TEXT:
+        return _classify(text)
+    half = MAX_TEXT // 2
+    kind = _classify(_cap(text))
+    if kind == "unknown":  # 앞뒤에서 못 찾았으면 가운데의 상태 줄(401·429·407)만 본다
+        m = _MIDDLE_STATUS.search(text, half, len(text) - half)
+        if m is not None:
+            return _MIDDLE_KIND[m.group("a") or m.group("b")]
+    return kind
+
+
+# 같은 줄에 다른 업체 이름이 있으면 그 업체의 키 문제다 (`Tavily: invalid API key`·`Brave Search error: the API key is missing`·`Invalid API key for Tavily`·`No API key provided for OpenAI`).
+# 이름 없는 `API key` 글에만 적용한다 (Claude·Anthropic 환경 변수 이름이 든 일치는 그대로 로그인).
+_API_KEY_MATCH = re.compile(r"api[ _-]?key", re.I)
+_BENIGN_WORDS = frozenset(
+    "error errors fatal warning warn failed failure fail request response http https status code api key keys the this your claude anthropic cli sdk auth authentication "
+    "invalid missing provided given supplied current an a and or not is was has stderr stdout info debug exception".split()
+)
+_WORD = re.compile(r"[A-Za-z][A-Za-z_\-]{2,}")
+_FOR_WORD = re.compile(r"\bfor\s+(?:the\s+|your\s+|this\s+)?(?P<w>[A-Za-z][\w.\-]*)", re.I)
+_LINE_WINDOW = 300
+
+
+def _vendor_line(text: str, m: re.Match) -> bool:
+    lo = max(0, m.start() - _LINE_WINDOW)  # 줄 시작을 찾는 범위도 한정한다 (줄바꿈 없는 긴 글에서 일치마다 처음까지 훑으면 제곱)
+    start = max(text.rfind("\n", lo, m.start()) + 1, lo)
+    nl = text.find("\n", m.end(), m.end() + _LINE_WINDOW)
+    end = nl if nl >= 0 else min(len(text), m.end() + _LINE_WINDOW)
+    before, after = text[start:m.start()], text[m.end():end]
+    colon = before.rfind(":")
+    if colon >= 0 and any(w.lower() not in _BENIGN_WORDS for w in _WORD.findall(before[max(0, colon - 60):colon])[-3:]):
+        return True  # `Tavily: …`·`Brave Search error: …`
+    f = _FOR_WORD.match(after.lstrip()) or _FOR_WORD.search(after[:80])
+    return f is not None and f.group("w").lower() not in _BENIGN_WORDS
+
+
+def _has_auth(text: str) -> bool:
+    for m in _AUTH_PATTERNS.finditer(text):
+        found = m.group(0)
+        if _API_KEY_MATCH.search(found) and not re.search(r"anthropic|claude", found, re.I) and _vendor_line(text, m):
+            continue
+        return True
+    return False
 
 
 def _classify(text: str) -> str:
     lowered = text.lower()
     if _PROXY_PATTERN.search(text):
         return "network"
-    if _AUTH_PATTERNS.search(text):
+    if _has_auth(text):
         return "auth"
     if _LIMIT_PATTERN.search(text):
         return "limit"
@@ -302,7 +420,7 @@ def _kill_tree(proc: subprocess.Popen) -> None:
                 ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
                 capture_output=True, check=False, timeout=10,
             )
-        else:
+        elif getattr(proc, "returncode", None) is None:  # 이미 회수한 자식의 번호는 다른 프로세스 그룹에 재사용됐을 수 있어 killpg 를 부르지 않는다
             os.killpg(proc.pid, signal.SIGKILL)
     except (OSError, subprocess.SubprocessError):
         pass

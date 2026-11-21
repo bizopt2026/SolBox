@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import socket
 import sqlite3
@@ -128,6 +129,27 @@ def _drain(stream, buf: bytearray) -> None:
         return
 
 
+def _wait_exit(proc, timeout: float) -> None:
+    """자식이 끝날 때까지 `timeout` 초 기다린다. POSIX 에서는 끝난 자식을 **회수하지 않고**(`waitid(WNOWAIT)`: 좀비로 남아 프로세스 번호가 다른 프로세스에 재사용되지 않는다) 기다려서,
+    자식이 끝난 뒤 손자가 파이프를 쥐고 있어 프로세스 그룹을 죽여야 할 때 그 번호가 엉뚱한 그룹을 가리키지 않게 한다. 회수는 `proc.wait()` 가 한다."""
+    waitid = getattr(os, "waitid", None)
+    if sys.platform == "win32" or waitid is None or not isinstance(proc, subprocess.Popen):
+        proc.wait(timeout=max(timeout, 0))
+        return
+    deadline = time.monotonic() + max(timeout, 0)
+    delay = 0.005
+    while True:
+        try:
+            if waitid(os.P_PID, proc.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None:
+                return
+        except ChildProcessError:  # 이미 다른 곳에서 회수했다
+            return
+        if time.monotonic() >= deadline:
+            raise subprocess.TimeoutExpired(proc.args, timeout)
+        time.sleep(delay)
+        delay = min(delay * 2, 0.1)
+
+
 def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
     """`cmd` 를 `timeout` 초까지만 돌리고 (종료 코드, 표준 출력) 을 돌려준다. 입력은 막는다(`stdin=DEVNULL`).
     제한을 넘으면 프로세스와 그 자식·손자까지 죽이고(Windows 는 `taskkill /T /F /PID`, 그 밖에는 새 프로세스 그룹을 `killpg`) `subprocess.TimeoutExpired` 를 낸다.
@@ -163,11 +185,11 @@ def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
             pass
 
     try:
-        proc.wait(timeout=max(timeout, 0))
+        _wait_exit(proc, timeout)
         for t in readers:  # 자식은 끝났는데 손자가 파이프를 쥐고 있을 수 있다: 남은 시간까지만 기다린다
             t.join(max(deadline - time.monotonic(), 0.2))
         if any(t.is_alive() for t in readers):
-            _kill_tree(proc)
+            _kill_tree(proc)  # 자식은 아직 회수하지 않았다(좀비): 프로세스 그룹 번호가 재사용되지 않는다
     except subprocess.TimeoutExpired:
         _kill_tree(proc)
         finish()
@@ -180,8 +202,13 @@ def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
     return proc.returncode, bytes(out).decode("utf-8", "replace")
 
 
+# 색 지정(`ESC [31m`)·창 제목(`ESC ] … BEL`)·두 글자 이스케이프를 통째로 뺀다 (뒤의 `[31m` 이 남지 않게)
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]|\x9b[0-?]*[ -/]*[@-~]")
+
+
 def _clean_version_text(out: str) -> str:
-    """제어 문자(NUL·ESC·`\\r` …)와 보이지 않는 글자를 뺀다 (줄바꿈만 남긴다)."""
+    """색·제어 이스케이프 순서를 통째로 지우고, 남은 제어 문자(NUL·`\\r` …)와 보이지 않는 글자를 뺀다 (줄바꿈만 남긴다)."""
+    out = _ANSI.sub("", out)
     return "".join(ch for ch in out if ch == "\n" or ch.isprintable())
 
 
