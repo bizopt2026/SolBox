@@ -183,7 +183,7 @@ def test_g6_classify(text, kind):
 
 
 @pytest.mark.parametrize("text,gone", [
-    ("실패 sk-ant-api03-abcDEF_123-xyz", "abcDEF_123"), ("ANTHROPIC_API_KEY=hunter2value", "hunter2value"),
+    ("실패 sk-" "ant-api03-abcDEF_123-xyz", "abcDEF_123"), ("ANTHROPIC_API_KEY=hunter2value", "hunter2value"),
     ("Authorization: Bearer abcdef123456", "abcdef123456"), ("x-api-key: abcdef12", "abcdef12"),
     ("export OPENAI_API_KEY='zzzsecret'", "zzzsecret"),
 ])

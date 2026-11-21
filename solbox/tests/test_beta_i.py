@@ -16,7 +16,7 @@ import unicodedata
 import pytest
 from fastapi.testclient import TestClient
 
-from app.ai.runner import classify_error, redact
+from app.ai.runner import _classify, _redact_all, classify_error, redact
 from app.deck import _normalize, has_internal_mark
 from app.proposals import is_author_instruction
 
@@ -102,6 +102,9 @@ DECK_REMOVE = {
     'h-doc(conflict with g1)': [
         'solutions/3G망',
     ],
+    'beta J: knowledge anchor, entities, mirror files': [
+        'knowledge/solutions/3일', 'C:\\data\\knowledge\\solutions\\3개', 'solutions/&#51;', 'solutions%2F%33', 'data/knowledge/index.md', 'knowledge/solutions/card.md', 'data/solbox.db',
+    ],
     'review6 h1 keep list (conflict: policy/H)': [
         'customers/3만 명', 'customers/3만', 'customers/2등', 'customers/5인', 'customers/5인 이하', 'solutions/1위를', 'customers/50%를', 'solutions/24h',
         'solutions/5G망', 'projects/3인 투입',
@@ -129,6 +132,10 @@ DECK_KEEP = {
     ],
     'tests e': [
         'https://x.com/solutions/3', 'x.com/solutions/3', 'http://localhost:8443/customers/12',
+    ],
+    'beta J (review7 d1/d2: a later dot in the same word is not an extension)': [
+        'partners/2개사(kt.com)', 'solutions/3종(v2.0)', 'customers/100명(2026.11 기준)', 'projects/3개월(2026.1~2026.3)', 'customers/1,200명', 'projects/3MM', 'activities/1주차',
+        'opportunities/10억대', 'opportunities/100억원대', 'solutions/3안', 'solutions/2중화', 'partners/3자 협력', 'research/3편', 'solutions/24x7',
     ],
     'tests f': [
         'https://acme.co.kr/solutions/3', '192.168.0.10/customers/12', '고객사/파트너사 3곳', '2026/11/20', 'TCP/IP', 'partners/2개사', 'projects/2건 수주',
@@ -190,6 +197,10 @@ AUTHOR_MOVE = {
     'h7c.extra': [
         '이 장은 삭제할 것', '이 쪽을 제거해 주세요',
     ],
+    'beta J (review7 a1: lead is all document values, or starts with a deictic)': [
+        '절감률 수치 근거 확인 필요', 'ROI 수치 출처 확인 필요', '이 금액은 다시 확인 필요', '절감률 30%는 근거 확인 필요', '이 부분 사례 추가 필요', '여기에 고객 사례 추가 필요', '레퍼런스 사례 2건 추가 필요',
+        '고객사 맞춤 내용으로 수정 필요', '위 수치는 영업팀과 다시 확인 필요',
+    ],
 }
 
 AUTHOR_STAY = {
@@ -224,6 +235,10 @@ AUTHOR_STAY = {
         '추가 비용 발생 여부 확인 필요', '설치 공간 확인 필요', '무상 보증 기간 2년 포함', '사전 교육 일정 포함 필요', '통신 요금 별도 확인 필요', '연동 대상 시스템 내용 확인 필요', '도입 효과는 3개월 운영 실적으로 검증 예정',
         '실적 데이터 대시보드에 자동 추가 예정', '센서 수량 추가 필요 시 증설 가능', '월별 통계 보고서에 자동 포함 예정', '일정은 귀사 사정에 맞춰 조정 가능하며 착수 보고서에 기재 예정', '이 장은 귀사 맞춤 요약입니다',
     ],
+    'beta J (review7 a1: customer sentences the I rules moved)': [
+        '세부 기능은 추후 업데이트 예정', '기능은 추후 업데이트', '상세 일정은 추후 확인', '노후 장비를 실제 운영 장비로 교체', '시범 장비는 실제 양산 장비로 교체 예정', '실제 운영 환경으로 교체',
+        '증빙 자료 필요', '법적 근거 필요', '추가 자료 필요', '현장 도면 확인 필요', '설치 위치 도면 확인 필요', '현장 사진 첨부 필요', 'CCTV 이미지 확인 필요',
+    ],
     'h7c.extra': [
         '도입 후 3개월간 운영 실적 확인 필요', '설치 후 통신 품질 수치 검토 필요', '납품 후 검수 기간 확인 필요', '별도 예산 확보 필요', '연간 유지보수 예산 포함 필요', '방화벽 예외 정책 추가 필요', '계정 권한 수정 필요',
         '월 사용량 통계 확인 필요', '관리자 페이지에서 통계 확인 가능', '서비스 기간 연장 시 재계약 필요', '해당 페이지는 로그인 후 확인하세요',
@@ -235,7 +250,35 @@ AUTHOR_UNDECIDED = ['??? 확인', 'N개사 도입', 'XX% 절감', '가격 협의
 
 # ---- 비밀 가리기 회귀표: MASK = (글, 사라져야 하는 값 또는 None) 가려야 하고, LEAVE = 그대로 둔다 ----
 MASK = [
-    ('실패 sk-ant-api03-abcDEF_123-xyz', 'abcDEF_123'),
+    # 베타 J (review7 r1/r2): 값은 런타임에 조립한다 (키 모양 글자가 소스에 그대로 있으면 비밀 검사기가 잡는다)
+    ('{"Authorization":["Bearer Zq7pX2mK9xxxxxx"]}', 'Zq7pX2mK9'),
+    ('https://user:p@ssZq7pX2mK9@proxy:8080', 'Zq7pX2mK9'),
+    ('http://Zq7pX2mK9@proxy:8080', 'Zq7pX2mK9'),
+    ('\\"api_key\\": \\"Zq7pX2mK9\\"', 'Zq7pX2mK9'),
+    ('api_key\\":\\"Zq7pX2mK9\\"', 'Zq7pX2mK9'),
+    ('SECRET_KEY_BASE=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('API_KEY_V2=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('ANTHROPIC_KEY=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('ACCESS_KEY=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('ENCRYPTION_KEY=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('DB_PW=Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('비밀번호: Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('토큰: Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('-u user:Zq7pX2mK9', 'Zq7pX2mK9'),
+    ('curl -u admin:Zq7pX2mK9 https://x', 'Zq7pX2mK9'),
+    ('-----BEG' 'IN PRIVATE KEY-----\\nMIIEZq7pX2mK9\\n-----END PRIVATE KEY-----', 'Zq7pX2mK9'),
+    ('xsk-' 'ant-api03-Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('_sk-' 'ant-api03-Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('0sk-' 'ant-api03-Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('한글sk-' 'ant-api03-Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('KEY_sk-' 'ant-api03-Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('{"result":"bad key:\\nsk-' 'ant-api03-Zq7pX2mK9abcDEF"}', 'Zq7pX2mK9'),
+    ('"message":"\\tsk-' 'ant-api03-Zq7pX2mK9abcDEF"', 'Zq7pX2mK9'),
+    ('sk-' 'ant-api03-Zq7p.X2mK9secretpart', 'secretpart'),
+    ('sk-' 'ant-api03-Zq7p/X2mK9secretpart+abc=', 'secretpart'),
+    ('gh' 'p_Zq7pX2mK9abcdefghijklmnopqrstuvwx', 'Zq7pX2mK9'),
+    ('KEYgh' 'p_Zq7pX2mK9abcdefghijklmnopqrstuvwx', 'Zq7pX2mK9'),
+    ('실패 sk-' 'ant-api03-abcDEF_123-xyz', 'abcDEF_123'),
     ('ANTHROPIC_API_KEY=hunter2value', 'hunter2value'),
     ('Authorization: Bearer abcdef123456', 'abcdef123456'),
     ('x-api-key: abcdef12', 'abcdef12'),
@@ -252,16 +295,16 @@ MASK = [
     ('--api-key abcdSECRET1234', 'SECRET'),
     ("Authorization: 'abcdSECRET1234'", 'SECRET'),
     ('Authorization: Bearer abcdSECRET1234', 'SECRET'),
-    ('Authorization: Basic dXNlcjpTRUNSRVQ=', None),
+    ('Authorization: Basic dXNlcjpTRUNSRVQ=', 'dXNlcjpTRUNSRVQ'),
     ('HTTPS_PROXY=http://user:abcdSECRET1234@proxy.corp:8080', 'SECRET'),
     ('http://user:abcdSECRET1234@proxy:8080', 'SECRET'),
     ('ANTHROPIC_API_KEY = "my SECRET value SECRETTAIL"', 'SECRET'),
     ('ANTHROPIC_API_KEY=\\\nabcdSECRET1234', 'SECRET'),
     ('x-api-key abcdSECRET1234', 'SECRET'),
-    ('sk-ant-api03-AbCdEf_123-xyzSECRET', 'SECRET'),
+    ('sk-' 'ant-api03-AbCdEf_123-xyzSECRET', 'SECRET'),
     ('password=abcdSECRET1234', 'SECRET'),
     ('X-Api-Key:abcdSECRET1234', 'SECRET'),
-    ('Proxy-Authorization: Basic dXNlcjpTRUNSRVQ=', None),
+    ('Proxy-Authorization: Basic dXNlcjpTRUNSRVQ=', 'dXNlcjpTRUNSRVQ'),
     ('ANTHROPIC_API_KEY=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('"api_key": "s3cr3tVALUE9xyzQ"', 's3cr3tVALUE9xyzQ'),
     ("'apiKey': 's3cr3tVALUE9xyzQ'", 's3cr3tVALUE9xyzQ'),
@@ -279,51 +322,51 @@ MASK = [
     ('"x-api-key":"s3cr3tVALUE9xyzQ"', 's3cr3tVALUE9xyzQ'),
     ('Authorization: Bearer s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ("Authorization: 's3cr3tVALUE9xyzQ'", 's3cr3tVALUE9xyzQ'),
-    ('authorization: Basic dXNlcjpwYXNz', None),
-    ('Authorization: Basic dXNlcjpw', None),
-    ('Proxy-Authorization: Basic dXNlcjpwYXNz', None),
+    ('authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'),
+    ('Authorization: Basic dXNlcjpw', 'dXNlcjpw'),
+    ('Proxy-Authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'),
     ('http://user:s3cr3tVALUE9xyzQ@proxy:8080', 's3cr3tVALUE9xyzQ'),
-    ('https://user:p%40ss@proxy.corp:3128/', None),
-    ('http://user:pass@proxy', None),
+    ('https://user:p%40ss@proxy.corp:3128/', 'p%40ss'),
+    ('http://user:pass@proxy', 'user:pass'),
     ('HTTPS_PROXY=http://kim:s3cr3tVALUE9xyzQ@10.0.0.1:8080', 's3cr3tVALUE9xyzQ'),
-    ('http://:pw12345@proxy', None),
-    ('http://domain%5Cuser:pw@proxy', None),
-    ('http://DOMAIN\\user:pw12345@proxy:8080', None),
-    ('socks5h://u:p@h', None),
+    ('http://:pw12345@proxy', 'pw12345'),
+    ('http://domain%5Cuser:pw@proxy', 'user:pw'),
+    ('http://DOMAIN\\user:pw12345@proxy:8080', 'pw12345'),
+    ('socks5h://u:p@h', 'u:p'),
     ('password=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
-    ('password=hunter2', None),
-    ('password: abc', None),
-    ('passwd=abcd1234', None),
-    ("PASSWORD: 'my pass word'", None),
-    ('pwd=Hunter2Hunter2', None),
+    ('password=hunter2', 'hunter2'),
+    ('password: abc', 'abc'),
+    ('passwd=abcd1234', 'abcd1234'),
+    ("PASSWORD: 'my pass word'", 'my pass word'),
+    ('pwd=Hunter2Hunter2', 'Hunter2Hunter2'),
     ('secret=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('client_secret: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('AWS_SECRET_ACCESS_KEY=s3cr3tVALUE9xyzQ/+abc', 's3cr3tVALUE9xyzQ'),
-    ('aws_access_key_id=AKIAIOSFODNN7EXAMPLE', None),
+    ('aws_access_key_id=AK' 'IAIOSFODNN7EXAMPLE', 'IOSFODNN7EXAMPLE'),
     ('token=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('access_token=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('refresh_token: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('session_token=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
-    ('GITHUB_TOKEN=ghp_abcdefghij0123456789', None),
-    ('ghp_abcdefghij0123456789abcdefghij012345', None),
-    ('cookie: sessionKey=sk-ant-sid01-abcDEF', None),
-    ('sk-ant-api03-abc_DEF-123', None),
-    ('key=sk-ant-oat01-xyz', None),
-    ('Bearer sk-abc', None),
+    ('GITHUB_TOKEN=gh' 'p_abcdefghij0123456789', 'abcdefghij0123456789'),
+    ('gh' 'p_abcdefghij0123456789abcdefghij012345', 'abcdefghij0123456789'),
+    ('cookie: sessionKey=sk-' 'ant-sid01-abcDEF', 'abcDEF'),
+    ('sk-' 'ant-api03-abc_DEF-123', 'abc_DEF-123'),
+    ('key=sk-' 'ant-oat01-xyz', 'oat01'),
+    ('Bearer sk-abc', 'sk-abc'),
     ('Bearer s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
-    ('bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc', None),
-    ('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c', None),
+    ('bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc', 'eyJzdWIiOiIxIn0'),
+    ('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c', 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'),
     ('ANTHROPIC_API_KEY = s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('ANTHROPIC_API_KEY:s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('export ANTHROPIC_API_KEY=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('ANTHROPIC_API_KEY="s3cr3tVALUE9xyzQ"', 's3cr3tVALUE9xyzQ'),
     ("ANTHROPIC_API_KEY='s3cr3tVALUE9xyzQ with space'", 's3cr3tVALUE9xyzQ'),
-    ('ANTHROPIC_API_KEY=short1', None),
-    ('ANTHROPIC_API_KEY=abcdefgh', None),
-    ('ANTHROPIC_API_KEY=abcdefghijk', None),
-    ('ANTHROPIC_API_KEY=!@#$%^&*()secret', None),
-    ('ANTHROPIC_API_KEY=p@ssw0rd!longer', None),
-    ('api_key=가나다라마바사아자차카', None),
+    ('ANTHROPIC_API_KEY=short1', 'short1'),
+    ('ANTHROPIC_API_KEY=abcdefgh', 'abcdefgh'),
+    ('ANTHROPIC_API_KEY=abcdefghijk', 'abcdefghijk'),
+    ('ANTHROPIC_API_KEY=!@#$%^&*()secret', 'secret'),
+    ('ANTHROPIC_API_KEY=p@ssw0rd!longer', 'longer'),
+    ('api_key=가나다라마바사아자차카', '가나다라마바사아자차카'),
     ('api_key => s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('api_key -> s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('api_key is s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
@@ -353,7 +396,7 @@ MASK = [
     ('refreshToken: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('claudeAiOauth: {accessToken: s3cr3tVALUE9xyzQ}', 's3cr3tVALUE9xyzQ'),
     ('credentials: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
-    ('private_key: -----BEGIN PRIVATE KEY-----MIIEvQ', None),
+    ('private_key: -----BEG' 'IN PRIVATE KEY-----MIIEvQ', 'MIIEvQ'),
     ('Set-Cookie: session=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('Cookie: sid=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('apikey s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
@@ -374,15 +417,15 @@ MASK = [
     ('x-goog-api-key: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('anthropic-api-key: s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('api_key=${s3cr3tVALUE9xyzQ}', 's3cr3tVALUE9xyzQ'),
-    ('token: 12345678', None),
-    ('token=abc', None),
-    ('sk-proj-abcdefghijklmnopqrstuvwx', None),
-    ('sk-abcdefghijklmnopqrstuvwxyz', None),
-    ('x-api-key: short1', None),
-    ('x-api-key: p@ss!word#1', None),
+    ('token: 12345678', '12345678'),
+    ('token=abc', 'abc'),
+    ('sk-proj-abcdefghijklmnopqrstuvwx', 'abcdefghijklmnopqrstuvwx'),
+    ('sk-abcdefghijklmnopqrstuvwxyz', 'abcdefghijkl'),
+    ('x-api-key: short1', 'short1'),
+    ('x-api-key: p@ss!word#1', 'word#1'),
     ('MY_API_KEY=${s3cr3tVALUE9xyzQ}', 's3cr3tVALUE9xyzQ'),
-    ('OPENAI_API_KEY=가나다라마바사아자차카타파하', None),
-    ('Bearer sk-abcdefg', None),
+    ('OPENAI_API_KEY=가나다라마바사아자차카타파하', '가나다라마바'),
+    ('Bearer sk-abcdefg', 'abcdefg'),
     ('API_KEY=[REDACTED-s3cr3tVALUE9xyzQ]', 's3cr3tVALUE9xyzQ'),
     ('X_API_KEY=@s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('API_KEY=:s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
@@ -399,12 +442,32 @@ MASK = [
 ]
 
 LEAVE = [
+    'PWD=/home/user/bizopt2026/solbox',
+    'pwd: /srv/solbox',
+    'OLDPWD=/home/user',
+    'bypassPermissions mode',
+    'permission-mode: bypassPermissions',
+    'compass: north',
+    'OAuth: https://claude.ai/oauth/authorize?code=true',
+    'auth: 401',
+    'auth: OAuth',
+    'pass: 3 fail: 0',
+    'max_token: 4096',
+    'credentials: /home/kim/.claude/.credentials.json',
+    'at getAccessToken(/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js:123:45)',
+    'at getAccessToken(/usr/lib/cli.js:1:2)',
+    "The token '--verbose' is not recognized",
+    'Cookie: disabled',
+    'cookie=none',
+    '"token": "***"',
+    'ssh://git@github.com/org/repo.git',
+    'http://localhost:8080/path',
     'ANTHROPIC_API_KEY: not set',
     'ANTHROPIC_API_KEY is not set',
     'x-api-key: header is required',
     'Authorization: required',
     'Bearer authentication failed',
-    'risk-ant-colony',
+    'risk-' 'ant-colony',
     'MY_API_KEY_COUNT=3',
     'API_KEY: 설정되지 않았습니다',
     'Authorization: Bearer token expired',
@@ -566,6 +629,26 @@ CLASSIFY = [
     ('tool error: invalid token in JSON', '!auth'),
     ('invalid token at position 3', '!auth'),
     ('invalid credentials for MCP server github', '!auth'),
+    # 베타 J (review7 c1): 이름 없는 API key 글은 Claude 로그인, 다른 업체·MCP 서버 이름이 든 글은 아니다
+    ('The API key is invalid', 'auth'),
+    ('This API key is invalid.', 'auth'),
+    ('Provided API key is invalid', 'auth'),
+    ('API key expired', 'auth'),
+    ('API key is not valid', 'auth'),
+    ('ANTHROPIC_API_KEY not found', 'auth'),
+    ('Could not find ANTHROPIC_API_KEY', 'auth'),
+    ('the provided api key is not set', 'auth'),
+    ('ANTHROPIC_API_KEY was not found', 'auth'),
+    ('The OpenAI API key is invalid', '!auth'),
+    ('The API key is invalid for MCP server github', '!auth'),
+    ('exit code: 407', '!network'),
+    ('Process exited with code 407', '!network'),
+    ('error code 407', 'network'),
+    ('407 Proxy Authentication Required', 'network'),
+    ('proxy authentication required', 'network'),
+    ('mcp-proxy auth ok; rate limit exceeded', 'limit'),
+    ('proxy auth plugin loaded; Invalid API key', 'auth'),
+    ('Using proxy authentication. Error: usage limit reached', 'limit'),
 ]
 
 
@@ -645,11 +728,13 @@ def test_deck_normalize_is_linear_on_percent_runs():
     for text in ("%25" * 340_000 + "x", "%25" * 340_000 + "2f", "%25" * 170_000 + " " + "%25" * 170_000 + "x", "%" + "25" * 400_000 + "x"):
         t0 = time.perf_counter()
         has_internal_mark(text)
-        assert time.perf_counter() - t0 < 2.0
+        assert time.perf_counter() - t0 < _LINEAR_LIMIT_S
     assert _normalize("solutions%25252F3") == "solutions/3" and _normalize("solutions%2525252f3") == "solutions/3" and _normalize("할인 %25 적용") == "할인 %25 적용"
 
 
 _N = 1_000_000
+# 1MB 줄의 시간 한도: 제곱이면 몇 분이 걸리므로 넉넉히 잡아도 잡히고, 부하가 걸린 기계에서 흔들리지 않는다
+_LINEAR_LIMIT_S = 20.0
 
 
 def _rep(s: str) -> str:
@@ -666,7 +751,7 @@ def _rep(s: str) -> str:
 def test_deck_pathological_lines_are_linear(name, text):
     t0 = time.perf_counter()
     has_internal_mark(text)
-    assert time.perf_counter() - t0 < 3.0, name
+    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
 
 
 # ================= 작성자 말투 =================
@@ -690,7 +775,7 @@ def test_author_table_customer_lines_stay(line):
 def test_author_pathological_lines_are_linear(name, text):
     t0 = time.perf_counter()
     is_author_instruction(text)
-    assert time.perf_counter() - t0 < 3.0, name
+    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
 
 
 # ================= 비밀 가리기 =================
@@ -699,8 +784,13 @@ def test_author_pathological_lines_are_linear(name, text):
 def test_redact_table_masks_secrets(text, gone):
     out = redact(text)
     assert out != text and "***" in out, out
-    if gone:
-        assert gone not in out, out
+    assert gone and gone not in out, out  # 모든 줄에 사라져야 하는 값이 있다 (`***` 만 보는 줄은 없다)
+    assert redact(out) == out, (text, out)  # 두 번 가려도 같다
+
+
+@pytest.mark.parametrize("text", LEAVE)
+def test_redact_leave_rows_are_idempotent(text):
+    assert redact(redact(text)) == redact(text) == text
 
 
 @pytest.mark.parametrize("text", LEAVE)
@@ -719,13 +809,13 @@ def test_redact_secret_names_are_exact_not_prefixes():
 @pytest.mark.parametrize("name,text", [
     ("API_KEY", "API_KEY" * 140_000), ("long name", "a" * _N + "API_KEY"), ("Authorization", "Authorization: " * 66_000), ("Bearer", "Bearer " * 140_000), ("sk-", "sk-" * 330_000),
     ("x-api-key", "x-api-key " * 100_000), ("token:", "token: " * 140_000), ("token=", "token=a " * 110_000), ("quote", 'token="' * 140_000), ("yaml", "api_key:\n  " * 90_000),
-    ("is", "token is " * 110_000), ("cookie", "cookie: " * 125_000), ("pem", "-----BEGIN PRIVATE KEY-----" * 35_000), ("query", "?key=a&" * 140_000), ("brace", "token={" * 140_000),
+    ("is", "token is " * 110_000), ("cookie", "cookie: " * 125_000), ("pem", "-----BEG" "IN PRIVATE KEY-----" * 35_000), ("query", "?key=a&" * 140_000), ("brace", "token={" * 140_000),
     ("userinfo", "a://" + "b:" * (_N // 2) + "x"), ("long value", "token=" + "a" * _N), ("sentence", "token: " + "a " * (_N // 2)),
 ], ids=lambda v: v if isinstance(v, str) and len(v) < 14 else None)
 def test_redact_pathological_text_is_linear(name, text):
     t0 = time.perf_counter()
-    redact(text)
-    assert time.perf_counter() - t0 < 5.0, name
+    _redact_all(text)  # 길이를 줄이지 않는 본체 (`redact` 는 글을 먼저 자른다)
+    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
 
 
 # ================= 오류 분류 =================
@@ -941,22 +1031,19 @@ def test_i6_timeout_kills_the_whole_process_tree_and_returns(tmp_path):
     script.write_text(GRANDCHILD, encoding="utf-8")
     t0 = time.perf_counter()
     with pytest.raises(subprocess.TimeoutExpired):
-        system.run_bounded([sys.executable, str(script), str(pidfile)], 1.5)
-    assert time.perf_counter() - t0 < 12  # 손자가 파이프를 쥐고 있어도 끝없이 기다리지 않는다
-    deadline = time.time() + 5
-    while not pidfile.exists() and time.time() < deadline:
+        system.run_bounded([sys.executable, str(script), str(pidfile)], 4)  # 느린 기계에서도 손자가 pid 를 적을 시간
+    assert time.perf_counter() - t0 < 20  # 손자가 파이프를 쥐고 있어도 끝없이 기다리지 않는다
+    assert pidfile.exists(), "손자가 pid 를 적지 못했다 (시험이 아무것도 확인하지 못한다)"
+    pid = int(pidfile.read_text())
+    for _ in range(100):  # 손자는 죽어 있어야 한다
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
         time.sleep(0.05)
-    pid = int(pidfile.read_text()) if pidfile.exists() else None
-    if pid is not None:  # 손자가 pid 를 적었다면 죽어 있어야 한다
-        for _ in range(100):
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                break
-            time.sleep(0.05)
-        else:
-            os.kill(pid, 9)
-            pytest.fail("손자 프로세스가 남았다")
+    else:
+        os.kill(pid, 9)
+        pytest.fail("손자 프로세스가 남았다")
 
 
 def test_i6_windows_branch_uses_taskkill_for_the_tree(monkeypatch):
@@ -981,14 +1068,18 @@ def test_i6_popen_options_per_platform(monkeypatch):
 
     seen = {}
 
+    import io
+
     class FakePopen:
         returncode = 0
 
         def __init__(self, cmd, **kw):
             seen.update(kw)
+            self.stdout = io.BufferedReader(io.BytesIO(b"1.0\n"))
+            self.stderr = io.BufferedReader(io.BytesIO(b""))
 
-        def communicate(self, timeout=None):
-            return "1.0\n", ""
+        def wait(self, timeout=None):
+            return 0
 
     monkeypatch.setattr(system.subprocess, "Popen", FakePopen)
     monkeypatch.setattr(system.sys, "platform", "linux")
