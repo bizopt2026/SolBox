@@ -1,10 +1,16 @@
 import json
 import sys
+import warnings
 from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+
+# 새 starlette 는 TestClient 를 불러올 때 "httpx 대신 httpx2 를 설치하라"는 경고를 낸다. `-W error` 에서는 이 경고가 conftest 불러오기를 깨고,
+# pyproject 의 `filterwarnings` 는 명령줄 `-W error` 에 밀려 듣지 않는다. 그래서 불러오기 전에 이 한 문구만 넘긴다 (다른 경고는 그대로 오류).
+warnings.filterwarnings("ignore", message=r"Using `httpx` with `starlette\.testclient` is deprecated")
+
+from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import Settings
 from app.main import create_app
