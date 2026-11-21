@@ -39,3 +39,49 @@ def test_g2_table_header_scrubbed():
     assert out["columns"] == ["항목", "", ""]
     assert out["rows"] == [["a", "b", "c"]]
     assert stats["removed"] == 2
+
+
+# ---- G3: 버려진 폼 표 이어받기는 한 제출만 ----
+
+def test_g3_abandoned_takeover_has_one_winner(app):
+    import threading
+    from app import guards
+    from app.models import FormToken
+
+    factory = app.state.session_factory
+    old_wait = guards.TOKEN_WAIT_S
+    guards.TOKEN_WAIT_S = 0.06
+    try:
+        for i in range(200):
+            token = f"/x|race{i}"
+            with factory() as d:
+                d.add(FormToken(user_id=2, token=token, body_hash="h"))
+                d.commit()
+            guards._ABANDONED.add((2, token))
+            res, bar = [], threading.Barrier(2)
+
+            def go():
+                once = guards.Once(factory, 2, token, "h")
+                bar.wait()
+                try:
+                    once.claim()
+                    res.append(once.claimed)
+                except Exception as e:  # noqa: BLE001
+                    res.append(type(e).__name__)
+
+            ts = [threading.Thread(target=go) for _ in range(2)]
+            [t.start() for t in ts]
+            [t.join() for t in ts]
+            assert res.count(True) == 1, (i, res)
+            assert (2, token) not in guards._ABANDONED
+    finally:
+        guards.TOKEN_WAIT_S = old_wait
+        guards._ABANDONED.clear()
+
+
+def test_g3_purge_drops_stale_abandoned(app):
+    from app import guards
+    guards._ABANDONED.add((9, "/gone|nothing"))
+    with app.state.session_factory() as d:
+        guards.purge_tokens(d)
+    assert (9, "/gone|nothing") not in guards._ABANDONED

@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import secrets
+import threading
 import time
 from collections.abc import Iterator
 from datetime import datetime, timedelta
@@ -322,6 +323,11 @@ def purge_tokens(db: Session, now: datetime | None = None) -> int:
     cutoff = (now or datetime.now()) - TOKEN_KEEP
     deleted = db.query(FormToken).filter(FormToken.created_at < cutoff).delete()
     db.commit()
+    with _ABANDONED_LOCK:  # 표가 이미 지워졌거나 끝난 기억은 치운다 (남아 새지 않게)
+        for key in list(_ABANDONED):
+            row = db.get(FormToken, key)
+            if row is None or row.result_url:
+                _ABANDONED.discard(key)
     return deleted
 
 
@@ -334,6 +340,17 @@ def _fallback_url(path: str) -> str:
 
 
 _ABANDONED: set[tuple[int, str]] = set()  # 잠금 때문에 풀지 못한 표 (사용자, 표): 같은 표로 다시 오면 이어받는다 (멈춘 표가 남지 않게)
+_ABANDONED_LOCK = threading.Lock()
+
+
+def _take_abandoned(key: tuple[int, str]) -> bool:
+    """집합에서 빼는 것이 이어받기의 관문이다: 같은 표를 동시에 이어받으려 해도 빼는 데 성공한 한 제출만 이어받는다.
+    (잠금 때문에 표를 못 풀었다는 기억이라 DB 열에는 적을 수 없다: 그 순간 DB 가 잠겨 있다. 다른 프로세스에는 보이지 않는 한계가 있다.)"""
+    with _ABANDONED_LOCK:
+        if key in _ABANDONED:
+            _ABANDONED.discard(key)
+            return True
+        return False
 
 
 class Once:
@@ -365,13 +382,18 @@ class Once:
                 row = db.get(FormToken, (self.user_id, self.token))
                 url = row.result_url if row is not None else None
                 old_hash = row.body_hash if row is not None else None
-                if row is not None and not url and (self.user_id, self.token) in _ABANDONED:
+                if row is not None and not url and _take_abandoned((self.user_id, self.token)):
                     # 잠금 때문에 풀지 못하고 끝난 제출이 남긴 표: 이 제출이 이어받는다 (처음 제출은 이미 끝났고 저장하지 못했다)
-                    taken = db.query(FormToken).filter(
-                        FormToken.user_id == self.user_id, FormToken.token == self.token, FormToken.result_url.is_(None),
-                    ).update({"body_hash": self.digest, "created_at": datetime.now()})
-                    db.commit()
-                    _ABANDONED.discard((self.user_id, self.token))
+                    try:
+                        taken = db.query(FormToken).filter(
+                            FormToken.user_id == self.user_id, FormToken.token == self.token, FormToken.result_url.is_(None),
+                        ).update({"body_hash": self.digest, "created_at": datetime.now()})
+                        db.commit()
+                    except OperationalError:
+                        db.rollback()
+                        with _ABANDONED_LOCK:
+                            _ABANDONED.add((self.user_id, self.token))  # 못 이어받았다: 기억을 돌려 놓는다
+                        raise
                     if taken:
                         self.claimed = True
                         return
@@ -433,7 +455,8 @@ class Once:
             except OperationalError as e:  # 잠금 때문에 못 풀었다: 표가 멈춰 남지 않게 기억해 두고, 같은 표로 다시 오면 이어받는다 (`claim`)
                 if not is_busy_error(e):
                     raise
-                _ABANDONED.add((self.user_id, self.token))
+                with _ABANDONED_LOCK:
+                    _ABANDONED.add((self.user_id, self.token))
                 log.warning("폼 표를 풀지 못했습니다 (잠금): 같은 표로 다시 내면 이어받습니다")
             self.claimed = False
 
