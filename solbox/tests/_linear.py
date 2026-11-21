@@ -20,7 +20,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LEG_LIMIT_S = 30.0  # 한 번(한 모양의 한 크기)에 허용하는 시간. 넘으면 자식을 죽이고 실패한다
 START_LIMIT_S = 90.0  # 자식이 앱을 불러오는 시간
-PARENT_ENV = "SOLBOX_LINEAR_PARENT"  # 부모(시험)가 자식에게 자기 프로세스 번호를 알린다
 SIZES = (10_000, 100_000, 1_000_000)
 SK = "sk-" + "ant-"
 PEM = "-----BEG" + "IN PRIVATE KEY-----"
@@ -253,8 +252,7 @@ def run_group(group: str, *, leg_limit: float = LEG_LIMIT_S, root: Path | None =
     """한 묶음의 모든 모양을 자식 프로세스에서 재서 `{모양: {크기: 초}}` 를 돌려준다. 한 번이 `leg_limit` 초를 넘으면 자식을 죽이고 AssertionError."""
     root = Path(root) if root is not None else ROOT
     script = root / "tests" / "_linear.py"
-    proc = subprocess.Popen([sys.executable, str(script), group], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=str(root),
-                            env={**os.environ, PARENT_ENV: str(os.getpid())})
+    proc = subprocess.Popen([sys.executable, str(script), group], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=str(root))
     lines: queue.Queue = queue.Queue()
     errors: list[str] = []
     def pump() -> None:

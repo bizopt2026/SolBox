@@ -9,6 +9,9 @@ import pytest
 
 from app.deck import has_internal_mark
 from app.proposals import is_author_instruction
+from tests import _linear
+
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(_linear.__file__)))
 
 # ================= M1: review10 a1 의 고객 글머리표 85줄 =================
 # 아래 여섯 줄은 진짜 자리표시(`XX`·`OO`·`○○`)가 든 줄이라 옮긴다 (알려진 한계: 자리표시 규칙은 줄 어디서든 본다. 검토자도 옮겨도 된다고 한 줄이다).
@@ -159,19 +162,19 @@ def test_m3_child_baseline_is_taken_at_start_and_exits_with_a_reason_only_on_cha
     # 시작할 때 부모 번호가 달라도(부모가 알린 번호가 낡아도) 바로 끝내지 않고, 시작 뒤 부모가 바뀌면 사유를 stderr 로 남기고 끝낸다
     code = (
         "import os, sys, time\n"
-        "os.environ['SOLBOX_LINEAR_PARENT'] = '1'\n"
         "from tests import _linear\n"
         "_linear._exit_when_parent_dies()\n"
         "print('alive', flush=True)\n"
         "time.sleep(3)\n"
         "print('still', flush=True)\n"
     )
-    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30, cwd=os.getcwd())
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30, cwd=_REPO)
     assert "alive" in r.stdout and "still" in r.stdout, (r.stdout, r.stderr)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="/proc 로 자식의 상태를 본다")
 def test_m3_child_prints_a_reason_to_stderr_when_the_parent_is_gone(tmp_path):
-    root = os.getcwd()
+    root = _REPO
     err = tmp_path / "err.txt"
     child = f"import sys, time\nsys.path.insert(0, {root!r})\nfrom tests import _linear\n_linear._exit_when_parent_dies()\nprint('ready', file=sys.stderr, flush=True)\ntime.sleep(60)\n"
     # 부모는 자식이 기준(부모 번호)을 잡은 뒤에야 끝난다 (자식이 뜨기 전에 죽으면 기준이 이미 고아의 번호다)
