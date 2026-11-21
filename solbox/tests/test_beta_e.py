@@ -301,3 +301,44 @@ def test_chat_ctrl_enter_handler_respects_disabled_submit():
     i = js.index('t.id !== "chat-message"')
     block = js[i:i + 700]
     assert "send.disabled" in block
+
+
+# ---- E3 로그인 문제 분류는 오류 출력에서, 낱말 경계로만 ----
+
+from app.ai.runner import ClaudeError, ClaudeRunner, classify_error
+
+
+@pytest.mark.parametrize("text", [
+    "Please run /login to authenticate", "OAuth error", "token has expired", "Invalid API key · Please login",
+    "Error: 401 Unauthorized", "Not logged in · Please run /login", "authentication failed", "OAuth token has expired",
+])
+def test_auth_true_positives(text):
+    assert classify_error(text) == "auth"
+
+
+@pytest.mark.parametrize("text", [
+    "SSO login 화면은 사내망에서만 열립니다", "the certificate has expired last week",
+    "build 4010 finished", "The sessions expired by design", "blog login page", "https://x.com/login-help",
+])
+def test_auth_negatives(text):
+    assert classify_error(text) != "auth"
+
+
+def test_auth_ignores_normal_answers_in_stdout(settings, fake_claude):
+    # 종료 코드 0 인데 JSON 이 아닌 정상 글: 답변 속 "SSO login" 은 로그인 문제가 아니다
+    fake_claude.set(mode="garbage", garbage="SSO login 과 certificate has expired 에 대한 설명입니다", exit_code=0)
+    with pytest.raises(ClaudeError) as e:
+        ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run("x")
+    assert e.value.kind == "unknown"
+    # 같은 글이 표준 오류로 나오면 (진짜 CLI 오류 출력) 분류 대상이다
+    fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)
+    with pytest.raises(ClaudeError) as e:
+        ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run("x")
+    assert e.value.kind == "auth"
+
+
+def test_auth_ignores_non_error_result_text(settings, fake_claude):
+    fake_claude.set(mode="stream", chunks=["가"], result="SSO login guide: token has expired example", result_is_error=False, exit_code=1)
+    with pytest.raises(ClaudeError) as e:
+        ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run_stream("x", on_text=lambda t: None)
+    assert e.value.kind != "auth"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import os
 import shutil
 import signal
@@ -21,9 +22,17 @@ FILE_TOOLS = ("Read", "Glob", "Grep")
 WEB_TOOLS = ("WebSearch", "WebFetch")
 DEFAULT_TOOLS = FILE_TOOLS
 
-# (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다.
+# 로그인 문제는 낱말 경계가 있는 표현만 본다 (일반 답변의 "SSO login", "certificate has expired" 같은 글이 로그인 문제가 되지 않게).
+# 그리고 CLI 의 오류 출력(표준 오류, 오류로 끝난 결과 글)에서만 찾는다: `error_text`.
+_AUTH_PATTERNS = re.compile(
+    r"\bplease (?:log ?in|run /login)\b|(?<![\w.])/login\b|\bnot (?:logged|signed) in\b|\blog ?in (?:required|failed)\b"
+    r"|\binvalid (?:api[ _-]?key|credentials?|token)\b|\bunauthori[sz]ed\b|\b401\b|\boauth\b"
+    r"|\b(?:failed to authenticate|not authenticated|authentication (?:error|failed|failure|required))\b"
+    r"|\b(?:oauth |access |auth |api |login |session )?(?:token|credentials?|session|login) (?:has )?expired\b",
+    re.I,
+)
+# (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다. "auth" 는 위의 정규식이 따로 본다.
 _CLASSIFY = [
-    ("auth", ("login", "authenticat", "unauthorized", "401", "oauth", "token has expired", "expired")),
     ("limit", ("usage limit", "rate limit", "quota", "429", "limit reached", "hit your limit")),
     ("network", ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out",
                 "connection error", "fetch failed", "econnreset", "etimedout")),
@@ -53,10 +62,24 @@ def assert_tool_separation(allowed_tools: tuple[str, ...] | list[str]) -> None:
 
 def classify_error(text: str) -> str:
     lowered = text.lower()
+    if _AUTH_PATTERNS.search(text):
+        return "auth"
     for kind, words in _CLASSIFY:
         if any(w in lowered for w in words):
             return kind
     return "unknown"
+
+
+def error_text(result: str | None, stderr: str, *, result_is_error: bool, stdout: str = "", returncode: int | None = None) -> str:
+    """분류에 쓸 글: 표준 오류 + 오류로 끝난 결과 글. 정상 답변이 들어 있을 수 있는 표준 출력·결과 글은 쓰지 않는다
+    (JSON 이 아닌 표준 출력은 종료 코드가 0 이 아니고 표준 오류가 비었을 때만)."""
+    parts = []
+    if result_is_error and isinstance(result, str):
+        parts.append(result)
+    parts.append(stderr)
+    if not result_is_error and not stderr.strip() and stdout.strip() and returncode not in (0, None) and result is None:
+        parts.append(stdout)
+    return "\n".join(parts)
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
@@ -186,7 +209,9 @@ class ClaudeRunner:
         raw = stdout + "\n" + stderr
         if data is not None and isinstance(data.get("result"), str):
             raw = data["result"] + "\n" + stderr
-        raise ClaudeError(classify_error(raw), raw.strip()[-500:])
+        shown = error_text(data.get("result") if data is not None else None, stderr, result_is_error=bool(data is not None and data.get("is_error")),
+                           stdout=stdout, returncode=proc.returncode)
+        raise ClaudeError(classify_error(shown), raw.strip()[-500:])
 
     def run_stream(
         self,
@@ -320,7 +345,8 @@ class ClaudeRunner:
             return result
         raw = (result if isinstance(result, str) else "") + "\n" + stderr
         if raw.strip():
-            raise ClaudeError(classify_error(raw), raw.strip()[-500:])
+            shown = error_text(result, stderr, result_is_error=bool(result_line is not None and result_line.get("is_error")))
+            raise ClaudeError(classify_error(shown), raw.strip()[-500:])
         # 아무 글도 없이 끝났다. 조용히 빈 답으로 넘기지 않고 이유를 분명히 적는다.
         if result_line is not None:
             raise ClaudeError("bad_output", "Claude 가 결과 글 없이 끝났습니다.")

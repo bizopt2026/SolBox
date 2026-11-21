@@ -63,7 +63,7 @@ def main() -> int:
     if mode == "sleep":
         time.sleep(control.get("sleep_s", 5))
     elif mode == "garbage":
-        print("this is not json")
+        print(control.get("garbage", "this is not json"))
         return control.get("exit_code", 0)
     elif mode == "error":
         sys.stderr.write(control.get("stderr", ""))
