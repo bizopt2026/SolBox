@@ -70,7 +70,7 @@ def _result_of(intake: Intake, wanted) -> list[dict]:
 
 
 def detail_page(request: Request, user: User, intake: Intake, db: Session, notice: str = "",
-                skipped: list[str] | None = None, status_code: int = 200, form: FormData | None = None):
+                skipped: list[str] | None = None, status_code: int = 200, form: FormData | None = None, note_value: str | None = None):
     ready = intake.status == "ready"
     # 엔진이 꺼져 있을 때 올린 음성이 있고 지금은 받아쓸 수 있으면, 다시 정리를 누르라고 안내한다
     can_transcribe = (intake.status not in ("analyzing", "applied", "discarded")
@@ -89,7 +89,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
         )
     return render(
         request, "intake/detail.html", status_code=status_code, user=user, intake=intake, notice=notice, can_transcribe=can_transcribe,
-        skipped=skipped or [], intake_files_transcribing=intake_lib.transcribing_file(intake),
+        skipped=skipped or [], note_value=note_value, intake_files_transcribing=intake_lib.transcribing_file(intake),
         position=_position(db, intake), stale_applying=intake_lib.is_stale_applying(intake), max_note=intake_lib.MAX_NOTE,
         plan_summary=intake_lib.plan_summary(intake), outcome=intake_lib.outcome_text(intake),
         saved=_result_of(intake, lambda t: t not in ("skipped", "unsaved")),
@@ -216,7 +216,7 @@ def _analyze_ai_off(request: Request, exc):
         user = request.state.user
         if intake is not None and _is_owner(user, intake) and intake.status not in ("analyzing", "applied", "discarded"):
             if len(note.strip()) > intake_lib.MAX_NOTE:  # 보통 경로와 같은 응답 (메모를 말없이 버리지 않는다)
-                return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
+                return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400, note_value=note)
             intake.note = note.strip()
             db.commit()
     return notices.redirect(f"/intake/{request.path_params.get('intake_id')}", "ai_off")
@@ -234,7 +234,7 @@ def analyze(
         raise HTTPException(status_code=400, detail="이미 끝난 묶음은 다시 정리할 수 없습니다.")
     if intake.status != "analyzing":
         if note is not None and len(note.strip()) > intake_lib.MAX_NOTE:
-            return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
+            return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400, note_value=note)
         intake_lib.ensure_workdir(request.app.state.settings, intake)  # 준비가 덜 끝난 묶음은 여기서 다시 준비한다
         intake_lib.start_analysis(db, intake, user, note=note.strip() if note is not None else None)  # 메모는 작업과 한 트랜잭션
     return notices.redirect(f"/intake/{intake.id}", "intake_analyzing")

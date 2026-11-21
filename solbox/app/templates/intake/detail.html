@@ -99,7 +99,7 @@
   <p class="error" role="alert">{{ intake.error or labels.ERROR_KINDS["unknown"] }}</p>
   <form method="post" action="/intake/{{ intake.id }}/analyze" class="stack">
     <label><span>메모 (선택, {{ max_note }}자까지)</span>
-      <input type="text" name="note" value="{{ intake.note }}" maxlength="{{ max_note }}">
+      <input type="text" name="note" value="{{ note_value if note_value is not none else intake.note }}" maxlength="{{ max_note }}">
     </label>
     <div class="row"><button type="submit" class="primary"{{ ai_attrs(aig) }}>다시 정리</button></div>
   </form>
@@ -138,7 +138,7 @@
   <div class="row redo-row">
     <form method="post" action="/intake/{{ intake.id }}/analyze" class="row grow">
       <label class="grow"><span>메모 (선택, {{ max_note }}자까지)</span>
-        <input type="text" name="note" value="{{ intake.note }}" maxlength="{{ max_note }}">
+        <input type="text" name="note" value="{{ note_value if note_value is not none else intake.note }}" maxlength="{{ max_note }}">
       </label>
       <button type="submit"{{ ai_attrs(aig) }}>다시 정리</button>
     </form>

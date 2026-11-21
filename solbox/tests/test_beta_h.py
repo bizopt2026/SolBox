@@ -332,3 +332,30 @@ def test_h8_every_aria_describedby_resolves(app, admin_client, db, worker):
         assert not _dangling(html), (url, _dangling(html))
     page, frag = _run_pages(admin_client, run)
     assert not _dangling(page, frag)
+
+
+# ---- H11: 메모가 너무 길면 쓴 글을 그대로 다시 보인다 ----
+
+def _long_note_check(user_client, db, settings):
+    from app.models import Intake
+    from tests.conftest import ready_intake
+
+    it, *_ = ready_intake(db, settings)
+    iid = it.id
+    it.status, it.note = "failed", "원래 메모"
+    db.commit()
+    typed = "새로 쓴 긴 메모 " + "가" * 600
+    r = user_client.post(f"/intake/{iid}/analyze", data={"note": typed}, follow_redirects=False)
+    assert r.status_code == 400 and "500자까지" in r.text
+    assert typed in r.text and 'value="원래 메모"' not in r.text
+    db.expire_all()
+    assert db.get(Intake, iid).note == "원래 메모"
+
+
+def test_h11_analyze_long_note_shows_typed_text(user_client, db, settings):
+    _long_note_check(user_client, db, settings)
+
+
+@pytest.mark.ai_gate
+def test_h11_analyze_long_note_shows_typed_text_worker_off(user_client, db, settings):
+    _long_note_check(user_client, db, settings)
