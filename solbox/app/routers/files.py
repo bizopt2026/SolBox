@@ -13,7 +13,7 @@ from app import labels
 from app import notices
 from app.db import get_db
 from app.extract import extract_text
-from app.guards import is_busy_error
+from app.guards import WriteBusy, is_busy_error
 from app.intake import clean_name, write_upload
 from app.knowledge import KnowledgeMirror, file_markdown, get_mirror
 from app.models import Solution, SolutionFile, User
@@ -31,22 +31,25 @@ def _stored_path(request: Request, f: SolutionFile) -> Path:
 
 
 def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solution: Solution,
-                 upload: UploadFile, name: str, kind: str, user: User, limit: int, same: list[str] | None = None) -> bool:
-    """파일 하나를 저장한다. 크기 제한을 넘으면 아무것도 남기지 않고 False. 같은 솔루션에 내용이 같은 자료가 있으면 새로 만들지 않고
-    `same` 에 "올린 이름 (이미 있는 자료 이름)" 을 적은 뒤 True (실패가 아니다)."""
+                 upload: UploadFile, name: str, kind: str, user: User, limit: int, same: list[str] | None = None) -> str:
+    """파일 하나를 저장한다. 돌려주는 값: `"saved"`(저장함), `"too_big"`(크기 제한을 넘어 아무것도 남기지 않음),
+    `"duplicate"`(같은 솔루션에 내용이 같은 자료가 있어 새로 만들지 않음: `same` 에 "올린 이름 (이미 있는 자료 이름)" 을 적는다. 실패도 저장도 아니다)."""
     saved = None
     try:
         saved = new_solution_file(db, request.app.state.settings, solution, name, kind, user,
                                   lambda path: write_upload(upload, path, limit))
         if saved is None:
             db.rollback()
-            return False
+            return "too_big"
         db.commit()
     except DuplicateFile as e:
-        db.commit()  # 옛 파일의 해시만 채워졌을 수 있다
+        try:
+            db.commit()  # 옛 파일의 해시만 채워졌을 수 있다 (못 채워도 중복 판정은 그대로다: 다음에 비교할 때 다시 채운다)
+        except (OperationalError, WriteBusy):
+            db.rollback()
         if same is not None:
             same.append(name if name == e.existing.original_name else f"{name} → 이미 있는 자료 {e.existing.original_name}")
-        return True
+        return "duplicate"
     except BaseException:
         if saved is not None:
             _stored_path(request, saved[0]).unlink(missing_ok=True)
@@ -55,7 +58,7 @@ def _save_upload(db: Session, mirror: KnowledgeMirror, request: Request, solutio
     f, result = saved
     if result.status == "ok":
         mirror.write_file_text(f, file_markdown(f, result.text))
-    return True
+    return "saved"
 
 
 @router.post("/solutions/{solution_id}/files")
@@ -83,15 +86,17 @@ def upload_files(
             busy.append(name)
             continue
         try:
-            ok = _save_upload(db, mirror, request, solution, upload, name, kind, user, max_mb * 1024 * 1024, same)
-        except OperationalError as e:
-            if saved_n and is_busy_error(e):  # 첫 파일부터 막혔으면 그대로 503, 앞 파일이 저장됐으면 어디까지 저장됐는지 알린다
+            outcome = _save_upload(db, mirror, request, solution, upload, name, kind, user, max_mb * 1024 * 1024, same)
+        except (OperationalError, WriteBusy) as e:
+            # 쓰기 잠금에 막혔다 (`WriteBusy`: 번호 표시 잠금, `OperationalError`: 저장·커밋 잠금). 실제로 저장된 파일이 없으면(건너뛴 중복·큰 파일은 저장이 아니다) 그대로 503,
+            # 앞 파일이 저장됐으면 어디까지 저장됐는지 알린다.
+            if saved_n and (isinstance(e, WriteBusy) or is_busy_error(e)):
                 busy.append(name)
                 continue
             raise
-        if ok:
+        if outcome == "saved":
             saved_n += 1
-        else:
+        elif outcome == "too_big":
             skipped.append(name)
     db.refresh(solution)
     mirror.sync(solution)

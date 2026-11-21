@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import Request
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -53,4 +53,16 @@ def get_db(request: Request) -> Iterator[Session]:
     try:
         yield session
     finally:
+        _keep_user_loaded(request, session)
         session.close()
+
+
+def _keep_user_loaded(request: Request, session: Session) -> None:
+    """요청이 `db.rollback()` 한 뒤(저장 실패·잠금)에는 로그인한 사용자 줄의 값이 모두 낡은 것으로 표시된다. 세션이 닫힌 뒤 오류 화면(503·409 …)이 사용자 이름을 읽으면
+    `DetachedInstanceError` 로 500 이 되므로, 닫기 전에 한 번 다시 읽어 둔다 (읽기는 쓰기 잠금에 막히지 않는다. 못 읽어도 요청은 그대로 끝낸다)."""
+    user = getattr(request.state, "user", None)
+    try:
+        if user is not None and user in session and inspect(user).expired_attributes:
+            session.refresh(user)
+    except Exception:  # noqa: BLE001  (오류 화면을 그리는 일이 우선이다)
+        pass
