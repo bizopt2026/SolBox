@@ -438,19 +438,36 @@ def mirror_folders() -> tuple[str, ...]:
 
 
 # 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로 모양 (`opportunities/2.md`, `solutions/3/card.md`, `customers/12`).
-# 폴더 이름은 온톨로지에서 읽고(대소문자 무시), 폴더 뒤에 `/<번호…>`(구분자는 `/` `\` `／`) 가 오는 낱말을 본다. 지우는 쪽으로 기운다:
+# 폴더 이름은 온톨로지에서 읽고(대소문자 무시), 폴더 뒤에 `/<번호…>`(구분자는 `/` `\` `／`, `//`·`/./` 도 한 구분자) 가 오는 낱말을 본다.
+# 먼저 글을 NFKC 로 맞추고(전각 글자·`／`), 영(0)폭 글자를 지우고, `%2F`·`%5C` 를 구분자로 되돌린 뒤 본다. 지우는 쪽으로 기운다:
+# - 번호 바로 뒤: 단위(`개사 개 건 종 명 곳 인당 대 억 만 천 % G 년 월 일 차 배 회 원 …`, `2.5억`·`3~5종`·`5G/LTE`·`100명/월` 꼴)만 남긴다.
+#   그 밖의 글자(조사 `에서 를 의 과`, `번`·`호`, `_v2`, `a`)가 붙으면 경로로 본다. 단위 뒤에 확장자(`.md`)가 오면 단위가 아니다.
 # - 폴더 앞 머리말(공백 앞까지)에 `knowledge/` 마디가 있으면 무엇이 앞에 붙어도(`file:///`, `data.bak/`, `%APPDATA%\`) 사본 경로다. `https://`·`http://` 주소만 예외.
-# - 머리말이 비었거나 `근거=`·`→`·`※`·`*`·`#`·따옴표·괄호·한글 같은 표지로 끝나면 사본 경로다. `./`·`../`·`/`·`C:/`·`~/`·`$VAR/`·`%VAR%\`·`\\서버\` 로 시작하는 경로도 그렇다.
-# - 남기는 것: 주소(`www.acme.co.kr/customers/12`, `x.com/…`, `192.168.0.10/…`, `localhost:8443/…`), 일반 폴더 이름 뒤(`intranet/solutions/3`), 영문·숫자에 붙은 것(`a-solutions/3`),
-#   번호 바로 뒤에 글자가 더 붙고 확장자·`/` 가 없는 것(`partners/2개사`, `projects/2건`, `solutions/5G`, `customers/1인당`).
+# - 머리말이 비었거나 `근거=`·`→`·`※`·`*`·`#`·따옴표·괄호·한글 같은 표지로 끝나면 사본 경로다. `출처:/`·`./`·`../`·`/`·`C:/`·`~/`·`$VAR/`·`%VAR%\`·`\\서버\`·`file://` 로 시작하는
+#   경로도 그렇다 (이런 닻 있는 머리말에는 주소 판정을 하지 않는다: `~/backup.old/`, `C:/Users/kim.cs/`).
+# - 닻 없는 머리말은 첫 마디만 주소로 본다(`www.acme.co.kr/customers/12`, `x.com/…`, `192.168.0.10/…`, `localhost:8443/…`: 남김). 첫 마디가 일반 폴더 이름이면
+#   `intranet/solutions/3` 처럼 확장자가 없을 때는 남기고, 번호 뒤에 확장자나 `/card.md` 꼴이 오면(`data/solutions/3.md`) 파일 경로로 보고 지운다.
+# - 영문·숫자에 붙은 것(`a-solutions/3`)은 남긴다.
 # - 번호 뒤가 띄어쓰기인 낱말(`solutions/3 단계로 구성`, `research/2026 보고서 인용`, `activities/2026 계획`)은 맨 경로와 구별할 수 없어 지운다 (안전한 쪽).
 _SEP = r"[/\\／]"
-_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(\d+)", re.I)
+_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(?:\.?{_SEP})*(\d+)", re.I)
 _KNOWLEDGE_SEG = re.compile(rf"(?<![\w.\-])knowledge{_SEP}", re.I)
 _URL_HEAD = re.compile(r"https?://", re.I)
+_FILE_HEAD = re.compile(r"(?<![\w])file:[/\\]{2,3}", re.I)
 _HOST_SEG = re.compile(r"^(?:[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}|[\w.\-]+:\d+)$")
 _JUNK_LEAD = re.compile(r"^.*[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
-_TAIL_EXT = re.compile(r"\.[A-Za-z0-9]{1,5}\b|[/\\／]")
+_LABEL_LEAD = re.compile(r"^(?![A-Za-z]:(?:" + _SEP + r"|$))(?![\w.\-]+:\d+(?:" + _SEP + r"|$))[^/\\／]*?:")
+_TAIL_EXT_ONLY = re.compile(r"\.[A-Za-z0-9]{1,5}\b")
+_FILE_TAIL = re.compile(r"^(?:\.[A-Za-z0-9]{1,5}\b|" + _SEP + r"[^\s]*\.[A-Za-z0-9]{1,5}\b)")
+_ZERO_WIDTH = re.compile("[\u200b-\u200f\u2060\ufeff\u00ad]")
+# 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`1.5만명`·`12%`·`5G`·`3rd`. 단위가 여럿 이어져도 된다.
+_UNIT_TAIL = re.compile(r"^(?:[.~\-–]\d+)*(?:(?:개사|개월|가지|인당|개|건|종|명|곳|인|대|억|만|천|백|원|년|월|일|차|배|회|점|위|등|주|%|[GKMD]|st|nd|rd|th))+", re.I)
+
+
+def _normalize(text: str) -> str:
+    t = unicodedata.normalize("NFKC", text)
+    t = _ZERO_WIDTH.sub("", t)
+    return re.sub(r"%2f", "/", re.sub(r"%5c", lambda _m: chr(92), t, flags=re.I), flags=re.I)
 
 
 def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
@@ -459,17 +476,20 @@ def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
     while ts > 0 and not text[ts - 1].isspace():
         ts -= 1
     raw = text[ts:start]
-    # 번호 뒤에 글자가 바로 붙었는데 확장자·구분자가 없으면 낱말이다 (`partners/2개사`, `solutions/5G`).
     te = end
     while te < len(text) and not text[te].isspace():
         te += 1
     rest = text[end:te]
-    if rest and re.match(r"\w", rest) and not _TAIL_EXT.search(rest):
+    # 번호 뒤에 단위가 바로 붙었으면 수량이다 (`partners/2개사`, `solutions/5G/LTE`, `customers/12%`). 단위 뒤에 확장자가 오면 경로다.
+    unit = _UNIT_TAIL.match(rest)
+    if unit and not _TAIL_EXT_ONLY.search(rest[unit.end():]):
         return False
     if _URL_HEAD.search(raw):
         return False
     if _KNOWLEDGE_SEG.search(raw):
         return True
+    if _FILE_HEAD.search(raw):
+        return True  # `file://` 은 닻이다 (호스트 이름이 올 수 있어도 내 컴퓨터의 사본)
     if "://" in raw:
         return False
     if not raw:
@@ -478,17 +498,20 @@ def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
         return False  # `a-solutions/3`, `mysolutions/3`: 낱말에 붙은 것
     if not re.search(_SEP + "$", raw):
         return True  # 표지(`근거=`, `→`, `※`, 따옴표, 한글 …)로 끝남
-    segs = re.split(_SEP, _JUNK_LEAD.sub("", raw))[:-1]
-    if any(_HOST_SEG.match(g) for g in segs):
-        return False  # 주소
+    head = _LABEL_LEAD.sub("", _JUNK_LEAD.sub("", raw))  # `출처:/` 의 이름표는 뗀다
+    segs = re.split(_SEP, head)[:-1]
     first = segs[0] if segs else ""
     anchored = first in ("", ".", "..", "~") or first[0] in "$%" or re.match(r"^[A-Za-z]:$", first) is not None
-    return anchored  # 일반 폴더 이름만 앞에 있으면(`intranet/`) 남긴다
+    if anchored:
+        return True
+    if _HOST_SEG.match(first):
+        return False  # 주소 (닻 없는 머리말의 첫 마디만 본다)
+    return bool(_FILE_TAIL.match(rest))  # 일반 폴더 이름(`intranet/`): 번호만 있으면 남기고 `3.md`·`3/card.md` 면 파일 경로
 
 
 def has_internal_mark(text) -> bool:
     """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
-    t = _clean(text)
+    t = _normalize(_clean(text))
     return any(_is_mirror_path_at(t, m.start(), m.end()) for m in _FOLDER_AT.finditer(t))
 
 
@@ -501,6 +524,11 @@ def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:
         items = _list(out, key)
         out[key] = [i for i in items if not has_internal_mark(i)]
         removed += len(items) - len(out[key])
+    columns = _list(out, "columns")
+    if columns:  # 표 머리글도 고객 눈에 보인다: 사본 경로가 든 머리글 칸은 비운다 (칸 수는 그대로 둬 열이 어긋나지 않게)
+        cleaned = ["" if has_internal_mark(c) else c for c in columns]
+        removed += sum(1 for a, b in zip(columns, cleaned) if a != b)
+        out["columns"] = cleaned
     rows = _list(out, "rows")
     out["rows"] = [r for r in rows if not any(has_internal_mark(c) for c in (r if isinstance(r, (list, tuple)) else [r]))]
     removed += len(rows) - len(out["rows"])
