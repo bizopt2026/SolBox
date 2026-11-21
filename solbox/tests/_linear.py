@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import os
 import queue
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LEG_LIMIT_S = 30.0  # 한 번(한 모양의 한 크기)에 허용하는 시간. 넘으면 자식을 죽이고 실패한다
 START_LIMIT_S = 90.0  # 자식이 앱을 불러오는 시간
+PARENT_ENV = "SOLBOX_LINEAR_PARENT"  # 부모(시험)가 자식에게 자기 프로세스 번호를 알린다
 SIZES = (10_000, 100_000, 1_000_000)
 SK = "sk-" + "ant-"
 PEM = "-----BEG" + "IN PRIVATE KEY-----"
@@ -50,6 +52,11 @@ CLASSIFY = {
     "invalid api key for": lambda n: "invalid api key for Tavily " * (n // 27),
     "env then newlines then words": lambda n: ("ANTHROPIC_API_KEY\n" + "\n" * 50 + "missing dependency foo\n") * (n // 90),
     "middle status": lambda n: "x" * (n // 2) + "\nAPI Error: 401\n" + "x" * (n // 2),
+    # 베타 L
+    "no vendor, one line": lambda n: "node: Invalid API key " * (n // 22),
+    "for proper noun": lambda n: "Invalid API key for Foo " * (n // 24),
+    "middle 407 files": lambda n: "x" * (n // 2) + "\n" + "error: 407 files could not be read\n" * (n // 34) + "x" * (n // 2),
+    "middle 407 one line": lambda n: "x" * (n // 2) + " error: 407 files " * (n // 18) + "x" * (n // 2),
 }
 
 REDACT = {
@@ -96,6 +103,10 @@ REDACT = {
     "korean token": lambda n: "토큰: 210000개 " * (n // 10),
     "path values": lambda n: "credentials=./a/b " * (n // 18),
     "huge capped middle": lambda n: ("x " * (n // 2)) + SK + "api03-abcDEF" + ("y " * (n // 2)),
+    # 베타 L
+    "escaped quotes": lambda n: 'password: "a \\"b\\" c" ' * (n // 22),
+    "escaped quote run": lambda n: 'password: "' + '\\"' * (n // 2) + '"',
+    "unterminated escaped": lambda n: 'password: "' + "a\\" * (n // 2),
 }
 
 DECK = {
@@ -137,6 +148,13 @@ DECK = {
     "data shapes glued, kept": lambda n: "decks/x," * (n // 8),
     "data subdir": lambda n: "R&D/data/models/x " * (n // 18),
     "data subdir glued": lambda n: "R&D/data/models/x," * (n // 18),
+    # 베타 L
+    "scheme url spans": lambda n: "s3://a/data/logs/x," * (n // 18),
+    "scheme run": lambda n: "a" * n + "://data/logs/x",
+    "data models names": lambda n: "data/models/small," * (n // 18),
+    "data models kept": lambda n: "data/models/API," * (n // 16),
+    "before-migrate": lambda n: "app.db.before-migrate-20261121-101500 " * (n // 39),
+    "solbox head": lambda n: "solbox/data/logs/x," * (n // 19),
 }
 
 AUTHOR = {
@@ -171,6 +189,13 @@ AUTHOR = {
     "deictic plan": lambda n: "이 " * (n // 2) + "금액 수정 예정",
     "real extra": lambda n: "실제 " + "데이터 " * (n // 4) + "로 교체 필요",
     "visual plan": lambda n: "현장 " * (n // 3) + "사진 삽입 예정",
+    # 베타 L
+    "fixed placeholders": lambda n: "○○ " * (n // 3),
+    "fixed OO run": lambda n: "O" * n,
+    "fixed 오타": lambda n: "오타 " * (n // 3),
+    "fixed brackets": lambda n: "(" * n + "입력",
+    "fixed brackets doc": lambda n: "(금액 " * (n // 4) + "입력",
+    "fixed 초안 dash": lambda n: "초안 " * (n // 3),
 }
 
 GROUPS = {"classify": CLASSIFY, "redact": REDACT, "deck": DECK, "author": AUTHOR}
@@ -195,7 +220,24 @@ def _function(group: str):
     return is_author_instruction
 
 
+def _exit_when_parent_dies() -> None:
+    """부모(시험)가 죽으면 자식도 스스로 끝낸다 (베타 L): 제곱 시간 규칙에 갇힌 자식이 시험이 끝난 뒤에도 CPU 를 쓰며 남지 않게. `re` 가 GIL 을 놓지 않으면 이 스레드도 못 돌 수 있어,
+    부모가 죽여 주는 쪽(`run_group` 의 `finally`)이 첫째 안전장치고 이것은 부모가 아예 사라진 경우의 둘째 장치다."""
+    parent = int(os.environ.get(PARENT_ENV) or os.getppid())  # 부모가 알려 준 번호 (자식이 뜨는 사이 부모가 이미 죽었어도 알아챈다)
+
+    def watch() -> None:
+        while True:
+            time.sleep(1.0)
+            if os.getppid() != parent:
+                os._exit(3)
+
+    if os.getppid() != parent:
+        os._exit(3)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def _child(group: str) -> None:
+    _exit_when_parent_dies()
     fn = _function(group)
     for name, make in GROUPS[group].items():
         for n in SIZES:
@@ -210,7 +252,8 @@ def run_group(group: str, *, leg_limit: float = LEG_LIMIT_S, root: Path | None =
     """한 묶음의 모든 모양을 자식 프로세스에서 재서 `{모양: {크기: 초}}` 를 돌려준다. 한 번이 `leg_limit` 초를 넘으면 자식을 죽이고 AssertionError."""
     root = Path(root) if root is not None else ROOT
     script = root / "tests" / "_linear.py"
-    proc = subprocess.Popen([sys.executable, str(script), group], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=str(root))
+    proc = subprocess.Popen([sys.executable, str(script), group], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=str(root),
+                            env={**os.environ, PARENT_ENV: str(os.getpid())})
     lines: queue.Queue = queue.Queue()
     errors: list[str] = []
     def pump() -> None:
@@ -239,6 +282,9 @@ def run_group(group: str, *, leg_limit: float = LEG_LIMIT_S, root: Path | None =
                 times.setdefault(name, {})[int(size)] = float(rest[0])
         if proc.wait(timeout=10) != 0:
             raise AssertionError(f"{group}: 자식이 실패했다\n{''.join(errors)[-2000:]}")
+        expected = set(GROUPS[group])
+        got = {name for name, t in times.items() if set(t) == set(SIZES)}
+        assert got == expected and set(times) == expected, f"{group}: 돌려받은 모양이 기대와 다르다 (빠진 것 {sorted(expected - got)}, 더 온 것 {sorted(set(times) - expected)})"  # 자식이 일찍 끝나 모양이 빠져도 초록이 되지 않게
     finally:
         if proc.poll() is None:
             proc.kill()

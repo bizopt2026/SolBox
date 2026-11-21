@@ -29,6 +29,7 @@ CONFLICTS = {
     "solutions/24h · solutions/5G망": "모호한 영문 한 글자 단위·한글 낱말 → 지운다",
     "customers/12일 · solutions/3위 · solutions/2세대": "g1 은 모호(None), 베타 H 시험은 남김 → 남긴다",
     "계약 기간 확인 필요 · 추가 예산 검토 필요 · 장비 수량 확인 필요 · 회선 수량 추가 필요 · 센서 수량 추가 예정": "두 낱말 앞말 + 문서 값 낱말: `도입 시기 확인 필요`(베타 G 시험)와 규칙으로 가를 수 없다 → 표에 넣지 않고 지금 동작(옮김)을 둔다",
+    "XX% 절감 · 이 슬라이드는 내부용 (AUTHOR_UNDECIDED 에 있던 줄)": "베타 L 의 고정 낱말이 옮긴다 (표의 줄이 아니므로 뒤집은 것은 없다)",
     "착수 전 귀사 보안 정책 확인 필요": "베타 E 의 `도입 전 … 확인 필요` 는 옮김, 검토자는 고객 문장 → `귀사` 가 든 줄만 고객 쪽 조건으로 둔다",
 }
 
@@ -112,6 +113,12 @@ DECK_REMOVE = {
         'data/uploads/intake/5/9.m4a', 'uploads/intake/5/9.m4a.transcript.txt', 'data/intake_work/5/1-회의록.md', 'intake_work/5/파일목록.md', 'research_work/x.md',
         'data/decks/4/deck-20261121-101500-ab12cd.pptx', 'backups/20261121-101500/app.db', 'data/logs/app.log', 'data/models/small/model.bin',
     ],
+    'beta L (review9 l1: shapes the app writes that the K table missed; `data/models/` only with the app model dir names or a solbox head)': [
+        'data/app.db.before-migrate-20261121-101500', 'data/app.db.before-migrate-20261121-101500-2', 'app.db.before-migrate-20261121-101500-2',
+        'data/uploads/intake/5/9.m4a.transcript.txt.tmp', 'uploads/intake/5/9.m4a.transcript.txt.tmp', 'data/decks/4/deck-20261121-101500-ab12cd.pptx.part',
+        'decks/4/deck-20261121-101500-ab12cd.pptx.part', 'data/models/.hf_home', 'data/models/models--Systran--faster-whisper-small/snapshots/x/model.bin',
+        'solbox/data/logs/x', 'C:\\solbox\\data\\models\\foo',
+    ],
     'review6 h1 keep list (conflict: policy/H)': [
         'customers/3만 명', 'customers/3만', 'customers/2등', 'customers/5인', 'customers/5인 이하', 'solutions/1위를', 'customers/50%를', 'solutions/24h',
         'solutions/5G망', 'projects/3인 투입',
@@ -169,6 +176,11 @@ DECK_KEEP = {
         'docs/knowledge/guide.md 제공', 'Obsidian vault(knowledge/notes.md)', 'R&D/data/app.db 미사용', 'kt.com/data/app.db', '/var/lib/app.db', 'node_modules/app.db',
         'https://kt.com/knowledge/index.md', 'https://x.com/data/app.db', 'models/ 폴더 안의 GPU 목록', 'logs/ 와 uploads/ 설명',
     ],
+    'beta L (review9 l1: ordinary customer bullets with a `data/<folder>/` path or a scheme URL)': [
+        'data/logs/metrics 통합 수집', 'big data/logs/분석', 'sensor data/logs/alerts 연동', 'open data/models/API 제공', 'MLOps: data/models/serving 3계층',
+        '데이터 레이크(data/models/logs) 구성', 'S3 버킷 data/uploads/ 에 저장', '고객사 서버 /data/models/ 에 모델 배포', 'D:\\data\\logs\\ 보관 90일',
+        'HDFS /user/data/models/v1', 's3://kt-lake/data/logs/2026/', 'gs://bucket/data/models/v3',
+    ],
     'policy M-4': [
         'solutions/3Mbps', 'partners/2개사가 참여', 'solutions/10Gbps', 'solutions/100MB', 'solutions/1GB', 'research/2026년에는', 'partners/2개사가',
         'customers/100명의', 'solutions/3개를', 'projects/6개월의',
@@ -217,6 +229,12 @@ AUTHOR_MOVE = {
         '실제 데이터로 교체 필요', '실제 사진으로 교체', '실제 고객사 로고로 교체', '실제 화면 캡처로 교체', '샘플 이미지 → 실제 이미지로 교체',
         '데이터 출처 필요', '그래프 출처 필요', '자료 출처 필요', '인용 출처 필요', '근거 자료 필요',
     ],
+    'beta L (review9 l3: fixed vocabulary of internal words, any other rule aside)': [
+        '작성자: 김대리', '이 문서의 작성자는 영업팀', '팀장님 확인 후 수정', '법무팀 검토 필요', '법무팀 검토 후 삭제', '내부 검토용', '이 슬라이드는 내부용', '[내부용] 단가표', '내부용: 원가 구조',
+        '초안', '(초안)', '[초안]', '초안 - 2차 수정 예정', '초안: 영업팀', '제안 개요 (초안)', '오타', '제목 오타 수정', '제목 오타', '오타 확인', '폰트 통일', '폰트 변경 필요', '슬라이드 순서 변경',
+        '고객에게 보여주지 말 것', '보여주지 말 것', '(수치 입력)', '(금액 입력)', '(입력)', 'XX% 절감', '절감률 XX%', 'OO 절감', 'OO원 절감', '○○', '약 ○○억 규모', 'OO 개사', '로고 넣기', '고객 로고 넣기',
+        '제목 수정 필요',
+    ],
 }
 
 AUTHOR_STAY = {
@@ -262,6 +280,10 @@ AUTHOR_STAY = {
     'h7c.extra': [
         '도입 후 3개월간 운영 실적 확인 필요', '설치 후 통신 품질 수치 검토 필요', '납품 후 검수 기간 확인 필요', '별도 예산 확보 필요', '연간 유지보수 예산 포함 필요', '방화벽 예외 정책 추가 필요', '계정 권한 수정 필요',
         '월 사용량 통계 확인 필요', '관리자 페이지에서 통계 확인 가능', '서비스 기간 연장 시 재계약 필요', '해당 페이지는 로그인 후 확인하세요',
+    ],
+    'beta L (review9 l3/l7: customer bullets that share a word with the fixed vocabulary)': [
+        '초안 검토 후 최종안 제출', '설계 초안 제출 2주', '내부망 연동', '폰트 라이선스 포함', '오타 없는 OCR 인식률 99%', '팀장급 PM 투입', '로그인 화면 (ID 입력)', '내부용 서버 구축', 'OO건설 사례',
+        'XX전자 협력', 'OOO 시스템 도입', '시범 데이터는 실제 운영 데이터로 교체 예정',
     ],
 }
 
@@ -471,6 +493,8 @@ MASK = [
     ('curl --proxy-user kim:Passw0rd https://x', 'Passw0rd'), ('curl -U kim:Passw0rd https://x', 'Passw0rd'),
     ('private key: MIIEvQZq7pX2mK9abcdefghijk', 'Zq7pX2mK9'),
     ("['--api-key', 'Zq7pX2mK9']", 'Zq7pX2mK9'), ('["claude","--token","Zq7pX2mK9"]', 'Zq7pX2mK9'),
+    # 베타 L (review9 l5): 따옴표 값 안의 이스케이프한 따옴표
+    ('password: "a b \\"S3cr3t\\" c"', 'S3cr3t'), ("password: 'it\\'s S3cr3t'", 'S3cr3t'), ('{"password":"a\\"S3cr3t\\"b c","model":"x"}', 'S3cr3t'),
 ]
 
 LEAVE = [
@@ -697,6 +721,13 @@ CLASSIFY = [
     ('2026-11-21T10:20:30 Error: Invalid API key', 'auth'),
     ('claude: Invalid API key', 'auth'),
     ('Invalid API key for Claude', 'auth'),
+    # 베타 L (review9 l2): 알려진 다른 업체 표지가 없으면 Claude 로그인
+    ('node: Invalid API key', 'auth'), ('anthropic.AuthenticationError: invalid api key', 'auth'), ('Error [AuthenticationError]: Invalid API key', 'auth'),
+    ('Unhandled rejection: Invalid API key', 'auth'), ('Execution error: Invalid API key', 'auth'), ('C:\\Users\\kim\\AppData\\Roaming\\npm\\claude.cmd: Invalid API key', 'auth'),
+    ('Process exited: API key is missing', 'auth'), ('Invalid API key. Check for typos', 'auth'), ('Invalid API key for this organization', 'auth'),
+    ('Invalid API key for api.anthropic.com', 'auth'), ('Request failed: Invalid API key for this organization', 'auth'),
+    ('OPENAI_API_KEY is not set\nInvalid API key for MCP server foo', '!auth'), ('mcp server x: Invalid API key', '!auth'), ('Invalid API key for Foo', '!auth'),
+    ('Serper: Invalid API key', '!auth'), ('Perplexity API error: invalid API key', '!auth'),
 ]
 
 
