@@ -63,6 +63,7 @@ def _keep_user_loaded(request: Request, session: Session) -> None:
     user = getattr(request.state, "user", None)
     try:
         if user is not None and user in session and inspect(user).expired_attributes:
-            session.refresh(user)
+            with session.no_autoflush:  # 롤백 뒤 세션에 남은 새 줄이 이 읽기에서 INSERT 되지 않게 (잠금에 막히지도 않게)
+                session.refresh(user)
     except Exception:  # noqa: BLE001  (오류 화면을 그리는 일이 우선이다)
         pass
