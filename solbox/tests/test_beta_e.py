@@ -478,3 +478,47 @@ def test_idmarks_lock_timeout_is_try_again(app, user_client, db):
     assert r.status_code == 503 and "잠시 후 다시 시도" in r.text
     db.expire_all()
     assert db.query(Customer).count() == 0
+
+
+# ---- E10 같은 이름 경고의 "회사" 표시는 대상 종류에서 ----
+
+def test_duplicate_warning_company_flag_comes_from_the_type(app, db, monkeypatch):
+    from app.models import Partner, Solution
+    from app.routers._common import duplicate_warning
+    db.add_all([Customer(name="한빛 병원"), Partner(name="한빛 파트너"), Solution(name="한빛 솔루션")])
+    db.commit()
+    assert duplicate_warning(db, Customer, "한빛병원")["company"] is True
+    assert duplicate_warning(db, Partner, "한빛파트너")["company"] is True
+    assert duplicate_warning(db, Solution, "한빛솔루션")["company"] is False
+    macro = (APP / "templates" / "_macros.html").read_text(encoding="utf-8")
+    assert '("고객", "파트너")' not in macro and "duplicate.company" in macro
+
+
+def test_duplicate_note_shows_company_suffix_hint_only_for_companies(user_client, db):
+    db.add(Customer(name="한빛 병원"))
+    db.commit()
+    page = user_client.post("/customers", data={"name": "한빛병원"}).text
+    assert "㈜/(주)/주식회사" in page
+
+
+# ---- E9 예약 조사 안내는 상태마다 사실이다 ----
+
+def test_admin_runs_note_is_true_for_each_state(app, admin_client, db, worker_on):
+    page = admin_client.get("/admin/research").text
+    assert "data-ai-blocked" not in page and "data-ai-down" not in page
+    _fail(db)
+    page = admin_client.get("/admin/research").text
+    assert 'data-ai-down="1"' in page and "정해진 시각에 그대로 시작" in page and "예약 조사도 처리기가 꺼져" not in page
+    assert not re.search(r'class="primary" disabled[^>]*>지금 조사', page)
+    app.state.settings.ai_worker_enabled = False
+    page = admin_client.get("/admin/research").text
+    assert 'data-ai-blocked="off"' in page and "예약 조사도 처리기가 꺼져 있는 동안에는 시작하지 않아요" in page
+    assert re.search(r'class="primary" disabled[^>]*>지금 조사', page)
+
+
+def test_scheduler_makes_no_research_run_while_worker_is_off(app, db):
+    from app.models import ResearchRun
+    from app.scheduler import _run_research
+    app.state.settings.ai_worker_enabled = False
+    assert _run_research(app, datetime.now()) is False
+    assert db.query(ResearchRun).count() == 0 and db.query(AIJob).count() == 0

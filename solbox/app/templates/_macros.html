@@ -237,7 +237,7 @@
 {% macro dup_warning(duplicate, go_label="그래도 새로 등록") %}
 {% if duplicate %}
 <div class="dup-warning notice" role="alert" data-dup="1">
-  <p><b>{{ "비슷한" if duplicate.similar else "같은" }} 이름의 {{ josa(duplicate.label, "이/가") }} 이미 있어요.</b> 이미 등록한 것을 다시 만드는 것이 아닌지 먼저 확인하세요.{% if duplicate.similar %} (공백·기호·대소문자{% if duplicate.label in ("고객", "파트너") %}·㈜/(주)/주식회사{% endif %}만 다른 이름도 같은 곳일 수 있어요.){% endif %}</p>
+  <p><b>{{ "비슷한" if duplicate.similar else "같은" }} 이름의 {{ josa(duplicate.label, "이/가") }} 이미 있어요.</b> 이미 등록한 것을 다시 만드는 것이 아닌지 먼저 확인하세요.{% if duplicate.similar %} (공백·기호·대소문자{% if duplicate.company %}·㈜/(주)/주식회사{% endif %}만 다른 이름도 같은 곳일 수 있어요.){% endif %}</p>
   <ul>{% for r in duplicate.records %}<li><a href="{{ r.url }}">{{ r.name }}</a>{% if r.similar %}<span class="dup-kind">비슷한 이름</span>{% endif %}</li>{% endfor %}</ul>
   <p class="dup-acts"><a class="button" href="{{ duplicate.open_url }}">기존 것 열기</a> <button type="submit" name="confirm_dup" value="1" class="primary">{{ go_label }}</button></p>
 </div>

@@ -81,7 +81,8 @@ def duplicate_warning(db: Session, model, name: str, confirm: str = "", exclude:
     if not records:
         return None
     records.sort(key=lambda r: r["similar"])  # 글자까지 같은 것이 위
-    return {"label": ontology.label(code), "name": typed, "similar": records[0]["similar"], "records": records, "open_url": records[0]["url"]}
+    return {"label": ontology.label(code), "name": typed, "similar": records[0]["similar"], "records": records, "open_url": records[0]["url"],
+            "company": company}  # company: 고객·파트너 (㈜·(주)·주식회사 를 무시하고 견준다)
 
 
 def name_error(name: str) -> str | None:
