@@ -336,7 +336,8 @@ class FasterWhisperTranscriber(Transcriber):
         except (ImportError, OSError) as e:
             return self._broken(e)
         if folder is None:
-            return f"모델 {josa("'" + self.model_label() + "'", '이/가')} 아직 없습니다. 서버 PC에서 {SETUP_HINT} 를 실행해 받으세요."
+            quoted = "'" + self.model_label() + "'"
+            return f"모델 {josa(quoted, '이/가')} 아직 없습니다. 서버 PC에서 {SETUP_HINT} 를 실행해 받으세요."
         _READY[key] = folder
         return ""
 
@@ -467,7 +468,8 @@ class FasterWhisperTranscriber(Transcriber):
             from faster_whisper.utils import download_model
         except (ImportError, OSError) as e:
             raise TranscribeError(self._broken(e), cause=_cause(e)) from None
-        say(f"모델 {josa("'" + m + "'", '을/를')} {self._models_dir()} 에 받습니다 (처음 한 번만, 크기에 따라 수 분 걸립니다)…")
+        quoted = "'" + m + "'"
+        say(f"모델 {josa(quoted, '을/를')} {self._models_dir()} 에 받습니다 (처음 한 번만, 크기에 따라 수 분 걸립니다)…")
         try:
             folder = Path(download_model(m, cache_dir=str(self._models_dir())))
         except Exception as e:  # noqa: BLE001
