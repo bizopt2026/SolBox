@@ -457,32 +457,56 @@ _FILE_HEAD = re.compile(r"(?<![\w])file:[/\\]{2,3}", re.I)
 _HOST_SEG = re.compile(r"^(?:[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}|[\w.\-]+:\d+)$")
 _JUNK_LEAD = re.compile(r"^.*[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
 _LABEL_LEAD = re.compile(r"^(?![A-Za-z]:(?:" + _SEP + r"|$))(?![\w.\-]+:\d+(?:" + _SEP + r"|$))[^/\\／]*?:")
-_TAIL_EXT_ONLY = re.compile(r"\.[A-Za-z0-9]{1,5}\b")
-_FILE_TAIL = re.compile(r"^(?:\.[A-Za-z0-9]{1,5}\b|" + _SEP + r"[^\s]*\.[A-Za-z0-9]{1,5}\b)")
+_TAIL_EXT_ONLY = re.compile(r"\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9])")
+_FILE_TAIL = re.compile(r"^(?:\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9])|" + _SEP + r"[^\s]*\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9]))")
 _ZERO_WIDTH = re.compile("[\u200b-\u200f\u2060\ufeff\u00ad]")
-# 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`1.5만명`·`12%`·`5G`·`3rd`. 단위가 여럿 이어져도 된다.
-_UNIT_TAIL = re.compile(r"^(?:[.~\-–]\d+)*(?:(?:개사|개월|가지|인당|개|건|종|명|곳|인|대|억|만|천|백|원|년|월|일|차|배|회|점|위|등|주|%|[GKMD]|st|nd|rd|th))+", re.I)
+# 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`1.5만명`·`12%`·`5G`·`3rd`·`3단계`·`24시간`·`30여곳`. 단위가 여럿 이어져도 된다.
+# 단위 줄 바로 뒤는 낱말의 끝이어야 한다(낱말 글자가 아닌 것: 끝·`/`·`.`·`,`·`)` …; `%` 뒤는 아무거나). 그래서 조사·낱말이 단위 글자로 시작해도
+# (`3만이`, `3대로`, `3등을`, `3인지`, `3일자`, `3md`, `3Draft`, `3the`) 단위가 아니라 경로로 본다. 영문 한 글자 단위는 `GKD`(대소문자)·`M`·`x` 만 쓴다(`md` 가 `M`+`D` 로 읽히지 않게).
+# 조사와 같은 글자인 한 글자 단위(`만 인 등`)가 낱말 끝에 홀로 오면(`solutions/3만 참고`, `customers/12인 문서`) 수량인지 조사인지 가를 수 없고 이 폴더 뒤에는
+# 단위로 쓰는 일이 드물어 경로로 본다(지우는 쪽). `일 위 대 주` 는 낱말 끝이면 단위로 남긴다(`customers/12일`, `solutions/3위`). 단계 같은 여러 글자 단위는 그대로 단위다.
+_UNIT_WORDS = r"개사|개월|개소|개씩|가지|인당|단계|분기|시간|세대|차년도|년차|배속|여곳|여개사|여건|여명"
+_UNIT_ONE = r"[개건종명곳인대억만천백원년월일차배회점위등주사社조분]"
+_UNIT_TAIL = re.compile(
+    r"^(?:[.~\-–]\d+)*((?:" + _UNIT_WORDS + "|" + _UNIT_ONE + r"|[GKDgkd]|M|[xX]|%|(?i:st|nd|rd|th))+)(?:(?!\w)|(?<=%))"
+)
+_LONE_PARTICLE_UNITS = frozenset("만인등")
+_SLASH_LIKE = re.compile("[\u2215\u2044\u29f8]")
+_SLASH_ENTITY = re.compile(r"&(?:#47|#x2f|sol);", re.I)
+_SCAN_CAP = 300  # 한 낱말의 앞·뒤를 이만큼만 본다 (띄어쓰기 없는 아주 긴 줄에서 일치마다 끝까지 훑어 느려지지 않게)
 
 
 def _normalize(text: str) -> str:
     t = unicodedata.normalize("NFKC", text)
     t = _ZERO_WIDTH.sub("", t)
+    t = _SLASH_LIKE.sub("/", _SLASH_ENTITY.sub("/", t))
+    t = re.sub(r"(?:%25)+(?=2f|5c)", "%", t, flags=re.I)  # 두 번 부호화(`%252F`)
     return re.sub(r"%2f", "/", re.sub(r"%5c", lambda _m: chr(92), t, flags=re.I), flags=re.I)
+
+
+def _is_unit_tail(rest: str) -> bool:
+    m = _UNIT_TAIL.match(rest)
+    if not m:
+        return False
+    if m.group(1) in _LONE_PARTICLE_UNITS:
+        return False
+    return not _TAIL_EXT_ONLY.search(rest[m.end():])
 
 
 def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
     """`text[start:end]` 가 폴더/번호일 때, 앞 머리말과 뒤 꼬리를 보고 사본 경로인지 가린다."""
     ts = start
-    while ts > 0 and not text[ts - 1].isspace():
+    floor = max(0, start - _SCAN_CAP)
+    while ts > floor and not text[ts - 1].isspace():
         ts -= 1
     raw = text[ts:start]
     te = end
-    while te < len(text) and not text[te].isspace():
+    ceil = min(len(text), end + _SCAN_CAP)
+    while te < ceil and not text[te].isspace():
         te += 1
     rest = text[end:te]
     # 번호 뒤에 단위가 바로 붙었으면 수량이다 (`partners/2개사`, `solutions/5G/LTE`, `customers/12%`). 단위 뒤에 확장자가 오면 경로다.
-    unit = _UNIT_TAIL.match(rest)
-    if unit and not _TAIL_EXT_ONLY.search(rest[unit.end():]):
+    if _is_unit_tail(rest):
         return False
     if _URL_HEAD.search(raw):
         return False
@@ -524,7 +548,7 @@ def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:
         items = _list(out, key)
         out[key] = [i for i in items if not has_internal_mark(i)]
         removed += len(items) - len(out[key])
-    columns = _list(out, "columns")
+    columns = _list(out, "columns") if out.get("kind") == "table" else []  # 그리지 않는 장의 columns 는 세지도 않는다
     if columns:  # 표 머리글도 고객 눈에 보인다: 사본 경로가 든 머리글 칸은 비운다 (칸 수는 그대로 둬 열이 어긋나지 않게)
         cleaned = ["" if has_internal_mark(c) else c for c in columns]
         removed += sum(1 for a, b in zip(columns, cleaned) if a != b)
