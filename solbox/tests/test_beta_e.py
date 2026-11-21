@@ -185,8 +185,14 @@ JOB_MAKERS = ("enqueue(", "start_job(", "start_analysis(", "start_run(", "AIJob(
 
 
 def _post_routes(app):
-    from fastapi.routing import APIRoute
-    return [r for r in app.routes if isinstance(r, APIRoute) and "POST" in r.methods]
+    """포함된 라우터(`_IncludedRouter`)를 풀어 모든 POST 라우트 (경로에 접두어가 이미 붙어 있다)."""
+    out = []
+    for r in app.routes:
+        inner = getattr(r, "original_router", None)
+        for x in (inner.routes if inner is not None else [r]):
+            if "POST" in (getattr(x, "methods", None) or ()):
+                out.append(x)
+    return out
 
 
 def _has_gate(route) -> bool:
