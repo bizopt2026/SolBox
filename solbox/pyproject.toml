@@ -38,3 +38,4 @@ app = ["templates/**/*", "static/**/*", "ai/prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["ai_gate: AI 처리기 꺼짐 거절 규칙(app/ai/gate.py)을 실제 설정값대로 시험한다"]

@@ -1,6 +1,6 @@
-{% from "_macros.html" import ai_note, ai_off %}{% set job = proposal.active_job %}{% set aig = ai_gate() %}
+{% from "_macros.html" import ai_note, ai_attrs %}{% set job = proposal.active_job %}{% set aig = ai_gate() %}
 <div id="ai-status"{% if oob %} hx-swap-oob="true"{% endif %}>
-  {% call ai_note(aig) %}방향·대화·구성안은 AI 가 만들기 때문에 지금은 누를 수 없어요. 이미 만든 내용은 그대로 보고 고칠 수 있고, 구성안은 "구성안 검토·수정"에서 직접 고칠 수 있어요.{% endcall %}
+  {% call ai_note(aig, down="이미 만든 내용은 그대로 보고 고칠 수 있어요.") %}방향·대화·구성안은 AI 가 만들기 때문에 지금은 누를 수 없어요. 이미 만든 내용은 그대로 보고 고칠 수 있고, 구성안은 "구성안 검토·수정"에서 직접 고칠 수 있어요.{% endcall %}
   {% if job is not none and job.status in ontology.JOB_ACTIVE %}
     {% include "proposals/_status.html" %}
   {% elif job is not none and job.status == "failed" and job.kind == "proposal_chat" %}
@@ -10,7 +10,7 @@
     <div class="error" role="alert">
       <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
       {% if job.kind in retry_paths %}
-      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit">다시 시도</button></form>
+      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit"{{ ai_attrs(aig) }}>다시 시도</button></form>
       {% endif %}
     </div>
   {% endif %}

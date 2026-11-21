@@ -162,7 +162,7 @@ def test_ai_down_notice_on_new_and_home(user_client, db, worker_on):
     _failed_job(db)  # 로그인 안 됨: 상단 줄도 "AI 사용 불가" 이고 모든 AI 동작 곁에 같은 안내가 나온다
     for url in ("/intake/new", "/"):
         page = user_client.get(url).text
-        assert 'data-ai-blocked="down"' in page and "정리는 바로 실패로 끝나요" in page
+        assert 'data-ai-down="1"' in page and "정리를 바로 시도해요" in page
         assert 'href="/solutions/new"' in page and 'href="/activities/new"' in page
     # 오류가 아닌 실패(기타)는 AI 가 안 되는 것으로 보지 않는다
     db.query(AIJob).delete()

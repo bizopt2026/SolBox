@@ -47,6 +47,9 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def get_db(request: Request) -> Iterator[Session]:
     session = request.app.state.session_factory()
+    from app.ai import gate
+
+    session.info["ai_off"] = gate.ai_is_off(request)  # 꺼진 서버에서는 AI 작업 줄을 넣지 못한다 (app/ai/gate.py)
     try:
         yield session
     finally:

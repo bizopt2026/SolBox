@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 
+from app.ai.gate import require_ai_on
 from app.idparse import parse_id
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
@@ -142,7 +143,7 @@ def _draft_job(db: Session, solution: Solution, raw: str, user: User) -> AIJob:
     return job
 
 
-@router.post("/{solution_id}/draft")
+@router.post("/{solution_id}/draft", dependencies=[Depends(require_ai_on)])
 def start_draft(solution_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     solution = get_or_404(db, Solution, solution_id)
     job = enqueue(db, DRAFT_KIND, {"solution_id": solution.id}, user.id)

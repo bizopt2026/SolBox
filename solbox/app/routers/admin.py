@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import backup, ontology, scheduler, transcribe, ui
+from app.ai.gate import require_ai_on
 from app.ai.queue import enqueue
 from app import notices
 from app.db import get_db
@@ -386,7 +387,7 @@ def ai_check_status(request: Request, admin: User = Depends(require_admin), db: 
     return render(request, "admin/_ai_check.html", ping=_ping_state(db))
 
 
-@router.post("/system/ai-check")
+@router.post("/system/ai-check", dependencies=[Depends(require_ai_on)])
 def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(ontology.JOB_ACTIVE)).first()
     if waiting is None:  # 한 번에 하나만 확인한다

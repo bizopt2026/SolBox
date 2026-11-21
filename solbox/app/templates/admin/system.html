@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header %}
+{% from "_macros.html" import page_header, ai_attrs %}
 {% block title %}시스템{% endblock %}
 {% block content %}
 {{ page_header("시스템", crumbs=[("관리", none), ("시스템", none)], sub="서버 상태와 점검할 것을 한눈에 봅니다. 문제가 있는 줄에는 할 일이 함께 나옵니다.") }}
@@ -48,7 +48,7 @@
 <section class="card stack">
 <h2>AI 연결 확인</h2>
 <p class="muted help">다른 AI 작업이 진행 중이면 그 작업이 끝난 뒤에 확인합니다.</p>
-<form method="post" action="/admin/system/ai-check"><button type="submit">AI 연결 확인</button></form>
+<form method="post" action="/admin/system/ai-check"><button type="submit"{{ ai_attrs(ai_gate()) }}>AI 연결 확인</button></form>
 {% include "admin/_ai_check.html" %}
 </section>
 

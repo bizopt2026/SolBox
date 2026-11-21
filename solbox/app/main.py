@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -20,6 +21,7 @@ from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.ai.gate import AIOff
 from app import guards, labels, models, notices, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록, guards 는 flush 처리기를 단다)
 from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
@@ -98,13 +100,17 @@ def _ai_status(session_factory, settings, user) -> dict | None:
         return None
 
 
-def ai_gate(status: dict | None) -> dict | None:
-    """AI 를 쓰는 동작 곁 안내용: 상단 줄과 같은 상태(`_ai_status`)에 `blocked`(꺼짐·사용 불가), `reason`, `upload` 를 더한다. 읽지 못했으면 None."""
+def ai_gate(status: dict | None, user=None) -> dict | None:
+    """AI 를 쓰는 동작 곁 안내용: 상단 줄과 같은 상태(`_ai_status`)에 더한 것. 읽지 못했으면 None.
+    `blocked`: 처리기가 꺼진 "off" 일 때만 참 (버튼을 막는다). "down"(지난 AI 작업이 설치·로그인 문제로 실패)은 막지 않는다:
+    성공하는 작업이 하나 나오면 저절로 풀리므로 다시 눌러 볼 수 있어야 한다. `down` 일 때 안내만 보인다.
+    `reason`, `upload`: 안내 글(ontology). `admin`: 관리자면 안내에 "AI 연결 확인" 링크를 건다."""
     if status is None:
         return None
-    blocked = status.get("state") in ontology.AI_BLOCK_REASONS
-    return {**status, "blocked": blocked, "reason": ontology.AI_BLOCK_REASONS.get(status.get("state"), ""),
-            "upload": ontology.AI_BLOCK_UPLOAD.get(status.get("state"), "")}
+    state = status.get("state")
+    return {**status, "blocked": state == "off", "down": state == "down",
+            "reason": ontology.AI_BLOCK_REASONS.get(state, ""), "upload": ontology.AI_BLOCK_UPLOAD.get(state, ""),
+            "admin": getattr(user, "role", "") == "admin"}
 
 
 GENERIC_AHEAD_AFTER_S = 5  # 이만큼 기다리게 되면 일반 대기 안내에도 앞선 작업을 적는다
@@ -140,8 +146,24 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
         return ai_cache["v"]
 
     ctx.setdefault("ai_status", cached_ai_status)
-    ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status()))  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
+    ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status(), ctx["user"]))  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
+
+
+def _same_screen(request: Request) -> str:
+    """AI 를 시작하지 못하고 돌려보낼 "같은 화면": 보낸 화면(Referer)의 경로, 없거나 다른 서버면 홈."""
+    ref = request.headers.get("referer", "")
+    parts = urlsplit(ref)
+    if ref and parts.netloc == request.url.netloc and parts.path.startswith("/") and not parts.path.startswith("//"):
+        return urlunsplit(("", "", parts.path, parts.query, parts.fragment))
+    return "/"
+
+
+def _ai_off_handler(request: Request, exc: AIOff) -> Response:
+    target = notices.with_notice(_same_screen(request), "ai_off")
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": target})
+    return RedirectResponse(target, status_code=303)
 
 
 def _login_required_handler(request: Request, exc: LoginRequired) -> Response:
@@ -275,6 +297,7 @@ def create_app(settings: Settings) -> FastAPI:
         same_site="lax",
         https_only=bool(settings.ssl_certfile),
     )
+    app.add_exception_handler(AIOff, _ai_off_handler)
     app.add_exception_handler(LoginRequired, _login_required_handler)
     app.add_exception_handler(MustChangePassword, _must_change_handler)
     app.add_exception_handler(guards.DuplicateSubmit, _duplicate_submit_handler)

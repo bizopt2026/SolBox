@@ -6,6 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.ai.gate import require_ai_on
 from app.ai.queue import enqueue, queue_position
 from app.db import get_db
 from app.main import render
@@ -42,7 +43,7 @@ def status(job_id: int, request: Request, next: str | None = None,
     return response
 
 
-@router.post("/{job_id}/retry")
+@router.post("/{job_id}/retry", dependencies=[Depends(require_ai_on)])
 def retry(job_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     job = _job_for(db, job_id, user)
     if job.status != "failed":

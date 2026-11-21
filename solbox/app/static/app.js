@@ -601,7 +601,8 @@
     var t = e.target;
     if (!t || t.id !== "chat-message" || e.key !== "Enter" || !(e.ctrlKey || e.metaKey) || isComposing(e)) return;
     e.preventDefault();
-    if (t.value.trim() && !t.disabled && t.form) t.form.requestSubmit();
+    var send = t.form && t.form.querySelector('button[type="submit"], button:not([type])');
+    if (t.value.trim() && !t.disabled && t.form && !(send && send.disabled)) t.form.requestSubmit(); // 보내기 버튼이 막혀 있으면(AI 꺼짐) 보내지 않는다
   });
 
   // 목록 표: 줄의 빈 곳을 눌러도 제목 링크로 간다 (링크·버튼·입력칸을 누른 것과 글자를 끌어 고른 것은 그대로). 키보드는 제목 링크를 쓴다.

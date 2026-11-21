@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, save_bar, form_token %}
+{% from "_macros.html" import page_header, save_bar, form_token, ai_attrs %}
 {% block title %}활동 기록 AI 초안{% endblock %}
 {% block content %}
 {{ page_header("활동 기록 AI 초안", crumbs=ui.crumbs("activity", last="AI 초안")) }}
@@ -19,7 +19,7 @@
 {% if error_kind %}
 <div class="card stack" role="alert">
   <p class="error">{{ labels.ERROR_KINDS.get(error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
-  <form method="post" action="/activities/draft/{{ job.id }}/retry"><button type="submit">다시 시도</button></form>
+  <form method="post" action="/activities/draft/{{ job.id }}/retry"><button type="submit"{{ ai_attrs(ai_gate()) }}>다시 시도</button></form>
   <p class="muted">직접 정리해서 저장할 수도 있습니다. 원문은 아래에 채워져 있습니다.</p>
 </div>
 {% else %}

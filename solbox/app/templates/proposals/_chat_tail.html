@@ -1,4 +1,4 @@
-{# 대화 맨 끝의 "지금 일어나는 일" 한 덩어리 (#chat-tail): 대기·진행 중에는 이것만 스스로 다시 불러 바꾼다 (앞선 메시지·"이전 대화" 펼침·입력칸은 건드리지 않는다).
+{% from "_macros.html" import ai_attrs %}{# 대화 맨 끝의 "지금 일어나는 일" 한 덩어리 (#chat-tail): 대기·진행 중에는 이것만 스스로 다시 불러 바꾼다 (앞선 메시지·"이전 대화" 펼침·입력칸은 건드리지 않는다).
    실패하면 멈춘 부분 답변(있으면)과 실패 말풍선을 보인다. 대기·진행이 아니면 껍데기만 남는다. #}
 {% import "proposals/_chat_state.html" as cs with context %}
 {% set job = cs.job %}{% set state = cs.state %}{% set stalled = ai_off and state == "pending" %}
@@ -24,7 +24,7 @@
   {% endif %}
   <div class="chat-msg assistant live failed" role="alert"><span class="chat-who">AI</span>
     <p class="error">{{ labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
-    <form method="post" action="/proposals/{{ proposal.id }}/chat/retry"><button type="submit" class="small">다시 시도</button></form>
+    <form method="post" action="/proposals/{{ proposal.id }}/chat/retry"><button type="submit" class="small"{{ ai_attrs(ai_gate()) }}>다시 시도</button></form>
     <p class="muted">내 메시지는 그대로 남아 있어요. 다시 시도하거나 아래에 다른 말로 물어볼 수 있어요.</p>
     {% if job.error %}<details class="more"><summary>자세한 오류</summary><pre class="error-detail">{{ job.error }}</pre></details>{% endif %}
   </div>

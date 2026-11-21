@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.ai.gate import require_ai_on
 from app.idparse import parse_id
 from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
@@ -286,7 +287,7 @@ def merge_prefill(values: dict, prefill: dict | None) -> None:
             values["selected"][code] += [i for i in ids if isinstance(i, int) and i not in values["selected"][code]]
 
 
-@router.post("/draft")
+@router.post("/draft", dependencies=[Depends(require_ai_on)])
 def start_draft(
     request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
     user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
@@ -324,7 +325,7 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
                   **{k: v for k, v in ctx.items() if k != "f"})
 
 
-@router.post("/draft/{job_id}/retry")
+@router.post("/draft/{job_id}/retry", dependencies=[Depends(require_ai_on)])
 def retry_draft(job_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     job = _draft_job(db, job_id, user)
     if job.status != "failed":

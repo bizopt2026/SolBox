@@ -14,6 +14,8 @@ from starlette.datastructures import FormData
 
 from app import intake as intake_lib
 from app import labels, origin, transcribe, ui
+from app.ai import gate
+from app.ai.gate import require_ai_on
 from app.ai.queue import queue_position
 from app import notices
 from app.db import get_db
@@ -136,14 +138,16 @@ def create(
     except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 정리를 시작할 때 작업 폴더를 다시 준비한다
         db.rollback()
         log.exception("올리기 묶음 %s 작업 폴더 준비 실패", intake.id)
-    try:
-        intake_lib.start_analysis(db, intake, user)
-    except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 상세 화면의 "정리 시작" 으로 다시 할 수 있다
-        db.rollback()
-        log.exception("올리기 묶음 %s 정리 시작 실패", intake.id)
+    ai_off = gate.ai_is_off(request)  # 처리기가 꺼져 있으면 정리 작업을 넣지 않는다 (끝나지 않는 대기 줄이 생기지 않게). 파일은 보관되고 "올림" 상태로 남는다
+    if not ai_off:
+        try:
+            intake_lib.start_analysis(db, intake, user)
+        except Exception:  # noqa: BLE001 - 묶음은 이미 저장되었다. 상세 화면의 "정리 시작" 으로 다시 할 수 있다
+            db.rollback()
+            log.exception("올리기 묶음 %s 정리 시작 실패", intake.id)
     if skipped:
         return once.done(detail_page(request, user, intake, db, skipped=skipped), url=f"/intake/{intake.id}")
-    return once.done(notices.redirect(f"/intake/{intake.id}", "intake_uploaded"))
+    return once.done(notices.redirect(f"/intake/{intake.id}", "intake_kept_ai_off" if ai_off else "intake_uploaded"))
 
 
 @router.get("")
@@ -202,7 +206,7 @@ def status(intake_id: int, request: Request, user: User = Depends(require_user),
                   intake_files_transcribing=intake_lib.transcribing_file(intake))
 
 
-@router.post("/{intake_id}/analyze")
+@router.post("/{intake_id}/analyze", dependencies=[Depends(require_ai_on)])
 def analyze(
     intake_id: int, request: Request, note: str | None = Form(None),
     user: User = Depends(require_user), db: Session = Depends(get_db),

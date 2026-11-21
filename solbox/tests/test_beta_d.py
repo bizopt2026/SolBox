@@ -179,7 +179,7 @@ def test_ai_off_every_ai_action_says_so(admin_client, db):
     page = admin_client.get(f"/solutions/{s.id}").text
     assert re.search(r'<button type="submit" disabled aria-disabled="true"[^>]*>AI로 소개 초안 만들기', page) and 'data-ai-blocked="off"' in page
     page = admin_client.get("/intake/new").text
-    assert 'data-ai-blocked="off"' in page and "정리는 시작되지 않은 채 기다려요" in page and "그대로 보관돼요" in page
+    assert 'data-ai-blocked="off"' in page and "정리는 시작되지 않아요" in page and "그대로 보관돼요" in page
     assert re.search(r'<button type="submit" class="primary">올리기</button>', page)  # 올리기는 막지 않는다 (파일은 보관된다)
     page = admin_client.get("/admin/research").text
     assert re.search(r'class="primary" disabled aria-disabled="true"[^>]*>지금 조사', page) and 'data-ai-blocked="off"' in page
@@ -204,9 +204,9 @@ def test_ai_gate_states_share_the_top_bar_status(app, admin_client, db, worker_o
     db.add(AIJob(kind="intake_analyze", input={}, status="failed", error_kind="auth", finished_at=datetime.now()))
     db.commit()
     page = admin_client.get("/activities/new").text
-    assert "AI 사용 불가" in page and 'data-ai-blocked="down"' in page
-    assert re.search(r'formaction="/activities/draft" disabled', page)
-    assert "정리는 바로 실패로 끝나요" in admin_client.get("/intake/new").text
+    assert "AI 사용 불가" in page and 'data-ai-down="1"' in page and "data-ai-blocked" not in page  # 사용 불가는 안내만, 버튼은 그대로
+    assert re.search(r'formaction="/activities/draft" class="primary">AI로 정리', page) and "AI 연결 확인" in page
+    assert "정리를 바로 시도해요" in admin_client.get("/intake/new").text
     db.query(AIJob).delete()
     db.add(AIJob(kind="intake_analyze", input={}, status="failed", error_kind="limit", finished_at=datetime.now()))
     db.commit()

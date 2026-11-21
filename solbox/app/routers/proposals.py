@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.ai import gate
+from app.ai.gate import require_ai_on
 from app.idparse import parse_id
 from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
@@ -165,6 +167,8 @@ def create(
     )
     db.add(proposal)
     db.commit()
+    if gate.ai_is_off(request):  # 처리기가 꺼져 있으면 방향 만들기 작업을 넣지 않는다 (제안 건은 등록된다)
+        return once.done(notices.redirect(f"/proposals/{proposal.id}", "created_ai_off"))
     start_job(db, proposal, "proposal_directions", user)
     return once.done(notices.redirect(f"/proposals/{proposal.id}", "created"))
 
@@ -246,7 +250,7 @@ def _start(
     return RedirectResponse(f"/proposals/{proposal.id}{anchor}", status_code=303)  # 작업이 시작됨: 진행 표시가 알림을 대신한다
 
 
-@router.post("/{proposal_id}/directions")
+@router.post("/{proposal_id}/directions", dependencies=[Depends(require_ai_on)])
 def make_directions(
     proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
@@ -290,7 +294,7 @@ def _is_busy(p: Proposal) -> bool:
     return p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
 
 
-@router.post("/{proposal_id}/chat")
+@router.post("/{proposal_id}/chat", dependencies=[Depends(require_ai_on)])
 def chat(
     proposal_id: int, request: Request, message: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
@@ -321,7 +325,7 @@ def chat(
     return RedirectResponse(f"/proposals/{pid}#chat", status_code=303)
 
 
-@router.post("/{proposal_id}/chat/retry")
+@router.post("/{proposal_id}/chat/retry", dependencies=[Depends(require_ai_on)])
 def chat_retry(
     proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
@@ -336,7 +340,7 @@ def chat_retry(
     return _start(db, proposal, "proposal_chat", user, anchor="#chat")
 
 
-@router.post("/{proposal_id}/outline")
+@router.post("/{proposal_id}/outline", dependencies=[Depends(require_ai_on)])
 def make_outline(
     proposal_id: int, instruction: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),

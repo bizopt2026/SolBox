@@ -30,6 +30,19 @@ def _keep_hf_home(monkeypatch):
         monkeypatch.delenv("HF_HOME")
 
 
+@pytest.fixture(autouse=True)
+def _ai_gate_open(request):
+    """시험 서버는 `ai_worker_enabled=False` 로 만들어 작업자 스레드만 끄고 작업은 시험이 직접 돌린다. 그래서 "처리기가 꺼진 서버는 AI 작업을 새로 받지 않는다"
+    (app/ai/gate.py) 는 기본으로 열어 둔다. 그 규칙을 시험하는 곳은 `@pytest.mark.ai_gate` 를 단다 (진짜 설정값을 따른다)."""
+    from app.ai import gate
+
+    real = gate.ai_is_off
+    if request.node.get_closest_marker("ai_gate") is None:
+        gate.ai_is_off = lambda req: False  # monkeypatch.undo() 가 되돌리지 못하게 직접 바꾼다
+    yield
+    gate.ai_is_off = real
+
+
 @pytest.fixture
 def settings(tmp_path):
     return Settings(
