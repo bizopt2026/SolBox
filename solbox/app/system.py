@@ -108,24 +108,52 @@ def _check_knowledge(settings: Settings) -> Check:
     return ("지식 폴더", f"{settings.knowledge_dir} 가 없습니다. python -m app.cli rebuild-knowledge 로 만드세요.", "")
 
 
+VERSION_LINE_MAX = 200  # 화면·캐시에 남기는 `claude --version` 첫 줄의 길이 (이상한 출력이 화면을 채우지 않게)
+
+
+def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
+    """`cmd` 를 `timeout` 초까지만 돌리고 (종료 코드, 표준 출력) 을 돌려준다. 입력은 막는다(`stdin=DEVNULL`).
+    제한을 넘으면 프로세스와 그 자식·손자까지 죽이고(Windows 는 `taskkill /T /F /PID`, 그 밖에는 새 프로세스 그룹을 `killpg`) `subprocess.TimeoutExpired` 를 낸다.
+    Windows 의 npm `.cmd` 껍데기(`claude.cmd` → cmd.exe → node)는 껍데기만 죽이면 node 가 파이프를 쥔 채 남아 끝없이 기다리게 되므로 한정 없는 `communicate()` 는 부르지 않는다."""
+    from app.ai.runner import _kill_tree, _reap
+
+    kw: dict = {}
+    if sys.platform == "win32":
+        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    else:
+        kw["start_new_session"] = True
+    proc = subprocess.Popen(
+        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace", **kw,
+    )
+    try:
+        out, _err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        _reap(proc)  # 한정 있는 회수: 손자가 파이프를 쥐고 있어도 멈추지 않는다
+        raise
+    except BaseException:
+        _kill_tree(proc)
+        _reap(proc)
+        raise
+    return proc.returncode, out or ""
+
+
 def _check_claude(settings: Settings, timeout: float = 30) -> Check:
     name = settings.claude_cmd[0] if settings.claude_cmd else ""
     exe = shutil.which(name) if name else None
     if exe is None:
         return ("Claude CLI", josa("'" + name + "'", "을/를") + f" 찾을 수 없습니다. 설치하고 PATH 를 확인하세요.", "")
     try:
-        done = subprocess.run(
-            [exe, *settings.claude_cmd[1:], "--version"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False,
-            stdin=subprocess.DEVNULL,  # 서버의 표준 입력을 물려받아 입력을 기다리며 멈추는 일이 없게 한다
-        )
+        code, out = run_bounded([exe, *settings.claude_cmd[1:], "--version"], timeout)
     except subprocess.TimeoutExpired:
         return ("Claude CLI", f"확인 못 함: --version 이 {timeout:g}초 안에 끝나지 않았습니다.", "")
     except (OSError, subprocess.SubprocessError) as e:
         return ("Claude CLI", f"--version 을 실행하지 못했습니다 ({e}).", "")
-    if done.returncode != 0:
-        return ("Claude CLI", f"--version 이 실패했습니다 (종료 코드 {done.returncode}).", "")
-    return ("Claude CLI", None, (done.stdout or "").strip().splitlines()[0] if (done.stdout or "").strip() else exe)
+    if code != 0:
+        return ("Claude CLI", f"--version 이 실패했습니다 (종료 코드 {code}).", "")
+    first = out.strip().splitlines()[0].strip() if out.strip() else ""
+    return ("Claude CLI", None, first[:VERSION_LINE_MAX] if first else exe)
 
 
 def _check_transcriber(settings: Settings) -> Check:

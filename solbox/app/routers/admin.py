@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -327,6 +328,7 @@ def _ping_state(db: Session) -> dict:
 
 
 _CHECK_CACHE: dict = {}
+_CHECK_LOCK = threading.Lock()
 WEB_CLAUDE_TIMEOUT_S = 5  # 화면(GET)에서 도는 `claude --version` 의 제한: 넘으면 "확인 못 함" (명령줄 `check` 는 30초)
 
 
@@ -337,7 +339,10 @@ def _check_rows(settings) -> list[dict]:
     key = id(settings)
     cached = _CHECK_CACHE.get(key)
     if cached is None or time.monotonic() - cached[0] > 60:
-        _CHECK_CACHE[key] = cached = (time.monotonic(), run_checks(lambda: settings, skip_port=True, claude_timeout=WEB_CLAUDE_TIMEOUT_S))
+        with _CHECK_LOCK:  # 캐시가 빈 채 동시에 열린 화면들이 점검 명령을 각각 띄우지 않게: 한 요청이 채우는 동안 나머지는 기다렸다가 그 결과를 쓴다
+            cached = _CHECK_CACHE.get(key)
+            if cached is None or time.monotonic() - cached[0] > 60:
+                _CHECK_CACHE[key] = cached = (time.monotonic(), run_checks(lambda: settings, skip_port=True, claude_timeout=WEB_CLAUDE_TIMEOUT_S))
     rows = []
     for name, problem, detail in cached[1]:
         meaning, todo = describe(name)

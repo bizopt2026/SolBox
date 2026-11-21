@@ -383,10 +383,15 @@ def test_h12_version_check_does_not_read_the_servers_stdin(settings, monkeypatch
 
     seen = {}
 
-    def fake_run(cmd, **kw):
-        seen.update(kw)
-        return subprocess.CompletedProcess(cmd, 0, stdout="1.0\n", stderr="")
+    class FakePopen:  # 베타 I: 점검은 `subprocess.run` 이 아니라 `Popen`(제한을 넘으면 프로세스 나무째 죽인다)으로 돈다
+        returncode = 0
 
-    monkeypatch.setattr(system.subprocess, "run", fake_run)
+        def __init__(self, cmd, **kw):
+            seen.update(kw)
+
+        def communicate(self, timeout=None):
+            return "1.0\n", ""
+
+    monkeypatch.setattr(system.subprocess, "Popen", FakePopen)
     system._check_claude(settings)
     assert seen.get("stdin") == subprocess.DEVNULL
