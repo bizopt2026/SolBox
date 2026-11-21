@@ -602,7 +602,8 @@ _DB_FILE = re.compile(rf"(?<![\w.\-])data{_SEP}(?:app|solbox)\.db(?![A-Za-z0-9_]
 # 백업(`backups/<날짜>-<시각>[.partial]/…`), 로그(`logs/app.log[.N]`), 옛 DB 사본(`app.db.before-migrate-…`). 일반 낱말(`models/`·`logs/`·`uploads/` 만 있는 글)은 둔다.
 _DATA_SHAPE = re.compile(
     rf"(?<![\w.\-])(?:(?:intake_work|research_work){_SEP}|uploads{_SEP}(?:solutions|intake){_SEP}[^\s/\\／]|decks{_SEP}\d+{_SEP}"
-    rf"|backups{_SEP}\d{{8}}-\d{{6}}(?![A-Za-z0-9_])|logs{_SEP}app\.log(?:\.\d+)?(?![A-Za-z0-9_]))"
+    rf"|backups{_SEP}\d{{8}}-\d{{6}}(?![A-Za-z0-9_])|logs{_SEP}app\.log(?:\.\d+)?(?![A-Za-z0-9_])"
+    rf"|data{_SEP}(?:uploads{_SEP}(?:solutions|intake)|decks{_SEP}\d+)(?![A-Za-z0-9_]))"  # 베타 M: `data/` 가 붙은 이 둘은 끝에서 끝나도(`data/decks/7`·`data/uploads/solutions`) 앱의 폴더다
     r"|(?<![\w.\-])deck-\d{8}-\d{6}-[0-9a-f]{6}(?:-internal)?\.pptx(?![A-Za-z0-9_])", re.I)
 # `data/models/` 는 앱의 모델 폴더 이름(`MODEL_NAMES`·HF 캐시 `models--…`·`.hf_home`)이 이어질 때만 (`open data/models/API 제공`·`MLOps: data/models/serving` 은 고객 글).
 _DATA_MODELS = re.compile(
@@ -611,9 +612,12 @@ _DATA_MODELS = re.compile(
 _DATA_SUBDIR = re.compile(rf"(?<![\w.\-])data{_SEP}(?:logs|models|uploads|decks|backups|intake_work|research_work){_SEP}", re.I)
 # 앱이 옛 DB 를 옮기기 전에 만드는 사본 (`app.db.before-migrate-<날짜>-<시각>[-N]`, migrate.py)
 _DB_BEFORE_MIGRATE = re.compile(r"(?<![\w.\-])app\.db\.before-migrate-\d{8}-\d{6}(?:-\d+)?(?![A-Za-z0-9_])", re.I)
-# 어떤 `scheme://…` 도 주소다 (`s3://bucket/data/logs/…`·`hdfs://…`; `file://` 은 내 컴퓨터의 닻이라 뺀다)
+# 주소: `http(s)://` 와, 실제 원격·저장소 주소 모양인 `scheme://…` (아래 `_URL_SCHEMES` 허용 목록). 한 글자 `C://`·`x://`·`sqlite`·`file`·모르는 낱말(`path://`·`note://`)은 주소가 아니라 경로 흉내다 (베타 M).
+# 주소의 끝은 `,`·`;`·한글·공백에서 끝난다 (`https://kt.com,knowledge/index.md` 의 파일은 주소 밖)
+_URL_SCHEMES = (r"s3a?|gs|hdfs|abfss?|wasbs?|ftps?|sftp|smb|nfs|jdbc|mqtts?|wss?|rtsp|rtmp|ssh|git|redis|rediss|amqps?|kafka|mongodb(?:\+srv)?|postgres(?:ql)?|mysql|mariadb|oracle|tcp|udp|opc\.tcp"
+                r"|modbus(?:\+tcp)?|coaps?|nats|cassandra|clickhouse|elasticsearch|dbfs|webhdfs|ldaps?|imaps?|smtps?|pop3s?|rtsps")
 _URL_SPAN = re.compile(
-    r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*|(?<![A-Za-z0-9+.\-])(?!file://)[A-Za-z][A-Za-z0-9+.\-]*://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*", re.I)  # 주소의 끝은 `,`·`;`·한글·공백에서 끝난다 (`https://kt.com,knowledge/index.md` 의 파일은 주소 밖)
+    r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*|(?<![A-Za-z0-9+.\-])(?:" + _URL_SCHEMES + r")://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*", re.I)
 _DB_LABEL_CUT = re.compile(r"[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
 _DB_ANCHORED = re.compile(r"^(?:[/\\~$%]|[A-Za-z]:[/\\]|file:)", re.I)
 
