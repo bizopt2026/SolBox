@@ -438,36 +438,58 @@ def mirror_folders() -> tuple[str, ...]:
 
 
 # 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로 모양 (`opportunities/2.md`, `solutions/3/card.md`, `customers/12`).
-# 폴더 이름은 온톨로지에서 읽고, 폴더 뒤에 `/<번호…>`(구분자는 `/` 와 `\` 둘 다) 가 와야 한다. 앞에 경로 머리말(`./`, `../`, `C:/…/`, `knowledge/`, `data/knowledge/`)이 붙어도
-# 사본 경로다. 주소(`https://…/solutions/3`, 도메인이 앞에 붙은 `www.acme.co.kr/customers/12`)·낱말에 붙은 것(`a-solutions/3.md`)은 사본 경로가 아니다.
-_SEG = r"[\w가-힣.\-]"
-_SEP = r"[/\\]"
-_FOLDER_AT = re.compile(r"(?<![\w])(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}\d")
-_TOKEN_BREAK = re.compile(r"[\s\"'`()<>\[\]{},;|]")
-_PATH_HEAD = re.compile(rf"^(?:\.{{1,2}}{_SEP}|[A-Za-z]:{_SEP}|{_SEP})?(?:{_SEG}+{_SEP})*$")
-_DOMAIN_SEG = re.compile(r"^[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}$")
+# 폴더 이름은 온톨로지에서 읽고(대소문자 무시), 폴더 뒤에 `/<번호…>`(구분자는 `/` `\` `／`) 가 오는 낱말을 본다. 지우는 쪽으로 기운다:
+# - 폴더 앞 머리말(공백 앞까지)에 `knowledge/` 마디가 있으면 무엇이 앞에 붙어도(`file:///`, `data.bak/`, `%APPDATA%\`) 사본 경로다. `https://`·`http://` 주소만 예외.
+# - 머리말이 비었거나 `근거=`·`→`·`※`·`*`·`#`·따옴표·괄호·한글 같은 표지로 끝나면 사본 경로다. `./`·`../`·`/`·`C:/`·`~/`·`$VAR/`·`%VAR%\`·`\\서버\` 로 시작하는 경로도 그렇다.
+# - 남기는 것: 주소(`www.acme.co.kr/customers/12`, `x.com/…`, `192.168.0.10/…`, `localhost:8443/…`), 일반 폴더 이름 뒤(`intranet/solutions/3`), 영문·숫자에 붙은 것(`a-solutions/3`),
+#   번호 바로 뒤에 글자가 더 붙고 확장자·`/` 가 없는 것(`partners/2개사`, `projects/2건`, `solutions/5G`, `customers/1인당`).
+# - 번호 뒤가 띄어쓰기인 낱말(`solutions/3 단계로 구성`, `research/2026 보고서 인용`, `activities/2026 계획`)은 맨 경로와 구별할 수 없어 지운다 (안전한 쪽).
+_SEP = r"[/\\／]"
+_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(\d+)", re.I)
+_KNOWLEDGE_SEG = re.compile(rf"(?<![\w.\-])knowledge{_SEP}", re.I)
+_URL_HEAD = re.compile(r"https?://", re.I)
+_HOST_SEG = re.compile(r"^(?:[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}|[\w.\-]+:\d+)$")
+_JUNK_LEAD = re.compile(r"^.*[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
+_TAIL_EXT = re.compile(r"\.[A-Za-z0-9]{1,5}\b|[/\\／]")
 
 
-def _is_mirror_path_at(text: str, start: int) -> bool:
-    """`text[start:]` 가 폴더/번호로 시작할 때, 앞의 붙은 글(머리말)이 경로 머리말이면 사본 경로다."""
-    head_start = start
-    while head_start > 0 and not _TOKEN_BREAK.match(text[head_start - 1]):
-        head_start -= 1
-    head = text[head_start:start]
-    if "://" in text[head_start:start + 200].split()[0]:
-        return False  # 주소
-    if not head:
+def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
+    """`text[start:end]` 가 폴더/번호일 때, 앞 머리말과 뒤 꼬리를 보고 사본 경로인지 가린다."""
+    ts = start
+    while ts > 0 and not text[ts - 1].isspace():
+        ts -= 1
+    raw = text[ts:start]
+    # 번호 뒤에 글자가 바로 붙었는데 확장자·구분자가 없으면 낱말이다 (`partners/2개사`, `solutions/5G`).
+    te = end
+    while te < len(text) and not text[te].isspace():
+        te += 1
+    rest = text[end:te]
+    if rest and re.match(r"\w", rest) and not _TAIL_EXT.search(rest):
+        return False
+    if _URL_HEAD.search(raw):
+        return False
+    if _KNOWLEDGE_SEG.search(raw):
         return True
-    if not _PATH_HEAD.match(head):
-        return False  # 낱말·`a-` 처럼 구분자로 끝나지 않는 머리말
-    segs = [x for x in re.split(_SEP, head) if x]
-    return not any(_DOMAIN_SEG.match(x) for x in segs)  # 도메인 이름이 앞에 있으면 주소
+    if "://" in raw:
+        return False
+    if not raw:
+        return True
+    if re.search(r"[A-Za-z0-9_]$|(?<=[A-Za-z0-9_])-$", raw):
+        return False  # `a-solutions/3`, `mysolutions/3`: 낱말에 붙은 것
+    if not re.search(_SEP + "$", raw):
+        return True  # 표지(`근거=`, `→`, `※`, 따옴표, 한글 …)로 끝남
+    segs = re.split(_SEP, _JUNK_LEAD.sub("", raw))[:-1]
+    if any(_HOST_SEG.match(g) for g in segs):
+        return False  # 주소
+    first = segs[0] if segs else ""
+    anchored = first in ("", ".", "..", "~") or first[0] in "$%" or re.match(r"^[A-Za-z]:$", first) is not None
+    return anchored  # 일반 폴더 이름만 앞에 있으면(`intranet/`) 남긴다
 
 
 def has_internal_mark(text) -> bool:
     """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
     t = _clean(text)
-    return any(_is_mirror_path_at(t, m.start()) for m in _FOLDER_AT.finditer(t))
+    return any(_is_mirror_path_at(t, m.start(), m.end()) for m in _FOLDER_AT.finditer(t))
 
 
 def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:
