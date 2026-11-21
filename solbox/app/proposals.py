@@ -372,9 +372,21 @@ _FIXED_ANYWHERE = re.compile(
 _FIXED_WORD = re.compile(
     r"(?P<nobare>작성자|팀장님)|(?P<w>법무팀\s*검토|내부\s*검토용(?:입니다|임)?|슬라이드\s*순서|고객에게\s*보여주지\s*말|보여주지\s*말|로고\s*넣기|제목\s*수정\s*필요"
     rf"|{_H}오타|{_H}폰트\s*(?:변경|수정|통일|확인|교체))")
-_MEMO_END = frozenset("필요 요망 확인 검토 수정 예정 바람 요청 삭제 변경 조정 통일 교체 보완 체크 정정 발견 있음 넣기".split())
+_MEMO_END = frozenset("필요 필요함 요망 확인 검토 수정 예정 바람 요청 삭제 변경 조정 통일 교체 보완 체크 정정 발견 있음 넣기 미확정".split())
 _MEMO_END_PAIR = frozenset({("할", "것"), ("말", "것")})
 _FIXED_MAX_WORDS = 8
+# 꼬리가 무엇이든 메모인 모양 (N1): 머리가 분명해서 꼬리에 이유가 붙어도 고객 글이 아니다. `말아야 할`·`화면에 보여주지 말고 마스킹` 같은 고객 문장은 아니다.
+_FIXED_ALWAYS = re.compile(
+    r"(?:^|고객(?:에게|한테)\s*(?:는\s*)?)(?:[^\s]+\s+)?보여주지\s*(?:말\s*것|말고)|^이\s*\S+\s*(?:은|는)?\s*(?:최종본에서\s*)?고객(?:에게|한테)\s*(?:는\s*)?보여주지\s*(?:말\s*것|말고)"
+    r"|^내부\s*검토용\s*(?:자료|문서|장표|슬라이드|페이지|표)?$"
+    r"|^[\[\(]?작성자\s*(?:메모|주|의견)(?=[\]\):：\-–—\s]|$)"
+    r"|^팀장님\s*(?:확인|보고|피드백|코멘트|지시|의견)"
+    r"|^법무팀\s*검토\s*(?:중|후\s*(?:반영|확정|수정|진행))$")
+_FIXED_ALWAYS_MAX_WORDS = 10
+# 줄 끝의 이유 꼬리: `(…)`·`[…]`·` - …`·`, …` (N1)
+_FIXED_TAIL_CUT = (re.compile(r"\s*[\(\[][^()\[\]]*[\)\]]?\s*$"), re.compile(r"\s+[\-–—]\s+\S.*$"), re.compile(r"\s*,\s*\S.*$"))
+_FIXED_FEATURE = re.compile(r"자동|실시간|기능|검사|교정|알림|지원|제공")
+_FIXED_DRAFT_TAIL_END = re.compile(r"(?:검토|확정|승인|배포|발송|제출)\s*전$|(?:수정|작성|검토)\s*중$")
 _FIXED_INPUT_END = re.compile(
     rf"[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*$")
 _FIXED_INPUT_AFTER_NOT = re.compile(r"(?:화면|단계|조건|양식|폼)$")
@@ -387,11 +399,8 @@ def _memo_end(words: list[str]) -> bool:
     return words[-1] in _MEMO_END or (len(words) > 1 and (words[-2], words[-1]) in _MEMO_END_PAIR)
 
 
-def _fixed_note(line: str) -> bool:
-    """줄이 고정 낱말을 가진 **메모 모양**인가 (낱말이 문장 속에 든 고객 기능 문장은 아니다). 낱말 하나당 일정한 일만 하므로 줄 길이에 선형이다."""
-    if _FIXED_ANYWHERE.search(line):
-        return True
-    words = line.split()
+def _fixed_word_note(line: str, words: list[str]) -> bool:
+    """고정 낱말 + 메모 끝말 모양인가 (`_fixed_note` 가 줄 전체와 꼬리를 뗀 머리에 쓴다)."""
     if not words or len(words) > _FIXED_MAX_WORDS:
         return False
     memo = _memo_end(words)
@@ -400,10 +409,36 @@ def _fixed_note(line: str) -> bool:
         if m.group("nobare"):
             if memo and others <= 3:
                 return True
-        elif others <= 3 and memo or others <= 2 and m.end() == len(line):
+            continue
+        if m.group().endswith("오타") and m.end() < len(line):
+            nxt = line[m.end():]
+            if _FIXED_FEATURE.search(line) or (nxt[:1].isspace() and nxt.split()[0] not in _MEMO_END):
+                continue
+        if others <= 3 and memo or others <= 2 and m.end() == len(line):
             return True
+    return False
+
+
+def _fixed_note(line: str) -> bool:
+    """줄이 고정 낱말을 가진 **메모 모양**인가 (낱말이 문장 속에 든 고객 기능 문장은 아니다). 낱말 하나당 일정한 일만 하므로 줄 길이에 선형이다."""
+    if _FIXED_ANYWHERE.search(line):
+        return True
+    words = line.split()
+    if not words or len(words) > _FIXED_MAX_WORDS:
+        return False
+    if len(words) <= _FIXED_ALWAYS_MAX_WORDS and _FIXED_ALWAYS.search(line):
+        return True
+    if _fixed_word_note(line, words):
+        return True
+    for cut in _FIXED_TAIL_CUT:
+        head = cut.sub("", line, count=1)
+        if head != line and head and len(head.split()) < len(words) and _fixed_word_note(head, head.split()):
+            return True
+    memo = _memo_end(words)
     if _FIXED_DRAFT_HEAD.search(line) or _FIXED_DRAFT_BRACKET.match(line):
-        return (memo and len(words) > 1) or (_FIXED_DRAFT_HEAD.search(line) is not None and len(words) <= 3)
+        dm = _FIXED_DRAFT_HEAD.search(line)
+        tail = line[dm.end():].strip() if dm else ""
+        return (memo and len(words) > 1) or (dm is not None and (len(tail.split()) <= 2 or (len(tail.split()) <= 4 and _FIXED_DRAFT_TAIL_END.search(tail) is not None)))
     if _FIXED_DRAFT_TAIL.search(line) and len(words) <= 3 and not re.search(r"[:：]", line):
         return True
     m = _FIXED_INPUT_END.search(line)
