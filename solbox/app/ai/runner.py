@@ -75,7 +75,7 @@ _KEYWORD = (
 )
 _NAME = rf"(?P<name>(?<![A-Za-z0-9_\-])(?<!xpected )[A-Za-z0-9_\-]{{0,40}}{_KEYWORD}(?:[_\-]v?\d{{1,2}})?(?![A-Za-z0-9_]))"
 _TOKEN_CH = r"[A-Za-z0-9_\-./+=]"
-_QUOTED = r"\"[^\"]{3,500}\"|'[^']{3,500}'|`[^`]{3,500}`|“[^”]{3,500}”|‘[^’]{3,500}’"
+_QUOTED = r"\"(?:\\.|[^\"\\]){3,500}\"|'(?:\\.|[^'\\]){3,500}'|`[^`]{3,500}`|“[^”]{3,500}”|‘[^’]{3,500}’"
 _VALUE = (  # 값 모양을 볼 때(이름 뒤 빈칸·탭만 있는 경우)
     rf"(?:{_QUOTED}|{_TOKEN_CH}{{12,}}|(?=[A-Za-z_\-./+=]{{0,10}}\d){_TOKEN_CH}{{8,11}}(?!{_TOKEN_CH}))"
 )
@@ -336,6 +336,7 @@ def _cap(text: str) -> str:
 
 # 잘려 나간 가운데의 상태 줄만 싸게 찾는다 (정규식 한 개, 선형): 401·429·407 이 가운데에 있어도 놓치지 않게.
 _MIDDLE_STATUS = re.compile(r"\b(?:api error|error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+\(?(?P<a>401|429|407)\b(?![\w/]|\.\w)|\"status\"\s*:\s*(?P<b>401|429|407)\b", re.I)
+_MIDDLE_TRIES = 1000  # 가운데에서 확인하는 후보 줄 수의 한도 (선형)
 _MIDDLE_KIND = {"407": "network", "401": "auth", "429": "limit"}
 
 
@@ -346,21 +347,28 @@ def classify_error(text: str) -> str:
     half = MAX_TEXT // 2
     kind = _classify(_cap(text))
     if kind == "unknown":  # 앞뒤에서 못 찾았으면 가운데의 상태 줄(401·429·407)만 본다
-        m = _MIDDLE_STATUS.search(text, half, len(text) - half)
-        if m is not None:
-            return _MIDDLE_KIND[m.group("a") or m.group("b")]
+        for n, m in enumerate(_MIDDLE_STATUS.finditer(text, half, len(text) - half)):
+            if n >= _MIDDLE_TRIES:
+                break
+            code = m.group("a") or m.group("b")
+            lo = max(0, m.start() - _LINE_WINDOW)
+            window = text[max(text.rfind("\n", lo, m.start()) + 1, lo):m.end() + 40]  # 그 줄만: 짧은 글과 같은 규칙(`error: 407 files could not be read` 는 네트워크가 아니다)으로 다시 확인한다
+            pattern = {"407": _PROXY_PATTERN, "401": _AUTH_PATTERNS, "429": _LIMIT_PATTERN}[code]
+            if pattern.search(window):
+                return _MIDDLE_KIND[code]
     return kind
 
 
-# 같은 줄에 다른 업체 이름이 있으면 그 업체의 키 문제다 (`Tavily: invalid API key`·`Brave Search error: the API key is missing`·`Invalid API key for Tavily`·`No API key provided for OpenAI`).
-# 이름 없는 `API key` 글에만 적용한다 (Claude·Anthropic 환경 변수 이름이 든 일치는 그대로 로그인).
+# 이름 없는 `API key` 글은 Claude 로그인이다. 같은 줄에 **알려진 다른 업체·도구 표지**(MCP, 검색·도구 업체 이름)가 있거나 `for` 바로 뒤에 Claude·Anthropic·Node 가 아닌 고유 이름(`for Tavily`)이 오면
+# 그 업체의 키 문제라 로그인이 아니다 (`Tavily: invalid API key`·`Brave Search error: the API key is missing`·`Invalid API key for Tavily`·`No API key provided for OpenAI`).
+# 알려진 표지가 없는 글(`node: Invalid API key`·`Execution error: Invalid API key`·`Invalid API key for this organization`)은 Claude 로그인이다 (베타 L: 거꾸로 바꿨다).
+# Claude·Anthropic 환경 변수 이름이 든 일치에는 적용하지 않는다.
 _API_KEY_MATCH = re.compile(r"api[ _-]?key", re.I)
-_BENIGN_WORDS = frozenset(
-    "error errors fatal warning warn failed failure fail request response http https status code api key keys the this your claude anthropic cli sdk auth authentication "
-    "invalid missing provided given supplied current an a and or not is was has stderr stdout info debug exception".split()
-)
-_WORD = re.compile(r"[A-Za-z][A-Za-z_\-]{2,}")
-_FOR_WORD = re.compile(r"\bfor\s+(?:the\s+|your\s+|this\s+)?(?P<w>[A-Za-z][\w.\-]*)", re.I)
+_VENDOR_MARK = re.compile(
+    r"\bmcp|(?<![\w/\\.@\-])(?:tavily|brave|openai|google|gemini|perplexity|serper|exa|github|gitlab|slack|notion|aws|azure|bedrock|vertex|cohere|mistral|groq|huggingface|firecrawl|jina|bing|duckduckgo|"
+    r"stripe|twilio|sendgrid|jira|confluence|linear|figma|supabase|pinecone|elevenlabs|deepl|naver|kakao)(?![\w/\\@\-])", re.I)
+_FOR_PROPER = re.compile(r"\bfor\s+(?:the\s+|your\s+|this\s+)?(?P<w>[A-Z][A-Za-z0-9]*)")
+_NOT_VENDOR_WORDS = frozenset("claude anthropic node nodejs error api this the your request response organization account workspace user session cli sdk".split())
 _LINE_WINDOW = 300
 
 
@@ -369,12 +377,11 @@ def _vendor_line(text: str, m: re.Match) -> bool:
     start = max(text.rfind("\n", lo, m.start()) + 1, lo)
     nl = text.find("\n", m.end(), m.end() + _LINE_WINDOW)
     end = nl if nl >= 0 else min(len(text), m.end() + _LINE_WINDOW)
-    before, after = text[start:m.start()], text[m.end():end]
-    colon = before.rfind(":")
-    if colon >= 0 and any(w.lower() not in _BENIGN_WORDS for w in _WORD.findall(before[max(0, colon - 60):colon])[-3:]):
-        return True  # `Tavily: …`·`Brave Search error: …`
-    f = _FOR_WORD.match(after.lstrip()) or _FOR_WORD.search(after[:80])
-    return f is not None and f.group("w").lower() not in _BENIGN_WORDS
+    line = text[start:end]
+    if _VENDOR_MARK.search(line):
+        return True
+    f = _FOR_PROPER.search(text[m.end():end])
+    return f is not None and f.group("w").lower() not in _NOT_VENDOR_WORDS
 
 
 def _has_auth(text: str) -> bool:
