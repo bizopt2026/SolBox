@@ -454,7 +454,7 @@ def mirror_folders() -> tuple[str, ...]:
 # - 영문·숫자에 붙은 것(`a-solutions/3`)은 남긴다.
 # - 번호 뒤가 띄어쓰기인 낱말(`solutions/3 단계로 구성`, `research/2026 보고서 인용`, `activities/2026 계획`)은 맨 경로와 구별할 수 없어 지운다 (안전한 쪽).
 _SEP = r"[/\\／]"
-_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(?:\.?{_SEP})*(\d+)", re.I)
+_FOLDER_AT = re.compile(r"(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}(?:\.?{_SEP})*(\d+(?:,\d{{3}})*)", re.I)  # `customers/1,200명` 의 천 단위 쉼표도 번호의 일부
 _KNOWLEDGE_SEG = re.compile(rf"(?<![\w.\-])knowledge{_SEP}", re.I)
 _URL_HEAD = re.compile(r"https?://", re.I)
 _FILE_HEAD = re.compile(r"(?<![\w])file:[/\\]{2,3}", re.I)
@@ -475,12 +475,14 @@ _INVISIBLE = re.compile(
 _ENTITY_AMP = re.compile(r"&(?:amp;)+", re.I)
 _SLASH_ENTITY = re.compile(r"&(?:#0*47(?!\d)|#x0*2f(?![0-9a-f])|sol(?![A-Za-z0-9]));?|&(?:#0*92(?!\d)|#x0*5c(?![0-9a-f])|bsol(?![A-Za-z0-9]));?", re.I)
 _ENC_RUN = re.compile(r"%(?:25)+", re.I)
+_DIGIT_ENTITY = re.compile(r"&(?:#0*(?P<dec>4[89]|5[0-7])(?!\d)|#[xX]0*3(?P<hex>[0-9])(?![0-9a-fA-F]));?")  # `&#51;`·`&#x33;` = 3
+_DIGIT_PERCENT = re.compile(r"%3(?P<d>[0-9])")  # `%33` = 3
 # 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`12%`·`5G`·`3rd`·`3단계`·`24시간`·`30여곳`·`100MB`·`10Gbps`.
 # 센 단위(`_UNIT_STRONG`: 개사 개 건 종 명 곳 년 월 일 회 배 억 천 원 단계 시간 …, 영문 `KB MB GB Mbps Gbps`·`K`)는 낱말 끝이거나 뒤에 조사·접미(`가 이 을 를 의 에 에서 에는 로 와 도 만 까지 간 씩 급 …`)가 붙어도 수량이다:
 # `partners/2개사가`·`customers/100명의`·`solutions/3개를`·`projects/6개월의`·`research/2026년에는`·`solutions/100MB`. 약한 단위(`_UNIT_WEAK`: 만 인 대 위 등 분 차 조 `%` `G D M x` 서수)는 낱말 끝일 때만 수량이다
 # (`solutions/3대로`·`3조차`·`3%a`·`3%의`·`3만이` 는 경로). 약한 단위 뒤에 다른 단위를 더 잇지 않는다(`조`+`차` 가 `조차` 로 읽히지 않게). 예외: 센 단위 앞의 `만`(`1만명`, `3천만원`).
 # 조사와 같은 글자인 한 글자 단위(`만 인 등`)가 낱말 끝에 홀로 오면(`solutions/3만 참고`) 수량인지 가를 수 없어 경로로 지운다. 단위 뒤에 확장자가 오면(`3개.md`) 경로다.
-_UNIT_WORDS = r"개사|개월|개소|개씩|가지|인당|단계|분기|시간|세대|차년도|년차|배속|여곳|여개사|여건|여명"
+_UNIT_WORDS = r"개사|개월|개소|개씩|가지|인당|단계|분기|시간|세대|차년도|년차|배속|여곳|여개사|여건|여명|억원대|억대|주차|일차|회차"
 _UNIT_ENG = r"(?:[KMGT]?[Bb]ps|[KMGT]B|[kKmMgGtT]b|[kKmMgG]?Hz)"
 _UNIT_STRONG = r"(?:" + _UNIT_WORDS + "|" + _UNIT_ENG + r"|[개건종명곳억천백원년월일회배점사社주Kk])"
 _UNIT_WEAK = r"(?:[만인대위등분차조%GDMxX]|(?i:st|nd|rd|th))"
@@ -488,8 +490,10 @@ _PARTICLE = (
     r"(?:에서는|에서도|에서|에는|에도|에게|까지|부터|이나|으로|이며|이고|이다|입니다|인데|이라고|라고|처럼|보다|마다|만에|밖에|이상|이하|이내|미만|정도|짜리"
     r"|쯤|씩|간|급|째|별|이|가|은|는|을|를|의|에|로|와|과|도|만|나|며|고|인|당)"
 )
+# 다른 단위와 이어 쓰지 않는 단위(`3안`·`3편`·`3자 협력`·`2중화`·`3MM`·`24x7`): 낱말 끝이거나 조사가 붙을 때만
+_UNIT_LONE = r"(?:안|편|자|중화|중|MM|[xX×]\d+)"
 _UNIT_TAIL = re.compile(
-    r"^(?:[.~\-–]\d+)*(?:(?P<solo>" + _UNIT_WEAK + r")(?!\w)"
+    r"^(?:[.~\-–]\d+)*(?:(?P<solo>" + _UNIT_WEAK + r")(?!\w)|(?P<lone>" + _UNIT_LONE + r")(?:(?!\w)|" + _PARTICLE + r"(?!\w))"
     r"|(?P<chain>(?:만(?=" + _UNIT_STRONG + r")|" + _UNIT_STRONG + r")+)(?:(?!\w)|(?P<particle>" + _PARTICLE + r")(?!\w)))"
 )
 _LONE_PARTICLE_UNITS = frozenset("만인등")
@@ -502,7 +506,9 @@ def _normalize(text: str) -> str:
     t = _SLASH_LIKE.sub("/", _SLASH_ENTITY.sub("/", _ENTITY_AMP.sub("&", t)))
     # 여러 번 부호화(`%252F`, `%25252F` …): `%25…25` 덩어리가 `2f`·`5c` 앞이면 `%` 하나로. 덩어리를 한 번씩만 훑는다(선형).
     t = _ENC_RUN.sub(lambda m: "%" if t[m.end():m.end() + 2].lower() in ("2f", "5c") else m.group(0), t)
-    return re.sub(r"%2f", "/", re.sub(r"%5c", lambda _m: chr(92), t, flags=re.I), flags=re.I)
+    t = re.sub(r"%2f", "/", re.sub(r"%5c", lambda _m: chr(92), t, flags=re.I), flags=re.I)
+    t = _DIGIT_ENTITY.sub(lambda m: chr(int(m.group("dec"))) if m.group("dec") else m.group("hex"), t)
+    return _DIGIT_PERCENT.sub(lambda m: m.group("d"), t)
 
 
 def _unit_tail_len(rest: str) -> int | None:
@@ -534,6 +540,11 @@ class _Token:
     def has_ext_from(self, pos: int) -> bool:
         return bisect.bisect_left(self.exts, pos) < len(self.exts)
 
+    def file_tail(self, e: int) -> bool:
+        """`tok[e:]` 가 바로 확장자(`.md`)이거나, 구분자 뒤 마디에 확장자가 있는 파일 꼴(`/card.md`)인가. 같은 마디의 먼 곳 `(kt.com)` 은 보지 않는다."""
+        tok = self.tok
+        return _EXT.match(tok, e) is not None or (e < len(tok) and _SEP_CH.match(tok[e]) is not None and self.has_ext_from(e + 1))
+
     def first_segment(self, j: int) -> str:
         """머리말(`tok[j:]`, 마지막 표지 글자 뒤) 의 첫 마디. 이름표(`출처:`)는 뗀다."""
         if j not in self._first:
@@ -547,12 +558,12 @@ class _Token:
         tok = self.tok
         # 번호 바로 뒤에 단위가 붙었으면 수량이다 (`partners/2개사`, `solutions/5G/LTE`, `customers/12%`). 단위 뒤에 확장자가 오면 경로다.
         n = _unit_tail_len(tok[end:end + _SCAN_CAP])
-        if n is not None and not self.has_ext_from(end + n):
-            return False
         if self.url_end <= start:
             return False
         if self.knowledge_end <= start:
-            return True
+            return True  # 사본 폴더 안에서는 단위가 붙어도 수량이 아니다 (`knowledge/solutions/3일`)
+        if n is not None and not self.file_tail(end + n):
+            return False
         if self.file_end <= start:
             return True  # `file://` 은 닻이다 (호스트 이름이 올 수 있어도 내 컴퓨터의 사본)
         if self.scheme_end <= start:
@@ -578,15 +589,31 @@ class _Token:
         if _HOST_SEG.match(first):
             return False  # 주소 (닻 없는 머리말의 첫 마디만 본다)
         # 일반 폴더 이름(`intranet/`): 번호만 있으면 남기고 `3.md`·`3/card.md` 면 파일 경로
-        e = end + (n or 0)  # 단위 뒤의 확장자(`3개.md`)·`/card.md` 도 파일 경로다
-        if _EXT.match(tok, e):
+        return self.file_tail(end + (n or 0))  # 단위 뒤의 확장자(`3개.md`)·`/card.md` 도 파일 경로다
+
+
+# 번호 없는 사본·데이터 파일: `knowledge/index.md`·`knowledge/solutions/card.md`·`data/app.db` (주소 속이 아닐 때만)
+_MIRROR_FILE = re.compile(
+    rf"(?<![\w.\-])knowledge{_SEP}(?:(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP})?[^\s/\\／]+\.(?:md|json|db)(?![\w])"
+    rf"|(?<=[/\\／])(?:app|solbox)\.db(?![\w])", re.I)
+
+
+def _has_mirror_file(t: str) -> bool:
+    for tm in _TOKEN.finditer(t):
+        tok = tm.group()
+        if "." not in tok:
+            continue
+        m = _MIRROR_FILE.search(tok)
+        if m is not None and not any(u.end() <= m.start() for u in _URL_HEAD.finditer(tok)):
             return True
-        return e < len(tok) and bool(_SEP_CH.match(tok[e])) and self.has_ext_from(e + 1)
+    return False
 
 
 def has_internal_mark(text) -> bool:
     """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
     t = _normalize(_clean(text))
+    if _has_mirror_file(t):
+        return True
     if not _FOLDER_AT.search(t):
         return False
     for tm in _TOKEN.finditer(t):
