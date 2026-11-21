@@ -315,6 +315,10 @@ def _is_note_by_lead(line: str) -> bool:
     if _CONTACT_LEAD.match(lead):
         return True
     if any(w.startswith("실제") for w in words) and verb in ("교체", "대체", "수정") and any(_real_word(w) for w in words):
+        before = words[:next(i for i, w in enumerate(words) if w.startswith("실제"))]
+        topics = [w for w in before if w.endswith(("은", "는"))]
+        if plan and topics and not any(_TOPIC_WORD.match(w) for w in topics):
+            return False  # "시범 데이터는 실제 운영 데이터로 교체 예정": 문서 값이 아닌 화제(`…는`)가 앞에 있는 예정은 고객 약속 (베타 L; `금액은 실제 값으로 교체 예정` 은 옮긴다)
         return True  # "실제 고객사 수치로 교체 필요" ("시범 장비는 실제 양산 장비로 교체 예정" 은 고객 쪽 일)
     if _COMPUTED.search(lead + " ") and verb in ("추가", "보강", "첨부", "확인", "보완", "기재") and not plan:
         return True  # "절감률 산출 근거 자료 추가 필요"
@@ -346,11 +350,32 @@ def _is_slide_delete(line: str) -> bool:
     return m is not None and not _CUSTOMER_SIDE.search(tail[:m.start()])
 
 
+# 베타 L: 다른 규칙과 상관없이 작성자 메모로 옮기는 **고정 낱말**. 고객 문장에 거의 나오지 않는 말만, 낱말 단위(앞뒤에 한글이 붙지 않음)나 줄 모양으로 본다.
+#  - 어디에 있어도: 작성자·팀장님·법무팀 검토·내부 검토용·슬라이드 순서·고객에게/보여주지 말·로고 넣기·제목 수정 필요·`XX%`
+#  - 줄 모양: `내부용`(줄 머리의 `[내부용]`·`내부용:` 이나 줄 끝), `초안`(줄 전체·`(초안)`·`초안 -`·`초안:`), `오타`(줄 전체·`오타 수정|확인 …`·줄 끝),
+#    `폰트 변경|수정|통일|확인|교체`, `(수치 입력)` 꼴(괄호 안에 문서 값 낱말 + 입력, 또는 괄호 하나만 있는 줄; 줄 끝 `)` 는 `_strip_line` 이 뗀다), `○○`·`OO`·`XX`(낱말 하나이거나 단위가 바로 붙을 때만: `○○시청`·`OOO 팀` 은 고객 문장)
+# `설계 초안 제출 2주`·`초안 검토 후 최종안 제출`·`내부망 연동`·`폰트 라이선스 포함`·`오타 없는 OCR 인식률 99%`·`팀장급 PM 투입` 은 그대로 슬라이드에 둔다.
+_H = r"(?<![가-힣A-Za-z0-9])"
+_PH_UNIT = r"(?:%|원|억|만원|개사|개|명|건|일|월|년|배)"
+_FIXED_NOTE = re.compile(
+    r"작성자|팀장님|법무팀\s*검토|내부\s*검토용|슬라이드\s*순서|고객에게\s*보여주지\s*말|보여주지\s*말|로고\s*넣기|제목\s*수정\s*필요"
+    rf"|{_H}[XxＸ]{{2,}}\s*%"
+    rf"|{_H}(?:○{{2}}|OO|XX)(?:\s|{_PH_UNIT}(?![가-힣])|$)"
+    rf"|^[\[\(]?\s*내부용\s*[\]\)]|^내부용\s*[:：\-–—]|{_H}내부용(?:입니다|임)?$"
+    rf"|^[\[\(]?초안[\]\)]?$|^[\[\(]초안[\]\)]|[\[\(]초안[\]\)]?$|^초안\s*[:：\-–—]"
+    rf"|^오타$|{_H}오타\s*(?:수정|확인|체크|있음|검토|발견|정정)|{_H}오타$"
+    rf"|{_H}폰트\s*(?:변경|수정|통일|확인|교체)"
+    rf"|^[\[\(][^()\[\]]{{0,15}}입력[\]\)]?$|[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*(?:[\]\)]|$)"
+)
+
+
 def is_author_instruction(text: str) -> bool:
     """고객에게 보이는 줄이 아니라 작성자에게 하는 말처럼 쓰인 줄인가 (줄 끝 말투로만 본다)."""
     line = _strip_line(str(text or ""))
     if not line:
         return False
+    if _FIXED_NOTE.search(line):
+        return True
     if any(p.search(line) for p in AUTHOR_INSTRUCTION_PATTERNS):
         return True
     doc = _DOC_FIRST.search(line)

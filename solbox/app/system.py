@@ -202,8 +202,9 @@ def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
     return proc.returncode, bytes(out).decode("utf-8", "replace")
 
 
-# 색 지정(`ESC [31m`)·창 제목(`ESC ] … BEL`)·두 글자 이스케이프를 통째로 뺀다 (뒤의 `[31m` 이 남지 않게)
-_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]|\x9b[0-?]*[ -/]*[@-~]")
+# 색 지정(`ESC [31m`)·창 제목(`ESC ] … BEL`, 같은 줄 200자 안에서 끝날 때만 통째로)·두 글자 이스케이프를 뺀다 (뒤의 `[31m` 이 남지 않게).
+# 끝나지 않은 창 제목은 줄을 넘어 먹지 않고 머리(`ESC ] 0;`)만 뺀다 (버전 줄이 사라지지 않게)
+_ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b\n]{0,200}(?:\x07|\x1b\\)|\x1b\](?:\d{1,4};)?|\x1b[@-Z\\-_]|\x9b[0-?]*[ -/]*[@-~]")
 
 
 def _clean_version_text(out: str) -> str:
