@@ -276,6 +276,7 @@ legend { padding: 0 6px; font-size: var(--fs-note); font-weight: var(--fw-strong
 label.check, .picker-list label { flex-direction: row; align-items: center; gap: 8px; font-size: var(--fs-body); font-weight: 400; color: var(--ink); padding: 3px 0; }
 
 /* --- 카드: 제목 줄(제목 + 오른쪽 동작 링크) --- */
+.notice + .notice { margin-top: var(--s2); } /* 안내가 연달아 오면 붙지 않게 */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--card-pad); margin-bottom: var(--gap); min-width: 0; }
 .card > h2:first-child, .card-head h2 { margin: 0; font-size: var(--fs-card); }
 .card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--s2); }
@@ -426,7 +427,7 @@ details.more[open] > summary, details.dir-more[open] > summary { margin-bottom: 
 .stepbar .busy-label { font-size: var(--fs-small); font-weight: 400; }
 
 /* --- 끈끈한 저장 막대 --- */
-.card.stack > .savebar, .plan-form > .savebar { position: sticky; bottom: 0; z-index: 5; align-items: center; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); padding: var(--s3) var(--card-pad); background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 var(--r) var(--r); }
+.card.stack > .savebar, .plan-savebar { position: sticky; bottom: 0; z-index: 5; align-items: center; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); padding: var(--s3) var(--card-pad); background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 var(--r) var(--r); }
 
 /* --- 체크 상자 목록 --- */
 .picker { border: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1062,7 +1063,7 @@ details.formsec[open] > summary { margin-bottom: var(--s3); }
 .plan-newnames > summary { color: var(--ink-3); }
 .plan-newnames[open] { display: flex; flex-direction: column; gap: var(--s3); }
 .redo-row { justify-content: space-between; }
-.plan-form > .savebar { flex-wrap: nowrap; justify-content: flex-start; bottom: var(--s2); margin: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+.plan-savebar { flex-wrap: nowrap; justify-content: flex-start; bottom: var(--s2); margin: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
 .plan-savebar [data-save-count] { min-width: 0; font-weight: var(--fw-strong); }
 html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
 /* 올리기 확인 화면: 떠 있는 저장 막대가 마지막 카드와 입력칸을 가리지 않게 아래 여백과 스크롤 여백을 둔다 */
@@ -1074,7 +1075,7 @@ html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
   body:has(.dash) .side .cta { display: none; }
 }
 @media (max-width: 1099px) {
-  .plan-form > .savebar { flex-direction: row; align-items: center; gap: 10px; padding: var(--s2) var(--s3); }
+  .plan-savebar { flex-direction: row; align-items: center; gap: 10px; padding: var(--s2) var(--s3); }
   .plan-savebar [data-save-count] { font-size: var(--fs-body); }
   .plan-item .row > label { flex: none; }
   .card.stack > .savebar { flex-direction: row; align-items: center; }

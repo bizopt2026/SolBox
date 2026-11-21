@@ -126,11 +126,12 @@ def test_toggle_all_buttons_and_script(app, user_client, db, settings):
 def test_savebar_counts_and_placement(app, user_client, db, settings):
     it, s1, c1 = ready_intake(db, settings)
     page = user_client.get(f"/intake/{it.id}").text
-    bar = re.search(r'<div class="row savebar plan-savebar".*?</div>\s*</form>', page, re.S).group(0)
+    bar = re.search(r'<div class="row savebar plan-savebar".*?</div>', page, re.S).group(0)
     assert "이대로 저장 (3건)" in bar and "3건 저장" in bar and "제외" not in bar.replace("제외하", "")
     assert 'class="primary"' in bar and "다시 정리" not in bar and "버리기" not in bar
-    assert page.index("plan-savebar") > page.index('id="item-act1"') and page.index("다시 정리") > page.index("plan-savebar")
-    assert 'data-total="3"' in bar
+    # 저장 막대는 쪽 맨 끝(폼 밖, form= 으로 연결): "다시 정리하거나 버리기" 위에 떠 있는 자리의 빈틈이 없다
+    assert page.index("plan-savebar") > page.index("다시 정리") > page.index('id="item-act1"')
+    assert 'form="plan-form"' in bar and 'data-total="3"' in bar
 
 
 def test_savebar_counts_excluded_on_rerender(app, user_client, db, settings):
@@ -139,7 +140,7 @@ def test_savebar_counts_excluded_on_rerender(app, user_client, db, settings):
     form["skip_a1"] = ["on"]
     form["act1__summary_md"], form["act1__raw_text"] = [""], [""]
     page = _post(user_client, it, form).text
-    bar = re.search(r'<div class="row savebar plan-savebar".*?</div>\s*</form>', page, re.S).group(0)
+    bar = re.search(r'<div class="row savebar plan-savebar".*?</div>', page, re.S).group(0)
     assert "이대로 저장 (2건)" in bar and "2건 저장 · 1건 제외" in bar
 
 

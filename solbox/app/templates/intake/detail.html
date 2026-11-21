@@ -128,10 +128,6 @@
   {% endwith %}
   {% endfor %}
   </div>
-  <div class="row savebar plan-savebar" data-total="{{ saveable | length }}">
-    <button type="submit" class="primary" data-save-button>이대로 저장 ({{ save_count }}건)</button>
-    <span class="muted" data-save-count aria-live="polite">{{ save_count }}건 저장{% if skip_count %} · {{ skip_count }}건 제외{% endif %}</span>
-  </div>
 </form>
 {% else %}
 <section class="card state-card stack"><h2>정리안</h2><p class="muted">정리할 내용을 찾지 못했습니다. 파일을 더 올리거나, 아래에서 다시 정리해 보세요.</p></section>
@@ -149,6 +145,14 @@
     {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
   </div>
 </details>
+{# 저장 막대는 맨 끝(폼 밖, form= 으로 plan-form 에 연결): 떠 있는 동안 흐름 안의 자리가 비어 보이는 틈이 "다시 정리하거나 버리기" 위가 아니라 쪽 맨 끝에 놓이게 한다 #}
+<p><a class="button" href="/intake/new">+ 더 올리기</a></p>
+{% if saveable %}
+<div class="row savebar plan-savebar" data-total="{{ saveable | length }}" data-form="plan-form">
+  <button type="submit" class="primary" form="plan-form" data-save-button>이대로 저장 ({{ save_count }}건)</button>
+  <span class="muted" data-save-count aria-live="polite">{{ save_count }}건 저장{% if skip_count %} · {{ skip_count }}건 제외{% endif %}</span>
+</div>
+{% endif %}
 {% elif intake.status == "applying" %}
 <section class="card" aria-label="저장 중"><h2>저장하고 있어요</h2><p class="muted">저장이 끝나면 이 화면에 만들어진 기록이 나타납니다. 잠시 뒤 새로 고침하세요.</p>
   {% if stale_applying %}
@@ -187,5 +191,5 @@
 {% elif intake.status == "discarded" %}
 <section class="card state-card stack"><h2>버린 묶음입니다</h2><p class="muted">정리 결과는 저장하지 않았습니다. 올린 원본 파일은 남아 있어 위 표에서 내려받을 수 있습니다.</p></section>
 {% endif %}
-{% if st not in ("applied", "discarded") %}<p><a class="button" href="/intake/new">+ 더 올리기</a></p>{% endif %}
+{% if st not in ("applied", "discarded", "ready") %}<p><a class="button" href="/intake/new">+ 더 올리기</a></p>{% endif %}
 {% endblock %}

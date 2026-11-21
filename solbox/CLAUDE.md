@@ -77,6 +77,14 @@
 - 단계 설명은 접힌 `<details class="stage-legend">`. 목록 도구줄은 좁은 화면(≤600px)에서 유래 탭과 정렬을 "걸러 보기·정렬" 펼침으로 접는다(두 벌을 그리고 CSS 가 한 벌만 보임, 기본이 아닌 것이 걸려 있으면 개수 표시). 목록 첫 칸(`title_cell`)은 두 줄(보조 글 한 줄 줄임표 + 태그 둘까지와 "+N"). 옆으로 미는 줄(단계 막대·제안 단계·구분 탭·표 감싸개)은 `app.js` 의 `initScrollers` 가 현재 항목을 보이게 하고 끝을 흐리게 한다. 제목 줄의 그 자리 삭제 확인은 제목 줄 밑 따로 선 줄에 놓는다.
 - 충돌(409) 화면은 `guards.check_rev(..., values=쓴 값)` 의 `Conflict.diff`(온톨로지 속성 이름표 + 저장된 값 발췌)를 보인다. 연결 번호·후속 조치/니즈 줄·다중 선택은 비교하지 않는다. 같은 이름 경고는 `normalize_name(이름, company=True)`(고객·파트너: ㈜·(주)·주식회사 무시)로 견주고, 공백·대소문자만 다르면 "같은 이름", 그 밖이면 "비슷한 이름"이다. 사이드 메뉴 그림은 `ontology.NAV_ICONS`(새 메뉴 항목은 그림도 더한다).
 
+## 베타 E 묶음이 바꾼 규칙
+- 파이썬 3.11 에서도 돈다 (`pyproject` `>=3.11`). f-string 안에서 같은 따옴표를 다시 쓰거나 치환 칸에 역슬래시·주석을 넣지 않는다 (3.12 문법). `tests/test_beta_e.py` 가 토큰으로 앱 전체를 훑고, `python3.11` 이 있으면 컴파일도 한다. `itertools.batched`·`Path.walk`·`type` 문·`def f[T]` 같은 3.12+ 기능도 쓰지 않는다.
+- AI 문(한 곳, `app/ai/gate.py`): **"off"(처리기 꺼짐)만** 버튼을 막고(`ai_gate().blocked`, `ai_attrs`), 서버도 새 AI 작업을 받지 않는다 — AI 작업을 시작하는 POST 는 `dependencies=[Depends(require_ai_on)]` 를 달고(거절하면 `AIOff` → `main._ai_off_handler` 가 보낸 화면(Referer)으로 알림 `ai_off`, HTMX 는 `HX-Redirect`), 요청 세션(`db.info["ai_off"]`, `get_db`)에 새 `AIJob` 이 들어오면 flush 처리기가 한 번 더 거절한다. 일은 하되 작업만 안 넣는 예외 둘: 올리기(`POST /intake`: 파일 보관, "올림" 상태, 알림 `intake_kept_ai_off`, 정리 시작 버튼은 켜진 뒤)와 제안 건 만들기(`created_ai_off`). 스케줄러도 꺼져 있으면 예약 조사 실행을 만들지 않는다. **"down"(지난 작업이 `not_installed`/`auth` 로 실패)은 막지 않는다**: `ai_note` 가 "다시 시도하면 다시 확인, 계속 실패하면 관리 › 시스템 › AI 연결 확인"을 알리고(관리자는 링크), 성공한 작업이 하나 나오면 저절로 풀린다. 새 AI 버튼·POST 를 더하면 `ai_attrs` 와 `require_ai_on`, `tests/test_ux_notices.py` 의 알림 코드, `tests/test_beta_e.py` 의 `AI_POSTS` 를 함께 고친다. 시험의 서버는 처리기가 꺼진 채 만들어지므로 conftest 가 이 거절을 기본으로 열어 두고, 거절을 시험하는 시험만 `@pytest.mark.ai_gate` 를 단다.
+- 로그인 문제 분류(`runner.classify_error`)는 CLI 의 오류 출력(표준 오류, 오류로 끝난 결과 글)에서 낱말 경계 정규식으로만 본다 (`error_text`).
+- 고객용 PPT 사본 경로(`deck.has_internal_mark`)는 `./`·`C:/…/`·`knowledge/` 같은 머리말과 `/`·`\` 구분자를 허용하고 주소(`://`, 도메인이 앞에 붙음)만 뺀다. 작성자 말투는 쓰기·확인 동사 바로 뒤에 `필요`·`요망`·`할 것`·`바랍니다`·`하세요` 가 붙거나 `함께|반드시 + 제시·기재·명시·작성` 일 때만 (`proposals.AUTHOR_INSTRUCTION_PATTERNS`; 맨 "확인할 것"은 뺐다).
+- 쓰기 잠금: 잠금 대기 초과(`OperationalError`)는 충돌이 아니라 `guards.WriteBusy`(503, "잠시 후 다시 시도")이고, 읽은 뒤 다른 쓰기가 커밋된 경우(`SQLITE_BUSY_SNAPSHOT`)와 줄 표시가 다를 때만 `StaleWrite`(409). 두 오류 화면은 "저장하지 않았습니다" + 뒤로 가기 버튼(`data-history-back`, 브라우저가 쓰던 폼을 되살린다). 번호 표시(`idmarks`)의 잠금 단계도 같다.
+- 같은 이름 경고는 `duplicate_warning()["company"]`(고객·파트너)로 회사 접미 안내를 정한다. 올리기 확인 화면의 저장 막대는 쪽 맨 끝(폼 밖, `form="plan-form"`)이다.
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

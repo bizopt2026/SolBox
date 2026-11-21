@@ -357,7 +357,7 @@
   });
   var planBar = document.querySelector(".plan-savebar");
   if (planBar) {
-    var planForm = planBar.closest("form");
+    var planForm = planBar.closest("form") || document.getElementById(planBar.dataset.form || "");
     var planCount = function () {
       var total = parseInt(planBar.dataset.total, 10) || 0;
       var skipped = planForm.querySelectorAll(".plan-skip input:checked").length;
@@ -626,7 +626,8 @@
   (function () {
     var forms = Array.prototype.slice.call(document.querySelectorAll("form.form-page"));
     var plan = document.querySelector(".plan-savebar");
-    if (plan && plan.closest("form")) forms.push(plan.closest("form"));
+    var planOwner = plan && (plan.closest("form") || document.getElementById(plan.dataset.form || ""));
+    if (planOwner) forms.push(planOwner);
     forms = forms.filter(function (f) { return f.method !== "get"; });
     if (!forms.length) return;
     var snap = function (f) {
