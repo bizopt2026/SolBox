@@ -202,14 +202,17 @@ _VISUAL_WORD = re.compile(rf"{_VISUAL}\S{{0,2}}$")
 _SITE_WORD = re.compile(r"(?:현장|설치|위치|건물|시설|매장|CCTV|카메라|공장|시공|실사|층|사무실|전산실|서버실|기존|장비|센서)")
 # "모든 앞말이 문서 값 낱말" 규칙에 쓰는 낱말: 문서 값 낱말·ROI 같은 약어·수량("30%는", "2건")
 _DOC_ONLY_WORD = re.compile(rf"(?:(?:{_DOC_NEAR}|ROI|KPI|TCO|BEP)\S{{0,2}}|[\d.,]+\s*(?:%|건|개|곳|원|만원|억원|억|천원|배)\S{{0,2}})$")
-_DEICTIC_ONE = frozenset({"이", "위", "위의", "아래", "아래의", "여기", "여기에", "이곳", "이것", "본"})
+_DEICTIC_ONE = frozenset({"이", "위", "위의", "아래", "아래의", "여기", "여기에", "이곳", "이것"})  # `본 계약 기간 …`·`본 견적은 …` 의 `본` 은 고객 문장이 많아 뺐다 (베타 K)
+# 지시어 규칙은 고객 쪽 조건·약속 낱말이 든 줄에는 쓰지 않는다 (`위 금액은 VAT 별도이며 계약 시 재확인 필요`, `위 일정은 귀사 사정에 따라 …`)
+_DEICTIC_STAY = re.compile(r"귀사|고객사|협의|변동|계약|기준|별도")
 _DEICTIC_DOC_PART = re.compile(r"(?:슬라이드|장|페이지|쪽|부분|항목|표)")
 _TOPIC_WORD = re.compile(rf"\S*{_DOC_NEAR}(?:은|는)$")
 _CONTACT_LEAD = re.compile(r"^(?:(?:고객사|거래처)\s+)?담당자(?:명|\s*(?:이름|성함|연락처))?$")
 _LATER_FILL = re.compile(r"(?<!\S)추후\s+(?P<verb>작성|기재|기입|삽입|보완|업데이트|확인)(?:\s*예정)?$")
 _REAL_VALUE = re.compile(r"(?<!\S)실제\s+(?P<mid>(?:\S+\s+){0,3}\S*?)(?:으로|로)\s*(?:교체|대체)(?:\s*(?:필요|요망|할\s*것|하세요))?$")
 _COMPUTED = re.compile(r"(?<!\S)\S*산출\S*\s")
-_SOURCE_NEED = re.compile(r"^(?:(?P<lead>\S+)\s+)?(?:출처|근거)\s*필요$")
+_SOURCE_NEED = re.compile(r"^(?:(?P<lead>\S+(?:\s+\S+)?)\s+)?(?P<core>출처|근거)(?:\s*자료)?\s*필요$")
+_REAL_EXTRA = re.compile(r"(?:데이터|자료|화면|캡처)\S{0,2}$")
 _SLIDE_WORD = re.compile(r"(?:슬라이드|장|페이지|쪽)(?:은|는|을|를|에)?$")
 _DELETE_TAIL = re.compile(r"(?:삭제|제거)(?:\s*(?:할\s*것|하세요|해\s*주세요|바랍니다|요망|예정|요))?$")
 _CUSTOMER_SIDE = re.compile(r"고객|관리자|사용자|직접|에서")
@@ -259,11 +262,16 @@ def _doc_value(word: str, site: bool) -> bool:
     return _DOC_NEAR_WORD.search(word) is not None or (not site and _VISUAL_WORD.search(word) is not None)
 
 
+def _real_word(w: str) -> bool:
+    """`실제 … 로 교체` 사이의 낱말이 바뀔 값인가: 문서 값·그림 낱말·`데이터|자료|화면|캡처`·`값`."""
+    return _DOC_NEAR_WORD.search(w) is not None or _VISUAL_WORD.search(w) is not None or _REAL_EXTRA.search(w) is not None or w.startswith("값")
+
+
 def _is_real_value(line: str) -> bool:
     """"실제 고객사 수치로 교체", "아래 표는 예시이며 실제 값으로 교체": `실제` 와 `(으)로` 사이에 문서 값 낱말(또는 `값`)이 있을 때만.
     "노후 장비를 실제 운영 장비로 교체", "실제 운영 환경으로 교체" 는 고객 쪽 일이다."""
     m = _REAL_VALUE.search(line)
-    return m is not None and any(_DOC_NEAR_WORD.search(w) or w.startswith("값") for w in m.group("mid").split())
+    return m is not None and any(_real_word(w) for w in m.group("mid").split())
 
 
 def _is_later_fill(line: str) -> bool:
@@ -279,9 +287,13 @@ def _is_later_fill(line: str) -> bool:
 
 
 def _is_source_need(line: str) -> bool:
-    """"출처 필요", "수치 출처 필요": 앞말이 없거나 문서 값 낱말 하나일 때만 ("법적 근거 필요", "증빙 자료 필요", "추가 자료 필요" 는 고객 쪽 일)."""
+    """"출처 필요" 는 앞말이 두 낱말까지면 언제나 작성자 메모다 ("데이터 출처 필요", "인용 출처 필요"). "근거 (자료) 필요" 는 앞말이 없거나 문서 값 낱말 하나일 때만
+    ("법적 근거 필요", "증빙 자료 필요", "추가 자료 필요" 는 고객 쪽 일)."""
     m = _SOURCE_NEED.match(line)
-    return m is not None and (m.group("lead") is None or _DOC_ONLY_WORD.match(m.group("lead")) is not None)
+    if m is None:
+        return False
+    lead = m.group("lead")
+    return m.group("core") == "출처" or lead is None or _DOC_ONLY_WORD.match(lead) is not None
 
 
 def _is_note_by_lead(line: str) -> bool:
@@ -302,11 +314,11 @@ def _is_note_by_lead(line: str) -> bool:
         return not plan and verb in ("기재", "작성", "명시", "기입", "입력", "삽입", "보완", "수정", "확인", "추가", "첨부", "보강", "업데이트", "교체", "포함", "제시", "검토")
     if _CONTACT_LEAD.match(lead):
         return True
-    if any(w.startswith("실제") for w in words) and verb in ("교체", "대체", "수정") and any(_DOC_NEAR_WORD.search(w) or w.startswith("값") for w in words):
+    if any(w.startswith("실제") for w in words) and verb in ("교체", "대체", "수정") and any(_real_word(w) for w in words):
         return True  # "실제 고객사 수치로 교체 필요" ("시범 장비는 실제 양산 장비로 교체 예정" 은 고객 쪽 일)
     if _COMPUTED.search(lead + " ") and verb in ("추가", "보강", "첨부", "확인", "보완", "기재") and not plan:
         return True  # "절감률 산출 근거 자료 추가 필요"
-    site = any(_SITE_WORD.match(w) for w in words)
+    site = verb in ("확인", "검토", "첨부") and any(_SITE_WORD.match(w) for w in words)  # 장소 낱말 + 그림은 고객 쪽 일 (`현장 도면 확인 필요`); 삽입·추가·교체는 작성자 메모 (`현장 사진 삽입 예정`)
     if n <= 2 and any(_doc_value(w, site) for w in words):
         return True
     if n <= 4 and not site and _VISUAL_WORD.search(words[-1]):
@@ -316,8 +328,10 @@ def _is_note_by_lead(line: str) -> bool:
     if all(_DOC_ONLY_WORD.match(w) for w in words):
         return True  # "절감률 수치 근거 확인 필요", "ROI 수치 출처 확인 필요", "레퍼런스 사례 2건 추가 필요", "절감률 30%는 근거 확인 필요"
     first = words[0]
-    if (first in _DEICTIC_ONE or (first == "해당" and n > 1 and _DEICTIC_DOC_PART.match(words[1]))) and any(_doc_value(w, site) for w in words):
-        return True  # "이 금액은 다시 확인 필요", "이 부분 사례 추가 필요", "여기에 고객 사례 추가 필요" (앞말이 길어도)
+    reach = 3 if first == "해당" else 2  # 지시어 바로 뒤 두 낱말 안에 문서 값 낱말이 있어야 한다
+    if (not plan and not _DEICTIC_STAY.search(lead) and (first in _DEICTIC_ONE or (first == "해당" and n > 1 and _DEICTIC_DOC_PART.match(words[1])))
+            and any(_doc_value(w, site) for w in words[1:1 + reach])):
+        return True  # "이 금액은 다시 확인 필요", "이 부분 사례 추가 필요", "여기에 고객 사례 추가 필요" (앞말이 길어도; `예정` 과 고객 쪽 낱말이 든 줄은 고객 약속이다)
     if plan and verb in ("기재", "기입", "작성", "삽입") and _TOPIC_WORD.match(words[0]) and (n == 1 or words[-1] == "후"):
         return True  # "금액은 영업팀 확인 후 기재 예정" ("…에 기재 예정" 은 고객 약속)
     return False
