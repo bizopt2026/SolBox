@@ -159,7 +159,7 @@ def test_m2_real_remote_schemes_stay_addresses(text):
 
 # ================= M3: 선형 시험 자식은 부모가 바뀌었을 때만 끝낸다 =================
 def test_m3_child_baseline_is_taken_at_start_and_exits_with_a_reason_only_on_change():
-    # 시작할 때 부모 번호가 달라도(부모가 알린 번호가 낡아도) 바로 끝내지 않고, 시작 뒤 부모가 바뀌면 사유를 stderr 로 남기고 끝낸다
+    # 부모가 그대로 살아 있으면 자식(`_exit_when_parent_dies`)은 기준을 잡은 뒤에도 끝나지 않고 계속 돈다 (뜨자마자 끝내지 않는다). 부모가 사라지는 쪽은 아래 시험이 본다
     code = (
         "import os, sys, time\n"
         "from tests import _linear\n"

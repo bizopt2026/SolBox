@@ -24,7 +24,7 @@ def test_n3_typo_memos_still_move(line):
 
 @pytest.mark.parametrize("line", ["초안: 2주 내 제출", "초안 - 2주 내 제출", "(초안) 일정표", "제안 개요 (설계 초안 제출)"])
 def test_n2_draft_customer_lines_stay(line):
-    assert not is_author_instruction(line) or line.startswith("제안 개요 (초안")
+    assert not is_author_instruction(line), line
 
 
 def test_n1_known_limit_earlier_rows_kept():
