@@ -350,23 +350,64 @@ def _is_slide_delete(line: str) -> bool:
     return m is not None and not _CUSTOMER_SIDE.search(tail[:m.start()])
 
 
-# 베타 L: 다른 규칙과 상관없이 작성자 메모로 옮기는 **고정 낱말**. 고객 문장에 거의 나오지 않는 말만, 낱말 단위(앞뒤에 한글이 붙지 않음)나 줄 모양으로 본다.
-#  - 어디에 있어도: 작성자·팀장님·법무팀 검토·내부 검토용·슬라이드 순서·고객에게/보여주지 말·로고 넣기·제목 수정 필요·`XX%`
-#  - 줄 모양: `내부용`(줄 머리의 `[내부용]`·`내부용:` 이나 줄 끝), `초안`(줄 전체·`(초안)`·`초안 -`·`초안:`), `오타`(줄 전체·`오타 수정|확인 …`·줄 끝),
-#    `폰트 변경|수정|통일|확인|교체`, `(수치 입력)` 꼴(괄호 안에 문서 값 낱말 + 입력, 또는 괄호 하나만 있는 줄; 줄 끝 `)` 는 `_strip_line` 이 뗀다), `○○`·`OO`·`XX`(낱말 하나이거나 단위가 바로 붙을 때만: `○○시청`·`OOO 팀` 은 고객 문장)
-# `설계 초안 제출 2주`·`초안 검토 후 최종안 제출`·`내부망 연동`·`폰트 라이선스 포함`·`오타 없는 OCR 인식률 99%`·`팀장급 PM 투입` 은 그대로 슬라이드에 둔다.
+# 베타 L·M: 작성자 메모의 **고정 낱말**. 베타 L 은 낱말이 줄 어디에 있어도 옮겼으나, 고객 기능 문장에도 흔한 말이라(`작성자 이력 관리 기능`·`폰트 변경 기능 제공`·`법무팀 검토 프로세스 자동화`)
+# 베타 M 부터 **메모 모양의 줄**만 옮긴다. 낱말이 든 줄이 짧고(낱말 말고 세 낱말 이내) 메모 끝말(`_MEMO_END`: 필요·요망·확인·검토·수정·예정·바람·요청·삭제·변경·조정·통일·교체·보완 …, `할 것`·`말 것`)로 끝나거나,
+# 낱말로 끝나는 두 낱말 이내의 줄(`제목 오타`·`고객 로고 넣기`·`내부 검토용`)이거나 줄 전체가 낱말일 때. `작성자`·`팀장님` 은 줄 전체여도 (표의 열 이름) 옮기지 않는다.
+#  - 낱말: 작성자·팀장님·법무팀 검토·내부 검토용·슬라이드 순서·고객에게/보여주지 말·로고 넣기·제목 수정 필요·오타·폰트 변경|수정|통일|확인|교체
+#  - 줄 모양: `내부용`(줄 전체·`[내부용]`·`내부용:` 머리·`이 슬라이드는 내부용`), `초안`(줄 전체·`(초안)` 끝·`초안 -|:` 머리: 뒤 두 낱말 이내이거나 메모 끝말), `(수치 입력)` 꼴(괄호 하나만 있는 줄,
+#    또는 줄 끝의 `(문서 값 입력)` 이 `화면|단계|조건|양식|폼` 뒤가 아닐 때), `○○`·`OO`·`XX`(낱말 하나이거나 단위가 바로 붙을 때만: `○○시청`·`OOO 팀` 은 고객 문장), `XX%`
+# 알려진 한계: `XX% 이상`·`기존 대비 OO배 빠른 처리`·`XX 모델 대비 30% 향상`·`5G XX 대역 지원`·`○○ 은행 콜센터 적용 사례`·`OO 공사 설비 관제 구축` 은 자리표시로 보아 옮긴다.
+# `설계 초안 제출 2주`·`초안 검토 후 최종안 제출`·`내부망 연동`·`폰트 라이선스 포함`·`오타 없는 OCR 인식률 99%`·`팀장급 PM 투입`·`작성자 이력 관리 기능` 은 그대로 슬라이드에 둔다.
 _H = r"(?<![가-힣A-Za-z0-9])"
 _PH_UNIT = r"(?:%|원|억|만원|개사|개|명|건|일|월|년|배)"
-_FIXED_NOTE = re.compile(
-    r"작성자|팀장님|법무팀\s*검토|내부\s*검토용|슬라이드\s*순서|고객에게\s*보여주지\s*말|보여주지\s*말|로고\s*넣기|제목\s*수정\s*필요"
-    rf"|{_H}[XxＸ]{{2,}}\s*%"
+_FIXED_ANYWHERE = re.compile(
+    rf"{_H}[XxＸ]{{2,}}\s*%"
     rf"|{_H}(?:○{{2}}|OO|XX)(?:\s|{_PH_UNIT}(?![가-힣])|$)"
-    rf"|^[\[\(]?\s*내부용\s*[\]\)]|^내부용\s*[:：\-–—]|{_H}내부용(?:입니다|임)?$"
-    rf"|^[\[\(]?초안[\]\)]?$|^[\[\(]초안[\]\)]|[\[\(]초안[\]\)]?$|^초안\s*[:：\-–—]"
-    rf"|^오타$|{_H}오타\s*(?:수정|확인|체크|있음|검토|발견|정정)|{_H}오타$"
-    rf"|{_H}폰트\s*(?:변경|수정|통일|확인|교체)"
-    rf"|^[\[\(][^()\[\]]{{0,15}}입력[\]\)]?$|[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*(?:[\]\)]|$)"
+    rf"|^[\[\(]?\s*내부용\s*[\]\)]|^내부용\s*[:：\-–—]|^[\[\(]?내부용[\]\)]?$|^이\s*(?:슬라이드|페이지|장|문서|자료|제안서)(?:는|은)?\s*내부용(?:입니다|임)?$"
+    rf"|^[\[\(]?초안[\]\)]?$"
+    rf"|^작성자\s*[:：]|^이\s*(?:문서|슬라이드|제안서|자료)의\s*작성자"
+    rf"|^[\[\(][^()\[\]]{{0,15}}입력[\]\)]?$"
 )
+# 낱말이 줄 어디에 있어도 후보로 삼는 고정 낱말 (메모 모양인지는 `_memo_shaped` 가 본다). 뒤 두 갈래(`bare`)는 줄 전체나 끝이 낱말이어도 되는 낱말이다.
+_FIXED_WORD = re.compile(
+    r"(?P<nobare>작성자|팀장님)|(?P<w>법무팀\s*검토|내부\s*검토용(?:입니다|임)?|슬라이드\s*순서|고객에게\s*보여주지\s*말|보여주지\s*말|로고\s*넣기|제목\s*수정\s*필요"
+    rf"|{_H}오타|{_H}폰트\s*(?:변경|수정|통일|확인|교체))")
+_MEMO_END = frozenset("필요 요망 확인 검토 수정 예정 바람 요청 삭제 변경 조정 통일 교체 보완 체크 정정 발견 있음 넣기".split())
+_MEMO_END_PAIR = frozenset({("할", "것"), ("말", "것")})
+_FIXED_MAX_WORDS = 8
+_FIXED_INPUT_END = re.compile(
+    rf"[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*$")
+_FIXED_INPUT_AFTER_NOT = re.compile(r"(?:화면|단계|조건|양식|폼)$")
+_FIXED_DRAFT_HEAD = re.compile(r"^초안\s*[:：\-–—]")
+_FIXED_DRAFT_BRACKET = re.compile(r"^[\[\(]초안[\]\)]")
+_FIXED_DRAFT_TAIL = re.compile(r"[\[\(]초안[\]\)]?$")
+
+
+def _memo_end(words: list[str]) -> bool:
+    return words[-1] in _MEMO_END or (len(words) > 1 and (words[-2], words[-1]) in _MEMO_END_PAIR)
+
+
+def _fixed_note(line: str) -> bool:
+    """줄이 고정 낱말을 가진 **메모 모양**인가 (낱말이 문장 속에 든 고객 기능 문장은 아니다). 낱말 하나당 일정한 일만 하므로 줄 길이에 선형이다."""
+    if _FIXED_ANYWHERE.search(line):
+        return True
+    words = line.split()
+    if not words or len(words) > _FIXED_MAX_WORDS:
+        return False
+    memo = _memo_end(words)
+    for m in _FIXED_WORD.finditer(line):
+        others = len(words) - len(m.group().split())
+        if m.group("nobare"):
+            if memo and others <= 3:
+                return True
+        elif others <= 3 and memo or others <= 2 and m.end() == len(line):
+            return True
+    if _FIXED_DRAFT_HEAD.search(line) or _FIXED_DRAFT_BRACKET.match(line):
+        return (memo and len(words) > 1) or (_FIXED_DRAFT_HEAD.search(line) is not None and len(words) <= 3)
+    if _FIXED_DRAFT_TAIL.search(line) and len(words) <= 3 and not re.search(r"[:：]", line):
+        return True
+    m = _FIXED_INPUT_END.search(line)
+    return m is not None and not _FIXED_INPUT_AFTER_NOT.search(line[:m.start()].rstrip())
 
 
 def is_author_instruction(text: str) -> bool:
@@ -374,7 +415,7 @@ def is_author_instruction(text: str) -> bool:
     line = _strip_line(str(text or ""))
     if not line:
         return False
-    if _FIXED_NOTE.search(line):
+    if _fixed_note(line):
         return True
     if any(p.search(line) for p in AUTHOR_INSTRUCTION_PATTERNS):
         return True
