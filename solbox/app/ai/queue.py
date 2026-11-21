@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import ontology
 from app.ai import tasks
-from app.ai.runner import ClaudeError, ClaudeRunner
+from app.ai.runner import ClaudeError, ClaudeRunner, redact
 from app.config import Settings
 from app.models import AIJob
 
@@ -150,7 +150,7 @@ def process_next(session_factory: sessionmaker[Session], runner: ClaudeRunner, s
         _finish(session_factory, job_id, status="failed", error_kind=e.kind, error=e.message)
     except Exception as e:  # noqa: BLE001 - 어떤 처리기 오류도 작업 실패로 기록한다
         log.exception("AI 작업 %s 처리 중 오류", job_id)
-        _finish(session_factory, job_id, status="failed", error_kind="unknown", error=str(e)[-500:])
+        _finish(session_factory, job_id, status="failed", error_kind="unknown", error=redact(str(e))[-500:])
     else:
         _finish(session_factory, job_id, status="done", result=result or "")
     _after_job(session_factory, kind, job_input)

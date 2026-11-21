@@ -27,22 +27,51 @@ DEFAULT_TOOLS = FILE_TOOLS
 _AUTH_PATTERNS = re.compile(
     r"\bplease (?:log ?in|run /login)\b|(?<![\w.])/login\b|\bnot (?:logged|signed) in\b|\bmust be logged in\b|\blog ?in (?:required|failed)\b"
     r"|\binvalid (?:api[ _-]?key|x-api-key|credentials?|token)\b|\bapi[ _-]?key (?:is )?(?:invalid|missing|not set)\b"
-    r"|\bunauthori[sz]ed\b|\bunauthenticated\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
+    r"|\bunauthori[sz]ed\b(?!\s+tool)|\bunauthenticated\b|\b\w*api_key (?:is )?(?:not set|missing|invalid)\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
     # 401 은 상태 줄(`API Error: 401`, `HTTP 401`, `status 401`)로만 본다: 초·줄 번호·파일 번호·금액 속 401 은 로그인 문제가 아니다.
     r"|\b(?:error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+401\b(?![\w/]|\.\w)"
     # `oauth` 는 낱말 하나만으로 보지 않는다 (`oauth-proxy` 같은 이름).
+    r"|\bapi error[: ]*\(?401\b|\"status\"\s*:\s*401\b"
     r"|\boauth (?:error|token|authentication|failed|failure|login)\b"
     r"|\b(?:failed to authenticate|not authenticated|authentication[ _](?:error|failed|failure|required))\b"
     r"|\b(?:(?:oauth|access|auth|api|login) )?(?:token|credentials?) (?:has )?expired\b|\b(?:session|login) has expired\b",
     re.I,
 )
 # 로그인 다음에 본다. 시간 초과·네트워크 글이 한도 낱말에 가려지지 않게, 한도는 429 를 낱말 경계로 상태 줄에서만 본다.
-_LIMIT_PATTERN = re.compile(r"usage limit|rate limit|quota|limit reached|hit your limit|\b(?:error|http|status)[: ]+429\b|\b429 too many", re.I)
+_LIMIT_PATTERN = re.compile(r"usage limit|rate limit|quota|limit reached|hit your limit|\b(?:error|http|status(?: code)?)[: ]+429\b|\b429 too many|\bapi error[: ]*\(?429\b|\"status\"\s*:\s*429\b|\bcredit balance is too low\b", re.I)
+# 프록시 인증(407)은 Claude 로그인 문제가 아니라 네트워크 문제다.
+_PROXY_PATTERN = re.compile(r"\bproxy authentication required\b|\b407\b[: ]+proxy|\bstatus(?: code)?[: ]+407\b", re.I)
 _NETWORK_WORDS = ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out", "connection error", "fetch failed", "econnreset", "etimedout")
+
+
+# 사용자 화면·`AIJob.error` 에 남는 오류 글에서 비밀처럼 보이는 값을 가린다 (CLI 의 표준 출력·표준 오류가 그대로 들어올 수 있다).
+_SECRET_PATTERNS = (
+    re.compile(r"sk-ant-[A-Za-z0-9_\-]+"),
+    re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}"),
+    re.compile(r"(\b\w*API_KEY\w*\s*[=:]\s*)[\"']?[^\s\"',;]+[\"']?", re.I),
+    re.compile(r"(\bAuthorization\s*[=:]\s*(?:Bearer|Basic|Token)?\s*)[^\s\"',;]+", re.I),
+    re.compile(r"(\bBearer\s+)[A-Za-z0-9._~+/=\-]{8,}", re.I),
+    re.compile(r"(\bx-api-key\s*[=:]\s*)[\"']?[^\s\"',;]+[\"']?", re.I),
+)
+MASK = "***"
+
+
+def redact(text: str) -> str:
+    """오류 글의 비밀 값(`sk-ant-…` 토큰, `*_API_KEY=…`, `Authorization: Bearer …`, `x-api-key: …`)을 `***` 로 바꾼다."""
+    out = text or ""
+    for pat in _SECRET_PATTERNS:
+        out = pat.sub(lambda m: (m.group(1) if m.re.groups else "") + MASK, out)
+    return out
+
+
+def _join(*parts: str | None) -> str:
+    """빈 조각을 빼고 줄바꿈 하나로 잇는다 (빈 줄이 겹치지 않게)."""
+    return "\n".join(p.strip() for p in parts if p and p.strip())
 
 
 class ClaudeError(Exception):
     def __init__(self, kind: str, message: str = ""):
+        message = redact(message)
         super().__init__(message)
         self.kind = kind
         self.message = message
@@ -64,6 +93,8 @@ def assert_tool_separation(allowed_tools: tuple[str, ...] | list[str]) -> None:
 
 def classify_error(text: str) -> str:
     lowered = text.lower()
+    if _PROXY_PATTERN.search(text):
+        return "network"
     if _AUTH_PATTERNS.search(text):
         return "auth"
     if _LIMIT_PATTERN.search(text):
@@ -83,7 +114,7 @@ def error_text(result: str | None, stderr: str, *, result_is_error: bool, stdout
     # 표준 오류에 Node 경고 같은 잡음이 있어도 JSON 이 아닌 표준 출력(`Invalid API key · Please run /login`)을 같이 본다.
     if not result_is_error and stdout.strip() and returncode not in (0, None) and result is None:
         parts.append(stdout)
-    return "\n".join(parts)
+    return _join(*parts)
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
@@ -210,12 +241,12 @@ class ClaudeRunner:
             if isinstance(result, str):
                 return result
 
-        raw = stdout + "\n" + stderr
+        raw = _join(stdout, stderr)
         if data is not None and isinstance(data.get("result"), str):
-            raw = data["result"] + "\n" + stderr
+            raw = _join(data["result"], stderr)
         shown = error_text(data.get("result") if data is not None else None, stderr, result_is_error=bool(data is not None and data.get("is_error")),
                            stdout=stdout, returncode=proc.returncode)
-        raise ClaudeError(classify_error(shown), raw.strip()[-500:])
+        raise ClaudeError(classify_error(shown), redact(raw)[-500:])
 
     def run_stream(
         self,
@@ -350,13 +381,13 @@ class ClaudeRunner:
         if (proc.returncode == 0 and result_line is not None
                 and not result_line.get("is_error") and isinstance(result, str)):
             return result
-        raw = (result if isinstance(result, str) else "") + "\n" + stderr
+        raw = _join(result if isinstance(result, str) else "", stderr)
         if result is None and proc.returncode not in (0, None) and plain_lines:
-            raw += "\n" + "\n".join(plain_lines)
+            raw = _join(raw, "\n".join(l.rstrip() for l in plain_lines))
         if raw.strip():
             shown = error_text(result, stderr, result_is_error=bool(result_line is not None and result_line.get("is_error")),
                                stdout="\n".join(plain_lines), returncode=proc.returncode)
-            raise ClaudeError(classify_error(shown), raw.strip()[-500:])
+            raise ClaudeError(classify_error(shown), redact(raw)[-500:])
         # 아무 글도 없이 끝났다. 조용히 빈 답으로 넘기지 않고 이유를 분명히 적는다.
         if result_line is not None:
             raise ClaudeError("bad_output", "Claude 가 결과 글 없이 끝났습니다.")

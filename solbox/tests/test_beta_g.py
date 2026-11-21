@@ -166,3 +166,33 @@ def test_g5_customer_lines_stay(text):
 def test_g5_author_notes_move(text):
     from app.proposals import is_author_instruction
     assert is_author_instruction(text), text
+
+
+# ---- G6/G7: 오류 분류와 비밀 가리기 ----
+
+from app.ai.runner import ClaudeError, classify_error, error_text, redact
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("ANTHROPIC_API_KEY is not set", "auth"), ("Request failed with status code 429", "limit"), ("API Error (401) invalid", "auth"),
+    ('{"status":401,"error":"x"}', "auth"), ("API Error (429)", "limit"), ("Credit balance is too low", "limit"),
+    ("407 Proxy Authentication Required", "network"), ("Error: unauthorized tool use", "unknown"),
+])
+def test_g6_classify(text, kind):
+    assert classify_error(text) == kind
+
+
+@pytest.mark.parametrize("text,gone", [
+    ("실패 sk-ant-api03-abcDEF_123-xyz", "abcDEF_123"), ("ANTHROPIC_API_KEY=hunter2value", "hunter2value"),
+    ("Authorization: Bearer abcdef123456", "abcdef123456"), ("x-api-key: abcdef12", "abcdef12"),
+    ("export OPENAI_API_KEY='zzzsecret'", "zzzsecret"),
+])
+def test_g7_redact(text, gone):
+    assert gone not in redact(text)
+    assert gone not in ClaudeError("unknown", text).message
+
+
+def test_g7_error_text_has_no_blank_gaps():
+    shown = error_text(None, "", result_is_error=False, stdout="Invalid API key", returncode=1)
+    assert shown == "Invalid API key"
+    assert "\n\n" not in error_text("x", "\n warn \n", result_is_error=True)
