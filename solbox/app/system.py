@@ -9,6 +9,8 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
@@ -109,34 +111,78 @@ def _check_knowledge(settings: Settings) -> Check:
 
 
 VERSION_LINE_MAX = 200  # 화면·캐시에 남기는 `claude --version` 첫 줄의 길이 (이상한 출력이 화면을 채우지 않게)
+OUTPUT_CAP = 64 * 1024  # 표준 출력·표준 오류마다 담아 두는 최대 바이트 (나머지는 읽어서 버린다: 자식이 파이프가 차서 멈추지 않게)
+
+
+def _drain(stream, buf: bytearray) -> None:
+    """파이프를 끝까지 읽되 `OUTPUT_CAP` 바이트까지만 담는다."""
+    try:
+        while True:
+            chunk = stream.read1(65536)
+            if not chunk:
+                return
+            room = OUTPUT_CAP - len(buf)
+            if room > 0:
+                buf += chunk[:room]
+    except (OSError, ValueError):
+        return
 
 
 def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
     """`cmd` 를 `timeout` 초까지만 돌리고 (종료 코드, 표준 출력) 을 돌려준다. 입력은 막는다(`stdin=DEVNULL`).
     제한을 넘으면 프로세스와 그 자식·손자까지 죽이고(Windows 는 `taskkill /T /F /PID`, 그 밖에는 새 프로세스 그룹을 `killpg`) `subprocess.TimeoutExpired` 를 낸다.
-    Windows 의 npm `.cmd` 껍데기(`claude.cmd` → cmd.exe → node)는 껍데기만 죽이면 node 가 파이프를 쥔 채 남아 끝없이 기다리게 되므로 한정 없는 `communicate()` 는 부르지 않는다."""
-    from app.ai.runner import _kill_tree, _reap
+    출력은 읽기 스레드가 `OUTPUT_CAP` 바이트까지만 담고 나머지는 버린다. 한정 없는 `communicate()` 는 부르지 않고 파이프도 닫지 않는다
+    (Windows 의 npm `.cmd` 껍데기 → node 가 파이프를 쥐거나 읽기 스레드가 파이프에 걸려 있어도 기다림은 모두 한정이다: 못 끝낸 읽기 스레드는 데몬으로 버린다)."""
+    from app.ai.runner import _kill_tree
 
     kw: dict = {}
     if sys.platform == "win32":
         kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     else:
         kw["start_new_session"] = True
-    proc = subprocess.Popen(
-        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace", **kw,
-    )
+    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw)
+    deadline = time.monotonic() + timeout
+    out, err = bytearray(), bytearray()
+    readers = [threading.Thread(target=_drain, args=(proc.stdout, out), daemon=True), threading.Thread(target=_drain, args=(proc.stderr, err), daemon=True)]
+    for t in readers:
+        t.start()
+
+    def finish() -> None:
+        give_up = time.monotonic() + 2  # 한정: 파이프를 쥔 손자가 남아 있으면 읽기 스레드를 버린다 (둘을 합쳐 2초)
+        for t in readers:
+            t.join(max(give_up - time.monotonic(), 0))
+        for t, stream in zip(readers, (proc.stdout, proc.stderr)):
+            if not t.is_alive():  # 읽기가 끝난 파이프만 닫는다 (읽는 스레드가 쥔 파이프의 close() 는 그 스레드를 기다리며 멈출 수 있다)
+                try:
+                    stream.close()
+                except OSError:
+                    pass
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+
     try:
-        out, _err = proc.communicate(timeout=timeout)
+        proc.wait(timeout=max(timeout, 0))
+        for t in readers:  # 자식은 끝났는데 손자가 파이프를 쥐고 있을 수 있다: 남은 시간까지만 기다린다
+            t.join(max(deadline - time.monotonic(), 0.2))
+        if any(t.is_alive() for t in readers):
+            _kill_tree(proc)
     except subprocess.TimeoutExpired:
         _kill_tree(proc)
-        _reap(proc)  # 한정 있는 회수: 손자가 파이프를 쥐고 있어도 멈추지 않는다
+        finish()
         raise
     except BaseException:
         _kill_tree(proc)
-        _reap(proc)
+        finish()
         raise
-    return proc.returncode, out or ""
+    finish()
+    return proc.returncode, bytes(out).decode("utf-8", "replace")
+
+
+def _clean_version_text(out: str) -> str:
+    """제어 문자(NUL·ESC·`\\r` …)와 보이지 않는 글자를 뺀다 (줄바꿈만 남긴다)."""
+    return "".join(ch for ch in out if ch == "\n" or ch.isprintable())
 
 
 def _check_claude(settings: Settings, timeout: float = 30) -> Check:
@@ -152,7 +198,8 @@ def _check_claude(settings: Settings, timeout: float = 30) -> Check:
         return ("Claude CLI", f"--version 을 실행하지 못했습니다 ({e}).", "")
     if code != 0:
         return ("Claude CLI", f"--version 이 실패했습니다 (종료 코드 {code}).", "")
-    first = out.strip().splitlines()[0].strip() if out.strip() else ""
+    lines = [ln.strip() for ln in _clean_version_text(out).splitlines() if ln.strip()]
+    first = lines[0] if lines else ""
     return ("Claude CLI", None, first[:VERSION_LINE_MAX] if first else exe)
 
 
