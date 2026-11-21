@@ -229,6 +229,9 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
     before = db.query(AIJob).count()
     for route, url in paths.items():
         r = admin_client.post(url, data={"message": "x", "raw_text": "메모"}, headers={"referer": "http://testserver/proposals/1"}, follow_redirects=False)
+        if route in ("/activities/draft", "/proposals/{proposal_id}/chat"):  # 베타 F: 쓴 글이 있는 라우트는 글을 채운 같은 폼을 돌려준다 (test_beta_f)
+            assert r.status_code == 409 and "AI 작업 처리기가 꺼져 있어" in r.text, (route, r.status_code)
+            continue
         assert r.status_code == 303, (route, r.status_code)
         assert r.headers["location"].startswith("/proposals/1?notice=ai_off&nt="), (route, r.headers["location"])
     db.expire_all()
