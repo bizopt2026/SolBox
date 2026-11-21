@@ -438,14 +438,36 @@ def mirror_folders() -> tuple[str, ...]:
 
 
 # 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로 모양 (`opportunities/2.md`, `solutions/3/card.md`, `customers/12`).
-# 폴더 이름은 온톨로지에서 읽고, 폴더 뒤에 `/<번호…>` 가 와야 하며, 주소(`https://…/solutions/…`)·낱말·경로 조각 뒤에 붙은 것은 사본 경로가 아니다.
+# 폴더 이름은 온톨로지에서 읽고, 폴더 뒤에 `/<번호…>`(구분자는 `/` 와 `\` 둘 다) 가 와야 한다. 앞에 경로 머리말(`./`, `../`, `C:/…/`, `knowledge/`, `data/knowledge/`)이 붙어도
+# 사본 경로다. 주소(`https://…/solutions/3`, 도메인이 앞에 붙은 `www.acme.co.kr/customers/12`)·낱말에 붙은 것(`a-solutions/3.md`)은 사본 경로가 아니다.
 _SEG = r"[\w가-힣.\-]"
-_MIRROR_PATH = re.compile(r"(?<![\w/.:\-])(?:" + "|".join(map(re.escape, mirror_folders())) + rf")/\d{_SEG}*(?:/{_SEG}+)*")
+_SEP = r"[/\\]"
+_FOLDER_AT = re.compile(r"(?<![\w])(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP}\d")
+_TOKEN_BREAK = re.compile(r"[\s\"'`()<>\[\]{},;|]")
+_PATH_HEAD = re.compile(rf"^(?:\.{{1,2}}{_SEP}|[A-Za-z]:{_SEP}|{_SEP})?(?:{_SEG}+{_SEP})*$")
+_DOMAIN_SEG = re.compile(r"^[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}$")
+
+
+def _is_mirror_path_at(text: str, start: int) -> bool:
+    """`text[start:]` 가 폴더/번호로 시작할 때, 앞의 붙은 글(머리말)이 경로 머리말이면 사본 경로다."""
+    head_start = start
+    while head_start > 0 and not _TOKEN_BREAK.match(text[head_start - 1]):
+        head_start -= 1
+    head = text[head_start:start]
+    if "://" in text[head_start:start + 200].split()[0]:
+        return False  # 주소
+    if not head:
+        return True
+    if not _PATH_HEAD.match(head):
+        return False  # 낱말·`a-` 처럼 구분자로 끝나지 않는 머리말
+    segs = [x for x in re.split(_SEP, head) if x]
+    return not any(_DOMAIN_SEG.match(x) for x in segs)  # 도메인 이름이 앞에 있으면 주소
 
 
 def has_internal_mark(text) -> bool:
     """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
-    return bool(_MIRROR_PATH.search(_clean(text)))
+    t = _clean(text)
+    return any(_is_mirror_path_at(t, m.start()) for m in _FOLDER_AT.finditer(t))
 
 
 def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:

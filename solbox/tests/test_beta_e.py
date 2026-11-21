@@ -342,3 +342,26 @@ def test_auth_ignores_non_error_result_text(settings, fake_claude):
     with pytest.raises(ClaudeError) as e:
         ClaudeRunner(settings.claude_cmd, settings.knowledge_dir).run_stream("x", on_text=lambda t: None)
     assert e.value.kind != "auth"
+
+
+# ---- E6 고객용 PPT 의 사본 경로: 머리말이 붙어도 거른다 ----
+
+from app.deck import has_internal_mark
+
+
+@pytest.mark.parametrize("text", [
+    "knowledge/solutions/3/card.md 참고", "./solutions/3.md", "C:/solbox/data/knowledge/customers/4.md", "solutions\\3.md",
+    "../solutions/3.md", "data\\knowledge\\solutions\\3\\card.md", "/srv/solbox/data/knowledge/customers/4.md", '"solutions/3.md"',
+    "solutions/3.md", "customers/12", "자세한 건 solutions/3/card.md 참고", "(projects/5)", "출처: solutions/7/files/3-사양서.md",
+])
+def test_prefixed_internal_paths_are_caught(text):
+    assert has_internal_mark(text)
+
+
+@pytest.mark.parametrize("text", [
+    "https://x.com/solutions/3", "자세한 소개: https://acme.co.kr/solutions/ai-vision", "B2B customers/partners 모두 지원", "README.md 참고",
+    "research/개발 조직과 협업", "연 2/3 수준", "www.acme.co.kr/customers/12", "x.com/solutions/3", "a-solutions/3.md",
+    "https://x.kr/solutions/3.md", "http://localhost:8443/customers/12", "notes.md 파일",
+])
+def test_urls_and_ordinary_lines_survive(text):
+    assert not has_internal_mark(text)
