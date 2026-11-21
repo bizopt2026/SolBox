@@ -64,6 +64,8 @@ def main() -> int:
         time.sleep(control.get("sleep_s", 5))
     elif mode == "garbage":
         print(control.get("garbage", "this is not json"))
+        if control.get("stderr"):
+            sys.stderr.write(control["stderr"])
         return control.get("exit_code", 0)
     elif mode == "error":
         sys.stderr.write(control.get("stderr", ""))

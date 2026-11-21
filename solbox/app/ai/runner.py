@@ -25,18 +25,20 @@ DEFAULT_TOOLS = FILE_TOOLS
 # 로그인 문제는 낱말 경계가 있는 표현만 본다 (일반 답변의 "SSO login", "certificate has expired" 같은 글이 로그인 문제가 되지 않게).
 # 그리고 CLI 의 오류 출력(표준 오류, 오류로 끝난 결과 글)에서만 찾는다: `error_text`.
 _AUTH_PATTERNS = re.compile(
-    r"\bplease (?:log ?in|run /login)\b|(?<![\w.])/login\b|\bnot (?:logged|signed) in\b|\blog ?in (?:required|failed)\b"
-    r"|\binvalid (?:api[ _-]?key|credentials?|token)\b|\bunauthori[sz]ed\b|\b401\b|\boauth\b"
-    r"|\b(?:failed to authenticate|not authenticated|authentication (?:error|failed|failure|required))\b"
-    r"|\b(?:oauth |access |auth |api |login |session )?(?:token|credentials?|session|login) (?:has )?expired\b",
+    r"\bplease (?:log ?in|run /login)\b|(?<![\w.])/login\b|\bnot (?:logged|signed) in\b|\bmust be logged in\b|\blog ?in (?:required|failed)\b"
+    r"|\binvalid (?:api[ _-]?key|x-api-key|credentials?|token)\b|\bapi[ _-]?key (?:is )?(?:invalid|missing|not set)\b"
+    r"|\bunauthori[sz]ed\b|\bunauthenticated\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
+    # 401 은 상태 줄(`API Error: 401`, `HTTP 401`, `status 401`)로만 본다: 초·줄 번호·파일 번호·금액 속 401 은 로그인 문제가 아니다.
+    r"|\b(?:error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+401\b(?![\w/]|\.\w)"
+    # `oauth` 는 낱말 하나만으로 보지 않는다 (`oauth-proxy` 같은 이름).
+    r"|\boauth (?:error|token|authentication|failed|failure|login)\b"
+    r"|\b(?:failed to authenticate|not authenticated|authentication[ _](?:error|failed|failure|required))\b"
+    r"|\b(?:(?:oauth|access|auth|api|login) )?(?:token|credentials?) (?:has )?expired\b|\b(?:session|login) has expired\b",
     re.I,
 )
-# (종류, 키워드) — 위에서부터 먼저 맞는 것이 이긴다. "auth" 는 위의 정규식이 따로 본다.
-_CLASSIFY = [
-    ("limit", ("usage limit", "rate limit", "quota", "429", "limit reached", "hit your limit")),
-    ("network", ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out",
-                "connection error", "fetch failed", "econnreset", "etimedout")),
-]
+# 로그인 다음에 본다. 시간 초과·네트워크 글이 한도 낱말에 가려지지 않게, 한도는 429 를 낱말 경계로 상태 줄에서만 본다.
+_LIMIT_PATTERN = re.compile(r"usage limit|rate limit|quota|limit reached|hit your limit|\b(?:error|http|status)[: ]+429\b|\b429 too many", re.I)
+_NETWORK_WORDS = ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out", "connection error", "fetch failed", "econnreset", "etimedout")
 
 
 class ClaudeError(Exception):
@@ -64,20 +66,22 @@ def classify_error(text: str) -> str:
     lowered = text.lower()
     if _AUTH_PATTERNS.search(text):
         return "auth"
-    for kind, words in _CLASSIFY:
-        if any(w in lowered for w in words):
-            return kind
+    if _LIMIT_PATTERN.search(text):
+        return "limit"
+    if any(w in lowered for w in _NETWORK_WORDS):
+        return "network"
     return "unknown"
 
 
 def error_text(result: str | None, stderr: str, *, result_is_error: bool, stdout: str = "", returncode: int | None = None) -> str:
     """분류에 쓸 글: 표준 오류 + 오류로 끝난 결과 글. 정상 답변이 들어 있을 수 있는 표준 출력·결과 글은 쓰지 않는다
-    (JSON 이 아닌 표준 출력은 종료 코드가 0 이 아니고 표준 오류가 비었을 때만)."""
+    (JSON 이 아닌 표준 출력은 종료 코드가 0 이 아니고 읽은 결과가 없을 때만, 표준 오류가 있어도 함께)."""
     parts = []
     if result_is_error and isinstance(result, str):
         parts.append(result)
     parts.append(stderr)
-    if not result_is_error and not stderr.strip() and stdout.strip() and returncode not in (0, None) and result is None:
+    # 표준 오류에 Node 경고 같은 잡음이 있어도 JSON 이 아닌 표준 출력(`Invalid API key · Please run /login`)을 같이 본다.
+    if not result_is_error and stdout.strip() and returncode not in (0, None) and result is None:
         parts.append(stdout)
     return "\n".join(parts)
 
@@ -275,6 +279,7 @@ class ClaudeRunner:
         threads = [writer, err_reader, out_reader]
         accumulated = ""
         parsed_events = 0
+        plain_lines: list[str] = []
         result_line: dict | None = None
         try:
             for t in threads:
@@ -293,6 +298,8 @@ class ClaudeRunner:
                 try:
                     data = json.loads(line)
                 except ValueError:
+                    if sum(map(len, plain_lines)) < 4000:
+                        plain_lines.append(line)  # JSON 이 아닌 줄(CLI 가 표준 출력으로 낸 오류 글)
                     continue
                 if not isinstance(data, dict):
                     continue
@@ -344,8 +351,11 @@ class ClaudeRunner:
                 and not result_line.get("is_error") and isinstance(result, str)):
             return result
         raw = (result if isinstance(result, str) else "") + "\n" + stderr
+        if result is None and proc.returncode not in (0, None) and plain_lines:
+            raw += "\n" + "\n".join(plain_lines)
         if raw.strip():
-            shown = error_text(result, stderr, result_is_error=bool(result_line is not None and result_line.get("is_error")))
+            shown = error_text(result, stderr, result_is_error=bool(result_line is not None and result_line.get("is_error")),
+                               stdout="\n".join(plain_lines), returncode=proc.returncode)
             raise ClaudeError(classify_error(shown), raw.strip()[-500:])
         # 아무 글도 없이 끝났다. 조용히 빈 답으로 넘기지 않고 이유를 분명히 적는다.
         if result_line is not None:
