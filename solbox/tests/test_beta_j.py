@@ -41,27 +41,7 @@ def _ratio_ok(fn, make, factor=20.0, slack=3.0):
 
 # ================= J1: 오류 분류 =================
 
-CLASSIFY_SHAPES = {
-    "env + spaces": lambda n: "ANTHROPIC_API_KEY" + " " * n + "x",
-    "env + newlines": lambda n: "ANTHROPIC_API_KEY" + "\n" * n + "x",
-    "env + tabs and colon": lambda n: "ANTHROPIC_API_KEY:" + "\t" * n + "x",
-    "many env + spaces": lambda n: ("ANTHROPIC_API_KEY" + " " * 300 + "x ") * (n // 320),
-    "repeated 401": lambda n: "401 " * (n // 4),
-    "repeated status 401": lambda n: "status 401 " * (n // 11),
-    "repeated proxy auth": lambda n: "proxy auth " * (n // 11),
-    "repeated proxy authentication": lambda n: "proxy authentication " * (n // 21),
-    "error + spaces": lambda n: "error" + " " * n + "x",
-    "code=": lambda n: "code" + "= " * (n // 2),
-    "api key": lambda n: "the api key " * (n // 12),
-    "exit code": lambda n: "exit code: " * (n // 11),
-    "invalid token": lambda n: "invalid token " * (n // 14),
-}
-
-
-@pytest.mark.parametrize("name", list(CLASSIFY_SHAPES))
-def test_j1_classify_is_linear(name):
-    """`ANTHROPIC_API_KEY` 뒤 `\\s*[:\\s]\\s*` 는 빈칸·줄바꿈이 이어지면 제곱 시간이었다 (16KB 에 16초)."""
-    _ratio_ok(_classify, CLASSIFY_SHAPES[name])
+# (선형 시험은 베타 K 부터 tests/_linear.py 의 자식 프로세스 시험이다)
 
 
 def test_j1_classify_of_a_huge_text_is_capped_and_keeps_the_status_line():
@@ -163,59 +143,11 @@ def test_j7_every_pass_is_idempotent_on_pathological_shapes():
         assert redact(once) == once, (text, once)
 
 
-@pytest.mark.parametrize("name", ["pem literal", "userinfo", "userinfo at signs", "sk-ant tail", "curl -u", "max_token", "pass names", "cookie", "authorization list", "short name suffix"])
-def test_j7_new_patterns_are_linear(name):
-    shapes = {
-        "pem literal": lambda n: ("-----BEG" + "IN PRIVATE KEY-----\\n") * (n // 28),
-        "userinfo": lambda n: "a://" + "b:@" * (n // 3),
-        "userinfo at signs": lambda n: ("a://" + "b" * 90 + ":" + "@" * 100) * (n // 200),
-        "sk-ant tail": lambda n: (SK + "a./") * (n // 10),
-        "curl -u": lambda n: "-u a:bbb " * (n // 9),
-        "max_token": lambda n: "max_" * (n // 4) + "token",
-        "pass names": lambda n: "pass: " * (n // 6),
-        "cookie": lambda n: "cookie: " * (n // 8),
-        "authorization list": lambda n: "Authorization:[" * (n // 15),
-        "short name suffix": lambda n: "a_" * (n // 2) + "pass",
-    }
-    _ratio_ok(_redact_all, shapes[name])
-
-
 # ================= J2·J3: 작성자 말투 (표 밖의 선형 시간) =================
 
-AUTHOR_SHAPES = {
-    "later fill": lambda n: "추후 " * (n // 3) + "업데이트",
-    "real value": lambda n: "실제 " * (n // 3) + "교체",
-    "deictic": lambda n: "이 " * (n // 2) + "금액 확인 필요",
-    "doc words": lambda n: "절감률 " * (n // 4) + "근거 확인 필요",
-    "numbers": lambda n: "30% " * (n // 4) + "근거 확인 필요",
-    "visual": lambda n: "도면 " * (n // 3) + "확인 필요",
-    "site": lambda n: "현장 " * (n // 3) + "사진 첨부 필요",
-    "source need": lambda n: "법적 " * (n // 3) + "근거 필요",
-}
-
-
-@pytest.mark.parametrize("name", list(AUTHOR_SHAPES))
-def test_j2_author_rules_are_linear(name):
-    _ratio_ok(is_author_instruction, AUTHOR_SHAPES[name])
 
 
 # ================= J8: 사본 경로 =================
-
-DECK_SHAPES = {
-    "unit then parens": lambda n: ("customers/100명(2026.11 기준) ") * (n // 24),
-    "thousands": lambda n: "customers/1,200" * (n // 15),
-    "lone units": lambda n: "solutions/3안 " * (n // 12),
-    "knowledge units": lambda n: "knowledge/solutions/3일 " * (n // 22),
-    "entities": lambda n: "solutions/&#51;" * (n // 15),
-    "percent digits": lambda n: "solutions%2F%33" * (n // 15),
-    "mirror files": lambda n: "data/knowledge/index.md " * (n // 24),
-}
-
-
-@pytest.mark.parametrize("name", list(DECK_SHAPES))
-def test_j8_deck_rules_are_linear(name):
-    _ratio_ok(has_internal_mark, DECK_SHAPES[name])
-
 
 def test_j8_extension_is_looked_for_only_right_after_the_number_or_unit():
     assert not has_internal_mark("partners/2개사(kt.com)")
@@ -295,7 +227,7 @@ def test_j9_run_bounded_returns_when_the_child_exits_even_if_a_grandchild_keeps_
 def test_j9_version_line_drops_control_characters(settings, monkeypatch):
     monkeypatch.setattr(system, "run_bounded", lambda cmd, timeout: (0, "\x00\x1b[31m1.2.3 (Claude Code)\x07\x00\x08\n\rsecond"))
     name, problem, detail = system._check_claude(settings)
-    assert problem is None and detail == "[31m1.2.3 (Claude Code)", detail
+    assert problem is None and detail == "1.2.3 (Claude Code)", detail
     monkeypatch.setattr(system, "run_bounded", lambda cmd, timeout: (0, "\x00\x00\n\x1b\n"))
     name, problem, detail = system._check_claude(settings)
     assert problem is None and detail  # 읽을 글이 없으면 실행 파일 경로

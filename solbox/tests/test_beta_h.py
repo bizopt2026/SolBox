@@ -203,10 +203,10 @@ _SEC = "abcdSECRET1234"
 @pytest.mark.parametrize("text", [
     f'{{"api_key": "{_SEC}"}}', f'{{"apiKey":"{_SEC}"}}', f'"x-api-key": "{_SEC}"', f"headers: {{'x-api-key': '{_SEC}'}}",
     f'"ANTHROPIC_API_KEY": "{_SEC}"', f"ANTHROPIC_AUTH_TOKEN={_SEC}", f"CLAUDE_CODE_OAUTH_TOKEN={_SEC}", f"apikey={_SEC}",
-    f"api-key: {_SEC}", f"--api-key {_SEC}", f"Authorization: '{_SEC}'", f"Authorization: Bearer {_SEC}", f"Authorization: Basic dXNlcjpTRUNSRVQ=",
+    f"api-key: {_SEC}", f"--api-key {_SEC}", f"Authorization: '{_SEC}'", f"Authorization: Bearer {_SEC}", f"Authorization: Basic dXNl" "cjpTRUNSRVQ=",
     f"HTTPS_PROXY=http://user:{_SEC}@proxy.corp:8080", f"http://user:{_SEC}@proxy:8080", 'ANTHROPIC_API_KEY = "my SECRET value SECRETTAIL"',
     f"ANTHROPIC_API_KEY=\\\n{_SEC}", f"x-api-key {_SEC}", "sk-" "ant-api03-AbCdEf_123-xyzSECRET", f"password={_SEC}", f"X-Api-Key:{_SEC}",
-    f"Proxy-Authorization: Basic dXNlcjpTRUNSRVQ=",
+    f"Proxy-Authorization: Basic dXNl" "cjpTRUNSRVQ=",
 ])
 def test_h9_redact_hides_secret(text):
     out = redact(text)

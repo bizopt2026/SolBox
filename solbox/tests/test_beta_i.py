@@ -105,6 +105,13 @@ DECK_REMOVE = {
     'beta J: knowledge anchor, entities, mirror files': [
         'knowledge/solutions/3일', 'C:\\data\\knowledge\\solutions\\3개', 'solutions/&#51;', 'solutions%2F%33', 'data/knowledge/index.md', 'knowledge/solutions/card.md', 'data/solbox.db',
     ],
+    'beta K (review8 k3/k4/l8: mirror files followed by a Korean particle, mirror files next to a URL, activities/undated, data folders)': [
+        'knowledge/index.md의 목록', 'knowledge/index.md에서', 'knowledge/index.md를 참고', 'knowledge/solutions/card.md의', 'data/app.db를 백업', 'C:\\solbox\\data\\app.db에',
+        'https://kt.com,knowledge/index.md', '출처:https://kt.com/a;data/app.db', 'activities/undated/12.md', '근거=activities/undated/12.md', 'knowledge/activities/undated/12.md',
+        'activities/undated/12.md에서', '(activities/undated/12.md)', '/srv/solbox/data/app.db', 'solbox/data/app.db',
+        'data/uploads/intake/5/9.m4a', 'uploads/intake/5/9.m4a.transcript.txt', 'data/intake_work/5/1-회의록.md', 'intake_work/5/파일목록.md', 'research_work/x.md',
+        'data/decks/4/deck-20261121-101500-ab12cd.pptx', 'backups/20261121-101500/app.db', 'data/logs/app.log', 'data/models/small/model.bin',
+    ],
     'review6 h1 keep list (conflict: policy/H)': [
         'customers/3만 명', 'customers/3만', 'customers/2등', 'customers/5인', 'customers/5인 이하', 'solutions/1위를', 'customers/50%를', 'solutions/24h',
         'solutions/5G망', 'projects/3인 투입',
@@ -158,6 +165,10 @@ DECK_KEEP = {
         'solutions/3개씩', 'projects/10여건', 'customers/3社', 'solutions/8K', 'solutions/3세대', 'solutions/3시간', 'solutions/24시간', 'projects/6개월',
         'projects/3년차', 'solutions/3rd', 'solutions/3x', 'solutions/2배속', 'projects/3억원', 'projects/1조', 'projects/3천만원', 'solutions/3개 솔루션',
     ],
+    'beta K (review8 l9: general words that look like mirror or data files)': [
+        'docs/knowledge/guide.md 제공', 'Obsidian vault(knowledge/notes.md)', 'R&D/data/app.db 미사용', 'kt.com/data/app.db', '/var/lib/app.db', 'node_modules/app.db',
+        'https://kt.com/knowledge/index.md', 'https://x.com/data/app.db', 'models/ 폴더 안의 GPU 목록', 'logs/ 와 uploads/ 설명',
+    ],
     'policy M-4': [
         'solutions/3Mbps', 'partners/2개사가 참여', 'solutions/10Gbps', 'solutions/100MB', 'solutions/1GB', 'research/2026년에는', 'partners/2개사가',
         'customers/100명의', 'solutions/3개를', 'projects/6개월의',
@@ -201,6 +212,11 @@ AUTHOR_MOVE = {
         '절감률 수치 근거 확인 필요', 'ROI 수치 출처 확인 필요', '이 금액은 다시 확인 필요', '절감률 30%는 근거 확인 필요', '이 부분 사례 추가 필요', '여기에 고객 사례 추가 필요', '레퍼런스 사례 2건 추가 필요',
         '고객사 맞춤 내용으로 수정 필요', '위 수치는 영업팀과 다시 확인 필요',
     ],
+    'beta K (review8 k2: picture/data memos the J site-word rule kept)': [
+        '현장 사진 삽입 예정', '장비 사진 삽입 필요', '설치 사진 삽입 예정', '센서 이미지 삽입 필요', 'CCTV 화면 스크린샷 추가 필요', '건물 외관 사진 추가 예정', '기존 로고 교체 필요',
+        '실제 데이터로 교체 필요', '실제 사진으로 교체', '실제 고객사 로고로 교체', '실제 화면 캡처로 교체', '샘플 이미지 → 실제 이미지로 교체',
+        '데이터 출처 필요', '그래프 출처 필요', '자료 출처 필요', '인용 출처 필요', '근거 자료 필요',
+    ],
 }
 
 AUTHOR_STAY = {
@@ -238,6 +254,10 @@ AUTHOR_STAY = {
     'beta J (review7 a1: customer sentences the I rules moved)': [
         '세부 기능은 추후 업데이트 예정', '기능은 추후 업데이트', '상세 일정은 추후 확인', '노후 장비를 실제 운영 장비로 교체', '시범 장비는 실제 양산 장비로 교체 예정', '실제 운영 환경으로 교체',
         '증빙 자료 필요', '법적 근거 필요', '추가 자료 필요', '현장 도면 확인 필요', '설치 위치 도면 확인 필요', '현장 사진 첨부 필요', 'CCTV 이미지 확인 필요',
+    ],
+    'beta K (review8 k1: customer sentences with a deictic lead)': [
+        '위 일정은 귀사 사정에 따라 수정 예정', '아래 금액은 수량 변동 시 수정 예정', '본 견적은 수량 확정 후 수정 예정', '위 금액은 VAT 별도이며 계약 시 재확인 필요', '본 계약 기간 내 무상 교체 예정',
+        '본 사업 기간 중 장비 추가 예정', '이 기간 동안 전담 인력 추가 예정', '본 제안 가격은 환율 변동 시 수정 예정',
     ],
     'h7c.extra': [
         '도입 후 3개월간 운영 실적 확인 필요', '설치 후 통신 품질 수치 검토 필요', '납품 후 검수 기간 확인 필요', '별도 예산 확보 필요', '연간 유지보수 예산 포함 필요', '방화벽 예외 정책 추가 필요', '계정 권한 수정 필요',
@@ -295,7 +315,7 @@ MASK = [
     ('--api-key abcdSECRET1234', 'SECRET'),
     ("Authorization: 'abcdSECRET1234'", 'SECRET'),
     ('Authorization: Bearer abcdSECRET1234', 'SECRET'),
-    ('Authorization: Basic dXNlcjpTRUNSRVQ=', 'dXNlcjpTRUNSRVQ'),
+    ('Authorization: Basic dXNl' 'cjpTRUNSRVQ=', 'dXNl' 'cjpTRUNSRVQ'),
     ('HTTPS_PROXY=http://user:abcdSECRET1234@proxy.corp:8080', 'SECRET'),
     ('http://user:abcdSECRET1234@proxy:8080', 'SECRET'),
     ('ANTHROPIC_API_KEY = "my SECRET value SECRETTAIL"', 'SECRET'),
@@ -304,7 +324,7 @@ MASK = [
     ('sk-' 'ant-api03-AbCdEf_123-xyzSECRET', 'SECRET'),
     ('password=abcdSECRET1234', 'SECRET'),
     ('X-Api-Key:abcdSECRET1234', 'SECRET'),
-    ('Proxy-Authorization: Basic dXNlcjpTRUNSRVQ=', 'dXNlcjpTRUNSRVQ'),
+    ('Proxy-Authorization: Basic dXNl' 'cjpTRUNSRVQ=', 'dXNl' 'cjpTRUNSRVQ'),
     ('ANTHROPIC_API_KEY=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('"api_key": "s3cr3tVALUE9xyzQ"', 's3cr3tVALUE9xyzQ'),
     ("'apiKey': 's3cr3tVALUE9xyzQ'", 's3cr3tVALUE9xyzQ'),
@@ -322,9 +342,9 @@ MASK = [
     ('"x-api-key":"s3cr3tVALUE9xyzQ"', 's3cr3tVALUE9xyzQ'),
     ('Authorization: Bearer s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ("Authorization: 's3cr3tVALUE9xyzQ'", 's3cr3tVALUE9xyzQ'),
-    ('authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'),
-    ('Authorization: Basic dXNlcjpw', 'dXNlcjpw'),
-    ('Proxy-Authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'),
+    ('authorization: Basic dXNl' 'cjpwYXNz', 'dXNl' 'cjpwYXNz'),
+    ('Authorization: Basic dXNl' 'cjpw', 'dXNl' 'cjpw'),
+    ('Proxy-Authorization: Basic dXNl' 'cjpwYXNz', 'dXNl' 'cjpwYXNz'),
     ('http://user:s3cr3tVALUE9xyzQ@proxy:8080', 's3cr3tVALUE9xyzQ'),
     ('https://user:p%40ss@proxy.corp:3128/', 'p%40ss'),
     ('http://user:pass@proxy', 'user:pass'),
@@ -354,8 +374,8 @@ MASK = [
     ('key=sk-' 'ant-oat01-xyz', 'oat01'),
     ('Bearer sk-abc', 'sk-abc'),
     ('Bearer s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
-    ('bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc', 'eyJzdWIiOiIxIn0'),
-    ('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c', 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'),
+    ('bearer ey' 'JhbGciOiJIUzI1NiJ9.ey' 'JzdWIiOiIxIn0.abc', 'ey' 'JzdWIiOiIxIn0'),
+    ('ey' 'JhbGciOiJIUzI1NiJ9.ey' 'JzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c', 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'),
     ('ANTHROPIC_API_KEY = s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('ANTHROPIC_API_KEY:s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('export ANTHROPIC_API_KEY=s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
@@ -439,6 +459,18 @@ MASK = [
     ('API_KEY=^s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('API_KEY=\\s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
     ('API_KEY=|s3cr3tVALUE9xyzQ', 's3cr3tVALUE9xyzQ'),
+    # 베타 K (review8 k5/k6): 따옴표를 지키고 값만 가린다, 접두 이름은 숫자·경로 예외가 아니다, 짧은 값, 인자 목록, 프록시 자격, 키 모양
+    ('{"api_key":"abcd1234","model":"x"}', 'abcd1234'),
+    ('{"config":{"apiKey":"abcd1234","baseURL":"https://api.anthropic.com"},"status":400}', 'abcd1234'),
+    ('{"Authorization":"Zq7pX2mK9","model":"x"}', 'Zq7pX2mK9'),
+    ('DB_PASS=1234', '1234'), ('MYSQL_PASS=0000', '0000'), ('smtp_pass: 9999', '9999'), ('PROXY_AUTH=1234', '1234'), ('REDIS_AUTH=session', 'session'),
+    ('DB_PWD=./secret1', 'secret1'), ('credentials=/s3cr3t', 's3cr3t'),
+    ('KEY=sk-' 'ant-abcdefghijk', 'abcdefghijk'),
+    ('https://user:Zq7pX2mK9@host?email=a@b.com', 'Zq7pX2mK9'),
+    ('AWS_BEARER_TOKEN_BEDROCK=Zq7pX2mK9abcdef', 'Zq7pX2mK9'),
+    ('curl --proxy-user kim:Passw0rd https://x', 'Passw0rd'), ('curl -U kim:Passw0rd https://x', 'Passw0rd'),
+    ('private key: MIIEvQZq7pX2mK9abcdefghijk', 'Zq7pX2mK9'),
+    ("['--api-key', 'Zq7pX2mK9']", 'Zq7pX2mK9'), ('["claude","--token","Zq7pX2mK9"]', 'Zq7pX2mK9'),
 ]
 
 LEAVE = [
@@ -552,6 +584,12 @@ LEAVE = [
     'risk-assessment-and-mitigation-plan-2026',
     'task-management-system-version-2024',
     'auth_token_file: /path',
+    # 베타 K (review8 k6): 영문자가 붙은 `…sk-ant-` 는 진짜 키 모양일 때만, 개수·설명·알고리즘·모델 이름은 비밀이 아니다
+    'task-' 'ant-1', 'disk-' 'ant-2', 'desk-' 'ant-12345678901234567890',
+    '입력 토큰: 210000', '토큰: 210000개 (한도 200000개)', '비밀번호: 8자 이상이어야 합니다',
+    'docker run -u 1000:1000 img', 'sort -u a:bcd', 'see http://a.com:80,kim@kt.com', 'vertex://claude-sonnet-4-5@20250929',
+    'signing_key=RS256', 'ENCRYPTION_KEY=aes-256-gcm',
+    '{"api_key":"***","model":"x"}', 'PWD=/tmp', 'credentials: /home/kim/.claude/.credentials.json',
 ]
 
 # ---- 오류 분류 회귀표: (글, 분류) — 분류 앞의 `!` 는 그 분류가 아니어야 한다 ----
@@ -649,6 +687,16 @@ CLASSIFY = [
     ('mcp-proxy auth ok; rate limit exceeded', 'limit'),
     ('proxy auth plugin loaded; Invalid API key', 'auth'),
     ('Using proxy authentication. Error: usage limit reached', 'limit'),
+    # 베타 K (review8 k8): 같은 줄에 다른 업체 이름이 있으면 Claude 로그인이 아니다, 환경 변수 이름은 줄을 넘어 짝짓지 않는다
+    ('Tavily: invalid API key', '!auth'),
+    ('Brave Search error: the API key is missing', '!auth'),
+    ('Invalid API key for Tavily', '!auth'),
+    ('No API key provided for OpenAI', '!auth'),
+    ('ANTHROPIC_API_KEY\n\n\nmissing dependency foo', 'unknown'),
+    ('Error: Invalid API key', 'auth'),
+    ('2026-11-21T10:20:30 Error: Invalid API key', 'auth'),
+    ('claude: Invalid API key', 'auth'),
+    ('Invalid API key for Claude', 'auth'),
 ]
 
 
@@ -732,26 +780,8 @@ def test_deck_normalize_is_linear_on_percent_runs():
     assert _normalize("solutions%25252F3") == "solutions/3" and _normalize("solutions%2525252f3") == "solutions/3" and _normalize("할인 %25 적용") == "할인 %25 적용"
 
 
-_N = 1_000_000
-# 1MB 줄의 시간 한도: 제곱이면 몇 분이 걸리므로 넉넉히 잡아도 잡히고, 부하가 걸린 기계에서 흔들리지 않는다
 _LINEAR_LIMIT_S = 20.0
-
-
-def _rep(s: str) -> str:
-    return (s * (_N // len(s) + 1))[:_N]
-
-
-@pytest.mark.parametrize("name,text", [
-    ("sol/3", _rep("solutions/3")), ("x.com chain", "x.com/" + _rep("solutions/3/")), ("units", "intranet/" + _rep("solutions/3개/")), ("many ext", "q/" + _rep("solutions/3.a")),
-    ("dots", "intranet/solutions/3" + ".1" * (_N // 2)), ("junk", "=" * _N + "/solutions/3"), ("seps", "solutions" + "/" * _N + "x"), ("dotseps", "solutions/" + "./" * (_N // 2) + "3"),
-    ("general", "q/" + _rep("solutions/3-")), ("percent", "%25" * (_N // 3) + "x"), ("entities", _rep("&#47")), ("amp", "&amp;" * (_N // 5)), ("colons", "a:" * (_N // 2) + "/solutions/3"),
-    ("hosts", _rep("a-" * 140 + "/solutions/3q ")), ("labels", _rep(":" * 280 + "/solutions/3q ")), ("combining", "e" + "\u0301" * _N), ("invisible", "\u200b" * _N + "solutions/3"),
-    ("dense junk", _rep("=a:/solutions/3x")), ("long head", "/" + "a/" * (_N // 2) + "solutions/3"),
-], ids=lambda v: v if isinstance(v, str) and len(v) < 20 else None)
-def test_deck_pathological_lines_are_linear(name, text):
-    t0 = time.perf_counter()
-    has_internal_mark(text)
-    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
+# (1MB 줄의 선형 시험은 베타 K 부터 `tests/_linear.py` 의 자식 프로세스 시험이다: 제곱 시간이어도 시험이 멈추지 않고 30초 안에 실패한다)
 
 
 # ================= 작성자 말투 =================
@@ -764,18 +794,6 @@ def test_author_table_notes_move(line):
 @pytest.mark.parametrize("line", _flat(AUTHOR_STAY))
 def test_author_table_customer_lines_stay(line):
     assert not is_author_instruction(line), line
-
-
-@pytest.mark.parametrize("name,text", [
-    ("docs", "금액 " * (_N // 3)), ("docs+", "금액 " * (_N // 3) + "확인 필요"), ("nospace", "금액" * (_N // 2) + " 확인 필요"), ("topic", "금액은 " + "기재 " * (_N // 3)),
-    ("topic2", "금액은" * (_N // 3) + " 기재 예정x"), ("together", "함께 " * (_N // 3)), ("slide", "이 슬라이드는 " + "삭제 " * (_N // 3)), ("plain", "가" * _N + " " + "나" * _N),
-    ("docdot", "금액 가 " * (_N // 5)), ("verbs", "확인 " * (_N // 3)), ("todo", " TODO" * (_N // 5) + "x"), ("spaces", "확인" + " " * _N + "x"), ("tail spaces", "금액 확인 필요" + " " * _N + "x"),
-    ("real", "실제 " * (_N // 3) + "교체"), ("plans", "확인 예정 " * (_N // 6)), ("doc spaces", ("금액 확인" + " " * 100) * (_N // 110)),
-], ids=lambda v: v if isinstance(v, str) and len(v) < 14 else None)
-def test_author_pathological_lines_are_linear(name, text):
-    t0 = time.perf_counter()
-    is_author_instruction(text)
-    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
 
 
 # ================= 비밀 가리기 =================
@@ -804,18 +822,6 @@ def test_redact_secret_names_are_exact_not_prefixes():
         assert redact(text) == text, text
     for text in ("token=abc", "password: abc", "x-api-key: short1", "ANTHROPIC_API_KEY=abcdefghijk", "api_key => abcdef", "apiKey(abcdef)", "secret=xyz"):
         assert "***" in redact(text), text
-
-
-@pytest.mark.parametrize("name,text", [
-    ("API_KEY", "API_KEY" * 140_000), ("long name", "a" * _N + "API_KEY"), ("Authorization", "Authorization: " * 66_000), ("Bearer", "Bearer " * 140_000), ("sk-", "sk-" * 330_000),
-    ("x-api-key", "x-api-key " * 100_000), ("token:", "token: " * 140_000), ("token=", "token=a " * 110_000), ("quote", 'token="' * 140_000), ("yaml", "api_key:\n  " * 90_000),
-    ("is", "token is " * 110_000), ("cookie", "cookie: " * 125_000), ("pem", "-----BEG" "IN PRIVATE KEY-----" * 35_000), ("query", "?key=a&" * 140_000), ("brace", "token={" * 140_000),
-    ("userinfo", "a://" + "b:" * (_N // 2) + "x"), ("long value", "token=" + "a" * _N), ("sentence", "token: " + "a " * (_N // 2)),
-], ids=lambda v: v if isinstance(v, str) and len(v) < 14 else None)
-def test_redact_pathological_text_is_linear(name, text):
-    t0 = time.perf_counter()
-    _redact_all(text)  # 길이를 줄이지 않는 본체 (`redact` 는 글을 먼저 자른다)
-    assert time.perf_counter() - t0 < _LINEAR_LIMIT_S, name
 
 
 # ================= 오류 분류 =================
