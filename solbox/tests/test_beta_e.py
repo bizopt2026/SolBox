@@ -516,6 +516,7 @@ def test_admin_runs_note_is_true_for_each_state(app, admin_client, db, worker_on
     assert re.search(r'class="primary" disabled[^>]*>지금 조사', page)
 
 
+@pytest.mark.ai_gate
 def test_scheduler_makes_no_research_run_while_worker_is_off(app, db):
     from app.models import ResearchRun
     from app.scheduler import _run_research

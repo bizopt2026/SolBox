@@ -18,8 +18,10 @@ class AIOff(Exception):
     """AI 작업 처리기가 꺼져 있어 작업을 시작할 수 없다."""
 
 
-def ai_is_off(request: Request) -> bool:
-    return not request.app.state.settings.ai_worker_enabled
+def ai_is_off(source) -> bool:
+    """처리기가 꺼져 있나. `source` 는 요청(`request.app`)이거나 앱 자신 (스케줄러). 시험은 이 한 함수를 바꿔 끼워 기본으로 열어 둔다."""
+    app = getattr(source, "app", source)
+    return not app.state.settings.ai_worker_enabled
 
 
 def require_ai_on(request: Request) -> None:

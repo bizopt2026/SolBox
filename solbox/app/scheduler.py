@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models import AppSetting, ResearchRun, ResearchTopic
+from app.ai import gate
 from app.research import LAST_SLOT_KEY, Schedule, get_schedule, start_run
 
 log = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ def research_due(db: Session, now: datetime) -> datetime | None:
 
 
 def _run_research(app, now: datetime) -> bool:
-    if not app.state.settings.ai_worker_enabled:
+    if gate.ai_is_off(app):
         return False  # AI 작업 처리기가 꺼져 있으면 조사 작업이 시작되지 못한다: 실행을 만들지 않는다 (예정 시각은 소모되지 않아, 처리기가 켜지면 6일 안에는 그 주 조사를 시작한다)
     with app.state.session_factory() as db:
         slot = research_due(db, now)
