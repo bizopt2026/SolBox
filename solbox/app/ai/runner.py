@@ -27,7 +27,7 @@ DEFAULT_TOOLS = FILE_TOOLS
 _AUTH_PATTERNS = re.compile(
     r"\bplease (?:log ?in|run /login)\b|(?<![\w.])/login\b|\bnot (?:logged|signed) in\b|\bmust be logged in\b|\blog ?in (?:required|failed)\b"
     r"|\binvalid (?:api[ _-]?key|x-api-key|credentials?|token)\b|\bapi[ _-]?key (?:is )?(?:invalid|missing|not set)\b"
-    r"|\bunauthori[sz]ed\b(?!\s+tool)|\bunauthenticated\b|\b\w*api_key (?:is )?(?:not set|missing|invalid)\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
+    r"|\bunauthori[sz]ed\b(?!\s+tool)|\bunauthenticated\b|\b(?:anthropic|claude)\w{0,40}(?:api_key|auth_token|oauth_token) (?:is )?(?:not set|missing|invalid)\b|\bcould not resolve authentication method\b|\bclaude (?:login|setup-token)\b"
     # 401 은 상태 줄(`API Error: 401`, `HTTP 401`, `status 401`)로만 본다: 초·줄 번호·파일 번호·금액 속 401 은 로그인 문제가 아니다.
     r"|\b(?:error|http(?:/\d(?:\.\d)?)?|status(?: code)?)[: ]+401\b(?![\w/]|\.\w)"
     # `oauth` 는 낱말 하나만으로 보지 않는다 (`oauth-proxy` 같은 이름).
@@ -39,25 +39,38 @@ _AUTH_PATTERNS = re.compile(
 )
 # 로그인 다음에 본다. 시간 초과·네트워크 글이 한도 낱말에 가려지지 않게, 한도는 429 를 낱말 경계로 상태 줄에서만 본다.
 _LIMIT_PATTERN = re.compile(r"usage limit|rate limit|quota|limit reached|hit your limit|\b(?:error|http|status(?: code)?)[: ]+429\b|\b429 too many|\bapi error[: ]*\(?429\b|\"status\"\s*:\s*429\b|\bcredit balance is too low\b", re.I)
-# 프록시 인증(407)은 Claude 로그인 문제가 아니라 네트워크 문제다.
-_PROXY_PATTERN = re.compile(r"\bproxy authentication required\b|\b407\b[: ]+proxy|\bstatus(?: code)?[: ]+407\b", re.I)
+# 프록시 인증(407)은 Claude 로그인 문제가 아니라 네트워크 문제다. 407 은 상태 줄(`statusCode=407`, `HTTP 407`, `Error: 407`)로만 본다 ("line 407: proxy_pass" 같은 번호는 아니다).
+_PROXY_PATTERN = re.compile(r"\bproxy authentication required\b|\b(?:error|http(?:/\d(?:\.\d)?)?|status(?:[ _-]?code)?)[=: ]+407\b", re.I)
 _NETWORK_WORDS = ("enotfound", "econnrefused", "network", "getaddrinfo", "timed out", "connection error", "fetch failed", "econnreset", "etimedout")
 
 
 # 사용자 화면·`AIJob.error` 에 남는 오류 글에서 비밀처럼 보이는 값을 가린다 (CLI 의 표준 출력·표준 오류가 그대로 들어올 수 있다).
+# 값이 비밀처럼 보일 때만 가린다: 따옴표로 묶인 값(닫는 따옴표까지, 공백 포함) 또는 토큰 꼴 낱말(`[A-Za-z0-9_\-./+=]` 12자 이상, 숫자가 든 8자 이상).
+# 그래서 "ANTHROPIC_API_KEY: not set", "x-api-key: header is required", "Authorization: required", "Bearer authentication failed" 같은 진단 글은 그대로 둔다.
+# 반복 수는 모두 한정해(앞 이름 40자) 같은 낱말이 아주 많이 이어진 글에서도 느려지지 않는다.
+_KEYWORD = r"(?:api[ _\-]?key|(?:auth|oauth|access|refresh|id|session)[_\-]?token|secret(?:[_\-]?key)?|passw(?:or)?d|token)"
+_NAME = rf"(?<![A-Za-z0-9_\-])[A-Za-z0-9_\-]{{0,40}}{_KEYWORD}[A-Za-z0-9_\-]{{0,20}}"
+_TOKEN_CH = r"[A-Za-z0-9_\-./+=]"
+_VALUE = (
+    r"(?:\"[^\"\n]{1,500}\"|'[^'\n]{1,500}'|`[^`\n]{1,500}`"
+    rf"|{_TOKEN_CH}{{12,}}|(?=[A-Za-z_\-./+=]{{0,10}}\d){_TOKEN_CH}{{8,11}}(?!{_TOKEN_CH}))"
+)
 _SECRET_PATTERNS = (
-    re.compile(r"sk-ant-[A-Za-z0-9_\-]+"),
-    re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}"),
-    re.compile(r"(\b\w*API_KEY\w*\s*[=:]\s*)[\"']?[^\s\"',;]+[\"']?", re.I),
-    re.compile(r"(\bAuthorization\s*[=:]\s*(?:Bearer|Basic|Token)?\s*)[^\s\"',;]+", re.I),
-    re.compile(r"(\bBearer\s+)[A-Za-z0-9._~+/=\-]{8,}", re.I),
-    re.compile(r"(\bx-api-key\s*[=:]\s*)[\"']?[^\s\"',;]+[\"']?", re.I),
+    re.compile(r"\bsk-ant-[A-Za-z0-9_\-]+"),
+    re.compile(r"\bsk-(?=[A-Za-z0-9_\-]{0,60}\d)[A-Za-z0-9_\-]{20,}"),
+    # 주소 속 계정 정보 (`http://user:pass@proxy:8080`): `user:pass` 를 가린다
+    re.compile(r"(\b[a-z][a-z0-9+.\-]{1,15}://)[^\s/@:]{1,100}:[^\s/@]{1,200}(?=@)", re.I),
+    # `이름 = 값`, `"이름": "값"`, `이름=\` + 줄바꿈 + 값
+    re.compile(rf"({_NAME}[\"']?[ \t]*[=:][ \t]*(?:\\\r?\n[ \t]*)?)({_VALUE})", re.I),
+    re.compile(rf"(\bAuthorization[\"']?\s*[=:]\s*(?:(?:Bearer|Basic|Token)\s+)?)({_VALUE})", re.I),
+    re.compile(rf"((?<![\w\-])(?:x-api-key|--api[-_]?key)(?:[ \t]+|=))({_VALUE})", re.I),
+    re.compile(r"(\bBearer\s+)((?=[A-Za-z]*[\d._~+/=\-])[A-Za-z0-9._~+/=\-]{12,})", re.I),
 )
 MASK = "***"
 
 
 def redact(text: str) -> str:
-    """오류 글의 비밀 값(`sk-ant-…` 토큰, `*_API_KEY=…`, `Authorization: Bearer …`, `x-api-key: …`)을 `***` 로 바꾼다."""
+    """오류 글의 비밀 값(`sk-ant-…` 토큰, `*_API_KEY=…`·`"api_key": "…"`, `Authorization: Bearer …`, `x-api-key: …`, 주소 속 `user:pass@`)을 `***` 로 바꾼다."""
     out = text or ""
     for pat in _SECRET_PATTERNS:
         out = pat.sub(lambda m: (m.group(1) if m.re.groups else "") + MASK, out)

@@ -191,3 +191,53 @@ def test_h7_customer_lines_stay(text):
 def test_h7_author_notes_move(text):
     from app.proposals import is_author_instruction
     assert is_author_instruction(text), text
+
+
+# ---- H9: 비밀 가리기 ----
+
+from app.ai.runner import ClaudeError, classify_error, redact
+
+_SEC = "abcdSECRET1234"
+
+
+@pytest.mark.parametrize("text", [
+    f'{{"api_key": "{_SEC}"}}', f'{{"apiKey":"{_SEC}"}}', f'"x-api-key": "{_SEC}"', f"headers: {{'x-api-key': '{_SEC}'}}",
+    f'"ANTHROPIC_API_KEY": "{_SEC}"', f"ANTHROPIC_AUTH_TOKEN={_SEC}", f"CLAUDE_CODE_OAUTH_TOKEN={_SEC}", f"apikey={_SEC}",
+    f"api-key: {_SEC}", f"--api-key {_SEC}", f"Authorization: '{_SEC}'", f"Authorization: Bearer {_SEC}", f"Authorization: Basic dXNlcjpTRUNSRVQ=",
+    f"HTTPS_PROXY=http://user:{_SEC}@proxy.corp:8080", f"http://user:{_SEC}@proxy:8080", 'ANTHROPIC_API_KEY = "my SECRET value SECRETTAIL"',
+    f"ANTHROPIC_API_KEY=\\\n{_SEC}", f"x-api-key {_SEC}", "sk-ant-api03-AbCdEf_123-xyzSECRET", f"password={_SEC}", f"X-Api-Key:{_SEC}",
+    f"Proxy-Authorization: Basic dXNlcjpTRUNSRVQ=",
+])
+def test_h9_redact_hides_secret(text):
+    out = redact(text)
+    assert "SECRET" not in out and "dXNlcjp" not in out and "user:abcd" not in out, out
+    assert "***" in out
+    assert "SECRET" not in ClaudeError("unknown", text).message
+
+
+@pytest.mark.parametrize("text", [
+    "ANTHROPIC_API_KEY: not set", "ANTHROPIC_API_KEY is not set", "x-api-key: header is required", "Authorization: required",
+    "Bearer authentication failed", "risk-ant-colony", "MY_API_KEY_COUNT=3", "API_KEY: 설정되지 않았습니다", "Authorization: Bearer token expired",
+    "API_KEYS: 3 configured", "task-management sk-learn-model-selection-pipeline failed", "http://example.com:8080/path@x",
+])
+def test_h9_redact_keeps_diagnostics(text):
+    assert redact(text) == text
+
+
+def test_h9_redact_is_fast_on_pathological_text():
+    for text in ("API_KEY" * 20000, "a" * 200000 + "API_KEY", "Authorization: " * 8000, "Bearer " * 15000, "sk-" * 40000, "x-api-key " * 20000):
+        t0 = time.perf_counter()
+        redact(text)
+        assert time.perf_counter() - t0 < 1.0
+
+
+# ---- H10: 오류 분류 ----
+
+@pytest.mark.parametrize("text,kind", [
+    ("tunneling socket could not be established, statusCode=407", "network"), ("HTTP 407", "network"), ("Error: 407", "network"),
+    ("407 Proxy Authentication Required", "network"),
+    ("line 407: proxy_pass", "unknown"), ("See page 407 proxy settings", "unknown"),
+    ("TAVILY_API_KEY is not set", "unknown"), ("ANTHROPIC_API_KEY is not set", "auth"), ("CLAUDE_CODE_OAUTH_TOKEN is missing", "auth"),
+])
+def test_h10_classify(text, kind):
+    assert classify_error(text) == kind
