@@ -8,7 +8,11 @@ import pytest
 
 # 새 starlette 는 TestClient 를 불러올 때 "httpx 대신 httpx2 를 설치하라"는 경고를 낸다. `-W error` 에서는 이 경고가 conftest 불러오기를 깨고,
 # pyproject 의 `filterwarnings` 는 명령줄 `-W error` 에 밀려 듣지 않는다. 그래서 불러오기 전에 이 한 문구만 넘긴다 (다른 경고는 그대로 오류).
-warnings.filterwarnings("ignore", message=r"Using `httpx` with `starlette\.testclient` is deprecated")
+try:
+    from starlette.exceptions import StarletteDeprecationWarning as _HttpxWarning  # 새 starlette 의 정확한 경고 종류 (불러와도 경고는 나지 않는다)
+except ImportError:  # 옛 starlette 에는 이 경고가 없다
+    _HttpxWarning = DeprecationWarning
+warnings.filterwarnings("ignore", message=r"Using `httpx` with `starlette\.testclient` is deprecated", category=_HttpxWarning)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
