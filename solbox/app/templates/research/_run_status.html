@@ -15,7 +15,7 @@
   </ul>
   {% if run.status == "running" %}
     {% if blocked %}{% if show_note %}{% call ai_note(ai_gate(), id="ai-note-run") %}조사 중이던 일은 지금 진행되지 않아요. 처리기를 켜고 서버를 다시 시작하면 이어서 진행해요.{% endcall %}{% endif %}
-    {% else %}<p class="muted">다른 화면으로 가도 조사는 계속 진행됩니다.</p>{% endif %}
+    {% else %}{% if show_note %}{{ ai_note(ai_gate(), id="ai-note-run") }}{% endif %}<p class="muted">다른 화면으로 가도 조사는 계속 진행됩니다.</p>{% endif %}
   {% endif %}
   {% if show_note and run.status != "running" and rows | selectattr("report.status", "equalto", "failed") | list %}{% call ai_note(ai_gate(), id="ai-note-run") %}{% endcall %}{% endif %}
 </div>

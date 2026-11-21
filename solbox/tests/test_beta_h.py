@@ -241,3 +241,94 @@ def test_h9_redact_is_fast_on_pathological_text():
 ])
 def test_h10_classify(text, kind):
     assert classify_error(text) == kind
+
+
+# ---- H8: aria-describedby 는 그려진 쪽에 있는 id 를 가리키고, 사용 불가 안내는 한 번 보인다 ----
+
+import re as _re
+from datetime import datetime as _dt
+
+
+def _dangling(*htmls):
+    both = "\n".join(htmls)
+    ids = set(_re.findall(r'\bid="([^"]+)"', both))
+    refs = {r for v in _re.findall(r'aria-describedby="([^"]+)"', both) for r in v.split()}
+    return refs - ids
+
+
+def _run_with_failed_area(db, status="running"):
+    from app.models import AIJob, ResearchReport, ResearchRun
+
+    run = ResearchRun(trigger="manual", status=status, requester_id=1)
+    db.add(run)
+    db.flush()
+    db.add(ResearchReport(run_id=run.id, kind="area", area="tech", status="failed", error="조사 결과가 비어 있습니다."))
+    rep = ResearchReport(run_id=run.id, kind="area", area="policy", status="pending")
+    db.add(rep)
+    db.flush()
+    job = AIJob(kind="research_area", input={"report_id": rep.id}, status="pending", requester_id=1, priority=10)
+    db.add(job)
+    db.flush()
+    rep.job_id = job.id
+    db.commit()
+    return run
+
+
+def _run_pages(client, run):
+    page = client.get(f"/research/runs/{run.id}").text
+    frag = client.get(f"/research/runs/{run.id}/status").text
+    return page, frag
+
+
+@pytest.mark.ai_gate
+def test_h8_worker_off_running_failed_area_retry_points_at_a_rendered_note(admin_client, db):
+    run = _run_with_failed_area(db)
+    page, frag = _run_pages(admin_client, run)
+    assert 'aria-describedby="' in page  # 다시 조사 단추가 이유를 가리킨다
+    assert not _dangling(page, frag), _dangling(page, frag)
+    assert (page + frag).count("notice ai-down") == 1
+
+
+@pytest.mark.ai_gate
+def test_h8_worker_off_finished_run_with_failed_area(admin_client, db):
+    run = _run_with_failed_area(db, status="done")
+    page = admin_client.get(f"/research/runs/{run.id}").text  # 끝난 조사는 상태 조각을 불러오지 않는다
+    assert not _dangling(page)
+    assert page.count("notice ai-down") == 1
+
+
+@pytest.mark.ai_gate
+def test_h8_worker_on_but_ai_down_running_run_shows_one_note(app, admin_client, db, worker_on):
+    from app.models import AIJob
+
+    db.add(AIJob(kind="research_area", input={}, status="failed", error_kind="auth", error="x", finished_at=_dt.now(), requester_id=1))
+    db.commit()
+    run = _run_with_failed_area(db)
+    page, frag = _run_pages(admin_client, run)
+    both = page + frag
+    assert both.count("notice ai-down") == 1 and "AI 연결 확인" in both and 'data-ai-down="1"' in both
+    assert not _dangling(page, frag)
+    done = _run_with_failed_area(db, status="done")
+    page = admin_client.get(f"/research/runs/{done.id}").text
+    assert page.count("notice ai-down") == 1 and not _dangling(page)
+
+
+@pytest.mark.ai_gate
+@pytest.mark.parametrize("worker", [False, True])
+def test_h8_every_aria_describedby_resolves(app, admin_client, db, worker):
+    from app.models import AIJob
+    from tests.conftest import refining_proposal
+
+    if worker:
+        app.state.settings.ai_worker_enabled = True
+        db.add(AIJob(kind="research_area", input={}, status="failed", error_kind="auth", error="x", finished_at=_dt.now(), requester_id=1))
+        db.commit()
+    p = refining_proposal(db, app.state.settings)
+    run = _run_with_failed_area(db)
+    urls = ["/admin/research", "/admin/jobs", "/admin/system", "/solutions/new", f"/proposals/{p.id}", "/proposals/new", "/activities/new", "/intake/new",
+            "/admin/users", "/account", "/research"]
+    for url in urls:
+        html = admin_client.get(url).text
+        assert not _dangling(html), (url, _dangling(html))
+    page, frag = _run_pages(admin_client, run)
+    assert not _dangling(page, frag)

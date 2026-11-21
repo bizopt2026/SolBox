@@ -47,7 +47,7 @@
       {% else %}<div class="empty"><p class="muted">이 분야에서 찾은 동향이 없어요.</p></div>{% endif %}
     {% elif report.status == "failed" %}
       <p class="error" role="alert">조사하지 못했습니다. {{ report.error }}</p>
-      {% if user.role == "admin" %}<form method="post" action="/research/reports/{{ report.id }}/retry"><button type="submit"{{ ai_attrs(ai_gate(), "ai-note") }}>다시 조사</button></form>{% endif %}
+      {% if user.role == "admin" %}<form method="post" action="/research/reports/{{ report.id }}/retry"><button type="submit"{{ ai_attrs(ai_gate(), "ai-note-run" if run.status == "running" else "ai-note") }}>다시 조사</button></form>{% endif %}
     {% else %}<div class="empty"><p class="muted">조사 중입니다. 끝나면 이 자리에 동향이 나타나요.</p></div>{% endif %}
   </section>
   {% endfor %}
