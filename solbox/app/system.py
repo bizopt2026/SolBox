@@ -108,7 +108,7 @@ def _check_knowledge(settings: Settings) -> Check:
     return ("지식 폴더", f"{settings.knowledge_dir} 가 없습니다. python -m app.cli rebuild-knowledge 로 만드세요.", "")
 
 
-def _check_claude(settings: Settings) -> Check:
+def _check_claude(settings: Settings, timeout: float = 30) -> Check:
     name = settings.claude_cmd[0] if settings.claude_cmd else ""
     exe = shutil.which(name) if name else None
     if exe is None:
@@ -116,8 +116,11 @@ def _check_claude(settings: Settings) -> Check:
     try:
         done = subprocess.run(
             [exe, *settings.claude_cmd[1:], "--version"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False,
+            stdin=subprocess.DEVNULL,  # 서버의 표준 입력을 물려받아 입력을 기다리며 멈추는 일이 없게 한다
         )
+    except subprocess.TimeoutExpired:
+        return ("Claude CLI", f"확인 못 함: --version 이 {timeout:g}초 안에 끝나지 않았습니다.", "")
     except (OSError, subprocess.SubprocessError) as e:
         return ("Claude CLI", f"--version 을 실행하지 못했습니다 ({e}).", "")
     if done.returncode != 0:
@@ -203,7 +206,7 @@ def format_lines(results: list[Check]) -> list[str]:
     return lines
 
 
-def run_checks(load: Callable[[], Settings], skip_port: bool = False) -> list[Check]:
+def run_checks(load: Callable[[], Settings], skip_port: bool = False, claude_timeout: float = 30) -> list[Check]:
     """점검 결과 목록. 설정을 읽지 못하면 그 한 줄만 돌려준다. 서버를 띄우거나 데이터를 바꾸지 않는다."""
     try:
         settings = load()
@@ -214,7 +217,7 @@ def run_checks(load: Callable[[], Settings], skip_port: bool = False) -> list[Ch
     results.append(_check_data_dir(settings))
     results.append(_check_db(settings))
     results.append(_check_knowledge(settings))
-    results.append(_check_claude(settings))
+    results.append(_check_claude(settings, claude_timeout))
     results.append(_check_transcriber(settings))
     cert = _check_cert(settings)
     if cert is not None:

@@ -327,6 +327,7 @@ def _ping_state(db: Session) -> dict:
 
 
 _CHECK_CACHE: dict = {}
+WEB_CLAUDE_TIMEOUT_S = 5  # 화면(GET)에서 도는 `claude --version` 의 제한: 넘으면 "확인 못 함" (명령줄 `check` 는 30초)
 
 
 def _check_rows(settings) -> list[dict]:
@@ -336,7 +337,7 @@ def _check_rows(settings) -> list[dict]:
     key = id(settings)
     cached = _CHECK_CACHE.get(key)
     if cached is None or time.monotonic() - cached[0] > 60:
-        _CHECK_CACHE[key] = cached = (time.monotonic(), run_checks(lambda: settings, skip_port=True))
+        _CHECK_CACHE[key] = cached = (time.monotonic(), run_checks(lambda: settings, skip_port=True, claude_timeout=WEB_CLAUDE_TIMEOUT_S))
     rows = []
     for name, problem, detail in cached[1]:
         meaning, todo = describe(name)

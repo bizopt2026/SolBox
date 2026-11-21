@@ -359,3 +359,34 @@ def test_h11_analyze_long_note_shows_typed_text(user_client, db, settings):
 @pytest.mark.ai_gate
 def test_h11_analyze_long_note_shows_typed_text_worker_off(user_client, db, settings):
     _long_note_check(user_client, db, settings)
+
+
+# ---- H12: /admin/system 은 느린 외부 명령에 매이지 않는다 ----
+
+def test_h12_system_page_bounds_the_claude_version_check(app, admin_client, settings, monkeypatch):
+    """GET /admin/system 이 `claude --version` 을 그 자리에서 돌린다. 입력을 기다리거나 멈춘 명령에 30초씩 매이지 않게 입력은 막고 짧은 제한을 둔다."""
+    import sys
+    from app.routers import admin as admin_router
+
+    settings.claude_cmd = [sys.executable, "-c", "import time; time.sleep(30)"]
+    admin_router._CHECK_CACHE.clear()
+    monkeypatch.setattr(admin_router, "WEB_CLAUDE_TIMEOUT_S", 1)
+    t0 = time.perf_counter()
+    r = admin_client.get("/admin/system")
+    assert time.perf_counter() - t0 < 10
+    assert r.status_code == 200 and "확인 못 함" in r.text
+
+
+def test_h12_version_check_does_not_read_the_servers_stdin(settings, monkeypatch):
+    import subprocess
+    from app import system
+
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(cmd, 0, stdout="1.0\n", stderr="")
+
+    monkeypatch.setattr(system.subprocess, "run", fake_run)
+    system._check_claude(settings)
+    assert seen.get("stdin") == subprocess.DEVNULL
