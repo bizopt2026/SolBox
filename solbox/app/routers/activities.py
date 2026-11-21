@@ -8,12 +8,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.ai.gate import require_ai_on
+from app.ai.gate import keeps_text, require_ai_on
 from app.idparse import parse_id
 from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
@@ -287,7 +287,20 @@ def merge_prefill(values: dict, prefill: dict | None) -> None:
             values["selected"][code] += [i for i in ids if isinstance(i, int) and i not in values["selected"][code]]
 
 
+def _draft_ai_off(request: Request, exc) -> Response:
+    """AI 꺼짐: 쓴 메모와 연결 칩을 그대로 채운 메모 화면을 다시 그린다 (알림 `ai_off`). 폼 표는 쓰지 않았다 (새 화면의 새 표)."""
+    if not exc.first("raw_text").strip():
+        return None  # 쓴 글이 없으면 보통의 돌려보내기
+    pre = {param: exc.first(param) for param in ontology.ACTIVITY_PREFILL}
+    with request.app.state.session_factory() as db:
+        chips = prefill_chips(db, prefill_from(db, pre))
+    manual = "/activities/new?" + urlencode([("manual", "1")] + [(c["param"], c["value"]) for c in chips])
+    return render(request, "activities/new.html", status_code=409, error=None, raw_text=exc.first("raw_text"), chips=chips, manual_url=manual,
+                  flash=notices.inline("ai_off", "/activities/new"))
+
+
 @router.post("/draft", dependencies=[Depends(require_ai_on)])
+@keeps_text(_draft_ai_off)
 def start_draft(
     request: Request, raw_text: str = Form(""), memo_file: UploadFile | None = None, pre: dict = Depends(prefill_form),
     user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 import time
 from collections.abc import Iterator
@@ -31,6 +32,8 @@ from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 �
 from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Stamped, User
 from app.db import get_db
 from app.security import require_user
+
+log = logging.getLogger(__name__)
 
 REV_FIELD = "_rev"
 FORCE_FIELD = "_force"
@@ -122,6 +125,19 @@ class WriteBusy(HTTPException):
 
 
 _SQLITE_BUSY_SNAPSHOT = 517  # SQLITE_BUSY_SNAPSHOT: 읽기 시작 뒤 다른 쓰기가 커밋됐다 (읽은 내용이 더는 최신이 아니다)
+
+
+_SQLITE_BUSY, _SQLITE_LOCKED = 5, 6
+
+
+def is_busy_error(exc: BaseException) -> bool:
+    """SQLite 의 "잠겨 있음"(BUSY·LOCKED 와 그 하위 코드, 스냅숏이 낡은 경우 포함)인 `OperationalError` 인가. 다른 운영 오류(깨진 DB, 문법 …)는 아니다."""
+    if not isinstance(exc, OperationalError):
+        return False
+    code = getattr(exc.orig, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        return code & 0xFF in (_SQLITE_BUSY, _SQLITE_LOCKED)
+    return any(w in str(exc.orig).lower() for w in ("database is locked", "database table is locked", "database is busy"))
 
 
 def lock_failure(exc: OperationalError) -> HTTPException:
@@ -317,6 +333,9 @@ def _fallback_url(path: str) -> str:
     return "/" + "/".join(parts)
 
 
+_ABANDONED: set[tuple[int, str]] = set()  # 잠금 때문에 풀지 못한 표 (사용자, 표): 같은 표로 다시 오면 이어받는다 (멈춘 표가 남지 않게)
+
+
 class Once:
     """한 번 제출된 폼 하나. 처음 제출이 `claim` 으로 차지하고, 끝나면 `done(응답)` 으로 결과 주소를 남긴다 (끝내지 못하면 표를 풀어 다시 낼 수 있게).
     같은 표라도 폼 내용(`digest`)이 다르면 새 제출이다 (뒤로 가서 고쳐 낸 경우). 기록을 커밋한 뒤에는 표를 풀지 않는다 (`keep`)."""
@@ -346,6 +365,17 @@ class Once:
                 row = db.get(FormToken, (self.user_id, self.token))
                 url = row.result_url if row is not None else None
                 old_hash = row.body_hash if row is not None else None
+                if row is not None and not url and (self.user_id, self.token) in _ABANDONED:
+                    # 잠금 때문에 풀지 못하고 끝난 제출이 남긴 표: 이 제출이 이어받는다 (처음 제출은 이미 끝났고 저장하지 못했다)
+                    taken = db.query(FormToken).filter(
+                        FormToken.user_id == self.user_id, FormToken.token == self.token, FormToken.result_url.is_(None),
+                    ).update({"body_hash": self.digest, "created_at": datetime.now()})
+                    db.commit()
+                    _ABANDONED.discard((self.user_id, self.token))
+                    if taken:
+                        self.claimed = True
+                        return
+                    continue
                 if row is not None and url and old_hash and old_hash != self.digest:
                     # 같은 표인데 내용이 바뀌었다: 새 제출이다. 끝난 줄을 이 제출이 이어받는다 (그 사이 다른 제출이 먼저 이어받았으면 다시 돈다)
                     taken = db.query(FormToken).filter(
@@ -370,25 +400,41 @@ class Once:
         """성공한 응답(보통 303)의 이동 주소를 표에 적는다 (이동이 아닌 성공 화면이면 `url` 로 따로 준다). 응답을 그대로 돌려준다."""
         url = url or response.headers.get("location")
         if self.claimed and url:
-            with self.factory() as db:
-                self._mine(db).update({"result_url": url})
-                db.commit()
-            self.finished = True
+            try:
+                with self.factory() as db:
+                    self._mine(db).update({"result_url": url})
+                    db.commit()
+                self.finished = True
+            except OperationalError as e:  # 기록은 저장됐다: 표 글이 잠겨 못 적어도 응답은 보낸다 (표는 `keep` 이 다시 적어 본다)
+                if not is_busy_error(e):
+                    raise
+                log.warning("폼 표 결과를 적지 못했습니다 (잠금)")
         return response
 
     def keep(self) -> None:
         """기록을 이미 커밋했는데 뒤 처리에서 예외가 났다: 표를 풀면 다시 낼 때 같은 기록이 또 생기므로 목록 주소로 끝낸 것으로 남긴다."""
         if self.claimed and not self.finished:
-            with self.factory() as db:
-                self._mine(db).filter(FormToken.result_url.is_(None)).update({"result_url": self.fallback})
-                db.commit()
-            self.finished = True
+            try:
+                with self.factory() as db:
+                    self._mine(db).filter(FormToken.result_url.is_(None)).update({"result_url": self.fallback})
+                    db.commit()
+                self.finished = True
+            except OperationalError as e:  # 잠겨 있으면 표는 그대로 둔다 (기록이 이미 있으므로 풀지 않는 쪽이 안전하다: 같은 표는 기다린 뒤 409)
+                if not is_busy_error(e):
+                    raise
+                log.warning("폼 표를 끝내지 못했습니다 (잠금)")
 
     def release(self) -> None:
         if self.claimed and not self.finished:
-            with self.factory() as db:
-                self._mine(db).filter(FormToken.result_url.is_(None)).delete()
-                db.commit()
+            try:
+                with self.factory() as db:
+                    self._mine(db).filter(FormToken.result_url.is_(None)).delete()
+                    db.commit()
+            except OperationalError as e:  # 잠금 때문에 못 풀었다: 표가 멈춰 남지 않게 기억해 두고, 같은 표로 다시 오면 이어받는다 (`claim`)
+                if not is_busy_error(e):
+                    raise
+                _ABANDONED.add((self.user_id, self.token))
+                log.warning("폼 표를 풀지 못했습니다 (잠금): 같은 표로 다시 내면 이어받습니다")
             self.claimed = False
 
 

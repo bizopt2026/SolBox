@@ -135,6 +135,12 @@ def from_request(request) -> dict | None:
     return {"tone": found.tone, "text": found.text, "dismiss": dismiss_url(request)}
 
 
+def inline(code: str, dismiss: str) -> dict | None:
+    """다시 그리는 화면(POST 응답)에 바로 보일 알림: `from_request` 와 같은 모양. 코드를 모르면 None."""
+    found = lookup(code)
+    return {"tone": found.tone, "text": found.text, "dismiss": dismiss} if found is not None else None
+
+
 def with_notice(url: str, code: str) -> str:
     """주소에 `notice` 와 시각 표시 `nt` 를 덧붙인다 (이미 있는 질의와 `#조각` 은 그대로 둔다)."""
     parts = urlsplit(url)

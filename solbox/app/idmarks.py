@@ -111,10 +111,10 @@ def _assign_ids(session: Session, flush_context, instances) -> None:
         key = mapper.get_property_by_column(mapper.local_table.c[col]).key
         try:
             mark, top = _lock_and_mark(conn, table, col)
-        except OperationalError as e:  # 쓰기 잠금을 제때 못 잡았다: 저장하지 않고 "잠시 후 다시" (guards.lock_failure)
+        except OperationalError:  # 쓰기 잠금을 제때 못 잡았다: 저장하지 않고 "잠시 후 다시". 새 기록은 "다른 곳에서 바뀐" 일이 있을 수 없으니 항상 WriteBusy
             from app import guards
 
-            raise guards.lock_failure(e) from None
+            raise guards.WriteBusy() from None
         base = max(mark, top)
         fresh = []
         for obj in group["new"]:

@@ -206,10 +206,12 @@ def sync_failed_reports(db: Session, run_id: int) -> None:
     db.commit()
 
 
-def advance_run(db: Session, run_id: int) -> None:
+def advance_run(db: Session, run_id: int, *, worker_on: bool = True) -> None:
     """분야 보고서가 모두 끝나면 제안 작업을 한 번만 만들고, 제안까지 끝나면 실행을 마감한다.
 
-    이미 마감된 실행에는 아무것도 하지 않는다. 마감된 실행에서 분야를 다시 시도해도 제안은 다시 만들지 않는다."""
+    이미 마감된 실행에는 아무것도 하지 않는다. 마감된 실행에서 분야를 다시 시도해도 제안은 다시 만들지 않는다.
+    `worker_on` 이 거짓(AI 처리기 꺼짐, 시작 때 복구)이면 제안 작업을 만들지 않는다: 돌지 않는 대기 줄만 생기므로. 실행은 진행 중으로 두고
+    처리기를 켠 서버가 시작될 때 이어서 만든다 (`recover_runs`)."""
     db.rollback()
     run = db.get(ResearchRun, run_id)
     if run is None or run.status != "running":
@@ -224,6 +226,8 @@ def advance_run(db: Session, run_id: int) -> None:
     if suggest is None:
         if done == 0:
             _close_run(db, run_id, "failed")
+            return
+        if not worker_on:
             return
         suggest = _start_suggest(db, run)
     if suggest is None or suggest.status not in ("done", "failed"):
@@ -250,12 +254,14 @@ def _start_suggest(db: Session, run: ResearchRun) -> ResearchReport | None:
     return report
 
 
-def recover_runs(db: Session) -> int:
-    """시작할 때 진행 중으로 남은 실행을 마저 진행시킨다 (재시작으로 끊긴 작업이 있어도 실행이 멈춰 있지 않게)."""
+def recover_runs(db: Session, *, worker_on: bool = True) -> int:
+    """시작할 때 진행 중으로 남은 실행을 마저 진행시킨다 (재시작으로 끊긴 작업이 있어도 실행이 멈춰 있지 않게).
+    처리기가 꺼진 서버(`worker_on=False`)는 분야 마감까지만 맞추고 제안 작업은 만들지 않는다 (끝나지 않는 대기 줄이 생기지 않게).
+    그 실행은 진행 중으로 남아 화면이 "AI 처리기가 꺼져 있어 멈춰 있다"고 알리고, 처리기를 켜고 다시 시작하면 이어진다."""
     ids = [i for (i,) in db.query(ResearchRun.id).filter_by(status="running").all()]
     for run_id in ids:
         try:
-            advance_run(db, run_id)
+            advance_run(db, run_id, worker_on=worker_on)
         except Exception:  # noqa: BLE001
             db.rollback()
             log.exception("조사 실행 %s 복구 실패", run_id)

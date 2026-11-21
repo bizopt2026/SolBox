@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.ai import gate
-from app.ai.gate import require_ai_on
+from app.ai.gate import keeps_text, require_ai_on
 from app.idparse import parse_id
 from app import labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
@@ -294,7 +294,30 @@ def _is_busy(p: Proposal) -> bool:
     return p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE
 
 
+def _ai_off_detail(request: Request, exc, **extra):
+    """AI 꺼짐: 쓴 글을 채운 제안 화면을 다시 그린다 (알림 `ai_off` 가 맨 위에 보인다). 제안 건이 없으면 None (보통의 돌려보내기)."""
+    with request.app.state.session_factory() as db:
+        proposal = db.get(Proposal, request.path_params.get("proposal_id"))
+        if proposal is None:
+            return None
+        return _detail_page(request, db, proposal, request.state.user, status_code=409,
+                            flash=notices.inline("ai_off", f"/proposals/{proposal.id}"), **extra)
+
+
+def _chat_ai_off(request: Request, exc):
+    if not exc.first("message").strip():
+        return None
+    return _ai_off_detail(request, exc, chat_text=exc.first("message"), chat_error=notices.lookup("ai_off").text)
+
+
+def _outline_ai_off(request: Request, exc):
+    if not exc.first("instruction").strip():
+        return None
+    return _ai_off_detail(request, exc, instruction_text=exc.first("instruction"))
+
+
 @router.post("/{proposal_id}/chat", dependencies=[Depends(require_ai_on)])
+@keeps_text(_chat_ai_off)
 def chat(
     proposal_id: int, request: Request, message: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
@@ -341,6 +364,7 @@ def chat_retry(
 
 
 @router.post("/{proposal_id}/outline", dependencies=[Depends(require_ai_on)])
+@keeps_text(_outline_ai_off)
 def make_outline(
     proposal_id: int, instruction: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),

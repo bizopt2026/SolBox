@@ -15,7 +15,7 @@ from starlette.datastructures import FormData
 from app import intake as intake_lib
 from app import labels, origin, transcribe, ui
 from app.ai import gate
-from app.ai.gate import require_ai_on
+from app.ai.gate import keeps_text, require_ai_on
 from app.ai.queue import queue_position
 from app import notices
 from app.db import get_db
@@ -206,7 +206,23 @@ def status(intake_id: int, request: Request, user: User = Depends(require_user),
                   intake_files_transcribing=intake_lib.transcribing_file(intake))
 
 
+def _analyze_ai_off(request: Request, exc):
+    """AI 꺼짐: 고친 메모는 (정리를 시작하지 않고) 묶음에 저장해 둔다 — 일은 하되 작업만 안 넣는다. 알림 `ai_off` 와 함께 같은 묶음 화면으로."""
+    note = exc.first("note", None)
+    if note is None:
+        return None
+    with request.app.state.session_factory() as db:
+        intake = db.get(Intake, request.path_params.get("intake_id"))
+        user = request.state.user
+        if (intake is not None and note is not None and _is_owner(user, intake)
+                and intake.status not in ("analyzing", "applied", "discarded") and len(note.strip()) <= intake_lib.MAX_NOTE):
+            intake.note = note.strip()
+            db.commit()
+    return notices.redirect(f"/intake/{request.path_params.get('intake_id')}", "ai_off")
+
+
 @router.post("/{intake_id}/analyze", dependencies=[Depends(require_ai_on)])
+@keeps_text(_analyze_ai_off)
 def analyze(
     intake_id: int, request: Request, note: str | None = Form(None),
     user: User = Depends(require_user), db: Session = Depends(get_db),

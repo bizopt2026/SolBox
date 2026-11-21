@@ -180,7 +180,7 @@ def delete_run(run_id: int, admin: User = Depends(require_admin), db: Session = 
     return notices.redirect("/research", "deleted")
 
 
-@router.post("/run", dependencies=[Depends(require_ai_on)])
+@router.post("/run", dependencies=[Depends(require_admin), Depends(require_ai_on)])
 def run_now(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     try:
         run = start_run(db, "manual", admin.id)
@@ -203,7 +203,7 @@ def run_status(run_id: int, request: Request, user: User = Depends(require_user)
     return render(request, "research/_run_status.html", run=run, rows=rows)
 
 
-@router.post("/reports/{report_id}/retry", dependencies=[Depends(require_ai_on)])
+@router.post("/reports/{report_id}/retry", dependencies=[Depends(require_admin), Depends(require_ai_on)])
 def retry_report(report_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     report = db.get(ResearchReport, report_id)
     if report is None:

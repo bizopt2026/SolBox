@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -78,7 +79,7 @@ def _ai_status_data(session_factory, settings) -> dict:
         return {"state": "off", "text": labels.AI_OFF_STATUS}
     with session_factory() as db:
         counts = dict(db.execute(select(AIJob.status, func.count()).where(AIJob.status.in_(("pending", "running"))).group_by(AIJob.status)).all())
-        last = db.scalars(select(AIJob).where(AIJob.finished_at.is_not(None)).order_by(AIJob.finished_at.desc(), AIJob.id.desc())).first()
+        last = db.scalars(select(AIJob).where(AIJob.finished_at.is_not(None)).order_by(AIJob.finished_at.desc(), AIJob.id.desc()).limit(1)).first()
     failed = last if last is not None and last.status == "failed" else None
     pending, running = counts.get("pending", 0), counts.get("running", 0)
     if failed is not None and failed.error_kind in AI_HARD_PROBLEMS:
@@ -160,6 +161,15 @@ def _same_screen(request: Request) -> str:
 
 
 def _ai_off_handler(request: Request, exc: AIOff) -> Response:
+    view = getattr(request.scope.get("endpoint"), "ai_off_view", None)  # 쓴 글이 있는 라우터는 글을 채운 같은 폼을 돌려준다 (gate.keeps_text)
+    if view is not None and exc.items and not request.headers.get("HX-Request"):
+        try:
+            response = view(request, exc)
+        except Exception:  # noqa: BLE001  (글을 되돌리지 못해도 보통의 돌려보내기로)
+            logging.getLogger("app").exception("AI 꺼짐 화면을 그리지 못했습니다 %s", request.url.path)
+            response = None
+        if response is not None:
+            return response
     target = notices.with_notice(_same_screen(request), "ai_off")
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": target})
@@ -242,6 +252,14 @@ def _server_error_handler(request: Request, exc: Exception) -> Response:
         return PlainTextResponse(message, status_code=500)
 
 
+def _operational_error_handler(request: Request, exc: OperationalError) -> Response:
+    """쓰기 잠금을 제때 잡지 못한 SQLite 오류(어느 쓰기 단계에서든)는 500 이 아니라 "잠시 후 다시 시도"(503)다. 다른 운영 오류는 500 화면."""
+    if guards.is_busy_error(exc):
+        logging.getLogger("app").warning("쓰기 잠금 대기 초과 %s %s", request.method, request.url.path)
+        return _http_error_handler(request, guards.WriteBusy())
+    return _server_error_handler(request, exc)
+
+
 def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """HTTPException 을 브라우저에는 한국어 오류 화면으로, HTMX 요청에는 짧은 글로 돌려준다."""
     message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
@@ -270,7 +288,7 @@ def create_app(settings: Settings) -> FastAPI:
         with app.state.session_factory() as db:
             rebuild_if_stale(app.state.mirror, db, settings.uploads_dir)
             fail_stale_running(db)
-            recover_runs(db)
+            recover_runs(db, worker_on=settings.ai_worker_enabled)
             recover_intakes(db)
             recover_applying(db)
         start_workers(app)
@@ -303,6 +321,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.add_exception_handler(guards.DuplicateSubmit, _duplicate_submit_handler)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
+    app.add_exception_handler(OperationalError, _operational_error_handler)
     app.add_exception_handler(Exception, _server_error_handler)
 
     static_dir = APP_DIR / "static"

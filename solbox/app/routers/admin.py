@@ -387,7 +387,7 @@ def ai_check_status(request: Request, admin: User = Depends(require_admin), db: 
     return render(request, "admin/_ai_check.html", ping=_ping_state(db))
 
 
-@router.post("/system/ai-check", dependencies=[Depends(require_ai_on)])
+@router.post("/system/ai-check", dependencies=[Depends(require_admin), Depends(require_ai_on)])
 def ai_check(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     waiting = db.query(AIJob.id).filter(AIJob.kind == PING_KIND, AIJob.status.in_(ontology.JOB_ACTIVE)).first()
     if waiting is None:  # 한 번에 하나만 확인한다
