@@ -380,12 +380,16 @@ _FIXED_ALWAYS = re.compile(
     r"(?:^|고객(?:에게|한테)\s*(?:는\s*)?)보여주지\s*(?:말\s*것|말고)|^이\s*\S+\s*(?:은|는)?\s*(?:최종본에서\s*)?고객(?:에게|한테)\s*(?:는\s*)?보여주지\s*(?:말\s*것|말고)"
     r"|^내부\s*검토용\s*(?:자료|문서|장표|슬라이드|페이지|표)?$"
     r"|^[\[\(]?작성자\s*(?:메모|주|의견)(?=[\]\):：\-–—\s]|$)"
-    r"|^팀장님\s*(?:확인|보고|피드백|코멘트|지시|의견)"
+    r"|^팀장님\s*(?:확인|보고|피드백|코멘트|지시|의견)(?![가-힣A-Za-z0-9])"
     r"|^법무팀\s*검토\s*(?:중|후\s*(?:반영|확정|수정|진행))$")
-_FIXED_ALWAYS_MAX_WORDS = 10
-# 줄 끝의 이유 꼬리: `(…)`·`[…]`·` - …`·`, …` (N1)
+# 베타 O: 머리가 분명해도 **뒤가 제품·기능을 설명하는 말로 이어지면** 고객 문장이다 (`팀장님 확인 한 번으로 휴가 결재 완료`·`작성자 메모 기능으로 결재 의견 전달`·`고객에게 보여주지 말고 마스킹 처리`).
+# 그래서 머리 뒤에 이 낱말이 하나라도 있으면 머리·꼬리 규칙은 모두 물러선다 (메모를 놓치는 쪽이 고객 문장을 옮기는 쪽보다 낫다).
+_FIXED_PRODUCT = re.compile(r"자동|실시간|기능|검사|교정|알림|지원|제공|인증|전환|분리|연결|생성|탐지|단축|완료|처리|마스킹|없이|한\s*번으로|반영\s*시간")
+# 줄 끝의 이유 꼬리: `(…)`·`[…]`·` - …`·`, …` (N1, 베타 O 가 좁혔다: `_fixed_tail_note`)
 _FIXED_TAIL_CUT = (re.compile(r"\s*[\(\[][^()\[\]]*[\)\]]?\s*$"), re.compile(r"\s+[\-–—]\s+\S.*$"), re.compile(r"\s*,\s*\S.*$"))
 _FIXED_FEATURE = re.compile(r"자동|실시간|기능|검사|교정|알림|지원|제공")
+_NEXT_WORD = re.compile(r"\s(\S+)")
+_FIXED_MAX_MATCHES = 32  # 한 낱말(공백 없는 긴 글)에 고정 낱말이 수만 번 나와도 살피는 횟수는 정해져 있다 (O2)
 _FIXED_DRAFT_TAIL_END = re.compile(r"(?:검토|확정|승인|배포|발송|제출)\s*전$|(?:수정|작성|검토)\s*중$")
 _FIXED_INPUT_END = re.compile(
     rf"[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*$")
@@ -399,42 +403,68 @@ def _memo_end(words: list[str]) -> bool:
     return words[-1] in _MEMO_END or (len(words) > 1 and (words[-2], words[-1]) in _MEMO_END_PAIR)
 
 
-def _fixed_word_note(line: str, words: list[str]) -> bool:
-    """고정 낱말 + 메모 끝말 모양인가 (`_fixed_note` 가 줄 전체와 꼬리를 뗀 머리에 쓴다)."""
+def _fixed_always(line: str) -> bool:
+    """꼬리가 무엇이든 메모인 머리인가. 머리 뒤가 제품·기능 설명(`_FIXED_PRODUCT`)으로 이어지면 아니다 (베타 O)."""
+    m = _FIXED_ALWAYS.search(line)
+    return m is not None and _FIXED_PRODUCT.search(line, m.end()) is None
+
+
+def _fixed_word_note(line: str, words: list[str], strict: bool = False) -> bool:
+    """고정 낱말 + 메모 끝말 모양인가 (`_fixed_note` 가 줄 전체와 꼬리를 뗀 머리에 쓴다). `strict` 는 낱말로 끝나는 짧은 줄(`제목 오타`)을 인정하지 않고 메모 끝말만 본다."""
     if not words or len(words) > _FIXED_MAX_WORDS:
         return False
     memo = _memo_end(words)
-    for m in _FIXED_WORD.finditer(line):
+    feat = None  # `오타` 줄의 기능 낱말 검색은 줄마다 한 번만 한다 (O2: 낱말마다 줄 전체를 훑으면 제곱 시간)
+    for i, m in enumerate(_FIXED_WORD.finditer(line)):
+        if i >= _FIXED_MAX_MATCHES:
+            return False
         others = len(words) - len(m.group().split())
         if m.group("nobare"):
             if memo and others <= 3:
                 return True
             continue
         if m.group().endswith("오타") and m.end() < len(line):
-            nxt = line[m.end():]
-            if _FIXED_FEATURE.search(line) or (nxt[:1].isspace() and nxt.split()[0] not in _MEMO_END):
+            if feat is None:
+                feat = _FIXED_FEATURE.search(line) is not None
+            nw = _NEXT_WORD.match(line, m.end())
+            if feat or (nw is not None and nw.group(1) not in _MEMO_END):
                 continue
-        if others <= 3 and memo or others <= 2 and m.end() == len(line):
+        if others <= 3 and memo or (not strict and others <= 2 and m.end() == len(line)):
+            return True
+    return False
+
+
+def _fixed_tail_note(norm: str, words: list[str]) -> bool:
+    """줄 끝의 이유 꼬리를 뗀 머리가 **혼자서** 완전한 메모일 때만 옮긴다 (베타 O: N1 은 꼬리가 무엇이든 떼어 고객 기능 문장을 옮겼다).
+    꼬리에 제품·기능 낱말이 있으면 떼지 않고, 쉼표 꼬리는 꼬리도 메모 끝말로 끝날 때만 뗀다. 머리는 `_FIXED_ALWAYS` 의 머리이거나 메모 끝말로 끝나는 고정 낱말 줄이다."""
+    for i, cut in enumerate(_FIXED_TAIL_CUT):
+        m = cut.search(norm)
+        if m is None:
+            continue
+        head, tail = norm[:m.start()], norm[m.start():]
+        if not head or len(head.split()) >= len(words) or _FIXED_PRODUCT.search(tail):
+            continue
+        if i == 2 and not _memo_end(tail.strip(" ,").split() or ["-"]):
+            continue
+        if _fixed_always(head) or _fixed_word_note(head, head.split(), strict=True):
             return True
     return False
 
 
 def _fixed_note(line: str) -> bool:
-    """줄이 고정 낱말을 가진 **메모 모양**인가 (낱말이 문장 속에 든 고객 기능 문장은 아니다). 낱말 하나당 일정한 일만 하므로 줄 길이에 선형이다."""
+    """줄이 고정 낱말을 가진 **메모 모양**인가 (낱말이 문장 속에 든 고객 기능 문장은 아니다). 공백을 한 칸으로 줄인 글에서 보고, 낱말 하나당·규칙 하나당 일정한 일만 하므로 줄 길이에 선형이다 (O2)."""
+    line = " ".join(line.split())
     if _FIXED_ANYWHERE.search(line):
         return True
     words = line.split()
     if not words or len(words) > _FIXED_MAX_WORDS:
         return False
-    if len(words) <= _FIXED_ALWAYS_MAX_WORDS and _FIXED_ALWAYS.search(line):
+    if _fixed_always(line):
         return True
     if _fixed_word_note(line, words):
         return True
-    norm = " ".join(words)  # 공백을 한 칸으로: 꼬리 떼기가 긴 공백에서 제곱 시간이 되지 않게
-    for cut in _FIXED_TAIL_CUT:
-        head = cut.sub("", norm, count=1)
-        if head != norm and head and len(head.split()) < len(words) and _fixed_word_note(head, head.split()):
-            return True
+    if _fixed_tail_note(line, words):
+        return True
     memo = _memo_end(words)
     if _FIXED_DRAFT_HEAD.search(line) or _FIXED_DRAFT_BRACKET.match(line):
         dm = _FIXED_DRAFT_HEAD.search(line)

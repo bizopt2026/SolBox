@@ -195,6 +195,10 @@ AUTHOR = {
     "fixed brackets": lambda n: "(" * n + "입력",
     "fixed brackets doc": lambda n: "(금액 " * (n // 4) + "입력",
     "fixed 초안 dash": lambda n: "초안 " * (n // 3),
+    # 베타 O: 공백을 줄이지 않고 돌리던 `이 …` 머리와 `오타` 낱말마다 줄 전체를 훑던 모양
+    "fixed 이 x + spaces": lambda n: "이 x" + " " * n + "y",
+    "fixed 오타 commas": lambda n: "오타," * (n // 3) + "x",
+    "fixed 오타 slashes + paren": lambda n: "오타/" * (n // 3) + "x (a",
 }
 
 GROUPS = {"classify": CLASSIFY, "redact": REDACT, "deck": DECK, "author": AUTHOR}
