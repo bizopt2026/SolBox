@@ -430,9 +430,10 @@ def _fixed_note(line: str) -> bool:
         return True
     if _fixed_word_note(line, words):
         return True
+    norm = " ".join(words)  # 공백을 한 칸으로: 꼬리 떼기가 긴 공백에서 제곱 시간이 되지 않게
     for cut in _FIXED_TAIL_CUT:
-        head = cut.sub("", line, count=1)
-        if head != line and head and len(head.split()) < len(words) and _fixed_word_note(head, head.split()):
+        head = cut.sub("", norm, count=1)
+        if head != norm and head and len(head.split()) < len(words) and _fixed_word_note(head, head.split()):
             return True
     memo = _memo_end(words)
     if _FIXED_DRAFT_HEAD.search(line) or _FIXED_DRAFT_BRACKET.match(line):

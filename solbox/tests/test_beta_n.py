@@ -30,3 +30,11 @@ def test_n2_draft_customer_lines_stay(line):
 def test_n1_known_limit_earlier_rows_kept():
     # 앞 표의 줄은 그대로: 짧은 `초안: 영업팀` 은 메모로 옮긴다 (고객 글일 수도 있는 한계)
     assert is_author_instruction("초안: 영업팀")
+
+
+def test_n1_tail_cut_is_not_quadratic_on_long_whitespace_or_separators():
+    import time
+    for line in ("법무팀 검토" + " " * 200000 + "필요 x", "내부 검토용" + " - " * 50000, "법무팀 검토" + " " * 200000 + "(" * 1, "a" + "," * 100000):
+        t0 = time.time()
+        is_author_instruction(line)
+        assert time.time() - t0 < 5, line[:20]
