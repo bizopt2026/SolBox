@@ -3,6 +3,7 @@
 입력은 `proposals.clean_outline` / `slide_from_form` 이 만드는 형태이지만, 키가 빠져 있어도 견딘다.
 """
 
+import bisect
 import copy
 import math
 import re
@@ -439,14 +440,17 @@ def mirror_folders() -> tuple[str, ...]:
 
 # 고객용 파일에 남으면 안 되는 내부 표시: 지식 사본 경로 모양 (`opportunities/2.md`, `solutions/3/card.md`, `customers/12`).
 # 폴더 이름은 온톨로지에서 읽고(대소문자 무시), 폴더 뒤에 `/<번호…>`(구분자는 `/` `\` `／`, `//`·`/./` 도 한 구분자) 가 오는 낱말을 본다.
-# 먼저 글을 NFKC 로 맞추고(전각 글자·`／`), 영(0)폭 글자를 지우고, `%2F`·`%5C` 를 구분자로 되돌린 뒤 본다. 지우는 쪽으로 기운다:
-# - 번호 바로 뒤: 단위(`개사 개 건 종 명 곳 인당 대 억 만 천 % G 년 월 일 차 배 회 원 …`, `2.5억`·`3~5종`·`5G/LTE`·`100명/월` 꼴)만 남긴다.
-#   그 밖의 글자(조사 `에서 를 의 과`, `번`·`호`, `_v2`, `a`)가 붙으면 경로로 본다. 단위 뒤에 확장자(`.md`)가 오면 단위가 아니다.
+# 먼저 글을 NFKC 로 맞추고(전각 글자·`／`), 보이지 않는 글자(유니코드 분류 Cf 전부·변형 선택자·`͏`·한글 채움 글자)를 지우고, 슬래시를 닮은 글자(`∕ ⁄ ⧸ ╱`)와 역슬래시를 닮은 글자(`∖ ⧵`),
+# 개체 참조(`&#47;`·`&#047;`·`&#x02F;`·`&#47`·`&sol;`·`&#92;`·`&#x5c;`·`&bsol;`·`&amp;#47;`)를 구분자로, `%2F`·`%5C`(두 번 이상 부호화한 `%252F`·`%25252F` 포함)를 구분자로 되돌린 뒤 본다. 지우는 쪽으로 기운다:
+# - 번호 바로 뒤: 수량 단위만 남긴다. 센 단위(`개사 개 건 종 명 곳 년 월 일 회 배 억 천 원 단계 시간 …`, `KB MB GB Mbps Gbps`·`K`)는 낱말 끝이거나 조사·접미(`가 이 을 를 의 에 에서 에는 로 와 도 만 까지 간 씩 급 …`)가 붙어도 수량이다
+#   (`partners/2개사가`, `customers/100명의`, `solutions/3개를`, `projects/6개월의`, `research/2026년에는`, `solutions/100MB`). 약한 단위(`만 인 대 위 등 분 차 조 % G D M x` 서수)는 낱말 끝일 때만 수량이고 한 글자 조사 단위(`만 인 등`)가 홀로 오면 경로다.
+#   그 밖의 글자(조사 `에서 를 의 과`, `번`·`호`, `_v2`, `a`, `조차`, `%a`, `%의`)가 붙으면 경로로 본다. 단위 뒤에 확장자(`.md`)가 오면 단위가 아니다.
 # - 폴더 앞 머리말(공백 앞까지)에 `knowledge/` 마디가 있으면 무엇이 앞에 붙어도(`file:///`, `data.bak/`, `%APPDATA%\`) 사본 경로다. `https://`·`http://` 주소만 예외.
 # - 머리말이 비었거나 `근거=`·`→`·`※`·`*`·`#`·따옴표·괄호·한글 같은 표지로 끝나면 사본 경로다. `출처:/`·`./`·`../`·`/`·`C:/`·`~/`·`$VAR/`·`%VAR%\`·`\\서버\`·`file://` 로 시작하는
 #   경로도 그렇다 (이런 닻 있는 머리말에는 주소 판정을 하지 않는다: `~/backup.old/`, `C:/Users/kim.cs/`).
 # - 닻 없는 머리말은 첫 마디만 주소로 본다(`www.acme.co.kr/customers/12`, `x.com/…`, `192.168.0.10/…`, `localhost:8443/…`: 남김). 첫 마디가 일반 폴더 이름이면
-#   `intranet/solutions/3` 처럼 확장자가 없을 때는 남기고, 번호 뒤에 확장자나 `/card.md` 꼴이 오면(`data/solutions/3.md`) 파일 경로로 보고 지운다.
+#   `intranet/solutions/3` 처럼 확장자가 없을 때는 남기고, 번호 뒤에 확장자(1~10자: `.md`·`.markdown`)나 `/card.md` 꼴이 오면(`data/solutions/3.md`) 파일 경로로 보고 지운다. 머리말에 `..`·`.` 마디가 끼면(`solutions/../solutions/3`) 지운다.
+# - 낱말(공백 없는 덩어리) 하나를 한 번만 훑어 머리말·꼬리 사실을 모은 뒤 후보마다 이진 탐색으로 묻는다: 낱말이 아무리 길어도 선형이고 길이 한도가 없다.
 # - 영문·숫자에 붙은 것(`a-solutions/3`)은 남긴다.
 # - 번호 뒤가 띄어쓰기인 낱말(`solutions/3 단계로 구성`, `research/2026 보고서 인용`, `activities/2026 계획`)은 맨 경로와 구별할 수 없어 지운다 (안전한 쪽).
 _SEP = r"[/\\／]"
@@ -455,88 +459,145 @@ _KNOWLEDGE_SEG = re.compile(rf"(?<![\w.\-])knowledge{_SEP}", re.I)
 _URL_HEAD = re.compile(r"https?://", re.I)
 _FILE_HEAD = re.compile(r"(?<![\w])file:[/\\]{2,3}", re.I)
 _HOST_SEG = re.compile(r"^(?:[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}|\d{1,3}(?:\.\d{1,3}){3}|[\w.\-]+:\d+)$")
-_JUNK_LEAD = re.compile(r"^.*[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
+_JUNK_CH = re.compile(r"[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
 _LABEL_LEAD = re.compile(r"^(?![A-Za-z]:(?:" + _SEP + r"|$))(?![\w.\-]+:\d+(?:" + _SEP + r"|$))[^/\\／]*?:")
-_TAIL_EXT_ONLY = re.compile(r"\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9])")
-_FILE_TAIL = re.compile(r"^(?:\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9])|" + _SEP + r"[^\s]*\.[A-Za-z0-9]{1,5}(?![A-Za-z0-9]))")
-_ZERO_WIDTH = re.compile("[\u200b-\u200f\u2060\ufeff\u00ad]")
-# 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`1.5만명`·`12%`·`5G`·`3rd`·`3단계`·`24시간`·`30여곳`. 단위가 여럿 이어져도 된다.
-# 단위 줄 바로 뒤는 낱말의 끝이어야 한다(낱말 글자가 아닌 것: 끝·`/`·`.`·`,`·`)` …; `%` 뒤는 아무거나). 그래서 조사·낱말이 단위 글자로 시작해도
-# (`3만이`, `3대로`, `3등을`, `3인지`, `3일자`, `3md`, `3Draft`, `3the`) 단위가 아니라 경로로 본다. 영문 한 글자 단위는 `GKD`(대소문자)·`M`·`x` 만 쓴다(`md` 가 `M`+`D` 로 읽히지 않게).
-# 조사와 같은 글자인 한 글자 단위(`만 인 등`)가 낱말 끝에 홀로 오면(`solutions/3만 참고`, `customers/12인 문서`) 수량인지 조사인지 가를 수 없고 이 폴더 뒤에는
-# 단위로 쓰는 일이 드물어 경로로 본다(지우는 쪽). `일 위 대 주` 는 낱말 끝이면 단위로 남긴다(`customers/12일`, `solutions/3위`). 단계 같은 여러 글자 단위는 그대로 단위다.
+_SEP_CH = re.compile(_SEP)
+_DOT_SEG = re.compile(rf"(?<={_SEP})\.{{1,2}}(?={_SEP})")
+_EXT = re.compile(r"\.[A-Za-z0-9]{1,10}(?![A-Za-z0-9])")  # `.md`·`.json`·`.markdown`: 파일 확장자 꼴
+_TOKEN = re.compile(r"\S+")
+# 슬래시·역슬래시를 닮은 글자와 보이지 않는 글자: 글을 맞출 때 슬래시로 되돌리거나 지운다.
+# 지우는 것: 서식 글자 전부(유니코드 분류 Cf: 영폭 글자·방향 표지·`⁡`·`؜`·`᠎`·태그 글자 …), 변형 선택자(`️`), 결합 낱말 이음 글자(`͏`), 한글 채움 글자.
+_SLASH_LIKE = re.compile("[∕⁄⧸╱⟋⫽⹊∖⧵⧹╲⸺⫻⧷]")
+_INVISIBLE = re.compile(
+    "[­͏؀-؅؜۝܏࢐࢑࣢ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯"
+    "ㅤ︀-️﻿ﾠ￹-￻\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f\U000e0100-\U000e01ef]"
+)
+_ENTITY_AMP = re.compile(r"&(?:amp;)+", re.I)
+_SLASH_ENTITY = re.compile(r"&(?:#0*47(?!\d)|#x0*2f(?![0-9a-f])|sol(?![A-Za-z0-9]));?|&(?:#0*92(?!\d)|#x0*5c(?![0-9a-f])|bsol(?![A-Za-z0-9]));?", re.I)
+_ENC_RUN = re.compile(r"%(?:25)+", re.I)
+# 번호 뒤에 붙어도 낱말이 아닌 단위: `3.5배`·`3~5종`·`12%`·`5G`·`3rd`·`3단계`·`24시간`·`30여곳`·`100MB`·`10Gbps`.
+# 센 단위(`_UNIT_STRONG`: 개사 개 건 종 명 곳 년 월 일 회 배 억 천 원 단계 시간 …, 영문 `KB MB GB Mbps Gbps`·`K`)는 낱말 끝이거나 뒤에 조사·접미(`가 이 을 를 의 에 에서 에는 로 와 도 만 까지 간 씩 급 …`)가 붙어도 수량이다:
+# `partners/2개사가`·`customers/100명의`·`solutions/3개를`·`projects/6개월의`·`research/2026년에는`·`solutions/100MB`. 약한 단위(`_UNIT_WEAK`: 만 인 대 위 등 분 차 조 `%` `G D M x` 서수)는 낱말 끝일 때만 수량이다
+# (`solutions/3대로`·`3조차`·`3%a`·`3%의`·`3만이` 는 경로). 약한 단위 뒤에 다른 단위를 더 잇지 않는다(`조`+`차` 가 `조차` 로 읽히지 않게). 예외: 센 단위 앞의 `만`(`1만명`, `3천만원`).
+# 조사와 같은 글자인 한 글자 단위(`만 인 등`)가 낱말 끝에 홀로 오면(`solutions/3만 참고`) 수량인지 가를 수 없어 경로로 지운다. 단위 뒤에 확장자가 오면(`3개.md`) 경로다.
 _UNIT_WORDS = r"개사|개월|개소|개씩|가지|인당|단계|분기|시간|세대|차년도|년차|배속|여곳|여개사|여건|여명"
-_UNIT_ONE = r"[개건종명곳인대억만천백원년월일차배회점위등주사社조분]"
+_UNIT_ENG = r"(?:[KMGT]?[Bb]ps|[KMGT]B|[kKmMgGtT]b|[kKmMgG]?Hz)"
+_UNIT_STRONG = r"(?:" + _UNIT_WORDS + "|" + _UNIT_ENG + r"|[개건종명곳억천백원년월일회배점사社주Kk])"
+_UNIT_WEAK = r"(?:[만인대위등분차조%GDMxX]|(?i:st|nd|rd|th))"
+_PARTICLE = (
+    r"(?:에서는|에서도|에서|에는|에도|에게|까지|부터|이나|으로|이며|이고|이다|입니다|인데|이라고|라고|처럼|보다|마다|만에|밖에|이상|이하|이내|미만|정도|짜리"
+    r"|쯤|씩|간|급|째|별|이|가|은|는|을|를|의|에|로|와|과|도|만|나|며|고|인|당)"
+)
 _UNIT_TAIL = re.compile(
-    r"^(?:[.~\-–]\d+)*((?:" + _UNIT_WORDS + "|" + _UNIT_ONE + r"|[GKDgkd]|M|[xX]|%|(?i:st|nd|rd|th))+)(?:(?!\w)|(?<=%))"
+    r"^(?:[.~\-–]\d+)*(?:(?P<solo>" + _UNIT_WEAK + r")(?!\w)"
+    r"|(?P<chain>(?:만(?=" + _UNIT_STRONG + r")|" + _UNIT_STRONG + r")+)(?:(?!\w)|(?P<particle>" + _PARTICLE + r")(?!\w)))"
 )
 _LONE_PARTICLE_UNITS = frozenset("만인등")
-_SLASH_LIKE = re.compile("[\u2215\u2044\u29f8]")
-_SLASH_ENTITY = re.compile(r"&(?:#47|#x2f|sol);", re.I)
-_SCAN_CAP = 300  # 한 낱말의 앞·뒤를 이만큼만 본다 (띄어쓰기 없는 아주 긴 줄에서 일치마다 끝까지 훑어 느려지지 않게)
+_SCAN_CAP = 300  # 번호 뒤 단위 줄을 이만큼까지만 본다 (그보다 긴 단위 줄은 단위로 보지 않는다)
 
 
 def _normalize(text: str) -> str:
     t = unicodedata.normalize("NFKC", text)
-    t = _ZERO_WIDTH.sub("", t)
-    t = _SLASH_LIKE.sub("/", _SLASH_ENTITY.sub("/", t))
-    t = re.sub(r"(?:%25)+(?=2f|5c)", "%", t, flags=re.I)  # 두 번 부호화(`%252F`)
+    t = _INVISIBLE.sub("", t)
+    t = _SLASH_LIKE.sub("/", _SLASH_ENTITY.sub("/", _ENTITY_AMP.sub("&", t)))
+    # 여러 번 부호화(`%252F`, `%25252F` …): `%25…25` 덩어리가 `2f`·`5c` 앞이면 `%` 하나로. 덩어리를 한 번씩만 훑는다(선형).
+    t = _ENC_RUN.sub(lambda m: "%" if t[m.end():m.end() + 2].lower() in ("2f", "5c") else m.group(0), t)
     return re.sub(r"%2f", "/", re.sub(r"%5c", lambda _m: chr(92), t, flags=re.I), flags=re.I)
 
 
-def _is_unit_tail(rest: str) -> bool:
-    m = _UNIT_TAIL.match(rest)
-    if not m:
-        return False
-    if m.group(1) in _LONE_PARTICLE_UNITS:
-        return False
-    return not _TAIL_EXT_ONLY.search(rest[m.end():])
+def _unit_tail_len(rest: str) -> int | None:
+    """번호 바로 뒤 `rest` 가 수량 단위(와 조사)로 시작하면 그 길이, 아니면 None."""
+    m = _UNIT_TAIL.match(rest[:_SCAN_CAP])
+    if not m or m.end() >= _SCAN_CAP:
+        return None
+    if m.group("solo") in _LONE_PARTICLE_UNITS:
+        return None
+    return m.end()
 
 
-def _is_mirror_path_at(text: str, start: int, end: int) -> bool:
-    """`text[start:end]` 가 폴더/번호일 때, 앞 머리말과 뒤 꼬리를 보고 사본 경로인지 가린다."""
-    ts = start
-    floor = max(0, start - _SCAN_CAP)
-    while ts > floor and not text[ts - 1].isspace():
-        ts -= 1
-    raw = text[ts:start]
-    te = end
-    ceil = min(len(text), end + _SCAN_CAP)
-    while te < ceil and not text[te].isspace():
-        te += 1
-    rest = text[end:te]
-    # 번호 뒤에 단위가 바로 붙었으면 수량이다 (`partners/2개사`, `solutions/5G/LTE`, `customers/12%`). 단위 뒤에 확장자가 오면 경로다.
-    if _is_unit_tail(rest):
-        return False
-    if _URL_HEAD.search(raw):
-        return False
-    if _KNOWLEDGE_SEG.search(raw):
-        return True
-    if _FILE_HEAD.search(raw):
-        return True  # `file://` 은 닻이다 (호스트 이름이 올 수 있어도 내 컴퓨터의 사본)
-    if "://" in raw:
-        return False
-    if not raw:
-        return True
-    if re.search(r"[A-Za-z0-9_]$|(?<=[A-Za-z0-9_])-$", raw):
-        return False  # `a-solutions/3`, `mysolutions/3`: 낱말에 붙은 것
-    if not re.search(_SEP + "$", raw):
-        return True  # 표지(`근거=`, `→`, `※`, 따옴표, 한글 …)로 끝남
-    head = _LABEL_LEAD.sub("", _JUNK_LEAD.sub("", raw))  # `출처:/` 의 이름표는 뗀다
-    segs = re.split(_SEP, head)[:-1]
-    first = segs[0] if segs else ""
-    anchored = first in ("", ".", "..", "~") or first[0] in "$%" or re.match(r"^[A-Za-z]:$", first) is not None
-    if anchored:
-        return True
-    if _HOST_SEG.match(first):
-        return False  # 주소 (닻 없는 머리말의 첫 마디만 본다)
-    return bool(_FILE_TAIL.match(rest))  # 일반 폴더 이름(`intranet/`): 번호만 있으면 남기고 `3.md`·`3/card.md` 면 파일 경로
+class _Token:
+    """공백 없는 한 낱말과, 그 안의 여러 사본 경로 후보가 함께 쓰는 앞·뒤 사실. 낱말을 한 번만 훑어 두고 후보마다 이진 탐색으로 묻는다 (후보가 많아도 선형)."""
+
+    def __init__(self, tok: str):
+        self.tok = tok
+        self.url_end = next((m.end() for m in _URL_HEAD.finditer(tok)), len(tok) + 1)
+        self.knowledge_end = next((m.end() for m in _KNOWLEDGE_SEG.finditer(tok)), len(tok) + 1)
+        self.file_end = next((m.end() for m in _FILE_HEAD.finditer(tok)), len(tok) + 1)
+        i = tok.find("://")
+        self.scheme_end = i + 3 if i >= 0 else len(tok) + 1
+        self.junk = [m.start() for m in _JUNK_CH.finditer(tok)]
+        self.seps = [m.start() for m in _SEP_CH.finditer(tok)]
+        self.dots = [m.start() for m in _DOT_SEG.finditer(tok)]
+        self.exts = [m.start() for m in _EXT.finditer(tok)]
+        self._first: dict[int, str] = {}
+
+    def has_ext_from(self, pos: int) -> bool:
+        return bisect.bisect_left(self.exts, pos) < len(self.exts)
+
+    def first_segment(self, j: int) -> str:
+        """머리말(`tok[j:]`, 마지막 표지 글자 뒤) 의 첫 마디. 이름표(`출처:`)는 뗀다."""
+        if j not in self._first:
+            k = bisect.bisect_left(self.seps, j)
+            head = _LABEL_LEAD.sub("", self.tok[j:self.seps[k] + 1])
+            self._first[j] = re.split(_SEP, head)[0]
+        return self._first[j]
+
+    def is_path(self, start: int, end: int) -> bool:
+        """`tok[start:end]` 가 폴더/번호일 때, 앞 머리말과 뒤 꼬리를 보고 사본 경로인지 가린다."""
+        tok = self.tok
+        # 번호 바로 뒤에 단위가 붙었으면 수량이다 (`partners/2개사`, `solutions/5G/LTE`, `customers/12%`). 단위 뒤에 확장자가 오면 경로다.
+        n = _unit_tail_len(tok[end:end + _SCAN_CAP])
+        if n is not None and not self.has_ext_from(end + n):
+            return False
+        if self.url_end <= start:
+            return False
+        if self.knowledge_end <= start:
+            return True
+        if self.file_end <= start:
+            return True  # `file://` 은 닻이다 (호스트 이름이 올 수 있어도 내 컴퓨터의 사본)
+        if self.scheme_end <= start:
+            return False
+        if start == 0:
+            return True
+        last = tok[start - 1]
+        if re.match(r"[A-Za-z0-9_]", last):
+            return False  # `a-solutions/3`, `mysolutions/3`: 낱말에 붙은 것
+        if last == "-" and start >= 2 and re.match(r"[A-Za-z0-9_]", tok[start - 2]):
+            return False
+        if not _SEP_CH.match(last):
+            return True  # 표지(`근거=`, `→`, `※`, 따옴표, 한글 …)로 끝남
+        li = bisect.bisect_left(self.junk, start) - 1
+        j = self.junk[li] + 1 if li >= 0 else 0
+        first = self.first_segment(j)
+        anchored = first in ("", ".", "..", "~") or first[0] in "$%" or re.match(r"^[A-Za-z]:$", first) is not None
+        if anchored:
+            return True
+        di = bisect.bisect_left(self.dots, j)
+        if di < len(self.dots) and self.dots[di] < start:
+            return True  # `intranet/../solutions/3`: 위로 가는 마디가 끼었다
+        if _HOST_SEG.match(first):
+            return False  # 주소 (닻 없는 머리말의 첫 마디만 본다)
+        # 일반 폴더 이름(`intranet/`): 번호만 있으면 남기고 `3.md`·`3/card.md` 면 파일 경로
+        e = end + (n or 0)  # 단위 뒤의 확장자(`3개.md`)·`/card.md` 도 파일 경로다
+        if _EXT.match(tok, e):
+            return True
+        return e < len(tok) and bool(_SEP_CH.match(tok[e])) and self.has_ext_from(e + 1)
 
 
 def has_internal_mark(text) -> bool:
     """고객에게 보이면 안 되는 내부 표시(사본 경로)가 든 글인가."""
     t = _normalize(_clean(text))
-    return any(_is_mirror_path_at(t, m.start(), m.end()) for m in _FOLDER_AT.finditer(t))
+    if not _FOLDER_AT.search(t):
+        return False
+    for tm in _TOKEN.finditer(t):
+        tok = tm.group()
+        matches = list(_FOLDER_AT.finditer(tok))
+        if not matches:
+            continue
+        info = _Token(tok)
+        if any(info.is_path(m.start(), m.end()) for m in matches):
+            return True
+    return False
 
 
 def _scrub_customer(slide: dict, stats: dict | None = None) -> dict:
