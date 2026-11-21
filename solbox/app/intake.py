@@ -761,17 +761,22 @@ def is_archived(intake: Intake) -> bool:
     return any(f.kind == "audio" and f.read_status == "needs_transcript" for f in intake.files)
 
 
-def start_analysis(db: Session, intake: Intake, user: User) -> bool:
+def start_analysis(db: Session, intake: Intake, user: User, note: str | None = None) -> bool:
     """묶음을 정리 중으로 바꾸고 정리 작업을 넣는다. 올림·확인 대기·실패 상태에서만, 동시에 와도 한 번만 시작된다.
-    읽을 수 있는 파일이 없으면 작업 없이 실패로 둔다 (False)."""
+    읽을 수 있는 파일이 없으면 작업 없이 실패로 둔다 (False).
+    `note`(고친 메모)는 작업을 넣는 같은 트랜잭션에서 저장한다: 잠금에 막혀 못 시작했는데 메모만 바뀌어 남지 않게."""
+    memo = {"note": note} if note is not None else {}
     db.refresh(intake)
     intake_id = intake.id
     startable = Intake.status.in_(("uploaded", "ready", "failed"))
     if not any(f.read_status == "ok" or (f.kind == "audio" and f.read_status == "pending_transcript") for f in intake.files):
         db.rollback()
         if is_archived(intake):  # 음성만 있고 받아쓰기가 꺼져 있다: 실패가 아니라 보관만 한다 (올림 상태 그대로)
+            if memo:
+                db.execute(update(Intake).where(Intake.id == intake_id, startable).values(**memo))
+                db.commit()
             return False
-        db.execute(update(Intake).where(Intake.id == intake_id, startable).values(status="failed", error=NO_READABLE))
+        db.execute(update(Intake).where(Intake.id == intake_id, startable).values(status="failed", error=NO_READABLE, **memo))
         db.commit()
         db.refresh(intake)
         return False
@@ -781,7 +786,7 @@ def start_analysis(db: Session, intake: Intake, user: User) -> bool:
     db.flush()
     claimed = db.execute(
         update(Intake).where(Intake.id == intake_id, startable)
-        .values(status="analyzing", job_id=job.id, plan=None, error="")
+        .values(status="analyzing", job_id=job.id, plan=None, error="", **memo)
     )
     if claimed.rowcount != 1:  # 이미 정리 중이거나 끝난 묶음이다
         db.rollback()

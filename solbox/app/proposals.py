@@ -444,8 +444,9 @@ def deck_is_old(p: Proposal, decks_dir: Path) -> bool:
     return not internal_deck_path(Path(decks_dir) / str(p.id) / p.deck_name).is_file()
 
 
-def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None) -> AIJob | None:
-    """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다."""
+def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None, rows: list | None = None) -> AIJob | None:
+    """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다.
+    `rows`(대화 메시지 같은 함께 저장할 줄)는 작업과 같은 트랜잭션에 넣는다: 잠금·경쟁으로 실패하면 함께 저장되지 않는다."""
     db.refresh(p)
     if p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE:
         return None
@@ -460,6 +461,8 @@ def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | Non
     if claimed.rowcount != 1:  # 다른 요청이 먼저 잡았다.
         db.rollback()
         return None
+    for row in rows or []:
+        db.add(row)
     db.commit()
     db.refresh(p)
     return job

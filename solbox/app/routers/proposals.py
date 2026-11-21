@@ -333,15 +333,8 @@ def chat(
     if _is_busy(proposal):  # 쓴 글은 입력칸에 남겨 둔다 (끝난 뒤 다시 보내면 된다)
         return _detail_page(request, db, proposal, user, status_code=409, chat_error=CHAT_BUSY, chat_text=text)
     pid = proposal.id
-    message_row = ProposalMessage(proposal_id=pid, role="user", content=text)
-    db.add(message_row)
-    db.commit()  # start_job 이 트랜잭션을 되돌리므로 메시지를 먼저 확정한다
-    message_id = message_row.id
-    if start_job(db, proposal, "proposal_chat", user) is None:  # 그 사이 다른 요청이 먼저 작업을 잡았다. 메시지를 거둔다.
-        leftover = db.get(ProposalMessage, message_id)
-        if leftover is not None:  # 제안 건이 그 사이 지워졌으면 메시지도 이미 없다
-            db.delete(leftover)
-            db.commit()
+    # 메시지와 작업은 한 트랜잭션이다 (잠금에 막혀 503 이 나도 메시지만 남지 않는다: 다시 보내면 정확히 하나)
+    if start_job(db, proposal, "proposal_chat", user, rows=[ProposalMessage(proposal_id=pid, role="user", content=text)]) is None:  # 그 사이 다른 요청이 먼저 작업을 잡았다.
         if not db.scalar(select(func.count()).select_from(Proposal).where(Proposal.id == pid)):  # 제안 건이 그 사이 지워졌다
             return RedirectResponse("/proposals", status_code=303)
         return _detail_page(request, db, proposal, user, status_code=409, chat_error=CHAT_BUSY, chat_text=text)

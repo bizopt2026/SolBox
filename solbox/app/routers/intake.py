@@ -232,13 +232,10 @@ def analyze(
     if intake.status in ("applied", "discarded"):
         raise HTTPException(status_code=400, detail="이미 끝난 묶음은 다시 정리할 수 없습니다.")
     if intake.status != "analyzing":
-        if note is not None:
-            if len(note.strip()) > intake_lib.MAX_NOTE:
-                return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
-            intake.note = note.strip()
-            db.commit()
+        if note is not None and len(note.strip()) > intake_lib.MAX_NOTE:
+            return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
         intake_lib.ensure_workdir(request.app.state.settings, intake)  # 준비가 덜 끝난 묶음은 여기서 다시 준비한다
-        intake_lib.start_analysis(db, intake, user)
+        intake_lib.start_analysis(db, intake, user, note=note.strip() if note is not None else None)  # 메모는 작업과 한 트랜잭션
     return notices.redirect(f"/intake/{intake.id}", "intake_analyzing")
 
 

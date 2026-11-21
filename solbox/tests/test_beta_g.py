@@ -85,3 +85,64 @@ def test_g3_purge_drops_stale_abandoned(app):
     with app.state.session_factory() as d:
         guards.purge_tokens(d)
     assert (9, "/gone|nothing") not in guards._ABANDONED
+
+
+# ---- G4: 제안 대화는 메시지와 작업이 한 트랜잭션 ----
+
+def _busy_on_job_insert(monkeypatch_or_none=None):
+    from sqlalchemy import event
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+    from app.models import AIJob
+
+    class Busy(Exception):
+        sqlite_errorcode = 5
+
+    state = {"on": True}
+
+    def before_flush(session, ctx, instances):
+        if state["on"] and any(isinstance(o, AIJob) for o in session.new):
+            raise OperationalError("insert", {}, Busy("database is locked"))
+
+    event.listen(Session, "before_flush", before_flush)
+    return state, lambda: event.remove(Session, "before_flush", before_flush)
+
+
+def test_g4_chat_busy_leaves_no_orphan_message(app, user_client, db, settings):
+    from app.models import AIJob, ProposalMessage
+    from tests.conftest import refining_proposal
+
+    p = refining_proposal(db, settings)
+    state, remove = _busy_on_job_insert()
+    try:
+        r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "가격 장을 앞으로"}, follow_redirects=False)
+        assert r.status_code == 503
+        db.expire_all()
+        assert db.query(ProposalMessage).filter_by(proposal_id=p.id).count() == 0
+        assert db.query(AIJob).count() == 0
+        state["on"] = False
+        r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "가격 장을 앞으로"}, follow_redirects=False)
+        assert r.status_code == 303
+    finally:
+        remove()
+    db.expire_all()
+    assert [m.content for m in db.query(ProposalMessage).filter_by(proposal_id=p.id)] == ["가격 장을 앞으로"]
+    assert db.query(AIJob).count() == 1
+
+
+def test_g4_intake_analyze_note_not_saved_when_busy(app, user_client, db, settings):
+    from app.models import AIJob, Intake
+    from tests.conftest import ready_intake
+
+    it, *_ = ready_intake(db, settings)
+    iid = it.id
+    it.status, it.note = "failed", "원래 메모"
+    db.commit()
+    state, remove = _busy_on_job_insert()
+    try:
+        r = user_client.post(f"/intake/{iid}/analyze", data={"note": "고친 메모"}, follow_redirects=False)
+    finally:
+        remove()
+    assert r.status_code == 503
+    db.expire_all()
+    assert db.get(Intake, iid).note == "원래 메모"
