@@ -365,3 +365,33 @@ def test_prefixed_internal_paths_are_caught(text):
 ])
 def test_urls_and_ordinary_lines_survive(text):
     assert not has_internal_mark(text)
+
+
+# ---- E7 작성자 말투: 동사 + 지시 표지가 붙을 때만 ----
+
+from app.proposals import is_author_instruction
+
+AUTHOR_LINES = [  # 옮긴다 (이전 묶음의 목록 + 새 목록)
+    "총액과 견적 유효기간을 함께 제시", "담당자 이름을 함께 기재", "보안 정책을 반드시 명시", "연락처를 추가할 것", "수치를 입력하세요",
+    "금액 확인 필요", "도입 전 네트워크 환경 확인 필요", "절감률 보완 필요", "세부 일정 수정 필요", "자료를 확인하시기 바랍니다", "검토 요망",
+    "[TBD] 비용", "○○", "(○○)", "OOO", "담당자: ○○○", "비용: ○○원", "수치를 기재해 주세요.", "담당자 이름을 기재해 주세요", "일정을 작성할 것",
+    "담당자 이름을 기재해 주세요.", "수치를 기입 바랍니다", "근거 자료를 삽입할 것",
+]
+CUSTOMER_LINES = [  # 고객에게 보이는 줄로 둔다
+    "많은 관심 바랍니다", "긍정적인 검토 부탁드리며 연락 바랍니다.", "설치·교육 함께 포함", "보안 인증은 반드시 필요한 항목으로 기본 포함",
+    "매월 보고서로 성과를 확인할 것", "24시간 장애 대응 요망", "AI가 회의록 초안을 작성", "부족한 현장 인력을 보완", "고객 데이터를 입력",
+    "월간 운영 보고서를 제시", "기존 시스템의 한계를 보완", "계약서에 책임 범위를 명시", "○○시청 도입 사례", "구축 후 3개월간 개선 방안을 제시.",
+    "단계별 로드맵 제시", "현장 사진을 삽입", "견적을 제시합니다", "지금 바로 문의하세요", "반드시 지켜야 할 3가지 약속",
+    "도입 효과를 확인할 수 있습니다", "총액은 1억원이며 견적 유효기간은 30일입니다", "문의 주세요", "제안서 작성 일정", "필요한 자원을 확인합니다",
+    "월 4천만원 수준의 운영비", "단계별 로드맵 제시", "도입 효과를 확인할 수 있습니다",
+]
+
+
+@pytest.mark.parametrize("line", AUTHOR_LINES)
+def test_e7_author_lines_move(line):
+    assert is_author_instruction(line), line
+
+
+@pytest.mark.parametrize("line", CUSTOMER_LINES)
+def test_e7_customer_lines_stay(line):
+    assert not is_author_instruction(line), line
