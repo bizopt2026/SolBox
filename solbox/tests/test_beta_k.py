@@ -19,6 +19,9 @@
   logs/app.log[.N]                                          로그
   models/…                                                  받아쓰기 모델
   (data 밖) backups/<날짜>-<시각>[.partial]/{app.db,uploads/…,decks/…,backup.json}   백업
+베타 L 이 더한 것 (K 표에 빠져 있었다): app.db.before-migrate-<날짜>-<시각>[-N] (migrate.py), uploads/intake/…transcript.txt.tmp (intake.py), decks/…pptx.part (deck.py), models/.hf_home (transcribe.py).
+정정: `knowledge/index.md`·`solbox.db` 는 앱이 쓰는 이름이 아니다 (앱은 `knowledge/solutions/<번호>/card.md` 와 `app.db` 만 쓴다). 사본·DB 파일처럼 보이는 이름이라 고객용 PPT 에서는 같이 지우지만 이 표(앱이 쓰는 모양)에는 없다.
+`data/<폴더>/` 만 있는 글(`data/logs/metrics`·`data/models/API`·`S3 버킷 data/uploads/`)은 앱의 이름이 이어지지 않으면 고객 글이라 남긴다 (`tests/test_beta_i.py` 의 `DECK_KEEP` 의 beta L 줄).
 """
 from __future__ import annotations
 
@@ -59,6 +62,9 @@ SHAPES = {
     "deck internal": "decks/4/deck-20261121-101500-ab12cd-internal.pptx", "log": "data/logs/app.log", "log rotated": "logs/app.log.1",
     "model": "data/models/small/model.bin", "backup db": "backups/20261121-101500/app.db", "backup uploads": "backups/20261121-101500/uploads/solutions/3/4.pdf",
     "backup meta": "backups/20261121-101500/backup.json", "backup partial": "backups/20261121-101500.partial",
+    # 베타 L: K 표에 빠져 있던 것 (migrate.py 의 DB 사본, 임시·.part 파일, HF 캐시 폴더)
+    "db before-migrate": "data/app.db.before-migrate-20261121-101500", "db before-migrate n": "data/app.db.before-migrate-20261121-101500-2",
+    "transcript tmp": "data/uploads/intake/5/9.m4a.transcript.txt.tmp", "deck part": "data/decks/4/deck-20261121-101500-ab12cd.pptx.part", "hf home": "data/models/.hf_home",
 }
 FORMS = {"bare": "{}", "particle": "{}에서", "paren": "({})", "eq": "근거={}"}
 # 모양이 아주 일반적인 낱말이라 지우지 않는다 (알려진 한계): `data/` 없는 `models/…` 와 `data/` 없는 단독 `logs/app.log` 가 아닌 글
@@ -239,7 +245,7 @@ def test_l12_assembled_literals_do_not_sit_in_the_test_sources():
     import re
     pat = re.compile(r"eyJ[A-Za-z0-9_\-]{8,}\.|Basic [A-Za-z0-9+/=]{12,}|sk-ant-[A-Za-z0-9]|gh[pousr]_[A-Za-z0-9]{20}|-----BEGIN")
     here = Path(__file__).parent
-    for f in sorted(here.glob("test_beta_[h-k].py")) + [here / "_linear.py"]:
+    for f in sorted(here.glob("test_beta_[h-l].py")) + [here / "_linear.py"]:
         for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
             if "pat = re.compile" in line:
                 continue

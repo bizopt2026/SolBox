@@ -592,20 +592,28 @@ class _Token:
         return self.file_tail(end + (n or 0))  # 단위 뒤의 확장자(`3개.md`)·`/card.md` 도 파일 경로다
 
 
-# 번호 없는 사본·데이터 파일: 앱이 실제로 쓰는 이름만 본다 (베타 K). 지식 사본 폴더의 `knowledge/index.md`·`knowledge/solutions/card.md` 와 데이터 폴더의 `data/app.db`·`data/solbox.db`.
+# 번호 없는 사본·데이터 파일 (베타 K, L): 앱이 쓰는 이름은 `knowledge/solutions/<번호>/card.md` 와 `data/app.db` 다. `knowledge/index.md`·`data/solbox.db` 는 앱이 쓰지 않지만 사본·DB 파일처럼 보이는 이름이라 같이 뺀다 (둘 다 일반 글과 겹칠 일이 드물다).
 # `docs/knowledge/guide.md`·`Obsidian vault(knowledge/notes.md)`·`kt.com/data/app.db`·`/var/lib/app.db`·`node_modules/app.db` 같은 일반 글은 둔다.
 # 파일 이름 뒤에는 영문·숫자·`_` 만 아니면 된다 (`knowledge/index.md의 목록`·`data/app.db를 백업` 의 한글 조사).
 _MIRROR_FILE = re.compile(
     rf"(?<![\w.\-])knowledge{_SEP}(?:(?:" + "|".join(map(re.escape, mirror_folders())) + rf"){_SEP})?(?:index|card)\.md(?![A-Za-z0-9_])", re.I)
 _DB_FILE = re.compile(rf"(?<![\w.\-])data{_SEP}(?:app|solbox)\.db(?![A-Za-z0-9_])", re.I)
 # 데이터 폴더의 그 밖의 모양 (앱이 쓰는 것만): 작업 폴더(`intake_work/<번호>/…`·`research_work/…`), 올린 파일(`uploads/solutions|intake/<번호>/…`), 제안서 파일(`decks/<번호>/deck-<날짜>-<시각>-<6자>[-internal].pptx`),
-# 백업(`backups/<날짜>-<시각>[.partial]/…`), 로그(`logs/app.log[.N]`), 그리고 `data/` 아래 그 폴더들(`data/models/…`). 일반 낱말(`models/`·`logs/`·`uploads/` 만 있는 글)은 둔다.
+# 백업(`backups/<날짜>-<시각>[.partial]/…`), 로그(`logs/app.log[.N]`), 옛 DB 사본(`app.db.before-migrate-…`). 일반 낱말(`models/`·`logs/`·`uploads/` 만 있는 글)은 둔다.
 _DATA_SHAPE = re.compile(
     rf"(?<![\w.\-])(?:(?:intake_work|research_work){_SEP}|uploads{_SEP}(?:solutions|intake){_SEP}[^\s/\\／]|decks{_SEP}\d+{_SEP}"
     rf"|backups{_SEP}\d{{8}}-\d{{6}}(?![A-Za-z0-9_])|logs{_SEP}app\.log(?:\.\d+)?(?![A-Za-z0-9_]))"
     r"|(?<![\w.\-])deck-\d{8}-\d{6}-[0-9a-f]{6}(?:-internal)?\.pptx(?![A-Za-z0-9_])", re.I)
+# `data/models/` 는 앱의 모델 폴더 이름(`MODEL_NAMES`·HF 캐시 `models--…`·`.hf_home`)이 이어질 때만 (`open data/models/API 제공`·`MLOps: data/models/serving` 은 고객 글).
+_DATA_MODELS = re.compile(
+    rf"(?<![\w.\-])data{_SEP}models{_SEP}(?:\.hf_home|models--|(?:tiny|base|small|medium|large-v3-turbo|large-v3)(?![A-Za-z0-9_]))", re.I)
+# 그 밖의 `data/<폴더>/` 는 머리말에 `solbox` 마디가 있을 때만 (`solbox/data/logs/x`; 닻 있는 `D:\data\logs\`·`/data/models/` 는 고객 서버 글일 수 있다)
 _DATA_SUBDIR = re.compile(rf"(?<![\w.\-])data{_SEP}(?:logs|models|uploads|decks|backups|intake_work|research_work){_SEP}", re.I)
-_URL_SPAN = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*", re.I)  # 주소의 끝은 `,`·`;`·한글·공백에서 끝난다 (`https://kt.com,knowledge/index.md` 의 파일은 주소 밖)
+# 앱이 옛 DB 를 옮기기 전에 만드는 사본 (`app.db.before-migrate-<날짜>-<시각>[-N]`, migrate.py)
+_DB_BEFORE_MIGRATE = re.compile(r"(?<![\w.\-])app\.db\.before-migrate-\d{8}-\d{6}(?:-\d+)?(?![A-Za-z0-9_])", re.I)
+# 어떤 `scheme://…` 도 주소다 (`s3://bucket/data/logs/…`·`hdfs://…`; `file://` 은 내 컴퓨터의 닻이라 뺀다)
+_URL_SPAN = re.compile(
+    r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*|(?<![A-Za-z0-9+.\-])(?!file://)[A-Za-z][A-Za-z0-9+.\-]*://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+%=]*", re.I)  # 주소의 끝은 `,`·`;`·한글·공백에서 끝난다 (`https://kt.com,knowledge/index.md` 의 파일은 주소 밖)
 _DB_LABEL_CUT = re.compile(r"[=;,·→※*#‘’“”「」『』…(\[{<|\"'`]")
 _DB_ANCHORED = re.compile(r"^(?:[/\\~$%]|[A-Za-z]:[/\\]|file:)", re.I)
 
@@ -629,6 +637,11 @@ def _db_file_is_ours(tok: str, m: re.Match) -> bool:
     return head == "" or _DB_ANCHORED.match(head) is not None or "solbox" in head.lower()
 
 
+def _head_has_solbox(tok: str, m: re.Match) -> bool:
+    head = _DB_LABEL_CUT.split(tok[max(0, m.start() - 300):m.start()])[-1]
+    return "solbox" in head.lower()
+
+
 def _has_mirror_file(t: str) -> bool:
     for tm in _TOKEN.finditer(t):
         tok = tm.group()
@@ -647,9 +660,17 @@ def _has_mirror_file(t: str) -> bool:
             spans = spans or _url_spans(tok)
             if not _in_url(spans, m.start()):
                 return True
+        for m in _DATA_MODELS.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()):
+                return True
+        for m in _DB_BEFORE_MIGRATE.finditer(tok):
+            spans = spans or _url_spans(tok)
+            if not _in_url(spans, m.start()):
+                return True
         for m in _DATA_SUBDIR.finditer(tok):
             spans = spans or _url_spans(tok)
-            if not _in_url(spans, m.start()) and _db_file_is_ours(tok, m):
+            if not _in_url(spans, m.start()) and _head_has_solbox(tok, m):
                 return True
     return False
 
