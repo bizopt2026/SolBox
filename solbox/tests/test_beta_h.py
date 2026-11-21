@@ -170,3 +170,24 @@ def test_h6_multi_file_upload_busy_midway_says_what_was_saved(user_client, db):
     assert r.status_code == 200 and "저장하지 못한 파일: b.txt" in r.text and "앞의 파일은 저장했습니다" in r.text
     db.expire_all()
     assert [f.original_name for f in db.query(SolutionFile)] == ["a.txt"]
+
+
+# ---- H7: 작성자 말투 ----
+
+@pytest.mark.parametrize("text", [
+    "해당 장비는 철거 후 제거 바랍니다", "이 장치는 설치 후 보호 필름을 제거하세요", "현장 담당자 확인 필요", "귀사 담당자 확인 필요",
+    "도입 규모 검토 필요", "규모 확대 검토 필요",
+])
+def test_h7_customer_lines_stay(text):
+    from app.proposals import is_author_instruction
+    assert not is_author_instruction(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "실제 고객사 수치로 교체 필요", "최신 통계 수치로 업데이트 필요", "절감률 산출 근거 자료 추가 필요", "도입 사례 사진 추가 예정",
+    "금액은 견적 확정 후 기입 예정", "상세 일정은 추후 기재 예정", "담당자 확인 필요", "규모 확인 요망", "이 슬라이드는 삭제할 것",
+    "이 장은 삭제하세요", "이 페이지 삭제 바랍니다",
+])
+def test_h7_author_notes_move(text):
+    from app.proposals import is_author_instruction
+    assert is_author_instruction(text), text
