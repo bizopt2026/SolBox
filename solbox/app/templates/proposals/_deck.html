@@ -3,7 +3,7 @@
 {% set job = proposal.active_job %}
 {% set deck_busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set cs = outline_check_summary(proposal.outline) %}
-{% set back = "outline" if request.url.path.endswith("/outline") else "" %}
+{# `back` 은 이 조각을 넣는 화면이 정한다 (구성안 화면은 "outline", 상세는 비움). 주소로 짐작하지 않는다: 구성안 쪽 POST 오류 화면도 상세 화면이다 #}
 {% set old = proposal.deck_name and deck_is_old(proposal, request.app.state.settings.decks_dir) %}
 {% set stale = proposal.deck_name and not old and deck_is_stale(proposal) %}
 {% set open_checks = unresolved_check_count(proposal.outline) %}

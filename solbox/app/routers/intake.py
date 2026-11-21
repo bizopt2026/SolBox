@@ -214,8 +214,9 @@ def _analyze_ai_off(request: Request, exc):
     with request.app.state.session_factory() as db:
         intake = db.get(Intake, request.path_params.get("intake_id"))
         user = request.state.user
-        if (intake is not None and note is not None and _is_owner(user, intake)
-                and intake.status not in ("analyzing", "applied", "discarded") and len(note.strip()) <= intake_lib.MAX_NOTE):
+        if intake is not None and _is_owner(user, intake) and intake.status not in ("analyzing", "applied", "discarded"):
+            if len(note.strip()) > intake_lib.MAX_NOTE:  # 보통 경로와 같은 응답 (메모를 말없이 버리지 않는다)
+                return detail_page(request, user, intake, db, notice=NOTE_TOO_LONG, status_code=400)
             intake.note = note.strip()
             db.commit()
     return notices.redirect(f"/intake/{request.path_params.get('intake_id')}", "ai_off")

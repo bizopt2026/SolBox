@@ -188,7 +188,7 @@ def _detail_page(
 ):
     candidates = candidate_solutions(db, proposal)
     # 방금 실패한 폼이 들어 있는 구역은 열어 둔다
-    open_key = ("chat" if extra.get("chat_error") else "deck" if extra.get("deck_error") else "target" if extra.get("target_conflict")
+    open_key = ("chat" if extra.get("chat_error") or extra.get("chat_text") else "outline" if extra.get("instruction_text") else "deck" if extra.get("deck_error") else "target" if extra.get("target_conflict")
                 else open_section(proposal))
     return render(
         request, "proposals/detail.html", status_code=status_code, proposal=proposal, title=display_title(proposal),
@@ -295,19 +295,19 @@ def _is_busy(p: Proposal) -> bool:
 
 
 def _ai_off_detail(request: Request, exc, **extra):
-    """AI 꺼짐: 쓴 글을 채운 제안 화면을 다시 그린다 (알림 `ai_off` 가 맨 위에 보인다). 제안 건이 없으면 None (보통의 돌려보내기)."""
+    """AI 꺼짐: 쓴 글을 채운 제안 화면을 다시 그린다 (AI 꺼짐 줄 하나만 보인다). 제안 건이 없으면 None (보통의 돌려보내기)."""
     with request.app.state.session_factory() as db:
         proposal = db.get(Proposal, request.path_params.get("proposal_id"))
         if proposal is None:
             return None
-        return _detail_page(request, db, proposal, request.state.user, status_code=409,
-                            flash=notices.inline("ai_off", f"/proposals/{proposal.id}"), **extra)
+        # 안내는 화면의 AI 꺼짐 줄(`ai_note`) 하나만 보인다 (알림·입력칸 오류를 더 얹지 않는다). 쓴 글은 입력칸에 남는다.
+        return _detail_page(request, db, proposal, request.state.user, status_code=409, **extra)
 
 
 def _chat_ai_off(request: Request, exc):
     if not exc.first("message").strip():
         return None
-    return _ai_off_detail(request, exc, chat_text=exc.first("message"), chat_error=notices.lookup("ai_off").text)
+    return _ai_off_detail(request, exc, chat_text=exc.first("message"))
 
 
 def _outline_ai_off(request: Request, exc):

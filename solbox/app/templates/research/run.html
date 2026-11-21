@@ -33,7 +33,7 @@
 {% endif %}
 
 {% if areas %}
-{% if user.role == "admin" and areas | selectattr("report.status", "equalto", "failed") | list %}{% call ai_note(ai_gate(), id="ai-note") %}{% endcall %}{% endif %}
+{% if user.role == "admin" and run.status != "running" and areas | selectattr("report.status", "equalto", "failed") | list %}{% call ai_note(ai_gate(), id="ai-note") %}{% endcall %}{% endif %}
 <div class="area-tabs" id="area-tabs">
   <div class="tabs">
     {% for a in areas %}<a href="#{{ a.report.area }}" id="tab-{{ a.report.area }}">{{ a.name }} <span class="count">{% if a.report.status == "failed" %}실패{% elif a.report.status == "done" %}{{ a.trends | length }}{% else %}조사 중{% endif %}</span></a>{% endfor %}

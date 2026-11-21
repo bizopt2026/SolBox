@@ -196,3 +196,82 @@ def test_g7_error_text_has_no_blank_gaps():
     shown = error_text(None, "", result_is_error=False, stdout="Invalid API key", returncode=1)
     assert shown == "Invalid API key"
     assert "\n\n" not in error_text("x", "\n warn \n", result_is_error=True)
+
+
+# ---- G8~G12: AI 꺼짐 화면 ----
+
+def _running_run(db):
+    from app.research import start_run
+    from tests.test_research_area import make_topics
+    make_topics(db)
+    return start_run(db, "manual", None)
+
+
+@pytest.mark.ai_gate
+def test_g8_run_status_stops_polling_when_worker_off(admin_client, db):
+    run = _running_run(db)
+    html = admin_client.get(f"/research/runs/{run.id}/status").text
+    assert "hx-trigger" not in html and "every 5s" not in html
+    assert "AI 대기" not in html and "앞 작업이 끝나면" not in html
+    assert html.count('class="notice ai-down"') == 1
+
+
+@pytest.mark.ai_gate
+def test_g9_one_note_on_run_and_admin_pages(admin_client, db):
+    from app.models import ResearchReport
+    run = _running_run(db)
+    rep = db.query(ResearchReport).filter_by(run_id=run.id).first()
+    rep.status, rep.error = "failed", "x"
+    db.commit()
+    page = admin_client.get(f"/research/runs/{run.id}").text
+    assert page.count('class="notice ai-down"') == 0  # 쪽에는 없고 아래 조각이 하나만 그린다
+    assert admin_client.get(f"/research/runs/{run.id}/status").text.count('class="notice ai-down"') == 1
+    adm = admin_client.get("/admin/research").text
+    assert adm.count('class="notice ai-down"') == 1
+    assert "note=0" in adm
+    assert admin_client.get(f"/research/runs/{run.id}/status?note=0").text.count('class="notice ai-down"') == 0
+
+
+@pytest.mark.ai_gate
+def test_g9_chat_409_shows_one_note_and_keeps_text(user_client, db, settings):
+    from tests.conftest import refining_proposal
+    p = refining_proposal(db, settings)
+    r = user_client.post(f"/proposals/{p.id}/chat", data={"message": "공조만 하자"})
+    assert r.status_code == 409
+    assert r.text.count('class="notice ai-down"') == 1
+    assert "시작하지 못했습니다" not in r.text
+    assert "공조만 하자" in r.text
+
+
+@pytest.mark.ai_gate
+def test_g10_outline_409_deck_form_has_no_back_field(user_client, db, settings):
+    from tests.conftest import outlined_proposal
+    p = outlined_proposal(db, settings)
+    r = user_client.post(f"/proposals/{p.id}/outline", data={"instruction": "짧게"})
+    assert r.status_code == 409
+    assert 'name="back"' not in r.text
+    assert 'name="back"' in user_client.get(f"/proposals/{p.id}/outline").text
+
+
+@pytest.mark.ai_gate
+def test_g11_analyze_too_long_note_with_worker_off(user_client, db, settings):
+    from app.routers.intake import NOTE_TOO_LONG
+    from app.intake import MAX_NOTE
+    from app.models import Intake
+    from tests.conftest import ready_intake
+    it, *_ = ready_intake(db, settings)
+    iid = it.id
+    it.note = "원래"
+    db.commit()
+    r = user_client.post(f"/intake/{iid}/analyze", data={"note": "가" * (MAX_NOTE + 1)}, follow_redirects=False)
+    assert r.status_code == 400 and NOTE_TOO_LONG in r.text
+    db.expire_all()
+    assert db.get(Intake, iid).note == "원래"
+
+
+def test_g12_copy():
+    from pathlib import Path
+    tpl = Path(__file__).resolve().parents[1] / "app" / "templates"
+    help_html = (tpl / "help.html").read_text(encoding="utf-8")
+    assert "이미 눌러 둔 화면" not in help_html and "이미 열어 둔 화면" in help_html
+    assert "단추가 동작하지 않아요" not in (tpl / "error.html").read_text(encoding="utf-8")

@@ -200,7 +200,7 @@ def run_status(run_id: int, request: Request, user: User = Depends(require_user)
         position = queue_position(db, job) if job is not None else 0
         label = RESEARCH_AREAS.get(r.area, r.area) if r.kind == "area" else "발굴 방향 제안"
         rows.append({"report": r, "area": label, "job": job, "position": position})
-    return render(request, "research/_run_status.html", run=run, rows=rows)
+    return render(request, "research/_run_status.html", run=run, rows=rows, show_note=request.query_params.get("note") != "0")
 
 
 @router.post("/reports/{report_id}/retry", dependencies=[Depends(require_admin), Depends(require_ai_on)])

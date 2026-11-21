@@ -21,7 +21,7 @@
 </div>
 <section class="card stack" id="deck">
   <div class="card-head"><h2>제안서</h2></div>
-  {% include "proposals/_deck.html" %}
+  {% with back="outline" %}{% include "proposals/_deck.html" %}{% endwith %}
 </section>
 <div class="slide-list">
 {% for card in cards %}

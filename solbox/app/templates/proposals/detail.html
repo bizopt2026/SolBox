@@ -63,7 +63,7 @@
   {% include "proposals/_outline.html" ignore missing %}
 {% endcall %}
 {% call section("deck", "제안서") %}
-  {% include "proposals/_deck.html" %}
+  {% with back="" %}{% include "proposals/_deck.html" %}{% endwith %}
 {% endcall %}
 </div>
 <aside class="daside" aria-label="제안 맥락">

@@ -1,5 +1,5 @@
-{% from "_macros.html" import ai_attrs, ai_note %}<div id="run-{{ run.id }}" class="run-status" role="status"
-  {% if run.status == "running" %}hx-get="/research/runs/{{ run.id }}/status" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
+{% from "_macros.html" import ai_attrs, ai_note %}{% set blocked = ai_gate() and ai_gate().blocked %}<div id="run-{{ run.id }}" class="run-status" role="status"
+  {% if run.status == "running" and not blocked %}hx-get="/research/runs/{{ run.id }}/status{{ '?note=0' if not show_note }}" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
   <ul>
   {% for row in rows %}
     <li>{{ row.area }}:
@@ -8,13 +8,14 @@
         <span class="error">실패 — {{ row.report.error }}</span>
         {% if user and user.role == "admin" %}<form method="post" action="/research/reports/{{ row.report.id }}/retry" class="inline-form"><button type="submit" class="small"{{ ai_attrs(ai_gate(), "ai-note-run") }}>다시 시도</button></form>{% endif %}
       {% elif row.job and row.job.status == "running" %}조사 중 <span class="muted">{{ wait_detail(row.job) }}</span>
+      {% elif blocked %}대기 중
       {% else %}AI 대기 {{ row.position }}번째 <span class="muted">(앞 작업이 끝나면 시작합니다)</span>{% endif %}
     </li>
   {% endfor %}
   </ul>
   {% if run.status == "running" %}
-    {% if ai_gate() and ai_gate().blocked %}{% call ai_note(ai_gate(), id="ai-note-run") %}조사 중이던 일은 지금 진행되지 않아요. 처리기를 켜고 서버를 다시 시작하면 이어서 진행해요.{% endcall %}
+    {% if blocked %}{% if show_note %}{% call ai_note(ai_gate(), id="ai-note-run") %}조사 중이던 일은 지금 진행되지 않아요. 처리기를 켜고 서버를 다시 시작하면 이어서 진행해요.{% endcall %}{% endif %}
     {% else %}<p class="muted">다른 화면으로 가도 조사는 계속 진행됩니다.</p>{% endif %}
   {% endif %}
-  {% if run.status != "running" and rows | selectattr("report.status", "equalto", "failed") | list %}{% call ai_note(ai_gate(), id="ai-note-run") %}{% endcall %}{% endif %}
+  {% if show_note and run.status != "running" and rows | selectattr("report.status", "equalto", "failed") | list %}{% call ai_note(ai_gate(), id="ai-note-run") %}{% endcall %}{% endif %}
 </div>

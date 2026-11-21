@@ -250,6 +250,7 @@ def test_status_fragment(app, admin_client, user_client, db, settings, fake_clau
     make_topics(db)
     admin_client.post("/research/run")
     run = db.query(ResearchRun).one()
+    app.state.settings.ai_worker_enabled = True  # 처리기가 꺼진 서버는 5초 다시 불러오기도 대기 순번도 보이지 않는다 (베타 G)
     html = user_client.get(f"/research/runs/{run.id}/status").text
     assert "대기 1번째" in html and "대기 2번째" in html and "every 5s" in html
     fake_claude.set(mode="error", stderr="Please run /login", exit_code=1)

@@ -16,6 +16,6 @@
     <a class="button primary" href="/login">로그인</a>
     {% endif %}
   </div>
-  {% if user and code | default(0) in (409, 503) %}<noscript><p class="muted">이 브라우저에서는 단추가 동작하지 않아요. 브라우저의 뒤로 가기(← 단추나 Alt+←)를 눌러 돌아가 주세요. 첨부했던 파일은 다시 골라야 해요.</p></noscript>{% endif %}
+  {% if user and code | default(0) in (409, 503) %}<noscript><p class="muted">브라우저의 뒤로 가기(Alt+←)로 돌아가 주세요. 첨부했던 파일은 다시 골라야 해요.</p></noscript>{% endif %}
 </section>
 {% endblock %}
