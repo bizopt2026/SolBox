@@ -453,7 +453,20 @@ def deck_is_old(p: Proposal, decks_dir: Path) -> bool:
 
 def start_job(db: Session, p: Proposal, kind: str, user: User, extra: dict | None = None, rows: list | None = None) -> AIJob | None:
     """제안 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다.
-    `rows`(대화 메시지 같은 함께 저장할 줄)는 작업과 같은 트랜잭션에 넣는다: 잠금·경쟁으로 실패하면 함께 저장되지 않는다."""
+    `rows`(대화 메시지 같은 함께 저장할 줄)는 작업과 같은 트랜잭션에 넣는다: 잠금·경쟁으로 실패하면 함께 저장되지 않는다.
+    아직 저장하지 않은 새 제안 건(`p.id is None`, 제안 건 만들기)은 제안 건·작업·`rows` 를 한 번에 커밋한다 (잠금에 막히면 제안 건도 남지 않는다)."""
+    if p.id is None:
+        db.add(p)
+        db.flush()
+        job = AIJob(kind=kind, input={"proposal_id": p.id, **(extra or {})}, requester_id=user.id, priority=0, status="pending")
+        db.add(job)
+        db.flush()
+        p.active_job_id = job.id
+        for row in rows or []:
+            db.add(row)
+        db.commit()
+        db.refresh(p)
+        return job
     db.refresh(p)
     if p.active_job is not None and p.active_job.status in ontology.JOB_ACTIVE:
         return None

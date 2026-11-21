@@ -165,11 +165,11 @@ def create(
         request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"],
         created_by_id=user.id,
     )
-    db.add(proposal)
-    db.commit()
     if gate.ai_is_off(request):  # 처리기가 꺼져 있으면 방향 만들기 작업을 넣지 않는다 (제안 건은 등록된다)
+        db.add(proposal)
+        db.commit()
         return once.done(notices.redirect(f"/proposals/{proposal.id}", "created_ai_off"))
-    start_job(db, proposal, "proposal_directions", user)
+    start_job(db, proposal, "proposal_directions", user)  # 제안 건과 작업을 한 번에 커밋한다
     return once.done(notices.redirect(f"/proposals/{proposal.id}", "created"))
 
 

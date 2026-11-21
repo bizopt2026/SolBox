@@ -70,3 +70,103 @@ def test_h5_columns_scrubbed_only_for_tables():
     stats = {}
     out = _scrub_customer({"kind": "table", "title": "t", "columns": ["항목", "solutions/3.md"], "rows": [["a", "b"]]}, stats)
     assert out["columns"] == ["항목", ""] and stats["removed"] == 1
+
+
+# ---- H6: 제안 건 만들기는 제안 건과 방향 작업이 한 트랜잭션 ----
+
+def _busy_on_job_insert():
+    from sqlalchemy import event
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+    from app.models import AIJob
+
+    class Busy(Exception):
+        sqlite_errorcode = 5
+
+    state = {"on": True}
+
+    def before_flush(session, ctx, instances):
+        if state["on"] and any(isinstance(o, AIJob) for o in session.new):
+            raise OperationalError("insert", {}, Busy("database is locked"))
+
+    event.listen(Session, "before_flush", before_flush)
+    return state, lambda: event.remove(Session, "before_flush", before_flush)
+
+
+def _form_token(client, url):
+    import re
+    return re.search(r'name="_tok" value="([^"]+)"', client.get(url).text).group(1)
+
+
+def test_h6_create_proposal_busy_leaves_nothing_and_retry_makes_one(app, user_client, db):
+    from app.models import AIJob, Customer, Proposal, User
+
+    kim = db.query(User).filter_by(username="kim").one()
+    c = Customer(name="한빛병원", created_by_id=kim.id)
+    db.add(c)
+    db.commit()
+    tok = _form_token(user_client, "/proposals/new")
+    data = {"customer_id": str(c.id), "request_memo": "두 커밋", "_tok": tok}
+    state, remove = _busy_on_job_insert()
+    try:
+        r = user_client.post("/proposals", data=data, follow_redirects=False)
+        assert r.status_code == 503 and "저장하지 않았" in r.text
+        db.expire_all()
+        assert db.query(Proposal).count() == 0 and db.query(AIJob).count() == 0
+        state["on"] = False
+        r = user_client.post("/proposals", data=data, follow_redirects=False)
+        assert r.status_code == 303, r.status_code
+    finally:
+        remove()
+    db.expire_all()
+    props = db.query(Proposal).all()
+    assert len(props) == 1 and props[0].active_job_id is not None
+    assert db.query(AIJob).count() == 1
+
+
+def test_h6_create_proposal_ai_off_saves_without_job(app, user_client, db, monkeypatch):
+    from app.ai import gate
+    from app.models import AIJob, Customer, Proposal, User
+
+    monkeypatch.setattr(gate, "ai_is_off", lambda req: True)
+    kim = db.query(User).filter_by(username="kim").one()
+    c = Customer(name="한빛병원", created_by_id=kim.id)
+    db.add(c)
+    db.commit()
+    r = user_client.post("/proposals", data={"customer_id": str(c.id), "request_memo": "꺼짐"}, follow_redirects=False)
+    assert r.status_code == 303 and "created_ai_off" in r.headers["location"]
+    db.expire_all()
+    p = db.query(Proposal).one()
+    assert p.active_job_id is None and db.query(AIJob).count() == 0
+
+
+def test_h6_multi_file_upload_busy_midway_says_what_was_saved(user_client, db):
+    """파일마다 따로 커밋하므로, 둘째 파일에서 잠금에 막혀도 첫 파일은 저장돼 있다. 503 "아무것도 저장되지 않았다" 가 아니라 어디까지인지 알린다."""
+    from sqlalchemy import event
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+    from app.models import Solution, SolutionFile
+
+    class Busy(Exception):
+        sqlite_errorcode = 5
+
+    s = Solution(name="A")
+    db.add(s)
+    db.commit()
+    seen = {"n": 0}
+
+    def before_flush(session, ctx, instances):
+        if any(isinstance(o, SolutionFile) for o in session.new):
+            seen["n"] += 1
+            if seen["n"] == 2:
+                raise OperationalError("insert", {}, Busy("database is locked"))
+
+    event.listen(Session, "before_flush", before_flush)
+    try:
+        files = [("files", ("a.txt", b"one", "text/plain")), ("files", ("b.txt", b"two", "text/plain"))]
+        r = user_client.post(f"/solutions/{s.id}/files", files=files, follow_redirects=False)
+    finally:
+        event.remove(Session, "before_flush", before_flush)
+    assert r.status_code == 200 and "저장하지 못한 파일: b.txt" in r.text and "앞의 파일은 저장했습니다" in r.text
+    db.expire_all()
+    assert [f.original_name for f in db.query(SolutionFile)] == ["a.txt"]
