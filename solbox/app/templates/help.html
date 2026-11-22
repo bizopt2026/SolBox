@@ -95,6 +95,12 @@
         <li>"프로젝트로 전환"을 눌러 새 {{ josa(ont.label("project"), "을/를") }} 만들거나 같은 고객의 기존 {{ ont.label("project") }}에 잇습니다. 전환은 영업기회마다 한 번만 됩니다.</li>
       </ol>
     </details>
+    <details><summary>프로젝트 상태 정하기</summary>
+      <ol>
+        <li>{{ ont.label("project") }}를 등록하거나 고칠 때 "{{ ont.prop("project", "status") }}"을 목록({{ ont.PROJECT_STATUSES.values() | join(" · ") }})에서 고릅니다. 정하지 않아도 됩니다 ("선택 안 함").</li>
+        <li>예전에 직접 적어 둔 상태는 지워지지 않고 "(이전 입력)" 이 붙어 보입니다. 고칠 때 그대로 두면 유지되고, 목록 값으로 바꿀 수도 있습니다.</li>
+      </ol>
+    </details>
     <details><summary>내 할 일 보기</summary>
       <ol>
         <li><a href="/">홈</a>의 후속 조치 카드에서 "내 할 일"을 누르면 내가 맡은 것만 모아 보입니다 (주소 <code>/?fu=mine</code>).</li>
