@@ -195,6 +195,14 @@
 - 문서: `docs/운영가이드.md`(보내기 전 점검 줄)·`app/templates/help.html`(제안서 도움말)·`docs/ontology.md` 15장(결정 (d)·(e))에 "내부 낱말은 걸러 내지 않는다, 사람이 읽는다" 를 적었다. 화면 구성은 바뀌지 않았다.
 - 시험은 파이썬 3.13 과 3.11 로 돌렸다.
 
+## 베타 R 묶음이 바꾼 규칙
+- **사용자 결정 2026-11-22: "AI 생성 자료는 표기해."** 기록의 유래(`origin_type`)가 올리기 또는 리서치이면 AI 가 만든 기록이다(`ontology.is_ai_generated`, `origin.is_ai_generated` 로도 보인다; 이름표 `ontology.AI_GENERATED_LABEL`·`AI_GENERATED_TONE`·`AI_GENERATED_HELP` 한 곳, 화면·사본·프롬프트(`{{ai_label}}`)는 이 상수만 읽고 "AI 생성" 글을 다시 적지 않는다. `tests/test_beta_r.py` 가 코드·템플릿을 훑는다). 유래 열이 있는 솔루션·활동 기록·고객·파트너에만 해당하고 직접 입력·유래 모름은 표시하지 않는다. 새 열·이전 작업·저장된 값 변경은 없다.
+- 화면: `_macros.html` 의 `ai_badge()`(글자가 있는 `.badge`, 색만으로 알리지 않는다)를 `origin_cell`(넓은 화면 목록의 유래 칸)·`origin_note`(좁은 화면 목록 첫 칸 보조 줄; 네 목록 템플릿이 쓴다)·`origin_line`(상세 "기록 정보" 카드의 "유래:" 줄, `origin.view` 결과의 `ai`)에서 붙인다. "연결된 것" 카드는 유래를 보이지 않으므로 배지도 없다. 새 화면이 유래를 보이면 이 매크로를 쓴다.
+- 지식 사본: AI 가 만든 기록의 파일 맨 위 속성 줄에 `- AI 생성: 예 (올리기 묶음 #3 에서 AI 가 정리)` / `(리서치 보고서 #5 에서 AI 가 제안)` 한 줄(`KnowledgeMirror._ai_line`, 값은 `ontology.ai_generated_note`; 번호가 지워졌으면 번호를 뺀다). 아닌 기록은 줄이 없다("아니오" 를 적지 않는다). `KNOWLEDGE_FORMAT` 은 **올리지 않았다** (옛 사본이 시작 때 한꺼번에 바뀌지 않게, 사용자 요청): 이미 있는 파일은 그 기록을 다시 저장하거나 `rebuild-knowledge` 를 돌릴 때 바뀐다 (`docs/운영가이드.md`).
+- AI 프롬프트: 사본 형식을 설명하는 곳은 `prompts/proposal_directions.md` 의 "읽을 곳" 뿐이라 거기 한 줄만 더했다 (그 줄이 있는 기록은 확인되지 않은 자료로 다룬다). 다른 프롬프트(`proposal_chat`·`proposal_outline`·`research_suggest`·`solution_draft`·`intake_analyze`·`activity_structure`)는 사본 형식 설명이 없어 건드리지 않았다.
+- **알려진 한계(만들지 않음)**: 사람이 직접 만든 기록을 "AI 초안 받기"(솔루션)·활동 기록 "AI 정리"로 채운 것은 유래가 직접 입력 그대로라 표시되지 않는다. 결정·한계는 `docs/ontology.md` 15장 (f)·`docs/화면구성도.md`·`app/templates/help.html` 에 적었다.
+- 시험: `tests/test_beta_r.py` 가 새로 생겼고, `tests/test_beta_b.py` 의 `origin.view` 결과 비교에 `"ai": True` 를, `tests/test_origin.py` 의 `_line` 도우미에 배지 글자를 빼는 처리를 더했다 (유래 줄 글이 아니라 배지가 더해져서).
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`
