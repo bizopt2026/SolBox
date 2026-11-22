@@ -13,6 +13,7 @@ from app.models import Activity, Customer, Intake, Partner, ResearchReport, Solu
 
 ORIGIN_MODELS = (Solution, Activity, Customer, Partner)
 MANUAL = (ontology.ORIGIN_MANUAL, None)
+is_ai_generated = ontology.is_ai_generated  # "AI 생성" 표기의 기준 (올리기·리서치 유래). 정의와 이름표는 ontology 한 곳
 
 
 def intake_origin(intake_id: int) -> tuple[str, int]:
@@ -43,7 +44,14 @@ def clear_dangling(db: Session, origin_type: str, ids: list[int]) -> int:
 
 
 def view(db: Session, user: User, obj) -> dict | None:
-    """상세 화면의 "유래:" 줄: `{"label", "href"}`. 직접 입력·모름은 None. `href` 는 열 수 있을 때만."""
+    """상세 화면의 "유래:" 줄: `{"label", "href", "ai"}`. 직접 입력·모름은 None. `href` 는 열 수 있을 때만, `ai` 는 "AI 생성" 배지를 붙일지."""
+    result = _view(db, user, obj)
+    if result is not None:
+        result["ai"] = ontology.is_ai_generated(obj)
+    return result
+
+
+def _view(db: Session, user: User, obj) -> dict | None:
     kind, number = obj.origin_type, obj.origin_id
     if kind == ontology.ORIGIN_INTAKE:
         intake = db.get(Intake, number) if number is not None else None

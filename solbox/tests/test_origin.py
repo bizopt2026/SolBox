@@ -167,11 +167,14 @@ def test_run_page_marks_registered_suggestions_and_trends(user_client, db, setti
 # ---- 화면 ----
 
 def _line(html: str) -> str:
-    """'유래:' 줄의 글자 (없으면 빈 글자)."""
+    """'유래:' 줄의 글자 (없으면 빈 글자). 베타 R 의 "AI 생성" 배지는 빼고 본다 (배지는 tests/test_beta_r.py 가 본다)."""
     import re
 
     m = re.search(r'<p class="origin[^"]*">(.*?)</p>', html, re.S)
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""
+    if not m:
+        return ""
+    inner = re.sub(r'<span class="badge[^>]*>.*?</span>', "", m.group(1), flags=re.S)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", inner)).strip()
 
 
 def _origin_pages(db):

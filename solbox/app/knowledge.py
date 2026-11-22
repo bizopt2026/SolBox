@@ -206,9 +206,15 @@ class KnowledgeMirror:
             return []
         return list(session.scalars(select(Activity).where(column.any(id=obj.id))))
 
+    @staticmethod
+    def _ai_line(obj) -> str | None:
+        """올리기·리서치로 AI 가 만든 기록에만 "- AI 생성: 예 (…)" 한 줄 (아니면 줄 없음). 이미 있는 사본은 그 기록을 다시 저장하거나 `rebuild-knowledge` 때 바뀐다."""
+        return _item(ontology.AI_GENERATED_LABEL, ontology.ai_generated_note(obj))
+
     def _solution(self, s: Solution) -> list[str]:
         out = [f"# {s.name}", ""]
         out += _lines(
+            self._ai_line(s),
             _item(P("solution", "stage"), labels.STAGES.get(s.stage, s.stage)),
             f"- {P('solution', 'partner')}: {self._ref(s.partner.name, s.partner)}" if s.partner else None,
             _item(P("solution", "tags"), s.tags),
@@ -241,7 +247,7 @@ class KnowledgeMirror:
 
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
-        out += _lines(_item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
+        out += _lines(self._ai_line(c), _item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
         if c.partner is not None:  # 같은 회사인 파트너 (AI 가 경로를 따라갈 수 있게)
             out.append(f"- {ontology.term('same_company')}: {ontology.label('partner')} {self._ref(c.partner.name, c.partner)}")
         if c.projects:
@@ -302,7 +308,7 @@ class KnowledgeMirror:
 
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
-        out += _lines(_item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
+        out += _lines(self._ai_line(p), _item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
         if p.customer is not None:
             out.append(f"- {ontology.term('same_company')}: {ontology.label('customer')} {self._ref(p.customer.name, p.customer)}")
         if p.solutions:
@@ -313,6 +319,7 @@ class KnowledgeMirror:
     def _activity(self, a: Activity) -> list[str]:
         out = [f"# {a.title or '(제목 없음)'}", ""]
         out += _lines(
+            self._ai_line(a),
             _item(P("activity", "kind"), labels.ACTIVITY_KINDS.get(a.kind, a.kind)),
             _item(P("activity", "date"), a.date.isoformat() if a.date else ""),
             _item(ontology.label("solution"), ", ".join(self._ref(s.name, s) for s in a.solutions)),

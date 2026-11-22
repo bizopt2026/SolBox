@@ -195,7 +195,7 @@ def test_origin_line_for_non_owner_is_plain_text_with_uploader_name(app, user_cl
     assert "이영희님이 올린 묶음 %d번" % it.id in page and f'href="/intake/{it.id}"' not in page
     me = db.query(User).filter_by(username="kim").one()
     v = origin.view(db, me, s)
-    assert v == {"label": f"이영희님이 올린 묶음 {it.id}번", "href": None}
+    assert v == {"label": f"이영희님이 올린 묶음 {it.id}번", "href": None, "ai": True}
 
 
 def test_origin_line_links_bundle_for_owner_and_admin(app, admin_client, db):
@@ -209,7 +209,7 @@ def test_origin_line_links_bundle_for_owner_and_admin(app, admin_client, db):
     db.add(s)
     db.commit()
     assert f'href="/intake/{it.id}"' in admin_client.get(f"/solutions/{s.id}").text
-    assert origin.view(db, uploader, s) == {"label": f"올리기 묶음 {it.id}번", "href": f"/intake/{it.id}"}
+    assert origin.view(db, uploader, s) == {"label": f"올리기 묶음 {it.id}번", "href": f"/intake/{it.id}", "ai": True}
 
 
 def _origin_world(db):

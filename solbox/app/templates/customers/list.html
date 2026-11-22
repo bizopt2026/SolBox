@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, empty_list, pager, title_cell, links_text, date_text, none_dash %}
+{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, title_cell, links_text, date_text, none_dash %}
 {% block title %}고객{% endblock %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
@@ -14,7 +14,7 @@
     {% set lines = (c.contact or "").splitlines() | map("trim") | select | list %}
     <tr>
       {% call title_cell("/customers/" ~ c.id, c.name, c.industry) %}
-        {% if lines %}<span>{{ lines[0] }}</span>{% endif %}<span>{{ links_text(i) }}</span>{% if c.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}<span>유래 {{ ont.ORIGINS[c.origin_type] }}</span>{% endif %}
+        {% if lines %}<span>{{ lines[0] }}</span>{% endif %}<span>{{ links_text(i) }}</span>{{ origin_note(c) }}
       {% endcall %}
       <td class="col-sec">{% if lines %}{{ lines[0] }}{% if lines | length > 1 %} <span class="muted">외 {{ lines | length - 1 }}줄</span>{% endif %}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec">{{ origin_cell(c) }}</td>

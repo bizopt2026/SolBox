@@ -156,7 +156,7 @@
 {% endmacro %}
 
 {# 상세 화면의 조용한 "유래:" 줄. origin 은 origin.view 의 결과 (직접 입력·모름은 None 이라 아무것도 그리지 않는다) #}
-{% macro origin_line(origin) %}{% if origin %}<p class="origin muted">유래: {% if origin.href %}<a href="{{ origin.href }}">{{ origin.label }}</a>{% else %}{{ origin.label }}{% endif %}</p>{% endif %}{% endmacro %}
+{% macro origin_line(origin) %}{% if origin %}<p class="origin muted">유래: {% if origin.href %}<a href="{{ origin.href }}">{{ origin.label }}</a>{% else %}{{ origin.label }}{% endif %}{% if origin.ai %} {{ ai_badge() }}{% endif %}</p>{% endif %}{% endmacro %}
 
 {# 상세 화면 옆 작은 정보 카드: 유래(있으면), 같은 회사(있으면: 호출 본문에 <dt>·<dd> 줄을 넣는다), 작성자·만든 때·고친 때. meta = ui.stamp_info 의 결과 #}
 {% macro meta_card(meta, origin=none) %}
@@ -257,8 +257,12 @@
 {% macro pill(key, code, text=none) %}<span class="badge {{ ont.tone_class(key, code) }}" data-code="{{ code }}"{% set _help = ont.code_help(key, code) %}{% if _help %} title="{{ _help }}"{% endif %}>{{ text if text is not none else ont.CODE_LISTS[key].items.get(code, code) }}</span>{% endmacro %}
 {# 올리기 묶음 상태 배지: 음성만 있어 보관만 된 묶음은 실패가 아니라 중립 색의 "보관됨" #}
 {% macro intake_pill(it) %}{% if intake_archived(it) %}<span class="badge tone-{{ ont.INTAKE_ARCHIVED_TONE }}" data-code="archived">{{ ont.INTAKE_ARCHIVED_LABEL }}</span>{% else %}{{ pill("intake_status", it.status) }}{% endif %}{% endmacro %}
-{# 목록의 "유래" 칸: 올리기·리서치로 만든 기록만 이름을 보이고, 직접 입력·모름은 흐린 줄표 #}
-{% macro origin_cell(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}{{ ont.ORIGINS[obj.origin_type] }}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
+{# "AI 생성" 배지: 글자가 있는 배지라 색만으로 알리지 않는다. 이름은 ontology.AI_GENERATED_LABEL 한 곳 #}
+{% macro ai_badge() %}<span class="badge tone-{{ ont.AI_GENERATED_TONE }}" data-code="ai_generated" title="{{ ont.AI_GENERATED_HELP }}">{{ ont.AI_GENERATED_LABEL }}</span>{% endmacro %}
+{# 목록의 "유래" 칸: 올리기·리서치로 만든 기록만 이름을 보이고(AI 가 만든 기록이면 "AI 생성" 배지도), 직접 입력·모름은 흐린 줄표 #}
+{% macro origin_cell(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}{{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
+{# 좁은 화면 목록의 첫 칸 보조 줄에 들어가는 "유래 …" (넓은 화면은 유래 칸 origin_cell) #}
+{% macro origin_note(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}<span>유래 {{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}</span>{% endif %}{% endmacro %}
 {% macro stage_badge(code) %}{{ pill("stage", code) }}{% endmacro %}
 {% macro opportunity_badge(code) %}{{ pill("opportunity_stage", code) }}{% endmacro %}
 

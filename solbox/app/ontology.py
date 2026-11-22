@@ -235,6 +235,32 @@ ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
 ORIGIN_FILTER_PARAM = "origin"  # 목록 `?origin=intake|research|manual` (화이트리스트). 유래가 비어 있는(모름) 기록은 "직접 입력"에 센다: 올리기·리서치는 근거가 있을 때만 채우기 때문
 
+# "AI 생성" 표기 (사용자 결정 2026-11-22): 유래가 올리기 묶음이나 리서치 보고서인 기록(= AI 가 정리·제안해 만든 기록)에만 붙인다.
+# 직접 입력·유래 모름은 붙이지 않는다. 유래 열이 있는 유형(솔루션·활동 기록·고객·파트너)에만 해당한다. 사람이 직접 만든 기록을 "AI 초안 받기"·"AI 정리"
+# 로 채운 것은 따라가지 않으므로 표기되지 않는다 (알려진 한계). 화면·지식 사본·도움말은 이 이름과 함수 하나만 쓴다.
+AI_GENERATED_LABEL = "AI 생성"
+AI_GENERATED_TONE = "violet"
+AI_GENERATED_HELP = "올리기로 AI 가 정리했거나 리서치 보고서에서 AI 가 제안해 만든 기록입니다. 사람이 확인하기 전의 내용일 수 있습니다"
+AI_GENERATED_ORIGINS = (ORIGIN_INTAKE, ORIGIN_RESEARCH)
+
+
+def is_ai_generated(obj) -> bool:
+    """기록의 유래(`origin_type`)가 올리기 또는 리서치이면 True. 유래 열이 없는 객체·직접 입력·모름은 False."""
+    return getattr(obj, "origin_type", None) in AI_GENERATED_ORIGINS
+
+
+def ai_generated_note(obj) -> str | None:
+    """지식 사본 한 줄의 값: `예 (올리기 묶음 #3 에서 AI 가 정리)` / `예 (리서치 보고서 #5 에서 AI 가 제안)`. AI 생성이 아니면 None.
+    묶음·보고서 번호가 지워져 비었으면 번호를 뺀다."""
+    if not is_ai_generated(obj):
+        return None
+    number = getattr(obj, "origin_id", None)
+    tag = f" #{number}" if number is not None else ""
+    if obj.origin_type == ORIGIN_INTAKE:
+        return f"예 ({label('intake')}{tag} 에서 AI 가 정리)"
+    return f"예 ({label('research_report')}{tag} 에서 AI 가 제안)"
+
+
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
 
 CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (

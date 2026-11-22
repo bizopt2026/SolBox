@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, empty_list, pager, title_cell, links_text, date_text, pill %}
+{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, title_cell, links_text, date_text, pill %}
 {% block title %}활동 기록{% endblock %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
@@ -13,7 +13,7 @@
     {% set i = info[a.id] %}
     <tr>
       {% call title_cell("/activities/" ~ a.id, a.title or "(제목 없음)", a.summary_md | first_line(90)) %}
-        {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ links_text(i) }}</span>{% if a.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}<span>유래 {{ ont.ORIGINS[a.origin_type] }}</span>{% endif %}
+        {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ links_text(i) }}</span>{{ origin_note(a) }}
       {% endcall %}
       <td class="col-sec">{{ pill("activity_kind", a.kind) }}</td>
       <td class="col-sec">{{ origin_cell(a) }}</td>

@@ -59,6 +59,7 @@ def prompt_constants() -> dict[str, str]:
         "dir_opportunities": ontology.mirror_folder("opportunity") + "/",
         "dir_bms": ontology.mirror_folder("bm") + "/",
         "needs_heading": ontology.prop("activity", "demand_signals"),
+        "ai_label": ontology.AI_GENERATED_LABEL,
         "candidate_rule": ontology.proposal_candidate_rule_text(),
         "activity_kind_bullets": "\n".join(f"  - `{k}` {v}" for k, v in ontology.ACTIVITY_KINDS.items()),
         "activity_kind_inline": ", ".join(f"`{k}`({v})" for k, v in ontology.ACTIVITY_KINDS.items()),
