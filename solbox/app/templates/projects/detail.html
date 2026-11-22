@@ -4,7 +4,7 @@
 {% block title %}{{ project.name }}{% endblock %}
 {% block content %}
 {% set sub = [project.customer.name, project.period] | select | join(" · ") %}
-{% set st %}{% if project.status %}<span class="badge">{{ project.status }}</span>{% endif %}{% endset %}
+{% set st %}{% if project.status %}<span class="badge">{{ ont.project_status_text(project.status) }}</span>{% endif %}{% endset %}
 {{ detail_head(project.name, "/projects", project, can_delete, crumbs=ui.crumbs("project", project.name), sub=sub or none, status=st,
                primary=("+ 제안 만들기", "/proposals/new?customer_id=" ~ project.customer_id ~ "&project_id=" ~ project.id)) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
@@ -12,7 +12,7 @@
 <div class="dgrid">
   <div class="dmain">
     {% set bm_link %}{% if project.bm %}<a href="/bms/{{ project.bm_id }}">{{ project.bm.name }}</a>{% endif %}{% endset %}
-    {{ props_card("기본 정보", [("고객", customer_link), (ont.prop("project", "bm"), bm_link), ("기간", project.period), ("상태", project.status), ("설명", project.description), ("메모", project.memo)], "/projects/" ~ project.id ~ "/edit") }}
+    {{ props_card("기본 정보", [("고객", customer_link), (ont.prop("project", "bm"), bm_link), ("기간", project.period), ("상태", ont.project_status_text(project.status)), ("설명", project.description), ("메모", project.memo)], "/projects/" ~ project.id ~ "/edit") }}
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">

@@ -219,6 +219,18 @@ OPPORTUNITY_SIDE_STAGES = ("lost", "hold")  # 막대 옆에 따로 보이는 단
 OPPORTUNITY_OPEN_STAGES = ("discovery", "proposing", "negotiating")  # 진행 중
 OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모두
 
+# 프로젝트 상태 (고르는 목록, 순서가 곧 선택 칸의 순서). 저장되는 값은 한글 글자 그대로라서 코드 = 이름이다 (옛 자유 글 "진행" 같은 값이 그대로 목록 값과 맞는다).
+# 목록에 없는 옛 자유 글은 고치지 않고 남긴다: 화면에는 뒤에 PROJECT_STATUS_LEGACY_MARK 를 붙여 보이고 (`project_status_text`), 저장할 때는 지금 값 그대로만 다시 받는다.
+PROJECT_STATUSES = {"준비": "준비", "진행": "진행", "완료": "완료", "중단": "중단", "유지보수": "유지보수"}
+PROJECT_STATUS_LEGACY_MARK = " (이전 입력)"
+
+
+def project_status_text(value: str | None) -> str:
+    """프로젝트 상태를 화면에 보이는 글로: 비면 빈 글, 목록 값은 그대로, 목록에 없는 옛 글은 뒤에 " (이전 입력)"."""
+    value = value or ""
+    return value if not value or value in PROJECT_STATUSES else value + PROJECT_STATUS_LEGACY_MARK
+
+
 ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
 ORIGIN_FILTER_PARAM = "origin"  # 목록 `?origin=intake|research|manual` (화이트리스트). 유래가 비어 있는(모름) 기록은 "직접 입력"에 센다: 올리기·리서치는 근거가 있을 때만 채우기 때문
@@ -246,6 +258,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("job_kind", "AI 작업 종류", JOB_KINDS),
     CodeList("check_kind", "확인 항목 종류", CHECK_KINDS, None, CHECK_KIND_DESCRIPTIONS),
     CodeList("origin_type", "기록의 유래", ORIGINS),
+    CodeList("project_status", "프로젝트 상태", PROJECT_STATUSES),
     CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT, OPPORTUNITY_STAGE_DESCRIPTIONS),
 )}
 
@@ -299,6 +312,7 @@ COLUMN_CODES = {
     ("customers", "origin_type"): "origin_type",
     ("partners", "origin_type"): "origin_type",
     ("opportunities", "stage"): "opportunity_stage",
+    ("businesses", "status"): "project_status",
     ("users", "role"): "user_role",
     ("ai_jobs", "status"): "job_status",
     ("ai_jobs", "kind"): "job_kind",

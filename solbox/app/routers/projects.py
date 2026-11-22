@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
@@ -26,34 +25,43 @@ FIELDS = ("name", "customer_id", "description", "period", "status", "memo", "bm_
 CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 
 
-def status_choices(db: Session) -> list[str]:
-    """이미 쓰인 상태 값 (많이 쓴 순): 입력칸 제안에 쓴다. 상태 값을 정하지는 않는다 (자유 글)."""
-    rows = db.execute(select(Project.status, func.count()).where(Project.status != "").group_by(Project.status).order_by(func.count().desc(), Project.status))
-    seen: dict[str, None] = {}
-    for value, _ in rows:
-        seen.setdefault(" ".join((value or "").split()), None)
-    return [v for v in seen if v]
+BAD_STATUS = ui.FieldError("알 수 없는 상태입니다. 목록에서 골라 주세요.", "status")
+
+
+def status_options(current: str | None = None) -> list[tuple[str, str]]:
+    """상태 선택 칸의 항목: "선택 안 함" + 정해진 목록(`ontology.PROJECT_STATUSES`). 지금 값이 목록에 없는 옛 글이면 그 글을 "(이전 입력)" 항목으로 더한다."""
+    options = [("", "선택 안 함"), *ontology.PROJECT_STATUSES.items()]
+    if current and current not in ontology.PROJECT_STATUSES:
+        options.append((current, ontology.project_status_text(current)))
+    return options
 
 
 def _form_page(
     request: Request, db: Session, form: dict, project: Project | None = None, error: str | None = None, conflict=None, duplicate=None
-):
+):  # 옛 글 항목은 이 기록에 저장돼 있는 값이 목록 밖일 때만 (폼의 값이 아니라 기록의 값: 틀린 값을 보냈다고 항목이 생기지 않는다)
     return render(
         request, "projects/form.html", status_code=409 if conflict else 400 if error else 200,
         form=form, project=project, customers=search_by_name(db, Customer), bms=search_by_name(db, BM), error=error, conflict=conflict, duplicate=duplicate,
-        status_choices=status_choices(db),
+        status_options=status_options(project.status if project is not None else None),
     )
 
 
-def _parse(name, customer_id, description, period, status, memo, db: Session, bm_id: str | None = None) -> tuple[dict, str | None]:
+def _parse(
+    name, customer_id, description, period, status, memo, db: Session, bm_id: str | None = None, current_status: str | None = None
+) -> tuple[dict, str | None]:
     """폼 값을 다듬고 오류 문구를 돌려준다. `customer_id` 는 존재하는 고객이어야 하고 `bm_id` 는 있으면 등록된 BM 이어야 한다
-    (칸이 아예 오지 않으면(None) BM 은 그대로 둔다)."""
+    (칸이 아예 오지 않으면(None) BM 은 그대로 둔다). 상태는 비었거나 정해진 목록의 값이어야 한다. 단, 고치는 기록의 지금 값(목록 밖의 옛 글)은 그대로 다시 받는다."""
     values = dict(
         name=name.strip(), customer_id=customer_id.strip(), description=description.strip(),
-        period=period.strip(), status=" ".join(status.split()), memo=memo.strip(),  # 상태는 자유 글이라 앞뒤·가운데 공백만 정리한다
+        period=period.strip(), status=status, memo=memo.strip(),
     )
+    keep_legacy = bool(current_status) and status == current_status and current_status not in ontology.PROJECT_STATUSES  # 옛 글은 한 글자도 고치지 않는다
+    if not keep_legacy:
+        values["status"] = status.strip()
     if error := name_error(name):
         return values, error
+    if not keep_legacy and values["status"] and values["status"] not in ontology.PROJECT_STATUSES:
+        return values, BAD_STATUS
     if (cid := parse_id(values["customer_id"])) is None or db.get(Customer, cid) is None:
         return values, CUSTOMER_REQUIRED
     values["customer_id"] = cid
@@ -136,7 +144,7 @@ def update(
     mirror: KnowledgeMirror = Depends(get_mirror), fields: frozenset = Depends(submitted_fields), rev: Rev = Depends(rev_form),
 ):
     project = get_or_404(db, Project, project_id)
-    values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None)
+    values, error = _parse(name, customer_id, description, period, status, memo, db, bm_id if "bm_id" in fields else None, project.status)
     if conflict := guards.check_rev(project, rev, values=values):
         return _form_page(request, db, {**{f: getattr(project, f) for f in FIELDS}, **values}, project, conflict=conflict)
     if error is None:

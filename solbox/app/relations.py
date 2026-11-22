@@ -400,7 +400,7 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
             it.badge = (ontology.OPPORTUNITY_STAGE_CLASS.get(o.stage, ""), ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage))
             it.note = o.customer.name if start != "customer" else ""
         elif code == "project":
-            it.note = o.customer.name if start != "customer" else (o.status or "")
+            it.note = o.customer.name if start != "customer" else ontology.project_status_text(o.status)
         elif code == "proposal":
             it.label = display_title(o)
             it.note = ontology.PROPOSAL_STATUSES.get(o.status, o.status)

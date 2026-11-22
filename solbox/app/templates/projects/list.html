@@ -14,9 +14,9 @@
     <tr>
       <td class="c-title"><a href="/projects/{{ b.id }}" class="row-title">{{ b.name }}</a>
         <small class="row-sub"><a href="/customers/{{ b.customer_id }}">{{ b.customer.name }}</a>{% if b.period %} · {{ b.period }}{% endif %}</small>
-        <div class="row-meta">{% if b.status %}<span class="badge">{{ b.status }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
+        <div class="row-meta">{% if b.status %}<span class="badge">{{ ont.project_status_text(b.status) }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
       </td>
-      <td class="col-sec">{% if b.status %}<span class="badge">{{ b.status }}</span>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if b.status %}<span class="badge">{{ ont.project_status_text(b.status) }}</span>{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>

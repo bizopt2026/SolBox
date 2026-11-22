@@ -16,8 +16,7 @@
       {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
       {{ select_field(ont.prop("project", "bm"), "bm_id", bopts, form.bm_id, help="선택 사항입니다.") }}
       {{ text_field("기간", "period", form.period) }}
-      {{ text_field("상태", "status", form.status, datalist="status-choices") }}
-      <datalist id="status-choices">{% for s in status_choices %}<option value="{{ s }}">{% endfor %}</datalist>
+      {{ select_field(ont.prop("project", "status"), "status", status_options, form.status, help="선택 사항입니다.", error=error) }}
       {{ text_field("설명", "description", form.description, rows=3) }}
       {{ text_field("메모", "memo", form.memo, rows=3) }}
     </div>

@@ -1006,22 +1006,6 @@ def test_mobile_css_keeps_one_upload_button_and_room_for_the_save_bar(user_clien
     assert 'class="button primary to-intake" href="/intake/new"' in user_client.get("/solutions").text
 
 
-def test_project_status_is_free_text_with_datalist_and_trimmed(user_client, db):
-    from app.models import Customer, Project
-
-    c = Customer(name="고객")
-    db.add(c)
-    db.flush()
-    db.add_all([Project(name="p1", customer_id=c.id, status="진행 중"), Project(name="p2", customer_id=c.id, status="진행 중"),
-                Project(name="p3", customer_id=c.id, status="진행"), Project(name="p4", customer_id=c.id, status="")])
-    db.commit()
-    page = user_client.get("/projects/new").text
-    assert '<datalist id="status-choices">' in page and '<option value="진행 중">' in page and '<option value="진행">' in page and 'list="status-choices"' in page
-    assert page.index('value="진행 중"') < page.index('value="진행">')  # 많이 쓴 값이 먼저
-    r = user_client.post("/projects", data={"name": "새 프로젝트", "customer_id": str(c.id), "status": "  새  상태 값 "}, follow_redirects=False)
-    assert r.status_code == 303 and db.query(Project).filter_by(name="새 프로젝트").one().status == "새 상태 값"  # 자유 글: 새 값도 받는다
-
-
 def test_research_source_chips_have_one_kind_word_and_their_own_anchor(user_client, db, settings):
     from app.sources import describe_source
     from tests.conftest import finished_run
