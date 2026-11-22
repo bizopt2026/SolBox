@@ -188,18 +188,12 @@ AUTHOR = {
     "deictic plan": lambda n: "이 " * (n // 2) + "금액 수정 예정",
     "real extra": lambda n: "실제 " + "데이터 " * (n // 4) + "로 교체 필요",
     "visual plan": lambda n: "현장 " * (n // 3) + "사진 삽입 예정",
-    # 베타 L
-    "fixed placeholders": lambda n: "○○ " * (n // 3),
-    "fixed OO run": lambda n: "O" * n,
-    "fixed 오타": lambda n: "오타 " * (n // 3),
-    "fixed brackets": lambda n: "(" * n + "입력",
-    "fixed brackets doc": lambda n: "(금액 " * (n // 4) + "입력",
-    "fixed 초안 dash": lambda n: "초안 " * (n // 3),
-    # 베타 O: 공백을 줄이지 않고 돌리던 `이 …` 머리와 `오타` 낱말마다 줄 전체를 훑던 모양
-    "fixed 이 x + spaces": lambda n: "이 x" + " " * n + "y",
-    "fixed 오타 commas": lambda n: "오타," * (n // 3) + "x",
-    "fixed fullwidth X run": lambda n: "Ｘ" * n,
-    "fixed 오타 slashes + paren": lambda n: "오타/" * (n // 3) + "x (a",
+    # 베타 L·Q: 자리표시 모양(`_PLACEHOLDER_SHAPE`)만 남았다. 낱말 규칙(오타·초안·입력 괄호 …)의 모양은 베타 Q 에서 코드와 함께 뺐다
+    "placeholder ○○ words": lambda n: "○○ " * (n // 3),
+    "placeholder O run": lambda n: "O" * n,
+    "placeholder fullwidth X run": lambda n: "Ｘ" * n,
+    "placeholder X run + percent": lambda n: "x" * n + "%",
+    "placeholder long spaces": lambda n: "이 x" + " " * n + "y",
 }
 
 GROUPS = {"classify": CLASSIFY, "redact": REDACT, "deck": DECK, "author": AUTHOR}

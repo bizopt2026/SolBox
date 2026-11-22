@@ -99,15 +99,17 @@ def test_l2_through_the_real_runner(settings, fake_claude):
     assert e.value.kind != "auth"
 
 
-# ================= L3: 작성자 메모의 고정 낱말 =================
+# ================= L3: 작성자 메모의 고정 낱말 [베타 Q: 낱말 규칙은 없앴다. 자리표시 모양만 남았다] =================
+# 베타 Q: 자리표시 모양(`XX%`·`OO`·`○○`·`XX`)만 남았다. 낱말 규칙이 옮기던 줄은 아래 `FIXED_RETIRED` 로 옮겼다.
 FIXED_MOVE = [
-    # 어디에 있어도
-    "작성자: 김대리", "문서 작성자 확인", "팀장님 확인 후 수정", "팀장님께 보고 필요", "법무팀 검토 필요", "법무팀 검토 후 삭제", "내부 검토용", "이 슬라이드는 내부 검토용입니다", "슬라이드 순서 변경",
-    "슬라이드 순서 확인", "고객에게 보여주지 말 것", "보여주지 말 것", "로고 넣기", "고객 로고 넣기", "제목 수정 필요", "XX% 절감", "절감률 XX%", "xx% 개선",
-    # 줄 모양
-    "내부용", "이 슬라이드는 내부용", "이 슬라이드는 내부용입니다", "[내부용] 단가표", "(내부용)", "내부용: 원가 구조", "초안", "(초안)", "[초안]", "초안 - 2차", "초안: 영업팀", "제안 개요 (초안)", "제안 개요 [초안]",
-    "오타", "오타 수정", "제목 오타", "제목 오타 확인", "오타 있음", "폰트 통일", "폰트 변경", "폰트 수정 필요", "폰트 확인", "(수치 입력)", "(금액 입력)", "[일정 입력]", "(입력)", "(내용을 입력)",
-    "OO", "OO 절감", "OO원 절감", "OO개사 도입", "○○", "약 ○○억 규모", "○○ 개사", "XX", "XX억 규모", "XX원",
+    'XX% 절감', '절감률 XX%', 'xx% 개선', 'OO', 'OO 절감', 'OO원 절감', 'OO개사 도입', '○○', '약 ○○억 규모', '○○ 개사', 'XX', 'XX억 규모', 'XX원',
+]
+# 사용자 결정 2026-11-22: 내부 단어 규칙을 뺐다. 이 줄들은 이제 슬라이드에 남는다 (글은 그대로, 옮기던 표에서 남기는 표로 옮겼다).
+FIXED_RETIRED = [
+    '작성자: 김대리', '문서 작성자 확인', '팀장님 확인 후 수정', '팀장님께 보고 필요', '법무팀 검토 필요', '법무팀 검토 후 삭제', '내부 검토용', '이 슬라이드는 내부 검토용입니다', '슬라이드 순서 변경', '슬라이드 순서 확인',
+    '고객에게 보여주지 말 것', '보여주지 말 것', '로고 넣기', '고객 로고 넣기', '제목 수정 필요', '내부용', '이 슬라이드는 내부용', '이 슬라이드는 내부용입니다', '[내부용] 단가표', '(내부용)', '내부용: 원가 구조', '초안',
+    '(초안)', '[초안]', '초안 - 2차', '초안: 영업팀', '제안 개요 (초안)', '제안 개요 [초안]', '오타', '오타 수정', '제목 오타', '제목 오타 확인', '오타 있음', '폰트 통일', '폰트 변경', '폰트 수정 필요',
+    '폰트 확인', '(수치 입력)', '(금액 입력)', '[일정 입력]', '(입력)', '(내용을 입력)',
 ]
 FIXED_STAY = [
     "초안 검토 후 최종안 제출", "설계 초안 제출 2주", "초안 작성 후 협의", "AI가 회의록 초안을 작성", "내부망 연동", "내부망 보안 점검", "내부용 서버 구축", "고객사 내부용 포털 개발", "폰트 라이선스 포함",
@@ -118,8 +120,13 @@ FIXED_STAY = [
 
 
 @pytest.mark.parametrize("line", FIXED_MOVE)
-def test_l3_fixed_vocabulary_moves_to_author_notes(line):
+def test_l3_placeholder_shapes_move_to_author_notes(line):
     assert is_author_instruction(line), line
+
+
+@pytest.mark.parametrize("line", FIXED_RETIRED)
+def test_l3_retired_word_rule_lines_stay(line):
+    assert not is_author_instruction(line), line
 
 
 @pytest.mark.parametrize("line", FIXED_STAY)
@@ -130,9 +137,9 @@ def test_l3_customer_bullets_sharing_a_word_stay(line):
 def test_l3_known_limits():
     # 낱말 하나인 `OO` 는 줄 어디에 있어도 자리표시로 본다
     assert is_author_instruction("AB 3개 중 OO 선택")
-    # `초안` 은 줄 전체·괄호·`초안 -`·`초안:` 꼴만 본다: 문장 속 `초안` 은 슬라이드에 둔다 (작성자의 "초안 확인 후 삭제" 도 둔다)
+    # 베타 Q: `초안` 같은 낱말은 어디에 있든 슬라이드에 둔다 (작성자의 "초안 확인 후 삭제" 도 둔다)
     assert not is_author_instruction("초안 확인 후 삭제")
-    # `내부용` 은 줄 머리의 표지나 줄 끝에서만 본다
+    # `내부용` 도 낱말 규칙이 없다
     assert not is_author_instruction("내부용 자료는 별도 제공합니다")
 
 
@@ -143,14 +150,25 @@ def test_l3_real_value_topic_with_a_plan_stays_but_the_k2_rows_still_move():
         assert is_author_instruction(line), line
 
 
-def test_l3_the_fixed_words_apply_to_every_text_slot_of_a_slide():
+def test_l3_placeholder_shapes_apply_to_every_text_slot_of_a_slide():
     from app.proposals import _move_instructions
 
-    s = {"bullets": ["운영 지원", "초안"], "left": ["작성자: 김대리"], "right": [], "rows": [["항목", "OO 절감"]], "steps": [{"name": "1", "detail": "법무팀 검토 필요"}],
-         "key_message": "팀장님 확인 후 수정", "needs_check": []}
+    s = {"bullets": ["운영 지원", "XX% 절감"], "left": ["OO 절감"], "right": [], "rows": [["항목", "○○"]], "steps": [{"name": "1", "detail": "XX원"}],
+         "key_message": "절감률 XX%", "needs_check": []}
     moved = _move_instructions(s)
     assert moved == 5 and s["bullets"] == ["운영 지원"] and s["left"] == [] and s["rows"] == [["항목", ""]] and s["steps"][0]["detail"] == "" and s["key_message"] == ""
-    assert "초안" in s["needs_check"] and "OO 절감" in s["needs_check"]
+    assert "XX% 절감" in s["needs_check"] and "○○" in s["needs_check"]
+
+
+def test_l3_word_lines_stay_in_every_text_slot_of_a_slide():
+    # 베타 Q: 내부 낱말(초안·작성자·팀장님·법무팀 검토 …)이 든 줄은 어느 칸에 있어도 슬라이드에 남는다
+    from app.proposals import _move_instructions
+
+    s = {"bullets": ["운영 지원", "초안"], "left": ["작성자: 김대리"], "right": [], "rows": [["항목", "내부 검토용"]], "steps": [{"name": "1", "detail": "법무팀 검토 필요"}],
+         "key_message": "팀장님 확인 후 수정", "needs_check": []}
+    assert _move_instructions(s) == 0
+    assert s["bullets"] == ["운영 지원", "초안"] and s["left"] == ["작성자: 김대리"] and s["rows"] == [["항목", "내부 검토용"]] and s["steps"][0]["detail"] == "법무팀 검토 필요"
+    assert s["key_message"] == "팀장님 확인 후 수정" and s["needs_check"] == []
 
 
 # ================= L4: 끝나지 않은 창 제목 =================

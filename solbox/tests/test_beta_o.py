@@ -1,6 +1,4 @@
-"""베타 O: 작성자 메모 규칙이 고객 기능 문장을 옮기던 것 (베타 N 이 악화) 과 제곱 시간 두 길 (O1·O2)."""
-import time
-
+"""베타 O [베타 Q: 이 낱말 규칙은 없앴다. STAY 줄은 그대로 남고 MOVE 줄은 이제 모두 슬라이드에 남는다]: 작성자 메모 규칙이 고객 기능 문장을 옮기던 것 (베타 N 이 악화) 과 제곱 시간 두 길 (O1·O2)."""
 import pytest
 
 from app.proposals import is_author_instruction
@@ -14,7 +12,8 @@ STAY = [
     "법무팀 검토 - 승인 - 날인 자동 연결", "폰트 변경, 색상 변경 지원", "내부 검토용 - 외부 공유용 권한 분리", "작성자 확인 (본인 인증)",
     "법무팀 검토 (자동)", "법무팀 검토, 승인 자동화",
 ]
-MOVE = [  # 좁힌 뒤에도 옮기는 메모 (표의 기존 줄과 같은 모양)
+# 사용자 결정 2026-11-22: 내부 단어 규칙을 뺐다. 베타 O 가 좁힌 뒤에도 옮기던 메모. 이제 슬라이드에 남는다 (글은 그대로, 이름만 MOVE 에서 RETIRED_MOVE 로).
+RETIRED_MOVE = [
     "내부 검토용, 고객 배포 전 삭제", "내부 검토용 - 배포 금지", "내부 검토용 (배포 금지)", "법무팀 검토 필요 (위약금 조항)", "로고 넣기 (우측 상단)",
     "팀장님 확인 후 금액 확정", "팀장님 코멘트: 가격 낮출 것", "작성자 메모: 할인율 15%까지 가능", "고객에게 보여주지 말고 구두로만 설명",
     "고객에게 보여주지 말 것 (원가 포함)", "오타, 확인 필요",
@@ -26,25 +25,13 @@ def test_o1_customer_feature_lines_stay(line):
     assert not is_author_instruction(line), line
 
 
-@pytest.mark.parametrize("line", MOVE)
-def test_o1_memos_still_move(line):
-    assert is_author_instruction(line), line
-
-
-def test_o1_tail_with_product_word_is_never_cut():
-    for tail in ("자동", "실시간 알림", "인증", "분리", "생성", "단축"):
-        assert not is_author_instruction(f"내부 검토용 - {tail}"), tail
-        assert not is_author_instruction(f"법무팀 검토 필요 ({tail})"), tail
-
-
-@pytest.mark.parametrize("line", ["이 x" + " " * 20000 + "y", "오타," * 20000 + "x", "오타/" * 20000 + "x (a"])
-def test_o2_old_quadratic_shapes_are_fast(line):
-    t0 = time.time()
-    is_author_instruction(line)
-    assert time.time() - t0 < 2.0, line[:12]
+@pytest.mark.parametrize("line", RETIRED_MOVE)
+def test_o1_retired_memos_stay(line):
+    assert not is_author_instruction(line), line
 
 
 def test_o2_shapes_are_in_the_linear_harness_at_100k():
+    # 베타 Q: 낱말 규칙의 선형 모양은 뺐다. 자리표시 모양의 선형 모양이 남았다
     names = set(_linear.AUTHOR)
-    assert {"fixed 이 x + spaces", "fixed 오타 commas", "fixed 오타 slashes + paren"} <= names
+    assert {"placeholder ○○ words", "placeholder O run", "placeholder fullwidth X run", "placeholder X run + percent", "placeholder long spaces"} <= names
     assert 100_000 in _linear.SIZES

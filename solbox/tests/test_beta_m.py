@@ -1,4 +1,4 @@
-"""베타 M 묶음: 고정 낱말은 메모 모양의 줄만 옮긴다(M1), 주소는 실제 원격 모양만(M2), 선형 시험 자식의 부모 감시(M3)."""
+"""베타 M 묶음 [베타 Q: 고정 낱말 규칙은 없앴다. 이 파일의 낱말 줄은 이제 모두 슬라이드에 남는다]: 고정 낱말은 메모 모양의 줄만 옮긴다(M1), 주소는 실제 원격 모양만(M2), 선형 시험 자식의 부모 감시(M3)."""
 from __future__ import annotations
 
 import os
@@ -120,20 +120,32 @@ def test_m1_sample_is_the_whole_85():
     assert len(CUSTOMER_STAY) + len(CUSTOMER_MOVABLE) == 85
 
 
-@pytest.mark.parametrize("line", [
-    "작성자 확인 필요", "팀장님 검토 요망", "법무팀 검토 필요", "내부 검토용", "초안", "오타 수정", "폰트 통일 필요", "슬라이드 순서 조정 필요", "제목 수정 필요", "로고 넣기",
-    "고객에게 보여주지 말 것", "XX% 절감 (수치 입력)", "(수치 입력)", "[일정 입력]", "(초안)", "[초안] 금액 수정 필요", "초안 - 2차 수정 예정", "오타", "제목 오타", "오타 있음",
-])
+# 베타 Q: 아래 줄은 자리표시 모양(`XX%`)이 있거나 베타 K 까지의 규칙(`금액 수정 필요`)이 옮긴다.
+MEMO_SHAPED_MOVE = [
+    'XX% 절감 (수치 입력)', '[초안] 금액 수정 필요',
+]
+# 사용자 결정 2026-11-22: 내부 단어 규칙을 뺐다. 이 줄들은 이제 슬라이드에 남는다 (글은 그대로, 옮기던 표에서 남기는 표로 옮겼다).
+MEMO_SHAPED_RETIRED = [
+    '작성자 확인 필요', '팀장님 검토 요망', '법무팀 검토 필요', '내부 검토용', '초안', '오타 수정', '폰트 통일 필요', '슬라이드 순서 조정 필요', '제목 수정 필요', '로고 넣기', '고객에게 보여주지 말 것', '(수치 입력)',
+    '[일정 입력]', '(초안)', '초안 - 2차 수정 예정', '오타', '제목 오타', '오타 있음',
+]
+
+
+@pytest.mark.parametrize("line", MEMO_SHAPED_MOVE)
 def test_m1_memo_shaped_lines_still_move(line):
     assert is_author_instruction(line), line
 
 
+@pytest.mark.parametrize("line", MEMO_SHAPED_RETIRED)
+def test_m1_retired_word_rule_memo_shapes_stay(line):
+    assert not is_author_instruction(line), line
+
+
 def test_m1_known_limits():
-    # 오래된 표의 줄이 먼저다: 이 줄들은 짧아서 메모로 본다 (고객 문장일 수도 있다)
-    assert is_author_instruction("제안 개요 (초안)")
-    assert is_author_instruction("초안: 영업팀")
-    assert is_author_instruction("작성자: 김대리")
-    # 표의 열 이름 `작성자` 는 줄 전체여도 옮기지 않는다
+    # 베타 Q: 낱말 규칙을 없애서 베타 M 이 한계로 못 박은 줄도 이제 슬라이드에 남는다
+    assert not is_author_instruction("제안 개요 (초안)")
+    assert not is_author_instruction("초안: 영업팀")
+    assert not is_author_instruction("작성자: 김대리")
     assert not is_author_instruction("작성자")
     assert not is_author_instruction("팀장님")
 
