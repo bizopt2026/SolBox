@@ -255,7 +255,7 @@ class KnowledgeMirror:
         out += _lines(
             f"- {P('project', 'customer')}: {self._ref(b.customer.name, b.customer)}" if b.customer else None,
             _item(P("project", "period"), b.period),
-            _item(P("project", "status"), ontology.project_status_text(b.status)),
+            _item(P("project", "status"), b.status),
             _item(P("project", "description"), b.description),
             f"- {P('project', 'bm')}: {self._ref(b.bm.name, b.bm)}" if b.bm else None,
             _item("메모", b.memo),

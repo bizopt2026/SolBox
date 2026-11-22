@@ -112,7 +112,7 @@ def test_error_rerender_of_legacy_record_keeps_legacy_option(user_client, db, cu
     assert _options(r.text)[-1] == (LEGACY, True)
 
 
-def test_legacy_value_is_displayed_with_marker_everywhere(user_client, db, cust, settings):
+def test_legacy_value_is_displayed_with_marker_on_screens_but_not_in_the_knowledge_copy(user_client, db, cust, settings):
     p = _legacy(db, cust)
     ok = Project(name="목록 값", customer_id=cust.id, status="진행")
     db.add(ok)
@@ -127,7 +127,8 @@ def test_legacy_value_is_displayed_with_marker_everywhere(user_client, db, cust,
     from app.knowledge import get_mirror  # noqa: F401  (지식 사본은 아래에서 직접 읽는다)
     user_client.post(f"/projects/{p.id}", data={"name": "옛 프로젝트", "customer_id": str(cust.id), "status": LEGACY}, follow_redirects=False)
     text = (settings.knowledge_dir / "projects" / f"{p.id}.md").read_text(encoding="utf-8")
-    assert marked in text
+    # 사용자 결정 2026-11-22: 지식 사본(AI 가 읽는 파일)에는 표지를 붙이지 않는다. 저장된 글 그대로 적는다 (베타 P 이전과 같다)
+    assert f"- 상태: {LEGACY}\n" in text and "(이전 입력)" not in text
     assert db.get(Project, p.id).status == LEGACY  # 저장된 글에는 표지가 붙지 않는다
 
 

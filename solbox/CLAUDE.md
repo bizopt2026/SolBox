@@ -181,7 +181,7 @@
 - 시험은 파이썬 3.13 과 3.11 로 돌렸다 (`tests/test_beta_o.py`).
 
 ## 베타 P 묶음이 바꾼 규칙
-- 프로젝트 `status` 는 고르는 목록이다: `ontology.PROJECT_STATUSES`(준비·진행·완료·중단·유지보수, 순서가 곧 선택 칸 순서, 코드 = 저장되는 한글 글자 = 이름)가 한 곳이고 코드 목록 `project_status`·`COLUMN_CODES[("businesses","status")]` 로도 보인다. 검사는 `routers/projects._parse`: 비었거나 목록 값이어야 하고(아니면 `BAD_STATUS` 폼 오류 400), 고치는 기록의 **지금 저장된 목록 밖 글은 한 글자도 바꾸지 않고** 다시 받는다. 옛 글은 데이터·스키마를 건드리지 않는다(이전·변환 없음). 화면에 상태를 보일 때는 반드시 `ontology.project_status_text(값)`(옛 글 뒤에 " (이전 입력)")를 거친다: 상세·목록·관계 카드(`relations`)·지식 사본(`knowledge._project`). 고치기 폼의 선택 칸은 `projects.status_options`(그 기록의 옛 글을 추가 항목으로). 영업기회 → 프로젝트 전환은 상태를 쓰지 않는다(빈 값). 시험 `tests/test_beta_p.py`.
+- 프로젝트 `status` 는 고르는 목록이다: `ontology.PROJECT_STATUSES`(준비·진행·완료·중단·유지보수, 순서가 곧 선택 칸 순서, 코드 = 저장되는 한글 글자 = 이름)가 한 곳이고 코드 목록 `project_status`·`COLUMN_CODES[("businesses","status")]` 로도 보인다. 검사는 `routers/projects._parse`: 비었거나 목록 값이어야 하고(아니면 `BAD_STATUS` 폼 오류 400), 고치는 기록의 **지금 저장된 목록 밖 글은 한 글자도 바꾸지 않고** 다시 받는다. 옛 글은 데이터·스키마를 건드리지 않는다(이전·변환 없음). 화면에 상태를 보일 때는 반드시 `ontology.project_status_text(값)`(옛 글 뒤에 " (이전 입력)")를 거친다: 상세·목록·관계 카드(`relations`). **지식 사본(`knowledge._project`, AI 가 읽는 파일)에는 표지를 붙이지 않고 저장된 글 그대로 적는다 (사용자 결정 2026-11-22, 베타 Q2: 베타 P 는 사본에도 붙였다).** 고치기 폼의 선택 칸은 `projects.status_options`(그 기록의 옛 글을 추가 항목으로). 영업기회 → 프로젝트 전환은 상태를 쓰지 않는다(빈 값). 시험 `tests/test_beta_p.py`.
 - 2026-11-22 결정(`docs/ontology.md` 15장): 고객·활동 기록은 로그인한 누구나 계속 고칠 수 있다(제한 안 더함), "내 할 일" 은 정확한 이름 일치만(넓히지 않음), PPT 슬라이드 배치 개편은 회사 표준 템플릿 파일이 생길 때까지 미룬다.
 
 ## 문서
