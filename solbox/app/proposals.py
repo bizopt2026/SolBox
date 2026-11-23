@@ -564,6 +564,18 @@ def unresolved_check_count(outline: dict | None) -> int:
     return sum(st["evidence"] + st["decide"] for st in (slide_check_state(s) for s in (outline or {}).get("slides") or [] if isinstance(s, dict)))
 
 
+def open_check_slides(outline: dict | None) -> list[dict]:
+    """확인하지 않은 항목이 남은 장: [{"index", "title", "open"}] (장 번호는 0부터). 제안서 상자의 경고가 그 장 카드로 잇는 데 쓴다."""
+    found = []
+    for i, s in enumerate((outline or {}).get("slides") or []):
+        if not isinstance(s, dict):
+            continue
+        st = slide_check_state(s)
+        if st["evidence"] + st["decide"]:
+            found.append({"index": i, "title": s.get("title") or "(제목 없음)", "open": st["evidence"] + st["decide"]})
+    return found
+
+
 def contact_lines(user: User) -> list[str]:
     """마무리 장에 붙는 연락처 줄: 제안서를 만드는(로그인한) 사용자의 이름과, 계정 화면에서 적어 둔 연락처가 있으면 그것."""
     name = (user.name or user.username or "").strip()

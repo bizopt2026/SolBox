@@ -215,6 +215,12 @@
 - 화면: `intake/_dropzone.html` 이 파일 영역 아래에 "글 붙여넣기"를 더한다 — 전체 화면(`zone_id == 'intake'`)은 제목 칸 + 글 칸(8줄) + 글자 수 `n / 200,000자`, 홈 카드(`home`)는 접힌 `<details>` 안에 글 칸만(글이 있으면 펼쳐서 다시 그림). 글자 수는 `app.js` 의 `[data-paste]` 보강이고 JS 가 없어도 동작한다(서버가 센다). 상세 화면에서는 붙여넣은 글이 보통 `.txt` 문서 파일로 보인다(바뀐 것 없음). 요청이 multipart 가 아니면(`application/x-www-form-urlencoded`, 브라우저 폼은 항상 multipart) 한글 20만 자는 퍼센트 부호화로 starlette 의 칸 크기 한도(1MB)를 넘을 수 있다.
 - 시험: `tests/test_beta_t.py`. 바꾼 기존 시험: `tests/test_intake_upload.py`(두 곳)·`tests/test_beta_b.py`(한 곳)의 오류 문구.
 
+## 베타 U 묶음이 바꾼 규칙
+- **구역 안 진행 상자**: 제안 화면의 "제안 방향"·"슬라이드 구성안" 구역은 그 구역의 AI 작업이 대기·진행 중이면 구역 맨 위에 `_job_box.html`(`role="status"`, "AI가 슬라이드 구성안을 만드는 중… (보통 1분 안에 끝납니다 · 35초 경과)" / 대기면 "AI 대기 n번째" + 앞 작업)을 그린다. 쪽 맨 위 진행 줄(`_status.html`)은 `#outline` 로 돌아오면 화면 밖이라 따로 둔 것이다. 상자는 2초마다 `GET /proposals/{id}/progress?section=outline|directions` 를 불러 바꾸고(처리기 꺼짐이면 부르지 않고 꺼짐 글), 그 구역의 작업이 끝나면 서버가 `HX-Refresh` 로 쪽을 새로 고쳐 새 결과를 보인다. 실패하면 구역 안에 이유와 "다시 시도"(`_job_failed.html`). 쪽 맨 위 `/status` 의 동작(끝나면 `HX-Redirect`)은 그대로다. 방향 만들기 POST 도 `#directions` 로 돌려보낸다. 구성안·방향 말고 대화(`#chat`)는 이미 대화 구역이 스스로 갱신한다.
+- **"만드는 중…" 버튼**: 오래 걸리는 제출 버튼(방향·구성안·제안서 만들기·다시 시도)은 `data-busy-label="만드는 중…"` 을 단다. `app.js` 의 제출 잠금이 버튼을 잠그면서 글자를 바꾸고 `pageshow` 에 되돌린다. JS 가 없어도 폼은 그대로 제출된다.
+- **제안서 만들기 성공 표시**: `notice=deck_built` 로 돌아온 화면의 제안서 상자 맨 위에 "제안서 파일을 만들었습니다 (시각)"(`.deck-done`)이 보인다 (`_deck.html`, 구성안 화면의 상자도 같다). 옛 파일 지우기(`routers/proposals.build`)는 새 파일 저장·커밋 뒤라 `OSError`(Windows 에서 파워포인트가 연 파일의 `PermissionError`)를 로그만 남기고 넘긴다: 새 제안서는 정상이고 옛 파일이 남을 수 있다.
+- **확인 항목이 남은 장 바로가기**: 제안서 상자의 "확인하지 않은 항목이 N개 남아 있습니다" 줄에 `proposals.open_check_slides` 가 만든 "n장(개수)" 링크(`/proposals/{id}/outline?open=n#slide-n`)가 붙는다 (항목이 한 개뿐인 장은 "이 장의 항목 모두 확인함" 단추가 없어 찾기 어려웠다). 시험 `tests/test_beta_u.py`.
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

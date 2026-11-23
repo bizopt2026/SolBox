@@ -358,6 +358,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["ontology"] = ontology  # 대상 이름·속성 이름표·목록은 템플릿도 여기서 읽는다
     app.state.templates.env.globals["ont"] = ontology
     app.state.templates.env.globals["wait_detail"] = labels.wait_detail
+    from app.proposals import open_check_slides
+    app.state.templates.env.globals["open_check_slides"] = open_check_slides
     app.state.templates.env.globals["kdate"] = lambda d: ui.short_date(d, date.today())  # "11월 24일" (올해가 아니면 연도도)
     app.state.templates.env.globals["kdatetime"] = lambda d: ui.short_datetime(d, date.today())  # "11월 24일 14:30"
     app.state.templates.env.globals["now_ts"] = lambda: int(time.time())  # "새로 고침" 링크가 늘 새 주소가 되게
