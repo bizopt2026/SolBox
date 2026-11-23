@@ -1299,3 +1299,15 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 
 .card.stack > .savebar.static { position: static; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); }
 @media (max-width: 600px) { .form-page > .savebar { flex-wrap: wrap; } .form-page > .savebar > * { flex: 1 1 40%; } }
+
+/* 구역 안 진행 상자 (제안 화면: 방향·구성안 만드는 중) */
+.job-box { padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: var(--r-sm); background: var(--sunken); color: var(--ink-2); margin-bottom: var(--s3); }
+.job-box p { margin: 0; }
+.job-box p + p { margin-top: 4px; }
+.job-box .pulse { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--brand); animation: job-pulse 1.2s ease-in-out infinite; }
+@keyframes job-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .job-box .pulse { animation: none; } }
+.job-failed { margin-bottom: var(--s3); }
+.job-failed p { margin: 0 0 8px; }
+.deck-done { margin: 0; padding: 10px 14px; border: 1px solid var(--ok-line); border-radius: var(--r-sm); background: var(--ok-soft); color: var(--ok); }
+.deck-open-slides a { white-space: nowrap; }

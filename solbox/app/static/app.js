@@ -657,11 +657,19 @@
     var buttons = Array.prototype.slice.call(form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]'));
     if (e.submitter && buttons.indexOf(e.submitter) < 0) buttons.push(e.submitter);
     window.setTimeout(function () {
-      buttons.forEach(function (b) { if (!b.disabled) { b.disabled = true; b.setAttribute("data-busy", "1"); } });
+      buttons.forEach(function (b) {
+        if (b.disabled) return;
+        b.disabled = true; b.setAttribute("data-busy", "1");
+        var label = b.getAttribute("data-busy-label"); // 오래 걸리는 동작(AI·PPT 만들기)은 글자도 "만드는 중…" 으로
+        if (label) { b.setAttribute("data-orig-label", b.textContent); b.textContent = label; }
+      });
     }, 0);
   });
   window.addEventListener("pageshow", function () {
-    document.querySelectorAll("[data-busy]").forEach(function (b) { b.disabled = false; b.removeAttribute("data-busy"); });
+    document.querySelectorAll("[data-busy]").forEach(function (b) {
+      b.disabled = false; b.removeAttribute("data-busy");
+      if (b.hasAttribute("data-orig-label")) { b.textContent = b.getAttribute("data-orig-label"); b.removeAttribute("data-orig-label"); }
+    });
   });
 
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다

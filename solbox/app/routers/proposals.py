@@ -1,6 +1,7 @@
 """제안 건 화면."""
 from __future__ import annotations
 
+import logging
 import secrets
 from collections import Counter
 import shutil
@@ -32,6 +33,7 @@ from app.proposals import (
 from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields, sort_rows
 from app.security import can_delete, require_user
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/proposals")
 CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
 PROJECT_MISMATCH = "선택한 고객의 프로젝트가 아닙니다."
@@ -220,6 +222,22 @@ def status(
     return Response("작업이 끝났습니다.", headers={"HX-Redirect": f"/proposals/{proposal.id}"})
 
 
+@router.get("/{proposal_id}/progress")
+def progress(
+    proposal_id: int, request: Request, section: str = "outline",
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """구역 안 진행 상자 조각 (`_job_box.html`). 그 구역의 작업이 끝나면 쪽을 새로 고쳐(HX-Refresh) 새 결과를 보인다."""
+    proposal = db.get(Proposal, proposal_id)
+    if proposal is None:
+        return Response("제안 건이 없습니다.", headers={"HX-Redirect": "/proposals"})
+    section = section if section in ("outline", "directions") else "outline"
+    job = proposal.active_job
+    if job is not None and job.status in ontology.JOB_ACTIVE and ontology.JOB_KIND_STEP.get(job.kind) == section:
+        return render(request, "proposals/_job_box.html", proposal=proposal, section=section, position=_position(db, proposal))
+    return Response("작업이 끝났습니다.", headers={"HX-Refresh": "true"})
+
+
 @router.get("/{proposal_id}/chat/live")
 def chat_live(
     proposal_id: int, request: Request,
@@ -255,7 +273,7 @@ def make_directions(
     proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
-    return _start(db, proposal, "proposal_directions", user)
+    return _start(db, proposal, "proposal_directions", user, anchor="#directions")
 
 
 @router.post("/{proposal_id}/select")
@@ -400,8 +418,12 @@ def build(
         db.refresh(p)
         return _detail_page(request, db, p, user, status_code=400, deck_error=DECK_FAILED)
     if old_name and old_name != name:
-        (folder / old_name).unlink(missing_ok=True)
-        internal_deck_path(folder / old_name).unlink(missing_ok=True)
+        # 옛 파일 지우기는 힘껏만 한다: 새 제안서는 이미 저장됐다. Windows 에서 파워포인트가 연 파일은 PermissionError 가 난다 (남겨 두고 로그만).
+        for old in (folder / old_name, internal_deck_path(folder / old_name)):
+            try:
+                old.unlink(missing_ok=True)
+            except OSError:
+                log.warning("이전 제안서 파일을 지우지 못했습니다 (열려 있을 수 있음, 새 파일은 정상): %s", old, exc_info=True)
     suffix = "/outline#deck" if back == "outline" else "#deck"
     return notices.redirect(f"/proposals/{p.id}{suffix}", "deck_built")
 
