@@ -3861,6 +3861,118 @@ mark.sr-hit{background:none;color:inherit;font-weight:700;text-decoration:underl
 .sr-none b{display:block;font-size:var(--t3);color:var(--ink);word-break:keep-all}
 .sr-none p{margin:8px 0 0;font-size:var(--t4);color:var(--muted);line-height:1.6;word-break:keep-all}
 .has-hb .sr>.back{display:none}
+
+/* ===== 더보기·환경설정: 남색, 차분한 아이콘, 화면 모드 미리보기 ===== */
+.panel:has(.st2),.panel:has(.mr2-me){--accent:#2F3A6B;--accent-soft:#E6E9F3}
+body[data-theme="dark"] .panel:has(.st2),body[data-theme="dark"] .panel:has(.mr2-me){--accent:#C9D0F0;--accent-soft:#232A4A}
+.panel:has(.mr2-me) .sp-ri,.panel:has(.st2) .sp-ri{background:var(--soft)!important;color:var(--ink)!important}
+.mr2-me{background:var(--card)!important;border:1px solid var(--line);padding:16px!important}
+.mr2-me b{font-family:"Gowun Batang",var(--f-quote);font-size:17px!important}
+.mr2-me small{color:var(--muted)!important}
+.st2-th{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.st2-th button{display:grid;justify-items:center;gap:8px;padding:12px 8px 10px;border-radius:16px;border:1px solid var(--line);background:var(--card);font-size:var(--t4);color:var(--ink2)}
+.st2-th button[aria-checked=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);color:var(--ink);font-weight:700}
+.st2-pv{position:relative;display:grid;gap:4px;align-content:start;width:52px;height:68px;padding:9px 8px;border-radius:9px;box-sizing:border-box;border:1px solid rgba(20,26,46,.12);overflow:hidden}
+.st2-pv i{display:block;height:5px;border-radius:3px}
+.st2-pv i:first-child{width:60%;height:7px}
+.st2-pv i:nth-child(3){width:75%}
+.st2-pv.light{background:#F4F5F8}.st2-pv.light i{background:#C9CCD8}.st2-pv.light i:first-child{background:#1E2235}
+.st2-pv.dark{background:#10131F;border-color:#2A2F44}.st2-pv.dark i{background:#343A52}.st2-pv.dark i:first-child{background:#E6E8F2}
+.st2-pv.auto{background:linear-gradient(135deg,#F4F5F8 50%,#10131F 50%)}.st2-pv.auto i{background:#8E93A8}.st2-pv.auto i:first-child{background:#F7DC6F}
+.st2 .sp-sw.on{background:var(--inkbg)!important}
+body[data-theme="dark"] .st2 .sp-sw.on::after{background:#10131F}
+.st2-sw small{line-height:1.5}
+.st2-note{margin:14px 4px 0;font-size:12px;color:var(--muted);line-height:1.6}
+.st2-ver{margin:22px 0 4px;text-align:center;font-size:11px;color:var(--muted);opacity:.8}
+
+/* ===== 이용 안내: 번호를 이은 타임라인, 어디서 하는지 표시 ===== */
+.panel:has(.gs2){--accent:#2F3A6B;--accent-soft:#E6E9F3}
+body[data-theme="dark"] .panel:has(.gs2){--accent:#C9D0F0;--accent-soft:#232A4A}
+.panel:has(.gs2) .sp-head h3,.panel:has(.gs2) h3{font-family:"Gowun Batang",var(--f-quote)}
+.gs2{list-style:none;margin:6px 0 0;padding:18px 18px 4px;background:var(--card);border:1px solid var(--line);border-radius:18px}
+.gs2 li{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);gap:14px;padding-bottom:20px}
+.gs2 li:not(:last-child)::before{content:"";position:absolute;left:13.5px;top:30px;bottom:2px;width:1px;background:var(--line)}
+.gs2-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--inkbg);color:var(--onink);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.gs2 li:first-child .gs2-n{box-shadow:0 0 0 3px color-mix(in srgb,#F7DC6F 55%,transparent)}
+.gs2 b{display:block;font-size:var(--t3);font-weight:700;line-height:28px;color:var(--ink)}
+.gs2 em{display:inline-block;margin-top:2px;padding:2px 9px;border-radius:99px;background:var(--soft);font-style:normal;font-size:11.5px;font-weight:500;color:var(--ink2)}
+.gs2 p{margin:7px 0 0;font-size:var(--t4);line-height:1.7;color:var(--ink2);word-break:keep-all}
+.panel:has(.gs2) .sp-fold{margin-top:12px}
+.panel:has(.gs2) .sp-note{background:var(--card)!important;border:1px solid var(--line)}
+.panel:has(.gs2) .sp-note svg{color:var(--muted)}
+.gs2-fo{display:flex!important;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px!important;min-height:46px;border-radius:14px;border:1px solid var(--line)!important;background:var(--card)!important;color:var(--ink)!important;font-weight:600;text-decoration:none!important}
+.gs2-fo .sm-av{width:20px;height:20px}
+
+/* ===== 선물하기: 카드가 주인공, 편지는 편지지처럼, 남색 ===== */
+.panel:has(.gf2-prev){--accent:#2F3A6B;--accent-soft:#E6E9F3}
+body[data-theme="dark"] .panel:has(.gf2-prev){--accent:#C9D0F0;--accent-soft:#232A4A}
+.gf2-prev{display:grid;justify-items:center;gap:12px;margin:2px 0 18px;padding:18px 0 14px;border-radius:18px;background:var(--soft)}
+.gf2-prev .gs3-cv{width:168px!important;max-width:none!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}
+.gf2-prev .gs3-cv img{width:168px!important;height:auto;border-radius:10px;box-shadow:0 14px 30px rgba(20,26,46,.22),0 2px 6px rgba(20,26,46,.1)}
+.gf2-prev .gs3-th{display:flex!important;gap:8px;margin:0!important}
+.gf2-prev .gs3-th button{min-height:34px;padding:0 14px!important;border-radius:99px!important;border:1px solid var(--line)!important;background:var(--card)!important;font-size:12.5px!important;font-weight:500;color:var(--ink2)!important;box-shadow:none!important}
+.gf2-prev .gs3-th button.on{border-color:var(--ink)!important;color:var(--ink)!important;font-weight:700;box-shadow:inset 0 0 0 1px var(--ink)!important}
+.gf2-prev .gs3-th i{width:12px!important;height:12px!important;border-radius:50%!important;border:1px solid rgba(20,26,46,.2)}
+.gf2-who{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gf2-who .sh-in{display:grid!important;gap:2px;padding:10px 14px!important;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.gf2-who .sh-in span{font-size:11.5px!important;color:var(--muted)!important;width:auto!important}
+.gf2-who .sh-in input{width:100%;padding:0!important;border:0!important;background:none!important;font-size:var(--t3)!important;font-weight:600;outline:none}
+.panel:has(.gf2-prev) .gs2-lb{margin-top:20px!important}
+.panel:has(.gf2-prev) #gtRe{background:none!important;border:1px solid var(--line)!important;color:var(--ink)!important;font-weight:500!important}
+.panel:has(.gf2-prev) .gs2-letter{background:#FBF8F2!important;border:1px solid #ECE4D6!important;border-radius:16px!important;box-shadow:0 8px 20px -16px rgba(60,40,10,.5)}
+body[data-theme="dark"] .panel:has(.gf2-prev) .gs2-letter{background:#1E1B16!important;border-color:#3A332A!important}
+.panel:has(.gf2-prev) #gtLetter{font-family:"Gowun Batang",var(--f-quote)!important;font-size:15.5px!important;line-height:1.95!important;color:#2A2622!important;background:none!important;padding:16px 18px!important}
+body[data-theme="dark"] .panel:has(.gf2-prev) #gtLetter{color:#EDE6D8!important}
+.panel:has(.gf2-prev) .gs3-hint{font-size:12px!important;color:var(--muted)!important;margin-top:10px!important}
+.panel:has(.gf2-prev) #gtSend{background:var(--inkbg)!important;color:var(--onink)!important}
+.gf2-who .sh-in input::placeholder{font-weight:400;color:color-mix(in srgb,var(--muted) 75%,transparent)}
+body[data-theme="dark"] .gf2-prev .gs3-th i{border-color:rgba(255,255,255,.45)}
+
+/* 선물하기: 카드·편지 미리보기 나란히, 카톡 글 복사는 작게 */
+.gf2-pair{display:flex;align-items:flex-start;justify-content:center;gap:14px}
+.gf2-prev .gf2-pair .gs3-cv{width:136px!important}
+.gf2-prev .gf2-pair .gs3-cv img{width:136px!important}
+.gf2-prev .gf2-lt img{aspect-ratio:auto!important;max-height:242px;object-fit:cover;object-position:top}
+.gf2-cap{display:flex;justify-content:center;gap:14px;margin-top:-4px;font-size:11.5px;color:var(--muted)}
+.gf2-cap span{width:136px;text-align:center}
+.panel:has(.gf2-prev) .gs3-bar{grid-template-columns:1fr 1fr!important;row-gap:4px!important}
+.panel:has(.gf2-prev) #gtLetterImg{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.gf2-copy{grid-column:1/-1;justify-self:center;min-height:32px;padding:0 10px;font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;background:none;border:0}
+
+/* ===== 처음 여는 사람의 소개 화면 ===== */
+.v3{--accent:#2F3A6B;--accent-soft:#E6E9F3;letter-spacing:0!important;font-weight:400!important;color:var(--ink)!important;font-size:var(--t3)!important;padding:8px 0 36px!important}
+body[data-theme="dark"] .v3{--accent:#C9D0F0;--accent-soft:#232A4A}
+.v3 *{letter-spacing:normal}
+.v3-hero{padding:22px 6px 6px;text-align:center}
+.v3-hero *{text-align:center!important}
+.v3-mark{display:inline-block;font-size:15px;font-weight:700;color:var(--ink);background:linear-gradient(transparent 62%,#F7DC6F 62%);padding:0 3px}
+.v3-hero h2{margin:16px 0 0;font-family:"Gowun Batang",var(--f-quote);font-size:28px;font-weight:700;line-height:1.45;letter-spacing:-.02em;color:var(--ink);word-break:keep-all}
+.v3-hero p{margin:14px auto 0;max-width:320px;font-size:var(--t4);line-height:1.8;color:var(--ink2);word-break:keep-all}
+.v3-demo{margin:26px 4px 0;padding:22px 20px 16px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:0 14px 30px -24px rgba(20,26,46,.45)}
+.v3-demo blockquote{margin:0;font-family:var(--f-quote);font-size:20px;font-weight:500;line-height:1.75;color:var(--ink)}
+.v3-demo blockquote span{text-decoration:underline;text-decoration-color:var(--ul);text-decoration-thickness:.32em;text-underline-offset:-.1em;text-decoration-skip-ink:none}
+.v3-demo figcaption{margin-top:6px;font-size:12px;color:var(--muted)}
+.v3-ask{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.v3-ask .sm-av{flex:none;width:24px;height:24px}
+.v3-ask p{margin:0;font-size:var(--t4);line-height:1.65;color:var(--ink)}
+.v3-ask b{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.v3-verbs{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 4px 0;padding:0}
+.v3-verbs li{display:grid;justify-items:center;gap:4px;padding:14px 6px;border-radius:14px;background:var(--soft);text-align:center}
+.v3-vi{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--ink)}
+.v3-verbs b{font-family:"Gowun Batang",var(--f-quote);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px}
+.v3-verbs small{font-size:11.5px;line-height:1.5;color:var(--ink2);word-break:keep-all;text-align:center!important}
+.v3-h{margin:30px 4px 10px!important}
+.v3-steps{margin:0 0 0!important}
+.v3-steps b{font-weight:700}
+.v3-steps p b{display:inline;line-height:inherit;font-size:inherit}
+.v3-faq{margin-top:12px!important}
+.v3-act{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
+.v3-act .btn{height:50px;border-radius:14px!important;font-size:var(--t3);font-weight:600}
+.v3-go{background:var(--inkbg)!important;color:var(--onink)!important}
+.v3-act .btn.ghost{background:var(--card)!important;border:1px solid var(--line)!important;color:var(--ink)!important}
+.v3-sm{margin:10px 0 0;text-align:center!important;font-size:12px;color:var(--muted)}
+.v3-demo blockquote,.v3-ask p,.v3-steps p{word-break:keep-all}
+body[data-theme="dark"] .v3-mark{background:linear-gradient(transparent 84%,#F7DC6F 84%)}
 </style>
 </head>
 <body>
@@ -5818,20 +5930,27 @@ function applyPref(){
 const cf = (w, px, kind) => `${Math.min(w, 700)} ${px}px ${kind === 'num' ? `"${FONT.display}", ` : ''}"${FONT.sans}", sans-serif`;
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', applyPref);
 function settingsSheet(){
-  const seg = (key, opts) => `<div class="sp-seg">${opts.map(([v, l]) => `<button data-k="${key}" data-v="${v}" class="${PREF[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-  const host = (() => { try { const u = giftAppUrl(); return u ? u.replace(/^https:\/\//, '').replace(/^(claude\.ai\/)(code\/)?artifact\/(.{6}).*/, '$1…$3') : ''; } catch { return ''; } })();
+  const mini = v => `<span class="st2-pv ${v}" aria-hidden="true"><i></i><i></i><i></i></span>`;
+  const sw = (id, on, t, d) => `<button class="sp-row st2-sw" id="${id}" role="switch" aria-checked="${on}"><span><b>${t}</b><small>${d}</small></span><i class="sp-sw${on ? ' on' : ''}"></i></button>`;
   openSheet(`${sheetHead('환경설정', '')}
-    <div class="sp-lb">화면</div>
-    <div class="sp-g sp-pad"><div class="sp-row0"><b>화면 모드</b></div>${seg('theme', [['auto','시스템'],['light','밝게'],['dark','어둡게']])}</div>
-    <div class="sp-lb">${AI_NAME}이</div>
-    <div class="sp-g"><button class="sp-row" id="swAuto" role="switch" aria-checked="${PREF.smAuto !== 'off'}"><span><b>먼저 말 걸기</b><small>앱을 열 때 질문을 미리 준비해요 · Claude 사용량을 조금 써요</small></span><i class="sp-sw${PREF.smAuto !== 'off' ? ' on' : ''}"></i></button></div>
-`);
+    <div class="st2">
+      <div class="sp-lb">화면 모드</div>
+      <div class="st2-th" role="radiogroup" aria-label="화면 모드">${[['auto', '시스템'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<button role="radio" aria-checked="${PREF.theme === v || (!PREF.theme && v === 'auto')}" data-k="theme" data-v="${v}">${mini(v)}<span>${l}</span></button>`).join('')}</div>
+      <div class="sp-lb">${AI_NAME}이</div>
+      <div class="sp-g">${sw('swAuto', PREF.smAuto !== 'off', '먼저 말 걸기', '앱을 열 때 밑줄에 대한 질문을 미리 준비해요')}</div>
+      <div class="sp-lb">여백이</div>
+      <div class="sp-g">${sw('swPen', penOn(), '좋아하는 문체로 쓰기', '밑줄을 가장 많이 그은 작가의 결을 닮게 글을 써요')}</div>
+      <p class="st2-note">선명이와 여백이는 쓸 때마다 Claude 사용량을 조금 써요.</p>
+      <p class="st2-ver">밑줄 · 긋고, 되묻고, 건네다</p>
+    </div>`);
   sheet.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
     PREF[b.dataset.k] = b.dataset.v; try { localStorage.setItem('ul_pref', JSON.stringify(PREF)); } catch {}
-    applyPref(); sheet.querySelectorAll(`[data-k="${b.dataset.k}"]`).forEach(x => x.classList.toggle('on', x === b));
+    applyPref(); sheet.querySelectorAll(`[data-k="${b.dataset.k}"]`).forEach(x => x.setAttribute('aria-checked', x === b));
   });
+  const flip = (el, on) => { el.setAttribute('aria-checked', on); el.querySelector('.sp-sw').classList.toggle('on', on); };
   $('#swAuto').onclick = () => { PREF.smAuto = PREF.smAuto === 'off' ? 'on' : 'off'; try { localStorage.setItem('ul_pref', JSON.stringify(PREF)); } catch {}
-    applyPref(); softRender(); const on = PREF.smAuto !== 'off'; $('#swAuto').setAttribute('aria-checked', on); $('#swAuto .sp-sw').classList.toggle('on', on); };
+    applyPref(); softRender(); flip($('#swAuto'), PREF.smAuto !== 'off'); };
+  $('#swPen').onclick = () => { const { id, ...st } = S.docs.settings || {}; put('settings', { ...st, kind: 'settings', penOff: penOn() }); flip($('#swPen'), penOn()); };
   $('#fx').onclick = closeSheet;
 }
 
@@ -6015,6 +6134,59 @@ ${q.mood ? `[그때 마음] ${q.mood}\n` : ''}${q.feeling ? `[독자 메모] ${q
   return String((v && v.letter) || '').replace(/\r/g, '').trim().slice(0, 600);
 }
 const giftFallback = () => `${GIFT.to ? `${GIFT.to}, ` : ''}책을 읽다가 이 문장에서 오래 멈췄어요. 읽는 동안 당신이 떠올라서, 이 한 줄을 보내요.`;
+/* 편지 한 장을 이미지로: 편지지 바탕에 명조, 길이에 따라 세로로 늘어남 */
+async function drawLetterImage(q, st){
+  const b = S.docs[q.bookId] || {}, night = st.theme === 'night';
+  const C = night ? { bg: '#161B33', ink: '#ECEAF4', mute: '#A3A8C3', line: 'rgba(255,255,255,.07)', soft: 'rgba(255,255,255,.14)', mark: 'rgba(247,220,111,.55)' }
+                  : { bg: '#FBF8F1', ink: '#2A2622', mute: '#8A8375', line: 'rgba(120,100,60,.10)', soft: '#E9E3D6', mark: 'rgba(247,220,111,.85)' };
+  const W = 1080, P = 120, FW = W - P * 2;
+  const SERIF = '"Hahmlet", "Gowun Batang", serif', HAND = '"Gowun Batang", "Hahmlet", serif';
+  const sf = (w, px) => `${w} ${px}px ${SERIF}`, hf = (px) => `700 ${px}px ${HAND}`;
+  const to = (st.to || '').trim(), from = (st.from || '').trim();
+  const paras = String(st.letter || '').replace(/\r/g, '').split(/\n+/).map(t => t.trim()).filter(Boolean);
+  const title = splitTitle(b.title || '').main, au = authorShort(b);
+  const all = [to, from, paras.join(' '), q.text, title, au, '편지 To From 밑줄로 쓴 편지 0123456789.'].join(' ');
+  try { await Promise.all([document.fonts.load(`500 44px "Hahmlet"`, all), document.fonts.load(`700 60px "Gowun Batang"`, all), document.fonts.load(`500 30px "IBM Plex Sans KR"`, all)]); } catch {}
+  const m = document.createElement('canvas').getContext('2d');
+  const BS = 44, BL = BS * 1.95, QS = 36, QL = QS * 1.75;
+  m.font = sf(500, BS); const body = paras.map(t => wrapLines(m, t, FW));
+  m.font = sf(500, QS); const ql = wrapLines(m, `“${q.text}”`, FW - 40).slice(0, 6);
+  const head = 150 + (to ? 110 : 0), bodyH = body.reduce((h, ls) => h + ls.length * BL, 0) + Math.max(0, body.length - 1) * 30;
+  const fromH = from ? 120 : 40, quoteH = 70 + ql.length * QL + 70, foot = 170;
+  const H = Math.max(1080, Math.ceil(head + bodyH + fromH + quoteH + foot));
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  x.fillStyle = C.bg; x.fillRect(0, 0, W, H);
+  /* 편지지 줄 */
+  if (!night) { const gg = x.createLinearGradient(0, 0, 70, 0); gg.addColorStop(0, 'rgba(90,70,40,.08)'); gg.addColorStop(1, 'rgba(90,70,40,0)'); x.fillStyle = gg; x.fillRect(0, 0, 70, H); }
+  x.textBaseline = 'alphabetic';
+  x.fillStyle = C.mute; x.font = `500 28px "IBM Plex Sans KR", sans-serif`; x.fillText('편지', P, 112);
+  let y = 150;
+  if (to) { x.fillStyle = C.ink; x.font = hf(58); x.fillText(`To. ${to}`, P, y + 52); y += 110; }
+  x.fillStyle = C.ink; x.font = sf(500, BS);
+  body.forEach((ls, i) => { ls.forEach(l => { x.fillStyle = C.line; x.fillRect(P, y + BS + 22, FW, 2); x.fillStyle = C.ink; x.fillText(l, P, y + BS); y += BL; }); if (i < body.length - 1) y += 30; });
+  if (from) { y += 40; x.font = hf(48); x.textAlign = 'right'; x.fillText(`From. ${from}`, W - P, y + 48); x.textAlign = 'left'; y += 80; } else y += 40;
+  /* 함께 건네는 한 줄 */
+  y += 30; x.fillStyle = C.soft; x.fillRect(P, y, FW, 2); y += 60;
+  x.font = sf(500, QS);
+  ql.forEach(l => { const w = x.measureText(l).width; x.fillStyle = C.mark; x.fillRect(P + 20, y + QS * .55, w, QS * .42); x.fillStyle = C.ink; x.fillText(l, P + 20, y + QS); y += QL; });
+  x.fillStyle = C.mute; x.font = `500 28px "IBM Plex Sans KR", sans-serif`; x.fillText(`${title ? `『${title}』` : ''}${au ? ` ${au}` : ''}${q.page ? `  ·  p.${q.page}` : ''}`, P + 20, y + 30);
+  /* 날짜와 앱 이름 */
+  x.font = `500 26px "IBM Plex Sans KR", sans-serif`; x.fillStyle = C.mute; x.fillText(fmtDate(Date.now()), P, H - 90);
+  x.textAlign = 'right'; x.font = `700 30px "IBM Plex Sans KR", sans-serif`; const bw = x.measureText('밑줄').width;
+  x.fillStyle = 'rgba(247,220,111,.9)'; x.fillRect(W - P - bw - 2, H - 100, bw + 4, 12); x.fillStyle = night ? '#ECEAF4' : '#1E2235'; x.fillText('밑줄', W - P, H - 90); x.textAlign = 'left';
+  return c;
+}
+/* 이미지 한 장을 보내기(공유)하거나 저장 */
+async function giftOut(cv, name, q, say){
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png')); const file = new File([blob], name, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); await giftMark(q); say('보냈어요.'); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (!downloads) { say('미리보기를 눌러 크게 연 뒤 길게 눌러 사진에 저장해 주세요.'); await giftMark(q); return; }
+  try { await downloads.save({ filename: name, data: blob }); await giftMark(q); say(`‘${name}’으로 저장했어요.`); }
+  catch (e) { if (!(e && e.code === 'declined')) say('저장하지 못했어요. 미리보기를 길게 눌러 저장해 주세요.'); }
+}
 function giftLetterText(q){
   const b = S.docs[q.bookId] || {}, from = ($('#gtFrom') || {}).value || (S.docs.settings || {}).giftNick || '';
   return [GIFT.letter.trim(), from ? `— ${from.trim()}` : '', '', `“${q.text}”`, `『${splitTitle(b.title || '').main}』 ${authorShort(b) || ''}${q.page ? ` · p.${q.page}` : ''}`].filter((x, i) => x || i === 2).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -6033,30 +6205,29 @@ async function giftSheet(qid){
   if (GIFT.qid !== qid) Object.assign(GIFT, { qid, to: '', letter: '', ai: false });
   const nick = (S.docs.settings || {}).giftNick || '';
   openSheet(`${sheetHead('선물하기', '이 한 줄에 편지를 담아 소중한 사람에게 보내요')}
-    <div class="gs3-top">
-      <button class="gs3-cv" id="shP" aria-label="카드 크게 보기"><img id="shImg" alt="선물 카드 미리보기"><div class="shp-l" id="shLoad"><span class="typing"><i></i><i></i><i></i></span></div><span class="gs3-zoom"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></span></button>
-      <div class="gs3-r">
-        <div class="sp-g gs2-who">
+    <div class="gf2-prev"><div class="gf2-pair"><button class="gs3-cv" id="shP" aria-label="카드 크게 보기"><img id="shImg" alt="선물 카드 미리보기"><div class="shp-l" id="shLoad"><span class="typing"><i></i><i></i><i></i></span></div><span class="gs3-zoom"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></span></button><button class="gs3-cv gf2-lt" id="ltP" aria-label="편지 크게 보기"><img id="ltImg" alt="편지 미리보기"><span class="gs3-zoom"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></span></button></div><div class="gf2-cap"><span>카드</span><span>편지</span></div>
+      <div class="gs3-th">${[['page', '책 페이지', '#FBF8F1'], ['night', '밤의 서재', '#161B33']].map(([v, l, c]) => `<button data-gk="theme" data-gv="${v}" class="${GIFT.theme === v ? 'on' : ''}"><i style="background:${c}"></i>${l}</button>`).join('')}</div></div>
+    <div class="gf2-who">
           <label class="sh-in"><span>받는 사람</span><input id="gtTo" maxlength="20" placeholder="예: 엄마" value="${esc(GIFT.to)}"></label>
           <label class="sh-in"><span>보내는 사람</span><input id="gtFrom" maxlength="16" placeholder="내 이름" value="${esc(nick)}"></label>
         </div>
-        <div class="gs3-th">${[['page', '책 페이지', '#FBF8F1'], ['night', '밤의 서재', '#161B33']].map(([v, l, c]) => `<button data-gk="theme" data-gv="${v}" class="${GIFT.theme === v ? 'on' : ''}"><i style="background:${c}"></i>${l}</button>`).join('')}</div>
-      </div>
-    </div>
     <div class="gs2-lb"><b>편지</b>${sample ? `<button id="gtRe">${SM_AVATAR(16)}<span>${GIFT.letter ? '선명이가 다시 쓰기' : '선명이가 써 주기'}</span></button>` : ''}</div>
     <div class="sp-g gs2-letter"><textarea id="gtLetter" rows="5" maxlength="600" placeholder="왜 이 한 줄이 떠올랐는지 적어 보세요">${esc(GIFT.letter)}</textarea>
       <div class="gs2-need">편지를 한 줄이라도 적어 주세요</div>
       <div class="gs2-busy" id="gtBusy" hidden><span class="typing"><i></i><i></i><i></i></span> ${AI_NAME}이가 편지를 쓰고 있어요</div></div>
-    <p class="gs3-hint">카드엔 편지 앞부분만 들어가요. 전체 편지는 「편지 글 복사」로 함께 보내 주세요.</p>
+    <p class="gs3-hint">카드엔 편지 앞부분만 들어가요. 편지 전체는 「편지 저장」으로 이미지 한 장에 담겨요.</p>
     <p class="sh-msg" id="shMsg" role="status"></p>
-    <div class="gs3-bar"><button class="btn ghost" id="gtCopy">편지 글 복사</button><button class="btn accent" id="gtSend"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg>카드 보내기</button></div>`);
-  let cv = null, ver = 0, pt = 0;
+    <div class="gs3-bar"><button class="btn ghost" id="gtLetterImg"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>편지 저장</button><button class="btn accent" id="gtSend"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg>카드 보내기</button><button class="gf2-copy" id="gtCopy">카톡에 붙일 글 복사</button></div>`);
+  let cv = null, lv = null, ver = 0, pt = 0;
   const say = t => { const m = $('#shMsg'); if (m) m.textContent = t; };
+  $('#ltP').onclick = () => { const src = $('#ltImg').src; if (!src) return; const lb = document.createElement('div'); lb.className = 'gs3-lb'; lb.innerHTML = `<img src="${src}" alt="편지"><span>눌러서 닫기</span>`; lb.onclick = () => lb.remove(); document.body.appendChild(lb); };
   $('#shP').onclick = () => { const src = $('#shImg').src; if (!src) return; const lb = document.createElement('div'); lb.className = 'gs3-lb'; lb.innerHTML = `<img src="${src}" alt="선물 카드"><span>눌러서 닫기</span>`; lb.onclick = () => lb.remove(); document.body.appendChild(lb); };
   const paint = async () => {
     const my = ++ver; const ld = $('#shLoad'); if (ld) ld.hidden = false;
     const c = await drawShareCard(q, { fmt: GIFT.fmt, theme: GIFT.theme, letter: { to: GIFT.to.trim(), from: ($('#gtFrom') || {}).value ? $('#gtFrom').value.trim() : nick, line: GIFT.letter } });
     if (my !== ver || !$('#shImg')) return; cv = c; $('#shImg').src = c.toDataURL('image/png'); $('#shP').dataset.fmt = GIFT.fmt; if (ld) ld.hidden = true;
+    const l = await drawLetterImage(q, { theme: GIFT.theme, to: GIFT.to, from: ($('#gtFrom') || {}).value ? $('#gtFrom').value.trim() : nick, letter: GIFT.letter });
+    if (my !== ver || !$('#ltImg')) return; lv = l; $('#ltImg').src = l.toDataURL('image/png');
   };
   const later = () => { clearTimeout(pt); pt = setTimeout(paint, 450); };
   const write = async () => {
@@ -6073,18 +6244,10 @@ async function giftSheet(qid){
   const re = $('#gtRe'); if (re) re.onclick = write;
   sheet.querySelectorAll('[data-gk]').forEach(b => b.onclick = () => { GIFT[b.dataset.gk] = b.dataset.gv; sheet.querySelectorAll(`[data-gk="${b.dataset.gk}"]`).forEach(y => y.classList.toggle('on', y === b)); paint(); });
   const fname = () => `밑줄-선물-${shortTitle((S.docs[q.bookId] || {}).title || 'quote', 12).replace(/[\\/:*?"<>|…]/g, '')}.png`;
-  $('#gtSend').onclick = async () => {
-    if (!cv) return; if (!GIFT.letter.trim()) { const lb = sheet.querySelector('.gs2-letter'); lb.classList.remove('need'); void lb.offsetWidth; lb.classList.add('need'); say(''); $('#gtLetter').focus(); return; }
-    const blob = await new Promise(r => cv.toBlob(r, 'image/png')); const file = new File([blob], fname(), { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], text: giftLetterText(q) }); await giftMark(q); say('선물을 보냈어요. 편지 글도 함께 붙여 주면 더 좋아요.'); return; }
-      catch (e) { if (e && e.name === 'AbortError') return; }
-    }
-    if (!downloads) { say('미리보기 카드를 길게 눌러 사진에 저장한 뒤 보내 주세요.'); await giftMark(q); return; }
-    try { await downloads.save({ filename: fname(), data: blob }); await giftMark(q); say('카드를 저장했어요. 카톡에서 사진과 편지 글을 함께 보내 주세요.'); }
-    catch (e) { if (!(e && e.code === 'declined')) say('저장하지 못했어요. 미리보기 카드를 길게 눌러 저장해 주세요.'); }
-  };
-  $('#gtCopy').onclick = async () => { if (!GIFT.letter.trim()) { const lb = sheet.querySelector('.gs2-letter'); lb.classList.remove('need'); void lb.offsetWidth; lb.classList.add('need'); $('#gtLetter').focus(); return; } await giftCopyText(giftLetterText(q), '편지 글을 복사했어요. 카드와 함께 붙여 넣으세요.'); giftMark(q); };
+  const needLetter = () => { if (GIFT.letter.trim()) return false; const lb = sheet.querySelector('.gs2-letter'); lb.classList.remove('need'); void lb.offsetWidth; lb.classList.add('need'); say(''); $('#gtLetter').focus(); return true; };
+  $('#gtSend').onclick = async () => { if (!cv || needLetter()) return; await giftOut(cv, fname(), q, say); };
+  $('#gtLetterImg').onclick = async () => { if (needLetter()) return; if (!lv) { clearTimeout(pt); await paint(); } if (lv) await giftOut(lv, fname().replace('선물', '편지'), q, say); };
+  $('#gtCopy').onclick = async () => { if (!GIFT.letter.trim()) { const lb = sheet.querySelector('.gs2-letter'); lb.classList.remove('need'); void lb.offsetWidth; lb.classList.add('need'); $('#gtLetter').focus(); return; } await giftCopyText(giftLetterText(q), '카톡에 붙일 글을 복사했어요.'); giftMark(q); };
   if (GIFT.letter) paint(); else { paint(); write(); }
 }
 /* ---------- AI가 읽어 준 문장에서 고르기 ---------- */
@@ -7204,8 +7367,15 @@ function libraryView(){
 const sheetHead = (title, sub, lead = '') => `<div class="sp-h">${lead}<div class="sp-ht"><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div><button class="sp-x" id="fx" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
 const SP_CHEV = '<svg class="sp-cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 function guideSheet(){
+  const steps = [
+    ['긋기', '첫 화면 아래 「밑줄 긋기」', '책 페이지를 찍고 마음에 닿은 문장 위를 그어요. 전자책은 스크린샷이나 직접 입력으로 남겨요.'],
+    ['되묻기', `${AI_NAME}이와 이야기하기`, `${AI_NAME}이가 왜 그 문장에서 멈췄는지 물어요. 답하다 보면 한 편의 사유로 남고, 언제든 이어서 이야기할 수 있어요.`],
+    ['쓰기', '위쪽 깃펜 · 여백의 글방', '여백이가 남긴 사유를 모아 하루는 일기로, 한 주제는 수필로 엮어요. 밑줄을 많이 그은 작가의 결을 닮게.'],
+    ['각인', '밑줄 화면 아래 「각인」', '오래 간직하고 싶은 밑줄에 각인 도장을 찍어 둬요.'],
+    ['선물하기', '밑줄 화면 아래 「선물」', `아끼는 한 줄을 카드에 담고, ${AI_NAME}이와 함께 쓴 편지를 붙여 보내요.`],
+    ['돌아보기', '위쪽 막대 · 밑줄 현황', '한 달의 숫자와 독서 캘린더, 지금까지 다 읽은 책을 돌아봐요.']];
   openSheet(`${sheetHead('긋고, 되묻고, 건네다', '밑줄을 쓰는 여섯 가지 방법', `<span class="sp-av">${SM_AVATAR(40)}</span>`)}
-    <ol class="gs"><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 4.2l4.6 4.6-7.4 7.4H6.8v-4.6z"/><path d="M7.4 11l4.6 4.6"/></svg></span><div><b>긋기</b><p>페이지를 찍고 문장 위를 그어요. 전자책은 스크린샷이나 직접 입력으로.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.6.3-.8.7-.8 1.2"/></svg></span><div><b>되묻기</b><p>${AI_NAME}이가 왜 멈췄는지 물어요. 답하다 보면 한 편의 사유로 남아요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-7 0-12 4-13 11l-2 5"/><path d="M20 4c0 7-4 12-11 13"/><path d="M9 15l5-5"/></svg></span><div><b>쓰기</b><p>위쪽 깃펜 아이콘의 여백이가 사유를 모아 일기·수필로 엮어요. 밑줄을 많이 그은 작가의 결을 닮게.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="4.5" stroke-dasharray="2 2"/></svg></span><div><b>각인</b><p>오래 간직할 밑줄에는 각인 도장을 찍어 둬요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.7S9.6 3.9 12 9zM12 9c2.5 0 4.5-1 4.5-2.7S14.4 3.9 12 9z"/></svg></span><div><b>선물하기</b><p>아끼는 한 줄을 카드에 담고, 선명이와 함께 쓴 편지를 붙여 보내요.</p></div></li><li class="gs-s"><span class="gs-i"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></span><div><b>돌아보기</b><p>위쪽 막대 아이콘에서 한 달의 독서 캘린더와 다 읽은 책을 돌아봐요.</p></div></li></ol>
+    <ol class="gs2">${steps.map(([t, w, d], i) => `<li><span class="gs2-n">${i + 1}</span><div><b>${t}</b><em>${w}</em><p>${d}</p></div></li>`).join('')}</ol>
     <details class="sp-g sp-fold"><summary><span><b>선물을 보내고 받는 법</b><small>카드 · 편지</small></span>${SP_CHEV}</summary>
       <div class="sp-fb">
       <b class="gd-gh">보내는 사람</b>
@@ -7215,7 +7385,7 @@ function guideSheet(){
       <ol class="gd-gl"><li>카드와 편지만으로 선물은 끝이에요. 앱이나 로그인이 필요 없어요.</li></ol></div>
     </details>
     <div class="sp-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><p>책 페이지 사진은 저장하지 않고, 표지 사진만 작게 남겨요. 기록은 내 계정에만 있고, AI 기능은 Claude 사용량을 써요.</p></div>
-    <button class="sp-link" id="fo">${AI_NAME}이 소개 다시 보기</button>`);
+    <button class="sp-link gs2-fo" id="fo">${SM_AVATAR(20)}${AI_NAME}이 소개 다시 보기</button>`);
   $('#fx').onclick = closeSheet; $('#fo').onclick = () => { closeSheet(); onboarding(); };
   const { id, ...st } = S.docs.settings || {};
   if (!st.guideSeen && S.mode !== 'loading') put('settings', { ...st, kind: 'settings', guideSeen: Date.now() });
@@ -7381,17 +7551,32 @@ function giftJoinSteps(){
   </ol>`;
 }
 function visitView(){
-  const giftIc = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 4.2l4.6 4.6-7.4 7.4H6.8v-4.6z"/><path d="M4 20h16"/></svg>';
-  return `<section class="vs vs2">
-    <div class="vs2-hero"><span class="vs2-ic">${giftIc}</span><small>밑줄</small>
+  const ic = d => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const verbs = [['긋고', '책에서 멈칫한 문장에 줄을 그어요', ic('<path d="M14.2 4.2l4.6 4.6-7.4 7.4H6.8v-4.6z"/><path d="M4 20h16"/>')],
+    ['되묻고', `${AI_NAME}이가 왜 멈췄는지 물어요`, ic('<path d="M5 5h14v10H9l-4 4z"/><path d="M10 9.5a2 2 0 1 1 2.5 1.9V12"/>')],
+    ['건네요', '아끼는 한 줄을 편지와 함께', ic('<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.7S9.6 3.9 12 9zM12 9c2.5 0 4.5-1 4.5-2.7S14.4 3.9 12 9z"/>')]];
+  return `<section class="vs vs2 v3">
+    <header class="v3-hero">
+      <span class="v3-mark">밑줄</span>
       <h2>마음에 닿은 한 줄을<br>긋고, 되묻고, 건네요</h2>
-      <p>책에서 멈칫한 문장에 줄을 그으면, 독서 친구 선명이가 왜 멈췄는지 되물어 줘요. 그렇게 쌓인 밑줄 가운데 아끼는 한 줄을 편지와 함께 선물해요.</p></div>
-    <div class="sp-lb">밑줄을 쓰고 싶다면</div>
-    ${giftJoinSteps()}
-    <details class="sp-g sp-fold"><summary><span><b>여기서 바로 쓸 수는 없나요?</b></span>${SP_CHEV}</summary><div class="sp-fb"><p>지금 보는 화면은 <b>다른 사람의 밑줄 앱</b>이에요. 기록은 쓰는 사람마다 따로 저장돼서, 내 서재는 복제한 <b>내 앱</b>에 만들어야 해요.</p></div></details>
-    <div class="vs-act"><button class="btn ghost" data-vs="url">앱 주소 복사</button><button class="btn ghost" data-vs="look">앱 둘러보기</button></div>
-    <p class="vs-sm" style="text-align:center">둘러보기에서 쓴 내용은 저장되지 않아요.</p>
-    <div style="height:28px"></div></section>`;
+      <p>책에서 멈칫한 문장에 줄을 그으면, 독서 친구 ${AI_NAME}이가 왜 멈췄는지 되물어 줘요. 그렇게 쌓인 밑줄 가운데 아끼는 한 줄을 편지와 함께 선물해요.</p>
+    </header>
+    <figure class="v3-demo" aria-label="밑줄 화면 예시">
+      <blockquote><span>멈춘 자리에 오래 머물러도 괜찮다.</span></blockquote>
+      <figcaption>『어느 책』 · p.42</figcaption>
+      <div class="v3-ask">${SM_AVATAR(24)}<p><b>${AI_NAME}이가 물어요</b>‘오래 머문다’는 말에서 떠오른 장면이 있나요?</p></div>
+    </figure>
+    <ul class="v3-verbs">${verbs.map(([t, d, i]) => `<li><span class="v3-vi">${i}</span><b>${t}</b><small>${d}</small></li>`).join('')}</ul>
+    <div class="sx-h v3-h"><b>밑줄을 쓰고 싶다면</b></div>
+    <ol class="gs2 v3-steps">
+      <li><span class="gs2-n">1</span><div><b>내 앱으로 복제</b><em>이 화면 맨 위 · 앱 이름 옆 ⌄</em><p>Claude 앱에서 맨 위 <b>앱 이름 옆 메뉴(⌄)</b>를 눌러 <b>복제</b>를 고르세요. 나만의 밑줄 앱이 생기고, 기록은 나에게만 보여요.</p></div></li>
+      <li><span class="gs2-n">2</span><div><b>밑줄 긋고 이야기하기</b><em>첫 화면 아래 「밑줄 긋기」</em><p>읽는 책을 꽂고 마음에 닿은 문장에 밑줄을 그은 뒤, ${AI_NAME}이와 이야기해요.</p></div></li>
+      <li><span class="gs2-n">3</span><div><b>나도 선물하기</b><em>밑줄 화면 아래 「선물」</em><p>아끼는 한 줄을 카드와 편지로 소중한 사람에게 보내요.</p></div></li>
+    </ol>
+    <details class="sp-g sp-fold v3-faq"><summary><span><b>여기서 바로 쓸 수는 없나요?</b></span>${SP_CHEV}</summary><div class="sp-fb"><p>지금 보는 화면은 <b>다른 사람의 밑줄 앱</b>이에요. 기록은 쓰는 사람마다 따로 저장돼서, 내 서재는 복제한 <b>내 앱</b>에 만들어야 해요.</p></div></details>
+    <div class="v3-act"><button class="btn v3-go" data-vs="look">앱 둘러보기</button><button class="btn ghost" data-vs="url">앱 주소 복사</button></div>
+    <p class="v3-sm">둘러보기에서 쓴 내용은 저장되지 않아요.</p>
+  </section>`;
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-vs]'); if (!b) return;
