@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.ai.gate import require_ai_on
 from app.idparse import parse_id
-from app import labels, ontology, origin, relations, ui
+from app import business_types as bts, labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app import guards, notices
@@ -34,11 +34,12 @@ BAD_PARTNER = ui.FieldError("존재하지 않는 파트너입니다.", "partner_
 
 def _form_page(
     request: Request, db: Session, form: dict, solution: Solution | None = None, error: str | None = None,
-    conflict=None, duplicate=None, **extra,
+    conflict=None, duplicate=None, bt: dict | None = None, **extra,
 ):
     return render(
         request, "solutions/form.html", status_code=409 if conflict else 400 if error else 200,
-        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, conflict=conflict, duplicate=duplicate, **extra,
+        form=form, solution=solution, partners=search_by_name(db, Partner), error=error, conflict=conflict, duplicate=duplicate,
+        bt=bt if bt is not None else bts.form_value_of(solution), **extra,
     )
 
 
@@ -83,16 +84,17 @@ def list_solutions(
     request: Request, q: str = "", stage: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags, loaders=(selectinload(Solution.partner),))
+    solutions = search_by_name(db, Solution, q, Solution.summary, Solution.tags, loaders=(selectinload(Solution.partner), selectinload(Solution.business_types)))
     solutions, flt = list_filter(db, request, "solution", sort_rows(request, "solution", solutions, db=db))
     solutions, origin_tabs, origin_now = origin_filter(request, solutions)
+    solutions, type_tabs, type_now = bts.type_tabs(request, solutions, lambda s: s.business_type_codes)
     counts = Counter(s.stage for s in solutions)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준 (탭을 누르면 나오는 건수와 같다)
     total = len(solutions)
     if stage:
         solutions = [s for s in solutions if s.stage == stage]
     pg = paginate(solutions, page)
     tabs = ui.seg_tabs(request, "stage", list(labels.STAGES.items()), counts, stage, total)
-    return render(request, "solutions/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, info=row_info(db, "solution", pg.items))
+    return render(request, "solutions/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, type_tabs=type_tabs, type_now=type_now, info=row_info(db, "solution", pg.items))
 
 
 @router.get("/new")
@@ -110,14 +112,17 @@ def create(
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once), bt: bts.BTForm = Depends(bts.bt_form),
 ):
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
+    selection, bt_error = bts.solution_selection(bt) if bt.present else ([], None)
+    error = error or bt_error
     if error:
-        return _form_page(request, db, values, error=error)
+        return _form_page(request, db, values, error=error, bt=bts.form_value(bt))
     if dup := duplicate_warning(db, Solution, name, confirm_dup):
-        return _form_page(request, db, values, duplicate=dup)
+        return _form_page(request, db, values, duplicate=dup, bt=bts.form_value(bt))
     solution = Solution(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
+    bts.apply_solution(solution, selection)
     db.add(solution)
     db.commit()
     mirror.sync(solution)
@@ -178,7 +183,11 @@ def edit_form(
     form.update(summary=draft.summary.strip() or form["summary"],
                 description=draft.description.strip() or form["description"],
                 tags=_normalize_tags(",".join(draft.tags)) or form["tags"])
-    return _form_page(request, db, form, solution, drafted=True)
+    # 사업방식 제안: 저장된 선택에 더해 미리 체크해 보여 준다 (저장은 사용자가 한다. 이미 있는 선택·메모는 지우지 않는다)
+    suggested = bts.clean_suggestions(draft.business_types)
+    bt = bts.form_value_of(solution)
+    bt["business_types"] = [c for c in ontology.BUSINESS_TYPES if c in bt["business_types"] or c in {s["code"] for s in suggested}]
+    return _form_page(request, db, form, solution, drafted=True, bt=bt, bt_suggest={s["code"]: s["reason"] for s in suggested})
 
 
 @router.post("/{solution_id}/stage")
@@ -204,19 +213,26 @@ def update(
     partner_id: str = Form(""), stage: str = Form(ontology.STAGE_DEFAULT), usage_direction: str = Form(""),
     applicable_types: str = Form(""), tags: str = Form(""), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form), bt: bts.BTForm = Depends(bts.bt_form),
 ):
     solution = get_or_404(db, Solution, solution_id)
     values, error = _parse(db, name, summary, description, partner_id, stage, usage_direction, applicable_types, tags)
-    if conflict := guards.check_rev(solution, rev, values=values):
-        return _form_page(request, db, values, solution, conflict=conflict)
+    selection, bt_error = bts.solution_selection(bt) if bt.present else ([], None)  # 사업방식 칸이 오지 않으면 그대로 둔다 (옛 화면·API)
+    shown = bts.form_value(bt) if bt.present else None
+    typed = {**values, "business_types": bts.form_text(selection)} if bt.present and not bt_error else values
+    stored = {**{f: getattr(solution, f) for f in values}, "business_types": bts.solution_text(solution)} if "business_types" in typed else None
+    if conflict := guards.check_rev(solution, rev, values=typed, stored=stored):
+        return _form_page(request, db, values, solution, conflict=conflict, bt=shown)
+    error = error or bt_error
     if error:
-        return _form_page(request, db, values, solution, error)
+        return _form_page(request, db, values, solution, error, bt=shown)
     if dup := duplicate_warning(db, Solution, name, confirm_dup, exclude=solution):
-        return _form_page(request, db, values, solution, duplicate=dup)
+        return _form_page(request, db, values, solution, duplicate=dup, bt=shown)
     old_partner = solution.partner
     for field, value in values.items():
         setattr(solution, field, value)
+    if bt.present:
+        bts.apply_solution(solution, selection)
     db.commit()
     mirror.sync(solution)
     db.refresh(solution)

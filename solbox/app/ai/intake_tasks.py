@@ -6,7 +6,7 @@ import time
 from datetime import date
 from types import SimpleNamespace
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, ValidationError, model_validator
 from sqlalchemy import select, update
@@ -105,6 +105,7 @@ class NewSolution(PlanItem):
     description: Text = ""
     tags: StrList = []
     partner: Text = ""
+    business_types: Any = []  # 사업방식 제안 [{"code", "reason"}] (베타 Y). 모양이 틀려도 분석 전체는 실패하지 않는다: `business_types.clean_suggestions` 가 거른다
 
 
 class AddToSolution(PlanItem):

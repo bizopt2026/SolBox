@@ -11,7 +11,7 @@ import unicodedata
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -62,6 +62,8 @@ def prompt_constants() -> dict[str, str]:
         "dir_customers": ontology.mirror_folder("customer") + "/",
         "needs_heading": ontology.prop("activity", "demand_signals"),
         "ai_label": ontology.AI_GENERATED_LABEL,
+        "business_type_guide": ontology.business_type_guide(),  # 사업방식 셋의 한 줄 뜻 (베타 Y)
+        "business_type_codes": ", ".join(f"`{c}`({n})" for c, n in ontology.BUSINESS_TYPES.items()),
         "candidate_rule": ontology.proposal_candidate_rule_text(),
         "activity_kind_bullets": "\n".join(f"  - `{k}` {v}" for k, v in ontology.ACTIVITY_KINDS.items()),
         "activity_kind_inline": ", ".join(f"`{k}`({v})" for k, v in ontology.ACTIVITY_KINDS.items()),
@@ -234,6 +236,7 @@ class SolutionDraft(BaseModel):
     summary: str = ""
     description: str = ""
     tags: list[str] = []
+    business_types: Any = []  # 사업방식 제안 [{"code": "invest", "reason": "…"}]. 잘못된 모양·모르는 코드는 `business_types.clean_suggestions` 가 버린다 (저장하지 않는다)
 
 
 def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, props_card, meta_card %}
+{% from "_macros.html" import detail_head, props_card, meta_card, pill %}
 {% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ bm.name }}{% endblock %}
 {% block content %}
@@ -7,7 +7,7 @@
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    {{ props_card("사업 모델", [(ont.prop("bm", "summary"), bm.summary), (ont.prop("bm", "target_customers"), bm.target_customers), (ont.prop("bm", "revenue_model"), bm.revenue_model), (ont.prop("bm", "memo"), bm.memo)], "/bms/" ~ bm.id ~ "/edit") }}
+    {{ props_card("사업 모델", [(ont.prop("bm", "summary"), bm.summary), (ont.prop("bm", "business_type"), pill("business_type", bm.business_type) if bm.business_type in ont.BUSINESS_TYPES else ""), (ont.prop("bm", "target_customers"), bm.target_customers), (ont.prop("bm", "revenue_model"), bm.revenue_model), (ont.prop("bm", "memo"), bm.memo)], "/bms/" ~ bm.id ~ "/edit") }}
     {{ main_cards(main) }}
     {% if has_dependents %}<p class="muted help">{{ ont.OPPORTUNITY_RULES.bm_delete }}.</p>{% endif %}
   </div>

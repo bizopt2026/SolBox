@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.ai import gate
 from app.ai.gate import keeps_text, require_ai_on
 from app.idparse import parse_id
-from app import labels, ontology, opportunities as opps, relations, ui
+from app import business_types as bts, labels, ontology, opportunities as opps, relations, ui
 from app.ai.queue import queue_position
 from app import guards, notices
 from app.db import get_db
@@ -118,13 +118,25 @@ def _id_list(raw) -> list[int]:
 def _new_page(request: Request, db: Session, form: dict, error: str | None = None, prefill_note: str | None = None):
     customers = search_by_name(db, Customer)
     projects = search_by_name(db, Project)
-    form = {"target_kind": ontology.PROPOSAL_TARGET_DEFAULT, "group_name": "", "group_customer_ids": [], "bm_id": "", **form}
+    form = {"target_kind": ontology.PROPOSAL_TARGET_DEFAULT, "group_name": "", "group_customer_ids": [], "bm_id": "", "business_types": [], "business_types_auto": True, **form}
     form["group_customer_ids"] = _id_list(form["group_customer_ids"])
+    all_opportunities = opps.opportunities_of_customer(db, None)
+    all_bms = search_by_name(db, BM)
+    # 사업방식 기본값을 폼에서 바로 따라가게 하는 자료 (JS 보강용. 서버도 같은 규칙으로 정한다: bts.proposal_default)
+    bt_defaults = {"opportunities": {str(o.id): {"types": o.business_type_codes, "bm": str(o.bm_id or "")} for o in all_opportunities},
+                   "projects": {str(p.id): str(p.bm_id or "") for p in projects}, "bms": {str(b.id): b.business_type or "" for b in all_bms}}
     return render(
         request, "proposals/new.html", status_code=400 if error else 200,
-        form=form, error=error, customers=customers, projects=projects, opportunities=opps.opportunities_of_customer(db, None),
-        bms=search_by_name(db, BM), extra_candidates=_extra_candidates(db), prefill_note=prefill_note,
+        form=form, error=error, customers=customers, projects=projects, opportunities=all_opportunities,
+        bms=all_bms, extra_candidates=_extra_candidates(db), prefill_note=prefill_note, bt_defaults=bt_defaults,
     )
+
+
+def _default_types(db: Session, opportunity: Opportunity | None, project: Project | None, bm: BM | None = None) -> list[str]:
+    """제안 건의 검토 사업방식 기본값 (`bts.proposal_default`): 영업기회의 것 → 없으면 BM(영업기회의 BM, 없으면 프로젝트의 BM, 다수 고객 제안은 신규 사업 BM)의 대표 사업방식."""
+    if bm is None:
+        bm = opportunity.bm if opportunity is not None else (project.bm if project is not None else None)
+    return bts.proposal_default(opportunity, bm)
 
 
 @router.get("")
@@ -177,6 +189,9 @@ def new_form(
         form.update(customer_id=str(opp.customer_id), opportunity_id=str(opp.id))
         if not form["project_id"] and opp.project_id:
             form["project_id"] = str(opp.project_id)
+    chosen_opp = db.get(Opportunity, int(form["opportunity_id"])) if form["opportunity_id"] else None
+    chosen_project = db.get(Project, int(form["project_id"])) if form["project_id"] else None
+    form["business_types"] = _default_types(db, chosen_opp, chosen_project)  # 영업기회에서 만들면 그 사업방식이 미리 체크된다 (바꿀 수 있다)
     return _new_page(request, db, form, prefill_note=note)
 
 
@@ -187,18 +202,24 @@ def create(
     extra_solution_ids: list[str] = Form([]),
     target_kind: str = Form(ontology.PROPOSAL_TARGET_DEFAULT), group_name: str = Form(""), group_customer_ids: list[str] = Form([]), bm_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once), mirror: KnowledgeMirror = Depends(get_mirror),
+    bt: bts.BTForm = Depends(bts.bt_form),
 ):
     form = {
         "customer_id": customer_id.strip(), "project_id": project_id.strip(), "opportunity_id": opportunity_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
         "target_kind": target_kind.strip(), "group_name": group_name.strip(), "group_customer_ids": [r.strip() for r in group_customer_ids if r.strip()], "bm_id": bm_id.strip(),
+        "business_types": ontology.clean_business_types(bt.codes), "business_types_auto": bt.auto,
     }
     if form["target_kind"] not in ontology.PROPOSAL_TARGETS:
         return _new_page(request, db, {**form, "target_kind": ontology.PROPOSAL_TARGET_DEFAULT}, TARGET_KIND_INVALID)
     if len(form["request_memo"]) > MAX_MEMO:
         return _new_page(request, db, form, TOO_LONG_MEMO)
+    if (bt_problem := bts.codes_problem(bt.codes)):
+        return _new_page(request, db, form, bt_problem)
+    # 사업방식을 직접 고르지 않았으면(칸이 없거나 건드리지 않은 채 비어 있으면) 영업기회·BM 의 것을 기본값으로 쓴다. 직접 고른 값은 그대로 따른다
+    use_default = not form["business_types"] and (bt.auto or not bt.present)
     if form["target_kind"] == ontology.PROPOSAL_TARGET_GROUP:
-        return _create_group(request, db, form, user, once, mirror)
+        return _create_group(request, db, form, user, once, mirror, use_default)
     cid = _parse_id(form["customer_id"])
     customer = db.get(Customer, cid) if cid is not None else None
     if customer is None:
@@ -215,9 +236,10 @@ def create(
         opportunity = db.get(Opportunity, oid) if oid is not None else None
         if opportunity is None or opportunity.customer_id != customer.id:
             return _new_page(request, db, form, OPPORTUNITY_MISMATCH)
+    types = _default_types(db, opportunity, project) if use_default else form["business_types"]
     proposal = Proposal(
         customer_id=customer.id, project_id=project.id if project else None, opportunity_id=opportunity.id if opportunity else None,
-        request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"],
+        request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"], business_types=",".join(types),
         created_by_id=user.id,
     )
     if gate.ai_is_off(request):  # 처리기가 꺼져 있으면 방향 만들기 작업을 넣지 않는다 (제안 건은 등록된다)
@@ -228,7 +250,7 @@ def create(
     return once.done(notices.redirect(f"/proposals/{proposal.id}", "created"))
 
 
-def _create_group(request: Request, db: Session, form: dict, user: User, once: Once, mirror: KnowledgeMirror):
+def _create_group(request: Request, db: Session, form: dict, user: User, once: Once, mirror: KnowledgeMirror, use_default: bool = False):
     """다수 고객 제안 만들기: 대상 그룹 이름 필수(60자까지), 붙일 고객 0..n(모두 등록된 고객이어야 한다), 신규 사업 BM 선택.
     특정 고객 칸(고객·프로젝트·영업기회)은 와도 무시한다: 영업기회·프로젝트는 한 고객의 것이라 다수 고객 제안에는 연결하지 않는다."""
     name, problem = _group_name_problem(form["group_name"])
@@ -241,9 +263,10 @@ def _create_group(request: Request, db: Session, form: dict, user: User, once: O
     bm, bad_bm = _group_bm(db, form["bm_id"])
     if bad_bm:
         return _new_page(request, db, form, GROUP_BM_INVALID)
+    types = bts.proposal_default(None, bm) if use_default else form["business_types"]  # 다수 고객 제안은 영업기회가 없다: 신규 사업 BM 의 대표 사업방식
     proposal = Proposal(
         target_kind=ontology.PROPOSAL_TARGET_GROUP, group_name=name, customer_id=None, bm_id=bm.id if bm else None,
-        request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"], created_by_id=user.id,
+        request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"], business_types=",".join(types), created_by_id=user.id,
     )
     proposal.group_customers = customers
     if gate.ai_is_off(request):
@@ -554,18 +577,25 @@ def update_target(
     request_memo: str = Form(""), extra_solution_ids: list[str] = Form([]), opportunity_id: str = Form(""),
     group_name: str = Form(""), group_customer_ids: list[str] = Form([]), bm_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), fields: frozenset = Depends(submitted_fields),
-    rev: Rev = Depends(rev_form), mirror: KnowledgeMirror = Depends(get_mirror),
+    rev: Rev = Depends(rev_form), mirror: KnowledgeMirror = Depends(get_mirror), bt: bts.BTForm = Depends(bts.bt_form),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
     group = is_group(proposal)
+    shown_types = ontology.clean_business_types(bt.codes) if bt.present else proposal.business_type_codes
     before = [*proposal.group_customers, proposal.bm] if group else []  # 대상 종류는 만든 뒤 바꾸지 않는다 (방향·구성안·제안서가 대상에 묶여 있어 바꾸면 무엇을 지킬지 정할 수 없다). 폼의 종류 칸은 읽지 않는다
-    typed = {"request_memo": request_memo, **({"group_name": group_name} if group else {})}
-    if conflict := guards.check_rev(proposal, rev, values=typed):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
+    typed = {"request_memo": request_memo, **({"group_name": group_name} if group else {}), **({"business_types": ontology.business_types_text(bt.codes)} if bt.present else {})}
+    stored = {"request_memo": proposal.request_memo, "group_name": proposal.group_name, "business_types": ontology.business_types_text(proposal.business_types)}
+    if conflict := guards.check_rev(proposal, rev, values=typed, stored=stored):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
         return _detail_page(request, db, proposal, user, status_code=409, target_conflict=conflict,
                             target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids),
-                                         "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip()})
+                                         "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip(),
+                                         "business_types": shown_types})
     if len(request_memo.strip()) > MAX_MEMO:
         raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
+    if bt.present and (bt_problem := bts.codes_problem(bt.codes)):
+        return _detail_page(request, db, proposal, user, status_code=400, target_error=bt_problem,
+                            target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids),
+                                         "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip(), "business_types": shown_types})
     if group:
         # 다수 고객 제안: 그룹 이름(필수)·붙인 고객·신규 사업. 영업기회는 칸이 와도 무시한다 (이 제안은 한 고객의 영업기회에 묶이지 않는다)
         name, problem = _group_name_problem(group_name)
@@ -576,7 +606,8 @@ def update_target(
             db.rollback()
             return _detail_page(request, db, proposal, user, status_code=400, target_error=problem,
                                 target_form={"request_memo": request_memo, "opportunity_id": "", "extra_solution_ids": _solution_ids(db, extra_solution_ids),
-                                             "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip()})
+                                             "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip(),
+                                             "business_types": shown_types})
         proposal.group_name = name
         proposal.group_customers = customers
         proposal.bm_id = bm.id if bm else None
@@ -597,6 +628,8 @@ def update_target(
             ids.append(sid)
     proposal.request_memo = request_memo.strip()
     proposal.extra_solution_ids = ids
+    if bt.present:  # 칸이 오지 않으면 그대로 둔다. 이미 만든 방향·구성안은 건드리지 않는다 (다음 방향 만들기·대화·구성안부터 새 사업방식이 쓰인다)
+        proposal.business_types = ",".join(ontology.clean_business_types(bt.codes))
     db.commit()
     if group:
         resync_objects(db, mirror, [*before, *proposal.group_customers, proposal.bm])

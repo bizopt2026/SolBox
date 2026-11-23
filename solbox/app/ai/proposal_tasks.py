@@ -6,14 +6,17 @@ import logging
 import time
 from datetime import datetime
 
+from typing import Any
+
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app import ontology
+from app import business_types as bts, ontology
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
+from app.korean import josa
 from app.models import AIJob, Proposal, ProposalMessage
 from app.proposals import candidate_solutions, clean_directions, clean_outline, is_group, priority_groups, reset_for_new_direction, target_name
 
@@ -97,12 +100,67 @@ PROMPT_CANDIDATE_CAP = 200  # 프롬프트에 적는 후보 수의 상한. 검�
 
 
 def _candidate_lines(candidates: list) -> str:
-    """후보 목록 글: 앞에 둔 솔루션이 먼저, 전체 `PROMPT_CANDIDATE_CAP` 개까지. 넘으면 몇 개를 생략했는지와 나머지를 찾을 지식 폴더를 적는다."""
-    lines = [f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`)" for s in candidates[:PROMPT_CANDIDATE_CAP]]
+    """후보 목록 글: 앞에 둔 솔루션이 먼저, 전체 `PROMPT_CANDIDATE_CAP` 개까지. 솔루션마다 가능한 사업방식을 덧붙인다 (베타 Y).
+    넘으면 몇 개를 생략했는지와 나머지를 찾을 지식 폴더를 적는다."""
+    lines = [f"- id {s.id}: {s.name} (`{ontology.mirror_dir('solution', id=s.id)}`){bts.line_for_solution(s)}" for s in candidates[:PROMPT_CANDIDATE_CAP]]
     if len(candidates) > PROMPT_CANDIDATE_CAP:
         lines.append(f"- 외 {len(candidates) - PROMPT_CANDIDATE_CAP}개는 생략 (나머지 솔루션은 지식 폴더 `{ontology.mirror_folder('solution')}/` 에서 찾을 수 있습니다. "
                      "후보 규칙에 맞는 것만 쓰세요)")
     return "\n".join(lines)
+
+
+_INVEST = ontology.BUSINESS_TYPES[ontology.BUSINESS_TYPE_INVEST]
+INVEST_SLIDE_RULE = (
+    f"{josa(_INVEST, '이/가')} 검토 대상이거나 이 방향이 {josa(_INVEST, '을/를')} 전제하므로, 구성안에 **투자·회수 구조**를 설명하는 장을 한 장 넣으세요 "
+    "(누가 투자하고 소유하는지, 무엇으로 회수하는지, 계약·운영 구조). 이 장에도 위 숫자 규칙을 그대로 적용합니다: 투자 금액·수익률·회수 기간·분배 비율 같은 숫자는 "
+    "자료에 있는 것만 쓰고, 없으면 쓰지 말고 그 장의 `needs_check` 에 \"투자 금액 확인\", \"회수 기간 확인\" 처럼 빠진 값을 적으세요."
+)
+DIRECTIONS_TYPE_RULE = (
+    "방향마다 `business_type` 에 그 방향이 전제하는 사업방식 코드 하나(`build`·`lease`·`invest`)를 적으세요. 방향의 솔루션이 그 사업방식을 지원한다고 "
+    "위 후보 목록에 적혀 있는 것을 우선하고, 적혀 있지 않은 솔루션을 그 방식으로 쓰면 지원 여부를 `needs_check` 에 적으세요 (지원한다고 지어내지 마세요)."
+)
+
+
+def _types_of(p: Proposal) -> list[str]:
+    return ontology.clean_business_types(p.business_types)
+
+
+def _business_type_section(p: Proposal, direction: dict | None = None, directions: bool = False) -> str:
+    """프롬프트의 "## 사업방식" 구역: 제안 건이 검토하는 사업방식(없으면 없다고)과 세 방식의 한 줄 뜻, 방향이 전제하는 방식. 사용자가 쓴 메모는 후보 줄에만 있고 지시가 아니다.
+    `directions` 면 방향 만들기용 규칙(방향마다 사업방식, 여럿이면 나눠 다루기, 없으면 후보가 지원하는 방식에서 제안)을 덧붙인다."""
+    chosen = _types_of(p)
+    lines = ["## 사업방식", "",
+             "이 제안의 사업방식은 아래 셋뿐이고 하위 유형은 없습니다. 뜻:", "", ontology.business_type_guide(), ""]
+    if chosen:
+        lines.append(f"이 제안 건이 검토하는 사업방식: {ontology.business_types_text(chosen)}")
+    else:
+        lines.append("이 제안 건이 검토하는 사업방식: 지정되지 않음")
+    if direction is not None:
+        assumed = direction.get("business_type") if isinstance(direction, dict) else None
+        if assumed in ontology.BUSINESS_TYPES:
+            lines.append(f"선택한 방향이 전제하는 사업방식: {ontology.BUSINESS_TYPES[assumed]}")
+    if directions:
+        lines.append("")
+        if len(chosen) > 1:
+            lines.append(f"검토 사업방식이 여럿이므로 방향들이 그 사업방식({ontology.business_types_text(chosen)})을 나누어 다루거나 서로 비교하게 하세요. 고르지 않은 사업방식은 방향의 전제로 삼지 마세요.")
+        elif chosen:
+            lines.append(f"방향은 모두 {josa(ontology.business_types_text(chosen), '을/를')} 전제로 만드세요. 고르지 않은 사업방식은 전제로 삼지 마세요.")
+        else:
+            lines.append("지정된 사업방식이 없으므로, 후보 솔루션이 지원한다고 적힌 사업방식을 보고 어울리는 사업방식을 방향마다 제안해도 됩니다 (후보에 사업방식이 적혀 있지 않으면 `business_type` 을 비우세요).")
+        lines.append(DIRECTIONS_TYPE_RULE)
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _solution_lines(db: Session, direction: dict) -> str:
+    """방향에 든 솔루션 줄들 (이름·사본 폴더·가능한 사업방식)."""
+    entries = [s for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)]
+    rows = bts.load_solution_rows(db, [s["solution_id"] for s in entries])
+    out = []
+    for s in entries:
+        row = rows.get(s["solution_id"])
+        out.append(f"- {s.get('name', '')} (`{ontology.mirror_dir('solution', id=s['solution_id'])}`)" + (bts.line_for_solution(row) if row is not None else ""))
+    return "\n".join(out) or "- (없음)"
 
 
 def directions_prompt(db: Session, p: Proposal) -> str:
@@ -117,6 +175,7 @@ def directions_prompt(db: Session, p: Proposal) -> str:
         request_memo=memo.strip() or "(없음)",
         solutions=_candidate_lines(candidates),
         priority_section=_priority_section(db, p),
+        business_type_section=_business_type_section(p, directions=True),
     )
 
 
@@ -137,6 +196,7 @@ class Direction(BaseModel):
     rationale: list[Evidence] = []
     effects: list[str] = []
     needs_check: list[str] = []
+    business_type: Any = ""  # 이 방향이 전제하는 사업방식 코드 (build/lease/invest). 틀린 값은 `clean_directions` 가 버린다
 
 
 class DirectionsOut(BaseModel):
@@ -275,10 +335,8 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
         direction=json.dumps(direction, ensure_ascii=False, indent=2),
         target_line=_target_line(p),
         project_line=_project_line(p),
-        solutions="\n".join(
-            f"- {s.get('name', '')} (`{ontology.mirror_dir('solution', id=s['solution_id'])}`)"
-            for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)
-        ) or "- (없음)",
+        solutions=_solution_lines(db, direction),
+        business_type_section=_business_type_section(p, direction),
         conversation=conversation or "(없음)",
     )
     pid, job_id, bind = p.id, input.get("_job_id"), db.get_bind()
@@ -321,10 +379,9 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
         direction=json.dumps(direction, ensure_ascii=False, indent=2),
         target_line=_target_line(p),
         project_line=_project_line(p),
-        solutions="\n".join(
-            f"- {s.get('name', '')} (`{ontology.mirror_dir('solution', id=s['solution_id'])}`)"
-            for s in direction.get("solutions", []) if isinstance(s.get("solution_id"), int)
-        ) or "- (없음)",
+        solutions=_solution_lines(db, direction),
+        business_type_section=_business_type_section(p, direction),
+        invest_rule=(INVEST_SLIDE_RULE if ontology.BUSINESS_TYPE_INVEST in _types_of(p) or direction.get("business_type") == ontology.BUSINESS_TYPE_INVEST else f"(해당 없음: {josa(_INVEST, '을/를')} 검토하지 않습니다)"),
         conversation=conversation if conversation else "(없음)",
         instruction=_material(instruction) if instruction else "(없음)",
         subtitle_example="대상 그룹 이름 · 날짜" if is_group(p) else "고객명 · 날짜",

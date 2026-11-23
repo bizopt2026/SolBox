@@ -30,7 +30,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, object_session
 
 from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Stamped, User
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user
 
@@ -61,6 +61,8 @@ def _change_of(obj, model=None) -> str:
     model = model or type(obj)
     if issubclass(model, Proposal):
         parts = [obj.customer_id, obj.project_id, obj.opportunity_id, obj.request_memo, list(obj.extra_solution_ids or [])]
+        if getattr(obj, "business_types", ""):  # 검토 사업방식 (베타 Y): 비어 있으면 예전 표시와 같다
+            parts.append(obj.business_types)
         if getattr(obj, "target_kind", None) == "group":  # 다수 고객 제안: 그룹 이름·신규 사업도 본다 (특정 고객 제안의 표시는 예전과 같다). 붙인 고객은 연결 표라 열 줄로는 읽을 수 없어 뺀다
             parts += [obj.group_name, obj.bm_id]
         return json.dumps(parts, ensure_ascii=False)
@@ -274,6 +276,7 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
     uid = session.info.get("user_id")
     now = datetime.now()
     parents: set[int] = set()
+    solution_parents: set[int] = set()  # 사업방식 줄이 바뀐 솔루션 (베타 Y)
 
     def mark(obj) -> None:
         obj.updated_at = now
@@ -292,7 +295,14 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
                             mark(customer)
         elif isinstance(obj, (FollowUp, CustomerNeed)) and session.is_modified(obj):
             parents.add(obj.activity_id)
+        elif isinstance(obj, SolutionBusinessType) and session.is_modified(obj):
+            solution_parents.add(obj.solution_id)
     for obj in [*session.new, *session.deleted]:
+        if isinstance(obj, SolutionBusinessType):
+            sid = obj.solution_id if obj.solution_id is not None else getattr(obj.solution, "id", None)
+            if sid is not None:
+                solution_parents.add(sid)
+            continue
         if isinstance(obj, (FollowUp, CustomerNeed)) and obj.activity_id is not None:
             parents.add(obj.activity_id)
         elif isinstance(obj, (FollowUp, CustomerNeed)) and obj.activity is not None and obj.activity.id is not None:
@@ -301,6 +311,10 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
         activity = session.get(Activity, activity_id)
         if activity is not None and activity not in session.deleted and activity not in session.new:
             mark(activity)
+    for solution_id in solution_parents:
+        solution = session.get(Solution, solution_id)
+        if solution is not None and solution not in session.deleted and solution not in session.new:
+            mark(solution)
 
 
 # ---- 한 번 쓰는 폼 표 ----

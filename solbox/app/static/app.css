@@ -549,7 +549,7 @@ sup a { padding: 0 2px; font-weight: var(--fw-strong); }
 /* --- 정렬 막대(목록 도구줄) · 빈 칸 표시 · 줄 전체 누르기 --- */
 .sortbar { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-size: var(--fs-note); color: var(--ink-3); }
 .sortbar .sort-label { margin-right: 6px; }
-.origin-tools { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-note); color: var(--ink-3); }
+.origin-tools, .type-tools { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-note); color: var(--ink-3); }
 .confirm-impact { padding: 10px 12px; border-radius: var(--r-sm); background: var(--warn-soft, var(--sunken)); color: var(--ink-1); }
 /* 단계 설명: 처음엔 접혀 있다 (단계 이름 위에 마우스를 올리면 뜻이 뜨는 말풍선은 그대로) */
 .stage-legend { margin-top: 6px; font-size: var(--fs-note); color: var(--ink-2); }
@@ -1344,3 +1344,19 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 .biz-pick { padding: 10px 12px; border: 1px solid var(--brand); border-radius: var(--r-sm); background: var(--brand-soft); }
 .biz-pick select { background: var(--surface); }
 dd.new-biz strong { color: var(--brand-deep); }
+
+/* 사업방식 (베타 Y): 체크 상자 + 한 줄 뜻 + 방식별 메모, 상세의 배지 목록, 방향 카드 배지 */
+.bt-picker { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.bt-picker legend { padding: 0; margin-bottom: 4px; font-weight: var(--fw-strong); }
+.bt-picker.has-error { outline: 1px solid var(--bad-line); border-radius: var(--r-sm); padding: 6px; }
+.bt-opt { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); }
+.bt-opt label.check { flex-wrap: wrap; align-items: baseline; row-gap: 2px; }
+.bt-opt .bt-desc { flex: 1 1 100%; font-size: var(--fs-note); padding-left: 24px; }
+.bt-why { margin: 0; padding-left: 24px; font-size: var(--fs-note); }
+.bt-memo { width: 100%; min-width: 0; margin-left: 24px; max-width: calc(100% - 24px); }
+.bt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bt-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.bt-note { color: var(--ink-2); overflow-wrap: anywhere; }
+.bt-row .badge { margin-right: 4px; }
+.dir-bt { margin: 0; }
+.type-tools { flex-wrap: wrap; }

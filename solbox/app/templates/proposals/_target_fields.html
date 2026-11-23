@@ -1,4 +1,5 @@
-{% from "_macros.html" import check_picker, text_field %}
+{% from "_macros.html" import check_picker, text_field, bt_picker %}
+<div class="wide">{{ bt_picker(bt_selected or [], ont.prop("proposal", "business_types"), none, bt_err if bt_err is defined else none, none, bt_help if bt_help is defined else none, bt_auto if bt_auto is defined else none) }}</div>
 {{ text_field("요청 메모", "request_memo", memo, rows=4, wide=true, placeholder="고객이 요청한 내용, 강조할 점 등") }}
 <details class="wide extra-pick"{% if selected_ids %} open{% endif %}>
   <summary>보류 단계 솔루션도 직접 추가하기</summary>

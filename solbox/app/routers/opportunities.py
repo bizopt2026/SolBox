@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import ontology, opportunities as opps, relations, ui
+from app import business_types as bts, ontology, opportunities as opps, relations, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -40,7 +40,7 @@ def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | Non
 
 
 def _blank_form(customer_id: str = "") -> dict:
-    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": []}
+    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": []}
 
 
 def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> tuple[dict, str | None]:
@@ -62,8 +62,10 @@ def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> t
     return values, None
 
 
-def _submitted(values: dict, need_ids, solution_ids) -> dict:
-    return {**values, "need_ids": [n for i in need_ids if (n := parse_id(i)) is not None],
+def _submitted(values: dict, need_ids, solution_ids, bt: "bts.BTForm | None" = None, opp: Opportunity | None = None) -> dict:
+    """오류로 폼을 다시 그릴 때의 값. 사업방식 칸이 안 왔으면 저장된 값(고치기)이나 빈 값(만들기)."""
+    shown = ontology.clean_business_types(bt.codes) if bt is not None and bt.present else (opp.business_type_codes if opp is not None else [])
+    return {**values, "business_types": shown, "need_ids": [n for i in need_ids if (n := parse_id(i)) is not None],
             "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}
 
 
@@ -84,6 +86,7 @@ def list_opportunities(
                            loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
     found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found, db=db))
+    found, type_tabs, type_now = bts.type_tabs(request, found, lambda o: o.business_type_codes)
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -96,7 +99,7 @@ def list_opportunities(
     pg = paginate(found, page)
     choices = [(ontology.OPPORTUNITY_FILTER_OPEN, "진행 중"), *ontology.OPPORTUNITY_STAGES.items()]
     tabs = ui.seg_tabs(request, "stage", choices, counts, stage, total)
-    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, info=row_info(db, "opportunity", pg.items))
+    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now, info=row_info(db, "opportunity", pg.items))
 
 
 @router.get("/new")
@@ -118,15 +121,16 @@ def create(
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
+    mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once), bt: bts.BTForm = Depends(bts.bt_form),
 ):
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids)
+    form = _submitted(values, need_ids, solution_ids, bt)
+    error = error or (bts.codes_problem(bt.codes) if bt.present else None)
     if error:
         return _form_page(request, db, form, error=error)
     if dup := duplicate_warning(db, Opportunity, name, confirm_dup):
         return _form_page(request, db, form, duplicate=dup)
-    opp = Opportunity(**values, created_by_id=user.id)
+    opp = Opportunity(**values, business_types=",".join(ontology.clean_business_types(bt.codes)) if bt.present else "", created_by_id=user.id)
     db.add(opp)
     db.flush()
     if error := opps.apply_needs(db, opp, need_ids):
@@ -148,7 +152,7 @@ def detail(opportunity_id: int, request: Request, user: User = Depends(require_u
 @router.get("/{opportunity_id}/edit")
 def edit_form(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     opp = get_or_404(db, Opportunity, opportunity_id)
-    form = {"name": opp.name, "customer_id": opp.customer_id, "bm_id": opp.bm_id or "", "memo": opp.memo,
+    form = {"name": opp.name, "customer_id": opp.customer_id, "bm_id": opp.bm_id or "", "memo": opp.memo, "business_types": opp.business_type_codes,
             "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions]}
     return _form_page(request, db, form, opp)
 
@@ -159,13 +163,15 @@ def update(
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
-    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
+    mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form), bt: bts.BTForm = Depends(bts.bt_form),
 ):
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids)
-    if conflict := guards.check_rev(opp, rev, values=values):
+    form = _submitted(values, need_ids, solution_ids, bt, opp)
+    typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else values
+    if conflict := guards.check_rev(opp, rev, values=typed, stored={**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}):
         return _form_page(request, db, form, opp, conflict=conflict)
+    error = error or (bts.codes_problem(bt.codes) if bt.present else None)
     if error is None:
         error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
@@ -176,6 +182,8 @@ def update(
     needs_before = {n.id for n in opps.needs_of(db, opp)}
     for field, value in values.items():
         setattr(opp, field, value)
+    if bt.present:
+        opp.business_types = ",".join(ontology.clean_business_types(bt.codes))
     db.flush()
     if error := opps.apply_needs(db, opp, need_ids):
         db.rollback()

@@ -45,9 +45,12 @@
     <h2>요청 내용</h2>
     <div class="fgrid">
       {% set memo = form.request_memo %}{% set selected_ids = form.extra_solution_ids %}
+      {% set bt_selected = form.business_types %}{% set bt_err = error %}{% set bt_auto = form.business_types_auto %}
+      {% set bt_help = "이 제안에서 검토할 사업방식입니다. " ~ ont.label("opportunity") ~ "를 고르면 그 사업방식이, 없으면 " ~ ont.label("bm") ~ "의 대표 사업방식이 미리 체크되며 바꿀 수 있습니다. 방향을 만들 때 AI 가 읽고, 고른 방식을 지원하는 솔루션이 후보 앞쪽에 옵니다." %}
       {% include "proposals/_target_fields.html" %}
     </div>
   </section>
+  <script type="application/json" id="bt-defaults">{{ bt_defaults | tojson }}</script>
   {{ save_bar("/proposals", "만들기") }}
 </form>
 {% endblock %}

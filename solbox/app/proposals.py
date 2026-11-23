@@ -8,9 +8,9 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app import checks, ontology, ui
+from app import business_types as bts, checks, ontology, ui
 from app.checks import NO_EVIDENCE_NOTE as NO_SOURCE_NOTE, check_kind  # noqa: F401  (다른 곳에서 여기서 불러다 쓴다)
 from app.models import AIJob, Proposal, Solution, User
 
@@ -62,7 +62,7 @@ def candidate_condition(extra_ids):
 
 def _base_candidates(db: Session, p: Proposal) -> list[Solution]:
     ids = [i for i in (p.extra_solution_ids or []) if isinstance(i, int)]
-    return list(db.scalars(select(Solution).where(candidate_condition(ids)).order_by(Solution.name, Solution.id)))
+    return list(db.scalars(select(Solution).where(candidate_condition(ids)).options(selectinload(Solution.business_types)).order_by(Solution.name, Solution.id)))
 
 
 def priority_groups(db: Session, p: Proposal, candidates: list[Solution] | None = None) -> list[dict]:
@@ -70,6 +70,7 @@ def priority_groups(db: Session, p: Proposal, candidates: list[Solution] | None 
     (영업기회가 없으면 프로젝트가 따르는 BM 의 솔루션). 다수 고객 제안은 신규 사업으로 삼은 BM 의 솔루션 한 묶음뿐이다. 각 묶음은 {"reason": 글, "solutions": [...]} (이름순, 앞 묶음에 든 것은 뺀다).
     후보가 아닌 솔루션(보류인데 직접 추가하지 않은 것)은 넣지 않는다: 후보의 집합은 `candidate_condition` 그대로다."""
     pool = {s.id: s for s in (candidates if candidates is not None else _base_candidates(db, p))}
+    wanted = p.business_type_codes
     group = is_group(p)
     opp = None if group else p.opportunity  # 다수 고객 제안은 영업기회·프로젝트가 없고, 신규 사업(BM)의 솔루션이 앞선다
     bm = p.bm if group else (opp.bm if opp is not None else (p.project.bm if p.project is not None else None))
@@ -88,16 +89,17 @@ def priority_groups(db: Session, p: Proposal, candidates: list[Solution] | None 
         picked = [s for s in sorted(solutions, key=lambda s: (s.name, s.id)) if s.id in pool and s.id not in placed]
         if picked:
             placed.update(s.id for s in picked)
-            groups.append({"reason": reason, "solutions": [pool[s.id] for s in picked]})
+            groups.append({"reason": reason, "solutions": bts.prefer_supporting([pool[s.id] for s in picked], wanted)})  # 베타 Y: 묶음 안에서 고른 사업방식을 지원하는 솔루션이 먼저
     return groups
 
 
 def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
-    """제안에 조합할 수 있는 솔루션: 집합은 `candidate_condition` 이 정한다. 순서만 영업기회의 검토 솔루션 → BM 의 솔루션 → 나머지(이름순)."""
+    """제안에 조합할 수 있는 솔루션: 집합은 `candidate_condition` 이 정한다. 순서만 영업기회의 검토 솔루션 → BM 의 솔루션 → 나머지(이름순).
+    베타 Y: 각 묶음 안에서(나머지 포함) 제안 건의 검토 사업방식을 하나라도 지원하는 솔루션이 먼저 온다 (안정 정렬, 아무것도 빼지 않는다)."""
     base = _base_candidates(db, p)
     front = [s for g in priority_groups(db, p, base) for s in g["solutions"]]
     first = {s.id for s in front}
-    return front + [s for s in base if s.id not in first]
+    return front + bts.prefer_supporting([s for s in base if s.id not in first], p.business_type_codes)
 
 
 def display_title(p: Proposal) -> str:
@@ -162,9 +164,11 @@ def clean_directions(db: Session, p: Proposal, out: "DirectionsOut", knowledge_d
             rationale.append({"text": ev.text, "sources": found})
         if not d.rationale:
             needs_check.append(checks.no_evidence())
+        bt = d.business_type.strip() if isinstance(d.business_type, str) else ""
         cleaned.append({
             "title": d.title, "summary": d.summary, "solutions": solutions, "rationale": rationale,
             "effects": list(d.effects), "needs_check": needs_check,
+            "business_type": bt if bt in ontology.BUSINESS_TYPES else "",  # 이 방향이 전제하는 사업방식 (목록에 없는 값은 버린다: 오류가 아니다)
         })
     return cleaned[:MAX_DIRECTIONS]
 

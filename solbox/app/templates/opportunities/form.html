@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token, dup_warning %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token, dup_warning, bt_picker %}
 {% block title %}{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("opportunity") %}
@@ -28,6 +28,7 @@
       {{ select_field(ont.prop("opportunity", "customer"), "customer_id", copts, form.customer_id, required=true, error=error) }}
       {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
       {{ select_field(ont.prop("opportunity", "bm"), "bm_id", bopts, form.bm_id, error=error, help="선택 사항입니다.") }}
+      <div class="wide">{{ bt_picker(form.business_types or [], ont.prop("opportunity", "business_types"), none, error, help="이 영업기회에서 고객과 검토하는 사업방식입니다. 제안 건을 만들 때 기본값으로 이어집니다.") }}</div>
       {{ text_field(ont.prop("opportunity", "memo"), "memo", form.memo, rows=3) }}
     </div>
   </section>

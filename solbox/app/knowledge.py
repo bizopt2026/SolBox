@@ -11,7 +11,7 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import checks, labels, ontology, relations
+from app import business_types as bts, checks, labels, ontology, relations
 from app.extract import extract_text
 from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
 from app.models import (
@@ -221,6 +221,7 @@ class KnowledgeMirror:
             _item(P("solution", "summary"), s.summary),
             _item(P("solution", "usage_direction"), s.usage_direction),
             _item(P("solution", "applicable_types"), s.applicable_types),
+            _item(P("solution", "business_types"), bts.solution_text(s)),
         )
         out += _section(P("solution", "description"), s.description)
         if s.files:
@@ -276,6 +277,7 @@ class KnowledgeMirror:
         out += _lines(
             f"- {P('opportunity', 'customer')}: {self._ref(o.customer.name, o.customer)}",
             _item(P("opportunity", "stage"), ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage)),
+            _item(P("opportunity", "business_types"), ontology.business_types_text(o.business_types)),
             f"- {P('opportunity', 'bm')}: {self._ref(o.bm.name, o.bm)}" if o.bm else None,
             f"- {P('opportunity', 'project')}: {self._ref(o.project.name, o.project)}" if o.project else None,
             _item(P("opportunity", "memo"), o.memo),
@@ -295,7 +297,8 @@ class KnowledgeMirror:
     def _bm(self, b: BM) -> list[str]:
         out = [f"# {b.name}", ""]
         out += _lines(
-            _item(P("bm", "summary"), b.summary), _item(P("bm", "target_customers"), b.target_customers),
+            _item(P("bm", "summary"), b.summary), _item(P("bm", "business_type"), ontology.BUSINESS_TYPES.get(b.business_type or "", "")),
+            _item(P("bm", "target_customers"), b.target_customers),
             _item(P("bm", "revenue_model"), b.revenue_model), _item(P("bm", "memo"), b.memo),
         )
         if b.solutions:
@@ -388,7 +391,7 @@ CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM)  # "## 연�
 CONNECTIONS_HEADING = "연결"
 CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
 CARD_EXCLUDE = ("R3", "R19", "R21", "R22")  # 사본이 이미 따로 적은 것(자료)과 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다)
-KNOWLEDGE_FORMAT = 8  # (8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+KNOWLEDGE_FORMAT = 9  # (9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

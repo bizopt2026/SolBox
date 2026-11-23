@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, check_picker, save_bar, rev_fields, form_token, dup_warning %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token, dup_warning %}
 {% block title %}{{ ont.label("bm") }} {{ "수정" if bm else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("bm") %}
@@ -13,6 +13,8 @@
     <div class="fgrid">
       {{ text_field(ont.prop("bm", "name"), "name", form.name, required=true, error=error) }}
       {{ text_field(ont.prop("bm", "summary"), "summary", form.summary) }}
+      {% set topts = [("", "선택 안 함")] %}{% for code, name in ont.BUSINESS_TYPES.items() %}{% set _ = topts.append((code, name ~ " – " ~ ont.BUSINESS_TYPE_DESCRIPTIONS[code])) %}{% endfor %}
+      {{ select_field(ont.prop("bm", "business_type"), "business_type", topts, form.business_type, wide=true, error=error, help="이 사업 모델이 주로 쓰는 사업방식 하나입니다 (선택 사항). 제안 건을 만들 때 기본값으로 쓰입니다.") }}
       {{ text_field(ont.prop("bm", "target_customers"), "target_customers", form.target_customers, rows=3) }}
       {{ text_field(ont.prop("bm", "revenue_model"), "revenue_model", form.revenue_model, rows=3) }}
       {{ text_field(ont.prop("bm", "memo"), "memo", form.memo, rows=3) }}

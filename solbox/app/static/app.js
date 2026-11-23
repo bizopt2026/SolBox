@@ -688,6 +688,41 @@
     });
   });
 
+  // 제안 만들기: 사업방식 칸을 직접 고치지 않았으면 고른 영업기회·BM 의 사업방식으로 미리 체크한다 (서버도 같은 규칙으로 정한다)
+  var btBox = document.querySelector("[data-bt-picker]");
+  var btData = document.getElementById("bt-defaults");
+  var btAuto = document.querySelector("[data-bt-auto]");
+  if (btBox && btData && btAuto) {
+    var btDefs = {};
+    try { btDefs = JSON.parse(btData.textContent) || {}; } catch (e) { /* 자료가 없으면 아무것도 하지 않는다 */ }
+    var btBoxes = btBox.querySelectorAll('input[type="checkbox"]');
+    var btVal = function (name) { var el = document.querySelector('select[name="' + name + '"]'); return el ? el.value : ""; };
+    var btSync = function () {
+      if (btAuto.value !== "1") return;
+      var kind = document.querySelector('input[name="target_kind"]:checked');
+      var codes = [];
+      if (kind && kind.value === "group") {
+        var gb = (btDefs.bms || {})[btVal("bm_id")];
+        if (gb) codes = [gb];
+      } else {
+        var opp = (btDefs.opportunities || {})[btVal("opportunity_id")];
+        if (opp && opp.types && opp.types.length) codes = opp.types;
+        else {
+          var bmId = opp ? opp.bm : ((btDefs.projects || {})[btVal("project_id")] || "");
+          var one = (btDefs.bms || {})[bmId];
+          if (one) codes = [one];
+        }
+      }
+      btBoxes.forEach(function (b) { b.checked = codes.indexOf(b.value) >= 0; });
+    };
+    btBoxes.forEach(function (b) { b.addEventListener("change", function () { btAuto.value = "0"; }); });
+    ["opportunity_id", "project_id", "bm_id"].forEach(function (n) {
+      var el = document.querySelector('select[name="' + n + '"]');
+      if (el) el.addEventListener("change", btSync);
+    });
+    document.querySelectorAll('input[name="target_kind"]').forEach(function (r) { r.addEventListener("change", btSync); });
+  }
+
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
   document.querySelectorAll(".seg").forEach(function (seg) {
     var cur = seg.querySelector('[aria-current="page"]');

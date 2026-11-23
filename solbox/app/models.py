@@ -176,6 +176,7 @@ class BM(Stamped, Base):
     target_customers: Mapped[str] = mapped_column(Text, default="")  # 대상 고객 유형
     revenue_model: Mapped[str] = mapped_column(Text, default="")  # 수익 구조
     memo: Mapped[str] = mapped_column(Text, default="")
+    business_type: Mapped[str | None] = mapped_column(String, nullable=True)  # 대표 사업방식 (선택, 코드 하나: ontology.BUSINESS_TYPES). 베타 Y
 
     solutions: Mapped[list[Solution]] = relationship(secondary=bm_solutions, back_populates="bms")
     projects: Mapped[list[Project]] = relationship(back_populates="bm")
@@ -196,6 +197,11 @@ class Opportunity(Stamped, Base):
     bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id", ondelete="SET NULL"), nullable=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True)  # 이어진 프로젝트
     memo: Mapped[str] = mapped_column(Text, default="")
+    business_types: Mapped[str] = mapped_column(String, default="")  # 검토 사업방식 (0..3, 쉼표로 이은 코드, 정의된 순서: ontology.clean_business_types). 베타 Y
+
+    @property
+    def business_type_codes(self) -> list[str]:
+        return ontology.clean_business_types(self.business_types)
 
     customer: Mapped[Customer] = relationship(back_populates="opportunities")
     bm: Mapped[BM | None] = relationship(back_populates="opportunities")
@@ -220,6 +226,19 @@ class Solution(Stamped, Origin, Base):
     origin_item: Mapped[str | None] = mapped_column(String, nullable=True)  # 리서치에서 등록했다면 보고서 안의 위치 ("suggestion:3", "trend:1")
 
     partner: Mapped[Partner | None] = relationship(back_populates="solutions")
+    business_types: Mapped[list[SolutionBusinessType]] = relationship(  # 가능한 사업방식 (0..3) 과 방식별 메모. 베타 Y
+        back_populates="solution", cascade="all, delete-orphan", passive_deletes=True,
+    )
+
+    @property
+    def business_type_rows(self) -> list[SolutionBusinessType]:
+        """가능한 사업방식 줄들, 정의된 순서(구축형·임대형·투자형)로."""
+        order = list(ontology.BUSINESS_TYPES)
+        return sorted((r for r in self.business_types if r.business_type in order), key=lambda r: order.index(r.business_type))
+
+    @property
+    def business_type_codes(self) -> list[str]:
+        return [r.business_type for r in self.business_type_rows]
     files: Mapped[list[SolutionFile]] = relationship(
         back_populates="solution", cascade="all, delete-orphan"
     )
@@ -231,6 +250,19 @@ class Solution(Stamped, Origin, Base):
     )
     bms: Mapped[list[BM]] = relationship(secondary=bm_solutions, back_populates="solutions")
     opportunities: Mapped[list[Opportunity]] = relationship(secondary=opportunity_solutions, back_populates="solutions")
+
+
+class SolutionBusinessType(Base):
+    """솔루션이 지원하는 사업방식 한 줄 (연결 표 `solution_business_types`, 기본키는 두 열). 방식마다 짧은 메모를 붙일 수 있다 (예: "투자형은 100kW 이상만").
+    솔루션을 지우면 함께 지워진다. 이 줄이 바뀌면 솔루션의 고친 표시(`updated_at`)도 오른다 (`app/guards.py`)."""
+
+    __tablename__ = "solution_business_types"
+
+    solution_id: Mapped[int] = mapped_column(ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True)
+    business_type: Mapped[str] = mapped_column(String, primary_key=True)  # ontology.BUSINESS_TYPES 의 코드
+    memo: Mapped[str] = mapped_column(String, default="")
+
+    solution: Mapped[Solution] = relationship(back_populates="business_types")
 
 
 class SolutionFile(Stamped, Base):
@@ -414,6 +446,11 @@ class Proposal(Stamped, Base):
     target_kind: Mapped[str] = mapped_column(String, default=ontology.PROPOSAL_TARGET_DEFAULT)  # customer(특정 고객) / group(다수 고객). 만든 뒤 바꾸지 않는다
     group_name: Mapped[str] = mapped_column(String, default="")  # 다수 고객 제안의 대상 그룹 이름 (예: 전국 지자체)
     bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id", ondelete="SET NULL"), nullable=True)  # 다수 고객 제안의 신규 사업 (BM)
+    business_types: Mapped[str] = mapped_column(String, default="")  # 검토 사업방식 (0..3, 쉼표로 이은 코드). 만들 때 영업기회·BM 에서 가져오고 바꿀 수 있다. 베타 Y
+
+    @property
+    def business_type_codes(self) -> list[str]:
+        return ontology.clean_business_types(self.business_types)
 
     customer: Mapped[Customer | None] = relationship(back_populates="proposals")
     group_customers: Mapped[list[Customer]] = relationship(secondary=proposal_customers, back_populates="group_proposals", order_by="Customer.name")

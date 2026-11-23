@@ -808,8 +808,8 @@ def test_no_horizontal_overflow_rules_exist():
 def _old_schema_db(settings):
     """BM·영업기회 표와 businesses.bm_id, proposals.opportunity_id 가 없는 옛 DB."""
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    new_tables = {"bms", "opportunities", "bm_solutions", "opportunity_solutions", "activity_opportunities"}
-    rebuilt = {"businesses": ("bm_id",), "proposals": ("opportunity_id", "target_kind", "group_name", "bm_id")}  # 베타 W 의 열(와 bms 를 가리키는 외래 키)도 뺀다
+    new_tables = {"bms", "opportunities", "bm_solutions", "opportunity_solutions", "activity_opportunities", "solution_business_types"}
+    rebuilt = {"businesses": ("bm_id",), "proposals": ("opportunity_id", "target_kind", "group_name", "bm_id", "business_types")}  # 베타 W 의 열(와 bms 를 가리키는 외래 키)과 베타 Y 의 열도 뺀다
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
     with engine.begin() as conn:

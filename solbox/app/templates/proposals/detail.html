@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, pill, source_chip, val, confirm_link, rev_fields, text_field, select_field, check_picker %}
+{% from "_macros.html" import page_header, pill, source_chip, val, confirm_link, rev_fields, text_field, select_field, check_picker, bt_badges %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
@@ -40,6 +40,7 @@
     <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
     {% endif %}
+    <dt>{{ ont.prop("proposal", "business_types") }}</dt><dd class="bt-row">{% if proposal.business_type_codes %}{{ bt_badges(proposal.business_type_codes) }}{% else %}<span class="muted">지정하지 않았습니다 (대상 수정에서 고를 수 있어요)</span>{% endif %}</dd>
     <dt>요청 메모</dt><dd>{% if proposal.request_memo %}{{ proposal.request_memo }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
     <dt>후보 솔루션 {{ candidates | length }}개</dt><dd>{% for s in candidates %}<a href="/solutions/{{ s.id }}">{{ s.name }}</a>{{ ", " if not loop.last }}{% else %}<span class="muted">제안 후보가 될 솔루션이 없습니다.</span>{% endfor %}</dd>
   </dl>
@@ -64,6 +65,8 @@
       </div>
       {% endif %}
       {% set memo = tf.request_memo if tf else proposal.request_memo %}{% set selected_ids = tf.extra_solution_ids if tf else proposal.extra_solution_ids %}
+      {% set bt_selected = tf.business_types if tf else proposal.business_type_codes %}{% set bt_err = target_error if target_error is defined else none %}
+      {% set bt_help = "바꿔도 이미 만든 방향·구성안은 그대로입니다. 다음 방향 만들기·대화·구성안 만들기부터 새 사업방식이 반영됩니다." %}
       {% include "proposals/_target_fields.html" %}
       <p class="help wide">대상 종류({{ ont.PROPOSAL_TARGETS[proposal.target_kind] if proposal.target_kind in ont.PROPOSAL_TARGETS else ont.PROPOSAL_TARGETS["customer"] }})는 만든 뒤에 바꿀 수 없습니다. 방향·구성안·제안서가 그 대상에 맞춰 만들어지기 때문입니다.</p>
       <div class="wide"><button type="submit" class="primary">저장</button></div>
@@ -119,6 +122,7 @@
       <dt>{{ ont.label("opportunity") }}</dt><dd>{% if proposal.opportunity %}<a href="/opportunities/{{ proposal.opportunity_id }}">{{ proposal.opportunity.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
       <dt>{{ ont.label("project") }}</dt><dd>{% if proposal.project %}<a href="/projects/{{ proposal.project_id }}">{{ proposal.project.name }}</a>{% else %}<span class="muted">없음</span>{% endif %}</dd>
       {% endif %}
+      <dt>{{ ont.prop("proposal", "business_types") }}</dt><dd>{% if proposal.business_type_codes %}{{ bt_badges(proposal.business_type_codes) }}{% else %}<span class="muted">없음</span>{% endif %}</dd>
       <dt>후보 솔루션</dt><dd>{{ candidates | length }}개 <small class="muted">AI에 주는 후보</small></dd>
     </dl>
   </section>

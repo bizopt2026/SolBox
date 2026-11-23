@@ -15,7 +15,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import labels, ontology, origin, transcribe
+from app import business_types as bts, labels, ontology, origin, transcribe
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -631,11 +631,13 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
             "tags": list(dict.fromkeys(t.strip() for t in s.tags if t.strip()))[:MAX_TAGS],
             "partner_id": partners.get(partner_key) if partner_key else None,
             "partner_new": s.partner.strip() if partner_key and partner_key not in partners else "",
+            "business_types": bts.clean_suggestions(s.business_types),  # 제안일 뿐이다: 확인 화면에서 미리 체크되고 사용자가 바꾼 뒤에야 저장된다
         }
         if key in new_solutions:
             _merge_into(new_solutions[key], item, ("summary", "description", "reason", "partner_id", "partner_new"))
             merged = new_solutions[key]
             merged["tags"] = list(dict.fromkeys(merged["tags"] + item["tags"]))[:MAX_TAGS]
+            merged["business_types"] = bts.clean_suggestions([*merged["business_types"], *item["business_types"]])
         else:
             new_solutions[key] = item
 
@@ -938,6 +940,9 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
         v.update(name=text("name", item.get("name")), summary=text("summary", item.get("summary")),
                  description=text("description", item.get("description")), tags=text("tags", ", ".join(item.get("tags") or [])),
                  partner=text("partner", item.get("partner_id") or ""), partner_new=text("partner_new", item.get("partner_new")))
+        suggested = bts.clean_suggestions(item.get("business_types"))
+        v["business_types"] = ontology.clean_business_types(many("business_types", [s["code"] for s in suggested]))
+        v["business_type_why"] = {s["code"]: s["reason"] for s in suggested}
     elif kind == "add_to_solution":
         v["solution"] = text("solution", item.get("solution_id"))
     elif kind == "add_contact":
@@ -1128,6 +1133,7 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
         b["partner"] = partner.name if partner is not None else v["partner_new"].strip()
         b["summary"] = v["summary"].strip()
         b["tags"] = [t.strip() for t in v["tags"].split(",") if t.strip()]
+        b["business_types"] = v["business_types"]
     elif kind == "add_to_solution":
         number = _digits(v["solution"])
         target = db.get(Solution, number) if number is not None else None
@@ -1519,6 +1525,8 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             db, Solution, v["name"], user, origin=run.origin, summary=v["summary"].strip(), description=v["description"].strip(), tags=tags,
             partner_id=partner.id if partner is not None else None,
         )
+        if created:  # 새로 만든 솔루션에만 (이미 있던 솔루션의 사업방식은 AI 정리가 건드리지 않는다)
+            bts.apply_solution(solution, [(c, "") for c in v["business_types"]])
         made = run.attach(solution, item, v)
         run.remember("solutions", solution)
         label = solution.name if created else f"{solution.name} (이미 등록된 솔루션에 자료 {made}개 추가)"

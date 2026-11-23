@@ -226,6 +226,40 @@ OPPORTUNITY_SIDE_STAGES = ("lost", "hold")  # 막대 옆에 따로 보이는 단
 OPPORTUNITY_OPEN_STAGES = ("discovery", "proposing", "negotiating")  # 진행 중
 OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모두
 
+# 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.
+# 화면 이름·한 줄 뜻·AI 에 주는 설명은 모두 이 목록 하나에서 읽는다 (다른 곳에 다시 적지 않는다).
+BUSINESS_TYPES = {"build": "구축형", "lease": "임대형", "invest": "투자형"}
+# 한 줄 뜻: **초안이다 (사용자가 아직 확인하지 않았다).** 고치려면 여기 이 글만 고친다. 폼·도움말·배지 툴팁·AI 프롬프트가 모두 이것을 쓴다.
+BUSINESS_TYPE_DESCRIPTIONS = {
+    "build": "고객이 설비·시스템을 구매해 소유하는 방식",
+    "lease": "고객이 소유하지 않고 이용료(렌탈·구독)를 내고 쓰는 방식",
+    "invest": "당사(또는 투자자)가 투자·소유하고 절감액·전력 판매 등 수익으로 회수하는 방식 (IPP 등)",
+}
+BUSINESS_TYPE_INVEST = "invest"  # 투자형: 제안서 구성안에 투자·회수 구조 장을 넣게 하는 값
+BUSINESS_TYPE_MEMO_MAX = 300  # 솔루션의 사업방식별 메모 길이 (예: "투자형은 100kW 이상만")
+BUSINESS_TYPE_FILTER_PARAM = "business_type"  # 목록 `?business_type=build|lease|invest` (화이트리스트, 그 사업방식을 가진 것만)
+BUSINESS_TYPE_LISTS = ("solution", "bm", "opportunity")  # 위 걸러 보기가 있는 목록
+
+
+def clean_business_types(raw) -> list[str]:
+    """사업방식 코드 목록을 다듬는다: 목록에 있는 값만, 중복 없이, 정의된 순서(구축형·임대형·투자형)로. 문자열(쉼표 구분)·목록·None 을 받는다."""
+    if raw is None:
+        return []
+    items = raw.split(",") if isinstance(raw, str) else [x for x in raw if isinstance(x, str)]
+    picked = {i.strip() for i in items}
+    return [c for c in BUSINESS_TYPES if c in picked]
+
+
+def business_types_text(codes) -> str:
+    """사업방식 이름들을 쉼표로: `구축형, 투자형` (없으면 빈 글)."""
+    return ", ".join(BUSINESS_TYPES[c] for c in clean_business_types(codes))
+
+
+def business_type_guide() -> str:
+    """프롬프트·도움말에 쓰는 사업방식 풀이 줄들: `- 구축형: 고객이 …`"""
+    return "\n".join(f"- {name}: {BUSINESS_TYPE_DESCRIPTIONS[code]}" for code, name in BUSINESS_TYPES.items())
+
+
 # 프로젝트 상태 (고르는 목록, 순서가 곧 선택 칸의 순서). 저장되는 값은 한글 글자 그대로라서 코드 = 이름이다 (옛 자유 글 "진행" 같은 값이 그대로 목록 값과 맞는다).
 # 목록에 없는 옛 자유 글은 고치지 않고 남긴다: 화면에는 뒤에 PROJECT_STATUS_LEGACY_MARK 를 붙여 보이고 (`project_status_text`), 저장할 때는 지금 값 그대로만 다시 받는다.
 PROJECT_STATUSES = {"준비": "준비", "진행": "진행", "완료": "완료", "중단": "중단", "유지보수": "유지보수"}
@@ -294,6 +328,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("origin_type", "기록의 유래", ORIGINS),
     CodeList("project_status", "프로젝트 상태", PROJECT_STATUSES),
     CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT, OPPORTUNITY_STAGE_DESCRIPTIONS),
+    CodeList("business_type", "사업방식", BUSINESS_TYPES, None, BUSINESS_TYPE_DESCRIPTIONS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -316,6 +351,7 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "suggestion_kind": {"new": "violet", "push": "brand"},
     "intake_file_kind": {"document": "brand", "image": "violet", "audio": "warn", "other": "slate"},
     "origin_type": {"manual": "slate", "intake": "brand", "research": "violet"},
+    "business_type": {"build": "brand", "lease": "violet", "invest": "warn"},
 }
 
 
@@ -348,6 +384,7 @@ COLUMN_CODES = {
     ("partners", "origin_type"): "origin_type",
     ("opportunities", "stage"): "opportunity_stage",
     ("businesses", "status"): "project_status",
+    ("bms", "business_type"): "business_type",
     ("users", "role"): "user_role",
     ("ai_jobs", "status"): "job_status",
     ("ai_jobs", "kind"): "job_kind",
@@ -420,7 +457,7 @@ _TYPE_LIST = [
         "solution", "솔루션", "핵심", "Solution", "solutions", "/solutions", "/solutions/{id}",
         "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="discover",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
-               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "tags": "태그", "files": "자료", "origin": "유래"},
+               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "business_types": "가능한 사업방식", "tags": "태그", "files": "자료", "origin": "유래"},
         description="파트너에게서 발굴해 고객에게 제안할 수 있는 제품과 서비스",
     ),
     ObjectType(
@@ -447,12 +484,12 @@ _TYPE_LIST = [
         "opportunity", "영업기회", "핵심", "Opportunity", "opportunities", "/opportunities", "/opportunities/{id}",
         "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회", nav_group="sales",
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
-               "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건"},
+               "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건", "business_types": "검토 사업방식"},
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
         "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="sales",
-        props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조",
+        props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조", "business_type": "대표 사업방식",
                "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건"},
         description="사업 모델. 고객에 묶이지 않고, 특정 고객별로 나뉘는 것은 프로젝트입니다",
     ),
@@ -468,7 +505,7 @@ _TYPE_LIST = [
         "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안", nav_group="sales",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
                "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안",
-               "target_kind": "대상 종류", "group_name": "대상 그룹", "group_customers": "붙인 고객", "bm": "신규 사업 (BM)"},
+               "target_kind": "대상 종류", "group_name": "대상 그룹", "group_customers": "붙인 고객", "bm": "신규 사업 (BM)", "business_types": "검토 사업방식"},
         description="특정 고객(과 프로젝트·영업기회) 또는 다수 고객(대상 그룹)을 대상으로 한 제안 작업 한 건",
     ),
     ObjectType(
@@ -485,7 +522,7 @@ _TYPE_LIST = [
                props={"customer": "고객", "content": "내용", "opportunity": "영업기회"},
                description="활동 기록에서 드러난 고객의 필요. 같은 고객의 니즈를 묶어 영업기회로 만듭니다"),
     ObjectType("direction", "제안 방향", "부속", embedded_in="proposals.directions",
-               props={"title": "제목", "summary": "한 줄 소개", "solutions": "솔루션", "rationale": "근거", "effects": "기대 효과"}),
+               props={"title": "제목", "summary": "한 줄 소개", "solutions": "솔루션", "rationale": "근거", "effects": "기대 효과", "business_type": "사업방식"}),
     ObjectType("slide", "구성안 장", "부속", embedded_in="proposals.outline",
                props={"kind": "장 종류", "title": "제목", "key_message": "핵심 메시지", "sources": TERMS["source"]}),
     ObjectType("check_item", TERMS["check_item"], "부속", embedded_in="proposals.directions / proposals.outline / research_reports.trends",

@@ -43,10 +43,11 @@
 <section class="card stack" aria-labelledby="h-stages">
   <h2 id="h-stages">단계</h2>
   {% for b in stage_blocks %}
-  <h3>{{ "발굴 단계" if b.key == "stage" else "영업기회 단계" }}</h3>
+  <h3>{{ b.title }}</h3>
   <dl class="glossary" id="help-{{ b.key }}">
     {% for name, text in b.rows %}<div class="gl-row"><dt>{{ name }}</dt><dd>{{ text }}</dd></div>{% endfor %}
   </dl>
+  {% if b.key == "business_type" %}<p class="muted help">{{ ont.label("solution") }}에는 가능한 방식을 모두(방식마다 메모 가능), {{ ont.label("bm") }}에는 대표 방식 하나를, {{ ont.label("opportunity") }}와 {{ ont.label("proposal") }}에는 고객과 검토하는 방식을 고릅니다. AI 가 소개 초안·올리기 정리에서 사업방식을 제안하면 미리 체크되어 보이고, 저장은 사람이 합니다.</p>{% endif %}
   {% endfor %}
   <h3>"이야기된 / 검토한 / 제안된"</h3>
   <dl class="glossary" id="help-relation-words">

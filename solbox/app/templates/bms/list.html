@@ -1,17 +1,19 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill, type_box, none_dash %}
 {% block title %}{{ ont.label("bm") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("bm"), pg, q, "/bms/new", type="bm") }}
-{{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기") }}
+{{ list_head(ont.label("bm"), pg, q or type_now, "/bms/new", type="bm") }}
+{% set bt_extra %}{{ type_box(type_tabs) }}{% endset %}
+{{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기", extra=bt_extra) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
+  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for b in pg.items %}
     {% set i = info[b.id] %}
     <tr>
-      {% call title_cell("/bms/" ~ b.id, b.name, b.summary) %}<span>{{ links_text(i) }}</span>{% endcall %}
+      {% call title_cell("/bms/" ~ b.id, b.name, b.summary) %}{% if b.business_type in ont.BUSINESS_TYPES %}{{ pill("business_type", b.business_type) }}{% endif %}<span>{{ links_text(i) }}</span>{% endcall %}
+      <td class="col-sec">{% if b.business_type in ont.BUSINESS_TYPES %}{{ pill("business_type", b.business_type) }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ kdate(b.updated_at.date()) }}</td>
     </tr>
@@ -19,5 +21,5 @@
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q, "아직 등록된 " ~ ont.label("bm") ~ "이 없습니다. BM은 사업 모델이고, 특정 고객별로 나뉘는 것은 프로젝트입니다.", "/bms/new", clear_url="/bms") }}{% endif %}
+{% else %}{{ empty_list(q or type_now, "아직 등록된 " ~ ont.label("bm") ~ "이 없습니다. BM은 사업 모델이고, 특정 고객별로 나뉘는 것은 프로젝트입니다.", "/bms/new", clear_url="/bms") }}{% endif %}
 {% endblock %}

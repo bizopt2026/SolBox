@@ -7,6 +7,7 @@
     <span data-sum="summary" data-empty="한 줄 소개 없음">{{ b.summary or "한 줄 소개 없음" }}</span>
     · 파트너 {{ b.partner or "없음" }}
     {% if b.tags %}<span class="chips">{% for t in b.tags %}<span class="chip">{{ t }}</span>{% endfor %}</span>{% endif %}
+    · {{ ont.prop("solution", "business_types") }} <span>{% if b.business_types %}{{ ont.business_types_text(b.business_types) }}{% else %}없음{% endif %}</span>
   </p>
   {{ plan_meta(card) }}
   <details class="plan-edit"{% if card.open %} open{% endif %}>
@@ -16,6 +17,15 @@
       <label>한 줄 소개 <input name="{{ k }}__summary" value="{{ v.summary }}"></label>
       <label>설명 <textarea name="{{ k }}__description" rows="4">{{ v.description }}</textarea></label>
       <label>태그 (쉼표로 구분) <input name="{{ k }}__tags" value="{{ v.tags }}"></label>
+      <fieldset class="picker bt-picker">
+        <legend>{{ ont.prop("solution", "business_types") }}<span class="muted"> (AI 제안은 미리 체크, 바꿀 수 있고 저장할 때만 반영)</span></legend>
+        {% for code, name in ont.BUSINESS_TYPES.items() %}
+        <div class="bt-opt">
+          <label class="check"><input type="checkbox" name="{{ k }}__business_types" value="{{ code }}"{% if code in v.business_types %} checked{% endif %}> <b>{{ name }}</b>{% if code in v.business_type_why %} <span class="badge tone-violet" data-code="ai_suggest">AI 제안</span>{% endif %} <span class="muted bt-desc">{{ ont.BUSINESS_TYPE_DESCRIPTIONS[code] }}</span></label>
+          {% if v.business_type_why.get(code) %}<p class="muted bt-why">AI 가 본 이유: {{ v.business_type_why[code] }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </fieldset>
       <div class="row">
         <label>파트너 (등록된 파트너에서 고르기)
           <select name="{{ k }}__partner">
