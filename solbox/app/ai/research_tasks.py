@@ -1,6 +1,7 @@
 """분야별 웹 리서치 AI 작업 처리기. `queue` 가 이 모듈을 불러와 처리기를 등록한다."""
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from datetime import date, timedelta
@@ -15,8 +16,8 @@ from app.ai.tasks import AFTER_JOB, HANDLERS, load_prompt, run_json
 from app.config import Settings
 from app.knowledge import KnowledgeMirror
 from app.labels import RESEARCH_AREAS, STAGES
-from app.models import Activity, ResearchReport, ResearchRun, ResearchTopic, Solution
-from app.research import advance_run, clean_area, clean_suggestions
+from app.models import Activity, Partner, Proposal, ResearchReport, ResearchRun, ResearchTopic, Solution
+from app.research import advance_run, clean_area, clean_keyword_suggestions, clean_suggestions
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,22 @@ class Suggestion(BaseModel):
 class SuggestOut(BaseModel):
     suggestions: list[Suggestion]
     insights: list[str] = []
+
+
+class KeywordSuggestion(BaseModel):
+    area: str
+    name: str
+    keywords: list[str] = []
+    reason: str = ""
+    sources: list[str] = []
+
+
+class KeywordsOut(BaseModel):
+    suggestions: list[KeywordSuggestion]
+
+
+EMPTY_KEYWORDS = "추천할 주제를 만들지 못했습니다."
+MAX_LISTED = 200  # 프롬프트에 적는 솔루션·파트너·제안 건의 최대 개수
 
 
 def _safe(text: str) -> str:
@@ -160,6 +177,50 @@ def _research_suggest(db: Session, input: dict, runner: ClaudeRunner, settings: 
     return ""
 
 
+def _research_keywords(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
+    """지식 사본·제안 이력을 읽고 분야별 리서치 주제·키워드를 추천한다. 결과는 작업(`AIJob.result`)에만 JSON 으로 남고, 아무것도 저장하지 않는다."""
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    solutions = db.query(Solution).order_by(Solution.id).limit(MAX_LISTED).all()
+    partners = db.query(Partner).order_by(Partner.id).limit(MAX_LISTED).all()
+    proposals = db.query(Proposal).order_by(Proposal.id.desc()).limit(MAX_LISTED).all()
+    topics = db.query(ResearchTopic).order_by(ResearchTopic.id).all()
+
+    def sol_line(s: Solution) -> str:
+        tags = f", 태그: {_safe(s.tags)}" if s.tags.strip() else ""
+        return f"- {_safe(s.name)} ({STAGES.get(s.stage, s.stage)}{tags}, `{mirror.rel_path(s)}`)"
+
+    def direction(p: Proposal) -> str:
+        i = p.selected_index
+        if isinstance(i, int) and 0 <= i < len(p.directions or []) and isinstance(p.directions[i], dict):
+            return str(p.directions[i].get("title", "")).strip()
+        return ""
+
+    def prop_line(p: Proposal) -> str:
+        chosen = direction(p)
+        return (f"- {_safe(p.title) or '(제목 없음)'} (고객: {_safe(p.customer.name)}, 단계: {ontology.PROPOSAL_STATUSES.get(p.status, p.status)}"
+                + (f", 선택한 방향: {_safe(chosen)}" if chosen else "") + ")")
+
+    topic_lines = []
+    for code, label in RESEARCH_AREAS.items():
+        rows = [t for t in topics if t.area == code]
+        topic_lines.append(f"[{label} / {code}]")
+        topic_lines += [f"- {_safe(t.name)}" + (f" (키워드: {_safe(t.keywords)})" if t.keywords.strip() else "")
+                        + ("" if t.is_active else " [사용 안 함]") for t in rows] or ["- (없음)"]
+    prompt = load_prompt(
+        "research_keywords", today=date.today().isoformat(),
+        solutions="\n".join(sol_line(s) for s in solutions) or "- (없음)",
+        partners="\n".join(f"- {_safe(p.name)} (`{mirror.rel_path(p)}`)" for p in partners) or "- (없음)",
+        proposals="\n".join(prop_line(p) for p in proposals) or "- (없음)",
+        topics="\n".join(topic_lines),
+    )
+    out = run_json(db, runner, prompt, KeywordsOut, settings, allowed_tools=DEFAULT_TOOLS,
+                   timeout_s=settings.research_timeout_s)  # 작업 폴더는 지식 폴더(러너 기본값), 웹 도구 없음
+    cleaned = clean_keyword_suggestions(out, settings.knowledge_dir)
+    if not cleaned:
+        raise ClaudeError("bad_output", EMPTY_KEYWORDS)
+    return json.dumps({"suggestions": cleaned}, ensure_ascii=False)
+
+
 def _after_area(db: Session, input: dict) -> None:
     report = db.get(ResearchReport, input.get("report_id"))
     if report is not None:
@@ -170,3 +231,5 @@ HANDLERS["research_area"] = _research_area
 AFTER_JOB["research_area"] = _after_area
 HANDLERS["research_suggest"] = _research_suggest
 AFTER_JOB["research_suggest"] = _after_area  # 입력이 같은 모양({"report_id"})이라 같은 후처리를 쓴다
+
+HANDLERS["research_keywords"] = _research_keywords

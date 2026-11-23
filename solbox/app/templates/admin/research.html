@@ -28,18 +28,21 @@
 
 <section class="card stack">
   <h2>주제 추가</h2>
+  {% set mine = form and not form.src %}
   <form method="post" action="/admin/research/topics" class="row compact-form">
     <input type="hidden" name="_tok" value="{{ new_token() }}">
-    <label>주제 <input name="name" maxlength="100" required></label>
-    <label>키워드 <input name="keywords" maxlength="500" placeholder="쉼표로 구분"></label>
-    <label>분야
-      <select name="area">
-        {% for code, text in areas.items() %}<option value="{{ code }}">{{ text }}</option>{% endfor %}
-      </select>
-    </label>
+    <label>주제 <input name="name" maxlength="100" required value="{{ form.name if mine else '' }}"></label>
+    <label>키워드 <input name="keywords" maxlength="500" placeholder="쉼표로 구분" value="{{ form.keywords if mine else '' }}"></label>
+    <fieldset class="area-checks">
+      <legend>분야</legend>
+      {% for code, text in areas.items() %}<label class="check"><input type="checkbox" name="area" value="{{ code }}" {% if not mine or code in form.areas %}checked{% endif %}> {{ text }}</label>{% endfor %}
+    </fieldset>
     <button type="submit" class="primary">추가</button>
   </form>
+  <p class="muted help">고른 분야마다 같은 이름·키워드의 주제가 하나씩 만들어져요. 이미 같은 이름의 주제가 있어도 막지 않아요.</p>
 </section>
+
+{% include "admin/_research_keywords.html" %}
 
 {% for code, text in areas.items() %}
 <div class="section-head topic-head"><h2>{{ text }}</h2><span class="muted">{{ by_area[code] | length }}개</span></div>

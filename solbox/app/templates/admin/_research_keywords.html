@@ -1,0 +1,47 @@
+{% from "_macros.html" import ai_attrs %}{% set aig = ai_gate() %}{% set live = kw.active and not (ai_off and kw.active.status == "pending") %}
+<section class="card stack kw-card" id="kw-card"{% if live %} hx-get="/admin/research/keywords/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h2>AI 추천 주제·키워드</h2>
+  <p class="muted help">솔루션·파트너·제안 이력·영업기회·고객 니즈·BM 을 읽고 분야마다 3개쯤 조사할 만한 주제를 추천해요. 추천은 저장되지 않아요. 마음에 드는 것만 "주제로 추가"를 눌러 주세요.</p>
+  {% if kw.active %}
+    <p class="job-status" role="status">
+      {% if ai_off and kw.active.status == "pending" %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+      {% elif kw.active.status == "pending" %}AI 대기 중입니다 (앞 작업이 끝나면 시작합니다).
+      {% else %}<span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> AI가 자료를 읽고 있습니다… {{ wait_detail(kw.active) }}{% endif %}
+    </p>
+  {% else %}
+    {% if kw.failed %}<p class="error" role="alert">추천을 만들지 못했습니다. {{ kw.failed_text }}{% if kw.failed.finished_at %} ({{ kdatetime(kw.failed.finished_at) }}){% endif %}</p>{% endif %}
+    <form method="post" action="/admin/research/keywords">
+      <button type="submit" class="{{ '' if kw.failed else 'primary' }}"{{ ai_attrs(aig, "ai-note-run") }}>{{ "다시 시도" if kw.failed else "AI 추천 받기" }}</button>
+    </form>
+  {% endif %}
+
+  {% if kw.done %}
+    <p class="muted kw-when">{% if kw.failed or kw.active %}이전 추천 · {% endif %}{{ kdatetime(kw.done.finished_at or kw.done.created_at) }}에 받은 추천{% if kw.count == 0 %} (보여 줄 추천이 없습니다){% endif %}</p>
+    {% for code, text in areas.items() if kw.groups[code] %}
+      <div class="section-head topic-head"><h3>{{ text }}</h3><span class="muted">{{ kw.groups[code] | length }}개</span></div>
+      <ul class="kw-list">
+      {% for s in kw.groups[code] %}
+        {% set mine = form and form.src == (s.index | string) %}
+        <li class="kw-item">
+          <strong class="kw-name">{{ s.name }}</strong>
+          {% if s.exists %}<span class="badge">이미 있는 주제와 이름이 같음</span>{% endif %}
+          {% if s.keywords_text %}<div class="kw-keywords"><span class="muted">키워드:</span> {{ s.keywords_text }}</div>{% endif %}
+          {% if s.reason %}<div class="muted">{{ ont.term("reason") }}: {{ s.reason }}</div>{% endif %}
+          {% if s.sources %}<div class="muted">{{ ont.term("source") }}: {{ s.sources | join(", ") }}</div>{% endif %}
+          <form method="post" action="/admin/research/topics" class="row compact-form kw-add">
+            <input type="hidden" name="_tok" value="{{ new_token() }}">
+            <input type="hidden" name="src" value="{{ s.index }}">
+            <label>주제 <input name="name" maxlength="100" required value="{{ form.name if mine else s.name }}"></label>
+            <label>키워드 <input name="keywords" maxlength="500" value="{{ form.keywords if mine else s.keywords_text }}"></label>
+            <fieldset class="area-checks">
+              <legend>분야</legend>
+              {% for c, label in areas.items() %}<label class="check"><input type="checkbox" name="area" value="{{ c }}" {% if (c in form.areas if mine else c == s.area) %}checked{% endif %}> {{ label }}</label>{% endfor %}
+            </fieldset>
+            <button type="submit" class="small">주제로 추가</button>
+          </form>
+        </li>
+      {% endfor %}
+      </ul>
+    {% endfor %}
+  {% endif %}
+</section>

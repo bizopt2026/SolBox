@@ -58,6 +58,8 @@ def prompt_constants() -> dict[str, str]:
         "dir_research": ontology.mirror_folder("research_report") + "/",
         "dir_opportunities": ontology.mirror_folder("opportunity") + "/",
         "dir_bms": ontology.mirror_folder("bm") + "/",
+        "dir_partners": ontology.mirror_folder("partner") + "/",
+        "dir_customers": ontology.mirror_folder("customer") + "/",
         "needs_heading": ontology.prop("activity", "demand_signals"),
         "ai_label": ontology.AI_GENERATED_LABEL,
         "candidate_rule": ontology.proposal_candidate_rule_text(),
