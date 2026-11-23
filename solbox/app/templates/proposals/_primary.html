@@ -4,7 +4,7 @@
 {% set busy = job is not none and job.status in ontology.JOB_ACTIVE %}
 {% set has_outline = proposal.outline and proposal.outline.slides %}
 {% set picked = proposal.selected_index is not none and proposal.directions and 0 <= proposal.selected_index < proposal.directions | length %}
-{% macro act(action, label, ai=true) %}<form method="post" action="/proposals/{{ proposal.id }}/{{ action }}"><button type="submit" class="button primary" data-busy-label="만드는 중…"{% if ai and aig and aig.blocked %}{{ ai_attrs(aig) }}{% elif busy %} disabled title="AI 작업이 끝난 뒤에 할 수 있어요"{% endif %}>{{ label }}</button></form>{% endmacro %}
+{% macro act(action, label, ai=true) %}<form method="post" action="/proposals/{{ proposal.id }}/{{ action }}"><button type="submit" class="button primary"{% if ai and aig and aig.blocked %}{{ ai_attrs(aig) }}{% elif busy %} disabled title="AI 작업이 끝난 뒤에 할 수 있어요"{% endif %} data-busy-label="만드는 중…">{{ label }}</button></form>{% endmacro %}
 <span id="primary-action" class="primary-action"{% if oob %} hx-swap-oob="true"{% endif %}>
   {% if has_outline and proposal.deck_name and not deck_is_stale(proposal) and not deck_is_old(proposal, request.app.state.settings.decks_dir) %}<a class="button primary" href="/proposals/{{ proposal.id }}/deck">고객용 PPT 내려받기</a>
   {% elif has_outline %}{{ act("deck", "제안서 다시 만들기" if proposal.deck_name else "제안서 만들기", ai=false) }}

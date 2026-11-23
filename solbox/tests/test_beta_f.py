@@ -317,7 +317,7 @@ from tests.test_beta_e import AI_POSTS
 
 F8_URLS = {
     "/solutions/{solution_id}/draft": "/solutions/1/draft", "/activities/draft": "/activities/draft",
-    "/activities/draft/{job_id}/retry": "/activities/draft/1/retry", "/admin/system/ai-check": "/admin/system/ai-check",
+    "/activities/draft/{job_id}/retry": "/activities/draft/1/retry", "/admin/system/ai-check": "/admin/system/ai-check", "/admin/research/keywords": "/admin/research/keywords",
     "/jobs/{job_id}/retry": "/jobs/1/retry", "/proposals/{proposal_id}/directions": "/proposals/1/directions",
     "/proposals/{proposal_id}/chat": "/proposals/1/chat", "/proposals/{proposal_id}/chat/retry": "/proposals/1/chat/retry",
     "/proposals/{proposal_id}/outline": "/proposals/1/outline", "/research/run": "/research/run",

@@ -3,5 +3,5 @@
 {% set job = proposal.active_job %}
 <div class="error job-failed" role="alert">
   <p><b>{{ "슬라이드 구성안" if section == "outline" else "제안 방향" }}을 만들지 못했어요.</b> {{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
-  <form method="post" action="/proposals/{{ proposal.id }}/{{ section }}"><button type="submit" data-busy-label="만드는 중…"{{ ai_attrs(ai_gate()) }}>다시 시도</button></form>
+  <form method="post" action="/proposals/{{ proposal.id }}/{{ section }}"><button type="submit"{{ ai_attrs(ai_gate()) }} data-busy-label="만드는 중…">다시 시도</button></form>
 </div>

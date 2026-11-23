@@ -32,7 +32,7 @@ def test_each_form_has_exactly_one_primary(user_client, db):
     db.commit()
     for url in ("/customers/new", f"/solutions/{s.id}/edit", "/activities/new", "/proposals/new"):
         html = user_client.get(url).text
-        card = re.search(r'<form[^>]*class="(?:card stack|form-page)".*?</form>', html, re.S).group(0)
+        card = re.search(r'<form[^>]*class="(?:card stack|form-page)(?: [^"]*)?".*?</form>', html, re.S).group(0)
         assert card.count('class="primary"') + card.count(' primary"') == 1, url
     from fastapi.testclient import TestClient
     login = TestClient(user_client.app).get("/login").text
