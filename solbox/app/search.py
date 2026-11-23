@@ -28,7 +28,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "project": ("name", "description", "memo"),
     "opportunity": ("name", "memo"),
     "bm": ("name", "summary"),
-    "proposal": ("title",),
+    "proposal": ("title", "group_name"),  # 다수 고객 제안은 대상 그룹 이름도 본다
     "activity": ("title", "summary_md", "raw_text"),
     "follow_up": ("task",),
     "customer_need": ("content", "customer_name"),
@@ -123,7 +123,11 @@ def _item(code: str, obj, q: str = "") -> dict:
     elif code == "opportunity":
         note, badge, sub = ontology.OPPORTUNITY_STAGES.get(obj.stage, ""), ("opportunity_stage", obj.stage), obj.customer.name
     elif code == "proposal":
-        badge, sub = ("proposal_status", obj.status), obj.customer.name
+        from app.proposals import is_group, target_name
+
+        badge, sub = ("proposal_status", obj.status), target_name(obj)
+        if is_group(obj):
+            sub = f"{ontology.PROPOSAL_GROUP_BADGE} · {sub}"
     elif code == "project":
         sub = " · ".join(x for x in (obj.customer.name, obj.period) if x)
     elif code == "customer":

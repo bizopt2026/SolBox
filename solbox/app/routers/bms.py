@@ -31,7 +31,7 @@ def _form_page(request: Request, db: Session, form: dict, bm: BM | None = None, 
 def _detail_page(request: Request, db: Session, user: User, bm: BM, error: str | None = None):
     return render(
         request, "bms/detail.html", status_code=400 if error else 200, bm=bm, error=error,
-        **relations.page_related(db, bm, user), has_dependents=bool(bm.projects or bm.opportunities), can_delete=can_delete(user, bm), meta=ui.stamp_info(db, bm),
+        **relations.page_related(db, bm, user), has_dependents=bool(bm.projects or bm.opportunities or bm.proposals), can_delete=can_delete(user, bm), meta=ui.stamp_info(db, bm),
     )
 
 

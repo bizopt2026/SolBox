@@ -60,7 +60,10 @@ def _change_of(obj, model=None) -> str:
     사용자 계정은 `updated_at` 이 없어 값으로 본다. (`model`: 기록이 아니라 표에서 읽은 줄을 볼 때 그 줄의 모델)"""
     model = model or type(obj)
     if issubclass(model, Proposal):
-        return json.dumps([obj.customer_id, obj.project_id, obj.opportunity_id, obj.request_memo, list(obj.extra_solution_ids or [])], ensure_ascii=False)
+        parts = [obj.customer_id, obj.project_id, obj.opportunity_id, obj.request_memo, list(obj.extra_solution_ids or [])]
+        if getattr(obj, "target_kind", None) == "group":  # 다수 고객 제안: 그룹 이름·신규 사업도 본다 (특정 고객 제안의 표시는 예전과 같다). 붙인 고객은 연결 표라 열 줄로는 읽을 수 없어 뺀다
+            parts += [obj.group_name, obj.bm_id]
+        return json.dumps(parts, ensure_ascii=False)
     if issubclass(model, User):
         return json.dumps([obj.name, obj.role, bool(obj.is_active), obj.password_hash], ensure_ascii=False)
     return _iso(getattr(obj, "updated_at", None))

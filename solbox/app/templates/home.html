@@ -103,7 +103,7 @@
     <div class="queue">
       {% for p in proposals %}
       <a class="queue-row" href="/proposals/{{ p.id }}">
-        <span class="queue-main"><b>{{ display_title(p) }}</b><small>{{ p.customer.name }}</small></span>
+        <span class="queue-main"><b>{{ display_title(p) }}</b><small>{{ target_name(p) }}</small></span>
         {{ pill("proposal_status", p.status) }}
       </a>
       {% endfor %}

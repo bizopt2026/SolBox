@@ -70,6 +70,14 @@ proposal_solutions = Table(
     Column("solution_id", ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True),
 )
 
+# 다수 고객 제안 (베타 W): 제안 건에 붙인 등록된 고객들 (0..n). 진행 상태는 고객별로 따로 두지 않는다.
+proposal_customers = Table(
+    "proposal_customers",
+    Base.metadata,
+    Column("proposal_id", ForeignKey("proposals.id", ondelete="CASCADE"), primary_key=True),
+    Column("customer_id", ForeignKey("customers.id", ondelete="CASCADE"), primary_key=True),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -133,6 +141,7 @@ class Customer(Stamped, Origin, Base):
 
     projects: Mapped[list[Project]] = relationship(back_populates="customer")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
+    group_proposals: Mapped[list[Proposal]] = relationship(secondary=proposal_customers, back_populates="group_customers")  # 붙은 다수 고객 제안 건
     opportunities: Mapped[list[Opportunity]] = relationship(back_populates="customer")
     partner: Mapped[Partner | None] = relationship(back_populates="customer", uselist=False)
 
@@ -171,6 +180,7 @@ class BM(Stamped, Base):
     solutions: Mapped[list[Solution]] = relationship(secondary=bm_solutions, back_populates="bms")
     projects: Mapped[list[Project]] = relationship(back_populates="bm")
     opportunities: Mapped[list[Opportunity]] = relationship(back_populates="bm")
+    proposals: Mapped[list[Proposal]] = relationship(back_populates="bm")  # 신규 사업으로 삼은 다수 고객 제안 건
 
 
 class Opportunity(Stamped, Base):
@@ -384,7 +394,9 @@ class Proposal(Stamped, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String, default="")
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    # 특정 고객 제안(target_kind='customer')은 고객이 필수이고, 다수 고객 제안(target_kind='group')은 고객이 비고 group_name 이 필수다 (응용 수준 규칙: app/proposals.py).
+    # 옛 DB 의 NOT NULL 은 app/migrate.py 의 표 다시 만들기로 풀었다.
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
     project_id: Mapped[int | None] = mapped_column("business_id", ForeignKey("businesses.id"), nullable=True)
     opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id", ondelete="SET NULL"), nullable=True)  # 제안 건이 위한 영업기회
     request_memo: Mapped[str] = mapped_column(Text, default="")
@@ -399,8 +411,13 @@ class Proposal(Stamped, Base):
     deck_removed: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 마지막으로 만든 고객용 파일에서 뺀 줄 수 (사본 경로가 든 줄). 옛 제안 건은 비어 있다
     active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
     chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 현재 방향의 것이 아니다
+    target_kind: Mapped[str] = mapped_column(String, default=ontology.PROPOSAL_TARGET_DEFAULT)  # customer(특정 고객) / group(다수 고객). 만든 뒤 바꾸지 않는다
+    group_name: Mapped[str] = mapped_column(String, default="")  # 다수 고객 제안의 대상 그룹 이름 (예: 전국 지자체)
+    bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id", ondelete="SET NULL"), nullable=True)  # 다수 고객 제안의 신규 사업 (BM)
 
-    customer: Mapped[Customer] = relationship(back_populates="proposals")
+    customer: Mapped[Customer | None] = relationship(back_populates="proposals")
+    group_customers: Mapped[list[Customer]] = relationship(secondary=proposal_customers, back_populates="group_proposals", order_by="Customer.name")
+    bm: Mapped[BM | None] = relationship(back_populates="proposals")
     project: Mapped[Project | None] = relationship(back_populates="proposals")
     opportunity: Mapped[Opportunity | None] = relationship(back_populates="proposals")
     solutions: Mapped[list[Solution]] = relationship(

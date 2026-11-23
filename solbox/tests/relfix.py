@@ -99,7 +99,11 @@ def build(db, owner: User | None = None) -> SimpleNamespace:
     w.pro_daesung = Proposal(title="대성 온도 관제 제안", customer_id=w.c_daesung.id, opportunity_id=w.o_daesung.id, status="directions",
                              updated_at=datetime(2026, 11, 17))
     w.pro_mirae = Proposal(title="미래제조 제안", customer_id=w.c_mirae.id, status="new", updated_at=datetime(2026, 11, 18))
-    db.add_all([w.pro_hanbit, w.pro_daesung, w.pro_mirae])
+    # 다수 고객 제안 (베타 W): 고객이 없고, 붙인 고객 둘과 신규 사업(BM)이 있다
+    w.pro_group = Proposal(title="", target_kind="group", group_name="전국 병원", customer_id=None, bm_id=w.bm_energy.id, status="new",
+                           updated_at=datetime(2026, 11, 19))
+    w.pro_group.group_customers = [w.c_hanbit, w.c_daesung]
+    db.add_all([w.pro_hanbit, w.pro_daesung, w.pro_mirae, w.pro_group])
     db.flush()
     w.pro_hanbit.solutions = [w.s_hvac, w.s_solar]
     w.pro_daesung.solutions = [w.s_cold]

@@ -8,7 +8,7 @@
 
 ## 대상과 자료
 
-- 고객 사본: `{{customer_path}}`
+{{target_line}}
 {{project_line}}
 
 방향에 든 솔루션 폴더:

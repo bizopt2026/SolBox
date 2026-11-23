@@ -98,6 +98,8 @@ EXPECT = {
     "R31": [("pr_hanbit", "R31", ["bm_om"]), ("bm_om", "R31", ["pr_hanbit"])],
     "R32": [("o_hanbit", "R32", ["bm_energy"]), ("bm_energy", "R32", ["o_hanbit"])],
     "R33": [("bm_energy", "R33", ["s_hvac", "s_solar", "s_light"]), ("s_hvac", "R33", ["bm_energy"])],
+    "R34": [("pro_group", "R34", ["c_hanbit", "c_daesung"]), ("c_hanbit", "R34", ["pro_group"]), ("c_daesung", "R34", ["pro_group"])],
+    "R35": [("pro_group", "R35", ["bm_energy"]), ("bm_energy", "R35", ["pro_group"])],
 }
 
 

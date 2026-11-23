@@ -70,6 +70,11 @@ PROPOSAL_STATUSES = {  # 제안 진행 단계
     "deck": "제안서 완료",
 }
 PROPOSAL_STATUS_DEFAULT = "new"
+PROPOSAL_TARGETS = {"customer": "특정 고객", "group": "다수 고객"}  # 제안 건의 대상 종류 (베타 W). 만든 뒤 바꾸지 않는다
+PROPOSAL_TARGET_DEFAULT = "customer"
+PROPOSAL_TARGET_GROUP = "group"
+PROPOSAL_GROUP_NAME_MAX = 60
+PROPOSAL_GROUP_BADGE = "다수 고객"  # 목록·검색 결과의 작은 배지 글
 PROPOSAL_STATUS_DECK = "deck"
 PROPOSAL_STEPS = {  # 제안 화면의 단계 표시줄 (진행 단계에서 매긴다)
     "target": "대상", "directions": "방향", "chat": "구체화", "outline": "구성안", "deck": "제안서",
@@ -269,6 +274,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("file_kind", "자료 종류", FILE_KINDS, FILE_KIND_DEFAULT),
     CodeList("proposal_status", "제안 진행 단계", PROPOSAL_STATUSES, PROPOSAL_STATUS_DEFAULT),
     CodeList("proposal_step", "제안 단계 표시줄", PROPOSAL_STEPS),
+    CodeList("proposal_target", "제안 대상 종류", PROPOSAL_TARGETS, PROPOSAL_TARGET_DEFAULT),
     CodeList("intake_status", "올리기 상태", INTAKE_STATUSES, INTAKE_STATUS_DEFAULT),
     CodeList("intake_file_kind", "올린 파일 종류", INTAKE_FILE_KINDS, INTAKE_FILE_KIND_DEFAULT),
     CodeList("read_status", "읽기 상태", READ_STATUSES),
@@ -324,6 +330,7 @@ COLUMN_CODES = {
     ("activities", "kind"): "activity_kind",
     ("solution_files", "kind"): "file_kind",
     ("proposals", "status"): "proposal_status",
+    ("proposals", "target_kind"): "proposal_target",
     ("intakes", "status"): "intake_status",
     ("intake_files", "kind"): "intake_file_kind",
     ("intake_files", "read_status"): "read_status",
@@ -444,7 +451,7 @@ _TYPE_LIST = [
     ObjectType(
         "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="sales",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조",
-               "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회"},
+               "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건"},
         description="사업 모델. 고객에 묶이지 않고, 특정 고객별로 나뉘는 것은 프로젝트입니다",
     ),
     ObjectType(
@@ -458,8 +465,9 @@ _TYPE_LIST = [
     ObjectType(
         "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안", nav_group="sales",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
-               "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안"},
-        description="특정 고객(과 프로젝트·영업기회)을 대상으로 한 제안 작업 한 건",
+               "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안",
+               "target_kind": "대상 종류", "group_name": "대상 그룹", "group_customers": "붙인 고객", "bm": "신규 사업 (BM)"},
+        description="특정 고객(과 프로젝트·영업기회) 또는 다수 고객(대상 그룹)을 대상으로 한 제안 작업 한 건",
     ),
     ObjectType(
         "solution_file", "자료", "부속", "SolutionFile", "solution_files",
@@ -776,7 +784,7 @@ RELATIONS: tuple[Relation, ...] = (
        "선택. 쓴 이름 글자도 남기고, 고객을 지우면 연결만 풀린다. 이름이 등록된 고객과 정확히 하나로 맞을 때만 연결한다"),
     _r("R11", "맡는다", "follow_up", "user", "N:1", "fk", "follow_ups.owner_user_id follow_ups.owner",
        "선택. 쓴 담당 글자도 남긴다. 활성 사용자 이름과 정확히 같을 때만 연결한다"),
-    _r("R12", "대상으로 한다", "proposal", "customer", "N:1", "fk", "proposals.customer_id", "필수"),
+    _r("R12", "대상으로 한다", "proposal", "customer", "N:1", "fk", "proposals.customer_id", "특정 고객 제안은 필수, 다수 고객 제안은 비어 있다 (target_kind)"),
     _r("R13", "발판으로 한다", "proposal", "project", "N:1", "fk", "proposals.business_id", "선택. 그 고객의 프로젝트여야 한다"),
     _r("R14", "조합한다", "proposal", "solution", "N:M", "link", "proposal_solutions", "방향을 고른 뒤에만 채워진다"),
     _r("R15", "후보에 더한다", "proposal", "solution", "N:M", "json", "proposals.extra_solution_ids", "직접 추가한 후보"),
@@ -809,6 +817,11 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R31", "따른다", "project", "bm", "N:1", "fk", "businesses.bm_id", "선택"),
     _r("R32", "접근한다", "opportunity", "bm", "N:1", "fk", "opportunities.bm_id", "선택"),
     _r("R33", "구성된다", "bm", "solution", "N:M", "link", "bm_solutions", "제안 후보를 정렬할 때 영업기회 다음에 둔다"),
+    # 베타 W: 다수 고객 제안 (2026-11-23 결정). 대상 그룹은 이름 글(group_name)이고, 등록된 고객은 0..n 개 붙일 수 있다. 고객별 진행 상태는 두지 않는다
+    _r("R34", "고객을 붙인다", "proposal", "customer", "N:M", "link", "proposal_customers",
+       "다수 고객 제안에만. 선택(0..n). 예시로 읽을 고객이다. 고객을 지우면 붙임만 풀린다"),
+    _r("R35", "신규 사업으로 삼는다", "proposal", "bm", "N:1", "fk", "proposals.bm_id",
+       "다수 고객 제안에만. 선택이지만 화면에서 눈에 띄게 보인다. 후보 솔루션은 그 BM 의 솔루션이 앞선다"),
 )
 
 # ======================================================================================
@@ -875,6 +888,8 @@ for _key, _pairs in {
     "R31": {("project", "bm"): "BM", ("bm", "project"): "따르는 프로젝트"},
     "R32": {("opportunity", "bm"): "BM", ("bm", "opportunity"): "이 BM으로 진행하는 영업기회"},
     "R33": {("bm", "solution"): "솔루션", ("solution", "bm"): "BM"},
+    "R34": {("proposal", "customer"): "붙인 고객", ("customer", "proposal"): "붙은 다수 고객 제안 건"},
+    "R35": {("proposal", "bm"): "신규 사업 (BM)", ("bm", "proposal"): "신규 사업으로 삼은 다수 고객 제안 건"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -943,7 +958,7 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "opportunity": ("R27", "R30", "R32"),
     "bm": (),
     "activity": ("R8", "R9", "R21", "R22"),
-    "proposal": ("R12", "R13", "R29"),
+    "proposal": ("R12", "R13", "R29", "R34", "R35"),
 }
 @dataclass(frozen=True)
 class MainGroup:
@@ -962,6 +977,7 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R27:opportunity", ("+ 영업기회 만들기", "/opportunities/new?customer_id={id}"), True),
         MainGroup("R2:project", ("+ 프로젝트 등록", "/projects/new?customer_id={id}"), True),
         MainGroup("R12:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={id}"), True),
+        MainGroup("R34:proposal"),
         MainGroup("D14", None, False, ("제안 만들기", "/proposals/new?customer_id={id}&solution_id={item}")),
         MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new?customer_id={id}"), True),
         MainGroup("R10:customer_need"),
@@ -983,6 +999,7 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R33:solution"),
         MainGroup("R31:project"),
         MainGroup("R32:opportunity"),
+        MainGroup("R35:proposal"),
     ),
     "opportunity": (
         MainGroup("R26:customer_need", ("고객 니즈 고르기", "/opportunities/{id}/edit")),
@@ -997,12 +1014,12 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
 
 # 연결 목록의 그룹 순서 (앞에 둘 그룹. 나머지는 관계 번호 순)
 GROUP_ORDER: dict[str, tuple[str, ...]] = {
-    "customer": ("R2", "R27", "R12", "R5", "R10"),
+    "customer": ("R2", "R27", "R12", "R34", "R5", "R10"),
     "partner": ("R1", "R7"),
     "solution": ("R14", "R4", "R28", "R33"),
     "project": ("R13", "R6"),
     "opportunity": ("R26", "R28", "R29", "R6"),
-    "bm": ("R33", "R31", "R32"),
+    "bm": ("R33", "R31", "R32", "R35"),
     "activity": ("R4", "R5", "R6", "R7"),
 }
 
@@ -1018,6 +1035,8 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
     ("proposal", "project_id"): ("project", "R13"),
     ("proposal", "opportunity_id"): ("opportunity", "R29"),
     ("proposal", "partner_id"): ("partner", "D3"),
+    ("proposal", "member_customer_id"): ("customer", "R34"),
+    ("proposal", "bm_id"): ("bm", "R35"),
     ("opportunity", "customer_id"): ("customer", "R27"),
     ("opportunity", "bm_id"): ("bm", "R32"),
     ("opportunity", "solution_id"): ("solution", "R28"),
@@ -1049,9 +1068,9 @@ MORE_LINKS: dict[tuple[str, str], str] = {
 # 목록의 "연결" 칸: 유형 -> [(보이는 이름, 관계 키 또는 따라가서 얻는 관계 키, 도착 유형)]. 건수는 relations.link_counts 가 쪽의 번호들만 묶어서 센다.
 LIST_LINKS: dict[str, tuple[tuple[str, str, str], ...]] = {
     "solution": (("고객", "D7", "customer"), ("제안", "R14", "proposal"), ("영업기회", "R28", "opportunity")),
-    "customer": (("프로젝트", "R2", "project"), ("영업기회", "R27", "opportunity"), ("제안", "R12", "proposal")),
+    "customer": (("프로젝트", "R2", "project"), ("영업기회", "R27", "opportunity"), ("제안", "R12", "proposal"), ("다수 고객 제안", "R34", "proposal")),
     "partner": (("솔루션", "R1", "solution"),),
-    "bm": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity")),
+    "bm": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity"), ("다수 고객 제안", "R35", "proposal")),
     "project": (("제안", "R13", "proposal"), ("활동", "R6", "activity")),
     "opportunity": (("니즈", "R26", "customer_need"), ("제안", "R29", "proposal"), ("솔루션", "R28", "solution")),
     "activity": (("고객", "R5", "customer"), ("솔루션", "R4", "solution"), ("후속 조치", "R8", "follow_up")),
@@ -1186,7 +1205,7 @@ OPPORTUNITY_RULES = {
     "unlinked_note": "고객에 연결되지 않은 니즈는 활동 기록에서 고객 이름을 등록된 이름으로 고치면 여기에 나옵니다",
     "convert": "프로젝트로 전환: 수주 단계이고 아직 프로젝트가 없을 때 한 번만. 같은 고객의 기존 프로젝트를 이을 수도 있습니다",
     "delete": "삭제하면 묶은 니즈는 풀리고(니즈는 남습니다) 제안 건의 연결은 비워집니다. 프로젝트는 지워지지 않습니다",
-    "bm_delete": "프로젝트나 영업기회가 따르는 BM 은 삭제할 수 없습니다",
+    "bm_delete": "프로젝트·영업기회가 따르거나 다수 고객 제안 건이 신규 사업으로 삼은 BM 은 삭제할 수 없습니다",
 }
 
 
@@ -1198,6 +1217,7 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
                 "같은 회사로 이은 고객 연결이 풀립니다 (고객 기록은 남습니다).",
                 "활동 기록과의 연결이 풀립니다."),
     "customer": ("고객 니즈 줄은 남고 고객 연결만 풀립니다 (적힌 고객 이름은 그대로).",
+                 "다수 고객 제안 건에 붙은 것이 빠집니다 (제안 건은 남습니다).",
                  "같은 회사로 이은 파트너 연결이 풀립니다 (파트너 기록은 남습니다)."),
     "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다)."),
     "bm": ("솔루션과의 연결이 풀립니다 (솔루션은 남습니다).",),
@@ -1205,7 +1225,7 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "activity": ("후속 조치와 고객 니즈 줄이 함께 지워집니다.",
                  "연결된 솔루션·고객·파트너·프로젝트는 남습니다.",
                  "이 기록을 만든 올린 원본 파일은 남습니다."),
-    "proposal": ("대화·방향·구성안과 만든 제안서 파일이 함께 지워집니다.", "대상 고객과 솔루션 기록은 남습니다."),
+    "proposal": ("대화·방향·구성안과 만든 제안서 파일이 함께 지워집니다.", "대상 고객(붙인 고객)·신규 사업(BM)·솔루션 기록은 남습니다."),
     "solution_file": ("올린 자료 파일이 지워지고 지식 사본에서도 빠집니다.", "솔루션 기록은 남습니다."),
     "intake_discard": ("정리안은 버려지고 저장되지 않습니다 (아무 기록도 만들어지지 않습니다).", "올린 원본 파일은 남습니다."),
     "research_run": ("이 조사의 보고서(동향·제안)가 모두 지워집니다.", "보고서에서 등록한 솔루션은 남고 유래 표시만 비워집니다."),
@@ -1220,14 +1240,16 @@ DELETE_IMPACT: dict[str, dict] = {
     "solution": {"cut": (("영업기회", "R28", "opportunity"), ("BM", "R33", "bm"), ("활동 기록", "R4", "activity")),
                  "inside": (("R14", "제안 건 {n}건의 방향에 이 솔루션이 들어 있습니다."),)},
     "partner": {"cut": (("솔루션의 파트너 칸", "R1", "solution"), ("활동 기록", "R7", "activity"), ("같은 회사 고객", "R25", "customer"))},
-    "customer": {"cut": (("활동 기록", "R5", "activity"), ("고객 니즈", "R10", "customer_need"), ("같은 회사 파트너", "R25", "partner"))},
+    "customer": {"cut": (("활동 기록", "R5", "activity"), ("고객 니즈", "R10", "customer_need"), ("같은 회사 파트너", "R25", "partner"),
+                         ("다수 고객 제안 건", "R34", "proposal"))},
     "project": {"cut": (("영업기회", "R30", "opportunity"), ("활동 기록", "R6", "activity"), ("제안 건", "R13", "proposal"), ("BM", "R31", "bm"))},
     "bm": {"cut": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity"))},
     "opportunity": {"cut": (("고객 니즈", "R26", "customer_need"), ("제안 건", "R29", "proposal"), ("프로젝트", "R30", "project"),
                             ("활동 기록", "R6", "activity"), ("솔루션", "R28", "solution"), ("BM", "R32", "bm"))},
     "activity": {"cut": (("솔루션", "R4", "solution"), ("고객", "R5", "customer"), ("파트너", "R7", "partner"), ("프로젝트", "R6", "project"), ("영업기회", "R6", "opportunity")),
                  "gone": (("후속 조치", "R8", "follow_up"), ("고객 니즈", "R9", "customer_need"))},
-    "proposal": {"cut": (("고객", "R12", "customer"), ("프로젝트", "R13", "project"), ("영업기회", "R29", "opportunity"), ("솔루션", "R14", "solution"))},
+    "proposal": {"cut": (("고객", "R12", "customer"), ("붙인 고객", "R34", "customer"), ("프로젝트", "R13", "project"), ("영업기회", "R29", "opportunity"),
+                         ("신규 사업(BM)", "R35", "bm"), ("솔루션", "R14", "solution"))},
 }
 
 

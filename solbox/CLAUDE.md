@@ -31,7 +31,7 @@
 - 음성 받아쓰기는 `app/transcribe.py` 의 연결 지점(설정 `transcriber`: `none` 은 "받아쓰기 필요"로 보관만, `faster-whisper` 는 서버 안 CPU 받아쓰기)이다. 설계 `docs/superpowers/specs/2026-11-20-audio-transcription-design.md`. 실제 받아쓰기는 개발 환경에서 돌려 보지 못했다 (모델 저장소 접속 불가).
 
 ## 온톨로지 (단일 정의)
-- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R33), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
+- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R35), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
 - 프로젝트(옛 "기존 사업")는 코드에서 `Project`·`project_id`·`/projects` 이지만 물리 표·열은 `businesses`·`business_id`·`activity_businesses` 그대로다 (표·열 이름을 바꾸거나 지우지 않는다). 옛 `/businesses` 주소는 영구 이동한다. 저장된 옛 값(정리안의 `businesses` 키, 출처 `businesses/N.md`)은 읽을 수 있어야 하고 고쳐 쓰지 않는다.
 - 용어: 프로젝트, 제안 건(메뉴는 "제안", PPT 는 "제안서"), 올리기 묶음/올린 파일, 자료, 고객 니즈(JSON 키는 `demand_signals` 그대로), 확인 항목(근거 문제·확인할 점), 출처/이유. 화면·사본·프롬프트는 `ontology.label/prop/term` 에서 읽는다.
 - 후속 조치·고객 니즈는 `follow_ups`·`customer_needs` 표가 원본이다. `activities.follow_ups`·`demand_signals` JSON 열은 옛 데이터로만 남아 있으니 읽지도 쓰지도 않는다 (ORM 이름 `legacy_*`, 시작 때 한 번 복사하는 `migrate.copy_activity_json` 만 읽는다). 화면에서 저장할 때는 줄 번호(숨은 칸 `fu_id`·`ds_id`)로 행을 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객·담당 연결은 `activity_rows.LinkIndex` 의 정확히 하나 일치 규칙 한 곳만 쓴다.
@@ -220,6 +220,12 @@
 - **"만드는 중…" 버튼**: 오래 걸리는 제출 버튼(방향·구성안·제안서 만들기·다시 시도)은 `data-busy-label="만드는 중…"` 을 단다. `app.js` 의 제출 잠금이 버튼을 잠그면서 글자를 바꾸고 `pageshow` 에 되돌린다. JS 가 없어도 폼은 그대로 제출된다.
 - **제안서 만들기 성공 표시**: `notice=deck_built` 로 돌아온 화면의 제안서 상자 맨 위에 "제안서 파일을 만들었습니다 (시각)"(`.deck-done`)이 보인다 (`_deck.html`, 구성안 화면의 상자도 같다). 옛 파일 지우기(`routers/proposals.build`)는 새 파일 저장·커밋 뒤라 `OSError`(Windows 에서 파워포인트가 연 파일의 `PermissionError`)를 로그만 남기고 넘긴다: 새 제안서는 정상이고 옛 파일이 남을 수 있다.
 - **확인 항목이 남은 장 바로가기**: 제안서 상자의 "확인하지 않은 항목이 N개 남아 있습니다" 줄에 `proposals.open_check_slides` 가 만든 "n장(개수)" 링크(`/proposals/{id}/outline?open=n#slide-n`)가 붙는다 (항목이 한 개뿐인 장은 "이 장의 항목 모두 확인함" 단추가 없어 찾기 어려웠다). 시험 `tests/test_beta_u.py`.
+
+## 베타 W 묶음이 바꾼 규칙
+- **사용자 결정 2026-11-23: 다수 고객 제안.** 제안 건은 `target_kind` = `customer`(특정 고객, 지금 그대로) 또는 `group`(다수 고객). 다수 고객은 `group_name`(필수, 60자까지, 공백 한 칸으로 다듬음), 붙인 고객 0..n(`proposal_customers`, R34), 신규 사업 BM(`proposals.bm_id`, R35, 선택)을 가지고 `customer_id` 는 NULL 이다. 규칙은 `app/proposals.py`(`is_group`·`target_name`·`display_title`·`priority_groups`)와 `routers/proposals.py`(`_create_group`·`update_target`) 한 곳이다. 고객 이름이 쓰이던 곳(프롬프트 `_target_line`·제안서 표지 `customer_name`·파일 이름·목록·검색·홈·연결·사본)은 `target_name` 을 쓴다. **새로 대상 이름을 보이는 곳에서 `proposal.customer.name` 을 직접 쓰지 않는다** (그룹 제안에서 None 이다).
+- 영업기회·프로젝트는 특정 고객 제안에만 쓴다. 다수 고객 제안에는 화면에서 숨기고, 서버는 와도 무시한다(400 이 아니다). 종류는 만든 뒤 바꿀 수 없다(고치기 폼은 종류 칸을 읽지 않는다). 고객별 진행 상태는 두지 않는다. 후보 솔루션은 BM 의 솔루션이 앞선다. 고침 표시(`guards._change_of`)는 그룹 제안에서 그룹 이름·BM 도 본다(붙인 고객은 연결 표라 뺐다).
+- **DB: `proposals` 표 다시 만들기 (사용자 승인).** `migrate.rebuild_proposals_nullable_customer` 가 시작 때 `add_missing_columns` 보다 먼저, SQLite 12단계 방법으로 `customer_id` 의 NOT NULL 만 푼다(복사본 → `foreign_keys=OFF` → 한 트랜잭션: 지금 CREATE 글에서 이름과 NOT NULL 만 바꿔 `proposals_new` → 모든 열 `INSERT…SELECT` → 옛 표 지우기 → 이름 바꾸기 → `sqlite_master` 에서 읽은 색인·트리거 다시 만들기 → 이 일로 새 `foreign_key_check` 위반이 있으면 되돌림 → 커밋 → `foreign_keys=ON`). 이미 풀렸는지는 표 구조(`customer_id` notnull=0)로 가린다(새 DB 는 처음부터 풀려 있다). 모르는 CREATE 모양이면 아무것도 건드리지 않고 멈춘다. 옛 DB 시험은 `tests/fixtures/schema_before_beta_w.sql`(이전 모델의 전체 CREATE 글)로 만든다. 새 열(`target_kind`·`group_name`·`bm_id`)과 `proposal_customers` 는 보통의 추가 방식이라 `bm_id` 는 옛 DB 에서 외래 키 제약이 없다: 그래서 신규 사업으로 삼은 BM 은 삭제할 수 없다(`opportunities.bm_delete_problem`).
+- 지식 사본: 붙은 고객·BM 의 "## 연결" 에 그룹 제안 이름이 적히도록 만들기·고치기·지우기 뒤 그 사본을 다시 쓴다(`resync_objects`). 시험 `tests/test_beta_w.py`.
 
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`

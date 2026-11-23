@@ -1,6 +1,6 @@
 """옛 DB 에 모델에는 있는데 없는 칸을 시작할 때 자동으로 추가한다.
 
-칸 삭제·이름 변경·형식 변경은 하지 않는다. 칸을 추가하기 전에 DB 파일을 복사해 둔다.
+칸 삭제·이름 변경·형식 변경은 하지 않는다 (예외 하나: 베타 W 의 `proposals.customer_id` NOT NULL 풀기, 표 다시 만들기). 칸을 추가하기 전에 DB 파일을 복사해 둔다.
 """
 from __future__ import annotations
 
@@ -385,9 +385,91 @@ def backfill_origins(engine: Engine, db_path: Path, backup: MigrationBackup | No
     return stats
 
 
+# ---- 베타 W: `proposals.customer_id` 를 NOT NULL 에서 풀기 (표 다시 만들기, 한 번) ----
+# 다수 고객 제안은 고객 한 곳이 없다. SQLite 는 ALTER 로 NOT NULL 을 풀 수 없어 SQLite 문서의 12단계 방법(https://www.sqlite.org/lang_altertable.html#otheralter)으로 표를 다시 만든다.
+# "이미 했는가" 는 표 구조로 가른다 (customer_id 열의 notnull 이 0 이면 한 것이다: 새로 만든 DB 도 처음부터 풀려 있다). 따로 표시를 두지 않는다.
+
+PROPOSALS_TABLE = "proposals"
+_CUSTOMER_NOT_NULL = re.compile(r'(?<![\w"])(?P<col>"?customer_id"?\s+[A-Za-z]+(?:\s*\([^)]*\))?)\s+NOT\s+NULL', re.I)
+_CREATE_NAME = re.compile(r'^(\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)(?:"proposals"|proposals|`proposals`|\[proposals\])', re.I)
+
+
+def proposals_need_rebuild(engine: Engine) -> bool:
+    """`proposals.customer_id` 가 아직 NOT NULL 인가 (표가 없거나 이미 풀렸으면 False)."""
+    with engine.connect() as conn:
+        info = conn.exec_driver_sql(f"PRAGMA table_info({PROPOSALS_TABLE})").all()
+    return any(r[1] == "customer_id" and r[3] for r in info)
+
+
+def _nullable_customer_sql(create_sql: str) -> str:
+    """지금 `proposals` 의 CREATE 글에서 표 이름만 `proposals_new` 로, `customer_id` 의 NOT NULL 만 뺀 글. 다른 열·제약·기본값은 글자 그대로다
+    (이전 이관이 더한 열도 그대로 들어 있다). 고칠 자리가 하나로 가려지지 않으면 (모르는 모양이면) 멈춘다."""
+    named, n_name = _CREATE_NAME.subn(lambda m: m.group(1) + PROPOSALS_TABLE + "_new", create_sql, count=1)
+    relaxed, n_col = _CUSTOMER_NOT_NULL.subn(lambda m: m.group("col"), named)
+    if n_name != 1 or n_col != 1:
+        raise RuntimeError(f"proposals 표의 CREATE 글을 자동으로 고칠 수 없습니다 (표 이름 {n_name}곳, customer_id {n_col}곳): {create_sql!r}")
+    return relaxed
+
+
+def _proposal_fk_violations(con: sqlite3.Connection) -> set[tuple]:
+    """`PRAGMA foreign_key_check` 중 proposals 표가 아래쪽(자식)이거나 위쪽(부모)인 줄."""
+    return {tuple(r) for r in con.execute("PRAGMA foreign_key_check") if r[0] == PROPOSALS_TABLE or r[2] == PROPOSALS_TABLE}
+
+
+def rebuild_proposals_nullable_customer(engine: Engine, db_path: Path, backup: MigrationBackup | None = None) -> dict | None:
+    """`proposals` 표를 `customer_id` 가 비어도 되는 모양으로 다시 만든다 (SQLite 문서의 12단계 방법). 이미 풀려 있으면 아무것도 하지 않고 None.
+
+    순서: DB 복사본(`app.db.before-migrate-<시각>`) → `PRAGMA foreign_keys=OFF` → 한 트랜잭션 안에서 `proposals_new` 만들기(열·형·기본값·제약은 지금 CREATE 글 그대로,
+    customer_id 의 NOT NULL 만 뺀다) → 모든 열을 `INSERT … SELECT` 로 옮기기(번호·값 그대로) → 옛 표 지우기 → 이름 바꾸기 → 옛 표에 있던 색인·트리거를 `sqlite_master` 에서 읽은 글로 다시 만들기 →
+    `PRAGMA foreign_key_check` 가 이 일로 새 위반을 내면 되돌리기, 아니면 커밋 → `foreign_keys` 다시 켜기. 중간에 실패하면 되돌리고 멈춘다 (DB 는 그대로, 복사본은 남는다).
+    이 표를 가리키는 다른 표(proposal_messages·proposal_solutions·proposal_customers)의 외래 키는 표 이름으로 가리키므로 그대로 이어진다.
+    이 일 전에 있던 위반(다른 표의 낡은 번호 따위)은 막지 않는다: 새로 생긴 위반만 본다."""
+    if not proposals_need_rebuild(engine):
+        return None
+    copy = (backup or MigrationBackup(db_path)).take()
+    log.info("proposals 표 다시 만들기 전 DB 복사본: %s", copy)
+    con = sqlite3.connect(db_path, isolation_level=None, timeout=30)  # 트랜잭션을 직접 다룬다 (PRAGMA foreign_keys 는 트랜잭션 밖에서만 바뀐다)
+    try:
+        con.execute("PRAGMA foreign_keys=OFF")
+        if con.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+            raise RuntimeError("PRAGMA foreign_keys=OFF 가 듣지 않아 표를 다시 만들지 않습니다")
+        create_sql = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (PROPOSALS_TABLE,)).fetchone()[0]
+        extras = con.execute(
+            "SELECT type, name, sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY type DESC, name", (PROPOSALS_TABLE,)).fetchall()
+        columns = ", ".join(_quote(r[1]) for r in con.execute(f"PRAGMA table_info({PROPOSALS_TABLE})"))
+        statements = [_nullable_customer_sql(create_sql)]  # 모르는 모양이면 여기서(아무것도 건드리기 전에) 멈춘다
+        before = _proposal_fk_violations(con)
+        rows = con.execute(f"SELECT COUNT(*) FROM {PROPOSALS_TABLE}").fetchone()[0]
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            con.execute(statements[0])
+            con.execute(f"INSERT INTO {PROPOSALS_TABLE}_new ({columns}) SELECT {columns} FROM {PROPOSALS_TABLE}")
+            if con.execute(f"SELECT COUNT(*) FROM {PROPOSALS_TABLE}_new").fetchone()[0] != rows:
+                raise RuntimeError("옮긴 줄 수가 맞지 않습니다")
+            con.execute(f"DROP TABLE {PROPOSALS_TABLE}")
+            con.execute(f"ALTER TABLE {PROPOSALS_TABLE}_new RENAME TO {PROPOSALS_TABLE}")
+            for _kind, _name, sql in extras:
+                con.execute(sql)
+            if new := _proposal_fk_violations(con) - before:
+                raise RuntimeError(f"외래 키 검사가 새 위반을 냈습니다: {sorted(new)[:5]}")
+            con.execute("COMMIT")
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+    finally:
+        try:
+            con.execute("PRAGMA foreign_keys=ON")
+        finally:
+            con.close()
+    stats = {"rows": rows, "indexes": [n for k, n, _ in extras if k == "index"], "triggers": [n for k, n, _ in extras if k == "trigger"], "backup": str(copy)}
+    log.info("proposals 표를 customer_id 가 비어도 되는 모양으로 다시 만들었습니다: 줄 %(rows)d, 색인 %(indexes)s, 트리거 %(triggers)s", stats)
+    return stats
+
+
 def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
     """시작 때 이관 단계를 순서대로 한 번에 돌린다. DB 복사본은 모든 단계를 통틀어 (바꿀 것이 있을 때만) 하나다."""
     backup = MigrationBackup(db_path)
+    rebuild_proposals_nullable_customer(engine, db_path, backup=backup)  # 먼저: 다수 고객 제안 칸을 더하는 단계가 풀린 표 위에서 일한다
     add_missing_columns(engine, db_path, backup=backup)
     copy_activity_json(engine, db_path, backup=backup)
     add_unique_indexes(engine)

@@ -23,19 +23,24 @@ from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.deck import build_deck
 from app.sources import SourceLookup
-from app.knowledge import safe_name
+from app.knowledge import KnowledgeMirror, get_mirror, safe_name
 from app.main import render
-from app.models import Customer, Opportunity, Project, Proposal, ProposalMessage, Solution, User
+from app.models import BM, Customer, Opportunity, Project, Proposal, ProposalMessage, Solution, User
 from app.proposals import (
-    candidate_solutions, contact_lines, display_title, internal_deck_path, open_section, reset_for_new_direction, section_summaries, start_job,
-    step_states,
+    candidate_solutions, contact_lines, display_title, internal_deck_path, is_group, normalize_group_name, open_section, reset_for_new_direction,
+    section_summaries, start_job, step_states, target_name, target_search_names,
 )
-from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, search_by_name, submitted_fields, sort_rows
+from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, resync_objects, search_by_name, submitted_fields, sort_rows
 from app.security import can_delete, require_user
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/proposals")
 CUSTOMER_REQUIRED = ui.FieldError("고객을 선택하세요.", "customer_id")
+TARGET_KIND_INVALID = ui.FieldError("대상 종류를 선택하세요 (특정 고객 / 다수 고객).", "target_kind")
+GROUP_NAME_REQUIRED = ui.FieldError("대상 그룹 이름을 입력하세요 (예: 전국 지자체).", "group_name")
+GROUP_NAME_TOO_LONG = ui.FieldError(f"대상 그룹 이름은 {ontology.PROPOSAL_GROUP_NAME_MAX}자까지 쓸 수 있습니다.", "group_name")
+GROUP_CUSTOMER_INVALID = ui.FieldError("붙일 고객 중 등록되지 않은 고객이 있습니다. 목록에서 다시 골라 주세요.", "group_customer_ids")
+GROUP_BM_INVALID = ui.FieldError("선택한 BM 이 없습니다. 목록에서 다시 골라 주세요.", "bm_id")
 PROJECT_MISMATCH = "선택한 고객의 프로젝트가 아닙니다."
 OPPORTUNITY_MISMATCH = opps.OPPORTUNITY_MISMATCH
 NO_DIRECTION = "먼저 제안 방향을 선택하세요."
@@ -70,13 +75,55 @@ def _extra_candidates(db: Session) -> list[Solution]:
     return list(db.scalars(select(Solution).where(Solution.stage == ontology.STAGE_HOLD).order_by(Solution.name, Solution.id)))
 
 
+def _group_name_problem(raw: str) -> tuple[str, ui.FieldError | None]:
+    """대상 그룹 이름 검사: (다듬은 이름, 오류). 줄바꿈·연속 공백은 한 칸으로 다듬고 60자까지다."""
+    name = normalize_group_name(raw)
+    if not name:
+        return name, GROUP_NAME_REQUIRED
+    if len(name) > ontology.PROPOSAL_GROUP_NAME_MAX:
+        return name, GROUP_NAME_TOO_LONG
+    return name, None
+
+
+def _group_customers(db: Session, raw: list[str]) -> tuple[list[Customer], bool]:
+    """폼에서 온 붙일 고객 번호 -> (고객들, 틀린 번호가 있는가). 중복은 한 번만, 입력 순서대로. 빈 값은 건너뛴다."""
+    found: list[Customer] = []
+    bad = False
+    for r in raw:
+        if not r.strip():
+            continue
+        cid = _parse_id(r.strip())
+        customer = db.get(Customer, cid) if cid is not None else None
+        if customer is None:
+            bad = True
+        elif all(c.id != customer.id for c in found):
+            found.append(customer)
+    return found, bad
+
+
+def _group_bm(db: Session, raw: str) -> tuple[BM | None, bool]:
+    """폼에서 온 신규 사업 BM 번호 -> (BM, 틀렸는가). 비어 있으면 (None, False)."""
+    if not raw.strip():
+        return None, False
+    bid = _parse_id(raw.strip())
+    bm = db.get(BM, bid) if bid is not None else None
+    return bm, bm is None
+
+
+def _id_list(raw) -> list[int]:
+    """폼의 번호 글 목록 -> 정수 목록 (체크 상자가 지금 값을 비교할 때 쓴다). 숫자가 아닌 것은 건너뛴다."""
+    return [n for r in raw or [] if (n := _parse_id(str(r).strip())) is not None]
+
+
 def _new_page(request: Request, db: Session, form: dict, error: str | None = None, prefill_note: str | None = None):
     customers = search_by_name(db, Customer)
     projects = search_by_name(db, Project)
+    form = {"target_kind": ontology.PROPOSAL_TARGET_DEFAULT, "group_name": "", "group_customer_ids": [], "bm_id": "", **form}
+    form["group_customer_ids"] = _id_list(form["group_customer_ids"])
     return render(
         request, "proposals/new.html", status_code=400 if error else 200,
         form=form, error=error, customers=customers, projects=projects, opportunities=opps.opportunities_of_customer(db, None),
-        extra_candidates=_extra_candidates(db), prefill_note=prefill_note,
+        bms=search_by_name(db, BM), extra_candidates=_extra_candidates(db), prefill_note=prefill_note,
     )
 
 
@@ -85,11 +132,11 @@ def list_proposals(
     request: Request, q: str = "", status: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
-    stmt = select(Proposal).join(Proposal.customer).options(selectinload(Proposal.customer))
+    stmt = select(Proposal).options(selectinload(Proposal.customer), selectinload(Proposal.group_customers), selectinload(Proposal.bm))  # 다수 고객 제안은 고객이 없다 (join 하지 않는다)
     proposals = list(db.scalars(stmt.order_by(Proposal.updated_at.desc(), Proposal.id.desc())))
     q = q.strip()
     if q:
-        proposals = [p for p in proposals if q in display_title(p) or q in p.customer.name]
+        proposals = [p for p in proposals if q in display_title(p) or any(q in n for n in target_search_names(p))]
     proposals, flt = list_filter(db, request, "proposal", sort_rows(request, "proposal", proposals, display_title))
     counts = Counter(p.status for p in proposals)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     total = len(proposals)
@@ -138,14 +185,20 @@ def create(
     request: Request,
     customer_id: str = Form(""), project_id: str = Form(""), opportunity_id: str = Form(""), request_memo: str = Form(""),
     extra_solution_ids: list[str] = Form([]),
-    user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
+    target_kind: str = Form(ontology.PROPOSAL_TARGET_DEFAULT), group_name: str = Form(""), group_customer_ids: list[str] = Form([]), bm_id: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once), mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     form = {
         "customer_id": customer_id.strip(), "project_id": project_id.strip(), "opportunity_id": opportunity_id.strip(),
         "request_memo": request_memo.strip(), "extra_solution_ids": _solution_ids(db, extra_solution_ids),
+        "target_kind": target_kind.strip(), "group_name": group_name.strip(), "group_customer_ids": [r.strip() for r in group_customer_ids if r.strip()], "bm_id": bm_id.strip(),
     }
+    if form["target_kind"] not in ontology.PROPOSAL_TARGETS:
+        return _new_page(request, db, {**form, "target_kind": ontology.PROPOSAL_TARGET_DEFAULT}, TARGET_KIND_INVALID)
     if len(form["request_memo"]) > MAX_MEMO:
         return _new_page(request, db, form, TOO_LONG_MEMO)
+    if form["target_kind"] == ontology.PROPOSAL_TARGET_GROUP:
+        return _create_group(request, db, form, user, once, mirror)
     cid = _parse_id(form["customer_id"])
     customer = db.get(Customer, cid) if cid is not None else None
     if customer is None:
@@ -175,6 +228,35 @@ def create(
     return once.done(notices.redirect(f"/proposals/{proposal.id}", "created"))
 
 
+def _create_group(request: Request, db: Session, form: dict, user: User, once: Once, mirror: KnowledgeMirror):
+    """다수 고객 제안 만들기: 대상 그룹 이름 필수(60자까지), 붙일 고객 0..n(모두 등록된 고객이어야 한다), 신규 사업 BM 선택.
+    특정 고객 칸(고객·프로젝트·영업기회)은 와도 무시한다: 영업기회·프로젝트는 한 고객의 것이라 다수 고객 제안에는 연결하지 않는다."""
+    name, problem = _group_name_problem(form["group_name"])
+    form["group_name"] = name or form["group_name"]
+    if problem:
+        return _new_page(request, db, form, problem)
+    customers, bad_customer = _group_customers(db, form["group_customer_ids"])
+    if bad_customer:
+        return _new_page(request, db, form, GROUP_CUSTOMER_INVALID)
+    bm, bad_bm = _group_bm(db, form["bm_id"])
+    if bad_bm:
+        return _new_page(request, db, form, GROUP_BM_INVALID)
+    proposal = Proposal(
+        target_kind=ontology.PROPOSAL_TARGET_GROUP, group_name=name, customer_id=None, bm_id=bm.id if bm else None,
+        request_memo=form["request_memo"], extra_solution_ids=form["extra_solution_ids"], created_by_id=user.id,
+    )
+    proposal.group_customers = customers
+    if gate.ai_is_off(request):
+        db.add(proposal)
+        db.commit()
+        notice = "created_ai_off"
+    else:
+        start_job(db, proposal, "proposal_directions", user)
+        notice = "created"
+    resync_objects(db, mirror, [*customers, bm])  # 붙은 고객·신규 사업의 지식 사본 "연결" 에 이 제안 건(그룹 이름)이 적히도록
+    return once.done(notices.redirect(f"/proposals/{proposal.id}", notice))
+
+
 @router.get("/{proposal_id}")
 def detail(
     proposal_id: int, request: Request,
@@ -190,14 +272,15 @@ def _detail_page(
 ):
     candidates = candidate_solutions(db, proposal)
     # 방금 실패한 폼이 들어 있는 구역은 열어 둔다
-    open_key = ("chat" if extra.get("chat_error") or extra.get("chat_text") else "outline" if extra.get("instruction_text") else "deck" if extra.get("deck_error") else "target" if extra.get("target_conflict")
+    open_key = ("chat" if extra.get("chat_error") or extra.get("chat_text") else "outline" if extra.get("instruction_text") else "deck" if extra.get("deck_error") else "target" if extra.get("target_conflict") or extra.get("target_error")
                 else open_section(proposal))
     return render(
         request, "proposals/detail.html", status_code=status_code, proposal=proposal, title=display_title(proposal),
         candidates=candidates, extra_candidates=_extra_candidates(db),
         notice=notice, can_delete=can_delete(user, proposal),
         position=_position(db, proposal), steps=step_states(proposal), open_key=open_key,
-        customer_opportunities=opps.opportunities_of_customer(db, proposal.customer_id),
+        customer_opportunities=[] if is_group(proposal) else opps.opportunities_of_customer(db, proposal.customer_id),
+        all_customers=search_by_name(db, Customer) if is_group(proposal) else [], all_bms=search_by_name(db, BM) if is_group(proposal) else [],
         related=relations.related_for_page(db, proposal, user),
         summaries=section_summaries(proposal, candidates), src=SourceLookup(db, ui=True), **extra,
     )
@@ -432,7 +515,7 @@ def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User) -> int
     """같은 구성안으로 고객용(`customer_path`)과 내부 검토용(그 옆 `-internal`) 파일을 쓴다 (각각 임시 파일에 쓴 뒤 바꿔치기: `build_deck`).
     고객용에서 뺀 줄 수를 돌려준다."""
     paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
-    common = dict(customer_name=p.customer.name, today=date.today(), contact=contact_lines(user))
+    common = dict(customer_name=target_name(p), today=date.today(), contact=contact_lines(user))
     stats: dict = {}
     build_deck(p.outline, customer_path, audience="customer", stats=stats, **common)
     build_deck(p.outline, internal_deck_path(customer_path), audience="internal", source_labels=SourceLookup(db).labels(paths), **common)
@@ -469,16 +552,35 @@ def download(
 def update_target(
     proposal_id: int, request: Request,
     request_memo: str = Form(""), extra_solution_ids: list[str] = Form([]), opportunity_id: str = Form(""),
+    group_name: str = Form(""), group_customer_ids: list[str] = Form([]), bm_id: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), fields: frozenset = Depends(submitted_fields),
-    rev: Rev = Depends(rev_form),
+    rev: Rev = Depends(rev_form), mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     proposal = get_or_404(db, Proposal, proposal_id)
-    if conflict := guards.check_rev(proposal, rev, values={"request_memo": request_memo}):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
+    group = is_group(proposal)
+    before = [*proposal.group_customers, proposal.bm] if group else []  # 대상 종류는 만든 뒤 바꾸지 않는다 (방향·구성안·제안서가 대상에 묶여 있어 바꾸면 무엇을 지킬지 정할 수 없다). 폼의 종류 칸은 읽지 않는다
+    typed = {"request_memo": request_memo, **({"group_name": group_name} if group else {})}
+    if conflict := guards.check_rev(proposal, rev, values=typed):  # 대상 폼: 쓴 내용을 그대로 두고 다시 보여 준다
         return _detail_page(request, db, proposal, user, status_code=409, target_conflict=conflict,
-                            target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids)})
+                            target_form={"request_memo": request_memo, "opportunity_id": opportunity_id, "extra_solution_ids": _solution_ids(db, extra_solution_ids),
+                                         "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip()})
     if len(request_memo.strip()) > MAX_MEMO:
         raise HTTPException(status_code=400, detail=TOO_LONG_MEMO)
-    if "opportunity_id" in fields:  # 칸이 오지 않으면 그대로 둔다. 비어 오면 비운다. 그 고객의 영업기회여야 한다
+    if group:
+        # 다수 고객 제안: 그룹 이름(필수)·붙인 고객·신규 사업. 영업기회는 칸이 와도 무시한다 (이 제안은 한 고객의 영업기회에 묶이지 않는다)
+        name, problem = _group_name_problem(group_name)
+        customers, bad_customer = _group_customers(db, group_customer_ids)
+        bm, bad_bm = _group_bm(db, bm_id)
+        problem = problem or (GROUP_CUSTOMER_INVALID if bad_customer else None) or (GROUP_BM_INVALID if bad_bm else None)
+        if problem:
+            db.rollback()
+            return _detail_page(request, db, proposal, user, status_code=400, target_error=problem,
+                                target_form={"request_memo": request_memo, "opportunity_id": "", "extra_solution_ids": _solution_ids(db, extra_solution_ids),
+                                             "group_name": group_name, "group_customer_ids": _id_list(group_customer_ids), "bm_id": bm_id.strip()})
+        proposal.group_name = name
+        proposal.group_customers = customers
+        proposal.bm_id = bm.id if bm else None
+    elif "opportunity_id" in fields:  # 칸이 오지 않으면 그대로 둔다. 비어 오면 비운다. 그 고객의 영업기회여야 한다
         if opportunity_id.strip():
             oid = _parse_id(opportunity_id)
             opportunity = db.get(Opportunity, oid) if oid is not None else None
@@ -496,17 +598,21 @@ def update_target(
     proposal.request_memo = request_memo.strip()
     proposal.extra_solution_ids = ids
     db.commit()
+    if group:
+        resync_objects(db, mirror, [*before, *proposal.group_customers, proposal.bm])
     return notices.redirect(f"/proposals/{proposal.id}", "target_saved")
 
 
 @router.post("/{proposal_id}/delete")
 def delete(
     proposal_id: int, request: Request,
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     proposal = get_deletable_or_404(db, Proposal, proposal_id, user)
     pid = proposal.id
+    linked = [*proposal.group_customers, proposal.bm] if is_group(proposal) else []
     db.delete(proposal)
     db.commit()
+    resync_objects(db, mirror, linked)
     shutil.rmtree(request.app.state.settings.decks_dir / str(pid), ignore_errors=True)
     return notices.redirect("/proposals", "deleted")

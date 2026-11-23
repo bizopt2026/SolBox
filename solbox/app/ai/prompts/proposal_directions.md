@@ -2,7 +2,7 @@
 
 ## 대상
 
-- 고객 사본: `{{customer_path}}`
+{{target_line}}
 {{project_line}}
 {{opportunity_line}}
 
