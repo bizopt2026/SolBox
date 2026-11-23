@@ -177,7 +177,7 @@ AI_POSTS = {
     "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
     "/jobs/{job_id}/retry", "/proposals/{proposal_id}/directions", "/proposals/{proposal_id}/chat",
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
-    "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze",
+    "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords",
 }
 # 처리기가 꺼져 있으면 일은 하되 작업을 넣지 않는 라우트 (알림으로 알린다)
 AI_KEEPS = {"/intake", "/proposals"}
@@ -224,6 +224,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/proposals/{proposal_id}/chat": f"/proposals/{sol.id}/chat", "/proposals/{proposal_id}/chat/retry": f"/proposals/{sol.id}/chat/retry",
         "/proposals/{proposal_id}/outline": f"/proposals/{sol.id}/outline", "/research/run": "/research/run",
         "/research/reports/{report_id}/retry": "/research/reports/1/retry", "/intake/{intake_id}/analyze": "/intake/1/analyze",
+        "/admin/research/keywords": "/admin/research/keywords",
     }
     assert set(paths) == AI_POSTS
     before = db.query(AIJob).count()

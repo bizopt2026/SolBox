@@ -18,7 +18,7 @@ from app import checks
 from app.proposals import check_sources
 
 if TYPE_CHECKING:
-    from app.ai.research_tasks import AreaOut, SuggestOut
+    from app.ai.research_tasks import AreaOut, KeywordsOut, SuggestOut
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +157,35 @@ def clean_suggestions(db: Session, out: SuggestOut, knowledge_dir: Path) -> dict
                             "solution_ids": ids, "sources": list(dict.fromkeys(sources))})
     insights = [i.strip() for i in out.insights if i.strip()]
     return {"suggestions": suggestions[:MAX_SUGGESTIONS], "insights": insights[:MAX_INSIGHTS]}
+
+
+TOPIC_NAME_MAX, TOPIC_KEYWORDS_MAX = 100, 500  # 주제 이름·키워드 글자 수 (주제 추가 화면과 같은 한도)
+KEYWORD_SUGGESTIONS_PER_AREA = 4
+KEYWORDS_JOB_KIND = "research_keywords"
+
+
+def clean_keyword_suggestions(out: "KeywordsOut", knowledge_dir: Path) -> list[dict]:
+    """AI 가 추천한 주제·키워드를 저장할 모양으로 다듬는다: 분야가 틀렸거나 이름이 비었거나 100자를 넘는 것은 버리고,
+    키워드는 중복·빈 것을 빼고 이어 붙여 500자 안에서 자르며, 출처는 지식 폴더 안에 실제로 있는 상대 경로만 남긴다. 분야마다 최대 4개."""
+    counts: dict[str, int] = {}
+    cleaned: list[dict] = []
+    for s in out.suggestions:
+        area, name = s.area.strip(), " ".join(s.name.split())
+        if area not in RESEARCH_AREAS or len(name) < 2 or len(name) > TOPIC_NAME_MAX:
+            continue
+        if counts.get(area, 0) >= KEYWORD_SUGGESTIONS_PER_AREA:
+            continue
+        keywords: list[str] = []
+        for k in dict.fromkeys(x.strip() for x in s.keywords if x.strip()):
+            if len(", ".join(keywords + [k])) > TOPIC_KEYWORDS_MAX:
+                break
+            keywords.append(k)
+        sources, _missing = check_sources(knowledge_dir, s.sources)
+        counts[area] = counts.get(area, 0) + 1
+        cleaned.append({"area": area, "name": name, "keywords": keywords, "reason": s.reason.strip(),
+                        "sources": list(dict.fromkeys(sources))})
+    order = list(RESEARCH_AREAS)
+    return sorted(cleaned, key=lambda c: order.index(c["area"]))
 
 
 def start_run(db: Session, trigger: str, requester_id: int | None, slot: datetime | None = None) -> ResearchRun | None:

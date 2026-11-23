@@ -1,6 +1,7 @@
 """사용자 관리 (관리자 전용)."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from datetime import datetime, timedelta
@@ -18,7 +19,7 @@ from app.db import get_db
 from app.main import render
 from app.labels import ERROR_KINDS, RESEARCH_AREAS, WEEKDAYS
 from app.models import AIJob, ResearchRun, ResearchTopic, User
-from app.research import Schedule, get_schedule, set_schedule
+from app.research import KEYWORDS_JOB_KIND, Schedule, get_schedule, set_schedule
 from app import guards
 from app.guards import Once, Rev, form_once, rev_form
 from app.security import PASSWORD_RULE, hash_password, password_problem, password_version, require_admin
@@ -193,7 +194,32 @@ def _next_run(schedule) -> datetime | None:
     return scheduler.latest_slot(schedule, datetime.now()) + timedelta(days=7) if schedule.enabled else None
 
 
-def _research_page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
+def _keywords_view(db: Session, topics: list[ResearchTopic]) -> dict:
+    """"AI 추천 주제·키워드" 카드의 상태: 진행 중인 작업, 마지막 실패, 가장 최근 성공한 추천(분야별)."""
+    jobs = db.query(AIJob).filter_by(kind=KEYWORDS_KIND).order_by(AIJob.id.desc()).limit(20).all()
+    latest = jobs[0] if jobs else None
+    active = latest if latest is not None and latest.status in ontology.JOB_ACTIVE else None
+    failed = latest if latest is not None and latest.status == "failed" else None
+    done = next((j for j in jobs if j.status == "done"), None)
+    groups = {code: [] for code in RESEARCH_AREAS}
+    if done is not None:
+        try:
+            items = json.loads(done.result or "{}").get("suggestions", [])
+        except (ValueError, AttributeError):
+            items = []
+        existing = {t.name.strip().casefold() for t in topics}
+        for i, item in enumerate(items if isinstance(items, list) else []):
+            if isinstance(item, dict) and item.get("area") in groups:
+                groups[item["area"]].append({**item, "index": i, "keywords_text": ", ".join(item.get("keywords") or []),
+                                             "exists": str(item.get("name", "")).strip().casefold() in existing})
+    failed_text = None
+    if failed is not None:
+        failed_text = failed.error if failed.error_kind == "bad_output" and failed.error else ERROR_KINDS.get(failed.shown_error_kind, ERROR_KINDS["unknown"])
+    return {"active": active, "failed": failed, "failed_text": failed_text, "done": done,
+            "groups": groups, "count": sum(len(v) for v in groups.values())}
+
+
+def _research_page(request: Request, db: Session, error: str | None = None, status_code: int = 200, form: dict | None = None):
     topics = db.query(ResearchTopic).order_by(ResearchTopic.id).all()
     by_area = {code: [t for t in topics if t.area == code] for code in RESEARCH_AREAS}
     runs = db.query(ResearchRun).order_by(ResearchRun.id.desc()).limit(5).all()
@@ -208,6 +234,8 @@ def _research_page(request: Request, db: Session, error: str | None = None, stat
         next_run=_next_run(get_schedule(db)),
         runs=runs,
         error=error,
+        form=form or {},
+        kw=_keywords_view(db, topics),
     )
 
 
@@ -228,23 +256,55 @@ def research_page(request: Request, admin: User = Depends(require_admin), db: Se
     return _research_page(request, db)
 
 
+NO_AREA = "분야를 하나 이상 고르세요."
+
+
 @router.post("/research/topics")
 def create_topic(
     request: Request,
     name: str = Form(""),
     keywords: str = Form(""),
-    area: str = Form(""),
+    area: list[str] = Form(default=[]),
+    src: str = Form(""),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
     once: Once = Depends(form_once),
 ):
+    """고른 분야마다 같은 이름·키워드의 주제를 하나씩 한 트랜잭션으로 만든다 (같은 이름이 이미 있어도 막지 않는다: 주제에는 중복 규칙이 없다).
+    `src` 는 AI 추천 카드에서 보낸 폼의 추천 번호 (오류일 때 그 폼의 입력을 되돌려 주려는 표시)."""
     name, keywords = name.strip(), keywords.strip()
-    error = _topic_error(name, keywords, area)
+    src = src.strip() if src.strip().isdigit() else ""
+    form = {"name": name, "keywords": keywords, "areas": list(area), "src": src}
+    areas = [code for code in RESEARCH_AREAS if code in area]
+    if not areas and not any(a not in RESEARCH_AREAS for a in area):
+        return _research_page(request, db, NO_AREA, 400, form)
+    if any(a not in RESEARCH_AREAS for a in area):
+        return _research_page(request, db, "분야 값이 올바르지 않습니다.", 400, form)
+    error = _topic_error(name, keywords, areas[0])
     if error:
-        return _research_page(request, db, error, 400)
-    db.add(ResearchTopic(name=name, keywords=keywords, area=area, created_by_id=admin.id))
+        return _research_page(request, db, error, 400, form)
+    for code in areas:
+        db.add(ResearchTopic(name=name, keywords=keywords, area=code, created_by_id=admin.id))
     db.commit()
     return once.done(notices.redirect("/admin/research", "created"))
+
+
+KEYWORDS_KIND = KEYWORDS_JOB_KIND
+
+
+@router.post("/research/keywords", dependencies=[Depends(require_admin), Depends(require_ai_on)])
+def start_keywords(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """AI 추천 시작. 한 번에 하나만: 진행 중인 작업이 있으면 새로 만들지 않는다."""
+    waiting = db.query(AIJob.id).filter(AIJob.kind == KEYWORDS_KIND, AIJob.status.in_(ontology.JOB_ACTIVE)).first()
+    if waiting is None:
+        enqueue(db, KEYWORDS_KIND, {}, admin.id)
+    return notices.redirect("/admin/research", "keywords_started")
+
+
+@router.get("/research/keywords/status")
+def keywords_status(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    topics = db.query(ResearchTopic).order_by(ResearchTopic.id).all()
+    return render(request, "admin/_research_keywords.html", areas=RESEARCH_AREAS, form={}, kw=_keywords_view(db, topics))
 
 
 @router.post("/research/topics/{topic_id}")

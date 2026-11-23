@@ -1323,3 +1323,11 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 .job-failed p { margin: 0 0 8px; }
 .deck-done { margin: 0; padding: 10px 14px; border: 1px solid var(--ok-line); border-radius: var(--r-sm); background: var(--ok-soft); color: var(--ok); }
 .deck-open-slides a { white-space: nowrap; }
+
+/* 리서치 설정: 분야 체크 묶음과 AI 추천 카드 */
+.area-checks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s4); padding: 6px var(--s3) 6px; }
+.area-checks legend { padding: 0 6px; font-size: var(--fs-small); color: var(--ink-2); }
+.kw-list { list-style: none; margin: 0 0 var(--s3); padding: 0; display: grid; gap: var(--s3); }
+.kw-item { display: grid; gap: 4px; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); min-width: 0; overflow-wrap: anywhere; }
+.kw-item .kw-add { margin-top: var(--s2); }
+.kw-card h3 { margin: 0; font-size: var(--fs-body); }

@@ -144,7 +144,7 @@ POST_NOTICES = {
     "/research/runs/{run_id}/candidate": "candidate_registered, already_registered", "/research/runs/{run_id}/delete": "deleted",
     "/research/run": "research_started, research_busy, no_topics, ai_off", "/research/reports/{report_id}/retry": "research_retry, research_busy, ai_off",
     "/admin/users": "created", "/admin/users/{user_id}": "saved", "/admin/research/topics": "created", "/admin/research/topics/{topic_id}": "saved",
-    "/admin/research/topics/{topic_id}/delete": "deleted", "/admin/research/schedule": "saved", "/admin/system/ai-check": "ai_check, ai_off", "/admin/system/backup": "backup_done",
+    "/admin/research/topics/{topic_id}/delete": "deleted", "/admin/research/schedule": "saved", "/admin/research/keywords": "keywords_started, ai_off", "/admin/system/ai-check": "ai_check, ai_off", "/admin/system/backup": "backup_done",
     "/admin/system/update/check": "update_checked", "/admin/system/update/apply": "(진행 화면 /admin/system/update/progress 으로 이동)",
     "/proposals": "created, created_ai_off", "/proposals/{proposal_id}/directions": "busy, ai_off, (작업이 시작되면 진행 표시)", "/proposals/{proposal_id}/select": "direction_selected, busy",
     "/proposals/{proposal_id}/chat": "ai_off, (대화창에 내 글이 바로 보임)", "/proposals/{proposal_id}/chat/retry": "ai_off, (대화창에 진행이 보임)",

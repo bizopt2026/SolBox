@@ -145,6 +145,7 @@ JOB_KINDS = {
     "proposal_outline": "제안서 구성안 만들기",
     "research_area": "리서치 분야 조사",
     "research_suggest": "리서치 발굴 방향 제안",
+    "research_keywords": "리서치 주제·키워드 추천",
     "intake_analyze": "올린 파일 정리",
     "ai_ping": "AI 연결 확인",
 }
@@ -158,6 +159,7 @@ JOB_EXPECTED = {
     "proposal_outline": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
     "research_suggest": "보통 1분 안에",
+    "research_keywords": "보통 1~2분 안에",
     "intake_analyze": "보통 1분 안에",
     "ai_ping": "보통 10초 안에",
 }
