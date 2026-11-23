@@ -1,15 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, select_field, save_bar, form_token, ai_note %}
+{% from "_macros.html" import page_header, form_error, select_field, text_field, check_picker, save_bar, form_token, ai_note %}
 {% block title %}제안 만들기{% endblock %}
 {% block content %}
-{{ page_header("제안 만들기", crumbs=ui.crumbs("proposal", none, none, "만들기"), sub="고객을 고르면 제안 후보 솔루션을 모아 AI가 방향을 만들어 줍니다.") }}
+{{ page_header("제안 만들기", crumbs=ui.crumbs("proposal", none, none, "만들기"), sub="대상(특정 고객 한 곳, 또는 다수 고객 그룹)을 정하면 제안 후보 솔루션을 모아 AI가 방향을 만들어 줍니다.") }}
 {{ form_error(error) }}
 {% call ai_note(ai_gate()) %}제안 건은 등록되지만 방향 만들기는 시작하지 않아요. 처리기가 켜진 뒤 "방향 만들기"를 눌러 주세요.{% endcall %}
 {% if prefill_note %}<p class="notice prefill-note" role="note">{{ prefill_note }}</p>{% endif %}
-<form method="post" action="/proposals" class="form-page">
+<form method="post" action="/proposals" class="form-page target-form">
   {{ form_token() }}
   <section class="card">
-    <h2>대상</h2>
+    <h2>대상 종류</h2>
+    <fieldset class="kind-pick">
+      <legend class="sr-only">대상 종류</legend>
+      {% for code, text in ont.PROPOSAL_TARGETS.items() %}
+      <label class="check kind-opt"><input type="radio" name="target_kind" value="{{ code }}"{{ " checked" if form.target_kind == code }}> <span><b>{{ text }}</b>{% if code == "customer" %} 고객 한 곳에 하는 제안 (프로젝트·영업기회를 이을 수 있음){% else %} 고객 여러 곳(예: 전국 지자체)에 하나의 공통 제안{% endif %}</span></label>
+      {% endfor %}
+    </fieldset>
+    <p class="help">대상 종류는 만든 뒤에 바꿀 수 없습니다.</p>
+  </section>
+  <section class="card only-customer">
+    <h2>특정 고객</h2>
     <div class="fgrid">
       {% set copts = [("", "선택하세요")] %}{% for c in customers %}{% set _ = copts.append((c.id, c.name)) %}{% endfor %}
       {{ select_field("고객", "customer_id", copts, form.customer_id, required=true, wide=true) }}
@@ -17,6 +27,18 @@
       {{ select_field(ont.label("project") ~ " (선택)", "project_id", popts, form.project_id) }}
       {% set oopts = [("", "선택 안 함")] %}{% for o in opportunities %}{% set _ = oopts.append((o.id, o.customer.name ~ " – " ~ o.name)) %}{% endfor %}
       {{ select_field(ont.label("opportunity") ~ " (선택)", "opportunity_id", oopts, form.opportunity_id, help="고른 고객의 " ~ ont.label("opportunity") ~ "만 저장됩니다. " ~ ont.label("opportunity") ~ "를 고르면 그 검토 솔루션과 " ~ ont.label("bm") ~ "의 솔루션이 제안 후보 앞쪽에 옵니다.") }}
+    </div>
+  </section>
+  <section class="card only-group">
+    <h2>다수 고객 (대상 그룹)</h2>
+    <div class="fgrid">
+      {{ text_field("대상 그룹 이름", "group_name", form.group_name, required=true, wide=true, error=error, placeholder="예: 전국 지자체", help="제안서 표지·제목과 목록에 이 이름이 쓰입니다 (" ~ ont.PROPOSAL_GROUP_NAME_MAX ~ "자까지).") }}
+      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
+      <div class="wide biz-pick">
+      {{ select_field("신규 사업 (" ~ ont.label("bm") ~ ")", "bm_id", bopts, form.bm_id, wide=true, error=error, help="이 제안이 내놓으려는 새 사업입니다. 고르면 그 " ~ ont.label("bm") ~ "의 솔루션이 제안 후보 앞쪽에 옵니다.") }}
+      </div>
+      <div class="wide">{{ check_picker("group_customer_ids", "붙일 고객 (선택, 예시로 읽을 고객)", customers, form.group_customer_ids) }}</div>
+      <p class="help wide">영업기회·프로젝트는 한 고객의 것이라 다수 고객 제안에는 연결하지 않습니다.</p>
     </div>
   </section>
   <section class="card">

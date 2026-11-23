@@ -8,7 +8,7 @@
 
 ## 대상과 자료
 
-- 고객 사본: `{{customer_path}}`
+{{target_line}}
 {{project_line}}
 
 방향에 든 솔루션 폴더:
@@ -62,7 +62,7 @@ MATERIAL>>>
 ```
 {"title": "제안서 제목",
  "slides": [
-  {"kind": "cover", "title": "제안서 제목", "subtitle": "고객명 · 날짜"},
+  {"kind": "cover", "title": "제안서 제목", "subtitle": "{{subtitle_example}}"},
   {"kind": "bullets", "title": "장 제목", "key_message": "결론 한 문장", "bullets": ["내용"], "sources": [], "needs_check": []},
   {"kind": "two_column", "title": "", "key_message": "", "left_title": "", "left": [], "right_title": "", "right": []},
   {"kind": "table", "title": "", "key_message": "", "columns": ["항목", "값"], "rows": [["a", "b"]]},

@@ -99,7 +99,7 @@ def test_opportunity_stage_code_list():
 
 def test_new_relations_r26_to_r33():
     rels = {r.key: r for r in ontology.RELATIONS}
-    assert list(rels) == [f"R{i}" for i in range(1, 34)]
+    assert list(rels) == [f"R{i}" for i in range(1, 36)]
     assert rels["R25"].label == "같은 회사다"  # 단위 3 의 키는 그대로
     expect = {
         "R26": ("customer_need", "opportunity", "N:1", "fk", "customer_needs.opportunity_id"),
@@ -809,7 +809,7 @@ def _old_schema_db(settings):
     """BM·영업기회 표와 businesses.bm_id, proposals.opportunity_id 가 없는 옛 DB."""
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     new_tables = {"bms", "opportunities", "bm_solutions", "opportunity_solutions", "activity_opportunities"}
-    rebuilt = {"businesses": "bm_id", "proposals": "opportunity_id"}
+    rebuilt = {"businesses": ("bm_id",), "proposals": ("opportunity_id", "target_kind", "group_name", "bm_id")}  # 베타 W 의 열(와 bms 를 가리키는 외래 키)도 뺀다
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
@@ -823,7 +823,7 @@ def _old_schema_db(settings):
     Base.metadata.create_all(engine, tables=keep)
     with engine.begin() as conn:
         for table, col in rebuilt.items():
-            lines = [ln for ln in sqls[table].split("\n") if col not in ln]
+            lines = [ln for ln in sqls[table].split("\n") if not any(c in ln for c in col)]
             sql = re.sub(r",\s*\n\)", "\n)", "\n".join(lines))
             conn.exec_driver_sql(sql)
         conn.exec_driver_sql("INSERT INTO customers (id, name, industry, contact, memo) VALUES (1, '한빛병원', '', '', '')")

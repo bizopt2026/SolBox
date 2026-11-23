@@ -36,6 +36,7 @@ PROJECT_TAKEN = f"이미 다른 {josa(L_OPP, '와/과')} 이어진 {L_PROJECT}�
 PROJECT_HAS_OPPORTUNITY = f"이 {josa(L_PROJECT, '은/는')} {josa(L_OPP, '와/과')} 이어져 있어 고객을 바꿀 수 없습니다."
 HAS_OPPORTUNITIES = f"{josa(L_OPP, '이/가')} 있는 고객은 삭제할 수 없습니다. {josa(L_OPP, '을/를')} 먼저 삭제해 주세요."
 BM_IN_USE = f"이 {josa(L_BM, '을/를')} 따르는 {josa(L_PROJECT, '이나/나')} {josa(L_OPP, '이/가')} 있어 삭제할 수 없습니다. {L_PROJECT}·{L_OPP}의 {josa(L_BM, '을/를')} 먼저 바꾸거나 비워 주세요."
+BM_IN_USE_PROPOSAL = f"이 {josa(L_BM, '을/를')} 신규 사업으로 삼은 다수 고객 제안 건이 있어 삭제할 수 없습니다. 제안 건에서 {josa(L_BM, '을/를')} 먼저 바꾸거나 비워 주세요."
 OPPORTUNITY_MISMATCH = f"선택한 고객의 {josa(L_OPP, '이/가')} 아닙니다."
 NO_OPPORTUNITY = f"존재하지 않는 {L_OPP}입니다."
 
@@ -232,10 +233,15 @@ def project_customer_problem(db: Session, project: Project, new_customer_id: int
 
 
 def bm_delete_problem(db: Session, bm: BM) -> str | None:
-    """BM 을 따르는 프로젝트나 영업기회가 있으면 삭제할 수 없다. 지워도 다른 것은 지우지 않는다."""
+    """BM 을 따르는 프로젝트나 영업기회가 있으면 삭제할 수 없다. 지워도 다른 것은 지우지 않는다.
+    다수 고객 제안 건이 신규 사업으로 삼은 BM 도 같다 (베타 W: 그 연결은 외래 키 제약이 없는 옛 DB 도 있어, 몰래 비우지 않고 막는다)."""
     follows = db.scalar(select(func.count()).select_from(Project).where(Project.bm_id == bm.id)) \
         or db.scalar(select(func.count()).select_from(Opportunity).where(Opportunity.bm_id == bm.id))
-    return BM_IN_USE if follows else None
+    if follows:
+        return BM_IN_USE
+    from app.models import Proposal
+
+    return BM_IN_USE_PROPOSAL if db.scalar(select(func.count()).select_from(Proposal).where(Proposal.bm_id == bm.id)) else None
 
 
 # ---- 목록·집계 ----

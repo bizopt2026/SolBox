@@ -27,6 +27,32 @@ MAX_SLIDES = 14
 NO_COLUMNS = "표의 열 이름을 입력하세요."
 
 
+# ---- 대상 종류 (베타 W): 특정 고객 / 다수 고객(대상 그룹). 규칙은 여기 한 곳이고 라우터·프롬프트·제안서·목록이 이 함수들을 쓴다 ----
+
+def is_group(p: Proposal) -> bool:
+    """다수 고객 제안인가. (모르는 값은 특정 고객으로 본다: 옛 행·깨진 값)"""
+    return p.target_kind == ontology.PROPOSAL_TARGET_GROUP
+
+
+def normalize_group_name(raw: str) -> str:
+    """대상 그룹 이름: 줄바꿈·연속 공백을 한 칸으로. 한 줄 글이라 AI 프롬프트에도 그대로 적을 수 있다."""
+    return " ".join(str(raw or "").split())
+
+
+def target_name(p: Proposal) -> str:
+    """제안서 표지·제목·목록·AI 프롬프트에 쓰는 대상 이름: 특정 고객은 고객 이름, 다수 고객은 대상 그룹 이름. 비어 있거나 None 이 되는 일이 없다."""
+    if is_group(p):
+        return normalize_group_name(p.group_name) or "(대상 그룹 이름 없음)"
+    return p.customer.name if p.customer is not None and p.customer.name else "(고객 없음)"
+
+
+def target_search_names(p: Proposal) -> list[str]:
+    """목록 검색이 보는 이름들: 특정 고객은 고객 이름, 다수 고객은 그룹 이름과 붙인 고객들의 이름."""
+    if is_group(p):
+        return [normalize_group_name(p.group_name), *(c.name for c in p.group_customers)]
+    return [p.customer.name] if p.customer is not None else []
+
+
 def candidate_condition(extra_ids):
     """제안 후보 규칙 (한 곳): 보류가 아닌 모든 단계의 솔루션 + 제안 건에 직접 추가한 솔루션 (`extra_solution_ids`)."""
     cond = Solution.stage != ontology.STAGE_HOLD
@@ -41,12 +67,17 @@ def _base_candidates(db: Session, p: Proposal) -> list[Solution]:
 
 def priority_groups(db: Session, p: Proposal, candidates: list[Solution] | None = None) -> list[dict]:
     """제안 후보 중 앞에 둘 솔루션 묶음 (순서대로): 영업기회의 검토 솔루션, 그 영업기회의 BM 의 솔루션
-    (영업기회가 없으면 프로젝트가 따르는 BM 의 솔루션). 각 묶음은 {"reason": 글, "solutions": [...]} (이름순, 앞 묶음에 든 것은 뺀다).
+    (영업기회가 없으면 프로젝트가 따르는 BM 의 솔루션). 다수 고객 제안은 신규 사업으로 삼은 BM 의 솔루션 한 묶음뿐이다. 각 묶음은 {"reason": 글, "solutions": [...]} (이름순, 앞 묶음에 든 것은 뺀다).
     후보가 아닌 솔루션(보류인데 직접 추가하지 않은 것)은 넣지 않는다: 후보의 집합은 `candidate_condition` 그대로다."""
     pool = {s.id: s for s in (candidates if candidates is not None else _base_candidates(db, p))}
-    opp = p.opportunity
-    bm = opp.bm if opp is not None else (p.project.bm if p.project is not None else None)
+    group = is_group(p)
+    opp = None if group else p.opportunity  # 다수 고객 제안은 영업기회·프로젝트가 없고, 신규 사업(BM)의 솔루션이 앞선다
+    bm = p.bm if group else (opp.bm if opp is not None else (p.project.bm if p.project is not None else None))
     sources = []
+    if group:
+        if bm is not None:
+            sources.append((f"신규 사업 {ontology.label('bm')} '{bm.name}' 의 솔루션", bm.solutions))
+        bm = None
     if opp is not None:
         sources.append((f"{ontology.label('opportunity')} '{opp.name}' 의 {ontology.prop('opportunity', 'solutions')}", opp.solutions))
     if bm is not None:
@@ -72,9 +103,11 @@ def candidate_solutions(db: Session, p: Proposal) -> list[Solution]:
 def display_title(p: Proposal) -> str:
     if p.title:
         return p.title
+    if is_group(p):
+        return f"{target_name(p)} 제안"
     if p.project is not None:
-        return f"{p.customer.name} · {p.project.name} 제안"
-    return f"{p.customer.name} 제안"
+        return f"{target_name(p)} · {p.project.name} 제안"
+    return f"{target_name(p)} 제안"
 
 
 def check_sources(knowledge_dir: Path, sources: list[str]) -> tuple[list[str], list[str]]:
@@ -727,7 +760,10 @@ def open_section(p: Proposal) -> str:
 
 def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]:
     """접힌 구역에 보이는 한 줄 요약."""
-    who = p.customer.name + (f" · {p.project.name}" if p.project is not None else "") + (f" · {p.opportunity.name}" if p.opportunity is not None else "")
+    if is_group(p):
+        who = target_name(p) + (f" · 고객 {len(p.group_customers)}곳 붙임" if p.group_customers else "") + (f" · {p.bm.name}" if p.bm is not None else "")
+    else:
+        who = target_name(p) + (f" · {p.project.name}" if p.project is not None else "") + (f" · {p.opportunity.name}" if p.opportunity is not None else "")
     # 세 숫자는 따로 부른다: "후보 솔루션 n개"(AI 에 주는 후보), "선택한 방향의 솔루션 n개"(조합). 방향을 고르기 전에는 조합 이야기를 하지 않는다
     target = f"{who} — 후보 솔루션 {len(candidates)}개" if candidates else who
     directions = p.directions or []

@@ -1331,3 +1331,16 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 .kw-item { display: grid; gap: 4px; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); min-width: 0; overflow-wrap: anywhere; }
 .kw-item .kw-add { margin-top: var(--s2); }
 .kw-card h3 { margin: 0; font-size: var(--fs-body); }
+
+/* 제안 만들기: 대상 종류(특정 고객 / 다수 고객). 라디오에 따라 맞는 칸만 보인다 (:has 를 못 쓰는 브라우저는 두 칸 모두 보인다) */
+.kind-pick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.kind-opt { flex: 1 1 260px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; }
+.kind-opt input { margin-top: 4px; }
+.kind-opt span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-small); color: var(--ink-3); }
+.kind-opt span b { font-size: var(--fs-body); color: var(--ink); }
+.kind-opt:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.target-form:has(input[name="target_kind"][value="group"]:checked) .only-customer { display: none; }
+.target-form:has(input[name="target_kind"][value="customer"]:checked) .only-group { display: none; }
+.biz-pick { padding: 10px 12px; border: 1px solid var(--brand); border-radius: var(--r-sm); background: var(--brand-soft); }
+.biz-pick select { background: var(--surface); }
+dd.new-biz strong { color: var(--brand-deep); }
