@@ -361,9 +361,26 @@ _PLACEHOLDER_SHAPE = re.compile(
 )
 
 
+# 괄호 입력 표시 (베타 S, 사용자 결정 2026-11-23: 낱말 규칙을 뺄 때 같이 빠진 것을 되살렸다): 줄 전체가 `(수치 입력)`·`[일정 입력]`·`(입력)` 꼴이거나,
+# 줄 끝이 `(문서 값 입력)` 이고 그 앞이 `화면|단계|조건|양식|폼` 이 아닐 때 (`견적 요청 화면 (수량 입력)` 은 고객 문장).
+_BRACKET_INPUT_LINE = re.compile(r"^[\[\(][^()\[\]]{0,15}입력[\]\)]?$")
+_BRACKET_INPUT_END = re.compile(rf"[\[\(][^()\[\]]{{0,8}}(?:{_DOC_NEAR}|이름|성명|회사명)[^()\[\]]{{0,10}}입력\s*[\]\)]?$")
+_BRACKET_INPUT_AFTER_NOT = re.compile(r"(?:화면|단계|조건|양식|폼)$")
+
+
+def _bracket_input(norm: str) -> bool:
+    if len(norm) > 200:  # 자리표시 줄은 짧다. 긴 줄은 보지 않는다 (시간도 묶인다)
+        return False
+    if _BRACKET_INPUT_LINE.match(norm):
+        return True
+    m = _BRACKET_INPUT_END.search(norm)
+    return m is not None and not _BRACKET_INPUT_AFTER_NOT.search(norm[:m.start()].rstrip())
+
+
 def _placeholder_shape(line: str) -> bool:
-    """채우지 않은 자리표시 모양(`XX%`·`○○`·`OO`·`XX`)이 든 줄인가. 공백을 한 칸으로 줄인 글에서 본다 (선형)."""
-    return _PLACEHOLDER_SHAPE.search(" ".join(line.split())) is not None
+    """채우지 않은 자리표시 모양(`XX%`·`○○`·`OO`·`XX`·괄호 입력 표시)이 든 줄인가. 공백을 한 칸으로 줄인 글에서 본다 (선형)."""
+    norm = " ".join(line.split())
+    return _PLACEHOLDER_SHAPE.search(norm) is not None or _bracket_input(norm)
 
 
 def is_author_instruction(text: str) -> bool:
