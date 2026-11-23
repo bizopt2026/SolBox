@@ -277,6 +277,9 @@ def create_app(settings: Settings) -> FastAPI:
     for d in (settings.data_dir, settings.uploads_dir, settings.knowledge_dir, settings.decks_dir):
         d.mkdir(parents=True, exist_ok=True)
 
+    from app import update as update_lib
+
+    update_lib.remember_boot_commit()  # 지금 돌고 있는 코드의 커밋 (업데이트 뒤 다시 시작했는지 /healthz 가 알린다)
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
     run_startup_migrations(engine, settings.db_path)
@@ -378,9 +381,10 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, confirm, help as help_router, account,
+        follow_ups, proposals, research, search, solutions, confirm, help as help_router, account, health,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
+    app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(account.router)
     app.include_router(home.router)

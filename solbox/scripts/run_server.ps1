@@ -16,6 +16,10 @@ Set-Location $repo
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
 
+# 이 스크립트가 서버를 시작했다는 표시: 서버가 끝나면 아래 반복문이 다시 띄워 주므로 관리 > 시스템의 "지금 업데이트"가 서버를 끝내 다시 시작시킬 수 있다.
+# 이 표시가 없으면(python -m app 을 직접 실행) 업데이트 버튼은 막힌다. 반드시 python 을 시작하기 전에 둔다.
+$env:SOLBOX_SUPERVISED = "1"
+
 # 콘솔 로그: data\logs\server-console.log (앱 로그는 data\logs\app.log).
 # config.toml 의 data_dir 를 바꿨다면 -LogDir 로 맞춘다.
 $logDir = if ($LogDir) { $LogDir } else { Join-Path $repo "data\logs" }
