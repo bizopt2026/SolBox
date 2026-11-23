@@ -1,6 +1,7 @@
 """올리기 묶음: 여러 파일을 한 번에 받아 저장하고, 묶음별 작업 폴더(글 사본·줄인 사진)를 준비한다."""
 from __future__ import annotations
 
+import io
 import logging
 import re
 import secrets
@@ -29,6 +30,8 @@ log = logging.getLogger(__name__)
 CHUNK = 1024 * 1024
 MAX_FILES = 20
 MAX_NOTE = 500
+MAX_PASTE = 200_000  # 붙여넣은 글의 글자 수 상한
+MAX_PASTE_TITLE = 60
 MAX_IMAGE_SIDE = 2000
 MAX_IMAGE_PIXELS = 40_000_000  # 이보다 큰 사진은 열지 않고 읽지 못한 것으로 둔다
 MAX_COPY_NAME_BYTES = 150  # 작업 폴더 사본 이름의 UTF-8 바이트 상한 (파일 시스템 이름 길이 제한 대비)
@@ -36,7 +39,8 @@ MAX_RAW_TEXT = 200_000
 MAX_TAGS = 5
 NO_READABLE = "읽을 수 있는 파일이 없습니다."
 NOT_PLACED = "정리 대상에 포함되지 않음"
-NO_FILES = "올릴 파일을 선택하세요."
+NO_FILES = "파일을 고르거나 글을 붙여넣어 주세요."
+PASTE_TOO_LONG = f"붙여넣은 글은 {MAX_PASTE:,}자까지 올릴 수 있습니다."
 FILE_LIST_NAME = "파일목록.md"
 HINT_MAX_CHARS = 200  # 받아쓰기 힌트(초기 프롬프트) 전체 글자 수: 모델이 읽는 창이 작다
 HINT_NOTE_CHARS = 80
@@ -62,6 +66,19 @@ def clean_name(filename: str) -> str:
     """브라우저가 경로째 보낸 이름에서 파일명만 남긴다. 브라우저는 따옴표를 %22 로 보낸다."""
     filename = filename.replace("%22", '"').replace("%0D", "").replace("%0A", "")
     return Path(filename.replace("\\", "/")).name
+
+
+def paste_upload(text: str, title: str = "", now: datetime | None = None) -> UploadFile | None:
+    """붙여넣은 글을 올린 `.txt` 파일 하나로 만든다 (메모리 안, UTF-8, 줄바꿈은 `\\n`). 글이 공백뿐이면 None.
+    이름은 `<제목>.txt` (올린 파일 이름과 같은 `clean_name` 으로 거른다), 제목이 없으면 `붙여넣은 글 <날짜 시각>.txt`."""
+    body = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not body.strip():
+        return None
+    base = clean_name(_flat(title))[:MAX_PASTE_TITLE].strip(" .")
+    if not base:
+        base = "붙여넣은 글 " + (now or datetime.now()).strftime("%Y-%m-%d %H:%M")
+    name = base if base.lower().endswith(".txt") else base + ".txt"
+    return UploadFile(file=io.BytesIO(body.encode("utf-8")), filename=name)
 
 
 def extension(name: str) -> str:
@@ -154,8 +171,12 @@ def earlier_copies(db: Session, settings: Settings, intake: Intake, viewer: User
 
 
 def create_intake(db: Session, settings: Settings, user: User, note: str,
-                  uploads: list[UploadFile | str]) -> tuple[Intake, list[str]]:
-    """묶음을 만들고 파일을 저장한다. (묶음, 받지 못한 파일 안내 목록). 받은 파일이 없으면 ValueError."""
+                  uploads: list[UploadFile | str], pasted_text: str = "", pasted_title: str = "") -> tuple[Intake, list[str]]:
+    """묶음을 만들고 파일을 저장한다. (묶음, 받지 못한 파일 안내 목록). 받은 파일이 없으면 ValueError.
+    붙여넣은 글(`pasted_text`)은 올린 `.txt` 파일 하나와 똑같이 다룬다 (같은 저장·크기 제한·파일 수 한도). 글이 잘려 나가지 않게 파일보다 앞에 둔다."""
+    pasted = paste_upload(pasted_text, pasted_title)
+    if pasted is not None:
+        uploads = [pasted, *uploads]
     limit_mb = settings.max_upload_mb
     intake = Intake(note=note.strip(), created_by_id=user.id)
     db.add(intake)

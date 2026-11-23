@@ -2,7 +2,7 @@
 {% from "_macros.html" import page_header, pill, intake_pill %}
 {% block title %}올리기{% endblock %}
 {% block content %}
-{{ page_header("파일 올리기", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), ("새로 올리기", none)], sub="문서·사진·음성 파일을 한꺼번에 올리세요. 한 번에 " ~ max_files ~ "개까지, 파일 하나는 " ~ max_mb ~ "MB까지 올릴 수 있어요.") }}
+{{ page_header("파일 올리기", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), ("새로 올리기", none)], sub="문서·사진·음성 파일을 한꺼번에 올리거나, 메일·회의 메모 같은 글을 그대로 붙여넣으세요. 한 번에 " ~ max_files ~ "개까지, 파일 하나는 " ~ max_mb ~ "MB까지 올릴 수 있어요.") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <div class="dgrid">
   <div class="dmain">
@@ -20,6 +20,7 @@
         <li><span class="ex-in">제품 소개서·스펙</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "new_solution") }}</span></li>
         <li><span class="ex-in">미팅 녹취록·현장 사진</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "activity") }}</span></li>
         <li><span class="ex-in">명함·회사 소개</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "new_customer") }} {{ pill("plan_item_kind", "new_partner") }}</span></li>
+        <li><span class="ex-in">메일·회의 메모 붙여넣기</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">{{ pill("plan_item_kind", "activity") }}</span></li>
       </ul>
       <p class="muted help">AI가 정리안을 만들고, 사용자가 확인해 저장해야 기록이 만들어집니다.</p>
     </section>

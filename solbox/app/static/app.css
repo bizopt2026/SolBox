@@ -1030,6 +1030,18 @@ details.formsec[open] > summary { margin-bottom: var(--s3); }
 .dropzone-list:empty { display: none; }
 .dropzone-summary { margin: 0; font-size: var(--fs-note); font-weight: var(--fw-strong); }
 .dropzone-warn { margin: 0; font-size: var(--fs-note); }
+/* 올리기: 글 붙여넣기 (파일 영역 아래, 올릴 때 파일 하나로 올라간다) */
+.paste-box { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.paste-box h3 { margin: 0; font-size: var(--fs-section); }
+.paste-box p { margin: 0; }
+.paste-box textarea, .paste-box input[type=text] { width: 100%; max-width: 100%; box-sizing: border-box; }
+.paste-box textarea { min-height: 9em; }
+.paste-count { font-size: var(--fs-note); text-align: right; font-variant-numeric: tabular-nums; }
+.paste-count.over { color: var(--bad); font-weight: var(--fw-strong); }
+details.paste-compact { padding: var(--s2) var(--s3); }
+details.paste-compact > summary { cursor: pointer; font-size: var(--fs-note); font-weight: 500; color: var(--brand); }
+details.paste-compact[open] > summary { margin-bottom: var(--s2); }
+details.paste-compact textarea { min-height: 7em; }
 .ai-down { margin: 0; }
 .file-note { font-size: var(--fs-note); color: var(--warn); }
 .name-status { display: none; }

@@ -103,7 +103,7 @@ def upload_context(request: Request, db: Session) -> dict:
     """올리기 입력 영역(`_dropzone.html`)이 쓰는 값: 한도, 음성 받아쓰기 가능 여부, AI 사용 불가 안내."""
     settings = request.app.state.settings
     return dict(max_files=intake_lib.MAX_FILES, max_mb=settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
-                transcriber_ready=transcribe.get(settings).available(), ai_problem=ai_problem(db))
+                max_paste=intake_lib.MAX_PASTE, max_paste_title=intake_lib.MAX_PASTE_TITLE, transcriber_ready=transcribe.get(settings).available(), ai_problem=ai_problem(db))
 
 
 def _recent(db: Session, user: User, limit: int = 5) -> list[Intake]:
@@ -119,18 +119,22 @@ def new_page(request: Request, user: User = Depends(require_user), db: Session =
 @router.post("")
 def create(
     request: Request, files: list[UploadFile | str] = [], note: str = Form(""),
+    pasted_text: str = Form(""), pasted_title: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once),
 ):
     settings = request.app.state.settings
 
     def again(error: str):
         return render(request, "intake/new.html", status_code=400, user=user, error=error, note=note,
+                      pasted_text=pasted_text, pasted_title=pasted_title,
                       recent=_recent(db, user), **upload_context(request, db))
 
     if len(note.strip()) > intake_lib.MAX_NOTE:
         return again(NOTE_TOO_LONG)
+    if len(pasted_text.replace("\r\n", "\n").replace("\r", "\n")) > intake_lib.MAX_PASTE:
+        return again(intake_lib.PASTE_TOO_LONG)
     try:
-        intake, skipped = intake_lib.create_intake(db, settings, user, note, files)
+        intake, skipped = intake_lib.create_intake(db, settings, user, note, files, pasted_text, pasted_title)
     except ValueError as e:
         return again(str(e))
     try:

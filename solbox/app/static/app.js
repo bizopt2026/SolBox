@@ -492,6 +492,22 @@
     show();
   });
 
+  // 올리기: 글 붙여넣기 글자 수 (없어도 서버가 한도를 확인한다)
+  document.querySelectorAll("[data-paste]").forEach(function (box) {
+    var ta = box.querySelector("[data-paste-text]");
+    var n = box.querySelector("[data-paste-n]");
+    var count = box.querySelector("[data-paste-count]");
+    var max = parseInt(box.getAttribute("data-paste-max"), 10) || 0;
+    if (!ta || !n) return;
+    var update = function () {
+      var len = ta.value.replace(/\r\n?/g, "\n").length;
+      n.textContent = len.toLocaleString("en-US");
+      if (count && max) count.classList.toggle("over", len > max);
+    };
+    ta.addEventListener("input", update);
+    update();
+  });
+
   // 파일 고르기 칸: 고른 파일 이름을 보여 준다 (없어도 고르기는 된다)
   document.querySelectorAll("[data-filepick]").forEach(function (box) {
     var input = box.querySelector('input[type="file"]');

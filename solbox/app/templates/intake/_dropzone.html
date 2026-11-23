@@ -1,16 +1,41 @@
 {# 올리기 입력: 영역 전체가 파일 입력칸의 label 이라 어디를 눌러도 파일 선택이 열린다. 스크립트 없이는 파일 입력칸이 그대로 보이고, 스크립트가 끌어다 놓기와 선택 목록을 더한다.
-   부모가 <form action="/intake" enctype="multipart/form-data"> 를 연다. 컨텍스트: zone_id, max_files, max_mb, max_note, note, transcriber_ready, ai_problem #}
+   부모가 <form action="/intake" enctype="multipart/form-data"> 를 연다. 컨텍스트: zone_id, max_files, max_mb, max_note, max_paste, max_paste_title, note, pasted_text, pasted_title, transcriber_ready, ai_problem.
+   글 붙여넣기(`pasted_text`, 제목 `pasted_title`)는 파일과 함께나 파일 없이 올릴 수 있다: 서버가 붙여넣은 글을 올린 .txt 파일 하나로 다룬다. 파일 입력칸에 required 를 달지 않는다(서버가 "파일이나 글 중 하나"를 본다). #}
 <div class="dropzone{% if zone_id == 'home' %} dropzone-compact{% endif %}" data-dropzone data-max-files="{{ max_files }}" data-max-mb="{{ max_mb }}">
   <label class="dropzone-area" for="{{ zone_id }}-files">
     <span class="dropzone-main">파일을 여기에 끌어다 놓거나 눌러서 선택</span>
     <span class="dropzone-types">문서(pptx, pdf, docx, xlsx, txt, md, csv) · 사진 · 음성</span>
     <span class="dropzone-types">{% if transcriber_ready %}음성 파일은 받아써서 정리합니다 (길면 오래 걸려요){% else %}음성 파일은 보관만 됩니다 (받아쓰기 준비 중){% endif %}</span>
-    <input id="{{ zone_id }}-files" type="file" name="files" multiple required>
+    <input id="{{ zone_id }}-files" type="file" name="files" multiple>
   </label>
   <p class="dropzone-summary" aria-live="polite" hidden></p>
   <ul class="dropzone-list"></ul>
   <p class="error dropzone-warn" role="alert" hidden></p>
 </div>
+{% set paste_val = pasted_text | default('') %}
+{% macro paste_counter() %}<p class="paste-count muted" data-paste-count aria-live="off"><span data-paste-n>{{ "{:,}".format(paste_val | length) }}</span> / {{ "{:,}".format(max_paste) }}자</p>{% endmacro %}
+{% if zone_id == 'home' %}
+<details class="paste-box paste-compact" data-paste data-paste-max="{{ max_paste }}"{% if paste_val %} open{% endif %}>
+  <summary>글 붙여넣기</summary>
+  <div class="stack">
+    <label class="paste-field"><span class="sr-only">붙여넣을 글 (회의 메모, 메일, 웹페이지 글)</span>
+      <textarea id="{{ zone_id }}-paste" name="pasted_text" rows="5" placeholder="회의 메모, 메일, 웹페이지 글을 붙여넣으세요" data-paste-text>{{ paste_val }}</textarea>
+    </label>
+    {{ paste_counter() }}
+  </div>
+</details>
+{% else %}
+<section class="paste-box" data-paste data-paste-max="{{ max_paste }}" aria-labelledby="{{ zone_id }}-paste-h">
+  <h3 id="{{ zone_id }}-paste-h">글 붙여넣기 <span class="muted">(선택)</span></h3>
+  <p class="muted help">파일 대신, 또는 파일과 함께 글을 붙여넣을 수 있어요. 붙여넣은 글은 텍스트 파일 하나로 올라가 같은 방식으로 정리돼요.</p>
+  <label><span>제목 (선택, {{ max_paste_title }}자까지)</span>
+    <input type="text" name="pasted_title" value="{{ pasted_title | default('') }}" maxlength="{{ max_paste_title }}" placeholder="예: 한빛병원 미팅 메모">
+  </label>
+  <label for="{{ zone_id }}-paste"><span>붙여넣은 글</span></label>
+  <textarea id="{{ zone_id }}-paste" name="pasted_text" rows="8" placeholder="회의 메모, 메일, 웹페이지 글을 붙여넣으세요" data-paste-text>{{ paste_val }}</textarea>
+  {{ paste_counter() }}
+</section>
+{% endif %}
 {% from "_macros.html" import ai_note %}{% set aig = ai_gate() %}
 {% if aig and (aig.blocked or aig.down) %}
 {% call ai_note(aig, down=aig.upload) %}{{ aig.upload }} 급하면 <a href="/solutions/new">솔루션 직접 입력</a> · <a href="/activities/new">활동 기록 직접 입력</a>{% endcall %}

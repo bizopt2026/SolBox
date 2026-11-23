@@ -946,7 +946,7 @@ def ontology_starters():
 # ---- B13 batch ----
 def test_empty_file_upload_message_names_the_file(user_client, db):
     r = user_client.post("/intake", files=[("files", ("빈 메모.txt", b"", "text/plain"))])
-    assert r.status_code == 400 and "빈 파일은 올릴 수 없습니다: 빈 메모.txt" in r.text and "올릴 파일을 선택하세요" not in r.text
+    assert r.status_code == 400 and "빈 파일은 올릴 수 없습니다: 빈 메모.txt" in r.text and "파일을 고르거나 글을 붙여넣어 주세요" not in r.text
     r = user_client.post("/intake", files=[("files", ("빈.txt", b"", "text/plain")), ("files", ("실제.txt", b"x", "text/plain"))], follow_redirects=False)
     assert r.status_code in (200, 303)  # 일부만 비었으면 받은 파일은 올라가고 빈 파일은 안내
 

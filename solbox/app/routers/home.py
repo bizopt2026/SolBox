@@ -160,7 +160,7 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depe
         recent=recent, follow_ups=follow_ups[:FOLLOW_UP_SHOWN], fu_tabs=fu_tabs, mine_only=mine_only,
         follow_up_more=max(0, len(follow_ups) - FOLLOW_UP_SHOWN),
         intake=intake, max_files=intake_lib.MAX_FILES,
-        max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE,
+        max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE, max_paste=intake_lib.MAX_PASTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
         flow=flow, opp=opp, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
         toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None,

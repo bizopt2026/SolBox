@@ -116,7 +116,7 @@ def test_limits(user_client, db, settings, app):
         c.post("/login", data={"username": "kim", "password": "pw1234"})  # 같은 data_dir 이라 같은 DB
         before = db.query(Intake).count()
         r = c.post("/intake", data={"note": ""}, files=[("files", ("a.txt", b"abc", "text/plain"))], follow_redirects=False)
-        assert r.status_code == 400 and "올릴 파일을 선택하세요." in r.text
+        assert r.status_code == 400 and "파일을 고르거나 글을 붙여넣어 주세요." in r.text
         db.expire_all()
         assert db.query(Intake).count() == before
         assert not any((settings.uploads_dir / "intake" / str(n)).exists() for n in (before + 1,))
@@ -176,7 +176,7 @@ def test_list_filters_by_status_and_paginates(user_client, db):
 
 def test_no_files_rejected(user_client, db):
     r = user_client.post("/intake", data={"note": "메모만"}, follow_redirects=False)
-    assert r.status_code == 400 and "올릴 파일을 선택하세요." in r.text and "메모만" in r.text
+    assert r.status_code == 400 and "파일을 고르거나 글을 붙여넣어 주세요." in r.text and "메모만" in r.text
     r = user_client.post("/intake", data={"note": ""}, files=[("files", ("", b"", "application/octet-stream"))], follow_redirects=False)
     assert r.status_code == 400
     assert db.query(Intake).count() == 0
