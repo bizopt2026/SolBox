@@ -76,6 +76,7 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "password_changed": ("ok", "비밀번호를 바꿨습니다. 다른 곳에서 로그인한 상태는 끝났습니다."),
     "weak_password": ("warn", "지금 쓰는 비밀번호가 새 규칙(8자 이상 등)에 맞지 않습니다. 아래에서 새 비밀번호로 바꿔 주세요."),
     "backup_done": ("ok", "백업을 만들었습니다."),
+    "update_checked": ("ok", "업데이트를 확인했어요. 결과는 '시스템 업데이트' 카드에 있어요."),
     "candidate_registered": ("ok", "솔루션 후보로 등록했습니다. 내용을 확인해 저장하세요."),
     "already_registered": ("warn", "이미 등록된 솔루션이라 그 화면으로 왔습니다."),
 }.items()}

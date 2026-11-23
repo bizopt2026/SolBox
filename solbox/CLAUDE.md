@@ -221,6 +221,14 @@
 - **제안서 만들기 성공 표시**: `notice=deck_built` 로 돌아온 화면의 제안서 상자 맨 위에 "제안서 파일을 만들었습니다 (시각)"(`.deck-done`)이 보인다 (`_deck.html`, 구성안 화면의 상자도 같다). 옛 파일 지우기(`routers/proposals.build`)는 새 파일 저장·커밋 뒤라 `OSError`(Windows 에서 파워포인트가 연 파일의 `PermissionError`)를 로그만 남기고 넘긴다: 새 제안서는 정상이고 옛 파일이 남을 수 있다.
 - **확인 항목이 남은 장 바로가기**: 제안서 상자의 "확인하지 않은 항목이 N개 남아 있습니다" 줄에 `proposals.open_check_slides` 가 만든 "n장(개수)" 링크(`/proposals/{id}/outline?open=n#slide-n`)가 붙는다 (항목이 한 개뿐인 장은 "이 장의 항목 모두 확인함" 단추가 없어 찾기 어려웠다). 시험 `tests/test_beta_u.py`.
 
+## 베타 X 묶음이 바꾼 규칙
+- **시스템 업데이트(사용자 요청 2026-11-23)**: 관리 › 시스템의 카드에서 GitHub `main` 을 확인(`POST /admin/system/update/check`, 읽기만)하고 적용(`POST /admin/system/update/apply`, 관리자 전용·폼 표 `Once`·`data-confirm`)한다. 코드는 `app/update.py` 한 곳, 화면은 `admin/_update_card.html`·`admin/update_progress.html`(+`static/update.js`), 라우터는 `routers/admin.py`, 로그인 없는 `GET /healthz`(`routers/health.py`: 버전과 **서버가 시작될 때의 커밋**)는 다시 시작을 기다리는 화면이 쓴다.
+- **명령은 모두 `system.run_bounded_ex`(= `run_bounded` 와 같은 시간 제한·Windows taskkill, 표준 오류도 돌려주고 `env` 를 받는다)로 고정 인자 목록만 돌린다**: `git -C <저장소> -c core.quotepath=off rev-parse|status --porcelain --untracked-files=no|fetch origin main|rev-list --count|log|diff --name-only|pull --ff-only origin main|reset --hard <40자리 커밋>`, `<sys.executable> -m pip install -e <solbox 폴더>`(15분). 셸 글·사용자 입력은 명령에 넣지 않고 `GIT_TERMINAL_PROMPT=0`. 오류 글은 `runner.redact` 를 거쳐 300자까지. 새 명령을 더해도 이 규칙을 지킨다.
+- 막는 조건(확인과 적용이 같은 `update.check` 를 쓴다; 적용은 시작할 때 다시 돌린다): git 폴더 아님·`main` 아님·추적 파일 직접 고침(최대 10개 표시)·GitHub 에 없는 로컬 커밋·AI 작업 대기/진행·서버를 `run_server.ps1` 로 시작하지 않음(`SOLBOX_SUPERVISED=1`, 스크립트가 python 을 띄우기 전에 설정). 적용 순서: 다시 확인 → `backup.run_backup`(실패하면 멈춤) → `git pull --ff-only` → pyproject.toml 이 바뀌었으면 pip → 기록 → 종료 예약. 실패하면 **`pull` 이 HEAD 를 옮긴 경우에만** `reset --hard <이전 커밋>` 하고 다시 시작하지 않는다. 한 번에 하나(`_APPLY_LOCK`, 백그라운드 스레드), 확인은 적용 중이면 거부.
+- 저장: 마지막 확인 결과는 **메모리**(`update._LAST_CHECK`, 다시 시작하면 지워짐), 마지막 업데이트 기록은 `app_settings.system_update_last`(누가·언제·from→to·pip·ok·reset·error·`notice_pending`)와 `app` 로그. 결과 알림은 한 번만(`take_notice`: 성공은 시작 커밋이 새 커밋일 때만 보인다).
+- **다시 시작**: `update.schedule_restart` 가 3초 뒤 `signal.raise_signal(SIGINT)` 로 uvicorn 의 얌전한 종료(요청 마무리 → `lifespan` 정리: 작업자·스케줄러·로그 닫기)를 부르고, 20초 안에 안 끝나면 `logging.shutdown()` 뒤 `os._exit(0)`. `run_server.ps1` 의 반복문이 10초 뒤 다시 띄운다. 시험은 `schedule_restart`/`request_shutdown`/`hard_exit`/`run_pip` 를 바꿔 끼우고 실제 종료·pip 은 부르지 않는다. 알려진 한계(모르는 것): Windows 에서 다른 스레드의 `raise_signal(SIGINT)` 가 uvicorn 을 실제로 멈추는지, 진행 중 AI 작업이 시작되는 틈(확인과 pull 사이)은 시험하지 못했다. **첫 실제 업데이트는 사람이 서버 PC 에서 해 보아야 한다** (확인 목록은 운영가이드 9-1). `GET /healthz` 는 비밀이 아닌 버전·커밋만 준다.
+- 보안: 관리자 전용·고정 명령·기록이 있다. **GitHub main 에 올릴 수 있는 사람은 이 서버에서 코드를 실행하게 할 수 있다** (GitHub 계정 보호). 시험 `tests/test_beta_x.py`. 문서: 운영가이드 9번, `docs/화면구성도.md`, `help.html`(관리자).
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

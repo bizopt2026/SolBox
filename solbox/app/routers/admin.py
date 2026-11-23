@@ -6,11 +6,11 @@ import threading
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import backup, ontology, scheduler, transcribe, ui
+from app import backup, ontology, scheduler, transcribe, ui, update
 from app.ai.gate import require_ai_on
 from app.ai.queue import enqueue
 from app import notices
@@ -351,6 +351,21 @@ def _check_rows(settings) -> list[dict]:
     return rows
 
 
+def _update_ctx(request: Request) -> dict:
+    """'시스템 업데이트' 카드에 보일 것: 돌고 있는 커밋, 마지막 확인(메모리), 마지막 업데이트 기록(app_settings), 한 번만 보일 결과 알림."""
+    sf = request.app.state.session_factory
+    record = update.read_record(sf)
+    notice = update.take_notice(sf)  # 화면을 그리기 전에 한 번 읽고 끈다
+    at = None
+    if record and record.get("at"):
+        try:
+            at = datetime.fromisoformat(record["at"])
+        except ValueError:
+            at = None
+    return {"boot": update.boot_commit(), "check": update.last_check(), "record": record, "record_at": at, "notice": notice,
+            "running": update.state()["state"] == "running", "supervised": update.is_supervised()}
+
+
 def _system_page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
     s = request.app.state.settings
     now = datetime.now()
@@ -378,6 +393,7 @@ def _system_page(request: Request, db: Session, error: str | None = None, status
         failed_text=ERROR_KINDS.get(last_failed.shown_error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
         ping=_ping_state(db),
         checks=_check_rows(s),
+        upd=_update_ctx(request),
         fresh_backup=request.query_params.get("notice") == "backup_done",
         error=error,
     )
@@ -408,3 +424,33 @@ def manual_backup(request: Request, admin: User = Depends(require_admin), db: Se
     except (OSError, ValueError, sqlite3.Error) as e:
         return _system_page(request, db, f"백업하지 못했습니다: {e}")
     return notices.redirect("/admin/system", "backup_done")
+
+
+@router.post("/system/update/check")
+def update_check(request: Request, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """업데이트 확인(읽기만): git fetch 로 새 커밋을 보고 결과를 메모리에 둔다."""
+    result = update.run_check(request.app.state.session_factory)
+    if result.get("busy"):
+        return _system_page(request, db, result["busy"])
+    return notices.redirect("/admin/system", "update_checked")
+
+
+@router.post("/system/update/apply")
+def update_apply(request: Request, admin: User = Depends(require_admin), once: Once = Depends(form_once)):
+    """지금 업데이트: 백그라운드에서 다시 확인 → 백업 → pull → (pip) → 다시 시작. 두 번 눌러도 한 번만 돈다 (폼 표 + 모듈 잠금)."""
+    update.start_apply(request.app, admin.name or admin.username)
+    return once.done(RedirectResponse("/admin/system/update/progress", status_code=303))
+
+
+@router.get("/system/update/progress")
+def update_progress(request: Request, admin: User = Depends(require_admin)):
+    if update.state()["state"] == "idle":
+        return RedirectResponse("/admin/system", status_code=303)
+    return render(request, "admin/update_progress.html")
+
+
+@router.get("/system/update/status")
+def update_status(admin: User = Depends(require_admin)):
+    st = update.state()
+    return JSONResponse({"state": st["state"], "steps": [{"text": t, "status": s} for t, s in st["steps"]], "error": st["error"], "to": st["to"], "from": st["from"]},
+                        headers={"Cache-Control": "no-store"})

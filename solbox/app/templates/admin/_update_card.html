@@ -1,0 +1,39 @@
+{% from "_macros.html" import form_token %}
+{% set u = upd %}
+{% set c = u.check %}
+<section class="card stack" id="update" aria-label="시스템 업데이트">
+  <h2>시스템 업데이트</h2>
+  <p class="muted help">GitHub 의 새 버전을 확인하고, 버튼 한 번으로 적용합니다. 적용하면 백업을 만든 뒤 서버가 잠시(약 10~20초) 다시 시작됩니다.</p>
+  {% if u.notice %}
+    {% if u.notice.ok %}<p class="notice" role="status">업데이트를 마쳤어요. {{ u.notice["from"][:7] }} → {{ u.notice.to[:7] }}{% if u.notice.pip %} (패키지도 설치했어요){% endif %}. 새 버전으로 다시 시작했어요.</p>
+    {% else %}<p class="error" role="alert">업데이트하지 못했어요. {{ u.notice.error }}{% if u.notice.reset %} 이전 버전({{ u.notice["from"][:7] }})으로 되돌렸어요.{% endif %} 서버는 다시 시작하지 않았어요.</p>{% endif %}
+  {% endif %}
+  <ul class="check-rows">
+    <li class="check-row"><div class="cr-label">지금 버전</div><div class="cr-body"><div class="cr-text">{{ version }}{% if u.boot.sha %} · 커밋 <code>{{ u.boot.sha[:7] }}</code>{% if u.boot.subject %} {{ u.boot.subject }}{% endif %}{% else %} · 커밋을 알 수 없어요 (git 으로 설치한 폴더가 아니에요){% endif %}</div></div></li>
+    <li class="check-row"><div class="cr-label">마지막 업데이트</div><div class="cr-body">
+      {% if u.record %}<span class="badge tone-{{ 'ok' if u.record.ok else 'bad' }}">{{ "성공" if u.record.ok else "실패" }}</span>
+        <div class="cr-text">{% if u.record_at %}{{ kdatetime(u.record_at) }}{% endif %} · {{ u.record.by }} · <code>{{ u.record["from"][:7] }}</code> → <code>{{ u.record.to[:7] if u.record.to else "-" }}</code> · 패키지 설치 {{ "함" if u.record.pip else "안 함" }}{% if u.record.error %}<br>{{ u.record.error }}{% endif %}{% if u.record.reset %} (이전 버전으로 되돌림){% endif %}</div>
+      {% else %}<div class="cr-text">아직 이 화면으로 업데이트한 적이 없어요.</div>{% endif %}
+    </div></li>
+    <li class="check-row"><div class="cr-label">업데이트 확인</div><div class="cr-body">
+      {% if not c %}<div class="cr-text">아직 확인하지 않았어요 (서버를 다시 시작하면 지워져요).</div>
+      {% else %}
+        <span class="badge tone-{{ {'available': 'ok', 'up_to_date': 'ok', 'blocked': 'warn'}.get(c.status, 'bad') }}">{{ {'available': '새 버전 있음', 'up_to_date': '최신', 'blocked': '막힘', 'fetch_failed': '연결 실패', 'no_git': '사용 불가'}.get(c.status, '오류') }}</span>
+        <div class="cr-text">{{ c.message }} <small class="muted">({{ kdatetime(c.at) }} 확인{% if c.head_short %} · 지금 <code>{{ c.head_short }}</code>{% endif %})</small></div>
+        {% if c.blockers %}<ul class="cr-guide">{% for b in c.blockers %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+        {% if c.dirty %}<p class="cr-guide">직접 고친 파일: {% for f in c.dirty %}<code class="path">{{ f }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% if c.dirty_more %} 외 {{ c.dirty_more }}개{% endif %}</p>{% endif %}
+        {% if c.commits %}<p class="cr-guide"><b>들어올 변경</b>{% if c.pyproject %} (패키지 목록이 바뀌어 pip 설치도 해요){% endif %}</p>
+          <ul class="cr-guide">{% for sha, subject in c.commits %}<li><code>{{ sha }}</code> {{ subject }}</li>{% endfor %}</ul>
+          {% if c.behind > c.commits|length %}<p class="cr-guide muted">… 외 {{ c.behind - c.commits|length }}개</p>{% endif %}{% endif %}
+        {% if c.ai_active %}<p class="cr-guide muted">AI 작업 {{ c.ai_active }}건 진행·대기 중</p>{% endif %}
+      {% endif %}
+    </div></li>
+  </ul>
+  <div class="row">
+    <form method="post" action="/admin/system/update/check"><button type="submit"{% if u.running %} disabled{% endif %}>업데이트 확인</button></form>
+    {% if c and c.can_apply and not u.running %}
+    <form method="post" action="/admin/system/update/apply" data-confirm="지금 업데이트할까요? 백업을 만든 뒤 새 버전으로 바꾸고 서버가 다시 시작돼요. 그동안 잠깐 접속이 끊겨요." data-ok="지금 업데이트">{{ form_token() }}<button type="submit" class="primary">지금 업데이트</button></form>
+    {% elif u.running %}<a class="button" href="/admin/system/update/progress">진행 상황 보기</a>{% endif %}
+  </div>
+  <p class="muted help">보안: 관리자만 쓸 수 있고, 정해진 git 명령만 돌려요. GitHub main 에 올리는 사람은 이 서버에서 코드를 실행할 수 있으니 GitHub 계정을 잘 지키세요.</p>
+</section>

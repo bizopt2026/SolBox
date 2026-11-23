@@ -150,14 +150,22 @@ def _wait_exit(proc, timeout: float) -> None:
         delay = min(delay * 2, 0.1)
 
 
-def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
+def run_bounded(cmd: list[str], timeout: float, env: dict[str, str] | None = None) -> tuple[int, str]:
     """`cmd` 를 `timeout` 초까지만 돌리고 (종료 코드, 표준 출력) 을 돌려준다. 입력은 막는다(`stdin=DEVNULL`).
     제한을 넘으면 프로세스와 그 자식·손자까지 죽이고(Windows 는 `taskkill /T /F /PID`, 그 밖에는 새 프로세스 그룹을 `killpg`) `subprocess.TimeoutExpired` 를 낸다.
     출력은 읽기 스레드가 `OUTPUT_CAP` 바이트까지만 담고 나머지는 버린다. 한정 없는 `communicate()` 는 부르지 않고 파이프도 닫지 않는다
     (Windows 의 npm `.cmd` 껍데기 → node 가 파이프를 쥐거나 읽기 스레드가 파이프에 걸려 있어도 기다림은 모두 한정이다: 못 끝낸 읽기 스레드는 데몬으로 버린다)."""
+    code, out, _err = run_bounded_ex(cmd, timeout, env)
+    return code, out
+
+
+def run_bounded_ex(cmd: list[str], timeout: float, env: dict[str, str] | None = None) -> tuple[int, str, str]:
+    """`run_bounded` 와 같고 (종료 코드, 표준 출력, 표준 오류) 를 돌려준다. `env` 가 있으면 자식의 환경 변수 전체로 쓴다 (업데이트가 `GIT_TERMINAL_PROMPT=0` 을 줄 때)."""
     from app.ai.runner import _kill_tree
 
     kw: dict = {}
+    if env is not None:
+        kw["env"] = env
     if sys.platform == "win32":
         kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     else:
@@ -199,7 +207,7 @@ def run_bounded(cmd: list[str], timeout: float) -> tuple[int, str]:
         finish()
         raise
     finish()
-    return proc.returncode, bytes(out).decode("utf-8", "replace")
+    return proc.returncode, bytes(out).decode("utf-8", "replace"), bytes(err).decode("utf-8", "replace")
 
 
 # 색 지정(`ESC [31m`)·창 제목(`ESC ] … BEL`, 같은 줄 200자 안에서 끝날 때만 통째로)·두 글자 이스케이프를 뺀다 (뒤의 `[31m` 이 남지 않게).
