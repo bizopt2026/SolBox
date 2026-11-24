@@ -272,6 +272,11 @@
 - 화면 문구는 `deck_failure_text(exc)`: PermissionError → `DECK_FAILED_LOCKED`(PowerPoint·백신이 파일을 잡고 있음, 잠시 뒤 다시), 그 밖의 OSError → `DECK_FAILED_DISK`(디스크 공간·폴더 권한), 나머지 → `DECK_FAILED` + "(원인: 종류 이름. 관리자는 logs\\app.log)". 예외 글(경로 등)은 화면에 내지 않는다.
 - 바꿔치기는 `deck.replace_retry`(PermissionError 만 0.25초 간격 12번까지 다시)로 한다: `build_deck` 의 `.part` → 파일, 라우터의 `.tmp` → 최종 파일 두 곳. Windows 에서 백신·인덱서가 방금 쓴 파일을 잠깐 잡는 경우를 넘긴다. 시험 `tests/test_beta_ab.py`.
 
+## 베타 AC 묶음이 바꾼 규칙
+- **사용자 보고 2026-11-24 (베타 AB 의 로그로 원인 확인)**: 로컬 PC 에서 PPT 만들기가 `pptx.exc.PackageNotFoundError: Package not found at '…\.venv\Lib\site-packages\pptx\templates\default.pptx'` 로 실패했다. python-pptx 의 `Presentation()` 이 설치 폴더의 빈 서식 파일을 zip 으로 열지 못한 것이다 (파일이 없거나, 회사 PC 의 문서 보안(DRM)·백신이 .pptx 를 바꾸거나 막은 경우. 어느 쪽인지는 확인하지 못했다).
+- **빈 서식은 `app/pptx_template.py` 의 글(base64)에서 메모리로 연다** (`blank_presentation()`; python-pptx 1.0.2 의 `templates/default.pptx` 원본 그대로, `SHA256` 으로 시험). `deck.build_deck` 은 `Presentation()` 을 부르지 않는다. 고칠 때 이 파일을 손으로 바꾸지 말 것.
+- **점검 "PPT 만들기"**(`system._check_pptx`, `python -m app.cli check`·관리 › 시스템): 빈 서식으로 한 장짜리를 `decks_dir/.check-pptx.pptx` 에 써 보고 zip 으로 다시 읽은 뒤 지운다. 다시 읽지 못하면 "문서 보안(DRM)이나 백신이 파일을 바꾸고 있을 수 있습니다". 우리가 쓴 제안서 파일이 DRM 으로 바뀌는 경우는 다운로드는 되지만(바뀐 파일 그대로) 이 점검에서 드러난다. 시험 `tests/test_beta_ac.py`.
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

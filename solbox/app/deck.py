@@ -13,13 +13,13 @@ from pathlib import Path
 
 from lxml import etree
 
-from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
 from app import ontology
+from app.pptx_template import blank_presentation
 
 FONT = "맑은 고딕"
 TEXT = RGBColor(0x22, 0x22, 0x22)
@@ -805,7 +805,7 @@ def build_deck(
     pages = [page for s in slides for page in paginate(s)]
     if not pages:
         raise ValueError("구성안에 슬라이드가 없습니다.")
-    prs = Presentation()
+    prs = blank_presentation()  # 설치 폴더의 default.pptx 를 읽지 않는다 (베타 AC)
     prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
     blank = prs.slide_layouts[6]
     for number, data in enumerate(pages, start=1):

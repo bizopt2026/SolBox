@@ -248,6 +248,36 @@ def _check_transcriber(settings: Settings) -> Check:
     return ("음성 받아쓰기", None, t.label())
 
 
+def _check_pptx(settings: Settings) -> Check:
+    """PPT 만들기: 빈 서식으로 한 장짜리 파일을 데이터 폴더에 써 보고 다시 읽는다 (베타 AC).
+    문서 보안(DRM)·백신이 .pptx 를 바꾸거나 막으면 여기서 드러난다."""
+    import zipfile
+
+    try:
+        from app.pptx_template import blank_presentation
+
+        prs = blank_presentation()
+        prs.slides.add_slide(prs.slide_layouts[6])
+    except Exception as e:  # noqa: BLE001
+        return ("PPT 만들기", f"빈 서식을 열지 못했습니다 ({type(e).__name__}).", "")
+    folder = settings.decks_dir
+    probe = folder / ".check-pptx.pptx"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        prs.save(probe)
+        ok = zipfile.is_zipfile(probe)
+    except OSError as e:
+        return ("PPT 만들기", f"데이터 폴더에 PPT 파일을 쓰지 못했습니다 ({type(e).__name__}).", "")
+    finally:
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass
+    if not ok:
+        return ("PPT 만들기", "쓴 PPT 파일을 다시 읽을 수 없습니다. 문서 보안(DRM)이나 백신이 파일을 바꾸고 있을 수 있습니다.", "")
+    return ("PPT 만들기", None, "빈 서식으로 써 보고 다시 읽음")
+
+
 def _check_cert(settings: Settings) -> Check | None:
     crt, key = settings.ssl_certfile, settings.ssl_keyfile
     if not crt and not key:
@@ -291,6 +321,8 @@ CHECK_INFO: dict[str, tuple[str, str]] = {
     "Claude CLI": ("AI 작업이 부르는 Claude 명령을 실행할 수 있는지 봅니다.", "Claude CLI 를 설치하고 PATH 를 확인한 뒤, 서버 계정으로 claude 를 한 번 실행해 로그인하세요."),
     "음성 받아쓰기": ("음성 파일을 글자로 바꾸는 선택 기능입니다. 꺼 두어도 다른 기능에는 영향이 없습니다.",
                  "쓰려면 config.toml 의 transcriber 를 켜고 python -m app.cli stt-setup 으로 모델을 받은 뒤 서버를 다시 시작하세요."),
+    "PPT 만들기": ("제안서 PPT 를 만들 수 있는지 봅니다 (빈 서식으로 한 장을 데이터 폴더에 써 보고 다시 읽습니다).",
+                "문서 보안(DRM)·백신이 데이터 폴더의 .pptx 파일을 바꾸거나 막지 않도록 데이터 폴더를 예외로 등록해 달라고 전산 담당에게 요청하세요."),
     "인증서": ("HTTPS 접속에 쓰는 인증서와 키 파일을 읽을 수 있는지 봅니다.", "python -m app.cli make-cert 로 다시 만들거나 config.toml 의 ssl_certfile·ssl_keyfile 경로를 고치세요."),
     "포트": ("서버가 접속을 받을 주소와 포트를 쓸 수 있는지 봅니다.", "다른 프로그램이 같은 포트를 쓰고 있으면 config.toml 의 port 를 바꾸거나 그 프로그램을 끄세요."),
 }
@@ -330,6 +362,7 @@ def run_checks(load: Callable[[], Settings], skip_port: bool = False, claude_tim
     results.append(_check_knowledge(settings))
     results.append(_check_claude(settings, claude_timeout))
     results.append(_check_transcriber(settings))
+    results.append(_check_pptx(settings))
     cert = _check_cert(settings)
     if cert is not None:
         results.append(cert)
