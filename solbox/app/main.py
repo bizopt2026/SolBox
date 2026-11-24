@@ -359,6 +359,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["is_group"] = is_group
     app.state.templates.env.globals["deck_is_stale"] = deck_is_stale
     app.state.templates.env.globals["deck_is_old"] = deck_is_old
+    from app.deck_gates import counts as _deck_quality_counts
+
+    app.state.templates.env.globals["deck_quality_counts"] = _deck_quality_counts  # 제안서 상자의 "품질 검사: 경고 N건"
     app.state.templates.env.globals["check_items"] = check_items
     app.state.templates.env.globals["number_sources"] = number_sources
     app.state.templates.env.globals["outline_check_summary"] = outline_check_summary

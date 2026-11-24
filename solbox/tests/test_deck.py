@@ -9,7 +9,7 @@ from app.deck import build_deck, paginate
 from app.proposals import clean_outline
 from tests.conftest import sample_outline
 
-FONT = "맑은 고딕"
+FACES = {"나눔스퀘어_ac", "나눔스퀘어_ac Bold"}  # 베타 AF: 굵기는 굵게 속성이 아니라 페이스로
 A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
 
@@ -91,8 +91,8 @@ def test_table_font_size_by_column_count(tmp_path):
     wide = {"kind": "table", "title": "넓은 표", "columns": [f"c{i}" for i in range(7)], "rows": [[str(i) for i in range(7)]]}
     narrow = {"kind": "table", "title": "좁은 표", "columns": ["a", "b"], "rows": [["1", "2"]]}
     build_deck({"title": "t", "slides": [wide, narrow]}, tmp_path / "w.pptx"); prs = Presentation(tmp_path / "w.pptx")
-    assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 11
-    assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 16  # 4열 이하, 6행 이하
+    assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 9  # 7열 이상 (베타 AF: 표 글자 12 → 11 → 10 → 9)
+    assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 12  # 4열 이하, 6행 이하
 
 
 def test_two_column_overflow(tmp_path):
@@ -111,7 +111,7 @@ def test_very_long_text_does_not_fail(tmp_path):
     build_deck(o, tmp_path / "l.pptx"); prs = Presentation(tmp_path / "l.pptx")
     assert long in texts(prs.slides[0])
     sizes = {r.font.size.pt for tf in _frames(prs.slides[0]) for p in tf.paragraphs for r in p.runs if r.text in (long, "짧음")}
-    assert sizes == {16}  # 20pt 에서 두 단계(4pt) 줄인다
+    assert len(sizes) == 1 and 10 <= min(sizes) <= 14  # 베타 AF: 카드에 들어가는 가장 큰 크기 (14 → 10)
 
 
 def test_bullet_font_sizes(tmp_path):
@@ -119,10 +119,12 @@ def test_bullet_font_sizes(tmp_path):
         o = {"title": "t", "slides": [{"kind": "bullets", "title": "목록", "bullets": [f"b{i}" for i in range(n)]}]}
         build_deck(o, tmp_path / f"s{n}.pptx"); prs = Presentation(tmp_path / f"s{n}.pptx")
         return {r.font.size.pt for tf in _frames(prs.slides[0]) for p in tf.paragraphs for r in p.runs if r.text == "b0"}
-    assert size_for(7) == {20} and size_for(8) == {16} and size_for(10) == {16}
+    # 베타 AF: 6개까지는 번호 카드(한 줄 카드 16pt, 두 줄 카드 14pt), 그보다 많으면 목록 카드(14pt 부터 줄여 간다)
+    assert size_for(3) == {16} and size_for(5) == {14} and size_for(7) == {14}
+    assert size_for(10) <= {14, 13, 12, 11} and len(size_for(10)) == 1
 
 
-def test_font_is_malgun_gothic(tmp_path):
+def test_font_is_nanum_square_ac(tmp_path):
     out = tmp_path / "f.pptx"
     build_deck(outline(8, tmp_path), out, customer_name="한빛병원")
     prs = Presentation(out)
@@ -132,9 +134,9 @@ def test_font_is_malgun_gothic(tmp_path):
             for p in tf.paragraphs:
                 for r in p.runs:
                     seen += 1
-                    assert r.font.name == FONT
+                    assert r.font.name in FACES and not r.font.bold
                     ea = r._r.find(f"{A_NS}rPr/{A_NS}ea")
-                    assert ea is not None and ea.get("typeface") == FONT
+                    assert ea is not None and ea.get("typeface") == r.font.name
     assert seen > 20
 
 
@@ -200,43 +202,52 @@ def _table_size(tmp_path, columns, rows):
 
 def test_table_font_16_small_14_larger_and_steps_down_when_tall(tmp_path):
     cols4 = ["a", "b", "c", "d"]
-    assert _table_size(tmp_path, cols4, [["1"] * 4] * 6) == {16}
-    assert _table_size(tmp_path, cols4, [["1"] * 4] * 7) == {14}
-    assert _table_size(tmp_path, cols4 + ["e"], [["1"] * 5] * 2) == {14}
-    assert _table_size(tmp_path, [f"c{i}" for i in range(7)], [["1"] * 7]) == {11}
-    tall = [["가나다 " * 40, "x"]] * 5  # 긴 칸: 16pt 로는 본문 영역을 넘으므로 글자를 줄인다
-    assert max(_table_size(tmp_path, ["a", "b"], tall)) < 16
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 6) == {12}  # 베타 AF: 16/14/11 → 12/11/9
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 7) == {11}
+    assert _table_size(tmp_path, cols4 + ["e"], [["1"] * 5] * 2) == {11}
+    assert _table_size(tmp_path, [f"c{i}" for i in range(7)], [["1"] * 7]) == {9}
+    tall = [["가나다 " * 60, "x"]] * 5  # 긴 칸: 12pt 로는 카드를 넘으므로 글자를 줄인다
+    assert max(_table_size(tmp_path, ["a", "b"], tall)) < 12
 
 
 def test_long_table_cells_paginate_before_overflowing(tmp_path):
-    from app.deck import BODY_H, _table_row_heights
+    from app.deck import TABLE_H as BODY_H, _table_row_heights  # 베타 AF: 표는 카드 안쪽 높이(TABLE_H)에, 가장 작은 글자 9pt 로 맞춘다
     rows = [["가나다 " * 60, "x"] for _ in range(8)]
     pages = paginate({"kind": "table", "title": "표", "columns": ["a", "b"], "rows": rows})
     assert len(pages) > 1 and sum(len(p["rows"]) for p in pages) == 8
     for p in pages:
-        assert sum(_table_row_heights(p["columns"], p["rows"], 11)) <= BODY_H or len(p["rows"]) == 1
+        assert sum(_table_row_heights(p["columns"], p["rows"], 9, p["_col_weights"])) <= BODY_H or len(p["rows"]) == 1  # 열 폭 비율은 쪽마다 같다
 
 
 def _body_top(slide, needle):
     return min(sh.top for sh in slide.shapes if sh.has_text_frame and needle in sh.text_frame.text)
 
 
-def test_body_top_lower_when_key_message_wraps(tmp_path):
+def test_body_bottom_higher_when_key_message_wraps(tmp_path):
+    """베타 AF: 세로 띠는 고정이다. 본문은 늘 2.20 에서 시작하고, 핵심 메시지(결론 띠)가 여러 줄이면 띠가 위로 자라 본문 아래 끝이 올라간다."""
     short = "짧은 핵심 메시지입니다"
-    long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다"
+    long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다 " * 2
     slides = []
     for kind, extra in (("bullets", {"bullets": ["본문항목"]}), ("two_column", {"left_title": "L", "left": ["본문항목"], "right_title": "R", "right": ["x"]}),
                         ("table", {"columns": ["a", "b"], "rows": [["본문항목", "y"]]}), ("steps", {"steps": [{"name": "본문항목", "detail": "d"}]})):
         slides += [{"kind": kind, "title": "t", "key_message": short, **extra}, {"kind": kind, "title": "t", "key_message": long, **extra}]
     build_deck({"title": "t", "slides": slides}, tmp_path / "m.pptx")
     prs = Presentation(tmp_path / "m.pptx")
+
+    def cards(slide):
+        return [sh for sh in slide.shapes if sh.name == "카드"]
+
+    def band(slide):
+        return next(sh for sh in slide.shapes if sh.name == "결론 띠")
     for i in range(0, 8, 2):
-        def top(slide):
-            tops = [sh.top for sh in slide.shapes if (sh.has_text_frame and "본문항목" in sh.text_frame.text) or getattr(sh, "has_table", False) and sh.has_table
-                    or (sh.shape_type == 1 and sh.top > Inches(2))]
-            return min(tops)
-        assert top(prs.slides[i + 1]) > top(prs.slides[i]) + Inches(0.2), slides[i]["kind"]
-    assert min(sh.top for sh in prs.slides[0].shapes if sh.has_text_frame and "본문항목" in sh.text_frame.text) == Inches(2.2)
+        a, b = prs.slides[i], prs.slides[i + 1]
+        assert abs(band(a).top - Inches(6.2)) <= 10 and abs(band(a).height - Inches(0.4)) <= 10
+        assert band(b).top < band(a).top and abs(band(b).top + band(b).height - band(a).top - band(a).height) <= 10, slides[i]["kind"]
+        assert abs(max(c.top + c.height for c in cards(a)) - Inches(6.05)) <= 10
+        assert max(c.top + c.height for c in cards(b)) <= band(b).top - Inches(0.15) + 10
+        for slide in (a, b):
+            tops = [c.top for c in cards(slide)]
+            assert min(tops) >= Inches(2.2) - 10 and (abs(min(tops) - Inches(2.2)) <= 10 or slides[i]["kind"] == "steps")
 
 
 def test_two_column_boxes_have_equal_height(tmp_path):
@@ -251,12 +262,12 @@ def test_two_column_boxes_have_equal_height(tmp_path):
 
 
 def test_table_stays_in_body_with_long_key_message(tmp_path):
-    from app.deck import BODY_BOTTOM, BODY_H, _table_row_heights
+    from app.deck import BODY_BOTTOM, TABLE_H as BODY_H, _table_row_heights  # 베타 AF: 표 높이 한도는 카드 안쪽(TABLE_H), 가장 작은 글자 9pt
     long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다"
     rows, n = [], 0
-    while True:  # 핵심 메시지 없이는 11pt 로 꼭 들어가는 가장 큰 표
-        cand = rows + [["가나다 " * 12, "x"]]
-        if sum(_table_row_heights(["a", "b"], cand, 11)) > BODY_H or len(cand) > 8:
+    while True:  # 핵심 메시지 없이는 9pt 로 꼭 들어가는 가장 큰 표
+        cand = rows + [["가나다 " * 40, "x"]]
+        if sum(_table_row_heights(["a", "b"], cand, 9)) > BODY_H or len(cand) > 8:
             break
         rows = cand
     assert rows

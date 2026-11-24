@@ -32,6 +32,7 @@ class Settings:
     transcribe_threads: int = 0
     transcribe_max_minutes: int = 120
     transcribe_chunk_minutes: int = 10
+    deck_background: Path | None = None  # 제안서 PPT 모든 장에 까는 배경 그림 (없으면 옅은 회색 바탕)
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:
@@ -139,6 +140,11 @@ def load_settings(path: Path | None = None) -> Settings:
         data_dir = path.resolve().parent / data_dir
     raw["data_dir"] = data_dir
     _check_transcribe_settings(raw, path, data_dir / "models")
+    if raw.get("deck_background"):
+        deck_background = Path(str(raw["deck_background"]))
+        raw["deck_background"] = deck_background if deck_background.is_absolute() else path.resolve().parent / deck_background
+    else:
+        raw.pop("deck_background", None)
     if "backup_dir" in raw:
         backup_dir = Path(raw["backup_dir"])
         if not backup_dir.is_absolute():

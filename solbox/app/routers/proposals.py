@@ -523,10 +523,10 @@ def build(
     old_name = p.deck_name
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        removed = _write_deck_pair(db, p, temp, user)
+        removed, quality = _write_deck_pair(db, p, temp, user, background=request.app.state.settings.deck_background)
         replace_retry(temp, final)
         replace_retry(internal_temp, internal_deck_path(final))
-        p.deck_name, p.deck_built_at, p.status, p.deck_removed = name, now, "deck", removed
+        p.deck_name, p.deck_built_at, p.status, p.deck_removed, p.deck_quality = name, now, "deck", removed, quality
         db.commit()
     except Exception as exc:
         log.exception("제안서 %s 파일을 만들지 못했습니다", p.id)  # 원인을 app.log 에 남긴다 (예전에는 남지 않았다)
@@ -549,15 +549,15 @@ def build(
     return notices.redirect(f"/proposals/{p.id}{suffix}", "deck_built")
 
 
-def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User) -> int:
+def _write_deck_pair(db: Session, p: Proposal, customer_path, user: User, background=None) -> tuple[int, list | None]:
     """같은 구성안으로 고객용(`customer_path`)과 내부 검토용(그 옆 `-internal`) 파일을 쓴다 (각각 임시 파일에 쓴 뒤 바꿔치기: `build_deck`).
-    고객용에서 뺀 줄 수를 돌려준다."""
+    (고객용에서 뺀 줄 수, 고객용 파일의 품질 검사 결과)를 돌려준다. `background` 는 설정 `deck_background`(배경 그림)."""
     paths = [src for s in p.outline["slides"] if isinstance(s, dict) for src in s.get("sources") or [] if isinstance(src, str)]
-    common = dict(customer_name=target_name(p), today=date.today(), contact=contact_lines(user))
+    common = dict(customer_name=target_name(p), today=date.today(), contact=contact_lines(user), background=background)
     stats: dict = {}
     build_deck(p.outline, customer_path, audience="customer", stats=stats, **common)
     build_deck(p.outline, internal_deck_path(customer_path), audience="internal", source_labels=SourceLookup(db).labels(paths), **common)
-    return stats.get("removed", 0)
+    return stats.get("removed", 0), stats.get("quality")
 
 
 DECK_VERSIONS = {"customer": "고객용", "internal": "내부검토용"}  # 파일 이름에 붙는 말

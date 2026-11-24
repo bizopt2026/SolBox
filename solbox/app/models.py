@@ -473,6 +473,7 @@ class Proposal(Stamped, Base):
     deck_name: Mapped[str] = mapped_column(String, default="")
     deck_built_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deck_removed: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 마지막으로 만든 고객용 파일에서 뺀 줄 수 (사본 경로가 든 줄). 옛 제안 건은 비어 있다
+    deck_quality: Mapped[list | None] = mapped_column(JSON, nullable=True)  # 마지막으로 만든 고객용 파일의 품질 검사 결과 (`deck_gates`). 옛 제안 건·검사 실패는 비어 있다
     active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
     chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 현재 방향의 것이 아니다
     target_kind: Mapped[str] = mapped_column(String, default=ontology.PROPOSAL_TARGET_DEFAULT)  # customer(특정 고객) / group(다수 고객). 만든 뒤 바꾸지 않는다

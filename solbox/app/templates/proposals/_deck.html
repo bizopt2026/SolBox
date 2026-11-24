@@ -24,6 +24,11 @@
     <b>제안서 파일</b>
     <small>마지막 생성 {{ kdatetime(proposal.deck_built_at) }}</small>
     {% if proposal.deck_removed %}<small class="deck-removed">고객용 파일에서 내부 경로가 든 {{ proposal.deck_removed }}줄을 뺐습니다. 내부 검토용에는 그대로 있습니다.</small>{% endif %}
+    {% if proposal.deck_quality is not none and not stale %}{% set dq = deck_quality_counts(proposal.deck_quality) %}
+    {% if dq.total %}<details class="deck-quality"><summary>품질 검사: 경고 {{ dq.total }}건</summary>
+      <small class="muted">디자인·문구 규칙에 맞지 않는 곳입니다. 파일은 그대로 쓸 수 있고, 구성안을 고친 뒤 다시 만들면 사라집니다.</small>
+      <ul>{% for f in proposal.deck_quality if f is mapping %}<li>{% if f.slide %}{{ f.slide }}쪽 · {% endif %}{{ f.text }}</li>{% endfor %}</ul>
+    </details>{% else %}<small class="deck-quality muted">품질 검사: 경고 없음</small>{% endif %}{% endif %}
     {% if stale %}<small class="bad error">구성안이 바뀌었습니다. 다시 생성하세요.</small>{% endif %}
     {% else %}
     <b>아직 만들지 않았어요</b>
