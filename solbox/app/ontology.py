@@ -240,6 +240,16 @@ BUSINESS_TYPE_MEMO_MAX = 300  # 솔루션의 사업방식별 메모 길이 (예:
 BUSINESS_TYPE_FILTER_PARAM = "business_type"  # 목록 `?business_type=build|lease|invest` (화이트리스트, 그 사업방식을 가진 것만)
 BUSINESS_TYPE_LISTS = ("solution", "bm", "opportunity")  # 위 걸러 보기가 있는 목록
 
+# 솔루션 분야 (베타 AD, 사용자 결정 2026-11-24): 값 목록은 코드가 아니라 데이터(표 `solution_fields`, 관리자가 고친다). 코드에는 처음 한 번 채울 값과 규칙만 둔다.
+SOLUTION_FIELD_SEED = ("에너지 효율", "신재생·발전", "안전·방재", "통신·네트워크", "시설 관리", "환경")  # 표가 처음 만들어질 때 이 순서로 한 번만 채운다 (관리자가 지운 값을 다시 넣지 않는다)
+SOLUTION_FIELD_NAME_MAX = 30  # 분야 이름 길이
+SOLUTION_FIELD_NONE = "분야 미지정"  # 분야가 없는 솔루션의 묶음 이름
+SOLUTION_FIELD_INACTIVE = "(사용 안 함)"  # 사용을 끈 분야의 표시
+SOLUTION_GROUP_PARAM = "group"  # 솔루션 목록 `?group=field|stage|business_type|partner` (없음은 `none`, 값이 없으면 기억한 값)
+SOLUTION_GROUP_COOKIE = "solution_group"  # 사용자가 고른 묶어 보기를 기억하는 쿠키 (DB 에 두지 않는다)
+SOLUTION_GROUPS = {"field": "분야", "stage": "발굴 단계", "business_type": "사업방식", "partner": "파트너"}  # 묶어 볼 기준 (이 순서로 보인다)
+SOLUTION_GROUP_NONE_LABELS = {"field": SOLUTION_FIELD_NONE, "business_type": "사업방식 미지정", "partner": "파트너 없음"}
+
 
 def clean_business_types(raw) -> list[str]:
     """사업방식 코드 목록을 다듬는다: 목록에 있는 값만, 중복 없이, 정의된 순서(구축형·임대형·투자형)로. 문자열(쉼표 구분)·목록·None 을 받는다."""
@@ -462,7 +472,7 @@ _TYPE_LIST = [
         "solution", "솔루션", "핵심", "Solution", "solutions", "/solutions", "/solutions/{id}",
         "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="discover",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
-               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "business_types": "가능한 사업방식", "tags": "태그", "files": "자료", "origin": "유래"},
+               "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "business_types": "가능한 사업방식", "field": "분야", "tags": "태그", "files": "자료", "origin": "유래"},
         description="파트너에게서 발굴해 고객에게 제안할 수 있는 제품과 서비스",
     ),
     ObjectType(
@@ -520,6 +530,9 @@ _TYPE_LIST = [
         props={"original_name": "파일 이름", "kind": "자료 종류", "extract_status": "글 추출 상태", "size": "크기"},
         description="솔루션에 붙여 올린 소개·스펙·관련 파일. 글을 뽑아 두어 AI 가 읽을 수 있습니다",
     ),
+    ObjectType("solution_field", "솔루션 분야", "부속", "SolutionField", "solution_fields", "/admin/solution-fields",
+               props={"name": "이름", "sort_order": "순서", "active": "사용 여부", "solutions": "솔루션"},
+               description="솔루션을 묶어 보는 분야 목록 (관리자가 더하고 고치고 순서를 바꾼다)"),
     ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups", "/follow-ups",
                description="활동 기록에서 나온 할 일",
                props={"task": "할 일", "owner": "담당", "due": "기한", "done": "완료"}),
@@ -601,7 +614,7 @@ NAV_ITEMS = (
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
-                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("system", "시스템")))
+                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("solution-fields", "솔루션 분야"), ("system", "시스템")))
 
 
 # 메뉴 항목마다 다른 작은 선 그림 (24×24, 외부 파일 없이 SVG 조각 그대로). 키 = NavItem.path. 새 메뉴 항목은 여기에도 더한다 (tests/test_beta_d.py 가 빠짐·겹침을 본다).
@@ -620,6 +633,7 @@ NAV_ICONS = {
     "admin/users": '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
     "admin/jobs": '<path d="M5 6h14M5 12h14M5 18h9"/>',
     "admin/research": '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+    "admin/solution-fields": '<path d="M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z"/>',
     "admin/system": '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
 }
 
@@ -866,6 +880,9 @@ RELATIONS: tuple[Relation, ...] = (
        "다수 고객 제안에만. 선택(0..n). 예시로 읽을 고객이다. 고객을 지우면 붙임만 풀린다"),
     _r("R35", "신규 사업으로 삼는다", "proposal", "bm", "N:1", "fk", "proposals.bm_id",
        "다수 고객 제안에만. 선택이지만 화면에서 눈에 띄게 보인다. 후보 솔루션은 그 BM 의 솔루션이 앞선다"),
+    # 베타 AD: 솔루션 분야 (2026-11-24 결정). 분야 목록은 관리자가 고치는 데이터다
+    _r("R36", "묶는다", "solution_field", "solution", "1:N", "fk", "solutions.field_id",
+       "선택 (비면 분야 미지정). 분야를 지울 수 있는 것은 쓰는 솔루션이 없을 때뿐이고, 사용을 끈 분야는 새로 고를 수 없지만 붙은 솔루션은 그대로 가진다"),
 )
 
 # ======================================================================================
@@ -881,6 +898,7 @@ HOLDERS = {"suggestion": "research_report", "direction": "proposal"}
 UNTRAVERSED = {
     "R16": "방향은 제안 건의 JSON 안에만 있어 따라갈 대상 기록이 없다 (선택한 방향의 솔루션은 R14 로 따라간다)",
     "R17": "근거는 방향·장·제안 안의 지식 사본 경로 글자라 대상 기록이 없다. 해석은 parse_rel / sources.py",
+    "R36": "분야는 관리자가 고치는 분류 목록이라 상세 화면이 없다. 솔루션 화면의 속성 줄·목록의 묶어 보기로 보이고 연결 목록에는 올리지 않는다",
 }
 # 연결 목록에 올리지 않는 관계 (모든 대상에 붙어 소음이 된다). 따라가기(path_query)는 된다.
 QUIET_RELATIONS = {"R24": "작성자는 모든 핵심 대상에 붙어 연결 목록에 올리지 않는다"}
@@ -1273,6 +1291,7 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "solution_file": ("올린 자료 파일이 지워지고 지식 사본에서도 빠집니다.", "솔루션 기록은 남습니다."),
     "intake_discard": ("정리안은 버려지고 저장되지 않습니다 (아무 기록도 만들어지지 않습니다).", "올린 원본 파일은 남습니다."),
     "research_run": ("이 조사의 보고서(동향·제안)가 모두 지워집니다.", "보고서에서 등록한 솔루션은 남고 유래 표시만 비워집니다."),
+    "solution_field": ("이 분야는 목록에서 사라집니다 (쓰는 솔루션이 없을 때만 지울 수 있습니다).",),
     "research_topic": ("이 주제는 다음 조사부터 빠집니다. 이미 끝난 조사 결과는 남습니다.",),
     "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
 }

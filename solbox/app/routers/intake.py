@@ -15,7 +15,7 @@ from starlette.datastructures import FormData
 
 from app import cardfile, cardplan
 from app import intake as intake_lib
-from app import labels, origin, transcribe, ui
+from app import labels, origin, solution_fields as sfields, transcribe, ui
 from app.ai import gate
 from app.ai.gate import keeps_text, require_ai_on
 from app.ai.queue import queue_position
@@ -90,6 +90,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
                 "customer": list(db.scalars(select(Customer).order_by(Customer.name))),
                 "project": list(db.scalars(select(Project).order_by(Project.name))),
                 "partner": list(db.scalars(select(Partner).order_by(Partner.name))),
+                "field": sfields.active_fields(db),
             },
         )
     return render(

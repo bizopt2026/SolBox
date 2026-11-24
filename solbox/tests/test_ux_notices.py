@@ -144,6 +144,8 @@ POST_NOTICES = {
     "/jobs/{job_id}/retry": "ai_off, (JSON 응답: 화면이 새 작업 번호로 이어 감)",
     "/research/runs/{run_id}/candidate": "candidate_registered, already_registered", "/research/runs/{run_id}/delete": "deleted",
     "/research/run": "research_started, research_busy, no_topics, ai_off", "/research/reports/{report_id}/retry": "research_retry, research_busy, ai_off",
+    "/admin/solution-fields": "field_created", "/admin/solution-fields/{field_id}": "field_renamed", "/admin/solution-fields/{field_id}/move": "field_moved",
+    "/admin/solution-fields/{field_id}/active": "field_on, field_off", "/admin/solution-fields/{field_id}/delete": "field_deleted",
     "/admin/users": "created", "/admin/users/{user_id}": "saved", "/admin/research/topics": "created", "/admin/research/topics/{topic_id}": "saved",
     "/admin/research/topics/{topic_id}/delete": "deleted", "/admin/research/schedule": "saved", "/admin/research/keywords": "keywords_started, ai_off", "/admin/system/ai-check": "ai_check, ai_off", "/admin/system/backup": "backup_done",
     "/admin/system/update/check": "update_checked", "/admin/system/update/apply": "(진행 화면 /admin/system/update/progress 으로 이동)",

@@ -237,6 +237,7 @@ class SolutionDraft(BaseModel):
     description: str = ""
     tags: list[str] = []
     business_types: Any = []  # 사업방식 제안 [{"code": "invest", "reason": "…"}]. 잘못된 모양·모르는 코드는 `business_types.clean_suggestions` 가 버린다 (저장하지 않는다)
+    field: Any = ""  # 분야 제안: 프롬프트에 준 사용 중인 분야 이름 하나 (베타 AD). 목록에 없는 이름·글이 아닌 값은 `solution_fields.suggest_id` 가 버린다 (저장하지 않는다)
 
 
 def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
@@ -247,7 +248,9 @@ def _draft_solution(db: Session, input: dict, runner: ClaudeRunner, settings: Se
     texts = settings.knowledge_dir / folder
     if not texts.is_dir() or not any(texts.glob("*.md")):
         raise ClaudeError("bad_output", NO_READABLE_FILES)
-    prompt = load_prompt("solution_draft", solution_name=solution.name, folder=folder)
+    from app import solution_fields as sfields
+
+    prompt = load_prompt("solution_draft", solution_name=solution.name, folder=folder, field_names=sfields.prompt_names(db))
     return run_json(db, runner, prompt, SolutionDraft, settings).model_dump_json()
 
 

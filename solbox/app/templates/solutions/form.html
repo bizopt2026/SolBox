@@ -25,6 +25,9 @@
       {% set popts = [("", "(없음)")] %}{% for p in partners %}{% set _ = popts.append((p.id, p.name)) %}{% endfor %}
       {{ select_field("파트너", "partner_id", popts, form.partner_id, error=error) }}
       {{ select_field("단계", "stage", labels.STAGES.items() | list, form.stage, error=error) }}
+      <input type="hidden" name="field_present" value="1">
+      {{ select_field(ont.prop("solution", "field"), "field_id", field_options, form.field_id, error=error,
+                      help=("AI 가 이 분야를 제안했어요. 맞는지 확인하고 저장하세요." if field_suggest is defined and field_suggest else "솔루션을 묶어 볼 때 쓰는 분류입니다. 분야 목록은 관리자가 고칩니다.")) }}
       {{ text_field("상세 설명", "description", form.description, rows=4) }}
       {{ text_field("활용 방향", "usage_direction", form.usage_direction, rows=3) }}
       {{ text_field("적용 가능 유형", "applicable_types", form.applicable_types) }}

@@ -267,6 +267,8 @@
 {% macro bt_badges(codes) %}{% for c in codes %}{{ pill("business_type", c) }}{% endfor %}{% endmacro %}
 {# 사업방식 걸러 보기 탭 (목록 도구줄의 extra): tabs 는 business_types.type_tabs 의 결과 #}
 {% macro type_box(tabs) %}<span class="type-tools"><span class="sort-label">사업방식</span>{{ seg(tabs, "사업방식") }}</span>{% endmacro %}
+{# 솔루션 목록의 "묶어 보기" 선택 (베타 AD): choices = [{code, label, href, active}]. 링크로만 움직이고 현재 것에 aria-current #}
+{% macro group_box(choices) %}<span class="type-tools group-tools"><span class="sort-label">묶어 보기</span><nav class="seg" aria-label="묶어 보기">{% for c in choices %}<a href="{{ c.href }}"{% if c.active %} aria-current="page"{% endif %}>{{ c.label }}</a>{% endfor %}</nav></span>{% endmacro %}
 {# 사업방식 체크 상자 (0..3). 방식마다 한 줄 뜻이 보인다. memos 가 주어지면(솔루션) 방식마다 짧은 메모 칸이 붙는다.
    suggest = {코드: 이유} 는 AI 초안의 제안 (미리 체크되어 있고 사용자가 바꿀 수 있다). auto 는 제안 만들기 폼의 "건드리지 않음" 표시 #}
 {% macro bt_picker(selected, legend, memos=none, error=none, suggest=none, help=none, auto=none) %}

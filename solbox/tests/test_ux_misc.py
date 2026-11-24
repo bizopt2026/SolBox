@@ -13,7 +13,7 @@ def test_empty_detail_values_show_none(user_client, db):
     html = user_client.get(f"/solutions/{s.id}").text
     dl = re.search(r"<dl[^>]*>.*?</dl>", html, re.S).group(0)
     assert '<span class="muted">없음</span>' not in dl and "<dt>한 줄 소개</dt>" in dl  # 값이 있는 줄만 보인다
-    assert "아직 입력하지 않은 항목: 상세 설명, 파트너, 활용 방향, 적용 가능 유형, 가능한 사업방식, 태그 · " in html  # 빈 항목은 한 줄로
+    assert "아직 입력하지 않은 항목: 상세 설명, 분야, 파트너, 활용 방향, 적용 가능 유형, 가능한 사업방식, 태그 · " in html  # 빈 항목은 한 줄로
 
 
 def test_customer_and_activity_empty_values(user_client, db):

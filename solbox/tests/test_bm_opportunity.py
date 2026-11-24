@@ -99,7 +99,7 @@ def test_opportunity_stage_code_list():
 
 def test_new_relations_r26_to_r33():
     rels = {r.key: r for r in ontology.RELATIONS}
-    assert list(rels) == [f"R{i}" for i in range(1, 36)]
+    assert list(rels) == [f"R{i}" for i in range(1, 37)]
     assert rels["R25"].label == "같은 회사다"  # 단위 3 의 키는 그대로
     expect = {
         "R26": ("customer_need", "opportunity", "N:1", "fk", "customer_needs.opportunity_id"),

@@ -224,8 +224,10 @@ class Solution(Stamped, Origin, Base):
     applicable_types: Mapped[str] = mapped_column(String, default="")
     tags: Mapped[str] = mapped_column(String, default="")  # 쉼표 구분
     origin_item: Mapped[str | None] = mapped_column(String, nullable=True)  # 리서치에서 등록했다면 보고서 안의 위치 ("suggestion:3", "trend:1")
+    field_id: Mapped[int | None] = mapped_column(ForeignKey("solution_fields.id"), nullable=True)  # 솔루션 분야 (선택, 비면 "분야 미지정"). 베타 AD
 
     partner: Mapped[Partner | None] = relationship(back_populates="solutions")
+    field: Mapped[SolutionField | None] = relationship(back_populates="solutions")
     business_types: Mapped[list[SolutionBusinessType]] = relationship(  # 가능한 사업방식 (0..3) 과 방식별 메모. 베타 Y
         back_populates="solution", cascade="all, delete-orphan", passive_deletes=True,
     )
@@ -250,6 +252,20 @@ class Solution(Stamped, Origin, Base):
     )
     bms: Mapped[list[BM]] = relationship(secondary=bm_solutions, back_populates="solutions")
     opportunities: Mapped[list[Opportunity]] = relationship(secondary=opportunity_solutions, back_populates="solutions")
+
+
+class SolutionField(Base):
+    """솔루션 분야: 관리자가 고치는 목록 (표 `solution_fields`, 베타 AD). 값이 코드 목록이 아니라 데이터다.
+    `active` 가 거짓이면 새로 고를 수 없지만 이미 붙은 솔루션은 그대로 가진다. 쓰는 솔루션이 없을 때만 지울 수 있다."""
+
+    __tablename__ = "solution_fields"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    solutions: Mapped[list[Solution]] = relationship(back_populates="field")
 
 
 class SolutionBusinessType(Base):

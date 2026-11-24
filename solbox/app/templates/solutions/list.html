@@ -1,31 +1,52 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, stage_badge, title_cell, links_text, date_text, none_dash, bt_badges, type_box %}
+{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, stage_badge, title_cell, links_text, date_text, none_dash, bt_badges, type_box, group_box %}
 {% block title %}솔루션{% endblock %}
-{% block content %}
-{% set cur_sort = current_sort(request) %}
-{{ list_head("솔루션", pg, q or stage or flt or origin_now or type_now, "/intake/new", "올리기", "/solutions/new", type="solution") }}
-{% set bt_extra %}{{ type_box(type_tabs) }}{% endset %}
-{{ list_tools(request, tabs, "발굴 단계", q, flt, "이름, 태그로 찾기", origin_tabs=origin_tabs, extra=bt_extra) }}
-{% if pg.items %}
-<div class="tablewrap"><table class="list-table">
-  <thead><tr>{{ sort_th("솔루션", "name", cur_sort, "") }}<th class="col-sec">발굴 단계</th><th class="col-sec">{{ ont.prop("solution", "business_types") }}</th><th class="col-sec">파트너</th><th class="col-sec">유래</th><th class="col-sec">연결</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>
-  <tbody>
-  {% for s in pg.items %}
+{% macro thead(cur_sort) %}<colgroup><col class="c-title"><col class="c-stage"><col class="c-bt"><col class="c-field"><col class="c-partner"><col class="c-origin"><col class="c-links"><col class="c-active"></colgroup><thead><tr>{{ sort_th("솔루션", "name", cur_sort, "") }}<th class="col-sec">발굴 단계</th><th class="col-sec">{{ ont.prop("solution", "business_types") }}</th><th class="col-sec">{{ ont.prop("solution", "field") }}</th><th class="col-sec">파트너</th><th class="col-sec">유래</th><th class="col-sec">연결</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>{% endmacro %}
+{# 한 줄의 모양은 묶지 않은 목록과 묶어 본 목록이 같다 #}
+{% macro rows(items, info) %}
+  {% for s in items %}
     {% set i = info[s.id] %}
     <tr>
       {% call title_cell("/solutions/" ~ s.id, s.name, s.summary, (s.tags or "").split(",") | map("trim") | select | list) %}
-        {{ stage_badge(s.stage) }}{{ bt_badges(s.business_type_codes) }}{% if s.partner %}<span>{{ s.partner.name }}</span>{% endif %}<span>{{ links_text(i) }}</span>{{ origin_note(s) }}
+        {{ stage_badge(s.stage) }}{{ bt_badges(s.business_type_codes) }}{% if s.field %}<span>{{ s.field.name }}{% if not s.field.active %} {{ ont.SOLUTION_FIELD_INACTIVE }}{% endif %}</span>{% endif %}{% if s.partner %}<span>{{ s.partner.name }}</span>{% endif %}<span>{{ links_text(i) }}</span>{{ origin_note(s) }}
       {% endcall %}
       <td class="col-sec">{{ stage_badge(s.stage) }}</td>
       <td class="col-sec">{% if s.business_type_codes %}{{ bt_badges(s.business_type_codes) }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if s.field %}{{ s.field.name }}{% if not s.field.active %} <span class="muted">{{ ont.SOLUTION_FIELD_INACTIVE }}</span>{% endif %}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec">{% if s.partner %}{{ s.partner.name }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec">{{ origin_cell(s) }}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>
   {% endfor %}
-  </tbody>
+{% endmacro %}
+{% block content %}
+{% set cur_sort = current_sort(request) %}
+{% set searching = q or stage or flt or origin_now or type_now %}
+{{ list_head("솔루션", pg, searching, "/intake/new", "올리기", "/solutions/new", type="solution") }}
+{% set bt_extra %}{{ type_box(type_tabs) }}{{ group_box(group_choices) }}{% endset %}
+{{ list_tools(request, tabs, "발굴 단계", q, flt, "이름, 태그로 찾기", origin_tabs=origin_tabs, extra=bt_extra) }}
+{% if groups is not none %}
+{% if groups %}
+<p class="muted group-note" data-group-note>
+  "{{ ont.SOLUTION_GROUPS[group] }}" 별로 묶어 보여 드려요. 묶어 볼 때는 쪽을 나누지 않고 조건에 맞는 {{ pg.total }}건을 모두 보여 드립니다.
+  {% if group == "business_type" %}여러 사업방식을 가진 솔루션은 해당하는 묶음마다 나타나서, 묶음별 건수를 더하면 전체 건수보다 클 수 있어요.{% endif %}
+</p>
+{% for g in groups %}
+<details class="group-sec" open id="{{ group }}-{{ g.key or "none" }}" data-group="{{ group }}:{{ g.key }}">
+  <summary><b class="group-name{{ ' muted' if g.muted }}">{{ g.label }}</b> <span class="group-count">{{ g.items | length }}건</span></summary>
+  <div class="tablewrap"><table class="list-table grouped">
+    {{ thead(cur_sort) }}
+    <tbody>{{ rows(g.items, info) }}</tbody>
+  </table></div>
+</details>
+{% endfor %}
+{% else %}{{ empty_list(searching, "아직 등록된 솔루션이 없습니다. 소개서·스펙 파일을 올리면 AI가 정리해 드려요.", "/intake/new", "올리기", "/solutions/new", clear_url="/solutions") }}{% endif %}
+{% elif pg.items %}
+<div class="tablewrap"><table class="list-table">
+  {{ thead(cur_sort) }}
+  <tbody>{{ rows(pg.items, info) }}</tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or stage or flt or origin_now or type_now, "아직 등록된 솔루션이 없습니다. 소개서·스펙 파일을 올리면 AI가 정리해 드려요.", "/intake/new", "올리기", "/solutions/new", clear_url="/solutions") }}{% endif %}
+{% else %}{{ empty_list(searching, "아직 등록된 솔루션이 없습니다. 소개서·스펙 파일을 올리면 AI가 정리해 드려요.", "/intake/new", "올리기", "/solutions/new", clear_url="/solutions") }}{% endif %}
 {% endblock %}

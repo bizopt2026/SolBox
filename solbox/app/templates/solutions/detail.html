@@ -12,7 +12,8 @@
     {% set partner_link %}{% if solution.partner %}<a href="/partners/{{ solution.partner.id }}">{{ solution.partner.name }}</a>{% endif %}{% endset %}
     {% set tag_chips %}{% if solution.tags %}<span class="chips">{% for t in solution.tags.split(",") if t.strip() %}<span class="tag">{{ t.strip() }}</span>{% endfor %}</span>{% endif %}{% endset %}
     {% set bt_cell %}{% if solution.business_type_rows %}<ul class="bt-list">{% for r in solution.business_type_rows %}<li>{{ pill("business_type", r.business_type) }}{% if r.memo %} <span class="bt-note">{{ r.memo }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}{% endset %}
-    {{ props_card("소개", [("한 줄 소개", solution.summary), ("상세 설명", solution.description), ("파트너", partner_link), ("활용 방향", solution.usage_direction), ("적용 가능 유형", solution.applicable_types), (ont.prop("solution", "business_types"), bt_cell | trim), ("태그", tag_chips)], "/solutions/" ~ solution.id ~ "/edit") }}
+    {% set field_text %}{% if solution.field %}{{ solution.field.name }}{% if not solution.field.active %} <span class="muted">{{ ont.SOLUTION_FIELD_INACTIVE }}</span>{% endif %}{% endif %}{% endset %}
+    {{ props_card("소개", [("한 줄 소개", solution.summary), ("상세 설명", solution.description), (ont.prop("solution", "field"), field_text | trim), ("파트너", partner_link), ("활용 방향", solution.usage_direction), ("적용 가능 유형", solution.applicable_types), (ont.prop("solution", "business_types"), bt_cell | trim), ("태그", tag_chips)], "/solutions/" ~ solution.id ~ "/edit") }}
     <section class="card stack" id="files">
       <div class="card-head">
         <h2>{{ ont.label("solution_file") }}{% if solution.files %}<span class="count">{{ solution.files | length }}건</span>{% endif %}</h2>

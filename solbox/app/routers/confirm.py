@@ -11,10 +11,10 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app import impact as impact_lib, ontology, opportunities as opps, ui
+from app import impact as impact_lib, ontology, opportunities as opps, solution_fields as sfields, ui
 from app.db import get_db
 from app.main import render
-from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, ResearchRun, ResearchTopic, Solution, SolutionFile, User
+from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, User
 from app.routers._common import get_deletable_or_404, get_or_404
 from app.security import ensure_can_delete, require_admin, require_user
 
@@ -122,6 +122,9 @@ SPECS: tuple[Spec, ...] = (
          lambda o, name: ui.crumbs("research_run", name, f"/research/runs/{o.id}", "삭제"), "조사 결과", blocker=_run_blocker),
     Spec("/admin/research/topics/{obj_id}/delete", "research_topic", _load_admin(ResearchTopic, "주제를 찾을 수 없습니다."),
          lambda o: o.name, lambda o: "/admin/research", lambda o, name: [("관리", None), ("리서치 설정", "/admin/research"), (name, None), ("삭제", None)], "리서치 주제"),
+    Spec("/admin/solution-fields/{obj_id}/delete", "solution_field", _load_admin(SolutionField, "분야를 찾을 수 없습니다."),
+         lambda o: o.name, lambda o: "/admin/solution-fields", lambda o, name: [("관리", None), ("솔루션 분야", "/admin/solution-fields"), (name, None), ("삭제", None)],
+         "솔루션 분야", blocker=lambda db, o: sfields.delete_problem(db, o)),
     Spec("/proposals/{obj_id}/outline/slides/{index}/delete", "outline_slide", _load_slide,
          lambda o: (o[2].get("title") or f"{o[1] + 1}번째 슬라이드"), lambda o: f"/proposals/{o[0].id}/outline#slide-{o[1]}",
          lambda o, name: ui.crumbs("proposal", _proposal_name(o[0]), f"/proposals/{o[0].id}", "슬라이드 삭제"), "슬라이드", blocker=_slide_blocker),

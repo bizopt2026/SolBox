@@ -403,7 +403,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, confirm, help as help_router, account, health,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -411,6 +411,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(account.router)
     app.include_router(home.router)
     app.include_router(admin.router)
+    app.include_router(solution_fields_router.router)
     app.include_router(partners.router)
     app.include_router(customers.router)
     app.include_router(opportunities.router)

@@ -1380,3 +1380,25 @@ dd.new-biz strong { color: var(--brand-deep); }
 .bt-row .badge { margin-right: 4px; }
 .dir-bt { margin: 0; }
 .type-tools { flex-wrap: wrap; }
+
+/* --- 솔루션 분야 관리·목록 묶어 보기 (베타 AD) --- */
+.field-table td { white-space: nowrap; }
+.field-table .inline-rename { display: none; }
+.field-table td:first-child { display: flex; align-items: center; gap: 6px; min-width: 260px; }
+.field-table td:first-child input { flex: 1 1 160px; min-width: 0; }
+.field-table .field-move form, .field-table .field-actions form { display: inline-block; margin-right: 4px; }
+.field-table tr.is-off input { color: var(--ink-3); }
+.field-table .field-keep { margin-left: 8px; white-space: normal; font-size: var(--fs-note); }
+@media (min-width: 601px) {
+  .list-table.grouped { table-layout: fixed; width: 100%; }
+  .list-table.grouped col.c-stage { width: 104px; } .list-table.grouped col.c-bt { width: 96px; } .list-table.grouped col.c-field { width: 120px; }
+  .list-table.grouped col.c-partner { width: 130px; } .list-table.grouped col.c-origin { width: 84px; } .list-table.grouped col.c-links { width: 200px; } .list-table.grouped col.c-active { width: 96px; }
+  .list-table.grouped td.col-sec { overflow-wrap: anywhere; }
+}
+.group-tools .seg a { padding: 0 10px; }
+.group-note { margin: var(--s3) 0; font-size: var(--fs-note); }
+details.group-sec { margin: var(--s4) 0; scroll-margin-top: 16px; }
+details.group-sec > summary { display: flex; align-items: baseline; gap: 8px; padding: 6px 2px; cursor: pointer; }
+details.group-sec > summary .group-name { font-weight: var(--fw-strong); }
+details.group-sec > summary .group-count { color: var(--ink-3); font-size: var(--fs-note); font-variant-numeric: tabular-nums; }
+details.group-sec[open] > summary { margin-bottom: var(--s2); }

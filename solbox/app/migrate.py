@@ -477,4 +477,7 @@ def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
     from app import idmarks  # 지운 번호를 다시 쓰지 않는 표시 (새 작은 표만 쓴다: 기존 표·값은 그대로)
 
     idmarks.ensure_marks(engine)
+    from app import solution_fields  # 솔루션 분야 처음 채우기 (베타 AD): 표시가 없을 때만 한 번, 번호는 번호 표시 장치를 거쳐 정한다
+
+    solution_fields.seed_once(engine)
     return backup

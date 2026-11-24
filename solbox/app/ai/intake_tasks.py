@@ -19,6 +19,7 @@ from app import transcribe
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import AFTER_JOB, CLAIM_GUARDS, HANDLERS, MEMO_CLOSE, MEMO_OPEN, ActivityDraft, load_prompt, run_json, writer_name
 from app.config import Settings
+from app import solution_fields as sfields
 from app.models import Customer, Intake, IntakeFile, Partner, Solution
 
 log = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ class NewSolution(PlanItem):
     tags: StrList = []
     partner: Text = ""
     business_types: Any = []  # 사업방식 제안 [{"code", "reason"}] (베타 Y). 모양이 틀려도 분석 전체는 실패하지 않는다: `business_types.clean_suggestions` 가 거른다
+    field: Any = ""  # 분야 제안: 프롬프트에 준 분야 이름 하나 (베타 AD). 모르는 이름은 `intake.clean_plan` 이 버린다
 
 
 class AddToSolution(PlanItem):
@@ -341,7 +343,7 @@ def _analyze(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     prompt = load_prompt(
         "intake_analyze", today=date.today().isoformat(), note=note or "(없음)", writer=writer_name(db, intake.created_by_id),
         solutions=_names(db, Solution, with_id=True), customers=_names(db, Customer, with_id=True),
-        partners=_names(db, Partner, with_id=True),
+        partners=_names(db, Partner, with_id=True), field_names=sfields.prompt_names(db),
     )
     # 파일 도구는 작업 폴더 안으로만 허용한다 (업로드 자료가 다른 파일을 읽게 시키는 것을 막는다)
     out = run_json(db, runner, prompt, IntakePlanOut, settings, cwd=folder, file_scope=True)  # 읽기 트랜잭션은 여기서 끝난다

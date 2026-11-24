@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, confirm_link %}
+{% block title %}솔루션 분야{% endblock %}
+{% block content %}
+{{ page_header("솔루션 분야", crumbs=[("관리", none), ("솔루션 분야", none)], sub=ont.TYPES["solution_field"].description, count=(fields | length) ~ "개") }}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="card stack">
+  <h2>분야 더하기</h2>
+  <form method="post" action="/admin/solution-fields" class="row compact-form">
+    <input type="hidden" name="_tok" value="{{ new_token() }}">
+    <label>이름 <input name="name" maxlength="{{ name_max }}" required value="{{ typed if error and error_id is none else '' }}"{% if error and error_id is none %} aria-invalid="true"{% endif %}></label>
+    <button type="submit" class="primary">더하기</button>
+  </form>
+  <p class="help muted">솔루션을 등록하거나 고칠 때 "분야" 로 고를 수 있고, 솔루션 목록에서 "묶어 보기: 분야" 로 모아 볼 수 있습니다. 이름은 {{ name_max }}자까지, 같은 이름은 둘 수 없습니다. 지금 분야가 없는 솔루션은 {{ none_count }}건입니다 ({{ ont.SOLUTION_FIELD_NONE }}).</p>
+</section>
+
+{% if fields %}
+<div class="tablewrap"><table class="inline-table field-table">
+  <thead><tr><th>이름</th><th>솔루션</th><th>사용</th><th>순서</th><th>관리</th></tr></thead>
+  <tbody>
+  {% for f in fields %}
+    {% set n = counts.get(f.id, 0) %}
+    {% set rid = "fld" ~ f.id %}
+    <tr{% if not f.active %} class="is-off"{% endif %}>
+      <td>
+        <form id="{{ rid }}" method="post" action="/admin/solution-fields/{{ f.id }}" class="inline-rename"></form>
+        <input form="{{ rid }}" name="name" value="{{ typed if error and error_id == f.id else f.name }}" maxlength="{{ name_max }}" aria-label="{{ f.name }} 이름"{% if error and error_id == f.id %} aria-invalid="true"{% endif %}>
+        <button form="{{ rid }}" type="submit" class="small" aria-label="{{ f.name }} 이름 저장">저장</button>
+      </td>
+      <td class="num">{% if n %}<a href="/solutions?group=field#field-{{ f.id }}">{{ n }}건</a>{% else %}<span class="muted">0건</span>{% endif %}</td>
+      <td>{% if f.active %}<span class="badge tone-ok">사용 중</span>{% else %}<span class="badge tone-slate">{{ ont.SOLUTION_FIELD_INACTIVE }}</span>{% endif %}</td>
+      <td class="field-move">
+        <form method="post" action="/admin/solution-fields/{{ f.id }}/move"><input type="hidden" name="direction" value="up"><button type="submit" class="small" aria-label="{{ f.name }} 위로"{% if loop.first %} disabled{% endif %}>▲ 위로</button></form>
+        <form method="post" action="/admin/solution-fields/{{ f.id }}/move"><input type="hidden" name="direction" value="down"><button type="submit" class="small" aria-label="{{ f.name }} 아래로"{% if loop.last %} disabled{% endif %}>▼ 아래로</button></form>
+      </td>
+      <td class="field-actions">
+        <form method="post" action="/admin/solution-fields/{{ f.id }}/active"><input type="hidden" name="active" value="{{ '0' if f.active else '1' }}"><button type="submit" class="small" aria-label="{{ f.name }} {{ '사용 끄기' if f.active else '다시 사용' }}">{{ "사용 끄기" if f.active else "다시 사용" }}</button></form>
+        {% if n %}<span class="muted field-keep" title="{{ n }}건이 쓰는 중이라 지울 수 없습니다. 사용을 끄면 새로 고르지 못하게만 막습니다.">지울 수 없음 (사용 중)</span>
+        {% else %}{{ confirm_link("/admin/solution-fields/" ~ f.id ~ "/delete", "삭제", aria=f.name ~ " 삭제", cls="ghost danger small") }}{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<div class="empty"><p class="muted">분야가 하나도 없습니다. 위에서 더해 주세요.</p></div>
+{% endif %}
+{% endblock %}
