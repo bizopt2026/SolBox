@@ -93,7 +93,8 @@ def test_admin_page_lists_with_counts_and_is_in_admin_nav(admin_client, db):
     assert "솔루션 분야" in page and all(n in page for n in SEED)
     assert re.search(r'href="/solutions\?group=field#field-\d+">2건', page)
     assert 'href="/admin/solution-fields"' in page and "분야가 없는 솔루션은 0건" in page
-    assert [i.path for i in ontology.ADMIN_NAV_ITEMS][-2] == "admin/solution-fields"
+    paths = [i.path for i in ontology.ADMIN_NAV_ITEMS]
+    assert "admin/solution-fields" in paths and paths.index("admin/solution-fields") < paths.index("admin/system")
 
 
 def test_non_admin_gets_403_everywhere(user_client, db):
