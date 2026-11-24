@@ -767,6 +767,21 @@ def _draw_body(slide, data: dict):
         _draw_bullets(slide, data)
 
 
+def replace_retry(src: Path, dst: Path, tries: int = 12, wait: float = 0.25) -> None:
+    """`src` 를 `dst` 로 바꿔치기한다. Windows 에서는 백신·인덱서가 방금 쓴 파일을 잠깐 잡고 있어 PermissionError 가 날 수 있어
+    잠시 기다렸다가 다시 한다 (약 3초까지). 그 밖의 오류나 끝까지 안 되면 그대로 올린다."""
+    import time
+
+    for attempt in range(tries):
+        try:
+            Path(src).replace(dst)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(wait)
+
+
 def build_deck(
     outline: dict, out_path: Path, *, customer_name: str = "", today: date | None = None,
     source_labels: dict[str, str] | None = None, audience: str = "internal", contact: list[str] | None = None, stats: dict | None = None,
@@ -807,7 +822,7 @@ def build_deck(
     part = out_path.with_name(out_path.name + ".part")
     try:
         prs.save(part)
-        part.replace(out_path)
+        replace_retry(part, out_path)
     finally:
         part.unlink(missing_ok=True)
     return len(pages)

@@ -266,6 +266,12 @@
 - 확인 화면: 맨 위 "명함 n장을 읽어 m건으로 정리했습니다 …"(`plan_summary`), "읽은 방법" 카드(어느 열이 무엇이 되었나·쓰지 않은 열·합친 수·같은 파일을 이미 가져왔는지), "모두 포함·모두 제외"(`app.js` `.skip-all`, 모든 확인 화면에 있다), 카드 머리는 "새 회사"·"정리하지 못한 명함". 개인 정보: 올린 파일은 다른 올리기처럼 `uploads/intake/<번호>/` 에 남고 묶음을 버려도 지워지지 않는다 (기존 규칙).
 - 시험: `tests/test_beta_aa.py` (파일은 모두 이 시험이 만든 가짜 값). 바꾼 기존 시험: `tests/test_ux_notices.py`(새 POST 세 개를 알림 표에), `tests/test_origin.py`(원 코드 목록에 `import`).
 
+## 베타 AB 묶음이 바꾼 규칙
+- **사용자 보고 2026-11-24**: 로컬 PC(Windows)에서 "PPT 만들기"가 "제안서 파일을 만들지 못했습니다." 만 보이고, 예외를 잡아 삼켜 app.log 에도 원인이 남지 않았다. 컨테이너에서 같은 구성안 모양을 무작위로 300벌 만들어 `build_deck` 에 넣어 봤지만 실패하지 않았다 (원인은 아직 모른다).
+- `routers/proposals.build` 의 실패는 `log.exception("제안서 %s 파일을 만들지 못했습니다")` 로 **원인을 app.log 에 남긴다.** 만들다 만 파일 지우기도 힘껏만 한다.
+- 화면 문구는 `deck_failure_text(exc)`: PermissionError → `DECK_FAILED_LOCKED`(PowerPoint·백신이 파일을 잡고 있음, 잠시 뒤 다시), 그 밖의 OSError → `DECK_FAILED_DISK`(디스크 공간·폴더 권한), 나머지 → `DECK_FAILED` + "(원인: 종류 이름. 관리자는 logs\\app.log)". 예외 글(경로 등)은 화면에 내지 않는다.
+- 바꿔치기는 `deck.replace_retry`(PermissionError 만 0.25초 간격 12번까지 다시)로 한다: `build_deck` 의 `.part` → 파일, 라우터의 `.tmp` → 최종 파일 두 곳. Windows 에서 백신·인덱서가 방금 쓴 파일을 잠깐 잡는 경우를 넘긴다. 시험 `tests/test_beta_ab.py`.
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

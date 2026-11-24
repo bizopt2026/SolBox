@@ -21,7 +21,7 @@ from app.ai.queue import queue_position
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
-from app.deck import build_deck
+from app.deck import build_deck, replace_retry
 from app.sources import SourceLookup
 from app.knowledge import KnowledgeMirror, get_mirror, safe_name
 from app.main import render
@@ -51,6 +51,17 @@ TOO_LONG_INSTRUCTION = f"추가 지시는 {MAX_INSTRUCTION}자까지 쓸 수 있
 TOO_LONG_MEMO = f"요청 메모는 {MAX_MEMO}자까지 쓸 수 있습니다."
 DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
 DECK_FAILED = "제안서 파일을 만들지 못했습니다."
+DECK_FAILED_LOCKED = "제안서 파일을 만들지 못했습니다. 파일이 다른 프로그램(PowerPoint, 백신 검사 등)에 잡혀 있어 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."
+DECK_FAILED_DISK = "제안서 파일을 만들지 못했습니다. 데이터 폴더에 파일을 쓸 수 없어요 (디스크 공간이나 폴더 권한을 확인해 주세요)."
+
+
+def deck_failure_text(exc: BaseException) -> str:
+    """제안서 만들기 실패를 사람이 할 일로 바꾼다. 알 수 없는 오류는 종류 이름만 붙인다 (자세한 내용은 app.log)."""
+    if isinstance(exc, PermissionError):
+        return DECK_FAILED_LOCKED
+    if isinstance(exc, OSError):
+        return DECK_FAILED_DISK
+    return f"{DECK_FAILED} (원인: {type(exc).__name__}. 관리자는 데이터 폴더의 logs\\app.log 에서 자세한 내용을 볼 수 있어요.)"
 PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 CHAT_BUSY = "이미 AI 작업이 진행 중이라 보내지 못했어요. 쓴 글은 아래에 남겨 두었으니 작업이 끝나면 다시 보내세요."
 
@@ -513,16 +524,20 @@ def build(
     try:
         folder.mkdir(parents=True, exist_ok=True)
         removed = _write_deck_pair(db, p, temp, user)
-        temp.replace(final)
-        internal_temp.replace(internal_deck_path(final))
+        replace_retry(temp, final)
+        replace_retry(internal_temp, internal_deck_path(final))
         p.deck_name, p.deck_built_at, p.status, p.deck_removed = name, now, "deck", removed
         db.commit()
-    except Exception:
+    except Exception as exc:
+        log.exception("제안서 %s 파일을 만들지 못했습니다", p.id)  # 원인을 app.log 에 남긴다 (예전에는 남지 않았다)
         db.rollback()
         for f in (temp, internal_temp, final, internal_deck_path(final)):
-            f.unlink(missing_ok=True)
+            try:
+                f.unlink(missing_ok=True)
+            except OSError:
+                log.warning("만들다 만 제안서 파일을 지우지 못했습니다: %s", f, exc_info=True)
         db.refresh(p)
-        return _detail_page(request, db, p, user, status_code=400, deck_error=DECK_FAILED)
+        return _detail_page(request, db, p, user, status_code=400, deck_error=deck_failure_text(exc))
     if old_name and old_name != name:
         # 옛 파일 지우기는 힘껏만 한다: 새 제안서는 이미 저장됐다. Windows 에서 파워포인트가 연 파일은 PermissionError 가 난다 (남겨 두고 로그만).
         for old in (folder / old_name, internal_deck_path(folder / old_name)):
