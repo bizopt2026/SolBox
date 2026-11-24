@@ -164,6 +164,15 @@ def normalize_name(name: str, company: bool = False) -> str:
     return "".join(ch for ch in folded if unicodedata.category(ch)[0] in "LNM")
 
 
+def aliases_of(obj) -> list[str]:
+    """고객·파트너의 다른 이름들 (다른 유형은 빈 목록). `app.aliases` 는 이 모듈을 불러오므로 늦게 불러온다."""
+    if not hasattr(obj, "aliases"):
+        return []
+    from app import aliases
+
+    return aliases.of(obj)
+
+
 def match_mentions(db: Session, mentions: Mentions) -> dict:
     """종류별로 {"matched": [id...], "new": [이름...], "ambiguous": [{"name", "candidates": [id...]}]}.
 
@@ -171,7 +180,10 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
     후보가 여럿이면 자동 연결도 새 등록 제안도 하지 않고 ambiguous 로 돌려준다. 2자 미만 이름은 연결하지 않고, 3자 미만 등록명(AI, KT 등)은 포함 비교에 쓰지 않는다(완전 일치만)."""
     result = {}
     for rel, model in _MENTION_MODELS.items():
-        registered = [(o.id, normalize_name(o.name)) for o in db.scalars(select(model).order_by(model.id))]
+        registered = []
+        for o in db.scalars(select(model).order_by(model.id)):
+            names = [o.name, *aliases_of(o)]  # 고객·파트너는 다른 이름도 같은 정규형으로 견준다 (베타 AE)
+            registered.extend((o.id, normalize_name(n)) for n in names)
         registered = [(i, k) for i, k in registered if len(k) >= 2]
         matched: list[int] = []
         new: list[str] = []
@@ -187,7 +199,7 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
             else:
                 found = [i for i, k in registered if k == key][:1]
                 if not found:
-                    found = [i for i, k in registered if len(k) >= 3 and (key in k or k in key)]
+                    found = list(dict.fromkeys(i for i, k in registered if len(k) >= 3 and (key in k or k in key)))
             if len(found) == 1:
                 if found[0] not in matched:
                     matched.append(found[0])

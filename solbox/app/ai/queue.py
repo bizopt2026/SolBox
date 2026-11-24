@@ -191,6 +191,7 @@ def stop_workers(app, join_timeout: float = 5.0) -> None:
         t.join(timeout=join_timeout)
 
 
+from app.ai import duplicate_tasks  # noqa: E402,F401  (처리기 등록용)
 from app.ai import intake_tasks  # noqa: E402,F401  (처리기 등록용)
 from app.ai import proposal_tasks  # noqa: E402,F401  (처리기 등록용)
 from app.ai import research_tasks  # noqa: E402,F401  (처리기 등록용)

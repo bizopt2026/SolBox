@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import ontology
-from app.ai.tasks import normalize_name
+from app.ai.tasks import aliases_of, normalize_name
 from app.korean import josa
 from app.models import BM, Activity, Customer, CustomerNeed, Opportunity, Project, Proposal, User
 from app.ui import FieldError
@@ -114,11 +114,11 @@ def unlinked_same_name_needs(db: Session, customer: Customer | None) -> list[Cus
     """고객 기록에 연결되지 않았지만 쓴 이름이 이 고객과 같은 니즈 (안내만 한다. 묶을 수는 없다)."""
     if customer is None:
         return []
-    key = normalize_name(customer.name)
-    if not key:
+    keys = {normalize_name(x) for x in (customer.name, *aliases_of(customer))} - {""}  # 이름과 다른 이름 (베타 AE)
+    if not keys:
         return []
     return [n for n in db.scalars(select(CustomerNeed).where(CustomerNeed.customer_id.is_(None), CustomerNeed.customer_name != ""))
-            if normalize_name(n.customer_name) == key]
+            if normalize_name(n.customer_name) in keys]
 
 
 def customer_change_problem(db: Session, opp: Opportunity, new_customer_id: int) -> str | None:

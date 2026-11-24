@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, object_session
 from app.idparse import parse_id
 from app import labels, ontology, origin as origins
 from app.activity_rows import load_index, reconcile_follow_ups, reconcile_needs
-from app.ai.tasks import normalize_name
+from app.ai.tasks import aliases_of, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
 from app.intake import extension
@@ -161,13 +161,17 @@ def pick(db: Session, model, ids: list[str]) -> list:
 
 def get_or_create(db: Session, model, name: str, user: User, *, origin: tuple[str, int | None] = origins.MANUAL,
                   **fields) -> tuple[object | None, bool]:
-    """같은 이름(공백·문장부호·대소문자 무시, 완전 일치만)의 항목이 있으면 그것을(유래는 그대로), 없으면 `fields` 로 새로 만든다 (flush).
+    """같은 이름(공백·문장부호·대소문자 무시, 완전 일치만; 고객·파트너는 다른 이름도)의 항목이 있으면 그것을(유래는 그대로), 없으면 `fields` 로 새로 만든다 (flush).
     새로 만들 때만 유래 `origin` = (유형, 번호) 를 적는다 (기본: 직접 입력). (항목, 새로 만들었는지). 이름이 비면 (None, False)."""
     key = normalize_name(name)
     if not key:
         return None, False
-    for obj in db.scalars(select(model).order_by(model.id)):
+    rows = list(db.scalars(select(model).order_by(model.id)))
+    for obj in rows:
         if normalize_name(obj.name) == key:
+            return obj, False
+    for obj in rows:  # 고객·파트너의 다른 이름 (베타 AE)
+        if any(normalize_name(a) == key for a in aliases_of(obj)):
             return obj, False
     extra = {"stage": ontology.STAGE_DEFAULT} if model is Solution else {}
     obj = model(name=name.strip(), created_by_id=user.id, origin_type=origin[0], origin_id=origin[1], **extra, **fields)

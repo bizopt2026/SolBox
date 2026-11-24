@@ -37,7 +37,7 @@ def test_nav_groups_order_and_labels():
     ]
     admin = ontology.nav_groups(is_admin=True)
     assert admin[-1].label == "관리"
-    assert [i.href for i in admin[-1].items] == ["/admin/users", "/admin/jobs", "/admin/research", "/admin/system"]
+    assert [i.href for i in admin[-1].items] == ["/admin/users", "/admin/jobs", "/admin/research", "/admin/duplicates", "/admin/system"]
 
 
 def test_current_nav_item():

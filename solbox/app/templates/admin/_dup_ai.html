@@ -1,0 +1,19 @@
+{% from "_macros.html" import ai_attrs, ai_note %}{% set aig = ai_gate() %}{% set live = dup_ai.active and not (ai_off and dup_ai.active.status == "pending") %}
+<section class="card stack dup-ai" id="dup-ai"{% if live %} hx-get="/admin/duplicates/ai/{{ kind }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h2>AI 로 더 찾기</h2>
+  <p class="muted help">{{ label }} <b>이름과 다른 이름만</b> AI 에 보내요 (연락처·메모·활동 기록은 보내지 않아요). SOLUM ↔ 솔루엠 처럼 글자가 달라 위 규칙으로 못 찾는 쌍을 찾아 줘요. 결과는 후보로만 보이고 아무것도 합치지 않아요.</p>
+  {% if dup_ai.active %}
+    <p class="job-status" role="status">
+      {% if ai_off and dup_ai.active.status == "pending" %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+      {% elif dup_ai.active.status == "pending" %}AI 대기 중입니다 (앞 작업이 끝나면 시작합니다).
+      {% else %}<span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> AI 가 이름을 살펴보고 있습니다…{% endif %}
+    </p>
+  {% else %}
+    {% if dup_ai.failed %}<p class="error" role="alert">AI 확인을 마치지 못했습니다. {{ dup_ai.failed_text }}{% if dup_ai.failed.finished_at %} ({{ kdatetime(dup_ai.failed.finished_at) }}){% endif %}</p>{% endif %}
+    {% call ai_note(aig, id="ai-note-dup") %}{% endcall %}
+    <form method="post" action="/admin/duplicates/ai/{{ kind }}">
+      <button type="submit" class="{{ '' if dup_ai.failed or dup_ai.done else 'primary' }}"{{ ai_attrs(aig, "ai-note-dup") }}>{{ "다시 시도" if dup_ai.failed else ("다시 찾기" if dup_ai.done else "AI 로 더 찾기") }}</button>
+    </form>
+    {% if dup_ai.done %}<p class="muted">{{ kdatetime(dup_ai.done.finished_at or dup_ai.done.created_at) }}에 받은 결과: {{ dup_ai.count }}쌍{% if dup_ai.count == 0 %} (AI 가 찾은 쌍이 없어요){% endif %}. 이미 합쳐졌거나 지워진 기록은 빠져요.</p>{% endif %}
+  {% endif %}
+</section>

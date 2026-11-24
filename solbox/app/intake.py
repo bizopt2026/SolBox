@@ -15,7 +15,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import business_types as bts, labels, ontology, origin, transcribe
+from app import aliases, business_types as bts, labels, ontology, origin, transcribe
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -558,7 +558,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
     solution_ids = set(db.scalars(select(Solution.id)))
     solution_name_of = {s.id: s.name for s in db.scalars(select(Solution))}
     customer_rows = list(db.scalars(select(Customer).order_by(Customer.id)))
-    customers = {normalize_name(c.name): c.id for c in customer_rows if normalize_name(c.name)}
+    customers = {k: o.id for k, o in aliases.lookup(db, Customer).items()}  # 이름과 다른 이름 (베타 AE)
     target_name_of = {"partner": {p.id: p.name for p in db.scalars(select(Partner))},
                       "customer": {c.id: c.name for c in customer_rows}}
     contacts: dict[tuple, dict] = {}
@@ -576,7 +576,7 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
             _merge_into(contacts[same], item, ("role", "address", "note", "reason"))
         else:
             contacts[same] = item
-    partners = {normalize_name(p.name): p.id for p in db.scalars(select(Partner).order_by(Partner.id)) if normalize_name(p.name)}
+    partners = {k: o.id for k, o in aliases.lookup(db, Partner).items()}  # 이름과 다른 이름 (베타 AE)
 
     new_partners: dict[str, dict] = {}
     for p in out.partners:

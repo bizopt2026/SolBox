@@ -8,20 +8,20 @@ from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
 from app import ontology, opportunities as opps, origin, relations, same_company, ui
-from app import guards, notices
+from app import aliases as alias_utils, guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Activity, Customer, CustomerNeed, Partner, User
 from app.routers._common import (
-    activities_linked_to, activities_with_needs_of, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, duplicate_warning,
+    activities_linked_to, alias_error, activities_with_needs_of, clear_file_targets, get_deletable_or_404, get_or_404, name_error, newest_first, duplicate_warning,
     resync_activities, resync_related, search_by_name, paginate, row_info, sort_rows, origin_filter,
 )
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/customers")
-FIELDS = ("name", "industry", "contact", "memo")
+FIELDS = ("name", "aliases", "industry", "contact", "memo")
 HAS_PROJECTS = "이 고객에 연결된 프로젝트가 있어 삭제할 수 없습니다. 프로젝트를 먼저 삭제해 주세요."
 
 
@@ -63,14 +63,16 @@ def new_form(request: Request, user: User = Depends(require_user), db: Session =
 @router.post("")
 def create(
     request: Request,
-    name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
+    name: str = Form(""), aliases: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
     confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
 ):
-    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
+    values = dict(name=name.strip(), aliases=alias_utils.parse_text(aliases), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, error=error)
+    if error := alias_error(db, Customer, name, aliases):
+        return _form_page(request, db, {**values, "aliases": aliases, "partner_id": partner_id}, error=error)
     if dup := duplicate_warning(db, Customer, name, confirm_dup):
         return _form_page(request, db, {**values, "partner_id": partner_id}, duplicate=dup)
     customer = Customer(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
@@ -101,17 +103,19 @@ def edit_form(customer_id: int, request: Request, user: User = Depends(require_u
 @router.post("/{customer_id}")
 def update(
     customer_id: int, request: Request,
-    name: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
+    name: str = Form(""), aliases: str = Form(""), industry: str = Form(""), contact: str = Form(""), memo: str = Form(""), partner_id: str = Form(""),
     confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form),
 ):
     customer = get_or_404(db, Customer, customer_id)
-    values = dict(name=name.strip(), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
+    values = dict(name=name.strip(), aliases=alias_utils.parse_text(aliases), industry=industry.strip(), contact=contact.replace("\r\n", "\n").strip(), memo=memo.strip())
     if conflict := guards.check_rev(customer, rev, values=values):  # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 저장하지 않고 쓴 내용을 그대로 보여 준다
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, conflict=conflict)
     if error := name_error(name):
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, error)
+    if error := alias_error(db, Customer, name, aliases, customer):
+        return _form_page(request, db, {**values, "aliases": aliases, "partner_id": partner_id}, customer, error)
     if dup := duplicate_warning(db, Customer, name, confirm_dup, exclude=customer):
         return _form_page(request, db, {**values, "partner_id": partner_id}, customer, duplicate=dup)
     old_partner = same_company.partner_of(db, customer)

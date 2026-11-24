@@ -106,6 +106,19 @@ class FormToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
+class DuplicateDismissal(Base):
+    """"다른 회사임" 으로 표시한 쌍 (베타 AE, 관리 › 중복 정리). 종류(partner/customer) + 작은 번호 + 큰 번호가 기본키다.
+    두 기록 중 하나를 지우거나 합치면 그 쌍의 줄도 지운다 (남은 줄은 화면이 건너뛴다)."""
+
+    __tablename__ = "duplicate_dismissals"
+
+    kind: Mapped[str] = mapped_column(String, primary_key=True)
+    low_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    high_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    dismissed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+
 class IdMark(Base):
     """표마다 지금까지 쓴 가장 큰 번호 (app/idmarks.py). SQLite 는 AUTOINCREMENT 없이 만든 표에서 지운 번호를 다시 쓰므로, 새 줄의 번호를 이 표시보다 크게 직접 정한다."""
 
@@ -125,6 +138,7 @@ class Partner(Stamped, Origin, Base):
     description: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True)  # 같은 회사인 고객 (1:1)
+    aliases: Mapped[str] = mapped_column(String, default="", server_default="")  # 다른 이름 (한 줄에 하나, 베타 AE: app/aliases.py). 옛 DB 는 migrate 가 칸을 더한다
 
     solutions: Mapped[list[Solution]] = relationship(back_populates="partner")
     customer: Mapped[Customer | None] = relationship(back_populates="partner")
@@ -138,6 +152,7 @@ class Customer(Stamped, Origin, Base):
     industry: Mapped[str] = mapped_column(String, default="")
     contact: Mapped[str] = mapped_column(String, default="")
     memo: Mapped[str] = mapped_column(String, default="")
+    aliases: Mapped[str] = mapped_column(String, default="", server_default="")  # 다른 이름 (한 줄에 하나, 베타 AE: app/aliases.py). 옛 DB 는 migrate 가 칸을 더한다
 
     projects: Mapped[list[Project]] = relationship(back_populates="customer")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="customer")
