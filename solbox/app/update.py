@@ -140,6 +140,63 @@ def boot_commit() -> dict:
     return dict(_BOOT)
 
 
+
+# ---------- 실행 중에 폴더의 코드가 바뀌었는지 (베타 Z) ----------
+
+_DISK_CACHE: dict = {"at": 0.0, "sha": ""}
+_DISK_TTL = 30.0
+
+
+def _read_head_sha(root: Path) -> str:
+    """git 을 실행하지 않고 .git 파일만 읽어 지금 폴더의 HEAD 커밋을 돌려준다. 모르면 빈 값."""
+    git = root / ".git"
+    if git.is_file():  # 작업 트리(worktree): "gitdir: <경로>"
+        text = git.read_text(encoding="utf-8").strip()
+        if not text.startswith("gitdir:"):
+            return ""
+        git = (root / text.split(":", 1)[1].strip()).resolve()
+    head = (git / "HEAD").read_text(encoding="utf-8").strip()
+    if _SHA.fullmatch(head):
+        return head
+    if not head.startswith("ref:"):
+        return ""
+    ref = head.split(":", 1)[1].strip()
+    common = git
+    if (git / "commondir").is_file():
+        common = (git / (git / "commondir").read_text(encoding="utf-8").strip()).resolve()
+    for base in (git, common):
+        f = base / ref
+        if f.is_file():
+            sha = f.read_text(encoding="utf-8").strip()
+            return sha if _SHA.fullmatch(sha) else ""
+    packed = common / "packed-refs"
+    if packed.is_file():
+        for line in packed.read_text(encoding="utf-8").splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[1] == ref and _SHA.fullmatch(parts[0]):
+                return parts[0]
+    return ""
+
+
+def code_changed_on_disk() -> dict | None:
+    """서버가 시작한 뒤 폴더의 코드(HEAD)가 바뀌었으면 {"running", "disk"} (짧은 번호), 아니면 None.
+    git pull 만 하고 서버를 다시 시작하지 않은 상태를 관리자에게 알리는 데 쓴다. 30초마다 한 번만 파일을 읽고, 어떤 오류도 None 이다."""
+    try:
+        running = (_BOOT or {}).get("sha", "")
+        if not running:
+            return None
+        now = time.monotonic()
+        if now - _DISK_CACHE["at"] > _DISK_TTL:
+            root = find_repo_root()
+            _DISK_CACHE["sha"] = _read_head_sha(root) if root is not None else ""
+            _DISK_CACHE["at"] = now
+        disk = _DISK_CACHE["sha"]
+        if disk and disk != running:
+            return {"running": running[:7], "disk": disk[:7]}
+    except Exception:  # noqa: BLE001 - 알림일 뿐이다. 화면을 깨뜨리지 않는다
+        return None
+    return None
+
 # ---------- 확인 (읽기만) ----------
 
 _LAST_CHECK: dict | None = None

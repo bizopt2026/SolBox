@@ -12,7 +12,7 @@
   <ul class="dropzone-list"></ul>
   <p class="error dropzone-warn" role="alert" hidden></p>
 </div>
-{% set paste_val = pasted_text | default('') %}
+{% set paste_val = pasted_text | default('') %}{% set max_paste = max_paste | default(200000, true) %}{% set max_paste_title = max_paste_title | default(60, true) %}{# 기본값: 옛 서버 프로그램이 새 화면 파일을 읽어도 깨지지 않게 (베타 Z) #}
 {% macro paste_counter() %}<p class="paste-count muted" data-paste-count aria-live="off"><span data-paste-n>{{ "{:,}".format(paste_val | length) }}</span> / {{ "{:,}".format(max_paste) }}자</p>{% endmacro %}
 {% if zone_id == 'home' %}
 <details class="paste-box paste-compact" data-paste data-paste-max="{{ max_paste }}"{% if paste_val %} open{% endif %}>

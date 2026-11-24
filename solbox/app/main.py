@@ -273,6 +273,17 @@ def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Respon
     return response
 
 
+
+def snapshot_loader(templates_dir: Path):
+    """templates 폴더의 모든 파일을 지금 읽어 메모리에 둔 Jinja 로더 (실행 중에 폴더가 바뀌어도 그대로)."""
+    from jinja2 import DictLoader
+
+    files = {}
+    for path in sorted(templates_dir.rglob("*")):
+        if path.is_file() and path.suffix in (".html", ".txt", ".xml", ".md", ".j2"):
+            files[path.relative_to(templates_dir).as_posix()] = path.read_text(encoding="utf-8")
+    return DictLoader(files)
+
 def create_app(settings: Settings) -> FastAPI:
     for d in (settings.data_dir, settings.uploads_dir, settings.knowledge_dir, settings.decks_dir):
         d.mkdir(parents=True, exist_ok=True)
@@ -333,6 +344,13 @@ def create_app(settings: Settings) -> FastAPI:
     templates_dir.mkdir(exist_ok=True)
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.templates = Jinja2Templates(directory=templates_dir)
+    # 화면 파일을 시작할 때 한 번 모두 읽어 둔다 (베타 Z): 서버가 도는 중에 git pull 로 파일이 바뀌어도
+    # 다시 시작할 때까지는 시작 때의 프로그램과 화면이 짝을 이룬다 (옛 코드 + 새 화면 = 500 을 막는다).
+    app.state.templates.env.loader = snapshot_loader(templates_dir)
+    app.state.templates.env.auto_reload = False
+    from app.update import code_changed_on_disk
+
+    app.state.templates.env.globals["code_changed_on_disk"] = code_changed_on_disk
     from app.markdown_lite import render_markdown
     from app.proposals import check_items, check_summary_text, number_sources, deck_is_old, deck_is_stale, display_title, is_group, outline_check_summary, target_name, unresolved_check_count
 

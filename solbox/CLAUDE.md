@@ -251,6 +251,12 @@
 - **AI**: 제안 방향·대화·구성안 프롬프트는 `{{business_type_section}}`(검토 사업방식, 세 방식의 뜻, 선택한 방향이 전제하는 방식)와 후보·방향 솔루션 줄마다 가능한 사업방식(없으면 "적혀 있지 않음", 지원한다고 지어내지 말라고 적는다)을 받는다. 방향 모양에 `business_type`(코드 하나, 목록에 없거나 문자열이 아니면 빈 값으로 버리고 오류로 보지 않는다)이 더해졌고 방향 카드에 배지로 보인다. 투자형이 검토 대상이거나 선택한 방향이 투자형이면 구성안 프롬프트에 투자·회수 구조 장 규칙(`INVEST_SLIDE_RULE`: 숫자는 자료에 있는 것만, 없으면 `needs_check`)이 들어간다. 솔루션 AI 초안(`SolutionDraft.business_types`)과 올리기 정리안의 새 솔루션 항목(`business_types: [{code, reason}]`, 확인 화면의 `{키}__business_types` 체크 상자)은 **제안만** 한다: 미리 체크되어 보이고 사람이 저장해야 반영되며, 초안은 이미 있는 선택·메모를 지우지 않고, 올리기는 새로 만든 솔루션에만 쓴다(이미 등록된 솔루션은 건드리지 않는다). 잘못된 모양·모르는 코드는 `bts.clean_suggestions` 가 조용히 버린다(분석·초안이 실패하지 않는다). 프롬프트 자리표시 `business_type_guide`·`business_type_codes` 는 `prompt_constants` 에 있다.
 - 지식 사본(`KNOWLEDGE_FORMAT` 9): 솔루션 `- 가능한 사업방식: 구축형, 투자형 (투자형: 100kW 이상만)`, 영업기회 `- 검토 사업방식: …`, BM `- 대표 사업방식: …`(비어 있으면 줄 없음). 제안 건은 사본이 없다. 업데이트 뒤 처음 시작할 때 사본을 한 번 다시 만든다. 시험 `tests/test_beta_y.py`(바꾼 기존 시험: `tests/test_ontology.py` 의 보조 모델 목록에 `SolutionBusinessType`, `tests/test_bm_opportunity.py` 의 옛 구조 DB 만들기). 문서: `docs/ontology.md` 18장, `docs/화면구성도.md`, `docs/운영가이드.md`, `help.html`(용어 아래 "사업방식" 풀이).
 
+## 베타 Z 묶음이 바꾼 규칙
+- **사용자 요청 2026-11-24: "앱도 깨지지 않게 보완".** 로컬 PC 에서 서버를 켠 채로 `git pull` 만 하자 홈·올리기 화면이 500 이었다 (옛 프로그램이 `max_paste` 를 넘기지 않는데 새 `intake/_dropzone.html` 이 `"{:,}".format(max_paste)` 를 불러 `TypeError: unsupported format string passed to Undefined.__format__`).
+- **화면 파일은 시작 때 한 번 읽어 둔다**: `main.snapshot_loader(templates_dir)` 가 `templates` 아래 모든 `.html`(·`.txt`·`.xml`·`.md`·`.j2`)을 읽어 `DictLoader` 로 만들고 `auto_reload = False`. 실행 중에 폴더가 바뀌어도 다시 시작할 때까지 시작 때의 프로그램과 화면이 짝을 이룬다. **템플릿을 고친 뒤에는 서버를 다시 시작해야 보인다** (개발 중에도). 시험의 `TestClient` 는 앱을 새로 만들 때마다 다시 읽는다.
+- `intake/_dropzone.html` 은 `max_paste`·`max_paste_title` 이 없으면 200000·60 을 쓴다 (`default(…, true)`). 이미 떠 있는 옛 프로그램(스냅숏 전)이 새 화면 파일을 읽는 이번 경우를 살린다.
+- **관리자 알림**: `update.code_changed_on_disk()` 가 `.git` 파일만 읽어(git 을 실행하지 않음, 작업 트리·packed-refs·분리된 HEAD 지원, 30초 캐시, 어떤 오류도 None) 폴더의 HEAD 가 시작 때의 커밋(`update._BOOT`)과 다르면 `base.html` 이 관리자에게만 "서버 폴더의 코드가 바뀌었지만 서버는 아직 옛 코드(…)로 돌고 있어요…" 를 보인다. 시험 `tests/test_beta_z.py`.
+
 ## 문서
 - 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - 운영(설치·인증서·방화벽·자동 시작·백업·복원·업데이트·문제 해결): `docs/운영가이드.md`

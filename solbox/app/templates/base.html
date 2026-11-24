@@ -61,6 +61,7 @@
   <div class="auth-brand">{{ brand() }}</div>
   {% endif %}
   <main id="main" class="page" tabindex="-1">
+{% if user and user.role == "admin" %}{% set cc = code_changed_on_disk() %}{% if cc %}<div class="flash error" role="alert"><span class="flash-text">서버 폴더의 코드가 바뀌었지만 서버는 아직 옛 코드({{ cc.running }})로 돌고 있어요 (폴더: {{ cc.disk }}). 서버를 다시 시작해야 새 기능이 적용되고 화면 오류가 나지 않아요. <a href="/admin/system">시스템 화면</a></span></div>{% endif %}{% endif %}
 {% if flash %}<div class="flash {{ flash.tone }}" data-flash role="{{ 'alert' if flash.tone == 'error' else 'status' }}"><span class="flash-text">{{ flash.text }}</span><a class="flash-x" href="{{ flash.dismiss }}" aria-label="알림 닫기">닫기</a></div>{% endif %}
 {% block content %}{% endblock %}
   </main>
