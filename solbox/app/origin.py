@@ -20,6 +20,11 @@ def intake_origin(intake_id: int) -> tuple[str, int]:
     return ontology.ORIGIN_INTAKE, intake_id
 
 
+def import_origin(intake_id: int) -> tuple[str, int]:
+    """명함 파일 가져오기로 만든 기록의 유래: 번호는 올리기 묶음 번호지만 AI 생성이 아니다."""
+    return ontology.ORIGIN_IMPORT, intake_id
+
+
 def research_origin(report_id: int) -> tuple[str, int]:
     return ontology.ORIGIN_RESEARCH, report_id
 
@@ -53,12 +58,13 @@ def view(db: Session, user: User, obj) -> dict | None:
 
 def _view(db: Session, user: User, obj) -> dict | None:
     kind, number = obj.origin_type, obj.origin_id
-    if kind == ontology.ORIGIN_INTAKE:
+    if kind in ontology.ORIGINS_OF_INTAKE:
+        imported = " (파일 가져오기)" if kind == ontology.ORIGIN_IMPORT else ""
         intake = db.get(Intake, number) if number is not None else None
         if intake is None:
             return {"label": "올리기 (묶음 삭제됨)", "href": None}
         if can_open_intake(user, intake):
-            return {"label": f"올리기 묶음 {intake.id}번", "href": f"/intake/{intake.id}"}
+            return {"label": f"올리기 묶음 {intake.id}번{imported}", "href": f"/intake/{intake.id}"}
         # 열 수 없는 사람에게는 링크 없이 누가 올렸는지만 (링크는 빈 목록으로 가므로)
         uploader = db.get(User, intake.created_by_id) if intake.created_by_id else None
         who = (uploader.name or uploader.username) if uploader else ""

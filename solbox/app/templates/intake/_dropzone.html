@@ -8,6 +8,7 @@
     <span class="dropzone-types">{% if transcriber_ready %}음성 파일은 받아써서 정리합니다 (길면 오래 걸려요){% else %}음성 파일은 보관만 됩니다 (받아쓰기 준비 중){% endif %}</span>
     <input id="{{ zone_id }}-files" type="file" name="files" multiple>
   </label>
+  <p class="dropzone-hint muted" data-dropzone-hint hidden>사진을 복사(Ctrl+C)한 뒤 여기에서 붙여넣기(Ctrl+V)해도 돼요.</p>
   <p class="dropzone-summary" aria-live="polite" hidden></p>
   <ul class="dropzone-list"></ul>
   <p class="error dropzone-warn" role="alert" hidden></p>

@@ -140,6 +140,7 @@ POST_NOTICES = {
     "/activities/{activity_id}/followups/{index}/toggle": "(되돌리기가 있는 기존 안내 fu_toggled)", "/follow-ups/{follow_up_id}/toggle": "(되돌리기가 있는 기존 안내 fu_toggled)",
     "/intake": "intake_uploaded, intake_kept_ai_off", "/intake/{intake_id}/analyze": "intake_analyzing, ai_off", "/intake/{intake_id}/apply": "intake_applied, superseded, not_ready",
     "/intake/{intake_id}/discard": "intake_discarded", "/intake/{intake_id}/recheck": "intake_rechecked",
+    "/intake/cards": "cards_read, cards_need_map", "/intake/{intake_id}/cards-map": "cards_read, not_ready", "/intake/{intake_id}/cards-remap": "cards_remap",
     "/jobs/{job_id}/retry": "ai_off, (JSON 응답: 화면이 새 작업 번호로 이어 감)",
     "/research/runs/{run_id}/candidate": "candidate_registered, already_registered", "/research/runs/{run_id}/delete": "deleted",
     "/research/run": "research_started, research_busy, no_topics, ai_off", "/research/reports/{report_id}/retry": "research_retry, research_busy, ai_off",

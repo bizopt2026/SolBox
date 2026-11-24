@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, filepick %}
+{% block title %}명함 파일 가져오기{% endblock %}
+{% block content %}
+{{ page_header("명함 파일 가져오기", crumbs=[(ont.nav_group_label("intake"), none), (ont.label("intake"), "/intake"), ("명함 파일 가져오기", none)], sub="리멤버 같은 명함 앱에서 내보낸 파일(.xlsx · .csv · .vcf)을 올리면 고객·파트너와 담당자 연락처로 정리해 드려요. AI 를 쓰지 않아요.") }}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<div class="dgrid">
+  <div class="dmain">
+    <form method="post" action="/intake/cards" enctype="multipart/form-data" class="card stack upload-card" id="cards-form">
+      <input type="hidden" name="_tok" value="{{ new_token() }}">
+      <div class="fld wide"><label for="cards-file">명함 파일</label>{{ filepick("file", id="cards-file", required=true, accept=".vcf,.csv,.xlsx", describedby="cards-file-help") }}
+        <p class="help" id="cards-file-help">.xlsx(엑셀), .csv, .vcf(vCard) 파일 하나. 크기는 {{ max_mb }}MB까지, 명함은 {{ "{:,}".format(max_rows) }}장까지 가져올 수 있어요.</p></div>
+      <fieldset class="fld wide cards-kind">
+        <legend>등록된 곳에 없는 회사는 먼저 이렇게 둘게요</legend>
+        <label class="check"><input type="radio" name="default_kind" value="customer"{% if default_kind != "partner" %} checked{% endif %}> 고객</label>
+        <label class="check"><input type="radio" name="default_kind" value="partner"{% if default_kind == "partner" %} checked{% endif %}> 파트너</label>
+        <p class="help">확인 화면에서 회사마다 바꾸거나 뺄 수 있어요. 저장하기 전에는 아무것도 등록되지 않아요.</p>
+      </fieldset>
+      <div class="row savebar-inline">
+        <button type="submit" class="primary" data-busy-label="읽는 중…">가져오기</button>
+        <a class="button" href="/intake/new">취소</a>
+      </div>
+    </form>
+    <section class="card stack" aria-label="이렇게 정리돼요">
+      <h2>이렇게 정리돼요</h2>
+      <ul class="examples">
+        <li><span class="ex-in">회사 이름이 이미 등록된 곳</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">그 고객·파트너의 연락처 칸 끝에 담당자를 한 줄 덧붙임</span></li>
+        <li><span class="ex-in">처음 보는 회사</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">새 고객(또는 새 파트너) + 담당자 연락처</span></li>
+        <li><span class="ex-in">회사 이름이 없는 명함</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">"정리하지 못한 것"에 이름과 연락처만 보여 드려요</span></li>
+        <li><span class="ex-in">같은 휴대폰·이메일이 이미 있는 명함</span><span class="ex-arrow" aria-hidden="true">→</span><span class="ex-out">처음부터 "제외"로 표시해요 (풀 수 있어요)</span></li>
+      </ul>
+      <p class="muted help">회사 이름이 같은지는 (주)·㈜·띄어쓰기·대소문자를 무시하고 정확히 같을 때만 봐요. 이름·회사 열을 찾지 못하면 어느 열인지 직접 고르는 화면이 나와요. 올린 파일은 다른 올리기 파일처럼 서버에 보관돼요.</p>
+    </section>
+  </div>
+  <aside class="daside" aria-label="안내">
+    <section class="card stack">
+      <h2>파일 만드는 법</h2>
+      <p class="muted">명함 앱에서 연락처를 엑셀·CSV·vCard 로 내보내는 기능을 찾아 파일을 저장해 주세요 (앱·버전마다 메뉴가 달라요). 자세한 안내는 <a href="/help#cards">도움말</a>에 있어요.</p>
+      <p class="muted">사진으로만 있는 명함은 <a href="/intake/new">파일 올리기</a>에서 올리면 AI 가 읽어 줘요.</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

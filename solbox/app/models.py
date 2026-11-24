@@ -31,7 +31,7 @@ class Stamped:
 class Origin:
     """기록의 유래: 직접 입력 / 올리기 묶음 / 리서치 보고서. 비어 있으면 모른다. `origin_id` 는 짝 표 번호이고 응용 수준에서만 지킨다."""
 
-    origin_type: Mapped[str | None] = mapped_column(String, nullable=True)  # manual / intake / research (ontology.ORIGINS)
+    origin_type: Mapped[str | None] = mapped_column(String, nullable=True)  # manual / intake / import / research (ontology.ORIGINS)
     origin_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # intake 번호 또는 research_reports 번호
 
 
@@ -394,6 +394,7 @@ class Intake(Stamped, Base):
     error: Mapped[str] = mapped_column(Text, default="")
     applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     apply_token: Mapped[str | None] = mapped_column(String, nullable=True)  # 저장 중(applying)인 선점의 정체. 그 선점만 저장을 끝내거나 풀 수 있다
+    source: Mapped[str] = mapped_column(String, default="", server_default="")  # "" = 파일을 올려 AI 가 정리 / "cards" = 명함 파일 가져오기(파서가 정리안을 만들고 AI 를 쓰지 않는다, 베타 AA)
 
     files: Mapped[list["IntakeFile"]] = relationship(
         back_populates="intake", cascade="all, delete-orphan", order_by="IntakeFile.id"

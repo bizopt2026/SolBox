@@ -3,6 +3,7 @@
 {% block title %}올리기 목록{% endblock %}
 {% block content %}
 {{ list_head(ont.label("intake"), pg, status, "/intake/new", "+ 올리기", type="intake") }}
+<p class="muted cards-link"><a href="/intake/cards">명함 파일 가져오기</a> — 명함 앱에서 내보낸 엑셀·CSV·vCard 를 고객·파트너 연락처로 정리해요 (AI 를 쓰지 않아요).</p>
 {% if user.role != "admin" %}<p class="muted list-scope" id="intake-scope">내가 올린 묶음만 보입니다.</p>{% endif %}
 {{ list_tools(request, tabs, "상태", search=false) }}
 {% if pg.items %}

@@ -30,7 +30,7 @@ def _other_client(app, db, username="park"):
 
 def test_origin_code_list_and_relations_are_defined():
     cl = ontology.CODE_LISTS["origin_type"]
-    assert cl.items == {"manual": "직접 입력", "intake": "올리기", "research": "리서치"} and cl.default is None
+    assert cl.items == {"manual": "직접 입력", "intake": "올리기", "import": "파일 가져오기", "research": "리서치"} and cl.default is None
     rel = {r.key: r for r in ontology.RELATIONS}
     for key in ("R19", "R22"):
         assert rel[key].storage == "fk"

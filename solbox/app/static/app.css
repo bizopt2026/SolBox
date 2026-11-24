@@ -1030,6 +1030,26 @@ details.formsec[open] > summary { margin-bottom: var(--s3); }
 .dropzone-list:empty { display: none; }
 .dropzone-summary { margin: 0; font-size: var(--fs-note); font-weight: var(--fw-strong); }
 .dropzone-warn { margin: 0; font-size: var(--fs-note); }
+.dropzone-hint { margin: 0; font-size: var(--fs-note); text-align: center; }
+.dropzone-list { list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 4px; }
+.dropzone-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dropzone-remove { padding: 2px 10px; min-height: 0; }
+/* 명함 파일 가져오기 (베타 AA) */
+.cards-link { margin: 0; font-size: var(--fs-note); }
+.cards-kind { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--s3); margin: 0; }
+.cards-kind legend { padding: 0 6px; font-weight: var(--fw-strong); }
+.cards-kind label.check { flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; width: auto; }
+.cards-kind .help { flex: 1 0 100%; margin: 0; }
+.cards-mapping { list-style: none; margin: 0; padding: 0; }
+.cards-mapinfo > p { margin: 0; }
+.cards-map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--s3); }
+.cards-map-grid select, .cards-map-form select { width: 100%; }
+.cards-preview td, .cards-preview th { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.plan-item .plan-kind { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.plan-item .plan-kind label { display: flex; flex-direction: row; align-items: center; gap: var(--s2); flex: none; }
+.plan-item .plan-kind select { width: auto; min-width: 8em; }
+.plan-item .cards-unplaced li { white-space: normal; overflow-wrap: anywhere; }
+.skip-all.plan-toggle { display: inline-flex; gap: 6px; margin: 0 0 var(--s2) var(--s3); }
 /* 올리기: 글 붙여넣기 (파일 영역 아래, 올릴 때 파일 하나로 올라간다) */
 .paste-box { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
 .paste-box h3 { margin: 0; font-size: var(--fs-section); }

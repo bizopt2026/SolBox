@@ -51,6 +51,9 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "intake_applied": ("ok", "정리안을 저장했습니다."),
     "intake_discarded": ("ok", "이 묶음을 버렸습니다. 올린 원본 파일은 남아 있습니다."),
     "intake_rechecked": ("ok", "다시 확인할 수 있게 풀었습니다."),
+    "cards_read": ("ok", "명함 파일을 읽었습니다. AI 는 쓰지 않았어요. 아래 정리안을 확인한 뒤 저장하세요."),
+    "cards_need_map": ("warn", "이름이나 회사 열을 찾지 못했습니다. 어느 열인지 직접 골라 주세요."),
+    "cards_remap": ("ok", "열을 다시 고를 수 있습니다."),
     "already_applied": ("warn", "이미 저장된 묶음입니다."),
     "not_ready": ("error", "이 묶음은 지금 저장할 수 없는 상태입니다. 화면을 새로 고쳐 상태를 확인해 주세요."),
     # 제안

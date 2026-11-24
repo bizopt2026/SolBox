@@ -12,12 +12,17 @@
   <details class="plan-edit"{% if card.open %} open{% endif %}>
     <summary aria-label="{{ b.title }} 고치기">고치기</summary>
     <div class="plan-edit-body">
+      {% if card.item.from_cards and not b.target_changed and known %}
+      <input type="hidden" name="{{ k }}__target" value="{{ v.target }}">
+      <p class="muted">덧붙일 {{ b.type_label }}: <b>{{ b.title }}</b> (다른 곳에 넣으려면 이 항목을 제외하고 직접 등록하세요)</p>
+      {% else %}
       <label>덧붙일 {{ b.type_label }}
         <select name="{{ k }}__target">
           {% if b.target_changed %}<option value="" selected>(선택하세요 — 정리안의 {{ b.type_label }} 이름이 바뀌었습니다)</option>{% elif not known %}<option value="" selected>(선택하세요 — 정리안의 {{ josa(b.type_label, "이/가") }} 삭제되었습니다)</option>{% endif %}
           {% for t in targets %}<option value="{{ t.id }}"{% if t.id == v.target | int and not b.target_changed %} selected{% endif %}>{{ t.name }}</option>{% endfor %}
         </select>
       </label>
+      {% endif %}
       {% if b.target_changed %}<label class="check"><input type="checkbox" name="{{ k }}__target_ok" value="on"{% if v.target_ok %} checked{% endif %}> 이름만 바뀐 같은 {{ b.type_label }}입니다 (위에서 고른 대상에 덧붙임)</label>{% endif %}
       <div class="row">
         <label>담당자 <input name="{{ k }}__person" value="{{ v.person }}"></label>

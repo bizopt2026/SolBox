@@ -374,6 +374,17 @@
     planForm.addEventListener("change", function (e) {
       if (e.target.closest && e.target.closest(".plan-skip")) { planCount(); markSkipped(); }
     });
+    // 모두 포함 / 모두 제외 (명함 수백 장처럼 항목이 많을 때)
+    document.querySelectorAll(".skip-all").forEach(function (box) {
+      box.hidden = false;
+      box.addEventListener("click", function (e) {
+        var b = e.target.closest("button");
+        if (!b) return;
+        planForm.querySelectorAll(".plan-skip input").forEach(function (c) { c.checked = b.dataset.skip === "1"; });
+        planCount();
+        markSkipped();
+      });
+    });
     planCount();
     markSkipped();
   }
@@ -436,12 +447,19 @@
       var total = 0;
       var tooBig = [];
       if (list) list.textContent = "";
-      files.forEach(function (f) {
+      files.forEach(function (f, index) {
         total += f.size;
         if (maxMb && f.size > maxMb * 1024 * 1024) tooBig.push(f.name);
         if (!list) return;
         var li = document.createElement("li");
-        li.textContent = f.name + " (" + sizeText(f.size) + ")";
+        li.appendChild(document.createTextNode(f.name + " (" + sizeText(f.size) + ") "));
+        var rm = document.createElement("button"); // 골라 둔 파일을 하나씩 뺀다 (붙여넣은 사진을 잘못 넣었을 때도)
+        rm.type = "button";
+        rm.className = "small dropzone-remove";
+        rm.textContent = "빼기";
+        rm.setAttribute("aria-label", f.name + " 빼기");
+        rm.addEventListener("click", function () { removeAt(index); });
+        li.appendChild(rm);
         list.appendChild(li);
       });
       if (summary) {
@@ -476,6 +494,58 @@
       input.files = merged.files;
       show();
     };
+    var removeAt = function (index) {
+      try {
+        var kept = new DataTransfer();
+        Array.prototype.slice.call(input.files || []).forEach(function (f, i) { if (i !== index) kept.items.add(f); });
+        input.files = kept.files;
+      } catch (err) { input.value = ""; }
+      show();
+    };
+    // 클립보드의 사진(카카오톡 PC 에서 복사한 사진, 화면 캡처 …)을 끌어다 놓은 것과 똑같이 더한다. 글 붙여넣기는 건드리지 않는다.
+    var EXT = { "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/bmp": "bmp" };
+    var PASTED = "붙여넣은 사진 ";
+    var pastedFiles = function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      var out = [];
+      Array.prototype.forEach.call(items, function (it) {
+        if (it.kind === "file" && /^image\//.test(it.type)) { var f = it.getAsFile(); if (f) out.push(f); }
+      });
+      if (!out.length && e.clipboardData && e.clipboardData.files) {
+        Array.prototype.forEach.call(e.clipboardData.files, function (f) { if (/^image\//.test(f.type)) out.push(f); });
+      }
+      return out;
+    };
+    var editable = function (el) {
+      if (!el || !el.closest) return false;
+      var t = el.closest("textarea, input, [contenteditable=''], [contenteditable='true']");
+      if (!t) return false;
+      return t.tagName !== "INPUT" || !/^(file|checkbox|radio|button|submit)$/.test(t.type);
+    };
+    document.addEventListener("paste", function (e) {
+      if (e.__dropzoneHandled) return;
+      var other = e.target && e.target.closest ? e.target.closest("[data-dropzone]") : null;
+      if (other && other !== zone) return; // 다른 올리기 칸 안에서 붙였다
+      if (!other && zone !== document.querySelector("[data-dropzone]")) return; // 칸 밖에서 붙이면 쪽의 첫 칸으로
+      var images = pastedFiles(e);
+      if (!images.length) return; // 사진이 없으면 (글 붙여넣기 등) 그대로 둔다
+      if (editable(e.target) && e.clipboardData.getData("text/plain")) return; // 글 칸에 글과 사진이 함께 오면 글을 붙인다
+      e.__dropzoneHandled = true;
+      e.preventDefault();
+      var used = 0;
+      Array.prototype.forEach.call(input.files || [], function (f) {
+        var m = f.name.indexOf(PASTED) === 0 ? parseInt(f.name.slice(PASTED.length), 10) : 0;
+        if (m > used) used = m;
+      });
+      var named = images.map(function (f) {
+        used += 1;
+        var ext = EXT[f.type] || (/\.([a-z0-9]{1,5})$/i.exec(f.name || "") || [0, "png"])[1].toLowerCase();
+        try { return new File([f], PASTED + used + "." + ext, { type: f.type, lastModified: f.lastModified || Date.now() }); } catch (err) { return f; }
+      });
+      add(named);
+    });
+    var hint = zone.querySelector("[data-dropzone-hint]");
+    if (hint) hint.hidden = false;
     input.addEventListener("change", show);
     zone.classList.add("enhanced"); // 파일 입력칸은 감추고 영역 전체(label)를 누르게 한다
     ["dragenter", "dragover"].forEach(function (name) {

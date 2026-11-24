@@ -3,13 +3,23 @@
 {% set k = card.item.key %}{% set v = card.v %}{% set b = card.brief %}
 <section class="card plan-item" id="item-{{ k }}">
   {{ plan_head(card) }}
-  <p class="plan-facts">연락처 <span data-sum="contact" data-empty="없음">{{ b.contact or "없음" }}</span>{% if b.industry %} · 업종 <span data-sum="industry">{{ b.industry }}</span>{% endif %}</p>
+  {% if card.item.from_cards %}
+  <div class="plan-kind"><label>분류
+    <select name="{{ k }}__as">
+      <option value="customer"{% if v.as_kind == "customer" %} selected{% endif %}>고객</option>
+      <option value="partner"{% if v.as_kind == "partner" %} selected{% endif %}>파트너</option>
+    </select></label><span class="muted">명함 {{ card.item.card_count }}장의 담당자 연락처가 함께 저장돼요</span></div>
+  {% endif %}
+  <p class="plan-facts">연락처 <span data-sum="contact" data-empty="없음">{{ (b.contact.splitlines() | first if b.contact else "") or "없음" }}{% if b.contact.splitlines() | length > 1 %} 외 {{ b.contact.splitlines() | length - 1 }}줄{% endif %}</span>{% if b.industry %} · 업종 <span data-sum="industry">{{ b.industry }}</span>{% endif %}</p>
   {{ plan_meta(card) }}
   <details class="plan-edit"{% if card.open %} open{% endif %}>
     <summary aria-label="{{ card.brief.title }} 고치기">고치기</summary>
     <div class="plan-edit-body">
       <label>이름 <input name="{{ k }}__name" value="{{ v.name }}"></label>
-      {% if card.item.kind == "new_customer" %}
+      {% if card.item.from_cards %}
+      <label>연락처 (한 줄에 한 명)<textarea name="{{ k }}__contact" rows="{{ [3, [v.contact.splitlines() | length, 8] | min] | max }}">{{ v.contact }}</textarea></label>
+      <input type="hidden" name="{{ k }}__industry" value="{{ v.industry }}"><input type="hidden" name="{{ k }}__description" value="{{ v.description }}">
+      {% elif card.item.kind == "new_customer" %}
       <label>업종 <input name="{{ k }}__industry" value="{{ v.industry }}"></label>
       <label>연락처 <input name="{{ k }}__contact" value="{{ v.contact }}"></label>
       {% else %}

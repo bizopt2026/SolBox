@@ -272,8 +272,13 @@ def project_status_text(value: str | None) -> str:
     return value if not value or value in PROJECT_STATUSES else value + PROJECT_STATUS_LEGACY_MARK
 
 
-ORIGINS = {"manual": "직접 입력", "intake": "올리기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
+ORIGINS = {"manual": "직접 입력", "intake": "올리기", "import": "파일 가져오기", "research": "리서치"}  # 기록의 유래 (비어 있으면 모름)
 ORIGIN_MANUAL, ORIGIN_INTAKE, ORIGIN_RESEARCH = "manual", "intake", "research"
+# 베타 AA: 명함 파일 가져오기(`/intake/cards`)로 만든 기록. 번호(`origin_id`)는 올리기 묶음 번호라서 올리기 묶음과 이어지지만, AI 가 만들지 않았으므로
+# "AI 생성" 표기 대상이 아니다 (`AI_GENERATED_ORIGINS` 에 넣지 않는다). 목록의 "올리기" 구분에는 함께 센다 (`_common.origin_bucket`).
+ORIGIN_IMPORT = "import"
+ORIGINS_SHOWN = (ORIGIN_INTAKE, ORIGIN_IMPORT, ORIGIN_RESEARCH)  # 목록 "유래" 칸에 이름을 보이는 유래
+ORIGINS_OF_INTAKE = (ORIGIN_INTAKE, ORIGIN_IMPORT)  # 번호가 올리기 묶음 번호인 유래
 ORIGIN_FILTER_PARAM = "origin"  # 목록 `?origin=intake|research|manual` (화이트리스트). 유래가 비어 있는(모름) 기록은 "직접 입력"에 센다: 올리기·리서치는 근거가 있을 때만 채우기 때문
 
 # "AI 생성" 표기 (사용자 결정 2026-11-22): 유래가 올리기 묶음이나 리서치 보고서인 기록(= AI 가 정리·제안해 만든 기록)에만 붙인다.
@@ -350,7 +355,7 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "file_kind": {"intro": "brand", "spec": "violet", "related": "slate"},
     "suggestion_kind": {"new": "violet", "push": "brand"},
     "intake_file_kind": {"document": "brand", "image": "violet", "audio": "warn", "other": "slate"},
-    "origin_type": {"manual": "slate", "intake": "brand", "research": "violet"},
+    "origin_type": {"manual": "slate", "intake": "brand", "import": "brand", "research": "violet"},
     "business_type": {"build": "brand", "lease": "violet", "invest": "warn"},
 }
 
@@ -881,7 +886,7 @@ UNTRAVERSED = {
 QUIET_RELATIONS = {"R24": "작성자는 모든 핵심 대상에 붙어 연결 목록에 올리지 않는다"}
 
 # 유래 관계(R19·R22)의 짝 유형 -> origin_type 값
-ORIGIN_PARENTS = {"intake": ORIGIN_INTAKE, "research_report": ORIGIN_RESEARCH}
+ORIGIN_PARENTS = {"intake": ORIGINS_OF_INTAKE, "research_report": (ORIGIN_RESEARCH,)}
 # 올리기 묶음에 닿는 유형: 열 수 있는 사람만 보인다 (origin.can_open_intake)
 INTAKE_BACKED_TYPES = ("intake", "intake_file")
 

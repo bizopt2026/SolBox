@@ -260,9 +260,9 @@
 {# "AI 생성" 배지: 글자가 있는 배지라 색만으로 알리지 않는다. 이름은 ontology.AI_GENERATED_LABEL 한 곳 #}
 {% macro ai_badge() %}<span class="badge tone-{{ ont.AI_GENERATED_TONE }}" data-code="ai_generated" title="{{ ont.AI_GENERATED_HELP }}">{{ ont.AI_GENERATED_LABEL }}</span>{% endmacro %}
 {# 목록의 "유래" 칸: 올리기·리서치로 만든 기록만 이름을 보이고(AI 가 만든 기록이면 "AI 생성" 배지도), 직접 입력·모름은 흐린 줄표 #}
-{% macro origin_cell(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}{{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
+{% macro origin_cell(obj) %}{% if obj.origin_type in ont.ORIGINS_SHOWN %}{{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
 {# 좁은 화면 목록의 첫 칸 보조 줄에 들어가는 "유래 …" (넓은 화면은 유래 칸 origin_cell) #}
-{% macro origin_note(obj) %}{% if obj.origin_type in (ont.ORIGIN_INTAKE, ont.ORIGIN_RESEARCH) %}<span>유래 {{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}</span>{% endif %}{% endmacro %}
+{% macro origin_note(obj) %}{% if obj.origin_type in ont.ORIGINS_SHOWN %}<span>유래 {{ ont.ORIGINS[obj.origin_type] }}{% if ont.is_ai_generated(obj) %} {{ ai_badge() }}{% endif %}</span>{% endif %}{% endmacro %}
 {# 사업방식 배지들 (정의된 순서). codes 는 코드 목록. 뜻은 배지 툴팁(title)에 있다 #}
 {% macro bt_badges(codes) %}{% for c in codes %}{{ pill("business_type", c) }}{% endfor %}{% endmacro %}
 {# 사업방식 걸러 보기 탭 (목록 도구줄의 extra): tabs 는 business_types.type_tabs 의 결과 #}
@@ -334,7 +334,9 @@
    data-sum 은 고치기를 닫을 때 스크립트가 입력값으로 갱신하는 자리 (스크립트가 없으면 서버가 그린 값 그대로). #}
 {% macro plan_head(card) %}
 <div class="plan-head">
-  {{ pill("plan_item_kind", card.item.kind) }}
+  {% if card.item.from_cards and card.item.kind in ("new_customer", "new_partner") %}{{ pill("plan_item_kind", card.v.as_kind and ("new_" ~ card.v.as_kind), "새 회사") }}
+  {% elif card.item.from_cards and card.item.kind == "unplaced" %}{{ pill("plan_item_kind", "unplaced", "정리하지 못한 명함") }}
+  {% else %}{{ pill("plan_item_kind", card.item.kind) }}{% endif %}
   {% if card.brief %}<strong class="plan-title"{% if card.item.kind in ("activity", "new_solution", "new_customer", "new_partner", "add_contact") %} data-sum="{{ 'title' if card.item.kind == 'activity' else ('target' if card.item.kind == 'add_contact' else 'name') }}" data-empty="{{ '(제목 없음)' if card.item.kind == 'activity' else ('(대상을 고르세요)' if card.item.kind == 'add_contact' else '(이름 없음)') }}"{% endif %}>{{ card.brief.title }}</strong>{% endif %}
   {% if card.item.kind != "unplaced" %}<label class="check plan-skip"><input type="checkbox" name="skip_{{ card.item.key }}" value="on"{% if card.v.skip %} checked{% endif %}> 이 항목 제외</label>{% endif %}
 </div>
@@ -343,8 +345,9 @@
 {# 정리한 이유와 붙는 파일 이름 #}
 {% macro plan_meta(card) %}
 {% for d in card.dup_notes or [] %}<p class="plan-dup-file notice" role="status">같은 파일을 {{ d.date.month }}월 {{ d.date.day }}일에 올려 저장했습니다 (<a href="/intake/{{ d.intake_id }}">묶음 {{ d.intake_id }}</a>){% if card.files | length > 1 %}: {{ d.number }}번 파일{% endif %}.{% if card.v.skip %} 그래서 이 항목은 제외로 해 두었어요. 다시 저장하려면 "이 항목 제외"를 풀어 주세요.{% endif %}</p>{% endfor %}
-{% if card.item.reason %}<p class="plan-reason"><strong>이렇게 정리한 이유</strong> {{ card.item.reason }}</p>{% endif %}
-{% if card.files %}<p class="chips plan-attached"><span class="muted">{{ ont.INTAKE_ITEM_KINDS[ontology.INTAKE_ITEM_UNPLACED] if card.item.kind == ontology.INTAKE_ITEM_UNPLACED else "붙는 파일" }}</span>{% for n, name in card.files %}<span class="chip">{{ n }}번 {{ name }}</span>{% endfor %}</p>{% endif %}
+{% if card.item.skip_note %}<p class="plan-dup-file notice" role="status">{{ card.item.skip_note }}</p>{% endif %}
+{% if card.item.reason %}<p class="plan-reason"><strong>{{ "읽은 곳" if card.item.from_cards else "이렇게 정리한 이유" }}</strong> {{ card.item.reason }}</p>{% endif %}
+{% if card.files and not card.item.from_cards %}<p class="chips plan-attached"><span class="muted">{{ ont.INTAKE_ITEM_KINDS[ontology.INTAKE_ITEM_UNPLACED] if card.item.kind == ontology.INTAKE_ITEM_UNPLACED else "붙는 파일" }}</span>{% for n, name in card.files %}<span class="chip">{{ n }}번 {{ name }}</span>{% endfor %}</p>{% endif %}
 {% endmacro %}
 
 {# 솔루션 자료 종류(소개/스펙/관련)를 파일마다 고르는 칸 #}

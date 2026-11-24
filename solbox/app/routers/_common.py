@@ -175,6 +175,8 @@ def list_filter(db: Session, request: Request, list_type: str, rows) -> tuple[li
 
 def origin_bucket(obj) -> str:
     """기록의 유래 구분: intake / research / manual (비어 있으면 manual)."""
+    if obj.origin_type == ontology.ORIGIN_IMPORT:
+        return ontology.ORIGIN_INTAKE  # 파일 가져오기도 올리기 묶음에서 만든 기록이라 "올리기" 구분에 센다
     return obj.origin_type if obj.origin_type in (ontology.ORIGIN_INTAKE, ontology.ORIGIN_RESEARCH) else ontology.ORIGIN_MANUAL
 
 
@@ -183,7 +185,7 @@ def origin_filter(request: Request, rows) -> tuple[list, list, str]:
     건수는 지금의 검색어·다른 걸러 보기를 적용한 목록 기준이고, 알 수 없는 값은 전체로 본다. 다른 조건과 쪽 번호는 `ui.seg_tabs` 가 지킨다."""
     rows = list(rows)
     current = request.query_params.get(ontology.ORIGIN_FILTER_PARAM, "")
-    if current not in ontology.ORIGINS:
+    if current not in ontology.ORIGINS or current == ontology.ORIGIN_IMPORT:
         current = ""
     counts = {code: 0 for code in ontology.ORIGINS}
     for r in rows:

@@ -67,9 +67,9 @@ class Edge:
         return out
 
 
-def _fk_pairs(table, col: str, src_is_parent: bool, origin_value: str | None):
+def _fk_pairs(table, col: str, src_is_parent: bool, origin_value: tuple[str, ...] | None):
     child_id, child_col = table.c.id, table.c[col]
-    extra = [table.c.origin_type == origin_value] if origin_value else []
+    extra = [table.c.origin_type.in_(origin_value)] if origin_value else []  # origin_value: 유래 값들의 묶음 (올리기는 intake·import)
 
     if src_is_parent:
         def fn(db, ids):

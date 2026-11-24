@@ -171,14 +171,14 @@ def earlier_copies(db: Session, settings: Settings, intake: Intake, viewer: User
 
 
 def create_intake(db: Session, settings: Settings, user: User, note: str,
-                  uploads: list[UploadFile | str], pasted_text: str = "", pasted_title: str = "") -> tuple[Intake, list[str]]:
+                  uploads: list[UploadFile | str], pasted_text: str = "", pasted_title: str = "", source: str = "") -> tuple[Intake, list[str]]:
     """묶음을 만들고 파일을 저장한다. (묶음, 받지 못한 파일 안내 목록). 받은 파일이 없으면 ValueError.
     붙여넣은 글(`pasted_text`)은 올린 `.txt` 파일 하나와 똑같이 다룬다 (같은 저장·크기 제한·파일 수 한도). 글이 잘려 나가지 않게 파일보다 앞에 둔다."""
     pasted = paste_upload(pasted_text, pasted_title)
     if pasted is not None:
         uploads = [pasted, *uploads]
     limit_mb = settings.max_upload_mb
-    intake = Intake(note=note.strip(), created_by_id=user.id)
+    intake = Intake(note=note.strip(), created_by_id=user.id, source=source)
     db.add(intake)
     db.flush()
     skipped: list[str] = []
@@ -221,6 +221,14 @@ def create_intake(db: Session, settings: Settings, user: User, note: str,
         shutil.rmtree(intake_upload_dir(settings, intake.id), ignore_errors=True)
         raise
     return intake, skipped
+
+
+def purge_new(db: Session, settings: Settings, intake: Intake) -> None:
+    """방금 만든 묶음을 흔적 없이 지운다 (명함 파일을 읽지 못했을 때: 정리안 없이 남는 묶음이 생기지 않게)."""
+    intake_id = intake.id
+    db.delete(intake)
+    db.commit()
+    shutil.rmtree(intake_upload_dir(settings, intake_id), ignore_errors=True)
 
 
 def file_number(intake: Intake, f: IntakeFile) -> int:
@@ -788,6 +796,8 @@ def start_analysis(db: Session, intake: Intake, user: User, note: str | None = N
     """묶음을 정리 중으로 바꾸고 정리 작업을 넣는다. 올림·확인 대기·실패 상태에서만, 동시에 와도 한 번만 시작된다.
     읽을 수 있는 파일이 없으면 작업 없이 실패로 둔다 (False).
     `note`(고친 메모)는 작업을 넣는 같은 트랜잭션에서 저장한다: 잠금에 막혀 못 시작했는데 메모만 바뀌어 남지 않게."""
+    if intake.source == "cards":  # 명함 파일 묶음은 파서가 정리안을 만든다: AI 정리를 시작하지 않는다
+        return False
     memo = {"note": note} if note is not None else {}
     db.refresh(intake)
     intake_id = intake.id
@@ -930,6 +940,10 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
             picked = text(f"kind_{n}", guessed)
             kinds[n] = picked if picked in labels.FILE_KINDS else guessed
         v["kinds"] = kinds
+    if kind in ("new_partner", "new_customer"):
+        own = kind.removeprefix("new_")
+        picked = text("as", own)
+        v["as_kind"] = picked if picked in ("customer", "partner") else own  # 새 회사를 고객으로 둘지 파트너로 둘지 (명함 가져오기 확인 화면의 "분류")
     if kind == "new_partner":
         v.update(name=text("name", item.get("name")), contact=text("contact", item.get("contact")),
                  description=text("description", item.get("description")), memo=text("memo", item.get("memo")))
@@ -1079,6 +1093,8 @@ def contact_source(files: list[IntakeFile]) -> str:
     """연락처 줄 끝에 적을 출처 말: 이름에 "명함" 이 든 파일이 있으면 명함, 아니면 파일 종류(사진·문서·음성)."""
     if any("명함" in f.original_name for f in files):
         return "명함"
+    if any(getattr(f.intake, "source", "") == "cards" for f in files):
+        return "명함 파일"
     kinds = list(dict.fromkeys(labels.INTAKE_FILE_KINDS.get(f.kind, "") for f in files))
     return "·".join(k for k in kinds if k)
 
@@ -1157,12 +1173,20 @@ def _brief(db: Session, item: dict, v: dict, names: dict[int, str], intake: Inta
     return b
 
 
+CARD_KIND_LABELS = {"unplaced": "정리하지 못한 것"}  # 명함 가져오기 묶음에서 항목 종류 이름이 다른 것
+
+
 def plan_summary(intake: Intake) -> str:
     """정리안 확인 화면 맨 위 한 줄 (저장된 정리안 기준): "파일 7개에서 6건을 제안했습니다 · 새 고객 1 · 솔루션에 자료 추가 2 · …".
     종류 이름은 ontology.INTAKE_ITEM_KINDS, 0 건인 종류는 뺀다 (정리하지 못한 파일은 건수에 넣지 않고 종류로만 센다)."""
     items = (intake.plan or {}).get("items", [])
     counts = {kind: sum(1 for it in items if it.get("kind") == kind) for kind in ontology.INTAKE_ITEM_KINDS}
     proposed = sum(n for kind, n in counts.items() if kind in SAVEABLE_KINDS)
+    if intake.source == "cards":
+        unplaced_cards = sum(int(it.get("line_count") or 0) for it in items if it.get("kind") == ontology.INTAKE_ITEM_UNPLACED)
+        parts = [f"{CARD_KIND_LABELS.get(kind, ontology.INTAKE_ITEM_KINDS[kind])} {unplaced_cards if kind == ontology.INTAKE_ITEM_UNPLACED else n}" for kind, n in counts.items() if n]
+        head = f"명함 {(intake.plan or {}).get('cards', 0)}장을 읽어 {proposed}건으로 정리했습니다"
+        return " · ".join([head, *parts])
     parts = [f"{ontology.INTAKE_ITEM_KINDS[kind]} {n}" for kind, n in counts.items() if n]
     return " · ".join([f"파일 {len(intake.files)}개에서 {proposed}건을 제안했습니다", *parts])
 
@@ -1200,7 +1224,10 @@ def review_cards(db: Session, intake: Intake, form=None, settings: Settings | No
         card = {"item": item, "v": v, "files": [(n, names.get(n, "")) for n in item.get("files", [])], "ambiguous": {},
                 "file_ids": {file_number(intake, f): f.id for f in intake.files},
                 "file_status": {file_number(intake, f): f.read_status for f in intake.files}}
-        card["dup_notes"] = [{**copies[n], "number": n} for n in item.get("files", []) if n in copies]
+        from_cards = intake.source == "cards"
+        card["dup_notes"] = [] if from_cards else [{**copies[n], "number": n} for n in item.get("files", []) if n in copies]  # 명함 묶음은 화면 맨 위에 한 번만 알린다
+        if fields is None and item.get("skip_default"):
+            v["skip"] = True  # 이미 있는 연락처로 보이는 명함 (사용자가 풀 수 있다)
         if fields is None and copies.get(raw_source_number(item)) is not None:
             v["skip"] = True  # 원문 파일을 이미 저장한 활동 기록이면 처음부터 "이 항목 제외" (사용자가 풀 수 있다)
         if item["kind"] == "activity":
@@ -1282,7 +1309,8 @@ class _Run:
         self.db, self.settings, self.intake, self.user = db, settings, intake, user
         self.extracted, self.copied = extracted, copied
         self.by_number = {file_number(intake, f): f for f in intake.files}
-        self.origin = origin.intake_origin(intake.id)  # 이 저장이 새로 만드는 기록의 유래
+        # 이 저장이 새로 만드는 기록의 유래. 명함 파일 가져오기는 AI 가 만들지 않았으므로 "AI 생성" 이 아닌 유래(import)다
+        self.origin = origin.import_origin(intake.id) if intake.source == "cards" else origin.intake_origin(intake.id)
         self.result: list[dict] = []
         self.skipped: list[dict] = []
         self.same_files: list[str] = []  # 같은 내용이라 솔루션 자료로 만들지 않은 파일 ("이름 (이미 있는 자료 이름)")
@@ -1486,10 +1514,17 @@ def _append_contact(run: _Run, item: dict, v: dict) -> None:
     db.execute(update(table).where(table.c.id == target).values(contact=appended))
     db.refresh(obj)  # 덧붙인 값을 읽어 와야 지식 사본이 새 값으로 써진다
     for f in _item_files(run.intake, item):
-        if not f.target_type:
+        if not f.target_type and run.intake.source != "cards":  # 명함 파일 하나가 여러 회사의 것이라 한 회사에 묶지 않는다
             f.target_type, f.target_id = item["target_type"], obj.id
     run.remember("partners" if item["target_type"] == "partner" else "customers", obj)
     run.result.append({"type": item["target_type"], "id": obj.id, "label": f"{obj.name} (연락처 추가)"})
+
+
+def entity_kind(item: dict, v: dict) -> str:
+    """새 회사 항목이 실제로 만들 종류: 정리안의 종류, 확인 화면에서 "분류" 를 바꿨으면 그것 (`new_customer` / `new_partner`)."""
+    if item["kind"] in ("new_customer", "new_partner") and v.get("as_kind") in ("customer", "partner"):
+        return "new_" + v["as_kind"]
+    return item["kind"]
 
 
 def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
@@ -1499,9 +1534,9 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     db, user = run.db, run.user
     partners_for: dict[str, object] = {}
     for item, v in chosen:
-        if item["kind"] == "new_partner":
+        if entity_kind(item, v) == "new_partner":
             partner, created = records.get_or_create(db, Partner, v["name"], user, origin=run.origin, contact=v["contact"].strip(),
-                                                     description=v["description"].strip(), memo=v["memo"].strip())
+                                                     description=v.get("description", "").strip(), memo=v["memo"].strip())
             if created:
                 run.result.append({"type": "partner", "id": partner.id, "label": partner.name})
             run.remember("partners", partner)
@@ -1509,8 +1544,8 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         if item["kind"] == "new_solution":
             partners_for[item["key"]] = run.partner_for(v)
     for item, v in chosen:
-        if item["kind"] == "new_customer":
-            customer, created = records.get_or_create(db, Customer, v["name"], user, origin=run.origin, industry=v["industry"].strip(),
+        if entity_kind(item, v) == "new_customer":
+            customer, created = records.get_or_create(db, Customer, v["name"], user, origin=run.origin, industry=v.get("industry", "").strip(),
                                                       contact=v["contact"].strip(), memo=v["memo"].strip())
             if created:
                 run.result.append({"type": "customer", "id": customer.id, "label": customer.name})
