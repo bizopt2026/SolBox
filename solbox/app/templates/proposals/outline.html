@@ -52,7 +52,20 @@
   {% if s.key_message %}<p><strong>{{ s.key_message }}</strong></p>{% endif %}
   {% if s.kind == "cover" and s.subtitle %}<p>{{ s.subtitle }}</p>{% endif %}
   {% if s.kind == "bullets" and s.bullets %}<ul>{% for b in s.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
-  {% if s.kind == "two_column" %}
+  {% if s.kind == "kpi" and s.kpis %}<ul>{% for k in s.kpis %}<li><strong>{{ k.value }}{{ k.unit }}</strong> {{ k.label }}{% if k.note %} <span class="muted">{{ k.note }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+  {% if s.kind == "chart" and s.categories and s.series %}
+  <p class="muted">{{ ont.CHART_TYPES.get(s.chart_type, "") }} 그래프{% if s.unit %} · 단위 {{ s.unit }}{% endif %}</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>항목</th>{% for x in s.series %}<th>{{ x.name }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for c in s.categories %}{% set r = loop.index0 %}<tr><td>{{ c }}</td>{% for x in s.series %}<td>{{ x["values"][r] if r < x["values"] | length else "" }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if s.kind == "diagram" %}
+  <p class="muted">{{ ont.DIAGRAM_TYPES.get(s.diagram_type, "") }} 도식{% if s.center %} · 가운데 {{ s.center }}{% endif %}{% if s.axis_x or s.axis_y %} · 가로축 {{ s.axis_x }} / 세로축 {{ s.axis_y }}{% endif %}</p>
+  {% if s.nodes %}<ol>{% for n in s.nodes %}<li><strong>{{ n.label }}</strong>{% if n.group %} <span class="muted">({{ n.group }})</span>{% endif %}{% if n.detail %} — {{ n.detail }}{% endif %}</li>{% endfor %}</ol>{% endif %}
+  {% endif %}
+  {% if s.kind in ("kpi", "chart", "diagram") and s.note %}<p class="muted">{{ s.note }}</p>{% endif %}
+  {% if s.kind == "two_column" or (s.kind == "diagram" and s.diagram_type == "before_after") %}
   <div class="twocol">
     <div><h3>{{ s.left_title }}</h3><ul>{% for b in s.left %}<li>{{ b }}</li>{% endfor %}</ul></div>
     <div><h3>{{ s.right_title }}</h3><ul>{% for b in s.right %}<li>{{ b }}</li>{% endfor %}</ul></div>

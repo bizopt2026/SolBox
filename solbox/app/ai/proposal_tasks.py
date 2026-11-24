@@ -208,6 +208,30 @@ class Step(BaseModel):
     detail: str = ""
 
 
+class Kpi(BaseModel):
+    """핵심 수치 하나: 큰 숫자(`value`)와 단위, 그 숫자의 이름, 한 줄 설명."""
+
+    value: str = ""
+    unit: str = ""
+    label: str = ""
+    note: str = ""
+
+
+class Series(BaseModel):
+    """그래프의 계열 하나. `values` 는 `categories` 와 같은 개수의 숫자다 (숫자가 아닌 값은 구성안 정리가 걸러 표로 바꾼다)."""
+
+    name: str = ""
+    values: list[float | str | None] = []
+
+
+class Node(BaseModel):
+    """도식의 항목 하나. `group` 은 도식 종류마다 뜻이 다르다: 일정은 기간, 2×2 는 자리(왼쪽 위 …)."""
+
+    label: str = ""
+    detail: str = ""
+    group: str = ""
+
+
 class AISlide(BaseModel):
     """AI 가 채우는 장. 확인을 끝낸 표시는 사용자 몫이라 여기에 없다."""
 
@@ -223,6 +247,17 @@ class AISlide(BaseModel):
     columns: list[str] = []
     rows: list[list[str]] = []
     steps: list[Step] = []
+    kpis: list[Kpi] = []           # kind="kpi"
+    chart_type: str = ""           # kind="chart": column | bar | line | doughnut
+    categories: list[str] = []
+    series: list[Series] = []
+    unit: str = ""
+    note: str = ""                 # 그래프·핵심 수치·도식 아래 한 줄 (기준 시점, 조건)
+    diagram_type: str = ""         # kind="diagram": layers | hub | before_after | timeline | matrix | cycle
+    nodes: list[Node] = []
+    center: str = ""               # hub·cycle 의 가운데 이름
+    axis_x: str = ""               # matrix 의 가로축·세로축 이름
+    axis_y: str = ""
     sources: list[str] = []
     needs_check: list[str] = []
 

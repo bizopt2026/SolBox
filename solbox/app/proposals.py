@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -25,6 +26,44 @@ CK = ontology.CHECK_KINDS
 MAX_STEPS = 5
 MAX_SLIDES = 14
 NO_COLUMNS = "표의 열 이름을 입력하세요."
+VISUAL_TEXT_FIELDS = ("chart_type", "unit", "note", "diagram_type", "center", "axis_x", "axis_y")  # 시각 자료 장의 한 줄 칸 (베타 AG)
+_NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
+_QUADRANT_ALIASES = {
+    "왼쪽위": "왼쪽 위", "좌상": "왼쪽 위", "좌측상단": "왼쪽 위", "1": "왼쪽 위",
+    "오른쪽위": "오른쪽 위", "우상": "오른쪽 위", "우측상단": "오른쪽 위", "2": "오른쪽 위",
+    "왼쪽아래": "왼쪽 아래", "좌하": "왼쪽 아래", "좌측하단": "왼쪽 아래", "3": "왼쪽 아래",
+    "오른쪽아래": "오른쪽 아래", "우하": "오른쪽 아래", "우측하단": "오른쪽 아래", "4": "오른쪽 아래",
+}
+
+
+def parse_number(value) -> int | float | None:
+    """그래프 값 하나를 숫자로 읽는다 (`1,200`·`"2"`·`3.5`). 숫자가 아니면 None. 단위가 붙은 글(`2주`)은 숫자가 아니다: 단위는 `unit` 칸에 쓴다."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+    else:
+        text = str(value).strip().replace(",", "")
+        if len(text) > 30 or not _NUMBER.fullmatch(text):
+            return None
+        number = float(text)
+    if not math.isfinite(number) or abs(number) >= 1e15:
+        return None
+    return int(number) if number == int(number) else number
+
+
+def number_text(value) -> str:
+    """그래프 값을 편집 칸에 보일 글로 (`2.0` 이 아니라 `2`)."""
+    number = parse_number(value)
+    return "" if number is None else str(number)
+
+
+def matrix_quadrant(text: str) -> str | None:
+    """2×2 도식의 자리 이름을 맞춘다 (`우상`·`오른쪽위`·`2` → `오른쪽 위`). 빈 글은 빈 글, 모르는 글은 None."""
+    key = "".join(str(text or "").split())
+    if not key:
+        return ""
+    return _QUADRANT_ALIASES.get(key)
 
 
 # ---- 대상 종류 (베타 W): 특정 고객 / 다수 고객(대상 그룹). 규칙은 여기 한 곳이고 라우터·프롬프트·제안서·목록이 이 함수들을 쓴다 ----
@@ -461,9 +500,136 @@ def _move_instructions(s: dict) -> int:
     if is_author_instruction(s["key_message"]):
         moved.append(s["key_message"])
         s["key_message"] = ""
+    # 시각 자료 장 (베타 AG): 글머리와 같은 규칙. 이름이 작성자 말이면 그 항목을 통째로, 설명만 그러면 설명만 옮긴다
+    kept = []
+    for item in s.get("kpis") or []:
+        if any(is_author_instruction(item[k]) for k in ("value", "label")):
+            moved.append(" ".join(x for x in (item["value"] + item["unit"], item["label"], item["note"]) if x))
+            continue
+        if is_author_instruction(item["note"]):
+            moved.append(item["note"])
+            item["note"] = ""
+        kept.append(item)
+    s["kpis"] = kept
+    kept = []
+    for node in s.get("nodes") or []:
+        if is_author_instruction(node["label"]):
+            moved.append(" ".join(x for x in (node["label"], node["detail"]) if x))
+            continue
+        for key in ("detail", "group"):
+            if is_author_instruction(node[key]):
+                moved.append(node[key])
+                node[key] = ""
+        kept.append(node)
+    s["nodes"] = kept
+    categories = s.get("categories") or []
+    drop = {i for i, c in enumerate(categories) if is_author_instruction(c)}
+    if drop:  # 항목 이름이 작성자 말이면 그 항목과 그 자리의 값을 함께 뺀다
+        moved.extend(categories[i] for i in sorted(drop))
+        s["categories"] = [c for i, c in enumerate(categories) if i not in drop]
+        for series in s.get("series") or []:
+            series["values"] = [v for i, v in enumerate(series["values"]) if i not in drop]
+    for series in s.get("series") or []:
+        if is_author_instruction(series["name"]):
+            moved.append(series["name"])
+            series["name"] = ""
+    for key in ("note", "center", "axis_x", "axis_y"):
+        if is_author_instruction(s.get(key)):
+            moved.append(s[key])
+            s[key] = ""
     if moved:
         s["needs_check"] = _unique(s["needs_check"] + moved)
     return len(moved)
+
+
+def strip_title_period(title: str) -> str:
+    """장 제목 끝의 마침표를 뗀다 (사용자 결정 2026-11-24: 제목은 마침표로 끝내지 않는다). 물음표·느낌표는 둔다."""
+    return str(title or "").strip().rstrip(".。．").rstrip()
+
+
+def _to_bullets(s: dict, lines: list[str]) -> None:
+    s["kind"] = "bullets"
+    s["bullets"] = s["bullets"] + [line for line in lines if line]
+
+
+def _node_lines(nodes: list[dict]) -> list[str]:
+    return [f"{n['label']}: {n['detail']}" if n["detail"] else n["label"] for n in nodes]
+
+
+def _clean_visuals(s: dict) -> None:
+    """핵심 수치·그래프·도식 장의 칸을 규칙에 맞게 고친다 (AI 구성안). 그릴 수 없는 장은 지어내지 않고 글머리나 표로 바꾼다."""
+    kind = s["kind"]
+    for key in VISUAL_TEXT_FIELDS:
+        s[key] = s[key].strip()
+    kpis = [{k: str(item.get(k) or "").strip() for k in ("value", "unit", "label", "note")} for item in s["kpis"]]
+    kpis = [item for item in kpis if item["value"]]
+    nodes = [{k: str(item.get(k) or "").strip() for k in ("label", "detail", "group")} for item in s["nodes"]]
+    nodes = [item for item in nodes if item["label"]]
+    categories = [str(c or "").strip() for c in s["categories"]]
+    series = [{"name": str(x.get("name") or "").strip(), "values": list(x.get("values") or [])} for x in s["series"]]
+    series = [x for x in series if x["values"]]
+    s["kpis"], s["nodes"], s["categories"], s["series"] = [], [], [], []
+    if kind == "kpi":
+        if kpis:
+            if len(kpis) > ontology.MAX_KPIS:
+                s["needs_check"].append(f"핵심 수치가 많아 앞의 {ontology.MAX_KPIS}개만 담았습니다. 빠진 수치: " + ", ".join(i["label"] or i["value"] for i in kpis[ontology.MAX_KPIS:]))
+            s["kpis"] = kpis[:ontology.MAX_KPIS]
+        else:
+            _to_bullets(s, [])
+    elif kind == "chart":
+        numbers = [[parse_number(v) for v in x["values"]] for x in series]
+        ok = (bool(categories) and all(categories) and bool(series) and len(series) <= ontology.MAX_CHART_SERIES and len(categories) <= ontology.MAX_CHART_POINTS
+              and all(len(n) == len(categories) and None not in n for n in numbers))
+        if ok:
+            s["categories"] = categories
+            s["series"] = [{"name": x["name"], "values": n} for x, n in zip(series, numbers)]
+            s["chart_type"] = s["chart_type"].lower() if s["chart_type"].lower() in ontology.CHART_TYPES else ontology.CHART_TYPE_DEFAULT
+        elif categories or series:  # 값이 숫자가 아니거나 개수가 안 맞는다: 그래프로 그리지 않고 받은 글 그대로 표에 담는다
+            width = max([len(categories), *(len(x["values"]) for x in series)])
+            s["kind"] = "table"
+            s["columns"] = ["항목", *((x["name"] or f"값 {i + 1}") for i, x in enumerate(series))]
+            s["rows"] = [[categories[r] if r < len(categories) else "", *((number_text(x["values"][r]) or str(x["values"][r]).strip()) if r < len(x["values"]) and x["values"][r] is not None else "" for x in series)]
+                         for r in range(width)]
+            s["needs_check"].append(checks.CHART_TO_TABLE_NOTE)
+        else:
+            _to_bullets(s, [])
+    elif kind == "diagram":
+        dtype = s["diagram_type"].lower()
+        if dtype not in ontology.DIAGRAM_TYPES:
+            dtype = "before_after" if not nodes and (s["left"] or s["right"]) else ontology.DIAGRAM_TYPE_DEFAULT
+        s["diagram_type"] = dtype
+        if dtype == "before_after":
+            if not (s["left"] or s["right"]):
+                _to_bullets(s, _node_lines(nodes))
+        elif not nodes:
+            _to_bullets(s, [])
+        else:
+            limit = ontology.DIAGRAM_MAX_NODES[dtype]
+            if len(nodes) > limit:
+                s["needs_check"].append(f"도식 항목이 많아 앞의 {limit}개만 담았습니다. 빠진 항목: " + ", ".join(n["label"] for n in nodes[limit:]))
+            s["nodes"] = nodes[:limit]
+            if dtype == "matrix":
+                for node in s["nodes"]:
+                    node["group"] = matrix_quadrant(node["group"]) or ""
+    if s["kind"] != "chart":
+        s["chart_type"] = s["unit"] = ""
+    if s["kind"] != "diagram":
+        s["diagram_type"] = s["center"] = s["axis_x"] = s["axis_y"] = ""
+    if s["kind"] not in ("kpi", "chart", "diagram"):
+        s["note"] = ""
+
+
+def _drop_empty_visual(s: dict) -> None:
+    """작성자에게 하는 말을 옮긴 뒤 그릴 것이 남지 않은 시각 자료 장은 글머리 장으로 둔다 (빈 그래프·빈 도식을 만들지 않는다)."""
+    kind = s["kind"]
+    before_after = kind == "diagram" and s["diagram_type"] == "before_after"
+    empty = ((kind == "kpi" and not s["kpis"]) or (kind == "chart" and not (s["categories"] and s["series"]))
+             or (kind == "diagram" and not before_after and not s["nodes"]) or (before_after and not (s["left"] or s["right"])))
+    if empty:
+        s["kind"] = "bullets"
+        s["kpis"], s["categories"], s["series"], s["nodes"] = [], [], [], []
+        for key in VISUAL_TEXT_FIELDS:
+            s[key] = ""
 
 
 def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
@@ -481,6 +647,7 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
             s["kind"] = "bullets"
         if s["kind"] == "cover" and slides:
             s["kind"] = "bullets"  # 표지는 맨 앞 한 장만
+        _clean_visuals(s)
         s["columns"] = _strip_list(s["columns"])
         rows = [[c.strip() for c in row] for row in s["rows"]]
         rows = [row for row in rows if any(row)]
@@ -499,10 +666,14 @@ def clean_outline(out: "Outline", knowledge_dir: Path) -> dict:
             kept = [b for b in s["bullets"] if not _CONTACT_LINE.search(b)]
             dropped_contacts += len(s["bullets"]) - len(kept)
             s["bullets"] = kept
+        s["title"] = strip_title_period(s["title"])
         moved_total += _move_instructions(s)
+        _drop_empty_visual(s)
         found, missing = check_sources(knowledge_dir, _strip_list(s["sources"]))
         s["sources"] = found
         s["needs_check"] = _unique(s["needs_check"] + [checks.source_unverified(m) for m in missing])
+        if s["kind"] in ("kpi", "chart") and not s["sources"]:  # 수치는 읽은 자료에 있는 값만 쓴다: 출처가 없으면 늘 근거 문제로 알린다
+            s["needs_check"] = _unique(s["needs_check"] + [checks.NO_FIGURE_SOURCE_NOTE])
         if s["kind"] not in ("cover", "closing") and not s["sources"] and not s["needs_check"]:
             s["needs_check"] = [NO_SOURCE_NOTE]
         slides.append(s)
@@ -557,7 +728,108 @@ def slide_from_form(kind: str, form) -> dict:
             if name.strip():
                 steps.append({"name": name.strip(), "detail": detail.strip()})
         s["steps"] = steps[:MAX_STEPS]
+    elif kind == "kpi":
+        s["kpis"], s["note"] = _kpis_from_form(form.get("kpis")), text("note")
+    elif kind == "chart":
+        chart_type = text("chart_type") or ontology.CHART_TYPE_DEFAULT
+        if chart_type not in ontology.CHART_TYPES:
+            raise ValueError("알 수 없는 그래프 종류입니다.")
+        s["chart_type"], s["unit"], s["note"] = chart_type, text("unit"), text("note")
+        s["categories"], s["series"] = _chart_from_form(form.get("chart_data"))
+    elif kind == "diagram":
+        dtype = text("diagram_type") or ontology.DIAGRAM_TYPE_DEFAULT
+        if dtype not in ontology.DIAGRAM_TYPES:
+            raise ValueError("알 수 없는 도식 종류입니다.")
+        s["diagram_type"], s["note"] = dtype, text("note")
+        if dtype == "before_after":
+            s["left_title"], s["right_title"] = text("left_title"), text("right_title")
+            s["left"], s["right"] = _lines(form.get("left")), _lines(form.get("right"))
+        else:
+            s["nodes"] = _nodes_from_form(form.get("nodes"), dtype)
+        if dtype in ("hub", "cycle"):
+            s["center"] = text("center")
+        if dtype == "matrix":
+            s["axis_x"], s["axis_y"] = text("axis_x"), text("axis_y")
     return s
+
+
+def _kpis_from_form(raw) -> list[dict]:
+    """핵심 수치 칸: 한 줄에 `값 | 단위 | 이름 | 설명`."""
+    items = []
+    for n, line in enumerate(_lines(raw), start=1):
+        cells = _cells(line)
+        if len(cells) > 4:
+            raise ValueError(f"핵심 수치 {n}번째 줄: 칸은 '값 | 단위 | 이름 | 설명' 네 개까지 씁니다.")
+        value, unit, label, note = (cells + [""] * 4)[:4]
+        if not value:
+            raise ValueError(f"핵심 수치 {n}번째 줄: 맨 앞 칸에 값을 쓰세요.")
+        items.append({"value": value, "unit": unit, "label": label, "note": note})
+    if len(items) > ontology.MAX_KPIS:
+        raise ValueError(f"핵심 수치는 한 장에 {ontology.MAX_KPIS}개까지 씁니다. 장을 나누세요.")
+    return items
+
+
+def _chart_from_form(raw) -> tuple[list[str], list[dict]]:
+    """그래프 값 칸: 첫 줄은 `항목 | 계열 이름 …`, 다음 줄부터 `항목 이름 | 값 …`. 값은 숫자만 (단위는 단위 칸에)."""
+    lines = _lines(raw)
+    if not lines:
+        return [], []
+    head = _cells(lines[0])
+    if len(head) < 2:
+        raise ValueError("그래프 값의 첫 줄에는 '항목 | 계열 이름' 처럼 계열 이름을 쓰세요.")
+    if all(parse_number(c) is not None for c in head[1:]):
+        raise ValueError("그래프 값의 첫 줄은 값이 아니라 이름 줄입니다. '항목 | 계열 이름' 을 첫 줄에 쓰세요.")
+    names = head[1:]
+    if len(names) > ontology.MAX_CHART_SERIES:
+        raise ValueError(f"그래프의 계열은 {ontology.MAX_CHART_SERIES}개까지 씁니다.")
+    if len(lines) - 1 > ontology.MAX_CHART_POINTS:
+        raise ValueError(f"그래프의 항목은 {ontology.MAX_CHART_POINTS}개까지 씁니다.")
+    categories, columns = [], [[] for _ in names]
+    for n, line in enumerate(lines[1:], start=2):
+        cells = _cells(line)
+        if not cells[0]:
+            raise ValueError(f"그래프 값 {n}번째 줄: 맨 앞 칸에 항목 이름을 쓰세요.")
+        if len(cells) != len(names) + 1:
+            raise ValueError(f"그래프 값 {n}번째 줄: 값이 {len(names)}개여야 합니다 (첫 줄의 계열 수와 같게).")
+        for c, cell in enumerate(cells[1:]):
+            number = parse_number(cell)
+            if number is None:
+                raise ValueError(f"그래프 값 {n}번째 줄: 숫자가 아닌 값이 있습니다 ('{cell[:20]}'). 값에는 숫자만 쓰고 단위는 단위 칸에 쓰세요.")
+            columns[c].append(number)
+        categories.append(cells[0])
+    if not categories:
+        raise ValueError("그래프 값이 없습니다. 둘째 줄부터 '항목 이름 | 값' 을 쓰세요.")
+    return categories, [{"name": name, "values": values} for name, values in zip(names, columns)]
+
+
+def _nodes_from_form(raw, dtype: str) -> list[dict]:
+    """도식 항목 칸: 한 줄에 `이름 | 설명 | 묶음`. 묶음은 일정에서는 기간, 2×2 에서는 자리(왼쪽 위 …)다."""
+    nodes = []
+    for n, line in enumerate(_lines(raw), start=1):
+        cells = _cells(line)
+        if len(cells) > 3:
+            raise ValueError(f"도식 항목 {n}번째 줄: 칸은 '이름 | 설명 | 묶음' 세 개까지 씁니다.")
+        label, detail, group = (cells + [""] * 3)[:3]
+        if not label:
+            raise ValueError(f"도식 항목 {n}번째 줄: 맨 앞 칸에 이름을 쓰세요.")
+        if dtype == "matrix":
+            place = matrix_quadrant(group)
+            if place is None:
+                raise ValueError(f"도식 항목 {n}번째 줄: 2×2 도식의 묶음 칸에는 {' · '.join(ontology.MATRIX_QUADRANTS)} 가운데 하나를 쓰세요.")
+            group = place
+        nodes.append({"label": label, "detail": detail, "group": group})
+    limit = ontology.DIAGRAM_MAX_NODES[dtype]
+    if len(nodes) > limit:
+        raise ValueError(f"{ontology.DIAGRAM_TYPES[dtype]} 도식의 항목은 한 장에 {limit}개까지 씁니다. 장을 나누세요.")
+    return nodes
+
+
+def _join_cells(cells: list[str]) -> str:
+    """칸들을 ` | ` 로 잇는다 (뒤쪽 빈 칸은 뺀다)."""
+    cells = list(cells)
+    while cells and not cells[-1]:
+        cells.pop()
+    return " | ".join(cells)
 
 
 def slide_to_form(slide: dict) -> dict:
@@ -568,6 +840,15 @@ def slide_to_form(slide: dict) -> dict:
     out["columns"] = " | ".join(slide.get("columns") or [])
     out["rows"] = "\n".join(" | ".join(row) for row in slide.get("rows") or [])
     out["steps"] = "\n".join(f"{st['name']}: {st['detail']}" if st["detail"] else st["name"] for st in slide.get("steps") or [])
+    for key in VISUAL_TEXT_FIELDS:  # 옛 구성안에는 이 키들이 없다
+        out[key] = slide.get(key) or ""
+    out["kpis"] = "\n".join(_join_cells([str(i.get(k) or "") for k in ("value", "unit", "label", "note")]) for i in slide.get("kpis") or [] if isinstance(i, dict))
+    out["nodes"] = "\n".join(_join_cells([str(n.get(k) or "") for k in ("label", "detail", "group")]) for n in slide.get("nodes") or [] if isinstance(n, dict))
+    series = [x for x in slide.get("series") or [] if isinstance(x, dict)]
+    lines = [" | ".join(["항목", *(str(x.get("name") or "") for x in series)])] if series else []
+    for r, category in enumerate(slide.get("categories") or []):
+        lines.append(" | ".join([str(category), *(number_text((x.get("values") or [])[r]) if r < len(x.get("values") or []) else "" for x in series)]))
+    out["chart_data"] = "\n".join(lines)
     return out
 
 

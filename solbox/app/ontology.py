@@ -125,8 +125,37 @@ SLIDE_KINDS = {  # 장 종류
     "two_column": "2단 비교",
     "table": "표",
     "steps": "단계",
+    "kpi": "핵심 수치",
+    "chart": "그래프",
+    "diagram": "도식",
     "closing": "마무리",
 }
+# 시각 자료 장 (베타 AG): 글머리가 아니라 도식·표·그래프로 그리는 장. 품질 검사가 본문 장의 절반 이상이 이 종류인지 본다
+VISUAL_SLIDE_KINDS = ("two_column", "table", "steps", "kpi", "chart", "diagram")
+CHART_TYPES = {"column": "세로 막대", "bar": "가로 막대", "line": "꺾은선", "doughnut": "도넛"}  # 그래프 장의 그래프 종류
+CHART_TYPE_DEFAULT = "column"
+DIAGRAM_TYPES = {  # 도식 장의 도식 종류
+    "layers": "구성도(층)",
+    "hub": "중심과 주변",
+    "before_after": "도입 전후",
+    "timeline": "일정",
+    "matrix": "2×2 위치",
+    "cycle": "순환",
+}
+DIAGRAM_TYPE_DEFAULT = "layers"
+DIAGRAM_TYPE_DESCRIPTIONS = {
+    "layers": "위에서 아래로 쌓은 층. 층마다 이름과 그 층에 든 것들 (예: 현장 센서, 게이트웨이, 플랫폼, 사용자)",
+    "hub": "가운데 하나와 그 둘레의 3~6개 (예: 가운데 솔루션과 둘레의 기능·효과)",
+    "before_after": "도입 전과 도입 후를 나란히 놓고 화살표로 잇는다",
+    "timeline": "가로 일정표. 단계마다 이름과 기간",
+    "matrix": "가로축·세로축으로 나눈 네 칸에 항목을 놓는다",
+    "cycle": "3~6단계가 돌아가며 이어지는 고리",
+}
+DIAGRAM_MAX_NODES = {"layers": 5, "hub": 6, "timeline": 6, "matrix": 8, "cycle": 6}  # 도식 한 장에 담는 항목 수 (넘으면 구성안 정리는 앞의 것만 담고 확인할 점에 알리고, PPT 는 쪽을 나눈다)
+MAX_KPIS = 4            # 핵심 수치 한 장의 수치 개수
+MAX_CHART_SERIES = 4    # 그래프의 계열 수
+MAX_CHART_POINTS = 24   # 그래프의 항목 수 (한 장에 다 못 그리면 PPT 가 쪽을 나눈다)
+MATRIX_QUADRANTS = {"왼쪽 위": 0, "오른쪽 위": 1, "왼쪽 아래": 2, "오른쪽 아래": 3}  # 2×2 도식에서 항목의 `묶음` 칸에 쓰는 자리 이름
 
 RESEARCH_AREAS = {"market": "시장", "tech": "기술", "policy": "정책"}  # 리서치 분야
 SUGGESTION_KINDS = {"new": "새로 찾을 솔루션", "push": "기존 솔루션 밀기"}  # 리서치 제안 종류
@@ -333,6 +362,8 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("read_status", "읽기 상태", READ_STATUSES),
     CodeList("plan_item_kind", "정리안 항목 종류", INTAKE_ITEM_KINDS),
     CodeList("slide_kind", "장 종류", SLIDE_KINDS),
+    CodeList("chart_type", "그래프 종류", CHART_TYPES, CHART_TYPE_DEFAULT),
+    CodeList("diagram_type", "도식 종류", DIAGRAM_TYPES, DIAGRAM_TYPE_DEFAULT, DIAGRAM_TYPE_DESCRIPTIONS),
     CodeList("research_area", "리서치 분야", RESEARCH_AREAS),
     CodeList("suggestion_kind", "리서치 제안 종류", SUGGESTION_KINDS),
     CodeList("report_kind", "리서치 보고서 종류", REPORT_KINDS),
@@ -1347,6 +1378,8 @@ SLIDE_FORM_LABELS = {
     **TYPES["slide"].props,
     "subtitle": "부제", "bullets": "글머리", "left_title": "왼쪽 제목", "left": "왼쪽 내용", "right_title": "오른쪽 제목", "right": "오른쪽 내용",
     "columns": "표의 열", "rows": "표의 줄", "steps": "단계", "needs_check": "확인할 점",
+    "kpis": "핵심 수치", "chart_type": "그래프 종류", "chart_data": "그래프 값", "unit": "단위", "note": "덧붙이는 말",
+    "diagram_type": "도식 종류", "nodes": "도식 항목", "center": "가운데 이름", "axis_x": "가로축", "axis_y": "세로축",
 }
 # 충돌 비교에서 값을 코드 이름으로 바꿀 칸: (대상 유형, 칸) -> 코드 목록
 CONFLICT_CODE_FIELDS = {("solution", "stage"): "stage", ("opportunity", "stage"): "opportunity_stage", ("activity", "kind"): "activity_kind"}

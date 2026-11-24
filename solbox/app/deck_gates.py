@@ -4,8 +4,11 @@ paperlogy-ppt 의 검사 규칙(GATES.md 의 ppt_lint · brandlogy_lint) 가운�
 **만들기를 막지 않는다**: 결과(목록)만 돌려주고, 화면이 제안서 상자에 "품질 검사: 경고 N건" 으로 보인다.
 원래 규칙에서 ERROR 인 것은 `level="error"`, WARN 인 것은 `"warn"` 이다. 각 항목의 `gate` 는 GATES.md 의 번호·이름이다.
 
-옮기지 않은 것: 빌드 스크립트(build.js)를 읽는 검사(#4·#5·#6·#16·#22 …), 차트·삽입 그림 검사(#8·#17·#18·#23 …: 구성안에 차트·그림이 없다),
+옮기지 않은 것: 빌드 스크립트(build.js)를 읽는 검사(#4·#5·#6·#16·#22 …), 삽입 그림 검사(#18·#23 …: 구성안에 그림이 없다),
 카드 안 여백 실측 4형제(#19·#24·#26·#27: 카드와 글을 한 덩어리로 가운데 놓으므로 좌표로는 재지 않는다).
+
+베타 AG: 그래프 검사(#8 차트 수치 미표기, #5b-3 차트 굵기, 차트 글꼴·색, CHART_CLEAN 의 눈금·눈금선, 도넛 5조각)와 "시각 자료 비율"(본문 장의 절반 이상이 도식·표·그래프·핵심 수치 장인지, #17 시각화 0 의 뜻)을 더했다.
+대제목 검사(#11)는 뒤집혔다: 사용자 결정(2026-11-24)으로 장 제목은 마침표로 끝내지 않는다.
 """
 
 from __future__ import annotations
@@ -14,9 +17,10 @@ import re
 
 from pptx.util import Inches
 
-from app import deck
+from app import deck, ontology
 
 _A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_C = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 _P = "http://schemas.openxmlformats.org/presentationml/2006/main"
 _NS = {"a": _A, "p": _P}
 _EMU = 914400
@@ -296,10 +300,54 @@ def _check_header(slide_no: int, shapes: list[_Shape], root, out: list[dict], ba
             out.append(_finding("warn", "#10 헤드라인 폰트", slide_no, f"대제목이 길어 26pt 로 쓰지 못했습니다 ({max(sizes):g}pt): “{_quote(title)}”"))
         if len(title.rstrip(".?!")) > HEADLINE_MAX_CHARS:
             out.append(_finding("warn", "헤드라인 30자", slide_no, f"대제목이 {len(title.rstrip('.?!'))}자입니다. 30자 안쪽으로 줄이세요: “{_quote(title)}”"))
-        if title[-1] not in ".?!":
-            out.append(_finding("warn", "#11 대제목 마침표", slide_no, f"대제목이 마침표로 끝나지 않습니다: “{_quote(title)}”"))
+    if title[-1] in ".。．":  # 사용자 결정 2026-11-24: 장 제목은 마침표로 끝내지 않는다 (만들 때 떼지만, 손으로 고친 파일까지 본다)
+        out.append(_finding("warn", "#11 대제목 마침표", slide_no, f"대제목이 마침표로 끝납니다. 제목 끝의 마침표를 지우세요: “{_quote(title)}”"))
     if not band_optional and not any(s.name in ("결론 띠", "강조 카드") for s in shapes) and any(s.name not in ("배경", "챕터", "대제목", "부제", "쪽 번호", "출처", "강조 막대") for s in shapes):
         out.append(_finding("warn", "#13 SO WHAT 띠", slide_no, "결론 띠가 없습니다. 이 장의 핵심 메시지(결론 한 문장)를 채우세요"))
+
+
+def _check_charts(slide_no: int, slide, out: list[dict]):
+    """그래프 (#8 차트 수치 미표기, #5b-3 차트 굵기 플래그, 차트 글꼴·색, DESIGN-SYSTEM §7 CHART_CLEAN, 도넛 5조각 이상)."""
+    for shape in slide.shapes:
+        if not getattr(shape, "has_chart", False):
+            continue
+        root = shape.chart._chartSpace
+        shown = [d for d in root.iter(f"{{{_C}}}dLbls")
+                 if any(d.find(f"{{{_C}}}{tag}") is not None and d.find(f"{{{_C}}}{tag}").get("val") == "1" for tag in ("showVal", "showPercent"))]
+        if not shown:
+            out.append(_finding("error", "#8 차트 수치 미표기", slide_no, "그래프에 데이터 라벨(값)이 없습니다. 모든 막대·점·조각에 값을 붙입니다"))
+        if any(r.get("b") == "1" for r in root.iter(f"{{{_A}}}defRPr")) or any(r.get("b") == "1" for r in root.iter(f"{{{_A}}}rPr")):
+            out.append(_finding("error", "#5b-3 차트 굵기 플래그", slide_no, "그래프 글자에 굵게 속성이 있습니다. 굵기는 Bold 페이스로 줍니다"))
+        faces = {f.get("typeface") for tag in ("latin", "ea", "cs") for f in root.iter(f"{{{_A}}}{tag}")} - FACES
+        if faces:
+            out.append(_finding("error", "#5b-1 승인 외 폰트", slide_no, "그래프에 승인 글꼴 밖의 글꼴이 있습니다: " + ", ".join(sorted(str(f) for f in faces))))
+        used = {c.get("val", "").upper() for c in root.iter(f"{{{_A}}}srgbClr")}
+        if used & PALETTE_RETIRED:
+            out.append(_finding("error", "#6b-2·#8b 폐기 팔레트", slide_no, "그래프에 폐기한 색이 있습니다: " + ", ".join(sorted(used & PALETTE_RETIRED))))
+        if used - PALETTE - PALETTE_RETIRED:
+            out.append(_finding("warn", "차트 색 위계", slide_no, "그래프에 승인 팔레트 밖의 색이 있습니다 (계열은 같은 블루의 명도로 가릅니다): " + ", ".join(sorted(used - PALETTE - PALETTE_RETIRED))))
+        if "FF7A00" in used and any(c.get("val", "").upper() == "FF7A00" for r in root.iter(f"{{{_A}}}defRPr") for c in r.iter(f"{{{_A}}}srgbClr")):
+            out.append(_finding("error", "#8f 오렌지 글자색", slide_no, "그래프 글자에 강조 오렌지를 썼습니다. 오렌지는 도형에만 씁니다"))
+        cat_grid = any(ax.find(f"{{{_C}}}majorGridlines") is not None for ax in root.iter(f"{{{_C}}}catAx"))
+        ticks = [t.get("val") for name in ("majorTickMark", "minorTickMark") for t in root.iter(f"{{{_C}}}{name}")]
+        if cat_grid or any(t != "none" for t in ticks):
+            out.append(_finding("warn", "차트 눈금", slide_no, "그래프에 항목 축 눈금선이나 눈금 표시가 있습니다. 값 축의 옅은 눈금선만 남깁니다"))
+        title = root.find(f"{{{_C}}}chart/{{{_C}}}title")
+        if title is not None:
+            out.append(_finding("warn", "차트 제목", slide_no, "그래프 안에 제목이 있습니다. 제목은 장의 대제목과 카드 제목으로 씁니다"))
+        for ring in list(root.iter(f"{{{_C}}}doughnutChart")) + list(root.iter(f"{{{_C}}}pieChart")):
+            points = max((len(ser.findall(f"{{{_C}}}val//{{{_C}}}pt")) for ser in ring.findall(f"{{{_C}}}ser")), default=0)
+            if points > deck.DOUGHNUT_MAX:
+                out.append(_finding("warn", "도넛 5조각 이상", slide_no, f"도넛·원 그래프가 {points}조각입니다. 4조각까지만 쓰고 그보다 많으면 막대로 그리세요"))
+
+
+def _check_visual_ratio(kinds: list | None, out: list[dict]):
+    """시각 자료 비율 (#17 시각화 0 의 뜻. 사용자 요청 2026-11-24: 고객 제안 자료는 글보다 도식·표·그래프가 먼저다)."""
+    body = [k for k in kinds or [] if k not in ("cover", "closing")]
+    visual = [k for k in body if k in ontology.VISUAL_SLIDE_KINDS]
+    if body and len(visual) * 2 < len(body):
+        out.append(_finding("warn", "시각 자료 비율", None,
+                            f"본문 {len(body)}장 가운데 도식·표·그래프·핵심 수치 장이 {len(visual)}장입니다. 글머리 장을 도식·표·그래프로 바꿔 절반 이상을 시각 자료로 채우세요"))
 
 
 def check_presentation(prs, *, kinds: list | None = None, background_missing: bool = False) -> list[dict]:
@@ -324,9 +372,17 @@ def check_presentation(prs, *, kinds: list | None = None, background_missing: bo
         _check_runs(slide_no, root, out)
         _check_colors(slide_no, root, out)
         _check_layout(slide_no, shapes, is_cover, out)
+        _check_charts(slide_no, slide, out)
+        if is_cover:
+            cover_title = next((s.text.split("\n")[0].strip() for s in shapes if s.name == "표지 제목"), "")
+            first = next((p for s in shapes if s.name == "표지 제목" for p in s.body.findall("a:p", _NS)), None)
+            cover_title = "".join(t.text or "" for t in first.iter(f"{{{_A}}}t")).strip() if first is not None else cover_title
+            if cover_title[-1:] in (".", "。", "．"):
+                out.append(_finding("warn", "#11 대제목 마침표", slide_no, f"표지 제목이 마침표로 끝납니다. 제목 끝의 마침표를 지우세요: “{_quote(cover_title)}”"))
         if not is_cover:
             closing = bool(kinds) and slide_no <= len(kinds) and kinds[slide_no - 1] == "closing"
             _check_header(slide_no, shapes, root, out, band_optional=closing)
+    _check_visual_ratio(kinds, out)
     whole = "\n".join(all_text)
     contrast = len(_CONTRAST.findall(whole))
     if contrast >= 3:

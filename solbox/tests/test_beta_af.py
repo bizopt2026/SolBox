@@ -105,7 +105,7 @@ def test_header_band_and_page_number(tmp_path):
     cover, s2, s3 = prs.slides
     by = {sh.name: sh for sh in s2.shapes}
     assert by["챕터"].text_frame.text == "02 · 전력비 절감 제안"
-    assert by["대제목"].text_frame.text == "전력비를 연 12% 줄입니다."  # 마침표는 자동으로 붙는다
+    assert by["대제목"].text_frame.text == "전력비를 연 12% 줄입니다"  # 제목은 마침표로 끝내지 않는다 (베타 AG, 사용자 결정 2026-11-24)
     assert next(sh for sh in s3.shapes if sh.name == "대제목").text_frame.text == "끝이 물음표인가?"
     for name, (x, y, w, h) in {"챕터": (0.422, 0.306, 8.0, 0.3), "대제목": (0.422, 0.851, 12.262, 0.55), "결론 띠": (0.422, 6.20, 12.49, 0.40),
                                "쪽 번호": (12.45, 6.85, 0.5, 0.3)}.items():
@@ -249,7 +249,7 @@ def test_steps_and_closing_shapes(tmp_path):
     assert steps._element.findall(f".//{A}tailEnd")[0].get("type") == "triangle"
     names = {sh.name for sh in closing.shapes}
     assert "강조 카드" in names and "결론 띠" not in names and "담당: 김대리" in _texts(closing) and "별관에서 먼저 확인합니다." in _texts(closing)
-    assert "감사합니다." in _texts(thanks) and "담당: 김대리" in _texts(thanks)  # 연락처가 붙으면 보통의 마무리 장
+    assert "감사합니다" in _texts(thanks) and "감사합니다." not in _texts(thanks) and "담당: 김대리" in _texts(thanks)  # 연락처가 붙으면 보통의 마무리 장
     bare, _, _ = _build(tmp_path, {"title": "t", "slides": [o["slides"][2]]}, name="bare.pptx")
     assert "감사합니다" in _texts(bare.slides[0]) and {sh.name for sh in bare.slides[0].shapes} == {"강조 막대", "대제목", "쪽 번호"}
     assert not [f for f in stats["quality"] if f["gate"].startswith("#13")]  # 마무리 장은 결론 띠가 없어도 된다
@@ -349,6 +349,8 @@ def test_gates_report_a_bad_outline_without_blocking(tmp_path):
     good, good_stats, _ = _build(tmp_path, {"title": "좋은 예", "slides": [
         {"kind": "cover", "title": "좋은 예"},
         {"kind": "bullets", "title": "전력비를 줄입니다", "key_message": "설비 교체 없이 전력비를 줄입니다.", "bullets": ["운전 최적화", "고장 예방"], "sources": [], "needs_check": []},
+        # 베타 AG: 본문 장의 절반 이상이 시각 자료 장이어야 "시각 자료 비율" 경고가 없다
+        {"kind": "steps", "title": "두 단계로 도입합니다", "key_message": "별관에서 먼저 확인합니다.", "steps": [{"name": "시범", "detail": "별관"}, {"name": "확대", "detail": "본관"}]},
         {"kind": "closing", "title": "감사합니다"}]}, name="good.pptx")
     assert good_stats["quality"] == []
 

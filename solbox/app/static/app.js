@@ -303,11 +303,17 @@
     root.querySelectorAll(".slide-form").forEach(function (form) {
       var sel = form.querySelector(".kind-select");
       if (!sel) return;
+      var dsel = form.querySelector(".dtype-select");
       var sync = function () {
         form.querySelectorAll("[data-kinds]").forEach(function (el) { el.hidden = el.dataset.kinds.split(" ").indexOf(sel.value) < 0; });
+        // 도식 장: 고른 도식 종류의 칸만 보인다 (data-dtypes). 다른 종류의 장에서는 위의 data-kinds 만 본다
+        if (sel.value === "diagram" && dsel) {
+          form.querySelectorAll("[data-dtypes]").forEach(function (el) { el.hidden = el.dataset.dtypes.split(" ").indexOf(dsel.value) < 0; });
+        }
       };
       sync();
       sel.addEventListener("change", sync);
+      if (dsel) dsel.addEventListener("change", sync);
     });
   }
   initSlideForms(document);

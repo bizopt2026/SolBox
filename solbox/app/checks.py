@@ -11,6 +11,8 @@ UNKNOWN_SOLUTION = "후보에 없는 솔루션"
 EVIDENCE_PREFIXES = (NO_EVIDENCE, SOURCE_UNVERIFIED, NO_LINK, UNOPENED, UNKNOWN_SOLUTION)
 
 NO_EVIDENCE_NOTE = f"{NO_EVIDENCE}: 내용 확인 필요"  # 출처 없는 장
+NO_FIGURE_SOURCE_NOTE = f"{NO_EVIDENCE}: 핵심 수치·그래프의 값이 읽은 자료에 있는 값인지 확인 필요"  # 출처 없는 핵심 수치·그래프 장 (베타 AG)
+CHART_TO_TABLE_NOTE = "그래프 값이 숫자가 아니거나 항목 수와 맞지 않아 표로 바꿨습니다. 값을 확인하세요"
 UNKNOWN_SOLUTION_NOTE = f"{UNKNOWN_SOLUTION}이 언급됨"
 NO_LINK_NOTE = f"{NO_LINK}, 확인 필요"  # 링크 없는 동향
 

@@ -22,6 +22,7 @@ BUSY = "AI 작업이 끝난 뒤 수정하세요."
 FIELDS = (
     "title", "key_message", "subtitle", "bullets", "left_title", "left", "right_title", "right",
     "columns", "rows", "steps", "sources", "needs_check",
+    "kpis", "chart_type", "chart_data", "unit", "note", "diagram_type", "nodes", "center", "axis_x", "axis_y",  # 시각 자료 장 (베타 AG)
 )
 
 
@@ -73,6 +74,7 @@ def _outline_page(request: Request, db: Session, p: Proposal, open_index: int | 
     return render(
         request, "proposals/outline.html", status_code=status_code, proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy,
         summary=outline_check_summary(p.outline), src=SourceLookup(db), can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
+        chart_types=ontology.CHART_TYPES, diagram_types=ontology.DIAGRAM_TYPES, diagram_help=ontology.DIAGRAM_TYPE_DESCRIPTIONS, quadrants=list(ontology.MATRIX_QUADRANTS),
     )
 
 
@@ -94,25 +96,25 @@ def save_slide(
     left_title: str = Form(""), left: str = Form(""), right_title: str = Form(""), right: str = Form(""),
     columns: str = Form(""), rows: str = Form(""), steps: str = Form(""),
     sources: str = Form(""), needs_check: str = Form(""),
+    kpis: str = Form(""), chart_type: str = Form(""), chart_data: str = Form(""), unit: str = Form(""), note: str = Form(""),
+    diagram_type: str = Form(""), nodes: str = Form(""), center: str = Form(""), axis_x: str = Form(""), axis_y: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), rev: Rev = Depends(rev_form),
 ):
     p, slides = _load_for_edit(db, proposal_id, index)
+    values = locals()
+    submitted = {"kind": kind, **{name: values[name] for name in FIELDS}}
     if conflict := guards.check_rev(p, rev, current=guards.slide_rev(p, slides[index]),
                                            fresh=lambda row: guards.slide_rev(row, row.outline["slides"][index]),
-                                           values=dict(kind=kind, title=title, key_message=key_message, subtitle=subtitle, bullets=bullets, left_title=left_title, left=left,
-                                                       right_title=right_title, right=right, columns=columns, rows=rows, steps=steps, sources=sources, needs_check=needs_check),
+                                           values=dict(submitted),
                                            stored={**slide_to_form(slides[index]), "kind": slides[index].get("kind", "")}, labels=ontology.SLIDE_FORM_LABELS):
         # 다른 탭이 이 장을 바꾸거나 옮기거나 지웠다 (번호 자리의 장이 달라졌다): 저장하지 않고 쓴 값 그대로 다시 보여 준다
         db.rollback()
-        submitted = dict(kind=kind, title=title, key_message=key_message, subtitle=subtitle, bullets=bullets, left_title=left_title, left=left,
-                         right_title=right_title, right=right, columns=columns, rows=rows, steps=steps, sources=sources, needs_check=needs_check)
         return _outline_page(request, db, p, index, status_code=409, conflict=conflict, submitted=submitted)
     kind = kind.strip() or slides[index]["kind"]
     if kind not in labels.SLIDE_KINDS:
         raise HTTPException(status_code=400, detail="알 수 없는 슬라이드 종류입니다.")
     if (index == 0) != (kind == "cover"):
         raise HTTPException(status_code=400, detail="표지는 첫 장만 쓸 수 있고, 첫 장은 표지여야 합니다.")
-    values = locals()
     try:
         slides[index] = keep_checked(slides[index], slide_from_form(kind, {name: values[name] for name in FIELDS}))
     except ValueError as e:

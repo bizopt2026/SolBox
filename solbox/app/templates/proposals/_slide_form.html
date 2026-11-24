@@ -21,7 +21,32 @@
   <div class="fld wide"><label for="s{{ i }}-km">핵심 메시지</label><input id="s{{ i }}-km" type="text" name="key_message" value="{{ f.key_message }}"></div>
   <div class="fld wide" data-kinds="cover"><label for="s{{ i }}-sub">부제</label><input id="s{{ i }}-sub" type="text" name="subtitle" value="{{ f.subtitle }}"></div>
   <div class="fld wide" data-kinds="bullets"><label for="s{{ i }}-bul">글머리 (한 줄에 하나)</label><textarea id="s{{ i }}-bul" name="bullets" rows="4">{{ f.bullets }}</textarea></div>
-  <div data-kinds="two_column" class="fgrid wide">
+  {% set cur_dtype = f.diagram_type or "layers" %}
+  <div data-kinds="kpi" class="fgrid wide">
+    <div class="fld wide"><label for="s{{ i }}-kpis">핵심 수치 (한 줄에 <code>값 | 단위 | 이름 | 설명</code>, 2~4개)</label><textarea id="s{{ i }}-kpis" name="kpis" rows="4">{{ f.kpis }}</textarea>
+      <p class="help">예: <code>6 | 주 | 도입 기간 | 조사부터 시운전까지</code>. 자료에서 확인한 수치만 쓰고 출처 칸에 그 자료를 적으세요. 단위·설명은 비워도 됩니다.</p></div>
+  </div>
+  <div data-kinds="chart" class="fgrid wide">
+    <div class="fld"><label for="s{{ i }}-ct">그래프 종류</label>
+      <select id="s{{ i }}-ct" name="chart_type">{% for k, name in chart_types.items() %}<option value="{{ k }}"{% if k == (f.chart_type or "column") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+    <div class="fld"><label for="s{{ i }}-unit">단위 (예: 주, 건, %)</label><input id="s{{ i }}-unit" type="text" name="unit" value="{{ f.unit }}"></div>
+    <div class="fld wide"><label for="s{{ i }}-cd">그래프 값 (첫 줄은 <code>항목 | 계열 이름</code>, 다음 줄부터 <code>항목 이름 | 값</code>)</label><textarea id="s{{ i }}-cd" name="chart_data" rows="5">{{ f.chart_data }}</textarea>
+      <p class="help">예: 첫 줄 <code>항목 | 기간</code>, 다음 줄 <code>조사 | 2</code>. 계열이 둘이면 <code>항목 | 도입 전 | 도입 후</code> 와 <code>처리 시간 | 30 | 10</code> 처럼 값을 계열 수만큼 씁니다. 값에는 숫자만 쓰고(단위는 단위 칸), 자료에서 확인한 값만 쓰세요. 도넛은 계열 하나에 항목 4개까지입니다.</p></div>
+  </div>
+  <div data-kinds="diagram" class="fgrid wide">
+    <div class="fld"><label for="s{{ i }}-dt">도식 종류</label>
+      <select id="s{{ i }}-dt" name="diagram_type" class="dtype-select">{% for k, name in diagram_types.items() %}<option value="{{ k }}"{% if k == cur_dtype %} selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+      <p class="help">{% for k, name in diagram_types.items() %}<strong>{{ name }}</strong>: {{ diagram_help[k] }}{% if not loop.last %} · {% endif %}{% endfor %}</p></div>
+    <div class="fld" data-dtypes="hub cycle"><label for="s{{ i }}-center">가운데 이름 (중심과 주변 · 순환)</label><input id="s{{ i }}-center" type="text" name="center" value="{{ f.center }}"></div>
+    <div class="fld" data-dtypes="matrix"><label for="s{{ i }}-ax">가로축 이름 (2×2)</label><input id="s{{ i }}-ax" type="text" name="axis_x" value="{{ f.axis_x }}"></div>
+    <div class="fld" data-dtypes="matrix"><label for="s{{ i }}-ay">세로축 이름 (2×2)</label><input id="s{{ i }}-ay" type="text" name="axis_y" value="{{ f.axis_y }}"></div>
+    <div class="fld wide" data-dtypes="layers hub timeline matrix cycle"><label for="s{{ i }}-nodes">도식 항목 (한 줄에 <code>이름 | 설명 | 묶음</code>)</label><textarea id="s{{ i }}-nodes" name="nodes" rows="5">{{ f.nodes }}</textarea>
+      <p class="help">설명·묶음은 비워도 됩니다. 구성도는 설명에 그 층에 든 것을 쉼표로 나눠 쓰면 칩으로 그립니다(예: <code>플랫폼 | 수집, 분석, 알림</code>). 일정은 묶음 칸에 기간을 씁니다(예: <code>조사 | 현장 확인 | 2주</code>). 2×2 는 묶음 칸에 자리({{ quadrants | join(" · ") }})를 쓰고, 첫 항목이 든 칸을 강조합니다. 도입 전후는 아래 왼쪽·오른쪽 칸을 씁니다.</p></div>
+  </div>
+  <div data-kinds="kpi chart diagram" class="fgrid wide">
+    <div class="fld wide"><label for="s{{ i }}-note">덧붙이는 말 (그림 아래 한 줄: 기준·조건, 비워도 됩니다)</label><input id="s{{ i }}-note" type="text" name="note" value="{{ f.note }}"></div>
+  </div>
+  <div data-kinds="two_column diagram" data-dtypes="before_after" class="fgrid wide">
     <div class="fld"><label for="s{{ i }}-lt">왼쪽 제목</label><input id="s{{ i }}-lt" type="text" name="left_title" value="{{ f.left_title }}"></div>
     <div class="fld"><label for="s{{ i }}-rt">오른쪽 제목</label><input id="s{{ i }}-rt" type="text" name="right_title" value="{{ f.right_title }}"></div>
     <div class="fld"><label for="s{{ i }}-l">왼쪽 (한 줄에 하나)</label><textarea id="s{{ i }}-l" name="left" rows="4">{{ f.left }}</textarea></div>
