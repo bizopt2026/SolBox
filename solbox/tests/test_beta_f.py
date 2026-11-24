@@ -321,9 +321,9 @@ F8_URLS = {
     "/jobs/{job_id}/retry": "/jobs/1/retry", "/proposals/{proposal_id}/directions": "/proposals/1/directions",
     "/proposals/{proposal_id}/chat": "/proposals/1/chat", "/proposals/{proposal_id}/chat/retry": "/proposals/1/chat/retry",
     "/proposals/{proposal_id}/outline": "/proposals/1/outline", "/research/run": "/research/run",
-    "/research/reports/{report_id}/retry": "/research/reports/1/retry", "/intake/{intake_id}/analyze": "/intake/1/analyze",
+    "/research/reports/{report_id}/retry": "/research/reports/1/retry", "/intake/{intake_id}/analyze": "/intake/1/analyze", "/admin/duplicates/ai/{kind}": "/admin/duplicates/ai/partner",
 }
-ADMIN_ONLY = {"/admin/system/ai-check", "/research/run", "/research/reports/{report_id}/retry"}
+ADMIN_ONLY = {"/admin/duplicates/ai/{kind}", "/admin/system/ai-check", "/research/run", "/research/reports/{report_id}/retry"}
 
 
 @pytest.mark.ai_gate
