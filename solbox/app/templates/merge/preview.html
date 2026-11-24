@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_token %}
+{% block title %}{{ pv.keep.name }} 합치기{% endblock %}
+{% block content %}
+{% set keep = pv.keep %}{% set absorb = pv.absorb %}
+{{ page_header(label ~ " 합치기 미리 보기", crumbs=ui.crumbs(kind, a.name, "/" ~ plural ~ "/" ~ a.id, "합치기"), sub="아직 아무것도 바뀌지 않았어요. 아래 내용을 확인한 뒤 맨 밑에서 합쳐 주세요.") }}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<form method="get" action="/{{ plural }}/{{ a.id }}/merge" class="card stack merge-keep">
+  <input type="hidden" name="other" value="{{ b.id }}">
+  <fieldset class="merge-choice">
+    <legend>어느 쪽을 남길까요?</legend>
+    {% for o in (a, b) %}
+    <label class="merge-opt{{ ' on' if o.id == keep.id }}">
+      <input type="radio" name="keep" value="{{ o.id }}"{{ " checked" if o.id == keep.id }}>
+      <span class="merge-opt-body"><b>{{ o.name }}</b>
+        <small class="muted">연결 {{ links[o.id] }}건{% if o.aliases %} · 다른 이름: {{ o.aliases | replace("\n", ", ") }}{% endif %}</small>
+        <small><a href="/{{ plural }}/{{ o.id }}">{{ label }} 보기</a></small></span>
+    </label>
+    {% endfor %}
+  </fieldset>
+  <p class="muted help">처음에는 연결이 더 많은 쪽이 골라져 있어요. 남기는 쪽의 기록이 그대로 이어지고, 다른 쪽은 사라져요.</p>
+  <div><button type="submit" class="small">이 선택으로 다시 미리 보기</button></div>
+</form>
+
+{% if pv.conflict %}
+<p class="error" role="alert" id="merge-conflict"><b>합칠 수 없어요.</b> {{ pv.conflict }}</p>
+{% endif %}
+
+<section class="card stack">
+  <h2>사라지는 {{ label }}: '{{ absorb.name }}'</h2>
+  <p>'{{ keep.name }}' 쪽으로 합쳐지고 이 기록은 지워져요. 지워지는 것은 이 기록의 정보 칸 자체뿐이고, 아래 연결은 모두 남는 쪽으로 옮겨져요.</p>
+  <h3>옮겨지는 연결</h3>
+  <div class="tablewrap"><table class="list-table">
+    <thead><tr><th>연결</th><th class="num">건수</th><th class="col-sec">비고</th></tr></thead>
+    <tbody>
+    {% for name, rel, n, note in pv.counts %}
+      <tr><td>{{ name }}</td><td class="num">{{ n }}</td><td class="col-sec muted">{{ note or ("–" if not n else "") }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <h3>이름</h3>
+  {% if pv.new_aliases %}
+  <p>'{{ keep.name }}' 의 "다른 이름" 에 자동으로 더해져요: <b>{{ pv.new_aliases | join(", ") }}</b>. 그래서 앞으로 이 이름으로 검색하거나 AI 가 언급해도 남는 {{ label }} 기록으로 이어져요.</p>
+  {% else %}<p class="muted">더해질 이름이 없어요 (이미 다른 이름에 있어요).</p>{% endif %}
+  <h3>글</h3>
+  {% if pv.texts %}
+  <dl class="props">
+    {% for f, text in pv.texts %}<dt>{{ f }}</dt><dd>{{ text | truncate(200, true, "…") }}<br><small class="muted">'{{ keep.name }}' 의 {{ f }} 끝에 "--- {{ absorb.name }}에서 옮김 ({{ today_iso }}) ---" 줄과 함께 붙어요.</small></dd>{% endfor %}
+  </dl>
+  {% else %}<p class="muted">덧붙일 글이 없어요.</p>{% endif %}
+  <h3>사라지는 정보</h3>
+  <ul class="plain">
+    <li>이 기록이 올리기·리서치로 만들어졌다는 <b>유래</b>와 <b>만든 사람</b> 표시는 남는 쪽의 것만 남아요.</li>
+    <li>제안 건 방향·구성안에 글로 적힌 지식 사본 경로와, 아직 저장하지 않은 올리기 정리안의 번호는 고치지 않아요 (기록을 지울 때와 같아요. 저장할 때 다시 확인해요).</li>
+    <li>합친 기록은 남는 쪽 메모 맨 끝에 한 줄로 남아요 (누가·언제·무엇을).</li>
+  </ul>
+</section>
+
+{% if not pv.conflict %}
+<form method="post" action="/{{ plural }}/{{ a.id }}/merge" class="card stack merge-go">
+  {{ form_token() }}
+  <input type="hidden" name="other" value="{{ b.id }}"><input type="hidden" name="keep" value="{{ keep.id }}">
+  <h2>합치기</h2>
+  <p>합치기 전에 <b>백업을 먼저 만들어요</b> (만들지 못하면 합치지 않아요). 잘못 합쳤다면 그 백업으로 되돌릴 수 있어요 (운영 가이드 참고).</p>
+  <label class="check"><input type="checkbox" name="confirm" value="1" required> 되돌릴 수 없다는 것을 알고 있어요</label>
+  <div class="row savebar static">
+    <button type="submit" class="primary">{{ josa("'" ~ keep.name ~ "'", "을/를") }} 남기고 {{ josa("'" ~ absorb.name ~ "'", "을/를") }} 합치기</button>
+    <a class="button" href="/{{ plural }}/{{ a.id }}">취소</a>
+  </div>
+</form>
+{% else %}
+<p><a class="button" href="/{{ plural }}/{{ a.id }}">돌아가기</a></p>
+{% endif %}
+{% endblock %}

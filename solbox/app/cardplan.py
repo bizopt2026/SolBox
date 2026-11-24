@@ -10,7 +10,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import cardfile, intake as il, ontology
+from app import aliases, cardfile, intake as il, ontology
 from app.ai.tasks import normalize_name
 from app.models import Customer, Intake, Partner
 
@@ -92,8 +92,8 @@ def build_plan(db: Session, intake: Intake, parsed: cardfile.Parsed, default_kin
     today = today or date.today()
     default_kind = default_kind if default_kind in KIND_CHOICES else "customer"
     number = il.file_number(intake, intake.files[0]) if intake.files else 1
-    customers = {normalize_name(c.name, company=True): c for c in db.scalars(select(Customer).order_by(Customer.id))}
-    partners = {normalize_name(p.name, company=True): p for p in db.scalars(select(Partner).order_by(Partner.id))}
+    customers = aliases.lookup(db, Customer, company=True)  # 이름과 다른 이름 (베타 AE)
+    partners = aliases.lookup(db, Partner, company=True)
     customers.pop("", None)
     partners.pop("", None)
 

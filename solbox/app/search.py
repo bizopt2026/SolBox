@@ -13,7 +13,7 @@ from markupsafe import Markup, escape
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app import ontology
+from app import aliases, ontology
 
 MIN_CHARS = 2  # 영문·숫자 검색어는 이보다 짧으면 찾지 않는다 (한 글자는 너무 많이 걸린다). 한글 같은 한 글자가 한 낱말인 글자는 한 글자도 찾는다
 PER_TYPE = 8  # 유형마다 보여 주는 최대 수. 나머지는 건수로만 알리고 목록으로 보낸다
@@ -23,8 +23,8 @@ SEARCH_TYPES = ("solution", "customer", "partner", "project", "opportunity", "bm
 # 유형 -> 찾는 칸 (모델 속성 이름, 앞의 것이 이름·제목: 맞으면 발췌를 붙이지 않는다). 칸 이름표는 온톨로지의 속성 이름 (없으면 FIELD_LABELS)
 FIELDS: dict[str, tuple[str, ...]] = {
     "solution": ("name", "summary", "description", "tags"),
-    "customer": ("name", "industry", "contact", "memo"),
-    "partner": ("name", "contact", "description", "memo"),
+    "customer": ("name", "aliases", "industry", "contact", "memo"),  # aliases: 다른 이름 (베타 AE)
+    "partner": ("name", "aliases", "contact", "description", "memo"),
     "project": ("name", "description", "memo"),
     "opportunity": ("name", "memo"),
     "bm": ("name", "summary"),
@@ -104,6 +104,11 @@ def _matched_field(code: str, obj, q: str) -> dict | None:
         return None
     for f in fields[1:] if primary else fields:
         text = getattr(obj, f)
+        if f == "aliases":  # 맞은 다른 이름만 "(다른 이름: …)" 로 보인다
+            found = excerpt(", ".join(aliases.alias_matches(obj, q)), q) if isinstance(text, str) else None
+            if found is not None:
+                return {"field": _field_label(code, f), "excerpt": found, "paren": True}
+            continue
         if isinstance(text, str) and (found := excerpt(text, q)) is not None:
             return {"field": _field_label(code, f), "excerpt": found}
     return None

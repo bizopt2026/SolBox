@@ -12,7 +12,7 @@ from datetime import date
 from sqlalchemy import select
 
 from app.idparse import parse_id
-from app import opportunities
+from app import aliases, opportunities
 from app.ai.tasks import normalize_name
 from app.models import Activity, Customer, CustomerNeed, FollowUp, User
 
@@ -61,8 +61,9 @@ class LinkIndex:
 def load_index(executor) -> LinkIndex:
     """`executor` 는 Session 이나 Connection (execute 를 가진 것)."""
     customers: dict[str, list[int]] = {}
-    for cid, name in executor.execute(select(Customer.id, Customer.name).order_by(Customer.id)):
-        customers.setdefault(normalize_name(name or ""), []).append(cid)
+    for cid, name, other_names in executor.execute(select(Customer.id, Customer.name, Customer.aliases).order_by(Customer.id)):
+        for n in dict.fromkeys(normalize_name(x) for x in (name or "", *aliases.parse(other_names))):  # 이름과 다른 이름 (베타 AE)
+            customers.setdefault(n, []).append(cid)
     users: dict[str, list[int]] = {}
     for uid, name in executor.execute(select(User.id, User.name).where(User.is_active.is_(True)).order_by(User.id)):
         users.setdefault((name or "").strip(), []).append(uid)

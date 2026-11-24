@@ -128,6 +128,8 @@ POST_NOTICES = {
     "/solutions": "created", "/solutions/{solution_id}/draft": "ai_off, (AI 초안 작업 진행 화면)", "/solutions/{solution_id}/stage": "stage.{stage}",
     "/solutions/{solution_id}": "saved", "/solutions/{solution_id}/delete": "deleted",
     "/solutions/{solution_id}/files": "files_uploaded", "/files/{file_id}/kind": "file_kind", "/files/{file_id}/delete": "file_deleted",
+    "/partners/{record_id}/merge": "merged, merge_gone", "/customers/{record_id}/merge": "merged, merge_gone",
+    "/admin/duplicates/ai/{kind}": "ai_off, dup_ai_started", "/admin/duplicates/dismiss": "dup_dismissed", "/admin/duplicates/undismiss": "dup_undismissed",
     "/partners": "created", "/partners/{partner_id}": "saved", "/partners/{partner_id}/same-company": "same_company", "/partners/{partner_id}/delete": "deleted",
     "/customers": "created", "/customers/{customer_id}": "saved", "/customers/{customer_id}/same-company": "same_company", "/customers/{customer_id}/delete": "deleted",
     "/projects": "created", "/projects/{project_id}": "saved", "/projects/{project_id}/delete": "deleted",

@@ -153,6 +153,7 @@ JOB_KINDS = {
     "research_keywords": "리서치 주제·키워드 추천",
     "intake_analyze": "올린 파일 정리",
     "ai_ping": "AI 연결 확인",
+    "duplicate_names": "중복 후보 AI 확인",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -167,6 +168,7 @@ JOB_EXPECTED = {
     "research_keywords": "보통 1~2분 안에",
     "intake_analyze": "보통 1분 안에",
     "ai_ping": "보통 10초 안에",
+    "duplicate_names": "보통 30초 안에",
 }
 
 ERROR_KINDS = {
@@ -477,13 +479,13 @@ _TYPE_LIST = [
     ),
     ObjectType(
         "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="discover",
-        props={"name": "이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
+        props={"name": "이름", "aliases": "다른 이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
                "customer": "같은 회사인 고객"},
         description="솔루션을 공급하는 회사",
     ),
     ObjectType(
         "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객", nav_group="sales",
-        props={"name": "이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
+        props={"name": "이름", "aliases": "다른 이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
                "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
         description="솔루션을 제안받는 회사",
     ),
@@ -614,7 +616,7 @@ NAV_ITEMS = (
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
-                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("solution-fields", "솔루션 분야"), ("system", "시스템")))
+                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("solution-fields", "솔루션 분야"), ("duplicates", "중복 정리"), ("system", "시스템")))
 
 
 # 메뉴 항목마다 다른 작은 선 그림 (24×24, 외부 파일 없이 SVG 조각 그대로). 키 = NavItem.path. 새 메뉴 항목은 여기에도 더한다 (tests/test_beta_d.py 가 빠짐·겹침을 본다).
@@ -634,6 +636,7 @@ NAV_ICONS = {
     "admin/jobs": '<path d="M5 6h14M5 12h14M5 18h9"/>',
     "admin/research": '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
     "admin/solution-fields": '<path d="M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z"/>',
+    "admin/duplicates": '<rect x="4" y="4" width="11" height="11" rx="1.5"/><path d="M9 20h9a2 2 0 0 0 2-2V9"/>',
     "admin/system": '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
 }
 

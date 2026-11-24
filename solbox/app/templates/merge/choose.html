@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header %}
+{% block title %}{{ record.name }} 합치기{% endblock %}
+{% block content %}
+{{ page_header("다른 " ~ josa(label, "와/과") ~ " 합치기", crumbs=ui.crumbs(kind, record.name, "/" ~ plural ~ "/" ~ record.id, "합치기"), sub=josa("'" ~ record.name ~ "'", "와/과") ~ " 같은 회사인 " ~ josa(label, "을/를") ~ " 골라 주세요. 다음 화면에서 무엇이 바뀌는지 먼저 보여 줘요.") }}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form method="get" action="/{{ plural }}/{{ record.id }}/merge" class="tools" role="search" aria-label="{{ label }} 찾기">
+  <label class="sr-only" for="merge-q">{{ label }} 이름 검색</label>
+  <input id="merge-q" name="q" type="search" value="{{ q }}" placeholder="{{ label }} 이름 또는 다른 이름 검색" autocomplete="off">
+  <button type="submit" class="small">찾기</button>
+</form>
+{% if rows %}
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>{{ label }}</th><th class="col-sec">다른 이름</th><th></th></tr></thead>
+  <tbody>
+  {% for o in rows %}
+    <tr>
+      <td><a class="row-title" href="/{{ plural }}/{{ o.id }}">{{ o.name }}</a></td>
+      <td class="col-sec">{% if o.aliases %}{{ o.aliases | replace("\n", ", ") }}{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td class="num"><a class="button small" href="/{{ plural }}/{{ record.id }}/merge?other={{ o.id }}" aria-label="{{ record.name }}, {{ o.name }} 합치기 미리 보기">합치기 미리 보기</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% if total > rows | length %}<p class="muted list-note">{{ total }}곳 중 {{ rows | length }}곳만 보여요. 이름으로 찾아 좁혀 주세요.</p>{% endif %}
+{% else %}
+<div class="empty"><p class="muted">{% if q %}'{{ q }}' 에 맞는 {{ josa(label, "이/가") }} 없어요.{% else %}합칠 수 있는 다른 {{ josa(label, "이/가") }} 없어요.{% endif %}</p></div>
+{% endif %}
+<p><a class="button" href="/{{ plural }}/{{ record.id }}">취소</a></p>
+{% endblock %}

@@ -8,7 +8,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from app import ontology, relations, ui
+from app import aliases, ontology, relations, ui
 from app.search import like_pattern
 from app.knowledge import KnowledgeMirror
 from app.opportunities import dependents
@@ -51,7 +51,8 @@ def search_by_name(db: Session, model, q: str = "", *extra_columns, joins=(), lo
     q = q.strip()
     if q:
         like = like_pattern(q)
-        stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (model.name, *extra_columns))))
+        extra = (model.aliases,) if hasattr(model, "aliases") else ()  # 고객·파트너는 다른 이름으로도 찾는다 (베타 AE)
+        stmt = stmt.where(or_(*(c.like(like, escape="\\") for c in (model.name, *extra, *extra_columns))))
     return list(db.scalars(stmt.order_by(model.name, model.id)).unique())
 
 
@@ -75,14 +76,28 @@ def duplicate_warning(db: Session, model, name: str, confirm: str = "", exclude:
         return None
     code = next(t.code for t in ontology.TYPES.values() if t.model_name == model.__name__)
     typed = (name or "").strip()
-    records = [{"name": n, "url": ontology.detail_url(code, i), "similar": _same_text(n) != _same_text(typed)}
-               for i, n in db.execute(select(model.id, model.name).order_by(model.id))
-               if normalize_name(n or "", company) == key and (exclude is None or i != exclude.id)]
+    records = []
+    cols = (model.id, model.name, model.aliases) if company else (model.id, model.name)
+    for i, n, *rest in db.execute(select(*cols).order_by(model.id)):
+        if exclude is not None and i == exclude.id:
+            continue
+        if normalize_name(n or "", company) == key:
+            records.append({"name": n, "url": ontology.detail_url(code, i), "similar": _same_text(n) != _same_text(typed)})
+            continue
+        via = next((a for a in aliases.parse(rest[0] if rest else "") if normalize_name(a, company) == key), None)  # 다른 이름이 같다 (베타 AE)
+        if via is not None:
+            records.append({"name": n, "url": ontology.detail_url(code, i), "similar": True, "via": via})
     if not records:
         return None
     records.sort(key=lambda r: r["similar"])  # 글자까지 같은 것이 위
     return {"label": ontology.label(code), "name": typed, "similar": records[0]["similar"], "records": records, "open_url": records[0]["url"],
             "company": company}  # company: 고객·파트너 (㈜·(주)·주식회사 를 무시하고 견준다)
+
+
+def alias_error(db: Session, model, name: str, raw_aliases: str, exclude=None) -> str | None:
+    """폼의 "다른 이름" 칸 오류 (칸 이름표가 붙은 오류 글) 또는 None. 규칙은 `aliases.validate`."""
+    _cleaned, err = aliases.validate(db, model, name, raw_aliases, exclude)
+    return ui.FieldError(err, "aliases") if err else None
 
 
 def name_error(name: str) -> str | None:

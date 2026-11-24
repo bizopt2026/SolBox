@@ -3,14 +3,14 @@
 {% from "_related.html" import related_card, main_cards %}
 {% block title %}{{ partner.name }}{% endblock %}
 {% block content %}
-{{ detail_head(partner.name, "/partners", partner, can_delete, crumbs=ui.crumbs("partner", partner.name),
+{% call detail_head(partner.name, "/partners", partner, can_delete, crumbs=ui.crumbs("partner", partner.name),
                sub=((partner.description | first_line(90)) if partner.description else none),
-               primary=("+ " ~ ont.label("solution") ~ " 등록", "/solutions/new?partner_id=" ~ partner.id)) }}
+               primary=("+ " ~ ont.label("solution") ~ " 등록", "/solutions/new?partner_id=" ~ partner.id)) %}{% if user.role == "admin" %}<a class="button" href="/partners/{{ partner.id }}/merge">다른 {{ josa("파트너", "와/과") }} 합치기</a>{% endif %}{% endcall %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    {{ props_card("기본 정보", [("소개", partner.description), ("연락처", partner.contact), ("메모", partner.memo)], "/partners/" ~ partner.id ~ "/edit") }}
+    {{ props_card("기본 정보", (([("다른 이름", partner.aliases | replace("\n", ", "))] if partner.aliases else []) + [("소개", partner.description), ("연락처", partner.contact), ("메모", partner.memo)]), "/partners/" ~ partner.id ~ "/edit") }}
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">

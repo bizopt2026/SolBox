@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, seg %}
+{% block title %}중복 정리{% endblock %}
+{% block content %}
+{% call page_header("중복 정리", crumbs=[("관리", none), ("중복 정리", none)], sub="같은 회사가 이름만 다르게 두 번 등록됐을 수 있는 쌍을 보여 줘요. 아무것도 저절로 합치지 않아요.") %}{% endcall %}
+<div class="tools">{{ seg(tabs, "종류") }}</div>
+
+{% include "admin/_dup_ai.html" %}
+
+{% if rows %}
+<p class="muted help">쌍마다 어떤 이유로 후보가 됐는지 보여 줘요. 같은 회사가 맞으면 "합치기…" 에서 어느 쪽을 남길지 고르고, 다른 회사면 "다른 회사임" 을 눌러 두면 다시 보이지 않아요.</p>
+<ul class="dup-list">
+  {% for r in rows %}
+  <li class="dup-row card">
+    <div class="dup-main">
+      <div class="dup-pair">
+        {% for o, n in ((r.a, r.links_a), (r.b, r.links_b)) %}
+        <div class="dup-side">
+          <a class="row-title" href="/{{ plural }}/{{ o.id }}">{{ o.name }}</a>
+          {% if o.aliases %}<small class="muted">다른 이름: {{ o.aliases | replace("\n", ", ") }}</small>{% endif %}
+          <small class="muted">연결 {{ n }}건</small>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="dup-signals" aria-label="후보가 된 이유">
+        {% for s in r.signals %}<span class="badge {{ 'tone-violet' if s.code == 'ai' else 'tone-brand' }}" data-signal="{{ s.code }}">{{ s.label }}</span>{% if s.detail %}<small class="muted dup-detail">{{ s.detail }}</small>{% endif %}{% endfor %}
+      </div>
+    </div>
+    <div class="dup-acts">
+      <a class="button primary small" href="/{{ plural }}/{{ r.a.id }}/merge?other={{ r.b.id }}">합치기…</a>
+      <form method="post" action="/admin/duplicates/dismiss" class="inline-form">
+        <input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="a" value="{{ r.a.id }}"><input type="hidden" name="b" value="{{ r.b.id }}">
+        <button type="submit" class="small" aria-label="{{ r.a.name }} 와 {{ r.b.name }} 는 다른 회사임">다른 회사임</button>
+      </form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty"><p class="muted">{{ label }} 중에 같은 회사로 보이는 쌍이 없어요.{% if hidden %} (다른 회사로 표시한 쌍은 아래에 있어요.){% endif %}</p></div>
+{% endif %}
+
+<section class="card stack" id="dup-hidden">
+  <h2>다른 회사로 표시한 쌍 <span class="muted">{{ hidden | length }}쌍</span></h2>
+  {% if hidden %}
+  <ul class="dup-hidden-list">
+    {% for h in hidden %}
+    <li><span><a href="/{{ plural }}/{{ h.a.id }}">{{ h.a.name }}</a> · <a href="/{{ plural }}/{{ h.b.id }}">{{ h.b.name }}</a></span>
+      <form method="post" action="/admin/duplicates/undismiss" class="inline-form">
+        <input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="a" value="{{ h.a.id }}"><input type="hidden" name="b" value="{{ h.b.id }}">
+        <button type="submit" class="small" aria-label="{{ h.a.name }} 와 {{ h.b.name }} 를 다시 후보로">되돌리기</button>
+      </form></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">아직 없어요.</p>{% endif %}
+</section>
+{% endblock %}

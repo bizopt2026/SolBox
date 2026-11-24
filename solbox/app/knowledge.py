@@ -11,7 +11,7 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import business_types as bts, checks, labels, ontology, relations, solution_fields as sfields
+from app import aliases, business_types as bts, checks, labels, ontology, relations, solution_fields as sfields
 from app.extract import extract_text
 from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
 from app.models import (
@@ -249,7 +249,7 @@ class KnowledgeMirror:
 
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
-        out += _lines(self._ai_line(c), _item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
+        out += _lines(self._ai_line(c), _item("다른 이름", ", ".join(aliases.of(c))), _item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
         if c.partner is not None:  # 같은 회사인 파트너 (AI 가 경로를 따라갈 수 있게)
             out.append(f"- {ontology.term('same_company')}: {ontology.label('partner')} {self._ref(c.partner.name, c.partner)}")
         if c.projects:
@@ -312,7 +312,7 @@ class KnowledgeMirror:
 
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
-        out += _lines(self._ai_line(p), _item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
+        out += _lines(self._ai_line(p), _item("다른 이름", ", ".join(aliases.of(p))), _item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
         if p.customer is not None:
             out.append(f"- {ontology.term('same_company')}: {ontology.label('customer')} {self._ref(p.customer.name, p.customer)}")
         if p.solutions:
@@ -392,7 +392,7 @@ CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM)  # "## 연�
 CONNECTIONS_HEADING = "연결"
 CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
 CARD_EXCLUDE = ("R3", "R19", "R21", "R22")  # 사본이 이미 따로 적은 것(자료)과 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다)
-KNOWLEDGE_FORMAT = 10  # (10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+KNOWLEDGE_FORMAT = 11  # (11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

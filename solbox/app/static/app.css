@@ -1402,3 +1402,27 @@ details.group-sec > summary { display: flex; align-items: baseline; gap: 8px; pa
 details.group-sec > summary .group-name { font-weight: var(--fw-strong); }
 details.group-sec > summary .group-count { color: var(--ink-3); font-size: var(--fs-note); font-variant-numeric: tabular-nums; }
 details.group-sec[open] > summary { margin-bottom: var(--s2); }
+
+/* --- 중복 정리·합치기 (베타 AE) --- */
+.dup-list { list-style: none; margin: 0 0 var(--s4); padding: 0; display: grid; gap: var(--s3); }
+.dup-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3) var(--s4); padding: var(--s3) var(--card-pad); }
+.dup-main { flex: 1 1 420px; min-width: 0; display: grid; gap: var(--s2); }
+.dup-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s4); }
+.dup-side { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.dup-signals { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.dup-detail { overflow-wrap: anywhere; }
+.dup-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.dup-hidden-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.dup-hidden-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); overflow-wrap: anywhere; }
+.merge-choice { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.merge-choice legend { font-weight: var(--fw-strong); padding: 0; margin-bottom: var(--s2); }
+.merge-opt { display: flex; align-items: flex-start; gap: var(--s2); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer; min-width: 0; }
+.merge-opt.on { border-color: var(--brand); background: var(--brand-soft); }
+.merge-opt input { margin-top: 4px; flex: none; }
+.merge-opt-body { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.merge-go .savebar { position: static; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s1); }
+@media (max-width: 600px) {
+  .dup-pair, .merge-choice { grid-template-columns: minmax(0, 1fr); }
+  .dup-row { padding: var(--s3); }
+}
