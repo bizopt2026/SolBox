@@ -365,7 +365,7 @@ def test_prompts_receive_writer_name_and_rule(app, db, settings, user_client, fa
     from app.ai.tasks import load_prompt
 
     assert "{{" not in load_prompt("intake_analyze", today="t", note="n", solutions="s", customers="c", partners="p", writer="김민수",
-                                   activity_kind_inline="meeting")
+                                   activity_kind_inline="meeting", field_names="에너지 효율")
 
 
 # ---- B12 ----

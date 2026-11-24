@@ -717,6 +717,12 @@ def test_post_only_addresses_do_not_answer_405_to_a_get(app, admin_client):
     for path in paths:
         url = re.sub(r"\{\w+\}", "1", path)
         r = user_client.get(url, follow_redirects=False)
+        if r.status_code == 200:  # 삭제 확인 화면이 있는 주소는 항목이 있으면 "정말 지울까요?" 를 보인다 (베타 AD 의 솔루션 분야는 처음부터 1번이 있다)
+            from app.routers.confirm import SPECS as _confirm_specs
+
+            assert any(re.sub(r"\{\w+\}", "1", sp.path) == url for sp in _confirm_specs), (url, r.status_code)
+            assert r.headers["content-type"].startswith("text/html"), url
+            continue
         assert r.status_code in (303, 404), (url, r.status_code)  # 405 도 JSON 도 아니다
         if r.status_code == 303:
             assert r.headers["location"] != url

@@ -29,7 +29,10 @@ CONFIRM_NEEDED = "합치기는 되돌릴 수 없어요. 아래 확인 칸에 체
 
 
 def _kind_of(raw: str) -> str:
-    return raw if raw in merge.KINDS else "partner"
+    """주소의 종류 글자. 모르는 값은 없는 주소로 404 (예전에는 파트너로 읽었다)."""
+    if raw not in merge.KINDS:
+        raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다.")
+    return raw
 
 
 def _tab_href(kind: str) -> str:
@@ -62,7 +65,7 @@ def _page(request: Request, db: Session, kind: str):
 
 @admin.get("")
 def page(request: Request, tab: str = "partner", admin_user: User = Depends(require_admin), db: Session = Depends(get_db)):
-    return _page(request, db, _kind_of(tab))
+    return _page(request, db, tab if tab in merge.KINDS else "partner")  # 화면의 탭 글자는 모르면 파트너 탭
 
 
 @admin.post("/ai/{kind}", dependencies=[Depends(require_admin), Depends(require_ai_on)])
