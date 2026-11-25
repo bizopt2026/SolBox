@@ -35,5 +35,8 @@ jobs:
       - name: npm 에 올리기
         if: steps.check.outputs.skip != '1'
         working-directory: mitjul/npm/dist
-        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요.
-        run: npm publish --access public
+        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요. (npm 11.5.1 이상 필요)
+        run: |
+          npm install -g npm@latest
+          npm --version
+          npm publish --access public --loglevel verbose 2>&1 | grep -iv 'npm verb .*header' | tail -40; exit ${PIPESTATUS[0]}
