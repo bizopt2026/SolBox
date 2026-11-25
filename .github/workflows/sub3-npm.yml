@@ -1,0 +1,42 @@
+name: 써브쓰리(sub3) npm 배포
+
+# 써브쓰리(sub3/app/index.html)가 main 에 들어오면 npm 패키지 sub3@<APP_VERSION> 으로 올려요.
+# 복제한 써브쓰리 아티팩트가 가이드 › 버전 관리 › 업데이트 확인에서 이 버전을 불러와 자기 자신을 바꿔요.
+on:
+  push:
+    branches: [main]
+    paths: ['sub3/app/index.html', 'sub3/npm/**', '.github/workflows/sub3-npm.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # npm 신뢰 게시(Trusted Publishing)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: 패키지 만들기
+        id: build
+        run: |
+          node sub3/npm/build.mjs
+          echo "version=$(node -p "require('./sub3/npm/dist/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: 이미 올린 버전인지 확인
+        id: check
+        run: |
+          if npm view "sub3@${{ steps.build.outputs.version }}" version >/dev/null 2>&1; then
+            echo "skip=1" >> "$GITHUB_OUTPUT"; echo "이미 올린 버전이에요. 건너뛰어요."
+          fi
+      - name: npm 에 올리기
+        if: steps.check.outputs.skip != '1'
+        working-directory: sub3/npm/dist
+        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요. (npm 11.5.1 이상 필요)
+        # npm 패키지 설정의 Trusted Publisher: bizopt2026/bizopt2026, sub3-npm.yml, 'Allow npm publish' 체크
+        run: |
+          npm install -g npm@latest
+          npm publish --access public
