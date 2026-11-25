@@ -1,7 +1,7 @@
 """베타 I 묶음: 휴리스틱 회귀표(사본 경로·작성자 말투·비밀 가리기·오류 분류)와 쓰기 잠금 업로드·점검 명령 …
 
 지난 세 묶음이 휴리스틱(사본 경로, 작성자 말투, 비밀 가리기)을 고칠 때마다 앞 묶음이 맞히던 줄을 깨뜨렸다. 그래서 이 파일은 휴리스틱마다 하나의 표를 가진다.
-표는 tests/test_beta_b~h 와 검토자의 재현 글(review3~6)에서 모은 경우를 겹치지 않게 모은 것이고, 기대값은 CLAUDE.md "베타 I 묶음" 의 정책을 따른다.
+표는 tests/test_beta_b~h 와 검토자의 재현 글(review3~6)에서 모은 경우를 겹치지 않게 모은 것이고, 기대값은 docs/rules/제안서와-PPT.md·AI-작업과-오류.md 의 "베타 I 묶음" 정책을 따른다.
 앞 자료끼리 어긋난 줄은 정책으로 정했다 (아래 `CONFLICTS`). 휴리스틱을 고치면 이 표가 모두 초록이어야 한다.
 """
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _flat(table: dict) -> list[str]:
     return list(seen)
 
 
-# ---- 사본 경로 회귀표: True = 고객용 PPT 에서 지운다(경로), False = 남긴다 (정책은 CLAUDE.md 베타 I 묶음) ----
+# ---- 사본 경로 회귀표: True = 고객용 PPT 에서 지운다(경로), False = 남긴다 (정책은 docs/rules/제안서와-PPT.md 의 베타 I 묶음) ----
 DECK_REMOVE = {
     'tests c': [
         'customers/12', '자세한 건 solutions/3/card.md 참고', 'research/2026-11-01-x-3.md', '(projects/5)', '출처: solutions/7/files/3-사양서.md',
@@ -1163,6 +1163,7 @@ GRANDCHILD = (
 )
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX 프로세스 그룹 시험")
 def test_i6_timeout_kills_the_whole_process_tree_and_returns(tmp_path):
     from app import system
