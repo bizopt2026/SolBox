@@ -21,4 +21,4 @@
 - 그래서 main 에 `mitjul/index.html`이 들어오면 GitHub Actions(`.github/workflows/mitjul-npm.yml`)가 `mitjul/npm/build.mjs`로 `index.html`을 `app.js` 문자열로 묶어 npm 패키지 `mitjul@<MJ_BUILD>.0.0`으로 올려요. 같은 판이 이미 있으면 건너뛰어요.
 - 앱은 `MJ_BUILD + 1`부터 판을 하나씩 불러 보고(빠진 번호는 3개까지 건너뜀), 가장 높은 판의 `html`로 자기 자신을 다시 게시해요(`artifact` 기능). 주인만 업데이트할 수 있고, 하루 한 번 앱을 열 때 조용히 확인해요.
 - 아티팩트 선언에 `artifact` 기능이 있어야 해요. 이 기능이 들어간 원본(Version 178 이후)을 복제한 사람부터 업데이트를 받을 수 있어요.
-- npm 올리기는 토큰 없이 npm 신뢰 게시(Trusted Publishing: 저장소 `bizopt2026/bizopt2026`, 워크플로 `mitjul-npm.yml`)로 해요. 워크플로 파일 이름을 바꾸면 npm 패키지 설정의 Trusted Publisher 도 같이 바꿔야 해요.
+- npm 올리기는 npm 신뢰 게시(Trusted Publishing: 저장소 `bizopt2026/bizopt2026`, 워크플로 `mitjul-npm.yml`)를 먼저 시도하고, 안 되면 저장소 비밀값 `NPM_TOKEN`을 써요. 워크플로 파일 이름을 바꾸면 npm 패키지 설정의 Trusted Publisher 도 같이 바꿔야 해요.
