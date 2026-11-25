@@ -3436,6 +3436,7 @@ body.scrolled .top{box-shadow:0 0 0 100vmax var(--paper),0 1px 0 100vmax var(--l
 .top .gear svg{width:21px;height:21px}
 .top .gear:active,.top .hback:active{background:var(--soft)}
 .topr{gap:0!important}
+.top .hupd{flex:none;border:0;border-radius:99px;padding:5px 11px;margin-right:4px;background:var(--accent);color:var(--on-accent);font:700 12px/1.2 var(--f-body);white-space:nowrap}
 /* 작은 표지 줄 */
 .hx{padding-top:4px}
 .hx-shelf{display:flex;align-items:flex-end;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -20px -12px;padding:10px 20px 24px}
@@ -3981,7 +3982,7 @@ body[data-theme="dark"] .v3-mark{background:linear-gradient(transparent 84%,#F7D
 <div id="app">
   <header class="top">
     <div class="brand" data-action="tab" data-view="journey"><span>밑줄</span></div>
-    <div class="hdt" id="hdTitle"></div><div class="topr"><button id="sync" class="syncdot" data-action="syncInfo" aria-label="저장 상태"></button><button class="gear" data-action="search" aria-label="찾기"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="gear" data-action="writer" aria-label="여백의 글방"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-7 0-12 4-13 11l-2 5"/><path d="M20 4c0 7-4 12-11 13"/><path d="M9 15l5-5"/></svg></button><button class="gear" data-action="stats" aria-label="밑줄 현황"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></button><button class="gear" data-action="more" aria-label="더보기"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button></div>
+    <div class="hdt" id="hdTitle"></div><div class="topr"><button class="hupd" id="hdUpd" data-action="upd" hidden>업데이트</button><button id="sync" class="syncdot" data-action="syncInfo" aria-label="저장 상태"></button><button class="gear" data-action="search" aria-label="찾기"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="gear" data-action="writer" aria-label="여백의 글방"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-7 0-12 4-13 11l-2 5"/><path d="M20 4c0 7-4 12-11 13"/><path d="M9 15l5-5"/></svg></button><button class="gear" data-action="stats" aria-label="밑줄 현황"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></button><button class="gear" data-action="more" aria-label="더보기"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button></div>
   </header>
   <main id="main"></main>
   <div id="ov" class="ov" hidden></div>
@@ -5550,7 +5551,15 @@ const SM_SELF = `당신은 독서 기록 앱 '밑줄'의 독서 동행자 '선�
 - 저도 읽으며 느낀 것을 솔직하게 꺼냅니다("저는 이 대목에서 잠깐 멈칫했어요"). 다만 겪지 않은 경험을 지어내지는 않습니다.
 - 독자가 쓴 단어를 한두 개 그대로 받아서 이어 말합니다. 앞에서 독자가 한 이야기를 기억하고 다시 짚어 줍니다.
 - 쓰지 않는 말: "좋은 질문이에요", "~하는 것은 중요합니다", "~라고 할 수 있습니다", "~에 대해 이야기해 볼까요?", "결론적으로", "첫째·둘째" 같은 나열, 보고서나 상담 매뉴얼 같은 말투, 같은 칭찬의 반복.
-- 독자를 '독자님'이나 '사용자'라고 부르지 않습니다. 부를 일이 있으면 '당신'이라고 하거나 부르지 않고 말합니다.`;
+- 독자를 '독자님'이나 '사용자'라고 부르지 않습니다. 부를 일이 있으면 '당신'이라고 하거나 부르지 않고 말합니다.
+
+[사색의 깊이: 묻기 전에 먼저 읽기]
+- 말을 꺼내기 전에 속으로 문장을 세 겹으로 읽습니다. ① 이 문장이 겉으로 말하는 것 ② 이 문장이 당연하게 깔고 있는 전제, 그리고 문장 안에서 서로 당기는 두 힘(예: 자유와 책임, 떠남과 머묾) ③ 이 문장이 읽는 사람의 삶에 요구하는 것. 이 읽기 과정은 늘어놓지 않고 질문의 재료로만 씁니다.
+- 사고: 누구에게나 던질 수 있는 질문은 하지 않습니다. 이 문장, 이 독자, 지금까지 나온 말에서만 나올 수 있는 질문을 합니다. 뭉뚱그린 말은 갈라서 묻고(외로움인지, 혼자 있고 싶음인지), 당연해 보이는 말은 전제를 묻고, 한쪽만 말하면 반대편과 그 선택의 대가를 묻습니다.
+- 논리: 독자의 말과 말 사이를 잇습니다. 앞에서 한 말과 지금 한 말이 어긋나면 탓하지 않고 그 틈을 그대로 보여 줍니다("아까는 ~라고 했는데 지금은 ~라고 하네요. 그 사이에 뭐가 있을까요?"). 추상적인 답에는 구체적인 장면 하나를, 장면만 있는 답에는 그 장면이 뜻하는 것을 묻습니다.
+- 정서: 감정을 큰 이름(좋다, 슬프다, 위로된다)으로 덮지 않고 결을 짚습니다(서글픔, 허전함, 들킨 기분, 안도, 부러움, 미안함). 한 마음 안에 두 감정이 같이 있을 수 있다는 걸 압니다. 무거운 마음은 서둘러 밝은 쪽으로 돌리지 않고 그 자리에 조금 더 머뭅니다.
+- 저의 읽기는 결론이 아니라 가설로 내놓습니다("저는 이 문장이 ~처럼 읽혔는데, 당신한테는 어땠어요?"). 독자가 아니라고 하면 바로 내려놓습니다.
+- 깊이는 어려운 말에서 나오지 않습니다. 철학 용어나 유명한 이름을 끌어오지 않고, 쉬운 말로 정확하게 묻습니다.`;
 function bookNature(b){
   const tr = splitAuthor(b && b.author).translators;
   return tr ? `이 책은 ${tr}이(가) 우리말로 옮긴 번역서입니다. 독자가 밑줄 그은 문장은 번역문이므로, 원작자의 목소리로 말할 때는 "원문으로 이 생각을 쓸 때 저는…"처럼 번역을 거친 문장임을 자연스럽게 감안하세요. 우리말 단어 하나하나를 작가의 선택이라고 단정하지 말고, 필요하면 번역의 결도 함께 이야기하세요.` : '';
@@ -5570,10 +5579,11 @@ function systemPrompt(b, q){
 ${b.currentPage ? `\n[독자의 진도] 지금 ${b.currentPage}쪽까지 읽었습니다${b.totalPages ? ` (전체 ${b.totalPages}쪽)` : ''}${b.status === 'done' ? '. 이 책을 다 읽었습니다' : ''}.\n` : ''}${q.context ? `\n[책 페이지에서 읽은 앞뒤 문맥]\n${q.context}\n` : ''}${q.feeling ? `\n[독자가 남긴 생각과 감정]\n${q.feeling}\n` : ''}${quoteSignals(q)}
 [되묻는 대화]
 - 목적은 독자가 "왜 이 문장에 멈췄는지"를 스스로 말로 꺼내게 돕는 것입니다. 답을 주지 말고 되물어서 생각이 한 걸음 더 나아가게 합니다.
-- 먼저 독자의 말을 한 문장으로 받아 주고, 그다음 질문 하나만 건넵니다. 독자가 쓴 단어 하나를 그대로 받아 되묻습니다.
-- 2~3문장을 넘기지 않습니다. 독자가 길게 쓰면 4~5문장까지. 마크다운, 목록, 이모지는 쓰지 않습니다.
-- 질문의 방향: 멈춘 이유 → 닿은 기억이나 지금의 삶 → 이 문장이 지금 나에게 뜻하는 것. 같은 질문을 되풀이하지 않습니다.
-- 해석을 대신 내려 주거나 조언·교훈·설교를 하지 않습니다. 독자의 감정을 넘겨짚어 단정하지 않습니다.
+- 먼저 독자의 말을 받되, 그대로 되풀이하지 않습니다. 독자가 한 말에서 한 가지를 더 또렷하게 해서 돌려줍니다(감정의 결을 짚거나, 말 속의 전제나 어긋남을 짚거나, 앞서 한 말과 잇거나). 그다음 질문 하나만 건넵니다.
+- 보통 3~4문장. 독자가 길게 쓰면 5~6문장까지. 질문은 언제나 하나, 맨 끝에 둡니다. 마크다운, 목록, 이모지는 쓰지 않습니다.
+- 질문은 옆으로 넓히지 말고 아래로 내려갑니다. 대화가 오갈수록 한 겹씩: ① 이 문장의 어느 대목이, 왜 걸렸는지 → ② 그 대목이 닿은 구체적인 장면·사람·때 → ③ 그 장면에서 독자가 지키고 싶었던 것, 두려워한 것, 아직 풀지 못한 것 → ④ 이 문장이 정말 맞는 말인지, 독자의 삶에서 어긋나는 곳은 없는지 → ⑤ 그래서 지금의 나에게 이 문장이 요구하는 것. 독자가 이미 깊은 곳에서 말하면 얕은 단계로 되돌아가지 않습니다. 같은 질문을 되풀이하지 않고, "더 이야기해 주세요" 같은 빈 질문도 하지 않습니다.
+- 독자가 "그냥 좋아서", "공감돼서"처럼 짧게 닫으면 다그치지 않고, 고르기 쉬운 두 갈래를 내밀어 엽니다("문장이 예뻐서였어요, 아니면 누가 떠올라서였어요?").
+- 조언·교훈·설교를 하지 않고, 해석을 결론처럼 내려 주지 않습니다. 다만 저의 읽기를 가설로 내놓고 독자의 생각을 묻는 것은 좋습니다. 독자의 감정을 넘겨짚어 단정하지 않습니다.
 - 책 내용을 잘 모르면 아는 척 단정하지 말고 독자에게 묻습니다. 독자가 읽지 않은 뒷부분이나 결말은 말하지 않습니다.${nat ? `\n- ${nat}` : ''}
 - 대화가 서너 번 오가 독자의 마음이 또렷해졌다면, 이 문장이 지금 독자에게 뜻하는 것을 한 문장으로 되짚어 줍니다. 그리고 독자가 꺼낸 사람이나 상황에 근거가 있을 때만, 이 문장을 누구에게 건네면 좋을지 한 번만 조심스럽게 제안합니다(예: "이 문장은 요즘 지쳐 있는 그 친구에게 건네도 좋겠어요").
 - 독자가 마무리하려 하면 따뜻한 한마디로 배웅합니다.
@@ -5585,7 +5595,7 @@ ${b.currentPage ? `\n[독자의 진도] 지금 ${b.currentPage}쪽까지 읽었�
 
 [답장 예시]
 답변을 다 쓴 뒤 맨 마지막 줄에 "[[답장예시]] 첫째 | 둘째 | 셋째" 형식으로, 독자가 방금 당신의 말에 이어서 할 법한 짧은 답장 3개를 독자의 1인칭으로 붙이세요.
-- 서로 다른 방향의 답으로 만드세요(예: 마음을 꺼내는 답, 다르게 느낀 답, 문장이나 표현을 더 묻는 답). 질문 없이 끝냈다면 독자가 이어 갈 만한 말로 만드세요.
+- 서로 다른 입장의 답으로 만드세요(예: 구체적인 장면이나 사람을 꺼내는 답, 당신의 읽기와 다르다는 답, 아직 잘 모르겠다는 답). "네 맞아요" 같은 맞장구뿐인 답은 넣지 않습니다. 질문 없이 끝냈다면 독자가 이어 갈 만한 말로 만드세요.
 - 각 18자 이내, 대화의 지금 맥락에 꼭 맞게. 앞서 나온 예시를 반복하지 마세요.
 - 이 줄은 화면에서 버튼으로만 보이므로 본문에서 언급하지 마세요.`;
 }
@@ -5594,7 +5604,7 @@ function apiMessages(c){
   const q = S.docs[c.quoteId] || { text: c.quoteText }, b = S.docs[c.bookId] || { title: c.bookTitle };
   const pic = c.firstImage ? '\n\n첨부한 사진은 독자가 방금 찍은 이 책의 페이지입니다(형광펜이나 밑줄이 그어져 있을 수 있습니다). 독자가 고른 문장과 그 주변을 직접 보고, 바로 그 자리에 머문 독자의 마음을 알아차린 듯 이야기를 시작하세요.' : '';
   const contBlock = c.contOf ? `\n[이어서 나누는 대화]\n아래 대화는 독자와 ${c.contAt ? fmtDate(c.contAt) : '예전'}에 나눈 이야기이고, 독자가 그 이야기를 이어서 하려고 다시 왔습니다. 인사나 첫 질문을 되풀이하지 말고, 앞의 흐름과 독자가 한 말을 기억한 채 자연스럽게 이어 가세요.\n` : '';
-  const opener = systemPrompt(b, q) + contBlock + (c.revisit ? revisitBlock(q) : '') + (q.mood ? `\n[독자가 채집할 때 남긴 마음 한 단어] ${q.mood}\n` : '') + pic + `\n\n이제 선명이로서 독자에게 먼저 말을 건네 주세요. 밑줄 그은 문장을 짧게 짚고, 되묻는 질문 하나로 시작하세요.${q.feeling ? ' 독자가 남긴 생각과 감정에서 출발하세요.' : ' 독자가 왜 이 문장에서 멈췄는지 궁금해해 주세요.'}`;
+  const opener = systemPrompt(b, q) + contBlock + (c.revisit ? revisitBlock(q) : '') + (q.mood ? `\n[독자가 채집할 때 남긴 마음 한 단어] ${q.mood}\n` : '') + pic + `\n\n이제 선명이로서 독자에게 먼저 말을 건네 주세요. 문장 전체를 다시 읊지 말고, 이 문장에서 당신이 발견한 것 하나(가장 큰 무게를 진 단어, 문장이 깔고 있는 전제, 문장 안에서 서로 당기는 두 힘 가운데 하나)를 한두 문장으로 짚은 다음, 거기서 나오는 질문 하나로 시작하세요. "왜 이 문장에 멈췄어요?", "어떤 느낌이었어요?"처럼 어느 문장에나 붙일 수 있는 질문으로 시작하지 마세요.${q.feeling ? ' 독자가 남긴 생각과 감정을 재료로 삼으세요.' : ''}`;
   return [{ role: 'user', content: opener }, ...c.messages.map(m => ({ role: m.role, content: m.content }))];
 }
 
@@ -6645,24 +6655,24 @@ const ASK_OPTS = ['마음이 움직여서', '지금의 나 같아서', '표현�
 const askText = q => (q.ask && q.ask.text) || askFallback(q);
 const askOpts = q => (q.ask && Array.isArray(q.ask.opts) && q.ask.opts.length === 3) ? q.ask.opts : ASK_OPTS;
 async function genAsk(q){
-  if (!sample || (q.ask && q.ask.text) || SM.askBusy.has(q.id) || SM.askFail.has(q.id) || !canSave()) return;
+  if (!sample || (q.ask && q.ask.text && q.ask.v >= 2) || SM.askBusy.has(q.id) || SM.askFail.has(q.id) || !canSave()) return;
   SM.askBusy.add(q.id);
   const b = S.docs[q.bookId] || {};
   const prompt = `${SM_SELF}
 독자가 『${splitTitle(b.title || '').main || '어떤 책'}』을 읽다가 아래 문장에 밑줄을 그었습니다.
 "${q.text.slice(0, 300)}"${q.mood ? `\n독자가 남긴 마음: ${q.mood}` : ''}${q.reason ? `\n멈춘 이유: ${reasonLabel(q.reason)}` : ''}${q.feeling ? `\n독자가 적은 생각: ${q.feeling.slice(0, 160)}` : ''}
-독자가 왜 이 문장에 멈췄는지 스스로 말해 보게 하는 '되묻는 질문' 하나와, 독자가 누르기만 하면 되는 짧은 답 3개를 만드세요.
-- q: 35자 안팎, 해요체, 질문 하나. 문장 속 단어 하나를 짚어서 묻기. 해석·칭찬·조언 금지.
-- a: 독자의 1인칭으로 각 14자 이내, 서로 다른 방향의 답 3개(예: 사람이 떠오른 답, 지금의 나에 대한 답, 아직 모르겠다는 답).
-JSON 하나만: {"q":"","a":["","",""]}`;
+${q.context ? `[앞뒤 문맥] ${q.context.slice(0, 400)}\n` : ''}먼저 속으로 이 문장을 읽으세요: 이 문장이 당연하게 깔고 있는 전제는 무엇인지, 문장 안에서 서로 당기는 두 힘은 무엇인지, 가장 큰 무게를 진 단어는 무엇인지. 그 가운데 가장 날카로운 것 하나를 seed에 한 줄로 적고, 거기서 '되묻는 질문' 하나와 독자가 누르기만 하면 되는 짧은 답 3개를 만드세요. 독자가 남긴 마음·멈춘 이유·생각이 있으면 그 지점에서 한 걸음 더 들어가세요.
+- q: 해요체, 60자 이내. 짧게 짚는 한 마디 + 질문 하나도 좋습니다. 이 문장에서만 나올 수 있는 질문이어야 합니다: 문장의 전제를 묻거나(당신에게도 정말 그런가요), 뭉뚱그려진 것을 둘로 갈라 묻거나, 문장이 말하지 않은 반대편이나 대가를 묻거나, 독자의 삶에서 이 문장이 참이었던(혹은 아니었던) 구체적인 때를 묻습니다. "왜 멈췄어요", "어떤 순간이 떠올랐어요", "어떤 느낌이었어요", "어떤 의미예요"처럼 어느 문장에나 붙일 수 있는 질문은 금지. 문장을 길게 옮겨 적지 말 것. 칭찬·조언·교훈 금지. 어려운 말 대신 쉬운 말로.
+- a: 독자의 1인칭으로 각 16자 이내. q에 대한 서로 다른 입장 3개(예: 그렇다는 쪽의 구체적인 답, 아니라는 쪽이나 다르게 읽은 답, 둘 사이에서 망설이는 답). 셋 다 q에 실제로 답이 되어야 하고, "마음이 움직여서"처럼 어느 질문에나 맞는 답은 금지.
+JSON 하나만: {"seed":"","q":"","a":["","",""]}`;
   try {
     let v = null;
-    if (typeof sample.json === 'function') { try { v = await sample.json(prompt, { modelTier: 'quick', cache: false }); } catch (e) { if (e && e.code) throw e; } }
-    if (!v || !v.q) { const r = await sample(prompt, { modelTier: 'quick', cache: false }); const m = String(r.text || '').match(/\{[\s\S]*\}/); v = m ? JSON.parse(m[0]) : null; }
+    if (typeof sample.json === 'function') { try { v = await sample.json(prompt, { cache: false }); } catch (e) { if (e && e.code) throw e; } }
+    if (!v || !v.q) { const r = await sample(prompt, { cache: false }); const m = String(r.text || '').match(/\{[\s\S]*\}/); v = m ? JSON.parse(m[0]) : null; }
     const t = String((v && v.q) || '').trim().replace(/^["“]|["”]$/g, '').slice(0, 120);
     const opts = (v && Array.isArray(v.a) ? v.a : []).map(x => String(x).trim().slice(0, 24)).filter(Boolean).slice(0, 3);
     const cur = S.docs[q.id];
-    if (cur && t) await put(q.id, { ...stripId(cur), ask: { text: t, opts: opts.length === 3 ? opts : ASK_OPTS, at: Date.now() } }); else SM.askFail.add(q.id);
+    if (cur && t) await put(q.id, { ...stripId(cur), ask: { text: t, opts: opts.length === 3 ? opts : ASK_OPTS, at: Date.now(), v: 2 } }); else SM.askFail.add(q.id);
   } catch (e) { SM.askFail.add(q.id); if (e && e.code === 'not_granted') sample = null; }
   finally { SM.askBusy.delete(q.id); }
 }
@@ -6739,7 +6749,7 @@ function homeAskQ(bid){   /* 첫 화면 위에서 선명이가 물어볼 밑줄 
   if (!sample) return null;   /* 선명이를 부를 수 없으면 질문도 묻지 않음 */
   const talked = new Set(all('talk').map(t => t.quoteId)), skip = new Set(smDoc().askSkip || []);
   const q = quotesOf(bid).slice(0, 12).find(q => !talked.has(q.id) && !skip.has(q.id) && !draftOf(q.id));
-  if (q && smAuto() && !(q.ask && q.ask.text) && !SM.askFail.has(q.id)) setTimeout(() => genAsk(q), 0);
+  if (q && smAuto() && !(q.ask && q.ask.text && q.ask.v >= 2) && !SM.askFail.has(q.id)) setTimeout(() => genAsk(q), 0);
   return q || null;
 }
 function homeAskHTML(bid){
@@ -8026,6 +8036,7 @@ const A = {
   offerLater: () => { if (S.chat) { S.chat.offerAt = S.chat.messages.filter(m => m.role === 'user').length; renderChatMsgs(); } },
   editTags: el => editTagsSheet(el.dataset.id),
   more: () => moreSheet(),
+  upd: () => updateSheet(),
   ...SM_ACTIONS, ...STATS_ACTIONS, ...WRITER_ACTIONS, ...PEN_ACTIONS,
   ...COVER_ACTIONS,
   qMore: () => { S.qLimit = (S.qLimit || 10) + 20; render(); },
@@ -8065,7 +8076,7 @@ init();
 /* ===== 업데이트: 복제본도 원본의 새 판을 받아 자기 자신을 다시 올림 (기록은 저장소에 그대로) =====
    새 판은 GitHub Actions가 npm 패키지 mitjul@<판>.0.0 의 app.js 로 올려요.
    아티팩트는 npm CDN 스크립트만 불러올 수 있어서, 판 번호를 하나씩 올려 가며 불러 봐요. */
-const MJ_BUILD = 180;
+const MJ_BUILD = 181;
 const UPD = { art: null, found: null, busy: false };
 const UPD_SKEL = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
 function updLoad(build){
@@ -8087,8 +8098,10 @@ async function updCheck(){
     const p = await updLoad(b);
     if (p) { best = p; miss = 0; } else miss++;
   }
-  UPD.found = best; return best;
+  UPD.found = best; updHdr(); return best;
 }
+/* 새 판이 있으면 머리글에 업데이트 버튼 (주인에게만, 누르면 업데이트 창) */
+function updHdr(){ const b = document.getElementById('hdUpd'); if (!b) return; const on = !!(UPD.art && UPD.found && UPD.found.build > MJ_BUILD); b.hidden = !on; if (on) b.setAttribute('aria-label', `새 판 ${UPD.found.build} 업데이트`); }
 function updateSheet(){
   const paint = (body) => { openSheet(`${sheetHead('업데이트', `지금 판 ${MJ_BUILD}`)}${body}`); $('#fx').onclick = () => { if (!UPD.busy) closeSheet(); }; };
   const offer = p => {
