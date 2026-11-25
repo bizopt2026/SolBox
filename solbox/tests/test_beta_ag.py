@@ -551,8 +551,9 @@ def test_prompt_plans_the_deck_visually():
 
 
 def test_docs_describe_beta_ag():
-    rules = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):rules.index("## 문서")]
+    rules = (ROOT / "docs" / "rules" / "제안서와-PPT.md").read_text(encoding="utf-8")  # 묶음 규칙은 CLAUDE.md 에서 영역 파일로 옮겼다
+    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):]  # 이 파일의 마지막 구역
+    assert "\n## " not in section[3:], "베타 AG 뒤에 다른 구역이 생기면 끝을 다시 정한다"
     for needle in ("마침표", "로고", "deck_background", "kpi", "chart", "diagram", "시각 자료 비율", "값 | 단위 | 이름 | 설명", "이름 | 설명 | 묶음", "test_beta_ag.py"):
         assert needle in section, needle
     onto = (ROOT / "docs" / "ontology.md").read_text(encoding="utf-8")
@@ -560,7 +561,7 @@ def test_docs_describe_beta_ag():
         assert needle in onto, needle
     guide = (ROOT / "docs" / "운영가이드.md").read_text(encoding="utf-8")
     assert "로고가 없는" in guide and "핵심 수치" in guide
-    for doc in (rules, onto, guide, (ROOT / "config.example.toml").read_text(encoding="utf-8"), (ROOT / "README.md").read_text(encoding="utf-8")):
+    for doc in (rules, (ROOT / "CLAUDE.md").read_text(encoding="utf-8"), onto, guide, (ROOT / "config.example.toml").read_text(encoding="utf-8"), (ROOT / "README.md").read_text(encoding="utf-8")):
         assert "Background_paperlogy" not in doc and "로고는 그림 오른쪽 위" not in doc
     helps = (ROOT / "app" / "templates" / "help.html").read_text(encoding="utf-8")
     for needle in ("핵심 수치", "그래프", "도식"):

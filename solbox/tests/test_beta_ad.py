@@ -289,7 +289,7 @@ def test_docs_mention_new_rules():
     root = Path(__file__).resolve().parent.parent
     doc = (root / "docs" / "ontology.md").read_text(encoding="utf-8")
     assert "| R36 |" in doc and "2026-11-24" in doc and "솔루션 분야" in doc
-    assert "베타 AD 묶음이 바꾼 규칙" in (root / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "베타 AD 묶음이 바꾼 규칙" in (root / "docs" / "rules" / "대상과-데이터.md").read_text(encoding="utf-8")
     assert "솔루션 분야" in (root / "docs" / "운영가이드.md").read_text(encoding="utf-8")
     assert "묶어 보기" in (root / "app" / "templates" / "help.html").read_text(encoding="utf-8")
 

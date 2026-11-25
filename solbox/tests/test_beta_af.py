@@ -440,8 +440,8 @@ def test_prompt_and_docs_carry_the_copy_rules():
     prompt = (root / "app" / "ai" / "prompts" / "proposal_outline.md").read_text(encoding="utf-8")
     for needle in ("30자 안쪽", "존댓말 평서문", "줄표", "원형숫자", "이모지", "자료에 없는 수치", "needs_check"):
         assert needle in prompt
-    claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
-    assert "## 베타 AF 묶음이 바꾼 규칙" in claude and claude.index("## 베타 AF 묶음이 바꾼 규칙") < claude.index("## 문서")
+    claude = (root / "docs" / "rules" / "제안서와-PPT.md").read_text(encoding="utf-8")  # 묶음 규칙은 CLAUDE.md 에서 영역 파일로 옮겼다
+    assert "## 베타 AF 묶음이 바꾼 규칙" in claude and claude.index("## 베타 AF 묶음이 바꾼 규칙") < claude.index("## 베타 AG 묶음이 바꾼 규칙")
     for needle in ("강의·마케팅 모드", "deck_background", "humanize-korean", "pptx-quality-gates", "나눔스퀘어_ac", "deck_gates"):
         assert needle in claude
     guide = (root / "docs" / "운영가이드.md").read_text(encoding="utf-8")
