@@ -307,6 +307,9 @@ textarea{resize:vertical;min-height:64px}
 .ws .dot{width:8px;height:8px;border-radius:50%;margin:4px auto 0;background:var(--line)}
 .ws.done .dot{background:var(--ok)} .ws.miss .dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--rec)}
 .ws .kstar{font-style:normal;font-size:12px;color:var(--accent);margin-right:1px}
+/* fixed rows (day · plan · score/dot · RPE) so every day lines up whether or not it has a score or RPE */
+.ws{display:grid;grid-template-rows:18px 20px 16px 19px;justify-items:center;align-content:start;align-items:center}
+.ws>.wsn,.ws>.dot{margin:0}.ws>.wsn0{color:var(--muted);opacity:.4}.ws>.rf.sm{margin:0;align-self:end}
 .slg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px;color:var(--muted);align-items:center}
 .slg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:0}
 .slg i.miss{box-shadow:inset 0 0 0 1.5px var(--rec)}
@@ -1481,6 +1484,8 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 .dgtip1{display:flex;align-items:center;gap:8px;margin:4px 12px 6px;font-size:12px;color:var(--muted)}.dgtip1>span{flex:1;min-width:0}.dgtip1 .linkbtn{font-size:12px;min-height:0;padding:2px 4px}
 .inp::placeholder,input::placeholder,textarea::placeholder{color:var(--muted);opacity:.6}
 .kin .inp::placeholder{font-size:13px}
+/* phones zoom the page when a field under 16px gets focus: keep every typing field at 16px on touch screens */
+@media (pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),textarea,select{font-size:16px!important}}
 </style>
 
 <header class="top"><div class="wrap">
@@ -1504,8 +1509,11 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(복제 시점 버전으로 고정) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.7.2",APP_RELEASED="2026-11-20";
+var APP_VERSION="1.7.5",APP_RELEASED="2026-11-20";
 var VLOG=[
+ ["1.7.5","2026-11-20","입력할 때 화면 확대 없애기","가이드 → 백업 → 복원하기를 누르면 휴대폰 화면이 확대되던 문제를 고쳤어요. 휴대폰에서는 글을 입력하는 모든 칸의 글자를 16px로 맞춰, 입력칸을 눌러도 화면이 확대되지 않아요."],
+ ["1.7.4","2026-11-20","이번 주 요일 칸 빈 자리 표시","이번 주 요일 칸에서 RPE가 없는 날은 회색 얼굴, 점수가 없는 날은 흐린 – 로 채워서 모든 칸이 같은 모양·높이로 보여요. 건너뛴 날의 – 는 조금 더 진하게 보여요."],
+ ["1.7.3","2026-11-20","이번 주 요일 칸 높이 맞춤","오늘 탭 이번 주 요일 칸에서 점수·RPE가 있는 날과 없는 날의 요일·거리 글자 높이가 어긋나던 문제를 고쳤어요. 모든 요일이 같은 줄에 맞춰 보여요."],
  ["1.7.2","2026-11-20","AI 코치 추천 질문 바로 보내기","AI 코치에서 추천 질문을 누르면 입력창에 남지 않고 바로 질문이 보내져요. 입력창에 글을 쓰던 중(키보드가 열린 상태)에 눌러도 한 번에 보내져요."],
  ["1.7.1","2026-11-20","오늘 탭 요약 줄을 다시 맨 위로","목표·워치 연동·날씨·컨디션 요약 줄과 시작하기를 오늘 탭 맨 위(날짜 줄 위) 원래 자리로 되돌렸어요. 가이드 안내 문구도 '맨 위 요약 줄'로 맞췄어요."],
  ["1.7.0","2026-11-20","디자인 정리: 오늘 훈련 먼저 · 선 아이콘 · 남색과 레이스 오렌지","오늘 탭은 대회 임박 카드와 오늘 훈련을 맨 위로 올리고, 목표·워치·날씨·컨디션 요약 줄과 시작하기는 훈련 카드 아래로 옮겼어요. 로그인 안내는 한 줄로 줄였어요. 화면의 이모지를 한 가지 선 아이콘으로 바꾸고, 강조색을 보라에서 레이스 오렌지로, 장식 그라데이션은 걷어냈어요. 놓친 날은 빨간 '놓침' 대신 회색 '건너뜀'으로, 입력 칸 예시는 '예: 168'처럼 보여요. 최소 글자 12px, 훈련표 주 이름 줄바꿈, 머리글에 앱 이름 '써브쓰리'와 목표 기록, 저장 상태는 점 하나로. AI 코치 추천 질문은 깔끔한 목록으로, 끌어서 요일 바꾸기 안내는 한 줄로 줄였어요."],
@@ -3584,7 +3592,7 @@ function vToday(){
   h+='<div class="card"><div class="row between"><h2>'+wn(w)+' 이번 주</h2><span class="small muted num">'+st.km+'km / '+wkm+'K</span></div><div class="bar" style="margin:10px 0 12px"><i style="width:'+pct+'%;background:'+phColor(w)+'"></i></div><div class="week-strip">';
   for(var k=0;k<7;k++){var ds=dateOf(w,k),tk=planDay(w,k),past=ds<T;
     var cls="ws t-"+tk[0]+(ds===sel?" sel":"")+(isDone(ds)?" done":(past&&tk[0]!=="r"?" miss":""));
-    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--muted)">–</span>':'<div class="dot"></div>'))+(isDone(ds)||dayRec(ds).w?rpeFace(rpeOf(ds),"sm"):'')+'</button>'}
+    var dsc=dayScore(ds);h+='<button class="'+cls+'" data-go="'+ds+'"'+(dsc&&dsc.s!=null?' aria-label="'+DOW[k]+' '+dsc.s+'점"':'')+'><span class="muted">'+(tk[0]==="q"||tk[0]==="l"||tk[0]==="x"?'<i class="kstar" aria-label="핵심 훈련">★</i>':'')+DOW[k]+'</span><b class="num">'+(tk[0]==="r"?"휴":tk[2]+"K")+'</b>'+(dsc&&dsc.s!=null?'<span class="wsn" style="color:'+SCOL[dsc.b]+'">'+dsc.s+'</span>':(past&&tk[0]!=="r"&&!isDone(ds)?'<span class="wsn" style="color:var(--muted)">–</span>':'<span class="wsn wsn0" aria-hidden="true">–</span>'))+(rpeOf(ds)?rpeFace(rpeOf(ds),"sm"):rpeFace(null,"sm ph"))+'</button>'}
   h+='</div>'+scoreLegend();
   var ks=nextKeySessions(),ko=foldOpen("keys",false);
   if(ks.length){h+='<button type="button" class="ifold-h" id="keys-tog" aria-expanded="'+ko+'" style="margin-top:8px"><span><b style="color:var(--accent)">★</b> 다가오는 핵심 훈련 '+ks.length+'개'+(ko?'':' · 다음 '+md(ks[0][0])+' '+DOW[idxOf(ks[0][0])%7])+'</span><span class="chev" aria-hidden="true"></span></button>';
@@ -5211,7 +5219,7 @@ function vGuide(){
   h+='<div class="card"><h2>AI 코치</h2><ul class="tight small gl"><li>아래 메뉴 맨 오른쪽 <b>AI 코치</b>(PC 단축키 C). 내 계획·기록·체중·목표·점검 결과를 보고 답해요</li><li>처음엔 추천 질문 카드를 눌러 바로 물어볼 수 있어요. 답변 아래 🔊 듣기 · 📋 복사</li><li>대화는 내 계정에만 저장. 답은 참고용 — 통증·어지럼은 바로 쉬기</li></ul></div>';
   h+='<div class="card"><h2>운영 원칙 · 한 주의 리듬</h2><ul class="tight small gl"><li>핵심 훈련은 <b>수·토</b>, 나머지는 천천히. 근력은 화·목 이지런 뒤 20~30분</li><li>아침 심박이 평소보다 5↑ 또는 수면 불량 → 수·토 훈련을 하루 미루기</li><li>인천마라톤(11/22) 뒤 1주 완전 휴식. 통증 3일 이상 → 회복주 수준으로</li><li>한파·빙판은 트랙·트레드밀, 페이스보다 노력도</li><li>피로가 쌓이면 월·금 조깅부터 빼고 수·토는 지키기</li></ul></div>';
 
-  h+=versionCard()+'<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요. <b style="color:var(--ink)">새로 복제한 앱으로 옮길 때</b>도 이 코드를 원래 앱에서 복사해 새 앱에서 복원하면 기록과 조정한 계획이 모두 옮겨져요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:12px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
+  h+=versionCard()+'<div class="card"><h2>백업</h2><p class="small muted" style="margin:4px 0 10px">기록은 계정에 자동 저장돼요. 혹시 몰라 백업 코드를 복사해 둘 수 있어요. <b style="color:var(--ink)">새로 복제한 앱으로 옮길 때</b>도 이 코드를 원래 앱에서 복사해 새 앱에서 복원하면 기록과 조정한 계획이 모두 옮겨져요.</p><div class="row"><button class="btn ghost" id="bk">백업 코드 복사</button><button class="btn ghost" id="rs">복원하기</button></div><textarea class="inp" id="bk-text" style="margin-top:10px;font-size:16px" hidden></textarea><button class="btn" id="rs-go" style="margin-top:8px" hidden>이 코드로 복원</button><div class="small" id="bk-msg" style="margin-top:6px"></div></div>';
   view.innerHTML=h;
   (function(){var G=[["기본",["시작하기 · 복제와 커넥터","화면 구성","친구에게 앱 공유하기"]],["오늘",["훈련 점수"]],["훈련표",["계획 수립 · 일정 조정","COROS 워크아웃 보내기","가민 워크아웃 파일","운영 원칙 · 한 주의 리듬"]],["페이스",["기준 설정 · 중간 점검","페이스 존","약어","레이스 전략 · 대회 평가"]],["바디",["훈련별 먹는 양"]],["AI 코치",["AI 코치"]],["기타",["버전 관리","백업"]]];
     var cards=[].slice.call(view.querySelectorAll(":scope>.card")).filter(function(c){return c.querySelector("h2")}),by={};cards.forEach(function(c){by[c.querySelector("h2").textContent.trim()]=c});
