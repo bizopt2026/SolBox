@@ -35,7 +35,5 @@ jobs:
       - name: npm 에 올리기
         if: steps.check.outputs.skip != '1'
         working-directory: mitjul/npm/dist
-        # 신뢰 게시를 연결하기 전 첫 판은 저장소 비밀값 NPM_TOKEN 으로 올려요. 연결 뒤에는 비밀값을 지워도 돼요.
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요.
         run: npm publish --access public
