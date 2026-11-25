@@ -3207,6 +3207,7 @@ body[data-theme="dark"] .mr2-me{background:rgba(124,129,242,.10)}
 .mr2-me b{font-size:var(--t3)}
 .mr2-me small{font-size:12px;color:var(--ink2)}
 .mr2-v{margin:16px 0 2px;text-align:center;font-size:11px;color:var(--muted);letter-spacing:.04em}
+.upd p{margin:0 0 14px;font-size:15px;line-height:1.65}.upd .upd-m{font-size:13px;color:var(--muted);margin:12px 0 0}.upd .acts{display:flex;gap:8px;justify-content:flex-end}
 /* ===================== 책 화면 4: 가로 머리 + 탭 ===================== */
 .b4 .pg-rt mark{background:linear-gradient(transparent 64%,rgba(247,220,111,.75) 64%,rgba(247,220,111,.75) 94%,transparent 94%);color:inherit}
 body[data-theme="dark"] .b4 .pg-rt mark{background:linear-gradient(transparent 86%,#F7DC6F 86%,#F7DC6F 95%,transparent 95%)}
@@ -7662,10 +7663,12 @@ function moreSheet(){
     <div class="sp-g">
     ${row('mrG', '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4M12 16.5h.01"/>', '이용 안내', `긋고, 되묻고, 쓰는 법 · ${AI_NAME}이와 여백이`)}
     ${row('mrS', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', '환경설정', `화면 ${theme} · ${AI_NAME}이 말 걸기 ${PREF.smAuto === 'off' ? '끔' : '켬'}`)}
-    ${row('mrB', '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', '백업 · 복원', last ? `마지막 백업 ${fmtDate(last)}` : '아직 따로 백업한 적이 없어요')}</div>
-    <p class="mr2-v">밑줄 · 긋고, 되묻고, 건네다</p>`);
+    ${row('mrB', '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', '백업 · 복원', last ? `마지막 백업 ${fmtDate(last)}` : '아직 따로 백업한 적이 없어요')}
+    ${UPD.art ? row('mrU', '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>', '업데이트 확인', UPD.found ? `새 판 ${UPD.found.build}이 있어요` : `지금 판 ${MJ_BUILD}`) : ''}</div>
+    <p class="mr2-v">밑줄 · 긋고, 되묻고, 건네다 · 판 ${MJ_BUILD}</p>`);
   $('#fx').onclick = closeSheet;
   $('#mrG').onclick = guideSheet; $('#mrS').onclick = settingsSheet; $('#mrB').onclick = backupSheet;
+  if ($('#mrU')) $('#mrU').onclick = updateSheet;
 }
 function backupSheet(){
   openSheet(`${sheetHead('백업 · 복원', '기록은 계정에 자동으로 저장돼요. 만일을 위해 따로 남겨 둘 수 있어요.')}${backupBlock()}`);
@@ -8059,6 +8062,72 @@ document.addEventListener('keydown', e => {
 try { S.compact = localStorage.getItem('ul_compact') === '1'; } catch {}
 applyPref();
 init();
+/* ===== 업데이트: 복제본도 원본의 새 판을 받아 자기 자신을 다시 올림 (기록은 저장소에 그대로) =====
+   새 판은 GitHub Actions가 npm 패키지 mitjul@<판>.0.0 의 app.js 로 올려요.
+   아티팩트는 npm CDN 스크립트만 불러올 수 있어서, 판 번호를 하나씩 올려 가며 불러 봐요. */
+const MJ_BUILD = 178;
+const UPD = { art: null, found: null, busy: false };
+const UPD_SKEL = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
+function updLoad(build){
+  return new Promise(res => {
+    const prev = window.__MITJUL_PKG__; window.__MITJUL_PKG__ = null;
+    const el = document.createElement('script'); let done = false;
+    const fin = v => { if (done) return; done = true; clearTimeout(tm); el.remove(); window.__MITJUL_PKG__ = prev; res(v); };
+    const tm = setTimeout(() => fin(null), 12000);
+    el.onload = () => { const p = window.__MITJUL_PKG__; fin(p && p.build === build && typeof p.html === 'string' && p.html.length > 1000 ? p : null); };
+    el.onerror = () => fin(null);
+    el.src = `https://cdn.jsdelivr.net/npm/mitjul@${build}.0.0/app.js`;
+    document.head.append(el);
+  });
+}
+/* 지금 판 다음부터 차례로 불러 보고, 가장 높은 판을 찾음 (빠진 번호는 3개까지 건너뜀) */
+async function updCheck(){
+  let best = null, miss = 0;
+  for (let b = MJ_BUILD + 1; b <= MJ_BUILD + 60 && miss < 3; b++) {
+    const p = await updLoad(b);
+    if (p) { best = p; miss = 0; } else miss++;
+  }
+  UPD.found = best; return best;
+}
+function updateSheet(){
+  const paint = (body) => { openSheet(`${sheetHead('업데이트', `지금 판 ${MJ_BUILD}`)}${body}`); $('#fx').onclick = () => { if (!UPD.busy) closeSheet(); }; };
+  const offer = p => {
+    paint(`<div class="upd"><p><b>새 판 ${p.build}</b>이 있어요.<br>업데이트해도 책·밑줄·사유·원고 기록은 그대로 남아요.</p>
+      <div class="acts"><button class="btn ghost" id="upNo">나중에</button><button class="btn accent" id="upGo">업데이트</button></div><p class="upd-m" id="upMsg"></p></div>`);
+    $('#upNo').onclick = closeSheet;
+    $('#upGo').onclick = async () => {
+      if (UPD.busy) return; UPD.busy = true; sheet.dataset.lock = '1';
+      $('#upGo').disabled = true; $('#upNo').disabled = true; $('#upMsg').textContent = '새 판으로 바꾸는 중이에요. 잠시 뒤 화면이 새로 열려요.';
+      try { await UPD.art.publish(UPD_SKEL + p.html.replace(/\s+$/, '') + '\n</body></html>'); }
+      catch (e) {
+        UPD.busy = false; delete sheet.dataset.lock; $('#upGo').disabled = false; $('#upNo').disabled = false;
+        const c = e && e.code;
+        $('#upMsg').textContent = c === 'not_granted' || c === 'not_writer' ? '이 앱의 주인만 업데이트할 수 있어요.' : c === 'conflict' ? '그사이 다른 판이 올라왔어요. 화면이 새로 열려요.' : c === 'rate_limited' ? '잠시 후 다시 눌러 주세요.' : '업데이트하지 못했어요. 잠시 후 다시 시도해 주세요.';
+      }
+    };
+  };
+  if (UPD.found && UPD.found.build > MJ_BUILD) return offer(UPD.found);
+  paint('<div class="upd"><p class="upd-m"><span class="typing"><i></i><i></i><i></i></span> 새 판을 찾고 있어요</p></div>');
+  updCheck().then(p => {
+    if (!sheet.querySelector('.upd')) return;
+    if (p) offer(p);
+    else paint('<div class="upd"><p>지금이 가장 새 판이에요.</p><div class="acts"><button class="btn accent" id="upOk">확인</button></div></div>'), $('#upOk').onclick = closeSheet;
+  });
+}
+/* 앱을 열 때 하루 한 번 조용히 확인해서, 새 판이 있으면 알려 줌 (주인에게만) */
+if (window.claude && claude.use) claude.use('artifact').then(async a => {
+  if (!a) return;
+  const u = await claude.use('user').catch(() => null);
+  if (u && u.canEdit && !(await Promise.resolve(u.canEdit()).catch(() => false))) return;
+  UPD.art = a;
+  let last = 0; try { last = +localStorage.getItem('mj-upd-at') || 0; } catch {}
+  if (Date.now() - last < 864e5) return;
+  setTimeout(async () => {
+    try { localStorage.setItem('mj-upd-at', String(Date.now())); } catch {}
+    const p = await updCheck();
+    if (p) toast(`밑줄 새 판 ${p.build}이 나왔어요`, { action: '보기', onAction: updateSheet, ms: 8000 });
+  }, 6000);
+}).catch(() => {});
 if (window.claude && claude.use) claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
 </script>
 </body>

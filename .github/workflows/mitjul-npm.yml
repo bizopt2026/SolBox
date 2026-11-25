@@ -1,0 +1,41 @@
+name: mitjul npm 배포
+
+# 밑줄(mitjul/index.html)이 main 에 들어오면 npm 패키지 mitjul@<판>.0.0 으로 올려요.
+# 복제한 밑줄 아티팩트가 '업데이트 확인'에서 이 판을 불러와 자기 자신을 새 판으로 바꿔요.
+on:
+  push:
+    branches: [main]
+    paths: ['mitjul/index.html', 'mitjul/npm/**', '.github/workflows/mitjul-npm.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # npm 신뢰 게시(Trusted Publishing)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: 패키지 만들기
+        id: build
+        run: |
+          node mitjul/npm/build.mjs
+          echo "version=$(node -p "require('./mitjul/npm/dist/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: 이미 올린 판인지 확인
+        id: check
+        run: |
+          if npm view "mitjul@${{ steps.build.outputs.version }}" version >/dev/null 2>&1; then
+            echo "skip=1" >> "$GITHUB_OUTPUT"; echo "이미 올린 판이에요. 건너뛰어요."
+          fi
+      - name: npm 에 올리기
+        if: steps.check.outputs.skip != '1'
+        working-directory: mitjul/npm/dist
+        # 신뢰 게시를 연결하기 전 첫 판은 저장소 비밀값 NPM_TOKEN 으로 올려요. 연결 뒤에는 비밀값을 지워도 돼요.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
