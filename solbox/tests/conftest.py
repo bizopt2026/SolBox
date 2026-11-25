@@ -31,6 +31,18 @@ def _no_daily_jobs(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _fast_password_hash(monkeypatch):
+    """운영의 argon2 기본값은 해시 한 번에 0.1초가 넘어 로그인 클라이언트를 쓰는 수천 개 시험이 몇 분씩 늘어난다.
+    시험에서만 같은 argon2id 를 가장 가벼운 값으로 바꾼다 (만든 해시 형식·확인 동작은 같고, 운영 코드는 그대로다)."""
+    from pwdlib import PasswordHash
+    from pwdlib.hashers.argon2 import Argon2Hasher
+
+    from app import security
+
+    monkeypatch.setattr(security, "_hasher", PasswordHash((Argon2Hasher(time_cost=1, memory_cost=1024, parallelism=1),)))
+
+
+@pytest.fixture(autouse=True)
 def _keep_hf_home(monkeypatch):
     """받아쓰기 엔진을 만들면 `HF_HOME` 이 정해진다. 시험이 끝나면 원래대로 돌린다."""
     import os

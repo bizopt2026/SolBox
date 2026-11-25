@@ -13,7 +13,10 @@
 ## 실행·테스트
 - 설치 `pip install -e ".[dev]"`, 설정 `config.example.toml` → `config.toml` (저장소에 올리지 않는다)
 - 실행 `python -m app`, 점검 `python -m app.cli check`, 인증서 `python -m app.cli make-cert --host <주소>`
-- 테스트 `python -m pytest -q -W error` (경고도 오류. 실제 `claude` 는 테스트에서 부르지 않는다. 새 starlette 의 "httpx2 를 설치하라" TestClient 경고(`starlette.exceptions.StarletteDeprecationWarning`)만 `tests/conftest.py` 맨 위에서 그 종류와 문구를 함께 지정해 넘긴다: pyproject 의 `filterwarnings` 는 명령줄 `-W error` 에 밀려 듣지 않는다)
+- 테스트 `python -m pytest -q -W error -n auto` (병렬 실행 `pytest-xdist`, 4코어에서 약 5분. 병합 전에는 이 전체 명령을 돌린다).
+  - 개발 중에는 고친 영역의 시험 파일만 돌린다: `python -m pytest -q -W error -x tests/test_<영역>*.py` (`-x` 첫 실패에서 멈춤, `--lf` 지난번 실패만). 느린 시험(`@pytest.mark.slow`: 성능·시간 제한·경합, 한 개에 몇 초 이상)은 `-m "not slow"` 로 뺄 수 있다. 새 시험이 몇 초 이상 걸리면 `slow` 를 단다.
+  - 시험에서는 `tests/conftest.py` 의 `_fast_password_hash` 가 argon2 를 가장 가벼운 값으로 바꾼다 (운영 코드는 그대로). 시험끼리는 `tmp_path` 로 데이터 폴더가 따로라 병렬로 돌아도 된다: 새 시험도 저장소·전역 경로에 쓰지 말고 `tmp_path`·`settings` 를 쓴다.
+  - 경고 설명: (경고도 오류. 실제 `claude` 는 테스트에서 부르지 않는다. 새 starlette 의 "httpx2 를 설치하라" TestClient 경고(`starlette.exceptions.StarletteDeprecationWarning`)만 `tests/conftest.py` 맨 위에서 그 종류와 문구를 함께 지정해 넘긴다: pyproject 의 `filterwarnings` 는 명령줄 `-W error` 에 밀려 듣지 않는다)
 - 명령줄: `create-admin`, `rebuild-knowledge`, `backup`, `backup --verify <폴더>`, `make-cert`, `check`, `stt-setup`(받아쓰기 모델 받기, 인터넷 필요), `stt-test <음성 파일>`
 - 받아쓰기(선택 설치) `pip install -e ".[stt]"`
 

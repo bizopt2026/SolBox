@@ -43,6 +43,7 @@ def test_g2_table_header_scrubbed():
 
 # ---- G3: 버려진 폼 표 이어받기는 한 제출만 ----
 
+@pytest.mark.slow
 def test_g3_abandoned_takeover_has_one_winner(app):
     import threading
     from app import guards

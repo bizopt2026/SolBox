@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx", "numpy"]
+dev = ["pytest", "pytest-xdist", "httpx", "numpy"]
 # PyAV 19 는 faster-whisper 1.2.1 이 쓰는 av.open(metadata_errors=...) 를 받지 않아 받아쓰기가 모두 실패한다.
 # faster-whisper 가 PyAV 19 를 지원하면 이 핀을 푼다.
 stt = ["faster-whisper>=1.1", "av<19"]
@@ -38,4 +38,7 @@ app = ["templates/**/*", "static/**/*", "ai/prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["ai_gate: AI 처리기 꺼짐 거절 규칙(app/ai/gate.py)을 실제 설정값대로 시험한다"]
+markers = [
+    "ai_gate: AI 처리기 꺼짐 거절 규칙(app/ai/gate.py)을 실제 설정값대로 시험한다",
+    "slow: 한 개에 몇 초 이상 걸리는 시험 (성능·시간 제한·경합). 개발 중에는 -m \"not slow\" 로 뺄 수 있고, 병합 전 전체 시험과 CI 에서는 늘 돈다",
+]

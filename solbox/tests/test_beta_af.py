@@ -177,6 +177,7 @@ def _random_outline(rng):
     return {"title": _sentence(rng, 1, 8), "slides": slides}
 
 
+@pytest.mark.slow
 def test_random_outlines_stay_inside_slide_and_body(tmp_path):
     rng = random.Random(20261124)
     kinds_seen = set()

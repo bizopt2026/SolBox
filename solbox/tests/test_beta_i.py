@@ -1163,6 +1163,7 @@ GRANDCHILD = (
 )
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX 프로세스 그룹 시험")
 def test_i6_timeout_kills_the_whole_process_tree_and_returns(tmp_path):
     from app import system

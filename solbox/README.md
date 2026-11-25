@@ -166,10 +166,10 @@ python -m pip install -e ".[dev]"
 ```
 
 ```powershell
-python -m pytest -q
+python -m pytest -q -n auto
 ```
 
-(`[dev]` 항목이 없다면 `python -m pip install pytest httpx` 로 대신합니다.)
+(`-n auto` 는 CPU 수만큼 나눠 돌립니다. `[dev]` 항목이 없다면 `python -m pip install pytest pytest-xdist httpx` 로 대신합니다.)
 
 ## 실제 Claude CLI 수동 확인 목록
 

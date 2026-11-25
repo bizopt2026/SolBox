@@ -153,6 +153,7 @@ def test_k6_sk_ant_boundary(text):
     assert ("***" in out) == (not text.startswith("desk-"))
 
 
+@pytest.mark.slow
 def test_k7_cap_never_shows_half_a_key_at_the_cut():
     key = SK + "api03-" + MARK + "abcdefghijklmnopqrstuvwxyz0123456789"
     for shift in range(0, 60):
@@ -175,6 +176,7 @@ def test_k7_classify_sees_a_status_line_in_the_cut_middle():
 
 
 # ================= K9: 선형 시간은 자식 프로세스에서 (제곱이면 30초 안에 실패한다) =================
+@pytest.mark.slow
 @pytest.mark.parametrize("group", list(_linear.GROUPS))
 def test_k9_linear(group):
     _linear.check_ratios(group, _linear.run_group(group))
