@@ -35,10 +35,8 @@ jobs:
       - name: npm 에 올리기
         if: steps.check.outputs.skip != '1'
         working-directory: mitjul/npm/dist
-        # npm 신뢰 게시(Trusted Publishing)를 먼저 시도하고, 안 되면 저장소 비밀값 NPM_TOKEN 으로 올려요. (npm 11.5.1 이상 필요)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요. (npm 11.5.1 이상 필요)
+        # npm 패키지 설정의 Trusted Publisher: bizopt2026/bizopt2026, mitjul-npm.yml, 'Allow npm publish' 체크
         run: |
           npm install -g npm@latest
-          npm --version
-          npm publish --access public --loglevel verbose 2>&1 | grep -iv 'npm verb .*header' | tail -40; exit ${PIPESTATUS[0]}
+          npm publish --access public
