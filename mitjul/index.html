@@ -2887,6 +2887,7 @@ body[data-theme="dark"] .nar2 .nar-q mark{background:linear-gradient(transparent
 .nar-acts .nar-cont{margin:0!important}
 .nar-acts .btn.ghost{background:var(--card)!important;border:1px solid var(--line)!important;color:var(--ink)!important}
 .nar-acts .nar-gift svg{color:var(--accent)}
+.nar-acts.one{grid-template-columns:1fr}
 .nar2 .nar-tools{margin-top:12px}
 /* 표지 위치 맞추기 */
 .ca-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 0;border-radius:var(--r);background:var(--soft)}
@@ -4911,7 +4912,6 @@ function talkView(){
   const has = !!(t.story && t.story.text), busy = NAR.busy.has(t.id);
   if (!has && !busy && sample && !NAR.fail.has(t.id)) setTimeout(() => genStory(t.id), 0);
   const body = storyOf(t), paras = body.split(/\n{2,}/).map(x => x.trim()).filter(Boolean);
-  const gift = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11"/><path d="M12 9c-2.5 0-4.5-1-4.5-2.7S9.6 3.9 12 9zM12 9c2.5 0 4.5-1 4.5-2.7S14.4 3.9 12 9z"/></svg>';
   return `<div class="detail nar nar2">
     ${backBtn(prevLabel())}
     <article class="nar-a">
@@ -4927,7 +4927,7 @@ function talkView(){
       <div class="nar-orn" aria-hidden="true"><i></i><i></i><i></i></div>
       ${paras.length ? `<div class="nar-end">${fmtDate(t.savedAt)}에 남긴 사유</div>` : ''}
     </article>
-    ${live ? `<div class="nar-acts"><button class="btn nar-cont" data-action="chatCont" data-id="${esc(t.id)}">이어서 이야기하기</button><button class="btn ghost nar-gift" data-action="shareCard" data-id="${esc(t.quoteId)}">${gift}선물하기</button></div>` : ''}
+    <div class="nar-acts${live ? '' : ' one'}">${live ? `<button class="btn nar-cont" data-action="chatCont" data-id="${esc(t.id)}">이어서 이야기하기</button>` : ''}<button class="btn ghost nar-gift" data-action="saveTalk" data-id="${esc(t.id)}"${busy ? ' disabled' : ''}>${WK_IC.file}저장</button></div>
     <div class="nar-tools">
       <button data-action="copyTalk" data-id="${esc(t.id)}">복사</button>
       ${sample && (t.messages || []).length ? `<button data-action="storyRe" data-id="${esc(t.id)}">다시 정리</button>` : ''}
@@ -7358,8 +7358,9 @@ const wkFileName = (w, ext) => `${String(w.title || '').replace(/[\\/:*?"<>|]/g,
 const wkSaveErr = e => !(e && /cancel|declin|dismiss/i.test(e.code || e.message || ''));
 async function wkSaveText(w){
   const name = wkFileName(w, 'txt');
-  if (!downloads) { copy(wkPlain(w)); return; }
-  try { await downloads.save({ filename: name, data: new Blob([wkPlain(w)], { type: 'text/plain;charset=utf-8' }) }); toast(`‘${name}’으로 저장했어요`); } catch (e) { if (wkSaveErr(e)) toast('파일로 저장하지 못했어요'); }
+  const txt = w.plain || wkPlain(w);
+  if (!downloads) { copy(txt); return; }
+  try { await downloads.save({ filename: name, data: new Blob([txt], { type: 'text/plain;charset=utf-8' }) }); toast(`‘${name}’으로 저장했어요`); } catch (e) { if (wkSaveErr(e)) toast('파일로 저장하지 못했어요'); }
 }
 async function wkSaveImage(w){
   const name = wkFileName(w, 'png'), out = $('#wfOut'), msg = $('#wfMsg'), img = $('#wfPrev');
@@ -7384,16 +7385,20 @@ async function drawWorkImage(w){
   const W = 1080, P = 110, FW = W - P * 2;
   const SERIF = '"Gowun Batang", "Hahmlet", serif', SANS = '"IBM Plex Sans KR", sans-serif';
   const title = String(w.title || '').trim() || '원고';
-  const sub = `${WK_TYPE[w.type] || '원고'}${wkSub(w) ? ` · ${wkSub(w)}` : ''}`;
+  const sub = w.sub || `${WK_TYPE[w.type] || '원고'}${wkSub(w) ? ` · ${wkSub(w)}` : ''}`;
   const paras = String(w.body || '').replace(/\r/g, '').split(/\n\s*\n/).map(t => t.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
-  const sign = `${fmtDate(w.updatedAt)} · 여백이와 함께 씀`;
-  const all = [title, sub, paras.join(' '), sign, '밑줄 0123456789'].join(' ');
+  const sign = w.sign || `${fmtDate(w.updatedAt)} · 여백이와 함께 씀`;
+  const quote = String(w.quote || '').replace(/\s+/g, ' ').trim(), qsrc = String(w.quoteSrc || '');
+  const all = [title, sub, quote, qsrc, paras.join(' '), sign, '밑줄 0123456789'].join(' ');
   try { await Promise.all([document.fonts.load(`700 60px "Gowun Batang"`, all), document.fonts.load(`400 40px "Gowun Batang"`, all), document.fonts.load(`500 28px "IBM Plex Sans KR"`, all)]); } catch {}
   const m = document.createElement('canvas').getContext('2d');
   const TS = 60, TL = TS * 1.4, BS = 38, BL = BS * 1.95, PG = 34;
   m.font = `700 ${TS}px ${SERIF}`; const tl = wrapLines(m, title, FW);
   m.font = `400 ${BS}px ${SERIF}`; const body = paras.map(t => wrapLines(m, t, FW));
-  const head = 130 + tl.length * TL + 70, bodyH = body.reduce((h, ls) => h + ls.length * BL, 0) + Math.max(0, body.length - 1) * PG, foot = 230;
+  /* 사유: 제목 아래 밑줄 문장을 형광펜으로 */
+  const QS = 40, QL = QS * 1.9; m.font = `400 ${QS}px ${SERIF}`; const ql = quote ? wrapLines(m, `“${quote}”`, FW - 40) : [];
+  const qH = ql.length ? 36 + ql.length * QL + (qsrc ? 56 : 0) + 40 : 0;
+  const head = 130 + tl.length * TL + 70 + qH, bodyH = body.reduce((h, ls) => h + ls.length * BL, 0) + Math.max(0, body.length - 1) * PG, foot = 230;
   const H = Math.max(1350, Math.ceil(head + bodyH + foot));
   /* 아주 긴 글은 기기 캔버스 한계(약 1,600만 화소) 안으로 줄여 그림 */
   const k = Math.min(1, Math.sqrt(15e6 / (W * H)), 15000 / H);
@@ -7406,12 +7411,29 @@ async function drawWorkImage(w){
   let y = 130;
   x.fillStyle = C.ink; x.font = `700 ${TS}px ${SERIF}`; tl.forEach(l => { x.fillText(l, P, y + TS); y += TL; });
   y += 26; x.fillStyle = C.soft; x.fillRect(P, y, FW, 2); y += 44;
+  if (ql.length) {
+    const qy = y; y += 18; x.font = `400 ${QS}px ${SERIF}`;
+    ql.forEach(l => { const lw = x.measureText(l).width; x.fillStyle = C.mark; x.fillRect(P + 20 - 4, y + QS - 12, lw + 8, 18); x.fillStyle = C.ink; x.fillText(l, P + 20, y + QS); y += QL; });
+    if (qsrc) { x.fillStyle = C.mute; x.font = `500 26px ${SANS}`; x.fillText(qsrc, P + 20, y + 30); y += 56; }
+    x.fillStyle = 'rgba(200,170,90,.55)'; x.fillRect(P, qy, 4, y - qy); y += 40;
+  }
   x.font = `400 ${BS}px ${SERIF}`;
   body.forEach((ls, i) => { ls.forEach(l => { x.fillStyle = C.line; x.fillRect(P, y + BS + 22, FW, 2); x.fillStyle = C.ink; x.fillText(l, P, y + BS); y += BL; }); if (i < body.length - 1) y += PG; });
   x.textAlign = 'right'; x.fillStyle = C.mute; x.font = `500 26px ${SANS}`; x.fillText(sign, W - P, y + 70);
   x.textAlign = 'right'; x.font = `700 30px ${SANS}`; const bw = x.measureText('밑줄').width;
   x.fillStyle = C.mark; x.fillRect(W - P - bw - 2, H - 100, bw + 4, 12); x.fillStyle = '#1E2235'; x.fillText('밑줄', W - P, H - 90); x.textAlign = 'left';
   return c;
+}
+/* 원고·사유를 이미지나 텍스트로 내려받기 */
+function saveSheet(w, head){
+    const ico = p => `<span class="sp-ri"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg></span>`;
+    openSheet(`${sheetHead(head, '어떤 모양으로 내려받을까요?')}
+      <div class="sp-g"><button class="sp-row" id="wfImg">${ico('<rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M20 15l-4.5-4.5L6 20"/>')}<span><b>이미지로 저장</b><small>한 장의 종이처럼 .png로 내려받아요</small></span>${SP_CHEV}</button>
+      <button class="sp-row" id="wfTxt">${ico('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>')}<span><b>텍스트로 저장</b><small>.txt 파일로 내려받아요</small></span>${SP_CHEV}</button></div>
+      <div class="wf-out" id="wfOut" hidden><p class="wf-msg" id="wfMsg"></p><img id="wfPrev" alt="원고 이미지"></div>`);
+    $('#wfTxt').onclick = () => { closeSheet(); wkSaveText(w); };
+    $('#wfImg').onclick = async e => { const b = e.currentTarget; if (b.dataset.busy) return; b.dataset.busy = '1';
+      try { await wkSaveImage(w); } finally { delete b.dataset.busy; } };
 }
 const WRITER_ACTIONS = {
   wDiary: el => diarySheet(el.dataset.k),
@@ -7426,16 +7448,7 @@ const WRITER_ACTIONS = {
     await put(w.id, { ...stripId(w), title: String(fd.get('title') || '').trim() || w.title, body: String(fd.get('body') || '').replace(/\r/g, '').trim(), updatedAt: Date.now() }); S.wkEdit = ''; render(); toast('원고를 고쳤어요'); }; }, 0); },
   wEditX: () => { S.wkEdit = ''; render(); },
   wCopy: () => { const w = S.docs[S.workId]; if (w) copy(wkPlain(w)); },
-  wFile: () => { const w = S.docs[S.workId]; if (!w) return;
-    const ico = p => `<span class="sp-ri"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg></span>`;
-    openSheet(`${sheetHead('원고 저장', '어떤 모양으로 내려받을까요?')}
-      <div class="sp-g"><button class="sp-row" id="wfImg">${ico('<rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M20 15l-4.5-4.5L6 20"/>')}<span><b>이미지로 저장</b><small>원고지 한 장처럼 .png로 내려받아요</small></span>${SP_CHEV}</button>
-      <button class="sp-row" id="wfTxt">${ico('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>')}<span><b>텍스트로 저장</b><small>.txt 파일로 내려받아요</small></span>${SP_CHEV}</button></div>
-      <div class="wf-out" id="wfOut" hidden><p class="wf-msg" id="wfMsg"></p><img id="wfPrev" alt="원고 이미지"></div>`);
-    $('#wfTxt').onclick = () => { closeSheet(); wkSaveText(w); };
-    $('#wfImg').onclick = async e => { const b = e.currentTarget; if (b.dataset.busy) return; b.dataset.busy = '1';
-      try { await wkSaveImage(w); } finally { delete b.dataset.busy; } };
-  },
+  wFile: () => { const w = S.docs[S.workId]; if (w) saveSheet(w, '원고 저장'); },
   wDel: async () => { const w = S.docs[S.workId]; if (!w) return; if (await confirmSheet('이 원고를 지울까요?')) { if (WR.id === w.id) WR = { id: '', run: false, text: '', abort: null, spec: null, err: '' }; back(); await del(w.id); toast('원고를 지웠어요'); } }
 };
 /* ===== 다 읽은 책 서가: 완독한 책을 해마다 모아 꽂아 둠 ===== */
@@ -8084,6 +8097,14 @@ const A = {
   leaveChat, chatMenu, send, saveEmpathy,
   retry: () => askAuthor(),
   openTalk: el => go('talk', { talkId: el.dataset.id }),
+  saveTalk: el => {
+    const t = S.docs[el.dataset.id]; if (!t) return;
+    const s = t.summary || {}, q = S.docs[t.quoteId] || {}, b = S.docs[t.bookId] || {};
+    const bk = splitTitle(b.title || t.bookTitle || '').main, src = [bk ? `『${bk}』` : '', authorShort(b) || '', q.page ? `p.${q.page}` : ''].filter(Boolean).join(' '), qt = q.text || t.quoteText || '';
+    const title = s.title || '이름 없는 사유', body = storyOf(t), tags = (s.emotions || []).map(e => '#' + e).join(' ');
+    saveSheet({ title, body, updatedAt: t.savedAt, quote: qt, quoteSrc: src, sub: `사유${tags ? ` · ${tags}` : ''}`, sign: `${fmtDate(t.savedAt)}에 남긴 사유`,
+      plain: `${title}\n${src}\n\n“${qt}”\n\n${body}\n\n— 밑줄 · ${fmtDate(t.savedAt)}에 남긴 사유` }, '사유 저장');
+  },
   copyTalk: el => {
     const t = S.docs[el.dataset.id]; if (!t) return;
     const s = t.summary || {}, q = S.docs[t.quoteId] || {}, b = S.docs[t.bookId] || {};
@@ -8141,7 +8162,7 @@ init();
 /* ===== 업데이트: 복제본도 원본의 새 판을 받아 자기 자신을 다시 올림 (기록은 저장소에 그대로) =====
    새 판은 GitHub Actions가 npm 패키지 mitjul@<판>.0.0 의 app.js 로 올려요.
    아티팩트는 npm CDN 스크립트만 불러올 수 있어서, 판 번호를 하나씩 올려 가며 불러 봐요. */
-const MJ_BUILD = 183;
+const MJ_BUILD = 184;
 const UPD = { art: null, found: null, busy: false };
 const UPD_SKEL = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
 function updLoad(build){
