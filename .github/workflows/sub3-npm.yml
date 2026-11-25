@@ -35,8 +35,11 @@ jobs:
       - name: npm 에 올리기
         if: steps.check.outputs.skip != '1'
         working-directory: sub3/npm/dist
-        # npm 신뢰 게시(Trusted Publishing)로 올려요. 토큰이 필요 없어요. (npm 11.5.1 이상 필요)
+        # npm 신뢰 게시(Trusted Publishing)로 올려요. (npm 11.5.1 이상 필요)
         # npm 패키지 설정의 Trusted Publisher: bizopt2026/bizopt2026, sub3-npm.yml, 'Allow npm publish' 체크
+        # 패키지를 처음 만들 때만 저장소 비밀값 NPM_TOKEN 을 써요(신뢰 게시는 패키지가 있어야 설정돼요). 설정 뒤에는 비밀값을 지워도 돼요.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm install -g npm@latest
           npm publish --access public
