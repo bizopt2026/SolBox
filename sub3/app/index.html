@@ -1004,7 +1004,8 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .vtt{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vtl summary small{font-size:12px;color:var(--muted)}
 .vtl details p{margin:6px 0 2px;font-size:12px;color:var(--muted);line-height:1.55}
 .vnote{display:grid;grid-template-columns:22px 1fr;gap:8px;margin-top:12px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 20%,transparent)}
-.vupd .sbtn{min-height:34px}.vupd small{font-size:12px}
+.vupd .sbtn{min-height:34px}.vupd small{font-size:12px}.vupd{margin-top:0;margin-bottom:12px}.vupd-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.vupd-row b{flex:1;min-width:0}.vupd .linkbtn{font-size:12px;padding:4px 2px;min-height:0}
+.hupd{flex:none;border:0;border-radius:99px;padding:5px 10px;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:800;white-space:nowrap}
 .vnote p{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink)}
 .wres{margin:2px 14px 10px;animation:fdin .18s ease-out}
 .wrhero{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px;border-radius:18px;background:var(--navy);color:#fff;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 20%,transparent)}
@@ -1491,7 +1492,7 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 
 <header class="top"><div class="wrap">
   <div class="brand"><span id="brand-eb">써브쓰리 · 2027.3.21</span><b>써브쓰리 <small class="bgoal num">2:59:59</small></b></div>
-  <div class="hr-r"><div class="dday"><b class="num" id="dday">D-</b><span class="sync sd-busy" id="sync" role="img" aria-label="불러오는 중" title="불러오는 중"></span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hcoach" id="h-coach" aria-label="AI 코치에게 물어보기" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>AI 코치</button><button type="button" class="hq" id="h-guide" aria-label="가이드">?</button></div>
+  <div class="hr-r"><button type="button" class="hupd" id="h-upd" hidden></button><div class="dday"><b class="num" id="dday">D-</b><span class="sync sd-busy" id="sync" role="img" aria-label="불러오는 중" title="불러오는 중"></span></div><button type="button" class="hq hco" id="h-admin" aria-label="관리자 메뉴" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button><button type="button" class="hcoach" id="h-coach" aria-label="AI 코치에게 물어보기" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>AI 코치</button><button type="button" class="hq" id="h-guide" aria-label="가이드">?</button></div>
 </div></header>
 
 <main class="wrap" id="view"></main>
@@ -1510,8 +1511,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(업데이트 확인으로 원본 버전을 받으면 함께 바뀌어요) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.8.1",APP_RELEASED="2026-11-25";
+var APP_VERSION="1.8.2",APP_RELEASED="2026-11-25";
 var VLOG=[
+ ["1.8.2","2026-11-25","업데이트 버튼을 위로","새 버전이 있으면 상단 머리글에 'v버전 업데이트' 버튼이 보이고, 누르면 버전 관리 카드가 펼쳐져요. 버전 관리 카드에서는 업데이트 칸을 맨 위로 올리고, '새 버전이 있어요' 바로 옆에 업데이트 버튼을 두었어요."],
  ["1.8.1","2026-11-25","업데이트 확인 배포 주소 바꾸기","업데이트 확인이 새 버전을 불러오는 npm 배포 이름을 @gulex3/sub3로 바꿨어요(npm에서 sub3 이름을 쓸 수 없어서). 업데이트가 제대로 되려면 이 버전이 필요해요."],
  ["1.8.0","2026-11-25","복제한 앱도 업데이트 확인으로 새 버전 받기","가이드 → 기타 → 버전 관리에 '업데이트 확인'이 생겼어요. 원본이 새 버전으로 바뀌면 복제한 앱의 주인이 버튼 한 번으로 같은 버전으로 바꿀 수 있고, 훈련·체중·식단 기록은 그대로 남아요. 하루 한 번 앱을 열 때 조용히 확인해서 새 버전이 있으면 알려 줘요. 이 버전부터 복제한 앱에서 쓸 수 있어요(아티팩트 자기 게시 기능 허용)."],
  ["1.7.5","2026-11-20","입력할 때 화면 확대 없애기","가이드 → 백업 → 복원하기를 누르면 휴대폰 화면이 확대되던 문제를 고쳤어요. 휴대폰에서는 글을 입력하는 모든 칸의 글자를 16px로 맞춰, 입력칸을 눌러도 화면이 확대되지 않아요."],
@@ -5131,16 +5133,20 @@ function updHtml(){var ic='<span aria-hidden="true">'+(UPD.found?'✨':'🔄')+'
   if(UPD.st==="busy")b='<p><b>새 버전으로 바꾸는 중이에요</b><br>잠시 뒤 화면이 새로 열려요.</p>';
   else if(UPD.st==="checking")b='<p><b>새 버전을 찾고 있어요…</b></p>';
   else if(UPD.found&&vcmp(UPD.found.version,APP_VERSION)>0){var nw=updNews(UPD.found);
-    b='<p><b>새 버전 v'+esc(UPD.found.version)+'이 있어요</b>'+(nw?'<br>'+esc(nw):'')+'<br><small class="muted">훈련·체중·식단 기록은 그대로 남아요. 이 앱에서 직접 고친 화면 코드는 원본 새 버전으로 바뀌어요.</small></p><div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button type="button" class="sbtn wset on" data-upd="go">v'+esc(UPD.found.version)+'로 업데이트</button><button type="button" class="sbtn" data-upd="check">다시 확인</button></div>'}
+    b='<div class="vupd-row"><b>새 버전 v'+esc(UPD.found.version)+'</b><button type="button" class="sbtn wset on" data-upd="go">업데이트</button></div>'+(nw?'<p>'+esc(nw)+'</p>':'')+'<p><small class="muted">훈련·체중·식단 기록은 그대로 남아요. 이 앱에서 직접 고친 화면 코드는 원본 새 버전으로 바뀌어요.</small> <button type="button" class="linkbtn" data-upd="check">다시 확인</button></p>'}
   else b='<p><b>업데이트</b><br>'+(UPD.st==="none"?'지금이 가장 새 버전이에요.':'원본의 새 버전을 받아 이 앱을 바꿔요. 기록은 그대로 남아요.')+'</p><div class="row" style="gap:6px;margin-top:8px"><button type="button" class="sbtn" data-upd="check">업데이트 확인</button></div>';
   return ic+'<div>'+b+(UPD.msg?'<p class="small" style="color:var(--bad);margin-top:6px">'+esc(UPD.msg)+'</p>':'')+'</div>'}
-function updPaint(){var el=document.getElementById("v-upd");if(el)el.innerHTML=updHtml()}
+function updNew(){return !!(UPD.art&&UPD.found&&vcmp(UPD.found.version,APP_VERSION)>0)}
+function updPaint(){var el=document.getElementById("v-upd");if(el)el.innerHTML=updHtml();var hb=document.getElementById("h-upd");if(hb){var on=updNew()&&UPD.st!=="busy";hb.hidden=!on;if(on){hb.textContent="업데이트";hb.setAttribute("aria-label","새 버전 v"+UPD.found.version+" 업데이트 보기")}}}
+// 머리글 버튼·알림에서: 가이드 → 버전 관리 카드를 펼치고 맨 위 업데이트 칸으로
+function updShow(){foldSet("g-버전 관리",true);tab="guide";render();setTimeout(function(){var el=document.getElementById("v-upd");if(el)el.scrollIntoView({block:"center"})},50)}
 function updRun(){if(UPD.st==="checking"||UPD.st==="busy")return;UPD.st="checking";UPD.msg="";updPaint();
   updCheck().then(function(p){UPD.st=p?"":"none";updPaint()},function(){UPD.st="";UPD.msg="확인하지 못했어요. 잠시 후 다시 눌러 주세요.";updPaint()})}
 async function updGo(){var p=UPD.found;if(!p||!UPD.art||UPD.st==="busy")return;UPD.st="busy";UPD.msg="";updPaint();
   try{await UPD.art.publish(UPD_SKEL+"\n"+p.html.replace(/\s+$/,"")+"\n</body></html>")}
   catch(e){var c=e&&e.code;UPD.st="";UPD.msg=c==="not_granted"||c==="not_writer"?"이 앱의 주인만 업데이트할 수 있어요.":c==="conflict"?"그사이 다른 버전이 올라왔어요. 화면이 새로 열려요.":c==="rate_limited"?"잠시 후 다시 눌러 주세요.":"업데이트하지 못했어요. 잠시 후 다시 시도해 주세요.";updPaint()}}
 document.addEventListener("click",function(e){var t=e.target&&e.target.closest&&e.target.closest("[data-upd]");if(!t)return;if(t.dataset.upd==="go")updGo();else updRun()});
+(function(){var hb=document.getElementById("h-upd");if(hb)hb.onclick=updShow})();
 // 앱을 열 때 하루 한 번 조용히 확인해서, 새 버전이 있으면 알려 줘요 (편집할 수 있는 주인에게만)
 if(window.claude&&window.claude.use)window.claude.use("artifact").then(async function(a){if(!a)return;
   var u=await window.claude.use("user").catch(function(){return null});
@@ -5149,7 +5155,7 @@ if(window.claude&&window.claude.use)window.claude.use("artifact").then(async fun
   var last=0;try{last=+localStorage.getItem("s3-upd-at")||0}catch(e){}
   if(Date.now()-last<864e5)return;
   setTimeout(function(){try{localStorage.setItem("s3-upd-at",String(Date.now()))}catch(e){}
-    updCheck().then(function(p){updPaint();if(p)toast("써브쓰리 새 버전 v"+p.version+"이 나왔어요",function(){tab="guide";render();setTimeout(function(){var el=document.getElementById("v-upd");if(el)el.scrollIntoView({block:"center"})},50)},"보기")}).catch(function(){})},8000)}).catch(function(){});
+    updCheck().then(function(p){updPaint();if(p)toast("써브쓰리 새 버전 v"+p.version+"이 나왔어요",updShow,"보기")}).catch(function(){})},8000)}).catch(function(){});
 var APP_URL0="https://claude.ai/artifact/S65CCJg77Gy9NKmqZ1bzzQ";
 function isCopyApp(){try{var m=String(document.referrer||"").match(/\/artifact\/([A-Za-z0-9_-]+)/);if(!m)return null;return APP_URL0.indexOf(m[1])<0}catch(e){return null}}
 function versionCard(){var cp=isCopyApp(),last=VLOG[0],dg=APP_VERSION.split("."),RL=[["MAJOR","큰 변화","데이터 구조가 바뀌어 예전 백업과 호환이 안 되거나, 탭 구성·핵심 흐름이 크게 바뀔 때"],["MINOR","새 기능","새 기능·화면·연동을 추가할 때 · 아래 자리는 0으로"],["PATCH","다듬기","버그 수정, 문구·UI 다듬기, 계산 보정"]];
@@ -5157,10 +5163,11 @@ function versionCard(){var cp=isCopyApp(),last=VLOG[0],dg=APP_VERSION.split(".")
   h+='<div class="vhero"><div class="vtop"><span class="vbadge '+(cp===true?'copy':cp===false?'orig':'')+'">'+(cp===true?'복제본':cp===false?'원본':'버전')+'</span><small>'+dotDate(APP_RELEASED)+' 게시</small></div>'
     +'<div class="vnum num" aria-label="버전 '+APP_VERSION+'"><span class="vv">v</span>'+dg.map(function(x,k){return '<span class="vd d'+k+'"><b>'+esc(x)+'</b><small>'+RL[k][0]+'</small></span>'}).join('<span class="vdot">.</span>')+'</div>'
     +'<p class="vlast">'+esc(last[2])+'</p></div>';
+  h+='<div class="vnote vupd" id="v-upd">'+updHtml()+'</div>';
   h+='<div class="vsec"><b>번호가 올라가는 기준</b><ul class="vrl">'+RL.map(function(r,k){return '<li class="d'+k+'"><span class="vrk">'+r[0]+'</span><span><b>'+r[1]+'</b><small>'+r[2]+'</small></span></li>'}).join('')+'</ul><p class="vtip">원본을 고쳐 게시할 때마다 한 번 올려요. 여러 변경이 섞이면 가장 큰 범위 하나만 올려요.</p></div>';
   h+='<div class="vsec"><b>변경 기록 <span class="muted">'+VLOG.length+'</span></b><ol class="vtl">'+VLOG.map(function(v,k){var dd=v[0].split("."),kind=dd[2]!=="0"?["PATCH","d2"]:dd[1]!=="0"?["MINOR","d1"]:["MAJOR","d0"];
       return '<li class="'+(k?'':'now')+'"><span class="vdotl" aria-hidden="true"></span><details'+(k?'':' open')+'><summary><span class="vtv num">v'+esc(v[0])+'</span><span class="vtk '+kind[1]+'">'+kind[0]+'</span><span class="vtt">'+esc(v[2])+'</span><small>'+dotDate(v[1]).slice(5)+'</small></summary>'+(v[3]?'<p>'+esc(v[3])+'</p>':'')+'</details></li>'}).join('')+'</ol></div>';
-  h+='<div class="vnote vupd" id="v-upd">'+updHtml()+'</div></div>';
+  h+='</div>';
   return h}
 function appUrl(){var u=CREW.settings&&CREW.settings.url;if(u&&/^https:\/\/claude\.ai\//.test(u))return u;try{var m=String(document.referrer||"").match(/^https:\/\/claude\.ai\/(?:code\/)?artifact\/[A-Za-z0-9_-]+/);if(m)return m[0]}catch(e){}return APP_URL0}
 function inviteMsg(){
