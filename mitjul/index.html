@@ -3660,6 +3660,15 @@ body[data-theme="dark"] .wh2-go button:first-child .wh2-gk{color:#7A5B00}
 .wh2-go small{font-size:12px;line-height:1.55;color:var(--muted)}
 .wh2-go button:first-child small{color:color-mix(in srgb,var(--onink) 68%,transparent)}
 .wh2-cv{position:absolute;right:14px;bottom:14px;opacity:.6}
+.wh2-go .wh2-rv{grid-column:1/-1;padding:16px 40px 16px 14px}
+.wh2-go .wh2-rv .wh2-cv{top:50%;bottom:auto;transform:translateY(-50%)}
+.bx-rv,.wk-bk{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px;width:calc(100% - 8px);margin:14px 4px 0;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.bx-rv>svg:first-child{flex:none;color:var(--accent)}
+.bx-rv span,.wk-bk span{flex:1;min-width:0;display:grid;gap:2px}
+.bx-rv b,.wk-bk b{font-size:var(--t4);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-rv small,.wk-bk small{font-size:12px;color:var(--muted)}
+.wk-bk{width:100%;margin:18px 0 0}
+.bx-rv:active,.wk-bk:active{transform:scale(.99)}
 .wh2-go button:active{transform:scale(.98)}
 .wh2-empty{margin-top:22px;padding:22px 18px;border:1px dashed var(--line);border-radius:16px;text-align:center;font-size:var(--t4);line-height:1.75;color:var(--muted);word-break:keep-all}
 .wh2-h{margin-top:30px}
@@ -4659,6 +4668,7 @@ function bookView(){
     <button class="bx-menu" data-action="bookMenu" data-id="${esc(b.id)}" aria-label="책 정보 수정, 표지, 삭제"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
   </section>
   ${rate}${prog ? `<div class="bx-prog">${prog}</div>` : ''}
+  ${st === 'done' && qsNew.length ? (() => { const rv = rvOf(b.id); return `<button class="bx-rv" data-action="${rv ? 'wOpen' : 'wReview'}" data-id="${esc(rv ? rv.id : b.id)}">${WK_IC.feather}<span><b>${rv ? esc(rv.title) : '여백이에게 독후감 맡기기'}</b><small>${rv ? `독후감 · ${fmtDate(rv.updatedAt)}` : '이 책의 밑줄과 사유로 소감·감정·깨우침을 써 드려요'}</small></span>${SP_CHEV}</button>`; })() : ''}
   <div class="bx-nums"><span><b>${qsNew.length}</b>밑줄</span><span><b>${ts.length}</b>사유</span><span><b>${nSeal}</b>각인</span>${!hasProg && st !== 'want' && st !== 'done' ? `<button data-action="progress" data-id="${esc(b.id)}">읽은 쪽 기록</button>` : ''}</div>
   <div class="bx-tabs"><div role="tablist">${[['q', '밑줄'], ['t', '사유']].map(([k, l]) => `<button role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" data-action="bkTab" data-k="${k}">${l}</button>`).join('')}</div>
     ${tab === 'q' && qs.length > 1 ? `<button class="bx-sort" data-action="bkSort" aria-label="정렬 바꾸기">${byPage ? '쪽 순서' : '최근 순'}${chevD}</button>` : ''}</div>
@@ -5055,6 +5065,7 @@ async function setStatus(id, status){
   const b = S.docs[id]; if (!b || b.status === status) return;
   const d = withStatusDates({ ...stripId(b), updatedAt: Date.now() }, status);
   const p = put(id, d); render();
+  if (status === 'done' && sample && rvQuotes(id).length) { toast(`『${shortTitle(b.title)}』, 끝까지 읽었어요. 여백이가 독후감을 써 드릴까요?`, { action: '독후감', ms: 6000, onAction: () => reviewSheet(id) }); await p; return; }
   toast(status === 'done' ? `『${shortTitle(b.title)}』, 끝까지 읽었어요. 밑줄 현황에 남겨 둘게요` : b.status === 'done' ? `『${shortTitle(b.title)}』, 다시 첫 화면으로 꺼냈어요` : `『${shortTitle(b.title)}』 ${STATUS[status]}`);
   await p;
 }
@@ -6993,11 +7004,28 @@ function stScrollTot(){ setTimeout(() => { const o = $('#ov'), el = $('#st-tot')
 /* ===== 여백의 글방: 선명이와 나눈 사유를 모아 여백이가 일기·수필로 엮어 줌 (문서 kind 'work') ===== */
 const WK_TONE = { calm: ['담담하게', '감정을 과장하지 않고 차분하고 절제된 문장으로'], warm: ['따뜻하게', '스스로를 다독이는 따뜻하고 부드러운 문장으로'], letter: ['편지처럼', '미래의 나에게 보내는 편지처럼, 존댓말로'] };
 const WK_LEN = { s: ['짧게', '900~1,300자'], m: ['보통', '1,600~2,200자'], l: ['길게', '2,600~3,200자'] };
-const WK_TYPE = { diary: '일기', essay: '수필' };
+const WK_TYPE = { diary: '일기', essay: '수필', review: '독후감' };
 const works = () => all('work').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 let WR = { id: '', run: false, text: '', abort: null, spec: null, err: '' };
 const dayLabel = dk => { const [y, m, d] = dk.split('-').map(Number); return `${y}년 ${m}월 ${d}일 ${'일월화수목금토'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}요일`; };
 const myQuotes = () => quotesOf().filter(q => !q.from && S.docs[q.bookId]);
+/* 독후감: 다 읽은 책 한 권의 밑줄·사유 */
+const rvTalks = bookId => savedTalks().filter(t => t.bookId === bookId);
+const rvQuotes = bookId => myQuotes().filter(q => q.bookId === bookId);
+const rvOf = bookId => works().find(w => w.type === 'review' && w.bookId === bookId);
+const rvBooks = () => all('book').filter(b => b.status === 'done' && rvTalks(b.id).length + rvQuotes(b.id).length > 0).sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+/* 사유를 먼저, 남은 밑줄은 멈춘 이유를 적은 것·쪽 순서로. 읽은 흐름대로 정렬 */
+function rvSources(bookId){
+  const ts = rvTalks(bookId), pg = q => { const n = parseInt(String(q.page || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? Infinity : n; };
+  const qs = rvQuotes(bookId).filter(q => !ts.some(t => t.quoteId === q.id)).sort((a, b) => (!!b.feeling - !!a.feeling) || pg(a) - pg(b));
+  const pick = [...ts.slice(0, 12).map(t => ({ k: 't', id: t.id, at: t.savedAt })), ...qs.map(q => ({ k: 'q', id: q.id, at: q.createdAt }))].slice(0, 24);
+  return pick.sort((a, b) => a.at - b.at).map(({ k, id }) => ({ k, id }));
+}
+const rvBookText = b => { const days = b.startedAt && b.finishedAt ? Math.max(1, Math.round((b.finishedAt - b.startedAt) / DAY)) : 0;
+  return [`[책] 『${splitTitle(b.title).main}』${authorShort(b) ? ` · ${authorShort(b)}` : ''}${b.totalPages ? ` · ${b.totalPages}쪽` : ''}`,
+    b.startedAt || b.finishedAt ? `읽은 기간: ${b.startedAt ? fmtDate(b.startedAt) : '알 수 없음'} ~ ${b.finishedAt ? fmtDate(b.finishedAt) : '알 수 없음'}${days ? ` (${days}일)` : ''}` : '',
+    b.rating ? `내가 매긴 별점: ${b.rating}/5` : '', b.memo ? `내 한 줄 메모: ${b.memo}` : '',
+    b.letter && b.letter.text ? `완독 뒤 받은 작가의 편지(선명이가 쓴 것, 참고만): ${String(b.letter.text).replace(/\s+/g, ' ').slice(0, 300)}` : ''].filter(Boolean).join('\n'); };
 /* 재료 한 개를 글감 텍스트로 */
 function wkSrcText(src, n){
   if (src.k === 't') { const t = S.docs[src.id]; if (!t) return ''; const s = t.summary || {}, q = S.docs[t.quoteId] || {}, b = S.docs[t.bookId] || {};
@@ -7016,6 +7044,11 @@ function wkPrompt(spec){
   const tone = (WK_TONE[spec.tone] || WK_TONE.calm)[1];
   const head = spec.type === 'diary'
     ? `당신은 '여백'이라는 이름의 글쓰기 동반자예요. 독자가 ${dayLabel(spec.date)}에 책을 읽으며 남긴 밑줄과 사유를 모아, 독자 자신이 쓴 것 같은 그날의 일기를 써 주세요.\n분량: 600~1,000자. 문단 3~5개.`
+    : spec.type === 'review'
+    ? `당신은 '여백'이라는 이름의 글쓰기 동반자예요. 독자가 방금 책 한 권을 끝까지 다 읽었어요. 그 책에 그은 밑줄과 선명이와 나눈 사유를 바탕으로, 독자 자신이 쓴 것 같은 한 편의 독후감을 써 주세요.\n분량: ${(WK_LEN[spec.len] || WK_LEN.m)[1]}. 문단 5~8개.
+이 글에 꼭 담을 것: 책을 다 읽은 지금의 소감, 읽는 동안 마음이 움직인 순간과 그 감정, 이 책이 깨우쳐 준 것, 그래서 내 삶에 무엇이 남았는지.
+흐름: 다 읽고 난 지금의 마음으로 열기 → 마음에 남은 문장들과 그때의 감정(읽은 순서를 따라) → 책이 깨우쳐 준 것 → 지금의 나에게 남은 것으로 맺기.
+줄거리 요약이나 책 소개는 한두 문장이면 충분해요. 책보다 그 책을 읽은 나의 이야기가 중심이에요.`
     : `당신은 '여백'이라는 이름의 글쓰기 동반자예요. 독자가 책을 읽으며 남긴 밑줄과 사유를 엮어, 독자 자신이 쓴 것 같은 한 편의 수필을 써 주세요.\n주제: ${spec.theme || '재료들을 꿰는 하나의 주제를 찾아서'}\n분량: ${(WK_LEN[spec.len] || WK_LEN.m)[1]}. 문단 5~9개. 도입 → 전개(재료마다의 장면과 생각) → 맺음(지금의 나에게 남은 것) 흐름으로.`;
   return `${head}
 말투: ${tone}. ${spec.tone === 'letter' ? '' : '1인칭 \'나\', 평서체(~했다, ~이다).'}
@@ -7031,6 +7064,7 @@ ${penBlock()}
 첫 줄: "제목: " 뒤에 15자 이내의 제목
 빈 줄 하나 뒤에 본문. 문단 사이는 빈 줄 하나.
 
+${spec.type === 'review' && S.docs[spec.bookId] ? `\n${rvBookText(S.docs[spec.bookId])}\n` : ''}
 [재료]
 ${mats}`;
 }
@@ -7039,7 +7073,7 @@ function parseWork(text, spec){
   const m = /^(?:제목\s*[:：]\s*|#\s*)(.+)\n?/.exec(t); if (m) { title = m[1].trim().replace(/^["“『]|["”』]$/g, ''); t = t.slice(m[0].length).trim(); }
   let paras = t.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
   if (paras.length <= 1 && t.includes('\n')) paras = t.split('\n').map(x => x.trim()).filter(Boolean);
-  return { title: title || (spec && spec.type === 'diary' ? `${+spec.date.slice(5, 7)}월 ${+spec.date.slice(8, 10)}일의 일기` : `${(spec && spec.theme) || '나의'}에 대하여`), paras };
+  return { title: title || (spec && spec.type === 'diary' ? `${+spec.date.slice(5, 7)}월 ${+spec.date.slice(8, 10)}일의 일기` : spec && spec.type === 'review' ? `『${shortTitle((S.docs[spec.bookId] || {}).title || '', 12)}』을 덮으며` : `${(spec && spec.theme) || '나의'}에 대하여`), paras };
 }
 const wkBodyHTML = (paras, live) => (live && !paras.length ? [''] : paras).map((p, i, a) => `<p class="wk-p"${live ? '' : ` data-action="wPara" data-i="${i}"`}>${esc(p)}${live && i === a.length - 1 ? '<span class="wk-caret"></span>' : ''}</p>`).join('');
 async function writeWork(spec){
@@ -7052,14 +7086,14 @@ async function writeWork(spec){
   try {
     if (penOn() && penStale()) { const rr = () => { if (S.view === 'work' && S.workId === id) render(); }; WR.pen = true; rr(); try { await penRefresh(); } catch {} WR.pen = false; rr(); }
     spec.pen = penOn() && penBasis() ? penAuthors(penBasis()) : ''; WR.spec = spec;
-    const r = await sample(wkPrompt(spec), { cache: false, signal: WR.abort.signal, modelTier: spec.type === 'essay' ? 'complex' : 'default',
+    const r = await sample(wkPrompt(spec), { cache: false, signal: WR.abort.signal, modelTier: spec.type === 'diary' ? 'default' : 'complex',
       onText: ({ text }) => { if (WR.id !== id) return; WR.text = text; wkPaint(); } });
     const { title, paras } = parseWork(r.text, spec);
     if (!paras.length) throw { code: 'empty' };
     const old = S.docs[id];
-    await put(id, { kind: 'work', type: spec.type, title, body: paras.join('\n\n'), tone: spec.tone, len: spec.len || '', theme: spec.theme || '', date: spec.date || '', pen: spec.pen || '', sources: spec.sources, createdAt: (old && old.createdAt) || Date.now(), updatedAt: Date.now() });
+    await put(id, { kind: 'work', type: spec.type, title, body: paras.join('\n\n'), tone: spec.tone, len: spec.len || '', theme: spec.theme || '', date: spec.date || '', bookId: spec.bookId || '', pen: spec.pen || '', sources: spec.sources, createdAt: (old && old.createdAt) || Date.now(), updatedAt: Date.now() });
     WR.run = false; logActivity && logActivity();
-    toast(spec.type === 'diary' ? '여백이가 일기를 썼어요' : '여백이가 수필을 썼어요');
+    toast(`여백이가 ${WK_TYPE[spec.type] || '글'}을 썼어요`);
   } catch (e) {
     WR.run = false; WR.err = e && e.name === 'AbortError' || (e && e.code === 'aborted') ? 'stop' : e && e.code === 'rate_limited' ? 'rate' : 'err';
   }
@@ -7071,12 +7105,14 @@ function wkPaint(){
   if (te && /^(?:제목\s*[:：]|#)/.test(WR.text.trim())) te.textContent = title;
   b.innerHTML = wkBodyHTML(paras, true);
 }
-const wkSpecOf = w => ({ id: w.id, type: w.type, tone: w.tone, len: w.len, theme: w.theme, date: w.date, pen: w.pen || '', sources: w.sources || [] });
+/* 원고 종류 옆 한 줄: 일기는 날짜, 수필은 주제, 독후감은 책 */
+const wkSub = (w, pre = '') => w.type === 'diary' && w.date ? dayLabel(w.date) : w.type === 'review' ? `『${splitTitle((S.docs[w.bookId] || {}).title || '').main || '책'}』` : w.theme ? pre + w.theme : '';
+const wkSpecOf = w => ({ id: w.id, type: w.type, tone: w.tone, len: w.len, theme: w.theme, date: w.date, bookId: w.bookId || '', pen: w.pen || '', sources: w.sources || [] });
 /* 원고 화면 */
 function workView(){
   const id = S.workId, w = S.docs[id], live = WR.id === id && WR.run, spec = w ? wkSpecOf(w) : WR.id === id && (WR.run || WR.err) ? WR.spec : null;
   if (!spec) return '<div class="empty">원고를 찾지 못했어요.</div>';
-  const meta = `<span class="wk-m1"><b class="wk-kind">${WK_TYPE[spec.type]}</b>${spec.type === 'diary' && spec.date ? `<span>${dayLabel(spec.date)}</span>` : spec.theme ? `<span>주제 · ${esc(spec.theme)}</span>` : ''}</span><span class="wk-m2">${[`재료 ${spec.sources.length}개`, (WK_TONE[spec.tone] || [''])[0]].filter(Boolean).join(' · ')}</span>`;
+  const meta = `<span class="wk-m1"><b class="wk-kind">${WK_TYPE[spec.type]}</b>${wkSub(spec, '주제 · ') ? `<span>${esc(wkSub(spec, '주제 · '))}</span>` : ''}</span><span class="wk-m2">${[`재료 ${spec.sources.length}개`, (WK_TONE[spec.tone] || [''])[0]].filter(Boolean).join(' · ')}</span>`;
   if (live || (!w && WR.err)) {
     const { title, paras } = parseWork(WR.text, spec);
     return `<div class="wk"><div class="wk-meta">${meta}</div><h1 class="wk-title" id="wkTitle">${live ? (/^(?:제목\s*[:：]|#)/.test(WR.text.trim()) ? esc(title) : '<span class="wk-wait">여백이가 쓰고 있어요</span>') : '글을 받지 못했어요'}</h1>
@@ -7094,6 +7130,7 @@ function workView(){
     <article class="wk-paper"><div class="wk-body">${wkBodyHTML(paras, false)}</div><p class="wk-sign">${fmtDate(w.updatedAt)} · 여백이와 함께 씀</p></article>
     <p class="wk-hint">문단을 누르면 그 부분만 고쳐 쓸 수 있어요.</p>
     <div class="wk-acts"><button data-action="wCopy">${WK_IC.copy}복사</button><button data-action="wFile">${WK_IC.file}저장</button><button data-action="wEdit">${WK_IC.edit}직접 고치기</button><button data-action="wRegen">${WK_IC.redo}새로 쓰기</button></div>
+    ${w.type === 'review' && S.docs[w.bookId] ? `<button class="wk-bk" data-action="openBook" data-id="${esc(w.bookId)}">${coverHTML(S.docs[w.bookId], 'sm')}<span><b>${esc(splitTitle(S.docs[w.bookId].title).main)}</b><small>${esc(stDoneSub(S.docs[w.bookId], rvQuotes(w.bookId).length))}</small></span>${SP_CHEV}</button>` : ''}
     <div class="sx-h wk-h"><b>이 글의 재료</b><span>${spec.sources.length}개</span></div><div class="wk-srcs">${spec.sources.map(srcRow).join('')}</div>
     <button class="wk-del" data-action="wDel">이 원고 지우기</button></div>`;
 }
@@ -7173,11 +7210,12 @@ function writerHome(){
     </header>
     ${can ? `<div class="wh2-go">
       <button data-action="wDiary"><span class="wh2-gk">일기</span><b>하루를 일기로</b><small>그날의 밑줄과 사유로<br>한 편의 일기를</small>${chev}</button>
-      <button data-action="wEssay"><span class="wh2-gk">수필</span><b>한 주제를 수필로</b><small>같은 마음에 머문 사유를<br>엮어 한 편의 수필을</small>${chev}</button></div>`
+      <button data-action="wEssay"><span class="wh2-gk">수필</span><b>한 주제를 수필로</b><small>같은 마음에 머문 사유를<br>엮어 한 편의 수필을</small>${chev}</button>
+      <button class="wh2-rv" data-action="wReview"><span class="wh2-gk">독후감</span><b>다 읽은 책을 독후감으로</b><small>${rvBooks().length ? `완독한 책 ${rvBooks().length}권 · 그 책의 밑줄과 사유로 소감·감정·깨우침을` : '책을 다 읽으면, 그 책의 밑줄과 사유로 소감·감정·깨우침을'}</small>${chev}</button></div>`
       : `<div class="wh2-empty">아직 글감이 없어요.<br>밑줄을 긋고 선명이와 사유를 나누면 여백이가 그 이야기로 글을 써 드려요.</div>`}
     ${can || ws.length ? `<div class="sx-h wh2-h"><b>나의 원고</b><span>${ws.length ? `${ws.length}편` : ''}</span></div>
-      ${ws.length ? `<div class="wh2-list">${ws.map(w => `<button class="wh2-w" data-action="wOpen" data-id="${esc(w.id)}"><span class="wh2-wk">${WK_TYPE[w.type] || '글'}<i></i>${when(w)}</span><b>${esc(w.title)}</b><small>${ex(w)}…</small><em>${[w.type === 'essay' && w.theme ? `주제 · ${esc(w.theme)}` : '', `재료 ${(w.sources || []).length}개`].filter(Boolean).join(' · ')}</em></button>`).join('')}</div>`
-        : '<div class="wh2-none">아직 쓴 원고가 없어요. 위에서 일기나 수필을 여백이에게 맡겨 보세요.</div>'}` : ''}
+      ${ws.length ? `<div class="wh2-list">${ws.map(w => `<button class="wh2-w" data-action="wOpen" data-id="${esc(w.id)}"><span class="wh2-wk">${WK_TYPE[w.type] || '글'}<i></i>${when(w)}</span><b>${esc(w.title)}</b><small>${ex(w)}…</small><em>${[w.type === 'essay' && w.theme ? `주제 · ${esc(w.theme)}` : '', w.type === 'review' ? esc(wkSub(w)) : '', `재료 ${(w.sources || []).length}개`].filter(Boolean).join(' · ')}</em></button>`).join('')}</div>`
+        : '<div class="wh2-none">아직 쓴 원고가 없어요. 위에서 일기·수필·독후감을 여백이에게 맡겨 보세요.</div>'}` : ''}
     <p class="wh2-tip">여백이는 당신이 고른 사유만 읽어요. 글은 내 기록에만 저장되고, 쓸 때마다 Claude 사용량을 조금 써요.</p>
   </div>`;
 }
@@ -7207,6 +7245,32 @@ function diarySheet(pre){
       writeWork({ type: 'diary', date: st.day, tone: st.tone, sources }); };
   };
   paint();
+}
+/* 다 읽은 책 고르기 → 독후감 */
+function reviewSheet(pre){
+  const books = rvBooks();
+  if (!books.length) { const b = S.docs[pre]; toast(b && b.status !== 'done' ? '책을 다 읽으면 독후감을 쓸 수 있어요' : b ? '이 책에 그은 밑줄이 아직 없어요' : '다 읽은 책 중 밑줄을 그은 책이 아직 없어요'); return; }
+  if (pre && !books.some(b => b.id === pre)) { toast(S.docs[pre] && S.docs[pre].status !== 'done' ? '책을 다 읽으면 독후감을 쓸 수 있어요' : '이 책에 그은 밑줄이 아직 없어요'); return; }
+  const st = { book: pre || books[0].id, tone: 'calm', len: 'm' };
+  const paint = keepY => {
+    const y = keepY && sheet.querySelector('.panel') ? sheet.querySelector('.panel').scrollTop : 0, old = rvOf(st.book);
+    openSheet(`${sheetHead('다 읽은 책을 독후감으로', '그 책에 그은 밑줄과 나눈 사유로 소감·감정·깨우침을 써요')}
+      <div class="sp-lb">어느 책의 독후감인가요</div>
+      <div class="wd-days">${books.map(b => { const nq = rvQuotes(b.id).length, nt = rvTalks(b.id).length;
+        return `<button class="wd-d${st.book === b.id ? ' on' : ''}" data-b="${esc(b.id)}"><span class="wd-cv">${coverHTML(b, 'sm')}</span><span class="wd-t"><b>${esc(splitTitle(b.title).main)}</b><small>${[b.finishedAt ? `${fmtDate(b.finishedAt)} 완독` : '다 읽음', nq ? `밑줄 ${nq}` : '', nt ? `사유 ${nt}` : ''].filter(Boolean).join(' · ')}${rvOf(b.id) ? ' · <em>독후감 있음</em>' : ''}</small></span><i class="wd-r"></i></button>`; }).join('')}</div>
+      <div class="sp-lb">말투</div><div class="sp-seg">${Object.entries(WK_TONE).map(([k, v]) => `<button data-tone="${k}" class="${st.tone === k ? 'on' : ''}">${v[0]}</button>`).join('')}</div>
+      <div class="sp-lb">분량</div><div class="sp-seg">${Object.entries(WK_LEN).map(([k, v]) => `<button data-len="${k}" class="${st.len === k ? 'on' : ''}">${v[0]}</button>`).join('')}</div>
+      <p class="we-note">${old ? '이미 쓴 독후감이 있어요. 맡기면 새 독후감이 한 편 더 생겨요.' : `밑줄 ${rvSources(st.book).filter(s => s.k === 'q').length}개 · 사유 ${rvSources(st.book).filter(s => s.k === 't').length}개를 여백이에게 보내요.`}</p>
+      <div class="gs3-bar">${old ? `<button class="btn ghost" id="rvOld">지난 독후감 보기</button>` : ''}<button class="btn accent wide" id="rvGo">${WK_IC.feather}여백이에게 맡기기</button></div>`);
+    if (keepY) sheet.querySelector('.panel').scrollTop = y;
+    else { const on = sheet.querySelector('.wd-d.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
+    sheet.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { st.book = b.dataset.b; paint(true); });
+    sheet.querySelectorAll('[data-tone]').forEach(b => b.onclick = () => { st.tone = b.dataset.tone; paint(true); });
+    sheet.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { st.len = b.dataset.len; paint(true); });
+    if ($('#rvOld')) $('#rvOld').onclick = () => { closeSheet(); go('work', { workId: old.id }); };
+    $('#rvGo').onclick = () => writeWork({ type: 'review', bookId: st.book, tone: st.tone, len: st.len, sources: rvSources(st.book) });
+  };
+  paint(false);
 }
 /* 주제 고르기 → 재료 고르기 → 수필 */
 function wkThemes(){
@@ -7289,7 +7353,7 @@ ${(w.sources || []).map((s, j) => wkSrcText(s, j + 1)).filter(Boolean).join('\n\
     } catch (e) { delete sheet.dataset.lock; closeSheet(); toast(e && e.code === 'rate_limited' ? '요청이 많아요. 잠시 후 다시 시도해 주세요.' : '고쳐 쓰지 못했어요. 다시 시도해 주세요.'); }
   });
 }
-const wkPlain = w => `${w.title}\n${WK_TYPE[w.type]}${w.type === 'diary' && w.date ? ` · ${dayLabel(w.date)}` : w.theme ? ` · ${w.theme}` : ''}\n\n${w.body}\n\n— 밑줄 · 여백이와 함께 씀 (${fmtDate(w.updatedAt)})`;
+const wkPlain = w => `${w.title}\n${WK_TYPE[w.type]}${wkSub(w) ? ` · ${wkSub(w)}` : ''}\n\n${w.body}\n\n— 밑줄 · 여백이와 함께 씀 (${fmtDate(w.updatedAt)})`;
 const wkFileName = (w, ext) => `${String(w.title || '').replace(/[\\/:*?"<>|]/g, '').slice(0, 30).trim() || '원고'}.${ext}`;
 const wkSaveErr = e => !(e && /cancel|declin|dismiss/i.test(e.code || e.message || ''));
 async function wkSaveText(w){
@@ -7320,7 +7384,7 @@ async function drawWorkImage(w){
   const W = 1080, P = 110, FW = W - P * 2;
   const SERIF = '"Gowun Batang", "Hahmlet", serif', SANS = '"IBM Plex Sans KR", sans-serif';
   const title = String(w.title || '').trim() || '원고';
-  const sub = `${WK_TYPE[w.type] || '원고'}${w.type === 'diary' && w.date ? ` · ${dayLabel(w.date)}` : w.theme ? ` · ${w.theme}` : ''}`;
+  const sub = `${WK_TYPE[w.type] || '원고'}${wkSub(w) ? ` · ${wkSub(w)}` : ''}`;
   const paras = String(w.body || '').replace(/\r/g, '').split(/\n\s*\n/).map(t => t.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   const sign = `${fmtDate(w.updatedAt)} · 여백이와 함께 씀`;
   const all = [title, sub, paras.join(' '), sign, '밑줄 0123456789'].join(' ');
@@ -7352,6 +7416,7 @@ async function drawWorkImage(w){
 const WRITER_ACTIONS = {
   wDiary: el => diarySheet(el.dataset.k),
   wEssay: () => essaySheet(),
+  wReview: el => reviewSheet(el.dataset.id),
   wOpen: el => go('work', { workId: el.dataset.id }),
   wPara: el => paraSheet(+el.dataset.i),
   wStop: () => { if (WR.abort) WR.abort.abort(); },
@@ -7448,7 +7513,7 @@ function guideSheet(){
   const steps = [
     ['긋기', '첫 화면 아래 「밑줄 긋기」', '책 페이지를 찍고 마음에 닿은 문장 위를 그어요. 전자책은 스크린샷이나 직접 입력으로 남겨요.'],
     ['되묻기', `${AI_NAME}이와 이야기하기`, `${AI_NAME}이가 왜 그 문장에서 멈췄는지 물어요. 답하다 보면 한 편의 사유로 남고, 언제든 이어서 이야기할 수 있어요.`],
-    ['쓰기', '위쪽 깃펜 · 여백의 글방', '여백이가 남긴 사유를 모아 하루는 일기로, 한 주제는 수필로 엮어요. 밑줄을 많이 그은 작가의 결을 닮게.'],
+    ['쓰기', '위쪽 깃펜 · 여백의 글방', '여백이가 남긴 사유를 모아 하루는 일기로, 한 주제는 수필로, 다 읽은 책 한 권은 독후감으로 엮어요. 밑줄을 많이 그은 작가의 결을 닮게.'],
     ['각인', '밑줄 화면 아래 「각인」', '오래 간직하고 싶은 밑줄에 각인 도장을 찍어 둬요.'],
     ['선물하기', '밑줄 화면 아래 「선물」', `아끼는 한 줄을 카드에 담고, ${AI_NAME}이와 함께 쓴 편지를 붙여 보내요.`],
     ['돌아보기', '위쪽 막대 · 밑줄 현황', '한 달의 숫자와 독서 캘린더, 지금까지 다 읽은 책을 돌아봐요.']];
@@ -8076,7 +8141,7 @@ init();
 /* ===== 업데이트: 복제본도 원본의 새 판을 받아 자기 자신을 다시 올림 (기록은 저장소에 그대로) =====
    새 판은 GitHub Actions가 npm 패키지 mitjul@<판>.0.0 의 app.js 로 올려요.
    아티팩트는 npm CDN 스크립트만 불러올 수 있어서, 판 번호를 하나씩 올려 가며 불러 봐요. */
-const MJ_BUILD = 182;
+const MJ_BUILD = 183;
 const UPD = { art: null, found: null, busy: false };
 const UPD_SKEL = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
 function updLoad(build){
