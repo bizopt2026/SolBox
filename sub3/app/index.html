@@ -4,12 +4,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
 <style>
-/* Layout: one-column phone app, sticky header + fixed bottom tab bar; navy track + race-orange from the plan sheets */
+/* Layout: one-column phone app, sticky header + fixed bottom tab bar; navy track + deep-teal accent */
 :root{--fs-xl:28px;--fs-l:19px;--fs-m:15px;--fs-s:13px;--fs-xs:12px;
   --bg:#f3f5f9; --card:#ffffff; --ink:#111a2e; --muted:#4f5a70;--on-accent:#fff; --line:#dde3ee;
   --navy:#111a2e; --navy-fg:#ffffff;
-  --accent:#c2410c; --accent-soft:#fdf0e7;
-  --base:#7fb6f2; --build:#3b82f6; --spec:#1e3a8a; --rec:#c3cbd9; --taper:#0e9384;
+  --accent:#0f766e; --accent-soft:#e3f4f1;
+  --base:#7fb6f2; --build:#3b82f6; --spec:#1e3a8a; --rec:#c3cbd9; --taper:#7c6fd6;
   --ok:#2f8f5b; --ok-soft:#e8f5ed; --bad:#d14f4f; --bad-soft:#fbeaea;
   --s5:#6b9ee8;--p5:#8fb8f2;--p4:#93d3a9;--p3:#f3d37c;--p2:#f4b182;--p1:#ef9a9a; --s4:#5cb882; --s3:#d9aa36; --s2:#e88f55; --s1:#e07272;
   --q:#2563eb; --q-soft:#e8f0fe;
@@ -19,16 +19,16 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0b1020; --card:#151c2f; --ink:#e8ecf5; --muted:#aab3c7;--on-accent:#151c2f; --line:#263049;
   --navy:#060a16; --navy-fg:#e8ecf5;
-  --accent:#ff8a4c; --accent-soft:#33221a;
-  --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#3cc7b4;
+  --accent:#2dd4bf; --accent-soft:#12302d;
+  --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#a59cf0;
   --ok:#93d3a9; --ok-soft:#1d3327; --bad:#ef9a9a; --bad-soft:#3a2222;
   --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
   --q:#7aa7ff; --q-soft:#18264a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0b1020; --card:#151c2f; --ink:#e8ecf5; --muted:#aab3c7;--on-accent:#151c2f; --line:#263049;
   --navy:#060a16; --navy-fg:#e8ecf5;
-  --accent:#ff8a4c; --accent-soft:#33221a;
-  --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#3cc7b4;
+  --accent:#2dd4bf; --accent-soft:#12302d;
+  --base:#5d9be0; --build:#4f8ff7; --spec:#6f8fe8; --rec:#56627c; --taper:#a59cf0;
   --ok:#93d3a9; --ok-soft:#1d3327; --bad:#ef9a9a; --bad-soft:#3a2222;
   --s5:#8fb8f2; --s4:#93d3a9; --s3:#f3d37c; --s2:#f4b182; --s1:#ef9a9a;
   --q:#7aa7ff; --q-soft:#18264a; color-scheme:dark}
@@ -981,7 +981,7 @@ body.coach .cbar .chips.cochips{scrollbar-width:none!important;-ms-overflow-styl
 .rwgo:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .vhero{margin-top:12px;padding:14px 16px 16px;border-radius:18px;background:var(--navy);color:#fff;box-shadow:none}
 .vtop{display:flex;align-items:center;justify-content:space-between;gap:8px}.vtop small{font-size:12px;opacity:.7}
-.vbadge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff}.vbadge.copy{background:#ffb37a;color:#2a1606}.vbadge.orig{background:#b8f0cd;color:#0f3a22}
+.vbadge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff}.vbadge.copy{background:#7fe0d2;color:#04201c}.vbadge.orig{background:#b8f0cd;color:#0f3a22}
 .vnum{display:flex;align-items:flex-start;justify-content:center;gap:2px;margin:14px 0 6px}
 .vv{font-size:26px;font-weight:700;opacity:.55;margin:6px 4px 0 0}
 .vd{display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 6px 5px;border-radius:14px;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
@@ -1511,8 +1511,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(업데이트 확인으로 원본 버전을 받으면 함께 바뀌어요) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.8.2",APP_RELEASED="2026-11-25";
+var APP_VERSION="1.8.3",APP_RELEASED="2026-11-25";
 var VLOG=[
+ ["1.8.3","2026-11-25","메인 색을 딥 틸로","버튼·강조에 쓰던 붉은 계열(레이스 오렌지)을 차분한 딥 틸(청록)로 바꿨어요. 어두운 화면에서는 밝은 청록으로 보여요. 인스타 스토리·레이스 인포그래픽 이미지의 강조색도 같이 바꿨고, 겹치지 않게 훈련표 테이퍼 주간 색은 연보라로 바꿨어요. 점수 색(파랑·초록·노랑·주황·빨강)은 그대로예요."],
  ["1.8.2","2026-11-25","업데이트 버튼을 위로","새 버전이 있으면 상단 머리글에 'v버전 업데이트' 버튼이 보이고, 누르면 버전 관리 카드가 펼쳐져요. 버전 관리 카드에서는 업데이트 칸을 맨 위로 올리고, '새 버전이 있어요' 바로 옆에 업데이트 버튼을 두었어요."],
  ["1.8.1","2026-11-25","업데이트 확인 배포 주소 바꾸기","업데이트 확인이 새 버전을 불러오는 npm 배포 이름을 @gulex3/sub3로 바꿨어요(npm에서 sub3 이름을 쓸 수 없어서). 업데이트가 제대로 되려면 이 버전이 필요해요."],
  ["1.8.0","2026-11-25","복제한 앱도 업데이트 확인으로 새 버전 받기","가이드 → 기타 → 버전 관리에 '업데이트 확인'이 생겼어요. 원본이 새 버전으로 바뀌면 복제한 앱의 주인이 버튼 한 번으로 같은 버전으로 바꿀 수 있고, 훈련·체중·식단 기록은 그대로 남아요. 하루 한 번 앱을 열 때 조용히 확인해서 새 버전이 있으면 알려 줘요. 이 버전부터 복제한 앱에서 쓸 수 있어요(아티팩트 자기 게시 기능 허용)."],
@@ -2807,8 +2808,8 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   var cumG={},segs=lapsA.map(function(l){var g=l.seg||0,sp=SP&&SP[g],st=sp?sp[0]:0,span=sp?sp[1]-sp[0]:dmax,f=sp&&tot[g]?span/tot[g]:1,a=st+(cumG[g]||0)*f;cumG[g]=(cumG[g]||0)+l.d*1000;return{l:l,a:a,b:st+cumG[g]*f}}).filter(function(q){return !SP||SP[q.l.seg||0]});
   segs.forEach(function(q,k){if(k){ctx.strokeStyle="rgba(255,255,255,.10)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(q.a),top);ctx.lineTo(X(q.a),bot);ctx.stroke()}});
   // run boundaries when the watch was stopped and restarted
-  (Sr.cuts||[]).forEach(function(cd,k){var bx=X(cd);ctx.strokeStyle="rgba(255,154,92,.85)";ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(bx,top-6);ctx.lineTo(bx,bot);ctx.stroke();ctx.setLineDash([]);
-    ctx.font="700 22px "+FB;var lb=(k+2)+"회차",tw=ctx.measureText(lb).width+16;ctx.fillStyle="rgba(255,154,92,.9)";rrect(ctx,Math.min(bx-tw/2,cx+cw-tw),top-40,tw,30,8);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb,Math.min(bx,cx+cw-tw/2),top-18);ctx.textAlign="left"});
+  (Sr.cuts||[]).forEach(function(cd,k){var bx=X(cd);ctx.strokeStyle="rgba(45,212,191,.85)";ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(bx,top-6);ctx.lineTo(bx,bot);ctx.stroke();ctx.setLineDash([]);
+    ctx.font="700 22px "+FB;var lb=(k+2)+"회차",tw=ctx.measureText(lb).width+16;ctx.fillStyle="rgba(45,212,191,.9)";rrect(ctx,Math.min(bx-tw/2,cx+cw-tw),top-40,tw,30,8);ctx.fill();ctx.fillStyle="#04201c";ctx.textAlign="center";ctx.fillText(lb,Math.min(bx,cx+cw-tw/2),top-18);ctx.textAlign="left"});
   // per-second pace line
   ctx.strokeStyle="rgba(255,255,255,.92)";ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.beginPath();var pen=false;
   Sr.p.forEach(function(v,i){if(!v){pen=false;return}var px=X(Sr.d[i]),py=Y(v);if(pen)ctx.lineTo(px,py);else{ctx.moveTo(px,py);pen=true}});ctx.stroke();
@@ -2822,7 +2823,7 @@ function drawSeriesChart(ctx,D,L,x,y,w,h,FD,FB){
   // axes + legend
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(dmax/100)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
   ctx.fillStyle="rgba(255,255,255,.9)";ctx.fillRect(cx,y+h-30,30,5);ctx.fillText("페이스(초 단위)",cx+40,y+h-20);
-  ctx.fillStyle="#ff9a5c";var lx=cx+40+ctx.measureText("페이스(초 단위)").width+28;ctx.fillRect(lx,y+h-30,30,5);ctx.fillText("랩 평균",lx+40,y+h-20);
+  ctx.fillStyle="#2dd4bf";var lx=cx+40+ctx.measureText("페이스(초 단위)").width+28;ctx.fillRect(lx,y+h-30,30,5);ctx.fillText("랩 평균",lx+40,y+h-20);
   if(hs.length>5){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);var tw2=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillStyle="rgba(122,167,255,.45)";ctx.fillRect(cx+cw-tw2-44,y+h-36,32,18);ctx.textAlign="left"}
 }
 function lapRows(L,n){var cn={},a=L.laps.map(function(x,i){x.i=i+1;var g=x.seg||0;cn[g]=(cn[g]||0)+(x.whole?0:1);x.n=cn[g];return x});if(a.length<=n)return a;
@@ -2837,9 +2838,9 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   if(STORY.view==="table"){
     var rows=lapRows(L,Math.max(2,Math.floor((h-150)/52))),cols=[["#",x+36,"left"],["거리",x+150,"left"],["시간",x+w*0.42,"left"],["페이스",x+w*0.64,"left"],["심박",x+w-36,"right"]],ty=y+108;
     ctx.font="500 26px "+FB;ctx.fillStyle="rgba(255,255,255,.55)";cols.forEach(function(c){ctx.textAlign=c[2];ctx.fillText(c[0],c[1],ty)});
-    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=!r.whole&&r.d>=0.4&&r.p<330*K;var newSeg=r.seg!=null&&(L.parts>1||L.only)&&(k===0||rows[k-1].seg!==r.seg);if(newSeg){if(k){ctx.strokeStyle="rgba(255,154,92,.8)";ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(x+16,yy-40);ctx.lineTo(x+w-16,yy-40);ctx.stroke();ctx.setLineDash([])}ctx.font="700 18px "+FB;var lb2=(r.seg+1)+"회차",tw3=ctx.measureText(lb2).width+16,pcx=x+w*0.31;ctx.fillStyle="rgba(255,154,92,.95)";rrect(ctx,pcx-tw3/2,yy-51,tw3,22,7);ctx.fill();ctx.fillStyle="#1a1206";ctx.textAlign="center";ctx.fillText(lb2,pcx,yy-34);ctx.textAlign="left"}if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
+    rows.forEach(function(r,k){var yy=ty+52*(k+1),hard=!r.whole&&r.d>=0.4&&r.p<330*K;var newSeg=r.seg!=null&&(L.parts>1||L.only)&&(k===0||rows[k-1].seg!==r.seg);if(newSeg){if(k){ctx.strokeStyle="rgba(45,212,191,.8)";ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(x+16,yy-40);ctx.lineTo(x+w-16,yy-40);ctx.stroke();ctx.setLineDash([])}ctx.font="700 18px "+FB;var lb2=(r.seg+1)+"회차",tw3=ctx.measureText(lb2).width+16,pcx=x+w*0.31;ctx.fillStyle="rgba(45,212,191,.95)";rrect(ctx,pcx-tw3/2,yy-51,tw3,22,7);ctx.fill();ctx.fillStyle="#04201c";ctx.textAlign="center";ctx.fillText(lb2,pcx,yy-34);ctx.textAlign="left"}if(hard){ctx.fillStyle="rgba(157,148,255,.18)";ctx.fillRect(x+16,yy-36,w-32,48)}
       ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.font=(hard?"800 ":"600 ")+"34px "+FD;
-      [[r.whole?"전체":String(L.parts>1||L.only?r.n:r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#ff9a5c":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
+      [[r.whole?"전체":String(L.parts>1||L.only?r.n:r.i),0],[r.d.toFixed(2),1],[fmtT(r.t),2],[fmtMS(r.p),3],[r.hr?String(r.hr):"-",4]].forEach(function(v){var c=cols[v[1]];ctx.textAlign=c[2];if(v[1]===3)ctx.fillStyle=hard?"#2dd4bf":"rgba(255,255,255,.75)";else ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.75)";ctx.fillText(v[0],c[1],yy)})});
     ctx.textAlign="left";if(rows.length<L.laps.length){ctx.fillStyle="rgba(255,255,255,.5)";ctx.font="500 24px "+FB;ctx.textAlign="right";ctx.font="500 22px "+FB;ctx.fillText("전체 "+L.laps.length+"개 중 "+rows.length+"개",x+w-36,y+h-12);ctx.textAlign="left"}
     return;
   }
@@ -2860,7 +2861,7 @@ function drawLapPanel(ctx,D,x,y,w,yb,FD,FB){
   var lastX=-999;seg.forEach(function(q){var hard=!q.l.whole&&q.l.d>=0.4&&q.l.p<330*K,mid=(q.x0+q.x1)/2,yy=Y(q.l.p),wd=q.x1-q.x0;if(!hard&&wd<64)return;if(mid-lastX<78)return;
     ctx.textAlign="center";ctx.font=(hard?"800 32px ":"600 24px ")+FD;ctx.fillStyle=hard?"#fff":"rgba(255,255,255,.7)";var ly=yy-18<top-6?yy+40:yy-18;ctx.fillText(fmtMS(q.l.p),Math.min(Math.max(mid,cx+40),cx+cw-40),ly);ctx.textAlign="left";lastX=mid});
   ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="500 24px "+FB;ctx.fillText("0km",cx,bot+32);ctx.textAlign="right";ctx.fillText((Math.round(tot*10)/10)+"km",cx+cw,bot+32);ctx.textAlign="left";
-  ctx.font="500 24px "+FB;ctx.fillStyle="#ff9a5c";ctx.fillRect(cx,y+h-30,34,6);ctx.fillText("랩 평균 페이스",cx+44,y+h-20);if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);ctx.fillStyle="rgba(122,167,255,.45)";var tw=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillRect(cx+cw-tw-44,y+h-36,32,18);ctx.textAlign="left"}
+  ctx.font="500 24px "+FB;ctx.fillStyle="#2dd4bf";ctx.fillRect(cx,y+h-30,34,6);ctx.fillText("랩 평균 페이스",cx+44,y+h-20);if(hrs.length>1){ctx.textAlign="right";ctx.fillStyle="#9cc0ff";ctx.fillText("심박 "+hmin+"~"+hmax,cx+cw,y+h-20);ctx.fillStyle="rgba(122,167,255,.45)";var tw=ctx.measureText("심박 "+hmin+"~"+hmax).width;ctx.fillRect(cx+cw-tw-44,y+h-36,32,18);ctx.textAlign="left"}
 }
 var BACK=null,TABN={today:"오늘",plan:"훈련표",pace:"페이스",crew:"크루",log:"바디",guide:"가이드",coach:"AI 코치",story:"인스타 스토리",admin:"관리자"};
 function enterSub(t){if(tab!=="coach"&&tab!=="story"&&tab!=="admin"){BACK={tab:tab,sel:sel,y:window.scrollY,pushed:false}}if(BACK&&!BACK.pushed){try{history.pushState({sub:1},"");BACK.pushed=true}catch(e){}}tab=t}
