@@ -1,0 +1,42 @@
+# 솔박스(solbox/) 테스트. solbox/ 나 이 파일이 바뀐 push·PR 에서만 돈다 (sub3·ohdap·mitjul 같은 개인 앱만 바뀌면 돌지 않는다).
+name: solbox tests
+
+on:
+  push:
+    paths:
+      - "solbox/**"
+      - ".github/workflows/solbox-tests.yml"
+  pull_request:
+    paths:
+      - "solbox/**"
+      - ".github/workflows/solbox-tests.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: solbox-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: solbox
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            solbox
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"  # 회사 PC 최소 버전 (운영가이드: Python 3.11 이상)
+          cache: pip
+          cache-dependency-path: solbox/pyproject.toml
+      - name: 설치
+        run: python -m pip install -e ".[dev]"
+      - name: 테스트 (경고도 오류)
+        run: python -m pytest -q -W error
