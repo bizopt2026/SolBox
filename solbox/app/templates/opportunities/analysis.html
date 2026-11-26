@@ -69,10 +69,11 @@
 <section class="card insight-card" id="pipeline-ai" aria-labelledby="h-pai">
   <header class="card-head"><h2 id="h-pai">AI 해석 <span class="ai-tag">AI 초안</span></h2>
     <form method="post" action="/opportunities/analysis/ai" class="inline"><input type="hidden" name="period" value="{{ s.period }}"><input type="hidden" name="team" value="{{ team_raw }}">
-      <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-pai") }}{% if ai_job %} disabled{% endif %}>{{ "다시 받기" if ai_done else "AI 해석 받기" }}</button></form></header>
+      <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-pai") }}{% if ai_job %} disabled{% endif %}>{{ "다시 받기" if ai_done and not ai_done.failed_only else "AI 해석 받기" }}</button></form></header>
   {{ ai_note(aig, id="ai-note-pai") }}
   {% if ai_job %}{% with job = ai_job, period = s.period %}{% include "opportunities/_insight_job.html" %}{% endwith %}{% endif %}
-  {% if ai_done %}
+  {% if ai_done and (ai_done.failed_only or ai_done.failed_after) and not ai_job %}<p class="error">지난 AI 해석이 실패했어요. 다시 받기를 눌러 주세요 (계속 실패하면 관리 › AI 작업에서 까닭을 볼 수 있어요).</p>{% endif %}
+  {% if ai_done and not ai_done.failed_only %}
   <p class="muted small">{% if ai_done.finished_at %}{{ kdate(ai_done.finished_at.date()) }} {{ ai_done.finished_at.strftime("%H:%M") }} · {% endif %}{{ ai_done.start }} ~ {{ ai_done.end }} 숫자 기준{% if ai_done.numbers_hash != s.numbers_hash %} · <b class="warn-text">그 뒤 숫자가 바뀌었어요. 다시 받기를 눌러 새로 받으세요.</b>{% endif %}</p>
   {% if ai_done.summary %}<p>{{ ai_done.summary }}</p>{% endif %}
   {% for key, title in (("highlights", "주목할 점"), ("causes", "원인 추정"), ("actions", "권하는 행동")) %}{% if ai_done[key] %}<h3>{{ title }}</h3><ul>{% for x in ai_done[key] %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endfor %}

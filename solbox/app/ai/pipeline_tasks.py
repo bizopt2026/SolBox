@@ -33,6 +33,9 @@ def team_key(raw: str):
 def _numbers(stats: dict) -> str:
     keep = {k: stats[k] for k in ("tiles", "stages", "months", "reasons", "teams", "excluded")}
     keep["stages"] = [{k: v for k, v in r.items() if k != "name"} | {"stage": r["name"]} for r in keep["stages"]]
+    from app import ontology
+
+    keep["teams"] = [{**t, "dwell": {ontology.OPPORTUNITY_STAGES.get(k, k): v for k, v in (t.get("dwell") or {}).items()}} for t in keep["teams"]]
     return json.dumps(keep, ensure_ascii=False, default=str)
 
 
@@ -64,25 +67,28 @@ def _insight(db: Session, job_input: dict, runner: ClaudeRunner, settings: Setti
 
 
 def find_jobs(db: Session, period: str, team_raw: str) -> tuple:
-    """(진행 중 작업, 마지막으로 끝난 해석 결과 dict) — 같은 기간 코드·팀만. 최근 작업 100개 안에서 찾는다."""
+    """(진행 중 작업, 마지막으로 끝난 해석 결과 dict) — 같은 기간 코드·팀만. 최근 작업 100개 안에서 찾는다.
+    끝난 해석의 dict 에는 그보다 새 작업이 실패했는지(`failed_after`)를 단다. 끝난 해석이 없고 가장 새 작업이 실패했으면 {"failed_only": True}."""
     from sqlalchemy import select
 
     from app.models import AIJob
 
-    running, done = None, None
+    running, done, failed_newest = None, None, None
     for job in db.scalars(select(AIJob).where(AIJob.kind == JOB_KIND).order_by(AIJob.id.desc()).limit(100)):
         inp = job.input or {}
         if inp.get("period") != period or str(inp.get("team") or "") != team_raw:
             continue
-        if job.status in ("pending", "running") and running is None:
-            running = job
+        if job.status in ("pending", "running"):
+            running = running or job
+        elif job.status == "failed" and done is None and failed_newest is None:
+            failed_newest = job
         elif job.status == "done" and done is None and job.result:
             try:
-                done = {**json.loads(job.result), "finished_at": job.finished_at}
+                done = {**json.loads(job.result), "finished_at": job.finished_at, "failed_after": failed_newest is not None}
             except ValueError:
                 continue
-        if done is not None and (running is not None or job.status == "done"):
-            break
+    if done is None and failed_newest is not None:
+        done = {"failed_only": True}
     return running, done
 
 

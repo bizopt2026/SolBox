@@ -161,7 +161,7 @@ def list_opportunities(
         return render(request, "opportunities/board.html", pg=pg, q=q.strip(), flt=flt, type_tabs=type_tabs, type_now=type_now,
                       who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
                       stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n,
-                      columns=opps.board_columns(board_rows, now), closed=opps.recent_closes(board_rows, now),
+                      columns=opps.board_columns(board_rows, now), closed=opps.recent_closes(board_rows, now, db),
                       hold_n=sum(1 for o in board_rows if o.stage == "hold"), **common)
     return render(request, "opportunities/list.html", **common, pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),

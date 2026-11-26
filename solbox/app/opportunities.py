@@ -544,7 +544,7 @@ def open_by_customer(db: Session, customer_ids: Iterable[int]) -> dict[int, tupl
 
 # ---- 영업 C 단계: 보드 ----
 
-BOARD_QS_KEYS = ("who", "stale", "ai", "q", "business_type")  # 보드로 돌아갈 때 지키는 걸러 보기 (그 밖의 값은 버린다)
+BOARD_QS_KEYS = ("who", "stale", "ai", "q", "business_type", "customer_id", "bm_id")  # 보드로 돌아갈 때 지키는 걸러 보기 (그 밖의 값은 버린다)
 BOARD_RECENT_DAYS = 30
 
 
@@ -572,16 +572,26 @@ def board_columns(rows, today) -> list[dict]:
     return cols
 
 
-def recent_closes(rows, today) -> list[dict]:
-    """최근 30일에 수주·실패로 닫힌 건 (지금도 닫혀 있는 것, 닫은 때 최신순): {opp, stage, at, reason}."""
+def recent_closes(rows, today, db: Session | None = None) -> list[dict]:
+    """최근 30일(오늘 포함)에 수주·실패로 닫힌 건 (지금도 닫혀 있는 것, 닫은 때 최신순): {opp, stage, at, reason}.
+    `db` 가 있으면 닫힌 건의 단계 이력을 한 번에 읽는다 (질의 수가 건수와 무관)."""
     from datetime import datetime, timedelta
 
-    since = datetime.combine(today - timedelta(days=BOARD_RECENT_DAYS), datetime.min.time())
+    from app.models import OpportunityStageChange
+
+    since = datetime.combine(today - timedelta(days=BOARD_RECENT_DAYS - 1), datetime.min.time())
+    closed = [o for o in rows if o.stage in ontology.OPPORTUNITY_CLOSED_STAGES]
+    if db is not None and closed:
+        by_opp: dict[int, list] = {}
+        for ch in db.scalars(select(OpportunityStageChange).where(
+                OpportunityStageChange.opportunity_id.in_([o.id for o in closed]), OpportunityStageChange.changed_at >= since)):
+            by_opp.setdefault(ch.opportunity_id, []).append(ch)
+        changes_of = lambda o: by_opp.get(o.id, [])  # noqa: E731
+    else:
+        changes_of = lambda o: o.stage_changes  # noqa: E731
     out = []
-    for o in rows:
-        if o.stage not in ontology.OPPORTUNITY_CLOSED_STAGES:
-            continue
-        last = max((c for c in o.stage_changes if c.to_stage == o.stage), key=lambda c: (c.changed_at, c.id), default=None)
+    for o in closed:
+        last = max((c for c in changes_of(o) if c.to_stage == o.stage), key=lambda c: (c.changed_at, c.id), default=None)
         if last is not None and last.changed_at >= since:
             out.append({"opp": o, "stage": o.stage, "at": last.changed_at, "reason": ontology.close_reasons(o.stage).get(o.close_reason, "")})
     return sorted(out, key=lambda r: r["at"], reverse=True)

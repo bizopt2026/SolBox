@@ -229,9 +229,11 @@ def compute(db: Session, period: str, team, today: date) -> dict:
                               "stale": sum(1 for o in opened if opps_lib.stale_reasons(o, today, touches.get(o.id)))})
     result = {"period": period, "period_label": PERIODS[period], "range": (start, end), "tiles": _tiles(cl), "stages": stages,
               "excluded": excluded, "months": months, "reasons": reasons, "teams": team_rows}
-    result["numbers_hash"] = hashlib.sha256(json.dumps(
-        {k: result[k] for k in ("tiles", "stages", "excluded", "months", "reasons", "teams")}, default=str, ensure_ascii=False, sort_keys=True,
-    ).encode("utf-8")).hexdigest()[:16]
+    # 해석에 쓴 숫자와 지금 숫자가 다른지 볼 해시: 날이 지나기만 해도 바뀌는 값(지금 머무는 건의 경과일, 멈춘 건 수)은 넣지 않는다
+    steady = {"tiles": result["tiles"], "excluded": excluded, "months": months, "reasons": reasons,
+              "stages": [{k: v for k, v in r.items() if k != "current_avg"} for r in stages],
+              "teams": [{k: v for k, v in r.items() if k != "stale"} for r in team_rows]}
+    result["numbers_hash"] = hashlib.sha256(json.dumps(steady, default=str, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()[:16]
     return result
 
 
