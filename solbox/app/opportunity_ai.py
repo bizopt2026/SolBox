@@ -277,3 +277,66 @@ def save_insight(db: Session, opp: Opportunity, job_id, briefing: dict, suggesti
         db.delete(ins)
     db.flush()
     return new
+
+
+# ---- 제안 반영·무시 ----
+
+def _changed_since(opp: Opportunity, sug: dict, basis: dict) -> bool:
+    """제안한 칸이 분석 뒤 바뀌었는가 (그 칸만 본다)."""
+    if sug["kind"] == "stage":
+        return basis.get("stage") not in (None, opp.stage)
+    field = sug.get("field")
+    if field == "amount":
+        return "amount" in basis and basis["amount"] != opp.amount
+    if field in ("expected_close", "next_step"):
+        now = {"expected_close": opp.expected_close.isoformat() if opp.expected_close else None, "next_step": opp.next_step or ""}[field]
+        return field in basis and basis[field] != now
+    return False
+
+
+def decide(db: Session, opp: Opportunity, insight_id: int, sid: int, user_id: int | None, apply: bool) -> str:
+    """제안 하나를 반영하거나 무시한다. 알림 코드를 돌려준다 (커밋은 호출자).
+    쓰기 잠금을 먼저 잡고 다시 읽어, 두 번 눌러도 한 번만 반영된다. 최신 분석의 반영 대기 제안이 아니면 `ai_stale`."""
+    from datetime import date, datetime
+
+    from sqlalchemy import update
+
+    from app.models import OpportunityInsight
+    from app.opportunities import apply_stage
+
+    db.execute(update(OpportunityInsight).where(OpportunityInsight.id == insight_id).values(job_id=OpportunityInsight.job_id))  # 쓰기 잠금
+    ins = db.get(OpportunityInsight, insight_id)
+    if ins is not None:
+        db.refresh(ins)
+    latest = latest_insight(db, opp.id)
+    if ins is None or ins.opportunity_id != opp.id or latest is None or latest.id != ins.id:
+        return "ai_stale"
+    sug = next((s for s in ins.suggestions or [] if s.get("id") == sid), None)
+    if sug is None or sug.get("state") != "pending":
+        return "ai_stale"
+    code = "ai_dismissed"
+    if apply:
+        code = "ai_applied_changed" if _changed_since(opp, sug, ins.basis or {}) else "ai_applied"
+        db.info["change_source"], db.info["change_evidence"] = "ai", sug.get("evidence", "")
+        kind, field = sug["kind"], sug.get("field")
+        if kind == "field" and field == "amount":
+            opp.amount = int(sug["value"])
+        elif kind == "field" and field == "expected_close":
+            opp.expected_close = date.fromisoformat(sug["value"])
+        elif kind == "field" and field == "next_step":
+            opp.next_step = sug["value"]
+            if sug.get("due"):
+                opp.next_step_due = date.fromisoformat(sug["due"])
+        elif kind == "stage":
+            old = opp.stage
+            if sug["value"] in ontology.OPPORTUNITY_OPEN_STAGES and old != sug["value"]:
+                left = leftovers_notice(opp, old, sug["value"])
+                apply_stage(opp, sug["value"])
+                if left and code == "ai_applied":
+                    code = "ai_stage_open." + left.split(".", 1)[1]
+        elif kind == "check":
+            set_check(db, opp, sug["item"], True, user_id, source="ai", evidence=sug.get("evidence", ""))
+    state = "applied" if apply else "dismissed"
+    ins.suggestions = [{**s, "state": state, "decided_by": user_id, "decided_at": datetime.now().isoformat(timespec="seconds")} if s.get("id") == sid else s
+                       for s in ins.suggestions]
+    return code

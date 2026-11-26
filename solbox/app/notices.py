@@ -91,6 +91,10 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "no_topics": ("warn", "사용 중인 리서치 주제가 없습니다."),
     "field_created": ("ok", "분야를 더했습니다."),
     "team_created": ("ok", "팀을 만들었습니다."),
+    "ai_applied": ("ok", "AI 제안을 반영했습니다. 변경 이력에 'AI 제안' 으로 남았습니다."),
+    "ai_applied_changed": ("warn", "반영했습니다. 분석한 뒤에 이 칸이 다른 곳에서 바뀌었으니 값을 한 번 확인해 주세요."),
+    "ai_dismissed": ("ok", "제안을 무시했습니다. 값은 그대로입니다."),
+    "ai_stale": ("warn", "이 제안은 이미 처리됐거나 새 분석으로 바뀌었습니다. 아래 최신 제안을 확인해 주세요."),
     "ai_review_started": ("ok", "AI 분석을 시작했습니다. 끝나면 이 화면에 제안과 브리핑이 나타납니다."),
     "ai_review_waiting": ("warn", "이 영업기회의 AI 분석이 이미 기다리고 있습니다."),
     "ai_no_activity": ("warn", "연결된 활동 기록이 없어 AI 가 읽을 것이 없습니다. 활동 기록을 먼저 남겨 주세요."),
@@ -137,7 +141,13 @@ def _stage_open_notice(value: str) -> Notice | None:
     return Notice("warn", f"단계를 '{new}'{_ro(new)} 바꿨습니다. {old} 단계의 확인하지 않은 항목 {int(parts[2])}개가 남았습니다.")
 
 
+def _ai_stage_open_notice(value: str) -> Notice | None:
+    base = _stage_open_notice(value)
+    return Notice("warn", "AI 제안대로 " + base.text) if base else None
+
+
 PARAM_NOTICES: dict[str, Callable[[str], Notice | None]] = {
+    "ai_stage_open": _ai_stage_open_notice,
     "opportunity_stage_open": _stage_open_notice,
     "stage": _stage_notice("stage", "발굴 단계를"),
     "opportunity_stage": _stage_notice("opportunity_stage", "영업기회 단계를"),

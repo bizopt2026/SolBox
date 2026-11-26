@@ -290,6 +290,26 @@ def start_review(opportunity_id: int, request: Request, user: User = Depends(req
     return notices.redirect(f"/opportunities/{opp.id}", "ai_review_started")
 
 
+@router.post("/{opportunity_id}/ai/{insight_id}/{sid}/{what}")
+def decide_suggestion(
+    opportunity_id: int, insight_id: int, sid: int, what: str,
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """AI 제안 하나 [반영] (`apply`) 또는 [무시] (`dismiss`). 반영은 이력에 'AI 제안'과 근거를 남긴다."""
+    if what not in ("apply", "dismiss"):
+        raise HTTPException(status_code=404, detail="없는 동작입니다.")
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    code = oai.decide(db, opp, insight_id, sid, user.id, what == "apply")
+    db.commit()
+    db.info.pop("change_source", None)
+    db.info.pop("change_evidence", None)
+    if code != "ai_stale" and what == "apply":
+        db.refresh(opp)
+        mirror.sync(opp)
+        resync_objects(db, mirror, [opp.customer, opp.bm])
+    return notices.redirect(f"/opportunities/{opp.id}", code)
+
+
 @router.get("/{opportunity_id}/ai/progress")
 def review_progress(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """분석 진행 상자 조각: 끝나면 쪽을 새로 고쳐(HX-Refresh) 제안·브리핑을 보인다."""
