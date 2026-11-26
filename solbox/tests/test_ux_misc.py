@@ -21,7 +21,7 @@ def test_customer_and_activity_empty_values(user_client, db):
     db.add(c)
     db.commit()
     html = user_client.get(f"/customers/{c.id}").text
-    assert "아직 입력하지 않은 항목: 업종, 연락처, 메모 · " in html and "<dt>업종</dt>" not in html
+    assert "아직 입력하지 않은 항목: 업종, 연락처 메모, 메모 · " in html and "<dt>업종</dt>" not in html
 
 
 @pytest.mark.parametrize("url, title", [

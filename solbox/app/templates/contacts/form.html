@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
+{% block title %}담당자 {{ "수정" if person else "추가" }}{% endblock %}
+{% block content %}
+{{ page_header("담당자 " ~ ("수정" if person else "추가"), crumbs=crumbs, sub=ont.label(company_code) ~ " " ~ company.name) }}
+{{ form_error(error) }}
+<form method="post" action="{{ "/contacts/" ~ person.id if person else "/contacts" }}" class="form-page">
+  {% if person %}{{ rev_fields(person, conflict, "/contacts/" ~ person.id) }}{% else %}{{ form_token() }}<input type="hidden" name="{{ company_code }}_id" value="{{ company.id }}">{% endif %}
+  {% if same %}
+  <div class="dup-warning notice" role="alert" data-dup="1">
+    <p><b>같은 사람일 수 있어요: <a href="/contacts/{{ same.id }}">{{ same.name }}</a>{% if same.title %} ({{ same.title }}){% endif %}</b> 같은 {{ ont.label(company_code) }}에 휴대폰·이메일(둘 다 없으면 이름)이 같은 담당자가 이미 있어요.</p>
+    <p class="dup-acts"><a class="button" href="/contacts/{{ same.id }}">기존 담당자 열기</a> <button type="submit" name="confirm_dup" value="1" class="primary">그래도 저장</button></p>
+  </div>
+  {% endif %}
+  <section class="card">
+    <div class="fgrid">
+      {{ text_field(ont.prop("contact", "name"), "name", form.name, required=true, error=error) }}
+      {{ text_field(ont.prop("contact", "title"), "title", form.title, help="부서와 직함을 한 줄로 적어요 (예: 구매팀 부장).") }}
+      {{ select_field(ont.prop("contact", "role"), "role", roles, form.role, help="의사결정자: 계약을 정하는 사람 · 실무자: 실제로 쓰거나 검토하는 사람 · 영향자: 결정에 의견을 주는 사람") }}
+      {{ text_field(ont.prop("contact", "phone"), "phone", form.phone, type="tel") }}
+      {{ text_field(ont.prop("contact", "office_phone"), "office_phone", form.office_phone, type="tel") }}
+      {{ text_field(ont.prop("contact", "email"), "email", form.email, type="email") }}
+      {{ text_field(ont.prop("contact", "note"), "note", form.note, rows=3) }}
+    </div>
+  </section>
+  {{ save_bar("/contacts/" ~ person.id if person else company_url) }}
+</form>
+{% endblock %}

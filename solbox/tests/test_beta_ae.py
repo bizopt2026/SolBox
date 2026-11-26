@@ -739,6 +739,7 @@ def test_merge_moves_every_foreign_key_to_partners_and_customers(db):
         "businesses.customer_id", "opportunities.customer_id", "proposals.customer_id", "proposal_customers.customer_id",
         "activity_customers.customer_id", "customer_needs.customer_id", "report_plan_items.customer_id",
         "initiative_partners.partner_id", "initiative_customers.customer_id",
+        "contacts.customer_id", "contacts.partner_id",
     }
     found = set()
     for table in Base.metadata.sorted_tables:
@@ -747,8 +748,8 @@ def test_merge_moves_every_foreign_key_to_partners_and_customers(db):
                 if fk.column.table.name in ("partners", "customers"):
                     found.add(f"{table.name}.{col.name}")
     assert found == known
-    assert {r for _l, r, _n in merge.link_counts(db, "partner", mk(db, Partner, "p"))} == {"R1", "R7", "R25", "R43", "R21"}
-    assert {r for _l, r, _n in merge.link_counts(db, "customer", mk(db, Customer, "c"))} == {"R2", "R27", "R12", "R34", "R5", "R10", "R25", "R38", "R44", "R21"}
+    assert {r for _l, r, _n in merge.link_counts(db, "partner", mk(db, Partner, "p"))} == {"R1", "R7", "R25", "R43", "R51", "R21"}
+    assert {r for _l, r, _n in merge.link_counts(db, "customer", mk(db, Customer, "c"))} == {"R2", "R27", "R12", "R34", "R5", "R10", "R25", "R38", "R44", "R50", "R21"}
 
 
 def test_migration_adds_aliases_columns_to_an_old_database(tmp_path):

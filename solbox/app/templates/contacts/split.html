@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, save_bar, form_token %}
+{% block title %}담당자로 나누기{% endblock %}
+{% block content %}
+{{ page_header("연락처 메모를 담당자로 나누기", crumbs=crumbs, sub=company.name ~ " · 줄마다 읽은 값을 확인하고, 넣을 줄만 고르세요. 연락처 메모는 그대로 남아요.") }}
+{{ form_error(error) }}
+{% if not rows %}<p class="muted">연락처 메모가 비어 있어요. <a href="{{ company_url }}">돌아가기</a></p>{% else %}
+<form method="post" action="{{ action }}" class="form-page split-form">
+  {{ form_token() }}
+  <div class="table-wrap">
+  <table class="split-table">
+    <thead><tr><th scope="col">넣기</th><th scope="col">원래 줄</th><th scope="col">이름</th><th scope="col">직함</th><th scope="col">역할</th><th scope="col">휴대폰</th><th scope="col">사무실 전화</th><th scope="col">이메일</th><th scope="col">메모</th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set i = loop.index0 %}
+    <tr{% if r.existing %} class="split-existing"{% endif %}>
+      <td><input type="checkbox" name="pick" value="{{ i }}"{{ " checked" if r.checked }} aria-label="{{ i + 1 }}번째 줄 넣기">
+        {% if r.existing %}<span class="badge tone-slate">이미 있음</span> <a href="/contacts/{{ r.existing.id }}">{{ r.existing.name }}</a>{% elif not r.name %}<span class="badge tone-warn">이름 없음</span>{% endif %}</td>
+      <td class="split-line muted">{{ r.line }}</td>
+      <td><input name="name_{{ i }}" value="{{ r.name }}" aria-label="이름" size="8"></td>
+      <td><input name="title_{{ i }}" value="{{ r.title }}" aria-label="직함" size="10"></td>
+      <td><select name="role_{{ i }}" aria-label="역할">{% for v, t in roles %}<option value="{{ v }}"{{ " selected" if r.role == v }}>{{ t }}</option>{% endfor %}</select></td>
+      <td><input name="phone_{{ i }}" value="{{ r.phone }}" aria-label="휴대폰" size="13"></td>
+      <td><input name="office_phone_{{ i }}" value="{{ r.office_phone }}" aria-label="사무실 전화" size="13"></td>
+      <td><input name="email_{{ i }}" value="{{ r.email }}" aria-label="이메일" size="18"></td>
+      <td><input name="note_{{ i }}" value="{{ r.note }}" aria-label="메모" size="14"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="help">이름 칸이 빈 줄은 담당자로 넣지 않아요. 이미 같은 휴대폰·이메일 담당자가 있는 줄도 건너뛰어요.</p>
+  {{ save_bar(company_url, "고른 줄을 담당자로 저장") }}
+</form>
+{% endif %}
+{% endblock %}

@@ -317,6 +317,8 @@ def check_label(code: str) -> str:
     return OPPORTUNITY_CHECK_ITEMS.get(code, code)
 
 
+CONTACT_ROLES = {"decision": "의사결정자", "user": "실무자", "influencer": "영향자", "other": "기타"}  # 담당자 역할 (영업 D, 담당자마다 하나)
+
 OPPORTUNITY_WHO = (("team", "우리 팀"), ("mine", "내 건"))  # 영업기회 목록·홈의 담당 걸러 보기 (?who=)
 
 # 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.
@@ -493,6 +495,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("check_kind", "확인 항목 종류", CHECK_KINDS, None, CHECK_KIND_DESCRIPTIONS),
     CodeList("origin_type", "기록의 유래", ORIGINS),
     CodeList("project_status", "프로젝트 상태", PROJECT_STATUSES),
+    CodeList("contact_role", "담당자 역할", CONTACT_ROLES),
     CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT, OPPORTUNITY_STAGE_DESCRIPTIONS),
     CodeList("business_type", "사업방식", BUSINESS_TYPES, None, BUSINESS_TYPE_DESCRIPTIONS),
     CodeList("report_unit", "보고 단위", REPORT_UNITS, REPORT_UNIT_DEFAULT),
@@ -509,6 +512,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
 TONES = ("brand", "violet", "ok", "warn", "bad", "slate")
 CODE_TONES: dict[str, dict[str, str]] = {
     "stage": {"intake": "violet", "tapping": "warn", "survey": "brand", "boxed": "ok", "hold": "slate"},
+    "contact_role": {"decision": "violet", "user": "brand", "influencer": "warn", "other": "slate"},
     "opportunity_stage": {"discovery": "brand", "proposing": "warn", "negotiating": "violet", "won": "ok", "lost": "bad", "hold": "slate"},
     "activity_kind": {"meeting": "slate", "partner": "violet", "tapping": "warn", "survey": "brand", "other": "slate"},
     "proposal_status": {"new": "slate", "directions": "brand", "refining": "violet", "outlined": "warn", "deck": "ok"},
@@ -648,13 +652,13 @@ _TYPE_LIST = [
     ),
     ObjectType(
         "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="discover",
-        props={"name": "이름", "aliases": "다른 이름", "contact": "연락처", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래",
+        props={"name": "이름", "aliases": "다른 이름", "contact": "연락처 메모", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래", "contacts": "담당자",
                "customer": "같은 회사인 고객"},
         description="솔루션을 공급하는 회사",
     ),
     ObjectType(
         "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객", nav_group="sales",
-        props={"name": "이름", "aliases": "다른 이름", "industry": "업종", "contact": "연락처", "memo": "메모", "projects": "프로젝트", "origin": "유래",
+        props={"name": "이름", "aliases": "다른 이름", "industry": "업종", "contact": "연락처 메모", "memo": "메모", "projects": "프로젝트", "origin": "유래", "contacts": "담당자",
                "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
         description="솔루션을 제안받는 회사",
     ),
@@ -716,6 +720,12 @@ _TYPE_LIST = [
                "description": "설명", "instructions": "AI 지침", "progress": "진행 메모", "solutions": "솔루션", "partners": "파트너",
                "customers": "고객", "opportunities": "영업기회", "projects": "프로젝트", "files": "자료"},
         description="이슈나 개별 과제 한 건. 담당·기한·상태를 두고 솔루션·영업기회 같은 기록과 잇습니다",
+    ),
+    ObjectType(
+        "contact", "담당자", "부속", "Contact", "contacts", None, "/contacts/{id}",
+        props={"name": "이름", "title": "직함", "role": "역할", "phone": "휴대폰", "office_phone": "사무실 전화", "email": "이메일", "note": "메모",
+               "customer": "고객", "partner": "파트너", "opportunities": "영업기회", "origin": "유래"},
+        description="고객·파트너의 담당자 한 사람. 역할(의사결정자·실무자·영향자)을 두고 영업기회에 잇습니다",
     ),
     ObjectType(
         "workspace_file", "공간 자료", "부속", "WorkspaceFile", "workspace_files",
@@ -1109,6 +1119,9 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R47", "붙는다", "strategy", "workspace_file", "1:N", "fk", "workspace_files.strategy_id", "사업 방향을 지우면 함께 지워진다"),
     _r("R48", "붙는다", "initiative", "workspace_file", "1:N", "fk", "workspace_files.initiative_id", "과제를 지우면 함께 지워진다"),
     _r("R49", "맡는다", "initiative", "user", "N:1", "fk", "initiatives.owner_user_id", "선택. 만들 때 기본은 만든 사람. 사용자를 지우면 비운다"),
+    _r("R50", "의 사람이다", "contact", "customer", "N:1", "fk", "contacts.customer_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
+    _r("R51", "의 사람이다", "contact", "partner", "N:1", "fk", "contacts.partner_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
+    _r("R52", "관여한다", "contact", "opportunity", "N:M", "link", "opportunity_contacts", "같은 고객의 담당자만"),
 )
 
 # ======================================================================================
@@ -1193,6 +1206,9 @@ for _key, _pairs in {
     "R47": {("strategy", "workspace_file"): "자료", ("workspace_file", "strategy"): "사업 방향"},
     "R48": {("initiative", "workspace_file"): "자료", ("workspace_file", "initiative"): "과제"},
     "R49": {("initiative", "user"): "담당 사용자", ("user", "initiative"): "맡은 과제"},
+    "R50": {("contact", "customer"): "고객", ("customer", "contact"): "담당자"},
+    "R51": {("contact", "partner"): "파트너", ("partner", "contact"): "담당자"},
+    "R52": {("contact", "opportunity"): "영업기회", ("opportunity", "contact"): "담당자"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -1255,10 +1271,11 @@ DERIVED_BY_KEY = {d.key: d for d in DERIVED}
 # 화면이 이미 속성 줄·특수 구역으로 보여 주어 연결 목록에서 뺄 그룹 (유형 -> 관계 키 또는 "관계 키:도착 유형")
 RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "solution": ("R1", "R3", "R19", "R21", "R22"),
-    "partner": ("R25", "R21", "R22"),
-    "customer": ("R25", "R21", "R22"),
+    "partner": ("R25", "R21", "R22", "R51"),
+    "customer": ("R25", "R21", "R22", "R50"),
     "project": ("R2", "R31"),
-    "opportunity": ("R27", "R30", "R32"),
+    "opportunity": ("R27", "R30", "R32", "R52"),
+    "contact": ("R50", "R51"),
     "bm": (),
     "activity": ("R8", "R9", "R21", "R22"),
     "proposal": ("R12", "R13", "R29", "R34", "R35"),
@@ -1541,9 +1558,11 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "solution": ("올린 자료 파일과 지식 사본이 함께 지워집니다.",
                  "이 솔루션이 적힌 활동 기록·BM·영업기회·제안 건의 연결이 풀립니다 (그 기록들은 남습니다)."),
     "partner": ("이 파트너의 솔루션은 남고 파트너 칸만 비워집니다.",
+                "이 파트너의 담당자가 함께 지워집니다.",
                 "같은 회사로 이은 고객 연결이 풀립니다 (고객 기록은 남습니다).",
                 "활동 기록과의 연결이 풀립니다."),
-    "customer": ("고객 니즈 줄은 남고 고객 연결만 풀립니다 (적힌 고객 이름은 그대로).",
+    "customer": ("이 고객의 담당자가 함께 지워집니다.",
+                 "고객 니즈 줄은 남고 고객 연결만 풀립니다 (적힌 고객 이름은 그대로).",
                  "다수 고객 제안 건에 붙은 것이 빠집니다 (제안 건은 남습니다).",
                  "같은 회사로 이은 파트너 연결이 풀립니다 (파트너 기록은 남습니다).",
                  REPORT_PLAN_LINK_EFFECT),
@@ -1559,6 +1578,7 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "research_run": ("이 조사의 보고서(동향·제안)가 모두 지워집니다.", "보고서에서 등록한 솔루션은 남고 유래 표시만 비워집니다."),
     "solution_field": ("이 분야는 목록에서 사라집니다 (쓰는 솔루션이 없을 때만 지울 수 있습니다).",),
     "research_topic": ("이 주제는 다음 조사부터 빠집니다. 이미 끝난 조사 결과는 남습니다.",),
+    "contact": ("이 담당자와 이어진 영업기회의 연결만 풀립니다 (영업기회는 남습니다).",),
     "team": ("이 팀 사람은 \"팀 없음\" 이 됩니다 (계정은 그대로입니다).", "영업기회와 담당은 그대로입니다."),
     "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
     "strategy": ("이 방향의 과제는 남고 \"사업 방향\" 칸만 비워집니다.", "올린 자료 파일과 대화가 함께 지워집니다."),

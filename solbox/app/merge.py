@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app import aliases, backup, same_company
 from app.models import (
+    Contact,
     Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User, AIThread,
     activity_customers, activity_partners, proposal_customers, initiative_customers, initiative_partners, Initiative,
 )
@@ -74,6 +75,7 @@ def link_counts(db: Session, kind: str, obj) -> list[tuple[str, str, int]]:
             ("활동 기록", "R7", n(select(func.count()).select_from(activity_partners).where(activity_partners.c.partner_id == i))),
             ("같은 회사 고객", "R25", 1 if obj.customer_id is not None else 0),
             ("과제", "R43", n(select(func.count()).select_from(initiative_partners).where(initiative_partners.c.partner_id == i))),
+            ("담당자", "R51", cnt(Contact, Contact.partner_id == i)),
             ("올린 파일의 대상 표시", "R21", files),
         ]
     return [
@@ -86,6 +88,7 @@ def link_counts(db: Session, kind: str, obj) -> list[tuple[str, str, int]]:
         ("같은 회사 파트너", "R25", cnt(Partner, Partner.customer_id == i)),
         ("업무 보고 계획 항목", "R38", cnt(ReportPlanItem, ReportPlanItem.customer_id == i)),
         ("과제", "R44", n(select(func.count()).select_from(initiative_customers).where(initiative_customers.c.customer_id == i))),
+        ("담당자", "R50", cnt(Contact, Contact.customer_id == i)),
         ("올린 파일의 대상 표시", "R21", files),
     ]
 
@@ -278,6 +281,11 @@ def _merge_texts(kind: str, keep, absorb, today: date) -> None:
 
 def _move(db: Session, kind: str, keep, absorb) -> None:
     """모든 연결을 남는 기록으로 옮긴다 (관계를 거쳐 바꿔 양쪽 컬렉션과 고침 표시가 맞게). 겹치는 연결 줄은 하나로."""
+    for person in list(absorb.contacts):  # 담당자 (영업 D): 회사 칸만 남는 쪽으로
+        if kind == "partner":
+            person.partner = keep
+        else:
+            person.customer = keep
     if kind == "partner":
         for s in list(absorb.solutions):
             s.partner = keep

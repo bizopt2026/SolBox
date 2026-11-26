@@ -323,12 +323,12 @@ def test_customer_empty_properties_collapse_into_one_quiet_line(user_client, db)
     db.add(c)
     db.commit()
     html = user_client.get(f"/customers/{c.id}").text
-    assert "아직 입력하지 않은 항목: 업종, 연락처, 메모 · " in html and f'href="/customers/{c.id}/edit"' in html
+    assert "아직 입력하지 않은 항목: 업종, 연락처 메모, 메모 · " in html and f'href="/customers/{c.id}/edit"' in html
     assert "<dt>업종</dt>" not in html and html.count("없음") == 0
     c.industry = "물류"
     db.commit()
     html = user_client.get(f"/customers/{c.id}").text
-    assert "<dt>업종</dt><dd>물류</dd>" in html and "아직 입력하지 않은 항목: 연락처, 메모" in html
+    assert "<dt>업종</dt><dd>물류</dd>" in html and "아직 입력하지 않은 항목: 연락처 메모, 메모" in html
 
 
 def test_customer_main_column_lists_projects_and_counts(user_client, db):

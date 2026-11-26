@@ -113,6 +113,9 @@ EXPECT = {
     "R47": [("st_public", "R47", ["wf_st"]), ("wf_st", "R47", ["st_public"])],
     "R48": [("in_ess", "R48", ["wf_in"]), ("wf_in", "R48", ["in_ess"])],
     "R49": [("in_ess", "R49", ["kim"]), ("kim", "R49", ["in_ess"])],
+    "R50": [("ct_choi", "R50", ["c_hanbit"]), ("c_hanbit", "R50", ["ct_choi"])],
+    "R51": [("ct_park", "R51", ["p_green"]), ("p_green", "R51", ["ct_park"])],
+    "R52": [("ct_choi", "R52", ["o_hanbit"]), ("o_hanbit", "R52", ["ct_choi"])],
 }
 
 

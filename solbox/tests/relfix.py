@@ -132,5 +132,12 @@ def build(db, owner: User | None = None) -> SimpleNamespace:
     w.wf_st = WorkspaceFile(strategy=w.st_public, original_name="방향.pdf", stored_name="1.pdf")
     w.wf_in = WorkspaceFile(initiative=w.in_ess, original_name="실증.pdf", stored_name="2.pdf")
     db.add_all([w.st_public, w.in_ess, w.wf_st, w.wf_in])
+    # 영업 D: 고객·파트너의 담당자 하나씩 (한빛 담당자는 한빛 영업기회에 이어짐)
+    from app.models import Contact
+
+    w.ct_choi = Contact(name="최현수", customer=w.c_hanbit, role="decision")
+    w.ct_park = Contact(name="박기사", partner=w.p_green)
+    db.add_all([w.ct_choi, w.ct_park])
+    w.o_hanbit.contacts = [w.ct_choi]
     db.commit()
     return w

@@ -475,7 +475,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.filters["md"] = md_filter
 
     from app.routers import (
-        activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
+        activities, admin, auth, bms, contacts as contacts_router, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
         follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router, ai_inbox as ai_inbox_router,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
@@ -489,6 +489,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(duplicates.router)  # 고객·파트너 합치기 (/partners/{id}/merge, /customers/{id}/merge)
     app.include_router(partners.router)
     app.include_router(customers.router)
+    app.include_router(contacts_router.router)  # 담당자 (영업 D): /contacts/…, /customers|partners/{id}/contacts/split
     app.include_router(opportunities.router)
     app.include_router(bms.router)
     app.include_router(strategies.router)

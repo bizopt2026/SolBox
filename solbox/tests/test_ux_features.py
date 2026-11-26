@@ -357,7 +357,7 @@ def test_detail_pages_keep_the_hidden_blank_summary_line(user_client, db):
     db.add(c)
     db.commit()
     page = user_client.get(f"/customers/{c.id}").text
-    assert "아직 입력하지 않은 항목: 업종, 연락처, 메모" in page
+    assert "아직 입력하지 않은 항목: 업종, 연락처 메모, 메모" in page
 
 
 # ---- 11·12. 스크립트 보강 (브라우저에서 확인한 동작의 표식) ----

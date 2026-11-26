@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail_head, props_card, meta_card, pill, opportunity_badge %}
+{% block title %}{{ person.name }}{% endblock %}
+{% block content %}
+{% call detail_head(person.name, "/contacts", person, can_delete, crumbs=crumbs, sub=(person.title or none)) %}{% endcall %}
+<div class="dgrid">
+  <div class="dmain">
+    {% call props_card("기본 정보", [(ont.prop("contact", "title"), person.title), (ont.prop("contact", "role"), role_label), (ont.prop("contact", "phone"), person.phone),
+                    (ont.prop("contact", "office_phone"), person.office_phone), (ont.prop("contact", "email"), person.email), (ont.prop("contact", "note"), person.note)],
+                    "/contacts/" ~ person.id ~ "/edit") %}{% if person.role %}<p class="contact-role">{{ pill("contact_role", person.role) }}</p>{% endif %}{% endcall %}
+    <section class="card stack" id="contact-opportunities">
+      <div class="card-head"><h2>{{ ont.label("opportunity") }} {{ person.opportunities | length }}</h2></div>
+      {% if person.opportunities %}<ul class="plain-list">{% for o in person.opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">이어진 {{ ont.label("opportunity") }}이 없어요. {{ ont.label("opportunity") }} 수정 화면의 "담당자" 에서 이을 수 있어요.</p>{% endif %}
+    </section>
+  </div>
+  <aside class="daside" aria-label="연결과 기록 정보">
+    {% call meta_card(meta, origin) %}<dt>{{ ont.label(company_code) }}</dt><dd><a href="{{ company_url }}">{{ company.name }}</a></dd>{% endcall %}
+  </aside>
+</div>
+{% endblock %}

@@ -12,7 +12,7 @@
       {{ text_field("이름", "name", form.name, required=true, error=error) }}
       {{ text_field(ont.prop("customer", "aliases") ~ " (한 줄에 하나)", "aliases", form.aliases, rows=2, help="같은 회사의 영문·한글 표기나 옛 이름을 적어요 (예: SOLUM). 검색과 중복 확인에 같이 쓰여요.", error=error, wide=true) }}
       {{ text_field("업종", "industry", form.industry) }}
-      {{ text_field("연락처", "contact", form.contact, rows=3, help="여러 줄로 적을 수 있습니다.") }}
+      {{ text_field(ont.prop("customer", "contact"), "contact", form.contact, rows=3, help="대표번호·주소처럼 사람이 아닌 연락처를 적어요. 사람은 상세 화면의 담당자 카드에 더해요.") }}
       {{ text_field("메모", "memo", form.memo, rows=3) }}
       {% set opts = [("", "없음")] %}
       {% for p in partners %}{% set _ = opts.append((p.id, p.name ~ (" (이미 연결: 고객 " ~ p.taken_by ~ ")" if p.taken_by else ""))) %}{% endfor %}

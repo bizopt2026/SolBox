@@ -1,0 +1,17 @@
+{# 고객·파트너 상세의 담당자 카드 (영업 D). company_code·company 를 넘겨받는다. #}
+{% from "_macros.html" import pill %}
+<section class="card stack contacts-card" id="contacts" aria-label="담당자">
+  <div class="card-head"><h2>담당자 {{ company.contacts | length }}</h2><a class="button small" href="/contacts/new?{{ company_code }}_id={{ company.id }}">+ 담당자</a></div>
+  {% if company.contacts %}
+  <ul class="contact-rows">
+    {% for p in company.contacts %}
+    <li class="contact-row">
+      <span class="contact-who"><a href="/contacts/{{ p.id }}">{{ p.name }}</a>{% if p.title %} <span class="muted">{{ p.title }}</span>{% endif %}{% if p.role %} {{ pill("contact_role", p.role) }}{% endif %}</span>
+      <span class="contact-reach muted">{% if p.phone %}<a href="tel:{{ p.phone | replace(" ", "") }}">{{ p.phone }}</a>{% elif p.office_phone %}{{ p.office_phone }}{% endif %}{% if (p.phone or p.office_phone) and p.email %} · {% endif %}{% if p.email %}<a href="mailto:{{ p.email.split(",")[0].strip() }}">{{ p.email }}</a>{% endif %}</span>
+      <a class="button ghost small" href="/contacts/{{ p.id }}/edit" aria-label="{{ p.name }} 고치기">고치기</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">아직 담당자가 없어요. 명함을 올리거나 [+ 담당자]로 더해요.</p>{% endif %}
+  {% if contact_split %}<p class="contact-split"><a href="/{{ company_code }}s/{{ company.id }}/contacts/split">연락처 메모를 담당자로 나누기 ({{ contact_split }}줄)</a></p>{% endif %}
+</section>

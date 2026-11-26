@@ -63,6 +63,14 @@ opportunity_solutions = Table(
     Column("solution_id", ForeignKey("solutions.id", ondelete="CASCADE"), primary_key=True),
 )
 
+# 영업기회에 이어진 담당자 (영업 D, R52). 같은 고객의 담당자만 잇는다 (응용 규칙: app/contacts.py)
+opportunity_contacts = Table(
+    "opportunity_contacts",
+    Base.metadata,
+    Column("opportunity_id", ForeignKey("opportunities.id", ondelete="CASCADE"), primary_key=True),
+    Column("contact_id", ForeignKey("contacts.id", ondelete="CASCADE"), primary_key=True),
+)
+
 proposal_solutions = Table(
     "proposal_solutions",
     Base.metadata,
@@ -160,6 +168,7 @@ class Partner(Stamped, Origin, Base):
 
     solutions: Mapped[list[Solution]] = relationship(back_populates="partner")
     customer: Mapped[Customer | None] = relationship(back_populates="partner")
+    contacts: Mapped[list[Contact]] = relationship(back_populates="partner", passive_deletes=True, order_by="Contact.id")
 
 
 class Customer(Stamped, Origin, Base):
@@ -177,6 +186,37 @@ class Customer(Stamped, Origin, Base):
     group_proposals: Mapped[list[Proposal]] = relationship(secondary=proposal_customers, back_populates="group_customers")  # 붙은 다수 고객 제안 건
     opportunities: Mapped[list[Opportunity]] = relationship(back_populates="customer")
     partner: Mapped[Partner | None] = relationship(back_populates="customer", uselist=False)
+    contacts: Mapped[list[Contact]] = relationship(back_populates="customer", passive_deletes=True, order_by="Contact.id")
+
+
+class Contact(Stamped, Origin, Base):
+    """고객·파트너의 담당자 한 사람 (영업 D). 회사 칸(customer_id / partner_id)은 정확히 하나만 찬다 (응용 규칙: app/contacts.py).
+    역할은 담당자마다 하나 (ontology.CONTACT_ROLES, 빈 값 가능). 회사를 지우면 함께 지워진다."""
+
+    __tablename__ = "contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), nullable=True, index=True)
+    partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id", ondelete="CASCADE"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String, default="", server_default="")  # 직함 (부서 포함 한 줄)
+    role: Mapped[str] = mapped_column(String, default="", server_default="")
+    phone: Mapped[str] = mapped_column(String, default="", server_default="")  # 휴대폰
+    office_phone: Mapped[str] = mapped_column(String, default="", server_default="")
+    email: Mapped[str] = mapped_column(String, default="", server_default="")
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+    customer: Mapped[Customer | None] = relationship(back_populates="contacts")
+    partner: Mapped[Partner | None] = relationship(back_populates="contacts")
+    opportunities: Mapped[list[Opportunity]] = relationship(secondary=opportunity_contacts, back_populates="contacts")
+
+    @property
+    def company(self):
+        return self.customer if self.customer_id is not None else self.partner
+
+    @property
+    def company_type(self) -> str:
+        return "customer" if self.customer_id is not None else "partner"
 
 
 class Project(Stamped, Base):
@@ -254,6 +294,7 @@ class Opportunity(Stamped, Base):
         back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityStageChange.changed_at",
     )
     owner: Mapped[User | None] = relationship(foreign_keys=[owner_user_id])
+    contacts: Mapped[list[Contact]] = relationship(secondary=opportunity_contacts, back_populates="opportunities", order_by="Contact.id")
     field_changes: Mapped[list[OpportunityFieldChange]] = relationship(
         back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityFieldChange.id",
     )

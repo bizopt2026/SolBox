@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import impact as impact_lib, ontology, opportunities as opps, solution_fields as sfields, ui
 from app.db import get_db
 from app.main import render
-from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User, Strategy, Initiative, WorkspaceFile, AIThread
+from app.models import BM, Activity, Contact, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User, Strategy, Initiative, WorkspaceFile, AIThread
 from app.routers._common import get_deletable_or_404, get_or_404
 from app.security import ensure_can_delete, require_admin, require_user
 
@@ -128,6 +128,8 @@ SPECS: tuple[Spec, ...] = (
          blocker=lambda db, o: opps.bm_delete_problem(db, o)),
     Spec("/strategies/{obj_id}/delete", "strategy", _owned(Strategy), lambda o: o.title, lambda o: f"/strategies/{o.id}", _crumb("strategy"), "사업 방향"),
     Spec("/initiatives/{obj_id}/delete", "initiative", _owned(Initiative), lambda o: o.title, lambda o: f"/initiatives/{o.id}", _crumb("initiative"), "과제"),
+    Spec("/contacts/{obj_id}/delete", "contact", _owned(Contact), lambda o: o.name, lambda o: f"/contacts/{o.id}",
+         lambda o, name: ui.crumbs(o.company_type, o.company.name, ontology.detail_url(o.company_type, o.company.id), "담당자 삭제"), "담당자"),
     Spec("/opportunities/{obj_id}/delete", "opportunity", _owned(Opportunity), lambda o: o.name, lambda o: f"/opportunities/{o.id}", _crumb("opportunity"), "영업기회"),
     Spec("/activities/{obj_id}/delete", "activity", _owned(Activity), lambda o: o.title or "(제목 없음)", lambda o: f"/activities/{o.id}", _crumb("activity"), "활동 기록"),
     Spec("/proposals/{obj_id}/delete", "proposal", _owned(Proposal), lambda o: _proposal_name(o), lambda o: f"/proposals/{o.id}", _crumb("proposal"), "제안 건"),

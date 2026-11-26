@@ -10,7 +10,8 @@
 {% if same_name %}{{ same_name_hint("파트너", same_name.name, "/customers/" ~ customer.id ~ "/same-company", "partner_id", same_name.id) }}{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    {{ props_card("기본 정보", (([("다른 이름", customer.aliases | replace("\n", ", "))] if customer.aliases else []) + [("업종", customer.industry), ("연락처", customer.contact), ("메모", customer.memo)]), "/customers/" ~ customer.id ~ "/edit") }}
+    {{ props_card("기본 정보", (([("다른 이름", customer.aliases | replace("\n", ", "))] if customer.aliases else []) + [("업종", customer.industry), (ont.prop("customer", "contact"), customer.contact), ("메모", customer.memo)]), "/customers/" ~ customer.id ~ "/edit") }}
+    {% set company_code, company = "customer", customer %}{% include "contacts/_card.html" %}
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
