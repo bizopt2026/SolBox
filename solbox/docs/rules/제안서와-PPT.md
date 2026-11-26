@@ -172,3 +172,12 @@
 - 변환 방법(`methods`): 설정 `pdf_converter` = `auto`(기본: Windows 는 PowerPoint → LibreOffice, 그 밖에는 LibreOffice) | `powerpoint` | `libreoffice` | `none`, `soffice_path`(선택). PowerPoint 는 PowerShell COM(`Presentations.Open` → `SaveAs(…, 32)`, 경로는 환경 변수 `SOLBOX_PPTX`·`SOLBOX_PDF` 로), LibreOffice 는 데이터 폴더 안 따로 둔 프로필(`-env:UserInstallation`)로 `--convert-to pdf`. 작업 폴더 `decks/.pdf-work/<무작위>` 는 끝나면 지운다. 한 방법에 `PDF_TIMEOUT_S`(180초)까지, `system.run_bounded_ex` 가 넘으면 프로세스 나무를 죽인다. 방법이 없으면 버튼을 그리지 않는다(템플릿 전역 `deck_pdf`). 점검 "PDF 만들기" 줄(`system._check_pdf`, 문제로 치지 않음). 패키지는 더하지 않았다.
 - 시험 `tests/test_beta_aj.py` (LibreOffice 가 있으면 실제 변환 시험도 돈다, `slow`). 바꾼 기존 시험: `test_beta_e.py`(`AI_POSTS` 에 새 경로), `test_ux_notices.py`(`POST_NOTICES`).
 - **하지 못한 것**: Windows 에서 PowerPoint COM 변환을 돌려 보지 못했다 (README 수동 확인 21번). 실제 Claude CLI 로 한 장 다시 쓰기 품질을 보지 못했다 (22번).
+
+## 베타 AK 묶음이 바꾼 규칙
+- **사용자 요청 2026-11-26: "남은 디자인 개선도 진행해"** (품질 향상 방안의 디자인 항목 중 1번 묶음에서 하지 않은 것). LibreOffice 렌더로 본 문제: 2×2 의 우리 자리가 옅은 블루라 눈에 띄지 않고 칸마다 이름 한 줄뿐, 그래프 라벨·눈금마다 단위가 되풀이("420 백만원"), 표지 카드 오른쪽과 아래가 비어 있음, 2단 비교·도입 전후·단계 카드는 항목이 적어도 글자가 작아 비어 보임.
+- **2×2** (`_draw_matrix`): 첫 항목이 든 칸은 브랜드 블루 면(`002FA7`)에 흰 글자. 칸 안은 이름(굵게) 한 줄 + 설명(아래 줄, 보조 본문색)이고 크기는 `MATRIX_SIZES`(20/13 부터 줄여 감, `_matrix_need`). 한 칸에 항목이 둘 이상일 때만 글머리. 축 이름은 잉크색 13pt 부터, 축 양 끝에 "낮음"·"높음"(9pt, 도형 이름 `축 끝`).
+- **그래프 단위** (`_number_format`·`_unit_caption`): 숫자 서식에 단위를 붙이지 않는다 (라벨·값 축 눈금은 숫자만). 단위가 있으면 그래프 카드 왼쪽 위에 "단위: …" 한 줄(10pt, 도형 이름 `단위`)을 쓰고 그래프를 그만큼 내린다. 도넛(%)·오른쪽 값 요약 카드는 그대로.
+- **표지** (`_draw_cover`·`_cover_motif`): 브랜드 카드 오른쪽에 승인 팔레트의 원 셋(딥 블루 큰 원, 블루 틴트 작은 원, 오렌지 점, 도형 이름 `표지 장식`)을 카드 안에만 그린다 (그림·로고 아님). 제목 글 폭은 그 앞까지(`COVER_MOTIF_W` 3.4). 아래 정보 줄은 이름표(`표지 라벨`, 10pt)와 값(18pt Bold 페이스) 두 줄: "제안 대상"(고객 이름, 있을 때만) · "제안일", 사이에 얇은 세로선.
+- **큰 글자**: 2단 비교·도입 전후의 반 폭 카드는 `COLUMN_SIZES`(18 부터), 단계 카드는 이름 20·설명 15 부터 (`STEP_NAME_SIZES`·`STEP_DETAIL_SIZES` 앞에 더함. 6단계 이상은 전처럼 14 까지). 쪽 나누기 기준(가장 작은 글자)은 그대로다.
+- **하지 않은 것: 아이콘.** 저장소에 라이선스가 확인된 아이콘 묶음이 없어 넣지 않았다 (도형으로 흉내 낸 아이콘도 만들지 않았다). 넣으려면 회사가 쓸 수 있는 아이콘 묶음(라이선스 포함)을 먼저 정해야 한다.
+- 시험 `tests/test_beta_ak.py`. 바꾼 기존 시험: `test_beta_ag.py`(2×2 강조 색, 값 축 서식에 단위 없음과 "단위:" 줄).

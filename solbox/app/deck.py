@@ -97,10 +97,11 @@ BAND_PT = 14
 STRIP_PT = 8
 CARD_HEAD_PT = 14
 LIST_SIZES = (14, 13, 12, 11, 10)    # 카드 안 목록
+COLUMN_SIZES = (18, 16, 14, 13, 12, 11, 10)  # 좌우 비교·도입 전후의 반 폭 카드 (항목이 적으면 크게, 베타 AK)
 GRID_SIZES = (16, 14, 13, 12, 11)    # 번호 카드 안 글
 TABLE_SIZES = (12, 11, 10, 9)
-STEP_NAME_SIZES = (16, 14, 13, 12)
-STEP_DETAIL_SIZES = (13, 12, 11, 10)
+STEP_NAME_SIZES = (20, 18, 16, 14, 13, 12)    # 베타 AK: 단계가 적으면 크게 (카드가 비어 보였다)
+STEP_DETAIL_SIZES = (15, 14, 13, 12, 11, 10)
 COVER_SIZES = (44, 40, 36, 32, 28, 24)
 MIN_FONT_PT = 8                      # 강의·마케팅 모드의 최소 글자
 KPI_SIZES = (56, 48, 40, 34, 28, 24)  # 핵심 수치의 큰 숫자
@@ -780,15 +781,31 @@ def load_background(path) -> bytes | None:
 
 # ---------------------------------------------------------------- 그리기: 종류별
 
+COVER_MOTIF_W = 3.4  # 표지 카드 오른쪽 장식이 쓰는 폭 (제목 글은 그 왼쪽까지)
+
+
+def _cover_motif(slide, x: float, y: float, w: float, h: float):
+    """표지 카드 오른쪽의 추상 장식 (베타 AK: 카드 오른쪽이 비어 있었다). 승인 팔레트의 블루 명도 원 셋만 쓰고 그림·로고는 쓰지 않는다.
+    모두 카드 안에 머문다 (슬라이드 밖·카드 밖으로 나가지 않는다)."""
+    right, mid = x + w - 0.45, y + h / 2
+    big = h - 0.9
+    _rect(slide, right - big, mid - big / 2, big, big, BRAND_DEEP, shape=MSO_SHAPE.OVAL, name="표지 장식")
+    small = big * 0.52
+    _rect(slide, right - big - small * 0.45, mid + big / 2 - small * 0.95, small, small, BRAND_T2, shape=MSO_SHAPE.OVAL, name="표지 장식")
+    dot = 0.34
+    _rect(slide, right - big * 0.32, mid - big / 2 + 0.25, dot, dot, ACCENT, shape=MSO_SHAPE.OVAL, name="표지 장식")
+
+
 def _draw_cover(slide, data: dict, customer_name: str, today: date):
     label = _textbox(slide, MARGIN, CHAPTER_Y, CHAPTER_W, CHAPTER_H, name="챕터")
     _write(label.text_frame.paragraphs[0], "PROPOSAL", LABEL_PT, bold=True, color=BRAND, spacing=2)
     x, y, w, h = MARGIN, 1.45, CONTENT_W, 3.85
     _card(slide, x, y, w, h, fill=BRAND, name="표지 카드")
+    _cover_motif(slide, x, y, w, h)
     _rect(slide, x + 0.6, y + 0.5, 0.46, 0.055, ACCENT, name="강조 막대")
     title = _headline_text(data.get("title"))
     subtitle = _clean(data.get("subtitle"))
-    text_w, text_h = w - 1.2, h - 1.25
+    text_w, text_h = w - 1.2 - COVER_MOTIF_W, h - 1.25
     sub_pt = 16
     sub_h = (_est_lines(subtitle, sub_pt, text_w) * _line_h(sub_pt, 1.0) + 0.2) if subtitle else 0.0
     size = next((pt for pt in COVER_SIZES if _est_lines(title, pt, text_w) * _line_h(pt, 1.0) + sub_h <= text_h), COVER_SIZES[-1])
@@ -803,14 +820,20 @@ def _draw_cover(slide, data: dict, customer_name: str, today: date):
         _write(p, subtitle, sub_pt, color=WHITE)
     if need > text_h:
         _shrink(tf, text_h / need)
+    # 아래 정보 줄 (베타 AK): "제안 대상 | 이름" · "제안일 | 날짜" 를 이름표와 값 두 줄로, 얇은 세로선으로 나눈다
     name = _clean(customer_name).strip()
-    if name:
-        box = _textbox(slide, MARGIN, 5.6, HEAD_W, 0.42, name="고객 이름")
-        _write(box.text_frame.paragraphs[0], name, 18, bold=True, color=INK)
-        if _est_lines(name, 18, HEAD_W) > 1:
-            _shrink(box.text_frame, 1 / _est_lines(name, 18, HEAD_W))
-    box = _textbox(slide, MARGIN, 6.08, HEAD_W, 0.3, name="날짜")
-    _write(box.text_frame.paragraphs[0], f"{today.year}. {today.month}. {today.day}.", SUB_PT, color=MUTE)
+    cells = ([("제안 대상", name, "고객 이름", 8.6)] if name else []) + [("제안일", f"{today.year}. {today.month}. {today.day}.", "날짜", 3.0)]
+    cx = MARGIN
+    for k, (label, value, shape_name, cw) in enumerate(cells):
+        if k:
+            _line(slide, cx - 0.25, 5.62, cx - 0.25, 6.38, GRID_GREY, 0.75, name="구분선")
+        box = _textbox(slide, cx, 5.55, cw, 0.3, name="표지 라벨")
+        _write(box.text_frame.paragraphs[0], label, 10, bold=True, color=MUTE)
+        box = _textbox(slide, cx, 5.88, cw, 0.5, name=shape_name)
+        _write(box.text_frame.paragraphs[0], value, 18, bold=True, color=INK)
+        if _est_lines(value, 18, cw) > 1:
+            _shrink(box.text_frame, 1 / _est_lines(value, 18, cw))
+        cx += cw + 0.5
 
 
 def _list_card(slide, x, y, w, h, items: list, *, columns: int = 1, name: str = "목록"):
@@ -976,7 +999,7 @@ def _draw_two_column(slide, data: dict, number: int, deck_title: str):
     sides = {side: _list(data, side) for side in ("left", "right")}
     text_w = _COLUMN_W - 2 * CARD_PAD
     inner_h = height - _COLUMN_HEAD_H - CARD_PAD_V
-    fits = {side: _list_fit(items, text_w, inner_h) for side, items in sides.items() if items}
+    fits = {side: _list_fit(items, text_w, inner_h, COLUMN_SIZES) for side, items in sides.items() if items}
     size = min((f[0] for f in fits.values()), default=LIST_SIZES[0])
     gap = min((f[1] for f in fits.values()), default=size * 0.4)
     for i, side in enumerate(("left", "right")):
@@ -1238,10 +1261,23 @@ def _number_text(value) -> str:
 
 
 def _number_format(series: list, unit: str = "") -> str:
-    """그래프의 숫자 서식: 값이 모두 정수면 `#,##0`, 소수가 있으면 둘째 자리까지. 단위는 서식 안에 글자로 붙인다."""
+    """그래프의 숫자 서식: 값이 모두 정수면 `#,##0`, 소수가 있으면 둘째 자리까지.
+    베타 AK: 단위는 서식에 붙이지 않는다 (막대마다·눈금마다 "420 백만원" 처럼 되풀이되었다). 단위는 그래프 위 "단위:" 한 줄에 한 번만 쓴다 (`_unit_caption`).
+    `unit` 인자는 옛 호출을 위해 남겨 두고 쓰지 않는다."""
     whole = all(float(v) == int(v) for _, values in series for v in values)
-    unit = unit.replace('"', "").replace("\\", "")
-    return ("#,##0" if whole else "#,##0.0#") + (f'"{unit}"' if unit else "")
+    return "#,##0" if whole else "#,##0.0#"
+
+
+UNIT_CAPTION_H = 0.28
+
+
+def _unit_caption(slide, x: float, y: float, w: float, unit: str) -> float:
+    """그래프 카드 왼쪽 위의 "단위: …" 한 줄. 쓴 높이를 돌려준다 (단위가 없으면 0)."""
+    if not unit:
+        return 0.0
+    box = _textbox(slide, x, y, w, UNIT_CAPTION_H, name="단위")
+    _write(box.text_frame.paragraphs[0], f"단위: {unit}", 10, color=MUTE)
+    return UNIT_CAPTION_H
 
 
 def _series_colors(count: int) -> list:
@@ -1466,7 +1502,8 @@ def _draw_chart(slide, data: dict, number: int, deck_title: str):
             p.alignment = PP_ALIGN.CENTER
             _write(p, name, 14, bold=True, color=BRAND_DEEP)
     else:
-        _native_chart(slide, ctype, categories, series, unit, MARGIN + 0.2, body_y + 0.15, chart_w - 0.4, height - 0.3)
+        cap = _unit_caption(slide, MARGIN + 0.3, body_y + 0.12, chart_w - 0.6, unit)
+        _native_chart(slide, ctype, categories, series, unit, MARGIN + 0.2, body_y + 0.15 + cap, chart_w - 0.4, height - 0.3 - cap)
     if side:
         colors = _doughnut_colors(len(categories)) if ctype == "doughnut" else None
         _value_rows(slide, MARGIN + chart_w + GAP_X, body_y, _CLOSING_LEFT_W, height, series[0][0], categories, series[0][1], unit, colors)
@@ -1557,7 +1594,7 @@ def _draw_before_after(slide, data: dict, top: float, bottom: float):
     sides = {side: _list(data, side) for side in ("left", "right")}
     text_w = _BA_W - 2 * CARD_PAD
     inner_h = height - _COLUMN_HEAD_H - CARD_PAD_V
-    fits = {side: _list_fit(items, text_w, inner_h) for side, items in sides.items() if items}
+    fits = {side: _list_fit(items, text_w, inner_h, COLUMN_SIZES) for side, items in sides.items() if items}
     size = min((f[0] for f in fits.values()), default=LIST_SIZES[0])
     gap = min((f[1] for f in fits.values()), default=size * 0.4)
     for i, side in enumerate(("left", "right")):
@@ -1636,8 +1673,23 @@ def _pair_need(items: list, pt: float, width: float) -> float:
     return sum(_est_lines(n["label"] + ("  " + n["detail"] if n["detail"] else ""), pt, text_w) * _line_h(pt) for n in items) + max(len(items) - 1, 0) * pt * 0.4 / 72
 
 
+MATRIX_SIZES = ((20, 13), (18, 12), (16, 12), (14, 11), (13, 11), (12, 10), (11, 9), (10, 9))  # 2×2 칸 안 (이름, 설명) 글자 크기
+
+
+def _matrix_need(items: list, name_pt: float, detail_pt: float, width: float) -> float:
+    """2×2 칸 하나의 글 높이: 항목마다 이름 한 덩어리 + 설명 한 덩어리 (항목이 둘 이상이면 글머리 들여쓰기만큼 좁다)."""
+    text_w = width - (_indent_in(name_pt) if len(items) > 1 else 0)
+    total = 0.0
+    for n in items:
+        total += _est_lines(n["label"], name_pt, text_w) * _line_h(name_pt, 1.1)
+        if n["detail"]:
+            total += 0.04 + _est_lines(n["detail"], detail_pt, text_w) * _line_h(detail_pt)
+    return total + max(len(items) - 1, 0) * name_pt * 0.6 / 72
+
+
 def _draw_matrix(slide, data: dict, nodes: list, top: float, bottom: float):
-    """2×2 위치: 흰 판 위 네 칸. 가로축·세로축 이름과 화살표, 칸마다 항목. 첫 항목이 든 칸을 옅은 블루로 강조한다."""
+    """2×2 위치: 흰 판 위 네 칸. 가로축·세로축 이름과 화살표(양 끝에 낮음·높음), 칸마다 항목(이름 굵게, 설명은 아래 줄).
+    첫 항목이 든 칸은 브랜드 블루 면에 흰 글자로 강조한다 (베타 AK: 옅은 블루로는 우리 자리가 눈에 띄지 않았다)."""
     height = bottom - top
     _card(slide, MARGIN, top, CONTENT_W, height)
     axis_x, axis_y = _clean(data.get("axis_x")).strip(), _clean(data.get("axis_y")).strip()
@@ -1653,29 +1705,50 @@ def _draw_matrix(slide, data: dict, nodes: list, top: float, bottom: float):
     first = ontology.MATRIX_QUADRANTS.get(nodes[0]["group"], 0)
     for q, items in enumerate(groups):
         x, y = gx + (q % 2) * (qw + gap), gy + (q // 2) * (qh + gap)
-        _card(slide, x, y, qw, qh, fill=BRAND_PALE if q == first else PAGE_BG, radius=RADIUS_SMALL, shadow=False, name="칸")
+        mine = q == first
+        _card(slide, x, y, qw, qh, fill=BRAND if mine else PAGE_BG, radius=RADIUS_SMALL, shadow=False, name="칸")
         if not items:
             continue
-        text_w, text_h = qw - 0.4, qh - 0.2
-        size = next((pt for pt in (13, 12, 11, 10, 9) if _pair_need(items, pt, text_w) <= text_h), 9)
-        box = _textbox(slide, x + 0.2, y + 0.1, text_w, text_h, name="칸 글")
+        text_w, text_h = qw - 0.5, qh - 0.24
+        name_pt, detail_pt = next((sz for sz in MATRIX_SIZES if _matrix_need(items, *sz, text_w) <= text_h), MATRIX_SIZES[-1])
+        box = _textbox(slide, x + 0.25, y + 0.12, text_w, text_h, name="칸 글")
         tf = box.text_frame
+        name_color, detail_color = (WHITE, WHITE) if mine else (INK, TEXT)
+        first_p = True
         for k, node in enumerate(items):
-            p = tf.paragraphs[0] if k == 0 else tf.add_paragraph()
-            p.line_spacing = BODY_LS
-            p.space_after = Pt(size * 0.4 if k < len(items) - 1 else 0)
-            _write(p, node["label"], size, bold=True, color=INK)
+            p = tf.paragraphs[0] if first_p else tf.add_paragraph()
+            first_p = False
+            p.line_spacing = 1.1
+            if k:
+                p.space_before = Pt(name_pt * 0.6)
+            _write(p, node["label"], name_pt, bold=True, color=name_color)
+            if len(items) > 1:
+                _bullet(p, name_pt, color=WHITE if mine else BRAND)
             if node["detail"]:
-                _write(p, "  " + node["detail"], size, color=TEXT)
-            _bullet(p, size)
-        if _pair_need(items, size, text_w) > text_h:
-            _shrink(tf, text_h / _pair_need(items, size, text_w))
+                d = tf.add_paragraph()
+                d.line_spacing = BODY_LS
+                d.space_before = Pt(3)
+                if len(items) > 1:  # 글머리 들여쓰기에 맞춘다 (점은 찍지 않는다)
+                    ppr = d._p.get_or_add_pPr()
+                    ppr.set("marL", str(int(Pt(name_pt) * 1.1)))
+                _write(d, node["detail"], detail_pt, color=detail_color)
+        need = _matrix_need(items, name_pt, detail_pt, text_w)
+        if need > text_h:
+            _shrink(tf, text_h / need)
     if axis_y:
         _line(slide, gx - 0.12, gy + gh, gx - 0.12, gy, MUTE, 1.0, arrow=True, name="세로축")
-        _block(slide, MARGIN + 0.25, gy, left_w - 0.27, gh, axis_y, "", sizes=((12, 0), (11, 0), (10, 0)), name="세로축 이름", color=TEXT, align=PP_ALIGN.CENTER)
+        _block(slide, MARGIN + 0.25, gy + 0.3, left_w - 0.27, gh - 0.6, axis_y, "", sizes=((13, 0), (12, 0), (11, 0), (10, 0)), name="세로축 이름", color=INK, align=PP_ALIGN.CENTER)
+        for label, ty in (("높음", gy), ("낮음", gy + gh - 0.26)):
+            box = _textbox(slide, MARGIN + 0.25, ty, left_w - 0.32, 0.26, name="축 끝")
+            box.text_frame.paragraphs[0].alignment = PP_ALIGN.RIGHT
+            _write(box.text_frame.paragraphs[0], label, 9, color=MUTE)
     if axis_x:
         _line(slide, gx, gy + gh + 0.1, gx + gw, gy + gh + 0.1, MUTE, 1.0, arrow=True, name="가로축")
-        _block(slide, gx, gy + gh + 0.13, gw, foot_h - 0.13, axis_x, "", sizes=((12, 0), (11, 0), (10, 0)), name="가로축 이름", color=TEXT, align=PP_ALIGN.CENTER)
+        _block(slide, gx + 0.8, gy + gh + 0.13, gw - 1.6, foot_h - 0.13, axis_x, "", sizes=((13, 0), (12, 0), (11, 0), (10, 0)), name="가로축 이름", color=INK, align=PP_ALIGN.CENTER)
+        for label, tx, align in (("낮음", gx, PP_ALIGN.LEFT), ("높음", gx + gw - 0.7, PP_ALIGN.RIGHT)):
+            box = _textbox(slide, tx, gy + gh + 0.13, 0.7, foot_h - 0.13, name="축 끝")
+            box.text_frame.paragraphs[0].alignment = align
+            _write(box.text_frame.paragraphs[0], label, 9, color=MUTE)
 
 
 def _clip(cx: float, cy: float, half_w: float, half_h: float, tx: float, ty: float) -> tuple[float, float]:
