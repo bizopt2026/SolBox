@@ -55,7 +55,7 @@ def test_apply_fields_with_ai_history(user_client, db):
     db.expire_all()
     f = db.get(Opportunity, o.id)
     assert (f.amount, f.expected_close, f.next_step, f.next_step_due) == (1_200_000_000, date(2026, 12, 20), "단가 회신", None)  # 날짜 없는 제안은 옛 기한을 비운다 (리뷰 반영)
-    assert _ai_rows(db, o) == [("amount", "1200000000", "총 12억"), ("expected_close", "2026-12-20", "연내"), ("next_step", "단가 회신", "단가")]
+    assert _ai_rows(db, o) == [("amount", "1200000000", "총 12억"), ("expected_close", "2026-12-20", "연내"), ("next_step", "단가 회신", "단가"), ("next_step_due", "", "단가")]
     s = _state(db, ins, 1)
     assert s["state"] == "applied" and s["decided_by"] is not None and s["decided_at"]
 
