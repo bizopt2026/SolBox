@@ -572,22 +572,23 @@ details.slide-card { scroll-margin-top: 16px; }
 table.row-click tbody tr { cursor: pointer; }
 table.row-click tbody tr:hover { background: var(--sunken); }
 @media (max-width: 600px) { .sortbar { margin-left: 0; flex: 1 1 100%; } }
-/* 좁은 화면의 "걸러 보기·정렬" 펼침 (넓은 화면은 한 줄로 늘어놓고 이 펼침은 숨긴다) */
-.tool-more { display: none; }
+/* "걸러 보기·정렬" 펼침: 모든 폭에서 하나 (UX 개선 2026-11-26). 유래·정렬·목록별 걸러 보기가 이 안에 든다 */
+.tool-more { flex: 1 1 100%; }
+.tool-more > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink-2); font-size: var(--fs-note); font-weight: 500; list-style: none; cursor: pointer; }
+.tool-more > summary::-webkit-details-marker { display: none; }
+.tool-more > summary::after { content: "\25BE"; color: var(--ink-3); }
+.tool-more[open] > summary::after { content: "\25B4"; }
+.tool-more[data-active] > summary { border-color: var(--brand); color: var(--brand-deep); background: var(--brand-soft); }
+.more-dot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 11px; font-weight: var(--fw-strong); }
+.tool-more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; margin-top: 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.tool-more-body .origin-tools, .tool-more-body .sortbar { flex-wrap: wrap; margin-left: 0; }
+.tool-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @media (max-width: 600px) {
   .tools { gap: 8px; }
-  .tools > .seg { flex: 1 1 100%; } /* 주 구분 탭: 한 줄로 두고 옆으로 민다 */
-  .tools > .tool-desk { display: none; }
-  .tool-more { display: block; flex: 1 1 100%; }
-  .tool-more > summary { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink-2); font-size: var(--fs-note); font-weight: 500; list-style: none; }
-  .tool-more > summary::-webkit-details-marker { display: none; }
-  .tool-more > summary::after { content: "\25BE"; margin-left: auto; color: var(--ink-3); }
-  .tool-more[open] > summary::after { content: "\25B4"; }
-  .tool-more[data-active] > summary { border-color: var(--brand); color: var(--brand-deep); background: var(--brand-soft); }
-  .more-dot { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 11px; font-weight: var(--fw-strong); }
-  .tool-more-body { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
-  .tool-more-body .origin-tools { flex-wrap: wrap; }
-  .tool-more-body .sortbar { flex: none; flex-wrap: wrap; }
+  .tools > .seg { flex: 1 1 100%; }
+  .tool-more > summary { display: flex; }
+  .tool-more > summary::after { margin-left: auto; }
+  .tool-more-body { flex-direction: column; align-items: stretch; }
 }
 
 /* --- 글 칸: 쓰는 만큼 늘어난다 (스크립트가 높이를 맞추고, 여기 최대 높이를 넘으면 칸 안에서 스크롤) --- */
@@ -1598,3 +1599,13 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .cowork-suggest .block { display: block; }
 .cowork.compact .chat-scroll { max-height: 26rem; }
 .cowork-move { margin-top: .6rem; }
+
+/* UX 개선 (2026-11-26) */
+.navg-fold details { display: flex; flex-direction: column; gap: 1px; }
+.navg-fold summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.navg-fold summary::-webkit-details-marker { display: none; }
+.navg-fold summary::after { content: "▸"; font-size: 10px; }
+.navg-fold details[open] summary::after { content: "▾"; }
+.navg-fold details > a { display: flex; }
+@media (max-width: 1099px) { .navg-fold details { flex-direction: row; align-items: center; gap: 2px; } .navg-fold summary { padding: 0 6px 0 0; white-space: nowrap; } }
+.sumband-empty { margin: 0; padding: 12px 16px; border: 1px dashed var(--line-2); border-radius: var(--r-md, 10px); background: var(--surface); }

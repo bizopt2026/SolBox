@@ -23,12 +23,18 @@
   {% if not locked %}<a class="cta" href="/intake/new">+ 올리기</a>
   <div class="side-nav">
     {% for g in ont.nav_groups(user.role == "admin") %}
-    <nav class="navg" aria-label="{{ g.label }}">
-      <span class="navg-title" aria-hidden="true">{{ g.label }}</span>
-      {% for item in g.items %}
+    {% set links %}{% for item in g.items %}
       <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}>{{ ont.nav_icon(item.path) }}{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
-      {% endfor %}
+      {% endfor %}{% endset %}
+    {% if g.code == "admin" %}{# 관리 묶음은 접어 둔다 (관리 화면에 있을 때만 펼친다): 매일 쓰는 메뉴가 한눈에 들어오게 #}
+    <nav class="navg navg-fold" aria-label="{{ g.label }}"><details{% if g.items | selectattr("path", "equalto", cur) | list %} open{% endif %}>
+      <summary class="navg-title">{{ g.label }}</summary>{{ links }}
+    </details></nav>
+    {% else %}
+    <nav class="navg" aria-label="{{ g.label }}">
+      <span class="navg-title" aria-hidden="true">{{ g.label }}</span>{{ links }}
     </nav>
+    {% endif %}
     {% endfor %}
     <a class="side-help in-nav" href="/help"{% if path == '/help' %} aria-current="page"{% endif %}>도움말</a>{# 좁은 화면에서만 (위쪽 줄이 비좁아 메뉴 줄 끝으로 옮긴다) #}
   </div>

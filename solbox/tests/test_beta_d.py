@@ -230,11 +230,11 @@ def test_list_tools_narrow_disclosure_and_indicator(user_client, db):
     db.commit()
     html = user_client.get("/solutions").text
     assert '<details class="tool-more">' in html and "걸러 보기·정렬" in html and 'class="more-dot"' not in html
-    assert html.count('class="sortbar') == 2 and html.count('class="origin-tools') == 2  # 넓은 화면용 + 좁은 화면용
+    assert html.count('class="sortbar') == 1 and html.count('class="origin-tools') == 1  # UX 개선(2026-11-26): 모든 폭에서 펼침 하나
     html = user_client.get("/solutions?origin=intake&sort=recent").text
-    assert 'data-active="2"' in html and 'aria-label="적용 중 2개"' in html
+    assert 'data-active="2" open' in html and 'aria-label="적용 중 2개"' in html  # 걸러 보기가 켜져 있으면 펼친 채로
     css = user_client.get("/static/app.css").text
-    assert ".tools > .tool-desk { display: none; }" in css and ".tool-more { display: none; }" in css
+    assert ".tool-more { flex: 1 1 100%; }" in css
 
 
 # ---- D4 제목 줄 ----

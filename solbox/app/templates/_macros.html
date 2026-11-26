@@ -40,14 +40,14 @@
    검색을 보낼 때 지금의 다른 조건(구분·걸러 보기 …)은 숨은 칸으로 따라간다 (쪽 번호만 버린다). #}
 {% macro origin_box(origin_tabs, cls="") %}<span class="origin-tools{{ " " ~ cls if cls }}"><span class="sort-label">유래</span>{{ seg(origin_tabs, "유래") }}</span>{% endmacro %}
 {% macro sort_box(sorts, cls="") %}<nav class="sortbar{{ " " ~ cls if cls }}" aria-label="정렬"><span class="sort-label">정렬</span>{% for s in sorts %}<a href="{{ s.href }}"{% if s.active %} aria-current="true"{% endif %}>{{ s.label }}</a>{% endfor %}</nav>{% endmacro %}
-{% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none, origin_tabs=none) %}
+{% macro list_tools(request, tabs=none, tab_label="구분", q="", flt=none, placeholder="이름으로 찾기", search=true, extra=none, origin_tabs=none, extra_on=0) %}
 {% set sorts = ui.sort_options(request) %}
-{# 좁은 화면(≤600px)에서는 유래 탭과 정렬이 "걸러 보기·정렬" 펼침 하나로 접힌다 (스크립트 없이 <details> 로). 넓은 화면은 지금처럼 한 줄.
-   두 벌을 그리고 CSS 가 폭에 따라 한 벌만 보이게 한다 (안 보이는 쪽은 display:none 이라 화면 읽기·키보드에도 없다). 기본이 아닌 걸러 보기·정렬이 걸려 있으면 펼침 이름 옆에 개수 표시. #}
-{% set more_n = ((1 if origin_tabs and not origin_tabs[0].active else 0) + (1 if sorts and not sorts[0].active else 0)) %}
+{# 도구줄은 한 줄: 구분 탭 + 검색 + "걸러 보기·정렬" 펼침 하나. 유래 탭·정렬·목록마다의 걸러 보기(extra: 담당·사업방식·칩)는 모두 그 펼침 안에 둔다
+   (UX 개선 2026-11-26: 탭·칩이 세 줄로 쌓이던 것을 접는다). 기본이 아닌 걸러 보기·정렬이 걸려 있으면 펼친 채로 두고 이름 옆에 개수를 보인다.
+   `extra_on` 은 extra 안에서 켜진 걸러 보기 수 (부르는 쪽이 센다). 스크립트 없이 <details> 로 동작한다. #}
+{% set more_n = ((1 if origin_tabs and not origin_tabs[0].active else 0) + (1 if sorts and not sorts[0].active else 0) + (extra_on or 0)) %}
 <div class="tools">
   {% if tabs %}{{ seg(tabs, tab_label) }}{% endif %}
-  {% if origin_tabs %}{{ origin_box(origin_tabs, "tool-desk") }}{% endif %}
   {% if search %}
   <form class="search tool-search" method="get" action="{{ request.url.path }}" role="search" aria-label="목록 검색">
     {% for k, v in request.query_params.multi_items() if k not in ("q", "page", "notice", "nt") %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
@@ -55,17 +55,16 @@
     <input id="list-q" type="search" name="q" value="{{ q }}" placeholder="{{ placeholder }}" autocomplete="off">
   </form>
   {% endif %}
-  {% if sorts %}{{ sort_box(sorts, "tool-desk") }}{% endif %}
-  {% if origin_tabs or sorts %}
-  <details class="tool-more"{% if more_n %} data-active="{{ more_n }}"{% endif %}>
+  {% if origin_tabs or sorts or extra %}
+  <details class="tool-more"{% if more_n %} data-active="{{ more_n }}" open{% endif %}>
     <summary>걸러 보기·정렬{% if more_n %} <span class="more-dot" role="img" aria-label="적용 중 {{ more_n }}개">{{ more_n }}</span>{% endif %}</summary>
     <div class="tool-more-body">
       {% if origin_tabs %}{{ origin_box(origin_tabs) }}{% endif %}
       {% if sorts %}{{ sort_box(sorts) }}{% endif %}
+      {% if extra %}<div class="tool-extra">{{ extra }}</div>{% endif %}
     </div>
   </details>
   {% endif %}
-  {% if extra %}{{ extra }}{% endif %}
 </div>
 {{ filter_note(flt) }}
 {% endmacro %}
