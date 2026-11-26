@@ -605,7 +605,7 @@ _TYPE_LIST = [
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
                "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건", "business_types": "검토 사업방식",
                "amount": "예상 금액", "expected_close": "예상 수주일", "owner": "담당", "next_step": "다음 할 일", "next_step_due": "다음 할 일 날짜",
-               "close_reason": "사유", "close_note": "사유 메모"},
+               "close_reason": "사유", "close_note": "사유 메모", "checks": "확인 항목"},
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(

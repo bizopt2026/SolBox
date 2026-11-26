@@ -136,13 +136,13 @@
 {% macro confirm_link(url, label="삭제", ask="정말 삭제할까요?", ok=none, cls="ghost danger", aria=none) %}<a class="button {{ cls }}" href="{{ url }}" data-confirm-post="{{ url }}" data-ask="{{ ask }}" data-ok="{{ ok or label }}"{% if aria %} aria-label="{{ aria }}"{% endif %}>{{ label }}</a>{% endmacro %}
 
 {# 제목 줄 밑 단계 막대 (한 번 누르면 그 단계로: 같은 POST). flow = 차례로 나아가는 코드들, names = {코드: 이름}, side = 막대 옆 따로 선 코드들(보류·실패) #}
-{% macro stage_stepper(action, flow, names, current, side=(), label="단계", key=none) %}
+{% macro stage_stepper(action, flow, names, current, side=(), label="단계", key=none, notes=none) %}
 <p class="sr-only">현재 단계: <strong>{{ names.get(current, current) }}</strong></p>
 {% set at = flow.index(current) if current in flow else -1 %}
 <form method="post" action="{{ action }}" class="stagebar" aria-label="{{ label }}">
   <div class="steps">
     {% for code in flow %}
-    <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if key and ont.code_help(key, code) %} title="{{ ont.code_help(key, code) }}"{% endif %}{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at else (loop.index ~ " ") }}{{ names[code] }}</button>
+    <button type="submit" name="stage" value="{{ code }}" class="step{{ ' current' if loop.index0 == at }}{{ ' done' if loop.index0 < at }}"{% if key and ont.code_help(key, code) %} title="{{ ont.code_help(key, code) }}"{% endif %}{% if loop.index0 == at %} aria-current="step" disabled{% endif %}>{{ "✓ " if loop.index0 < at else (loop.index ~ " ") }}{{ names[code] }}{% if notes and notes.get(code) and loop.index0 <= at %}<small class="step-note">{{ notes[code] }}</small>{% endif %}</button>
     {% endfor %}
   </div>
   {% for code in side %}

@@ -10,7 +10,7 @@
                status=opportunity_badge(opp.stage), primary=next) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if stale %}<p class="notice stale-alert" role="status"><b>멈춘 건</b> {% for tone, t in stale %}{{ t }}{{ " · " if not loop.last }}{% endfor %} <a href="/opportunities/{{ opp.id }}/edit#progress">다음 할 일 고치기</a></p>{% endif %}
-{{ stage_stepper("/opportunities/" ~ opp.id ~ "/stage", ont.OPPORTUNITY_FLOW, ont.OPPORTUNITY_STAGES, opp.stage, ont.OPPORTUNITY_SIDE_STAGES, ont.prop("opportunity", "stage"), "opportunity_stage") }}
+{{ stage_stepper("/opportunities/" ~ opp.id ~ "/stage", ont.OPPORTUNITY_FLOW, ont.OPPORTUNITY_STAGES, opp.stage, ont.OPPORTUNITY_SIDE_STAGES, ont.prop("opportunity", "stage"), "opportunity_stage", notes=step_notes) }}
 {% set owner_name = (opp.owner.name or opp.owner.username) if opp.owner else "" %}
 <dl class="sumband" aria-label="진행 요약">
   <div><dt>{{ ont.prop("opportunity", "amount") }}</dt><dd class="num big">{{ money.format_amount(opp.amount) or "–" }}</dd></div>
@@ -25,6 +25,7 @@
     {% set project_cell %}{% if opp.project %}<a href="/projects/{{ opp.project_id }}">{{ opp.project.name }}</a>{% elif can_convert %}<a class="button primary small" href="/opportunities/{{ opp.id }}/convert">{{ josa(ont.label("project"), "으로/로") }} 전환</a> <span class="muted">수주했습니다. 프로젝트를 만들거나 기존 프로젝트를 이을 수 있습니다.</span>{% else %}{% endif %}{% endset %}
     {% set reason_cell %}{% if close_reason %}{{ close_reason }}{% if opp.close_note %} · {{ opp.close_note }}{% endif %}{% endif %}{% endset %}
     {{ props_card("기본 정보", [(ont.prop("opportunity", "customer"), cust_link), (ont.prop("opportunity", "stage"), opportunity_badge(opp.stage)), (ont.prop("opportunity", "bm"), bm_link), (ont.prop("opportunity", "business_types"), bt_badges(opp.business_type_codes) | trim), (ont.prop("opportunity", "project"), project_cell | trim)] + ([(ont.OPPORTUNITY_STAGES[opp.stage] ~ " " ~ ont.prop("opportunity", "close_reason"), reason_cell | trim)] if close_reason else []) + [(ont.prop("opportunity", "memo"), opp.memo)], "/opportunities/" ~ opp.id ~ "/edit") }}
+    {% if checks %}{% include "opportunities/_checks.html" %}{% endif %}
     {% if open_fus %}
     <section class="card" aria-labelledby="h-ofu">
       <header class="card-head"><h2 id="h-ofu">연결된 활동의 열린 후속 조치</h2></header>

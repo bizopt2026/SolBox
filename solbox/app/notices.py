@@ -121,7 +121,21 @@ def _stage_notice(label_key: str, lead: str) -> Callable[[str], Notice | None]:
     return make
 
 
+def _stage_open_notice(value: str) -> Notice | None:
+    """`<떠난 단계>.<새 단계>.<개수>` → "단계를 '제안 중'으로 바꿨습니다. 발굴 단계의 확인하지 않은 항목 3개가 남았습니다." (영업 B)"""
+    from app import ontology
+
+    parts = value.split(".")
+    if len(parts) != 3 or not parts[2].isdecimal() or len(parts[2]) > 3:
+        return None
+    old, new = (ontology.OPPORTUNITY_STAGES.get(parts[0]), ontology.OPPORTUNITY_STAGES.get(parts[1]))
+    if not old or not new:
+        return None
+    return Notice("warn", f"단계를 '{new}'{_ro(new)} 바꿨습니다. {old} 단계의 확인하지 않은 항목 {int(parts[2])}개가 남았습니다.")
+
+
 PARAM_NOTICES: dict[str, Callable[[str], Notice | None]] = {
+    "opportunity_stage_open": _stage_open_notice,
     "stage": _stage_notice("stage", "발굴 단계를"),
     "opportunity_stage": _stage_notice("opportunity_stage", "영업기회 단계를"),
 }

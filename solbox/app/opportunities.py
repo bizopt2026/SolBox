@@ -475,7 +475,7 @@ def who_counts(rows: list[Opportunity], user: User) -> dict[str, int]:
 
 HISTORY_SHOWN = 8
 _HISTORY_LABEL = {"stage": "stage", "amount": "amount", "expected_close": "expected_close", "owner_user_id": "owner",
-                  "next_step": "next_step", "next_step_due": "next_step_due", "close_reason": "close_reason"}
+                  "next_step": "next_step", "next_step_due": "next_step_due", "close_reason": "close_reason", "check": "checks"}
 
 
 def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
@@ -510,12 +510,14 @@ def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
             return ontology.close_reasons(stage).get(raw) or ontology.OPPORTUNITY_LOST_REASONS.get(raw) or raw
         if field == "stage":
             return ontology.OPPORTUNITY_STAGES.get(raw, raw)
+        if field == "check":
+            return ontology.check_label(raw)
         return raw
 
     rows = [{"at": ch.changed_at, "field": "stage", "old": shown("stage", ch.from_stage, ch.changed_at), "new": shown("stage", ch.to_stage, ch.changed_at),
              "by": names.get(ch.changed_by_id, ""), "source": ""} for ch in opp.stage_changes if ch.from_stage]  # 만들 때 줄(옛 단계 없음)은 뺀다
     rows += [{"at": ch.changed_at, "field": ch.field, "old": shown(ch.field, ch.old_value, ch.changed_at, old=True), "new": shown(ch.field, ch.new_value, ch.changed_at),
-              "by": names.get(ch.changed_by_id, ""), "source": ch.source} for ch in opp.field_changes]
+              "by": names.get(ch.changed_by_id, ""), "source": ch.source, "evidence": ch.evidence or ""} for ch in opp.field_changes]
     for r in rows:
         r["label"] = ontology.prop("opportunity", _HISTORY_LABEL.get(r["field"], r["field"]))
         r["when"] = short_date(r["at"].date(), today) if r["at"] else ""

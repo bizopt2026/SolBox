@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import business_types as bts, money, ontology, opportunities as opps, relations, teams, ui
+from app import business_types as bts, money, ontology, opportunities as opps, opportunity_ai as oai, relations, teams, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -101,7 +101,8 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         close_reason=opps.close_reason_label(opp), today=now, money=money,
         stale=opps.stale_badges(opp, now, touch),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
-        owner_team=teams.team_name(opp.owner),
+        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp),
+        step_notes={s: f"확인 {d}/{t}" for s, (d, t) in oai.stage_counts(opp).items()},
     )
 
 
@@ -263,13 +264,35 @@ def change_stage(
         raise HTTPException(status_code=400, detail=error)
     if opp.stage != stage and opps.needs_reason(stage):  # 수주·실패는 사유 화면을 거친다 (스크립트 없이도 같은 길)
         return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}", status_code=303)
+    code = f"opportunity_stage.{stage}"
     if opp.stage != stage:  # 어디서 어디로든 바꿀 수 있다
+        code = oai.leftovers_notice(opp, opp.stage, stage) or code  # 앞으로 넘기면 떠난 단계의 남은 확인 항목을 알린다 (막지 않는다)
         opps.apply_stage(opp, stage)
         db.commit()
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
-    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
+    return notices.redirect(f"/opportunities/{opp.id}", code)
+
+
+@router.post("/{opportunity_id}/checks")
+def toggle_check(
+    opportunity_id: int, request: Request, item: str = Form(""), checked: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """확인 항목 켜기·끄기 (영업 B). 알림 없이 상세의 카드로 돌아간다. HTMX 면 카드 조각만."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    try:
+        changed = oai.set_check(db, opp, item, checked == "1", user.id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="알 수 없는 확인 항목입니다.") from None
+    if changed:
+        db.commit()
+        db.refresh(opp)
+        mirror.sync(opp)
+    if request.headers.get("HX-Request"):
+        return render(request, "opportunities/_checks.html", opp=opp, checks=oai.check_view(opp))
+    return RedirectResponse(f"/opportunities/{opp.id}#checks", status_code=303)
 
 
 def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None):
