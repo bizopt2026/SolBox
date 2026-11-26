@@ -142,3 +142,148 @@ def previous_report(db: Session, report: Report) -> Report | None:
         .order_by(Report.period_start.desc(), Report.id.desc())
         .limit(1)
     ).first()
+
+
+# ---- 계획 넘김 · 점검 · 확정 ----
+
+NOTE_KEYS = ("kpi", "opps", "proposals", "check", "plan", "issues")
+
+
+def items_to_check(db: Session, report: Report) -> list[ReportPlanItem]:
+    """이 보고가 점검할 지난 계획 항목 (앞 보고의 계획 항목 전부, 앞 보고가 없으면 빈 목록)."""
+    prev = previous_report(db, report)
+    return list(prev.plan_items) if prev else []
+
+
+def save_check(db: Session, report: Report, results: dict[int, tuple[str, str]]) -> None:
+    """점검 결과 저장: 항목 번호 -> (결과 코드, 메모). 점검 대상이 아닌 번호는 무시하고, 코드가 목록 밖이면 빈 값(아직 점검 안 함).
+    확정 전이면 이어서 넘길 항목을 다시 맞춘다 (확정 뒤에는 넘어온 줄을 건드리지 않는다). 커밋은 부르는 쪽이 한다."""
+    for item in items_to_check(db, report):
+        if item.id not in results:
+            continue
+        code, note = results[item.id]
+        item.result = code if code in ontology.PLAN_RESULTS else ""
+        item.result_note = note or ""
+        item.checked_in_report_id = report.id
+    db.flush()
+    if report.status != ontology.REPORT_STATUS_CONFIRMED:
+        sync_carry(db, report)
+
+
+def sync_carry(db: Session, report: Report) -> None:
+    """미완료(미착수·진행 중·점검 안 함) 지난 항목을 이 보고 계획 맨 앞에 한 줄씩 두고 (task·owner 복사, 기한 비움),
+    대상에서 빠진 항목의 넘어온 줄은 지운다 (사용자가 고친 줄도 같다). 이미 있는 줄은 다시 만들지 않는다. 확정된 보고는 그대로 둔다."""
+    if report.status == ontology.REPORT_STATUS_CONFIRMED:
+        return
+    targets = [i for i in items_to_check(db, report) if i.result in ontology.PLAN_CARRY_RESULTS]
+    target_ids = {i.id for i in targets}
+    for line in list(report.plan_items):
+        if line.carried_from_id is not None and line.carried_from_id not in target_ids:
+            report.plan_items.remove(line)  # delete-orphan
+    have = {l.carried_from_id for l in report.plan_items if l.carried_from_id is not None}
+    fresh = [
+        ReportPlanItem(report_id=report.id, task=i.task, owner=i.owner, due=None, carried_from_id=i.id)
+        for i in targets if i.id not in have
+    ]
+    if fresh:
+        report.plan_items[:0] = fresh
+        db.flush()
+        fresh_ids = {f.id for f in fresh}
+        for pos, line in enumerate(sorted(report.plan_items, key=lambda l: (l.id not in fresh_ids, l.position, l.id))):
+            line.position = pos
+    db.flush()
+
+
+def _jsonable(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    return value
+
+
+def confirm(db: Session, report: Report, user) -> None:
+    """계획 확정: 지금의 집계를 스냅숏으로 굳히고 비어 있는 구역 문구를 기본 문장으로 채운다. 커밋은 부르는 쪽이 한다."""
+    data = _jsonable(aggregate(db, report.unit, report.period_start, report.period_end))
+    report.snapshot = data
+    report.status = ontology.REPORT_STATUS_CONFIRMED
+    report.confirmed_at = datetime.now()
+    notes = dict(report.section_notes or {})
+    if any(not notes.get(k) for k in NOTE_KEYS):
+        defaults = default_notes(data, items_to_check(db, report), list(report.plan_items))
+        for k in NOTE_KEYS:
+            if not notes.get(k):
+                notes[k] = defaults[k]
+    report.section_notes = notes  # JSON 칸은 새 값을 넣어야 변경으로 잡힌다
+    db.flush()
+
+
+def unconfirm(db: Session, report: Report) -> str | None:
+    """확정 풀기. 다음 보고가 이 보고의 계획을 이미 점검했으면 바꾸지 않고 이유 글을 돌려준다."""
+    nxt = db.scalars(
+        select(Report)
+        .join(ReportPlanItem, ReportPlanItem.checked_in_report_id == Report.id)
+        .where(ReportPlanItem.report_id == report.id, Report.id != report.id, Report.unit == report.unit, Report.period_start > report.period_start)
+        .order_by(Report.period_start)
+        .limit(1)
+    ).first()
+    if nxt is not None:
+        when = report_periods.label(nxt.unit, nxt.period_start, nxt.period_end)
+        return f"다음 보고({when})가 이 계획을 이미 점검해서 확정을 풀 수 없어요. 그 보고의 점검을 먼저 되돌려 주세요."
+    report.status = "planning"
+    report.snapshot = None
+    report.confirmed_at = None
+    db.flush()
+    return None
+
+
+def data_of(db: Session, report: Report) -> dict:
+    """보고서에 보일 숫자: 확정이면 그때의 스냅숏, 아니면 지금 새로 센 집계."""
+    if report.status == ontology.REPORT_STATUS_CONFIRMED and report.snapshot is not None:
+        return report.snapshot
+    return aggregate(db, report.unit, report.period_start, report.period_end)
+
+
+def default_notes(data: dict, check: list[ReportPlanItem], plan: list[ReportPlanItem]) -> dict[str, list[str]]:
+    """AI 없이 만드는 구역별 보고 문구 (숫자만 넣은 틀 문장, 구역마다 한 문장). 빈 구역도 "없음" 문장 한 줄을 돌려준다."""
+    k = data.get("kpis") or {}
+    n = lambda key: int(k.get(key) or 0)  # noqa: E731
+    diff = n("activities") - n("activities_prev")
+    versus = "지난 기간과 같음" if diff == 0 else f"지난 기간 대비 {diff:+d}"
+    kpi = f"활동 기록 {n('activities')}건({versus}), 수주 {n('won')}건, 새 영업기회 {n('opportunities_new')}건입니다."
+
+    opps = data.get("opportunities") or []
+    if opps:
+        new = sum(1 for o in opps if o.get("new"))
+        opps_s = f"영업기회 {len(opps)}건에 움직임이 있었습니다(새로 생김 {new}건, 수주 {n('won')}건)."
+    else:
+        opps_s = "단계가 바뀌거나 새로 생긴 영업기회는 없습니다."
+
+    props = data.get("proposals") or []
+    if props:
+        props_s = f"제안 {len(props)}건을 진행했습니다(새 제안 {n('proposals_new')}건, 제안서 작성 {n('decks_built')}건)."
+    else:
+        props_s = "이 기간에 진행한 제안은 없습니다."
+
+    if check:
+        done = sum(1 for i in check if i.result == "done")
+        left = sum(1 for i in check if i.result in ontology.PLAN_CARRY_RESULTS)
+        check_s = f"지난 계획 {len(check)}건 중 {done}건을 완료했습니다({round(done * 100 / len(check))}%)."
+        if left:
+            check_s += f" 미완료 {left}건은 다음 계획으로 넘깁니다."
+    else:
+        check_s = "처음 보고이거나 지난 계획이 없어 점검할 항목이 없습니다."
+
+    if plan:
+        carried = sum(1 for i in plan if i.carried_from_id is not None)
+        plan_s = f"다음 계획은 {len(plan)}건입니다(지난 계획에서 넘어온 항목 {carried}건)."
+    else:
+        plan_s = "다음 계획 항목이 아직 없습니다."
+
+    if n("followups_overdue"):
+        issues_s = f"기한이 지난 후속 조치가 {n('followups_overdue')}건 있습니다(이 기간에 완료한 후속 조치 {n('followups_done')}건)."
+    else:
+        issues_s = "기한이 지난 후속 조치는 없습니다."
+    return {"kpi": [kpi], "opps": [opps_s], "proposals": [props_s], "check": [check_s], "plan": [plan_s], "issues": [issues_s]}
