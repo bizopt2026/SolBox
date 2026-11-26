@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm import Session
 
-from app import ontology, origin
+from app import ontology, origin, report_periods
 from app.db import Base
 
 CHUNK = 500  # IN 목록 하나의 최대 길이
@@ -457,10 +457,8 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
 
 
 def report_label(r) -> str:
-    """업무 보고 건의 이름: "주간 보고 2026-11-23 ~ 2026-11-29" (기간이 하루면 날짜 하나)."""
-    unit = ontology.REPORT_UNITS.get(r.unit, r.unit)
-    start, end = r.period_start.isoformat(), r.period_end.isoformat()
-    return f"{unit} 보고 {start}" if start == end else f"{unit} 보고 {start} ~ {end}"
+    """업무 보고 건의 이름: "주간 2026-11-23 ~ 11-29" (기간 글은 report_periods.label 하나)."""
+    return report_periods.label(r.unit, r.period_start, r.period_end)
 
 
 def _visible(viewer, code: str, objs: list) -> list:

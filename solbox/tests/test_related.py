@@ -554,7 +554,7 @@ def test_report_plan_links_on_screen_but_not_in_mirror(db, world, settings, kim)
         key = next(k for k in groups if k.endswith(":report_item"))
         g = groups[key]
         assert g.label == "업무 보고 계획" and [i.label for i in g.items] == ["한빛 견적 보내기"]
-        assert g.items[0].url == f"/reports/{world.wr.id}" and g.items[0].note == "주간 보고 2026-11-16 ~ 2026-11-22"
+        assert g.items[0].url == f"/reports/{world.wr.id}" and g.items[0].note == "주간 2026-11-16 ~ 11-22"
     mirror = KnowledgeMirror(settings.knowledge_dir)
     mirror.rebuild_all(db, settings.uploads_dir)
     for obj in (world.c_hanbit, world.o_hanbit, world.pr_hanbit):
