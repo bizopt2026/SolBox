@@ -1639,3 +1639,4 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .insight-card ul { margin: 0; padding-left: 18px; }
 .insight-card .card-head form.inline { margin: 0; }
 .warn-text { color: var(--warn); }
+.team-table td:first-child, .team-table th:first-child { white-space: nowrap; }

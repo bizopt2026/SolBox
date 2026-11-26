@@ -263,8 +263,8 @@ def month_chart(months: list[dict], width: int = 560, height: int = 210) -> dict
         x = left + i * cell + (cell - w) / 2
         h = plot_h * v / top_v
         bars.append({"x": round(x, 1), "w": round(w, 1), "y": round(height - bottom - h, 1), "h": round(h, 1), "cx": round(x + w / 2, 1),
-                     "label": m["label"], "value": money.format_amount(m["won_amount"]) if m["won_amount"] else "",
-                     "sub": f"수주 {m['won']} · 실패 {m['lost']}",
+                     "label": m["label"], "value": (money.format_amount(m["won_amount"]) if m["won_amount"] else "") if n <= 8 or m["won_amount"] == max(x["won_amount"] for x in months) else "",
+                     "sub": f"수주 {m['won']} · 실패 {m['lost']}" if n <= 6 else "",  # 달이 많으면 겹치므로 빼고 툴팁·표로
                      "title": f"{m['label']} 수주 {money.format_amount(m['won_amount']) or '0원'} · 수주 {m['won']}건 · 실패 {m['lost']}건"})
     ticks = [{"y": round(height - bottom - plot_h * t, 1), "label": f"{top_v * t:g}억"} for t in (0, 0.5, 1)]
     return {"width": width, "height": height, "left": left, "right": width - right, "base": height - bottom, "bars": bars, "ticks": ticks}

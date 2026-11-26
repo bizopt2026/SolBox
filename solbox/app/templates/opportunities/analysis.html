@@ -37,7 +37,7 @@
         <text x="{{ b.cx }}" y="{{ b.y - 5 }}" text-anchor="middle" class="val">{{ b.value }}</text>{% endif %}
         <rect x="{{ b.x - 6 }}" y="{{ 0 }}" width="{{ b.w + 12 }}" height="{{ c.base }}" class="hit"/>
         <text x="{{ b.cx }}" y="{{ c.base + 15 }}" text-anchor="middle" class="axis">{{ b.label }}</text>
-        <text x="{{ b.cx }}" y="{{ c.base + 30 }}" text-anchor="middle" class="axis sub">{{ b.sub }}</text></g>{% endfor %}
+        {% if b.sub %}<text x="{{ b.cx }}" y="{{ c.base + 30 }}" text-anchor="middle" class="axis sub">{{ b.sub }}</text>{% endif %}</g>{% endfor %}
     </svg>
     <details class="chart-table"><summary>표로 보기</summary><table class="list-table"><thead><tr><th>달</th><th class="num">수주 금액</th><th class="num">수주</th><th class="num">실패</th></tr></thead>
       <tbody>{% for m in s.months %}<tr><td>{{ m.label }}</td><td class="num">{{ money.format_amount(m.won_amount) or "0원" }}</td><td class="num">{{ m.won }}</td><td class="num">{{ m.lost }}</td></tr>{% endfor %}</tbody></table></details>
@@ -56,7 +56,7 @@
 {% if team_key is none and s.teams %}
 <section class="card" aria-labelledby="h-teams">
   <h2 id="h-teams">팀별 비교</h2>
-  <div class="tablewrap"><table class="list-table">
+  <div class="tablewrap"><table class="list-table team-table">
     <thead><tr><th>팀</th><th class="num">진행 중</th><th class="num">수주 / 실패</th><th class="num">수주율</th>{% for st in ont.OPPORTUNITY_OPEN_STAGES %}<th class="num">{{ ont.OPPORTUNITY_STAGES[st] }} 체류</th>{% endfor %}<th class="num">멈춘 건</th></tr></thead>
     <tbody>{% for t in s.teams %}<tr><td>{{ t.name }}</td><td class="num">{{ t.open_n }}건{% if t.open_amount %} · {{ money.format_amount(t.open_amount) }}{% endif %}</td><td class="num">{{ t.won }} / {{ t.lost }}</td><td class="num">{{ pct(t.win_rate) }}</td>
       {% for st in ont.OPPORTUNITY_OPEN_STAGES %}<td class="num">{{ days(t.dwell[st]) }}</td>{% endfor %}<td class="num">{{ t.stale }}</td></tr>{% endfor %}</tbody>
