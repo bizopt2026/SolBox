@@ -1,0 +1,34 @@
+{# 2단계 지난 계획 점검: 앞 보고의 계획 항목마다 결과(완료/진행 중/미착수/취소) + 한 줄 메모. 진행 중·미착수·점검 안 함은 다음 계획 맨 앞으로 넘어간다. #}
+{% from "_macros.html" import rev_fields %}
+{% from "reports/_notes.html" import notes_box with context %}
+{% set typed = form["values"] if form.which == "check" else none %}
+<section class="card" id="check" aria-labelledby="check-h">
+  <div class="card-head"><h2 id="check-h">지난 계획 점검</h2>{% if prev %}<span class="muted small">{{ report_label(prev) }} 보고에서 세운 계획 {{ check | length }}개</span>{% endif %}</div>
+  {% if not check %}
+  <p class="muted">{% if prev %}지난 보고({{ report_label(prev) }})에 세운 계획이 없어 점검할 항목이 없습니다.{% else %}처음 보고입니다. 같은 단위의 확정한 지난 보고가 없어 점검할 계획이 없습니다. 다음 계획으로 넘어가세요.{% endif %}</p>
+  {% else %}
+  <p class="muted">항목마다 결과를 고르세요. <b>진행 중·미착수</b>와 고르지 않은 항목은 다음 계획 맨 앞으로 넘어갑니다{% if confirmed %} (확정한 보고라 넘어온 줄은 다시 맞추지 않습니다){% endif %}. 결과를 바꾸면 넘어온 줄도 다시 맞춰지고, 그 줄을 고쳤어도 빠질 수 있습니다.</p>
+  <form method="post" action="/reports/{{ report.id }}/check">
+    {{ rev_fields(report, form.conflict if typed is not none else none, "/reports/" ~ report.id ~ "?step=check") }}
+    <div class="tablewrap"><table class="check-table">
+      <thead><tr><th>계획</th><th>담당</th><th>기한</th><th>결과</th><th>메모</th></tr></thead>
+      <tbody>{% for it in check %}
+        {% set cur = typed[it.id] if typed is not none and it.id in typed else (it.result, it.result_note) %}
+        <tr>
+          <td><input type="hidden" name="item_id" value="{{ it.id }}">{{ it.task }}</td>
+          <td>{{ it.owner }}</td>
+          <td class="num">{{ it.due.strftime("%m-%d") if it.due else "" }}</td>
+          <td><label class="sr-only" for="r-{{ it.id }}">결과: {{ it.task }}</label>
+            <select id="r-{{ it.id }}" name="result_{{ it.id }}"><option value="">고르세요</option>{% for code, text in ont.PLAN_RESULTS.items() %}<option value="{{ code }}"{{ " selected" if cur[0] == code }}>{{ text }}</option>{% endfor %}</select></td>
+          <td><label class="sr-only" for="n-{{ it.id }}">메모: {{ it.task }}</label><input id="n-{{ it.id }}" name="note_{{ it.id }}" value="{{ cur[1] }}" placeholder="한 줄 메모"></td>
+        </tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% set counts = {} %}{% for it in check %}{% set _ = counts.update({it.result: counts.get(it.result, 0) + 1}) %}{% endfor %}
+    {% set left = check | selectattr("result", "in", ont.PLAN_CARRY_RESULTS) | list | length %}
+    <div class="row check-foot"><button type="submit" class="primary">점검 저장</button>
+      <span class="muted">{% for code, text in ont.PLAN_RESULTS.items() if counts.get(code) %}{{ text }} {{ counts[code] }}{{ " · " if not loop.last }}{% endfor %}{% if counts.get("") %}{{ " · " if counts | length > 1 }}점검 안 함 {{ counts[""] }}{% endif %} → {{ left }}개가 다음 계획으로 넘어갑니다</span></div>
+  </form>
+  {% endif %}
+  {{ notes_box("check", "지난 계획 점검") }}
+</section>

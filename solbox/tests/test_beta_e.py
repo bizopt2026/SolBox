@@ -150,7 +150,7 @@ def test_every_template_import_names_a_macro():
         for m in pat.finditer(f.read_text(encoding="utf-8")):
             src = (tdir / m.group(1))
             text = src.read_text(encoding="utf-8")
-            for part in m.group(2).split(","):
+            for part in re.sub(r"\s+with(out)?\s+context$", "", m.group(2)).split(","):  # `import x with context` (Jinja 의 맥락 넘기기)
                 name = part.strip().split(" as ")[0].strip()
                 if not name:
                     continue

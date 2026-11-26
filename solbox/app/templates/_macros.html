@@ -120,11 +120,12 @@
 
 {# 상세 화면 제목 줄. 오른쪽 끝 동작은 늘 같은 차례: 삭제(조용한 위험, 지울 수 있는 사람만) → 수정 → 다음 동작 하나(primary=(글, 주소), 주 버튼).
    caller 본문은 수정 뒤·주 버튼 앞에 놓을 동작(안전한 HTML). #}
-{% macro detail_head(title, path, obj, can_delete, crumbs=none, sub=none, status=none, primary=none) %}
+{# edit=false: 따로 고치는 화면이 없는 대상(업무 보고: 화면 안의 폼에서 고친다)은 "수정" 버튼을 그리지 않는다 #}
+{% macro detail_head(title, path, obj, can_delete, crumbs=none, sub=none, status=none, primary=none, edit=true) %}
 {% set extra_actions = caller() if caller is defined else "" %}{# 안쪽 call 이 caller 를 가리므로 먼저 받아 둔다 #}
 {% call page_header(title, crumbs=crumbs, sub=sub, status=status, cls="detail") %}
   {% if can_delete %}<span class="actions-danger">{{ confirm_link(path ~ "/" ~ obj.id ~ "/delete", cls="ghost danger", ask=((delete_impact(obj) ~ " ") if delete_impact(obj) else "") ~ "정말 삭제할까요?") }}</span>{% endif %}
-  <a class="button" href="{{ path }}/{{ obj.id }}/edit">수정</a>
+  {% if edit %}<a class="button" href="{{ path }}/{{ obj.id }}/edit">수정</a>{% endif %}
   {{ extra_actions }}
   {% if primary %}<a class="button primary" href="{{ primary[1] }}">{{ primary[0] }}</a>{% endif %}
 {% endcall %}

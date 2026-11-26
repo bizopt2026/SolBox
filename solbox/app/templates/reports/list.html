@@ -1,21 +1,23 @@
 {% extends "base.html" %}
-{% from "_macros.html" import list_head, empty_list, pager, title_cell, pill %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, pill, none_dash %}
 {% block title %}{{ ont.label("report") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("report"), pg, none, type="report") }}
+{{ list_head(ont.label("report"), pg, unit, "/reports/new", "+ 보고 만들기", type="report") }}
+{{ list_tools(request, tabs, ont.CODE_LISTS["report_unit"].label, search=false) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>{{ ont.label("report") }}</th><th class="col-sec">{{ ont.prop("report", "status") }}</th><th class="col-sec">수정일</th></tr></thead>
+  <thead><tr><th>{{ ont.label("report") }}</th><th class="col-sec">{{ ont.prop("report", "status") }}</th><th class="col-sec">만든 사람</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for r in pg.items %}
     <tr>
-      {% call title_cell("/reports/" ~ r.id, report_title(r)) %}{{ pill("report_status", r.status) }}{% endcall %}
+      {% call title_cell("/reports/" ~ r.id, report_label(r), row_summary(r)) %}<span>{{ ont.REPORT_STATUSES.get(r.status, r.status) }}</span><span>{{ kdate(r.updated_at.date()) }}</span>{% endcall %}
       <td class="col-sec">{{ pill("report_status", r.status) }}</td>
-      <td class="col-sec num">{{ kdate(r.updated_at.date()) }}</td>
+      <td class="col-sec">{{ authors.get(r.created_by_id) or none_dash() }}</td>
+      <td class="col-sec num" title="{{ kdatetime(r.updated_at) }}">{{ kdate(r.updated_at.date()) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(none, "아직 만든 " ~ ont.label("report") ~ "가 없습니다.") }}{% endif %}
+{% else %}{{ empty_list(unit, "아직 만든 " ~ ont.label("report") ~ "가 없습니다.", "/reports/new", "+ 보고 만들기", clear_url="/reports") }}{% endif %}
 {% endblock %}

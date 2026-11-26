@@ -1428,3 +1428,44 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s1); }
   .dup-pair, .merge-choice { grid-template-columns: minmax(0, 1fr); }
   .dup-row { padding: var(--s3); }
 }
+
+/* --- 업무 보고 (reports/*): 숫자 카드 8칸, 구역 아래 "보고 문구", 만들기의 단위 고르기, 점검·계획 표 --- */
+.report-grid .card { display: flex; flex-direction: column; gap: var(--s3); }
+.report-grid .card-head .muted { font-size: var(--fs-note); }
+.kpi-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); }
+.kpi { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--sunken); }
+.kpi-n { font-size: var(--fs-title); font-weight: var(--fw-display); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi > span { flex-basis: 100%; color: var(--ink-2); font-size: var(--fs-note); }
+.kpi-diff { font-size: var(--fs-small); font-weight: var(--fw-strong); }
+.kpi-diff.up { color: var(--ok); }
+.kpi-diff.down { color: var(--bad); }
+.report-notes { border-top: 1px dashed var(--line); padding-top: var(--s2); font-size: var(--fs-note); }
+.report-notes > summary { cursor: pointer; color: var(--ink-2); font-weight: var(--fw-strong); }
+.report-notes form { margin-top: var(--s2); }
+.report-notes textarea::placeholder { color: var(--ink-3); }
+.edit-summary > summary { cursor: pointer; color: var(--brand); font-size: var(--fs-note); }
+.edit-summary form { margin-top: var(--s2); }
+.seg-radio { width: fit-content; }
+.seg-radio label { display: inline-flex; align-items: center; margin: 0; min-height: 34px; padding: 0 12px; border-right: 1px solid var(--line); color: var(--ink-2); font-size: var(--fs-note); cursor: pointer; }
+.seg-radio label:last-child { border-right: 0; }
+.seg-radio input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg-radio label:has(input:checked) { background: var(--ink); color: var(--surface); font-weight: var(--fw-display); }
+.seg-radio label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.unit-pick { border: 0; margin: 0; padding: 0; }
+.unit-pick legend { padding: 0; margin-bottom: 6px; font-weight: var(--fw-strong); }
+.report-preview { margin: var(--s3) 0 0; font-size: var(--fs-note); }
+.check-table td, .plan-table td { vertical-align: top; }
+.check-table td:nth-child(2), .check-table td:nth-child(3) { white-space: nowrap; }
+.check-table td:nth-child(4) { width: 9em; }
+.plan-table td { padding-left: 6px; padding-right: 6px; }
+.plan-table td:first-child { min-width: 13em; padding-left: 16px; }
+.plan-table td:first-child .badge { margin-bottom: 4px; }
+.plan-table td:nth-child(2) { min-width: 6em; }
+.plan-table td:nth-child(3) input { width: 9.5em; }
+.plan-table td:nth-child(4), .plan-table td:nth-child(5) { min-width: 7em; }
+.plan-table td:last-child { white-space: nowrap; padding-right: 16px; }
+fieldset.bare { border: 0; margin: 0; padding: 0; min-width: 0; }
+.check-foot { align-items: center; gap: var(--s3); flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

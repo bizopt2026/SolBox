@@ -1,0 +1,13 @@
+{# 4단계 확정·파일: 확정 안내 (확정·확정 풀기 버튼은 제목 줄의 다음 동작). 보고서 파일 만들기·내려받기는 아래 자리에 붙는다 (다음 작업). #}
+<section class="card" id="confirm" aria-labelledby="confirm-h">
+  <div class="card-head"><h2 id="confirm-h">계획 확정</h2>{% if confirmed and report.confirmed_at %}<span class="muted small">{{ kdatetime(report.confirmed_at) }} 확정 · 숫자 고정됨</span>{% endif %}</div>
+  {% if confirmed %}
+  <p>확정한 계획 {{ plan | length }}개. 다음 {{ ont.REPORT_UNITS.get(report.unit, "") }} 보고({{ next_text }})를 만들면 이 계획이 "지난 계획 점검"에 나옵니다.</p>
+  {% if unconfirm_problem %}<p class="notice" role="note">{{ unconfirm_problem }}</p>
+  {% else %}<p class="muted">위의 "확정 풀기"로 풀면 숫자를 다시 지금 기록에서 세고 계획을 고칠 수 있습니다.</p>{% endif %}
+  {% else %}
+  <p>확정하면 지금 숫자가 보고서에 고정되고, 비어 있는 보고 문구는 기본 문장으로 채워집니다. 다음 보고가 이 계획을 점검하기 전에는 확정을 풀 수 있습니다.</p>
+  <p class="muted">계획 {{ plan | length }}개 · 실적 요약 글 {{ "있음" if report.summary_md else "없음" }} · 위의 "계획 확정"을 누르세요.</p>
+  {% endif %}
+</section>
+<div id="report-files">{# 보고서 파일(PPT·워드·MD) 만들기·내려받기 자리 (다음 작업) #}</div>

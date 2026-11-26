@@ -353,6 +353,7 @@ REPORT_UNITS = {"day": "일간", "week": "주간", "month": "월간"}  # 보고 
 REPORT_UNIT_DEFAULT = "week"
 REPORT_STATUSES = {"draft": "실적 확인", "planning": "계획 작성 중", "confirmed": "확정"}  # 보고 진행 상태
 REPORT_STATUS_DEFAULT = "draft"
+REPORT_STATUS_PLANNING = "planning"
 REPORT_STATUS_CONFIRMED = "confirmed"
 PLAN_RESULTS = {"done": "완료", "doing": "진행 중", "todo": "미착수", "dropped": "취소"}  # 계획 항목의 점검 결과 (빈 값 = 아직 점검 안 함)
 PLAN_CARRY_RESULTS = ("doing", "todo", "")  # 다음 계획으로 넘어가는 결과 (완료·취소는 넘기지 않는다)

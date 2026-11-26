@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, form_token, save_bar, field_shell %}
+{% block title %}{{ ont.label("report") }} 만들기{% endblock %}
+{% block content %}
+{{ page_header(ont.label("report") ~ " 만들기", crumbs=ui.crumbs("report", none, none, "만들기"), sub="단위와 기준 날짜를 고르면 그 날짜가 든 기간의 실적을 팀 기록에서 셉니다. 같은 단위·같은 기간의 보고는 하나만 둡니다.") }}
+{{ form_error(error) }}
+<form method="post" action="/reports" class="form-page report-new">
+  {{ form_token() }}
+  <section class="card">
+    <div class="fgrid">
+      <fieldset class="fld unit-pick">
+        <legend>{{ ont.CODE_LISTS["report_unit"].label }}</legend>
+        <div class="seg seg-radio">
+          {% for code, text in ont.REPORT_UNITS.items() %}<label><input type="radio" name="unit" value="{{ code }}"{{ " checked" if unit == code }}> <span>{{ text }}</span></label>{% endfor %}
+        </div>
+      </fieldset>
+      {% call(err) field_shell("기준 날짜", "day", required=true, error=error, help="이 날짜가 든 기간으로 만듭니다 (일간=그날, 주간=월~일, 월간=그 달).") %}
+      <input id="f-day" name="day" type="date" value="{{ day.isoformat() }}" aria-required="true"{% if err %} aria-invalid="true" aria-describedby="e-day"{% endif %}>
+      {% endcall %}
+    </div>
+    <p class="report-preview muted" id="period-preview">기간: {{ preview.period }} · 다음 기간 {{ preview.next }} ·
+      {% if preview.prev %}지난 계획은 "{{ report_label(preview.prev) }}" 에서 가져옵니다.{% else %}점검할 지난 계획이 없습니다 (처음 보고).{% endif %}
+      <button type="submit" class="small" formmethod="get" formaction="/reports/new">기간 다시 보기</button></p>
+    {% if preview.existing %}<p class="notice" role="note">이미 있는 보고: <a href="/reports/{{ preview.existing.id }}">{{ report_label(preview.existing) }}</a> (만들기를 누르면 그 보고로 갑니다).</p>{% endif %}
+  </section>
+  {{ save_bar("/reports", "만들기") }}
+</form>
+{% endblock %}

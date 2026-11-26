@@ -369,6 +369,9 @@ def create_app(settings: Settings) -> FastAPI:
     from app.korean import josa as _josa
 
     app.state.templates.env.globals["josa"] = _josa
+    from app.relations import report_label as _report_label
+
+    app.state.templates.env.globals["report_label"] = _report_label  # 업무 보고 건 이름 ("주간 2026-11-23 ~ 11-29")
     app.state.templates.env.globals["current_sort"] = ui.current_sort
     from app.checks import is_unopened as _is_unopened
 

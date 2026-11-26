@@ -126,7 +126,8 @@ def test_confirm_fills_only_empty_notes(db):
     db.commit()
     reports.confirm(db, cur, None)
     db.commit()
-    assert cur.section_notes["kpi"] == "내가 쓴 문구"
+    assert cur.section_notes["kpi"] == ["내가 쓴 문구"]  # 옛 글 값도 줄 목록으로 맞춘다
+    assert all(isinstance(v, list) for v in cur.section_notes.values())
     assert set(cur.section_notes) == {"kpi", "opps", "proposals", "check", "plan", "issues"}
     assert all(cur.section_notes[k] for k in cur.section_notes)
 
@@ -182,3 +183,27 @@ def test_default_notes_empty(db):
     assert "처음 보고" in notes["check"][0]
     assert all(len(v) == 1 and v[0] for v in notes.values())
     assert notes["kpi"][0].startswith("활동 기록 0건")
+
+
+def test_save_check_blank_row_is_not_checked(db):
+    prev, (a, b) = _prev_with_items(db, 2)
+    cur = _report(db, W2)
+    reports.save_check(db, cur, {a.id: ("", ""), b.id: ("", "메모만")})
+    db.commit()
+    assert a.checked_in_report_id is None
+    assert b.checked_in_report_id == cur.id and b.result == ""
+    reports.save_check(db, cur, {b.id: ("", "  ")})  # 다시 비우면 표시도 푼다
+    db.commit()
+    assert b.checked_in_report_id is None
+
+
+def test_unconfirm_not_confirmed_is_refused(db):
+    cur = _report(db, W2, status="planning")
+    assert reports.unconfirm(db, cur) == reports.NOT_CONFIRMED
+    assert cur.status == ontology.REPORT_STATUS_PLANNING
+
+
+def test_note_lines_normalizes():
+    assert reports.note_lines("가\n\n 나 \n") == ["가", "나"]
+    assert reports.note_lines(["가", "", " "]) == ["가"]
+    assert reports.note_lines(None) == []

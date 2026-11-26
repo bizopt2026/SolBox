@@ -157,14 +157,18 @@ def items_to_check(db: Session, report: Report) -> list[ReportPlanItem]:
 
 def save_check(db: Session, report: Report, results: dict[int, tuple[str, str]]) -> None:
     """점검 결과 저장: 항목 번호 -> (결과 코드, 메모). 점검 대상이 아닌 번호는 무시하고, 코드가 목록 밖이면 빈 값(아직 점검 안 함).
+    결과도 메모도 빈 줄은 점검하지 않은 것으로 둔다 (점검한 보고 표시를 달지 않는다).
     확정 전이면 이어서 넘길 항목을 다시 맞춘다 (확정 뒤에는 넘어온 줄을 건드리지 않는다). 커밋은 부르는 쪽이 한다."""
     for item in items_to_check(db, report):
         if item.id not in results:
             continue
         code, note = results[item.id]
         item.result = code if code in ontology.PLAN_RESULTS else ""
-        item.result_note = note or ""
-        item.checked_in_report_id = report.id
+        item.result_note = (note or "").strip()
+        if item.result or item.result_note:
+            item.checked_in_report_id = report.id
+        elif item.checked_in_report_id == report.id:  # 빈 줄은 점검한 것으로 치지 않는다 (이 보고가 단 표시면 푼다)
+            item.checked_in_report_id = None
     db.flush()
     if report.status != ontology.REPORT_STATUS_CONFIRMED:
         sync_carry(db, report)
@@ -204,13 +208,28 @@ def _jsonable(value):
     return value
 
 
+def note_lines(value) -> list[str]:
+    """구역 보고 문구 한 칸의 값을 문장 줄 목록으로: 글(텍스트 칸)이면 빈 줄을 뺀 줄들, 목록이면 빈 항목을 뺀 것."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = value.splitlines()
+    return [line.strip() for line in (str(v) for v in value) if line.strip()]
+
+
+def notes_of(report: Report) -> dict[str, list[str]]:
+    """저장된 구역별 보고 문구 (아는 구역만, 값은 늘 list[str])."""
+    saved = report.section_notes or {}
+    return {k: note_lines(saved[k]) for k in NOTE_KEYS if k in saved}
+
+
 def confirm(db: Session, report: Report, user) -> None:
     """계획 확정: 지금의 집계를 스냅숏으로 굳히고 비어 있는 구역 문구를 기본 문장으로 채운다. 커밋은 부르는 쪽이 한다."""
     data = _jsonable(aggregate(db, report.unit, report.period_start, report.period_end))
     report.snapshot = data
     report.status = ontology.REPORT_STATUS_CONFIRMED
     report.confirmed_at = datetime.now()
-    notes = dict(report.section_notes or {})
+    notes = notes_of(report)
     if any(not notes.get(k) for k in NOTE_KEYS):
         defaults = default_notes(data, items_to_check(db, report), list(report.plan_items))
         for k in NOTE_KEYS:
@@ -220,8 +239,13 @@ def confirm(db: Session, report: Report, user) -> None:
     db.flush()
 
 
-def unconfirm(db: Session, report: Report) -> str | None:
-    """확정 풀기. 다음 보고가 이 보고의 계획을 이미 점검했으면 바꾸지 않고 이유 글을 돌려준다."""
+NOT_CONFIRMED = "확정된 보고가 아니라서 풀 것이 없어요."
+
+
+def unconfirm_problem(db: Session, report: Report) -> str | None:
+    """확정을 풀 수 없는 이유 (풀 수 있으면 None): 확정이 아니거나, 다음 보고가 이 보고의 계획을 이미 점검했다. 바꾸지 않는다."""
+    if report.status != ontology.REPORT_STATUS_CONFIRMED:
+        return NOT_CONFIRMED
     nxt = db.scalars(
         select(Report)
         .join(ReportPlanItem, ReportPlanItem.checked_in_report_id == Report.id)
@@ -232,7 +256,15 @@ def unconfirm(db: Session, report: Report) -> str | None:
     if nxt is not None:
         when = report_periods.label(nxt.unit, nxt.period_start, nxt.period_end)
         return f"다음 보고({when})가 이 계획을 이미 점검해서 확정을 풀 수 없어요. 그 보고의 점검을 먼저 되돌려 주세요."
-    report.status = "planning"
+    return None
+
+
+def unconfirm(db: Session, report: Report) -> str | None:
+    """확정 풀기. 풀 수 없으면(`unconfirm_problem`) 바꾸지 않고 이유 글을 돌려준다."""
+    problem = unconfirm_problem(db, report)
+    if problem:
+        return problem
+    report.status = ontology.REPORT_STATUS_PLANNING
     report.snapshot = None
     report.confirmed_at = None
     db.flush()
@@ -287,3 +319,42 @@ def default_notes(data: dict, check: list[ReportPlanItem], plan: list[ReportPlan
     else:
         issues_s = "기한이 지난 후속 조치는 없습니다."
     return {"kpi": [kpi], "opps": [opps_s], "proposals": [props_s], "check": [check_s], "plan": [plan_s], "issues": [issues_s]}
+
+
+# ---- 화면 저장 (라우터가 부른다; 커밋은 부르는 쪽이 한다) ----
+
+def start_planning(report: Report) -> None:
+    """점검·계획을 저장하면 "실적 확인" 에서 "계획 작성 중" 으로 (확정·이미 계획 중이면 그대로)."""
+    if report.status == ontology.REPORT_STATUS_DEFAULT:
+        report.status = ontology.REPORT_STATUS_PLANNING
+
+
+def _day(text: str) -> date | None:
+    try:
+        return date.fromisoformat(text) if text else None
+    except ValueError:
+        return None
+
+
+def save_plan(report: Report, ids: list[int | None], rows: list[tuple[str, str, str, str, str]], index) -> int:
+    """계획 항목 표 저장: `rows` = 줄마다 (할 일, 담당, 기한 글자, 메모, 고객 이름), `ids` = 같은 순서의 줄 번호(새 줄은 None).
+    활동 기록의 후속 조치 저장처럼 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 할 일이 빈 줄은 건너뛴다 (그 번호는 지워진다).
+    고객은 `index`(activity_rows.LinkIndex)로 정확히 하나 맞을 때만 잇는다. 이름을 썼는데 잇지 못한 줄의 수를 돌려준다.
+    영업기회·프로젝트 연결과 넘어온 표시(carried_from_id)는 고친 줄에서 그대로 남는다."""
+    by_id = {i.id: i for i in report.plan_items}
+    kept: list[ReportPlanItem] = []
+    unlinked = 0
+    for row_id, (task, owner, due, note, customer) in zip(ids, rows):
+        if not task.strip():
+            continue
+        item = by_id.pop(row_id, None) if row_id is not None else None
+        if item is None:
+            item = ReportPlanItem(report_id=report.id)
+        customer_id = index.customer_id(customer) if customer.strip() else None
+        if customer.strip() and customer_id is None:
+            unlinked += 1
+        item.task, item.owner, item.due, item.note, item.customer_id = task.strip(), owner.strip(), _day(due.strip()), note.strip(), customer_id
+        item.position = len(kept)
+        kept.append(item)
+    report.plan_items = kept  # 빠진 줄은 delete-orphan 으로 지워진다
+    return unlinked

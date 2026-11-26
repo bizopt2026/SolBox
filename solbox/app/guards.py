@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
 from app import ontology
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityStageChange, Partner, Proposal, Solution, SolutionBusinessType, Stamped, User
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user
 
@@ -333,6 +333,18 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
             parents.add(obj.activity_id)
         elif isinstance(obj, (FollowUp, CustomerNeed)) and obj.activity is not None and obj.activity.id is not None:
             parents.add(obj.activity.id)
+    # 업무 보고 계획 항목: 세운 보고와 점검한 보고(옛·새)의 고친 표시를 올린다 (계획 표·점검 표의 고침 표시가 보고 건의 것이라)
+    report_parents: set[int] = set()
+    for obj in [*session.new, *session.deleted, *(o for o in session.dirty if isinstance(o, ReportPlanItem) and session.is_modified(o))]:
+        if isinstance(obj, ReportPlanItem):
+            state = sa_inspect(obj)
+            report_parents.update({obj.report_id, obj.checked_in_report_id, *state.attrs.checked_in_report_id.history.deleted})
+            if obj.report is not None and obj.report.id is not None:
+                report_parents.add(obj.report.id)
+    for report_id in report_parents - {None}:
+        report = session.get(Report, report_id)
+        if report is not None and report not in session.deleted and report not in session.new:
+            mark(report)
     for activity_id in parents:
         activity = session.get(Activity, activity_id)
         if activity is not None and activity not in session.deleted and activity not in session.new:
