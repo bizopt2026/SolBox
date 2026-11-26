@@ -1542,3 +1542,41 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .contact-line { margin: calc(-1 * var(--s2)) 0 var(--gap); font-size: var(--fs-note); }
 .team-card .team-name-cell { display: flex; align-items: center; gap: var(--s2); }
 .team-card .team-name-cell input { max-width: 280px; }
+
+/* ---- 영업 B 단계: 확인 항목 ---- */
+.step-note { display: block; font-size: 11px; font-weight: 500; opacity: .85; }
+.opp-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.opp-checks form { display: inline; }
+.check-btn { display: inline-flex; align-items: flex-start; gap: var(--s2); border: 0; background: none; padding: 2px 0; text-align: left; font-size: var(--fs-body); color: var(--ink); cursor: pointer; min-height: 0; }
+.check-btn:hover { background: none; color: var(--brand-deep); }
+.check-btn .cb { width: 16px; height: 16px; border: 1.5px solid var(--line-2); border-radius: 4px; flex: none; margin-top: 3px; display: inline-grid; place-items: center; font-size: 11px; color: #fff; background: var(--surface); }
+.check-btn.on .cb { background: var(--brand); border-color: var(--brand); }
+.check-by { display: block; margin-left: 24px; color: var(--ink-3); font-size: var(--fs-small); }
+.check-earlier { margin-top: var(--s3); font-size: var(--fs-note); }
+.check-earlier summary { cursor: pointer; color: var(--ink-2); }
+.check-earlier .opp-checks { margin-top: var(--s2); }
+.ai-tag { font-size: 11px; font-weight: 700; color: var(--violet); background: var(--violet-soft); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+.brief-card .card-head form.inline { margin: 0; }
+
+/* ---- 영업 B 단계: AI 제안 띠·브리핑 ---- */
+.ai-band { background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r); box-shadow: var(--shadow); margin: 0 0 var(--gap); overflow: hidden; }
+.ai-band-head { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline; padding: var(--s3) var(--s4); background: var(--brand-soft); color: var(--brand-deep); font-size: var(--fs-note); }
+.ai-band-head h2 { font-size: var(--fs-card); margin: 0; }
+.ai-sugs { list-style: none; margin: 0; padding: 0; }
+.ai-sug { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--s3); padding: var(--s3) var(--s4); border-top: 1px solid var(--line); align-items: center; }
+.ai-sug:first-child { border-top: 0; }
+.ai-what small { color: var(--ink-3); font-size: var(--fs-small); margin-right: 6px; }
+.ai-what .old { color: var(--ink-3); text-decoration: line-through; }
+.ai-ev { grid-column: 1; margin: 0; font-size: var(--fs-note); color: var(--ink-2); border-left: 3px solid var(--line-2); padding-left: var(--s2); overflow-wrap: anywhere; }
+.ai-unv { color: var(--warn); }
+.ai-btns { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
+.ai-btns form { margin: 0; }
+.brief-card h3 { font-size: var(--fs-note); color: var(--ink-2); margin: var(--s3) 0 4px; }
+.brief-card h3:first-of-type { margin-top: 0; }
+.brief-card p, .brief-card ul { margin: 0; }
+.brief-card ul { padding-left: 18px; }
+.brief-tools { display: inline-flex; gap: var(--s2); align-items: center; font-size: var(--fs-small); }
+.hist-ev { font-size: var(--fs-small); color: var(--ink-2); }
+.hist-ev summary { cursor: pointer; color: var(--brand); }
+@media (max-width: 600px) { .ai-sug { grid-template-columns: minmax(0, 1fr); } .ai-btns { grid-column: 1; grid-row: auto; } }
+.ai-chip.on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }

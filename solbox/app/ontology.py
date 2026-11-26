@@ -188,6 +188,7 @@ JOB_KINDS = {
     "report_plan": "업무 보고 계획 초안",
     "report_chat": "업무 보고 계획 대화 답변",
     "report_notes": "업무 보고 구역별 보고 문구",
+    "opportunity_review": "영업기회 AI 분석 (제안·브리핑)",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -208,6 +209,7 @@ JOB_EXPECTED = {
     "report_plan": "보통 1분 안에",
     "report_chat": "보통 1분 안에",
     "report_notes": "보통 30초 안에",
+    "opportunity_review": "보통 30초~1분",
 }
 
 ERROR_KINDS = {
@@ -292,6 +294,23 @@ CUSTOMER_QUIET_DAYS = 90  # 고객 목록 "오래 연락 없음" 기준
 # 멈춘 건 사유 (보이는 순서 그대로). 화면 글은 opportunities.stale_text 가 숫자를 넣어 만든다
 OPPORTUNITY_STALE_REASONS = {"overdue": "다음 할 일 날짜 지남", "close_past": "예상 수주일 지남", "no_next": "다음 할 일 없음", "quiet": "소식 없음"}
 OPPORTUNITY_STALE_TONES = {"overdue": "bad", "close_past": "bad", "no_next": "warn", "quiet": "warn"}
+# 단계별 확인 항목 (영업 B, 사용자 확정 2026-11-26). 코드는 운영 뒤 바꾸지 않는다 (이름만 고친다). 순서 그대로 보인다
+OPPORTUNITY_CHECKLIST: dict[str, tuple[tuple[str, str], ...]] = {
+    "discovery": (("discovery.need", "고객 니즈·문제 확인"), ("discovery.decision", "의사결정 구조(실무 담당·결재자) 파악"),
+                  ("discovery.budget", "예산 범위 또는 투자 여력 파악"), ("discovery.timing", "도입 희망 시기 파악")),
+    "proposing": (("proposing.site", "현장 조사·기술 검토 완료"), ("proposing.sent", "제안서 전달"),
+                  ("proposing.competitor", "경쟁사·대안 파악"), ("proposing.feedback", "고객 검토 의견 받음")),
+    "negotiating": (("negotiating.approver", "결재권자 승인 경로 확인"), ("negotiating.terms", "가격·조건 합의"),
+                    ("negotiating.contract", "계약 형태(구축·임대·투자) 확정"), ("negotiating.schedule", "계약·착수 일정 합의")),
+}
+OPPORTUNITY_CHECK_ITEMS: dict[str, str] = {code: name for items in OPPORTUNITY_CHECKLIST.values() for code, name in items}
+
+
+def check_label(code: str) -> str:
+    """확인 항목 이름 (목록에서 빠진 옛 코드는 코드 그대로)."""
+    return OPPORTUNITY_CHECK_ITEMS.get(code, code)
+
+
 OPPORTUNITY_WHO = (("team", "우리 팀"), ("mine", "내 건"))  # 영업기회 목록·홈의 담당 걸러 보기 (?who=)
 
 # 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.
@@ -590,7 +609,7 @@ _TYPE_LIST = [
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
                "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건", "business_types": "검토 사업방식",
                "amount": "예상 금액", "expected_close": "예상 수주일", "owner": "담당", "next_step": "다음 할 일", "next_step_due": "다음 할 일 날짜",
-               "close_reason": "사유", "close_note": "사유 메모"},
+               "close_reason": "사유", "close_note": "사유 메모", "checks": "확인 항목"},
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(

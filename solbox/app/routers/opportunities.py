@@ -5,12 +5,12 @@ from collections import Counter
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import business_types as bts, money, ontology, opportunities as opps, relations, teams, ui
+from app import business_types as bts, money, ontology, opportunities as opps, opportunity_ai as oai, relations, teams, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -22,6 +22,7 @@ from app.routers._common import (
     list_filter,
     get_deletable_or_404, get_or_404, newest_first, duplicate_warning, paginate, resync_objects, row_info, search_by_name, sort_rows,
 )
+from app.ai.gate import require_ai_on
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/opportunities")
@@ -101,13 +102,15 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         close_reason=opps.close_reason_label(opp), today=now, money=money,
         stale=opps.stale_badges(opp, now, touch),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
-        owner_team=teams.team_name(opp.owner),
+        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)),
+        ai_rows=oai.suggestion_rows(db, opp, insight, now),
+        step_notes={s: f"확인 {d}/{t}" for s, (d, t) in oai.stage_counts(opp).items()},
     )
 
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
@@ -120,6 +123,10 @@ def list_opportunities(
     stale_on = stale == "1"
     if stale_on:
         found = [o for o in found if stale_all[o.id]]
+    ai_all = oai.pending_counts(db, [o.id for o in found])  # 반영 대기 AI 제안 수 (영업 B)
+    ai_on = ai == "1"
+    if ai_on:
+        found = [o for o in found if ai_all.get(o.id)]
     who_n, who_total = opps.who_counts(found, user), len(found)
     found, who = opps.who_filter(found, user, who)
     who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
@@ -141,9 +148,12 @@ def list_opportunities(
     from urllib.parse import urlencode
 
     stale_href = "/opportunities?" + urlencode(keep + ([] if stale_on else [("stale", "1")]))
+    keep_ai = [(k, v) for k, v in request.query_params.multi_items() if k not in ("ai", "page", "notice", "nt")]
+    ai_href = ("/opportunities?" + urlencode(keep_ai + ([] if ai_on else [("ai", "1")]))).rstrip("?")
+    ai_n = sum(1 for o in found if ai_all.get(o.id))
     return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
-                  stale=stale_all, today=now, money=money)
+                  stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n)
 
 
 @router.get("/new")
@@ -263,13 +273,89 @@ def change_stage(
         raise HTTPException(status_code=400, detail=error)
     if opp.stage != stage and opps.needs_reason(stage):  # 수주·실패는 사유 화면을 거친다 (스크립트 없이도 같은 길)
         return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}", status_code=303)
+    code = f"opportunity_stage.{stage}"
     if opp.stage != stage:  # 어디서 어디로든 바꿀 수 있다
+        code = oai.leftovers_notice(opp, opp.stage, stage) or code  # 앞으로 넘기면 떠난 단계의 남은 확인 항목을 알린다 (막지 않는다)
         opps.apply_stage(opp, stage)
         db.commit()
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
-    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
+    return notices.redirect(f"/opportunities/{opp.id}", code)
+
+
+@router.post("/{opportunity_id}/ai/review", dependencies=[Depends(require_ai_on)])
+def start_review(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """[다시 분석] (영업 B): 사람이 누른 분석은 대기열 앞쪽(우선순위 0). 같은 영업기회의 작업이 이미 있으면 그것을 기다린다."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_not_open")
+    if oai.pending_job(db, opp.id) is not None:
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_review_waiting")
+    if not oai.has_activities(db, opp):
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_no_activity")
+    from app.ai.queue import enqueue
+
+    enqueue(db, oai.REVIEW_KIND, {"opportunity_id": opp.id}, user.id, 0)
+    return notices.redirect(f"/opportunities/{opp.id}", "ai_review_started")
+
+
+@router.post("/{opportunity_id}/ai/{insight_id}/{sid}/{what}")
+def decide_suggestion(
+    opportunity_id: int, insight_id: int, sid: int, what: str,
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """AI 제안 하나 [반영] (`apply`) 또는 [무시] (`dismiss`). 반영은 이력에 'AI 제안'과 근거를 남긴다."""
+    if what not in ("apply", "dismiss"):
+        raise HTTPException(status_code=404, detail="없는 동작입니다.")
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    code = oai.decide(db, opp, insight_id, sid, user.id, what == "apply")
+    db.commit()
+    db.info.pop("change_source", None)
+    db.info.pop("change_evidence", None)
+    if code != "ai_stale" and what == "apply":
+        db.refresh(opp)
+        mirror.sync(opp)
+        resync_objects(db, mirror, [opp.customer, opp.bm])
+    return notices.redirect(f"/opportunities/{opp.id}", code)
+
+
+@router.get("/{opportunity_id}/ai/progress")
+def review_progress(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """분석 진행 상자 조각: 끝나면 쪽을 새로 고쳐(HX-Refresh) 제안·브리핑을 보인다."""
+    opp = db.get(Opportunity, opportunity_id)
+    if opp is None:
+        return Response("", headers={"HX-Redirect": "/opportunities"})
+    job = oai.pending_job(db, opp.id)
+    if job is not None:
+        return render(request, "opportunities/_ai_job.html", opp=opp, job=job)
+    return Response("분석이 끝났습니다.", headers={"HX-Refresh": "true"})
+
+
+@router.post("/{opportunity_id}/checks")
+def toggle_check(
+    opportunity_id: int, request: Request, item: str = Form(""), checked: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """확인 항목 켜기·끄기 (영업 B). 알림 없이 상세의 카드로 돌아간다. HTMX 면 카드 조각만."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        changed = oai.set_check(db, opp, item, checked == "1", user.id)
+        if changed:
+            db.commit()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="알 수 없는 확인 항목입니다.") from None
+    except IntegrityError:  # 다른 탭이 같은 항목을 방금 켰다: 이미 켜져 있으니 그대로 보인다
+        db.rollback()
+        changed = False
+    if changed:
+        db.refresh(opp)
+        mirror.sync(opp)
+    if request.headers.get("HX-Request"):
+        return render(request, "opportunities/_checks.html", opp=opp, checks=oai.check_view(opp))
+    return RedirectResponse(f"/opportunities/{opp.id}#checks", status_code=303)
 
 
 def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None):

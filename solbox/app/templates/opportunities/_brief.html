@@ -1,0 +1,19 @@
+{# 영업기회 상세 왼쪽 맨 위 "브리핑" 카드 (영업 B, AI 초안). 분석이 없으면 [AI 분석] 단추만. 값: opp, insight(최신 분석 또는 None), ai_job #}
+{% set aig = ai_gate() %}
+{% if opp.stage in ont.OPPORTUNITY_OPEN_STAGES or insight %}
+{% set b = insight.briefing if insight else {} %}
+<section class="card brief-card" id="brief" aria-labelledby="h-brief">
+  <header class="card-head"><h2 id="h-brief">브리핑 <span class="ai-tag">AI 초안</span></h2>
+    <span class="brief-tools">{% if insight %}<span class="muted">{{ kdate(insight.created_at.date()) }} {{ insight.created_at.strftime("%H:%M") }}</span>{% endif %}
+    {% if opp.stage in ont.OPPORTUNITY_OPEN_STAGES %}<form method="post" action="/opportunities/{{ opp.id }}/ai/review" class="inline">
+      <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-brief") }}{% if ai_job %} disabled{% endif %}>{{ "다시 분석" if insight else "AI 분석" }}</button>
+    </form>{% endif %}</span></header>
+  {{ ai_note(aig, id="ai-note-brief") }}
+  {% if b.get("situation") %}<h3>현재 상황</h3><p>{{ b.situation }}</p>{% endif %}
+  {% if b.get("risks") %}<h3>위험</h3><ul>{% for x in b.risks %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if b.get("next_actions") %}<h3>다음 행동</h3><ul>{% for x in b.next_actions %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if b.get("outlook") %}<h3>전망</h3><p>{{ b.outlook }}</p>{% endif %}
+  {% if not insight %}<p class="muted">아직 분석이 없습니다. 이 {{ ont.label("opportunity") }}에 연결된 활동 기록을 저장하면 AI 가 저절로 읽고 상황·위험·다음 행동을 정리합니다.</p>
+  {% elif not b.get("situation") and not b.get("risks") and not b.get("next_actions") %}<p class="muted">AI 가 정리할 내용을 찾지 못했습니다.</p>{% endif %}
+</section>
+{% endif %}

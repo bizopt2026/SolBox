@@ -174,7 +174,7 @@ def test_full_proposal_page_shows_stalled_notice_when_off(app, admin_client, db,
 
 # AI 작업을 새로 만드는 POST 라우트 (require_ai_on 을 다는 곳). 새 것이 생기면 여기와 알림 표를 함께 고친다.
 AI_POSTS = {
-    "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
+    "/opportunities/{opportunity_id}/ai/review", "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
     "/jobs/{job_id}/retry", "/proposals/{proposal_id}/directions", "/proposals/{proposal_id}/chat",
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
@@ -207,6 +207,8 @@ def test_ai_posts_are_exactly_the_gated_routes(app):
     assert gated == AI_POSTS
 
 
+# 영업 B: 활동 기록 저장(만들기·고치기·원문만 저장)은 저장 뒤 `opportunity_ai.request_review` 를 거쳐 영업기회 분석(`opportunity_review`)만 자동으로 넣는다 (AI 꺼짐이면 넣지 않는다).
+# 그 길은 `review_linked` 한 곳이고 라우트 본문에는 작업 만들기 낱말이 없다: 아래 시험이 그대로 지킨다. 자동 요청 자체의 시험은 tests/test_sales_b_request.py.
 def test_no_other_post_route_makes_ai_jobs(app):
     for r in _post_routes(app):
         if r.path in AI_POSTS or r.path in AI_KEEPS:
@@ -236,7 +238,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/admin/research/keywords": "/admin/research/keywords", "/admin/duplicates/ai/{kind}": "/admin/duplicates/ai/partner",
         "/reports/{report_id}/ai/summary": f"/reports/{rep.id}/ai/summary", "/reports/{report_id}/ai/plan": f"/reports/{rep.id}/ai/plan",
         "/reports/{report_id}/chat": f"/reports/{rep.id}/chat", "/reports/{report_id}/chat/retry": f"/reports/{rep.id}/chat/retry",
-        "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes",
+        "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes", "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review",
         "/proposals/{proposal_id}/outline/slides/{index}/ai": f"/proposals/{sol.id}/outline/slides/1/ai",
     }
     assert set(paths) == AI_POSTS

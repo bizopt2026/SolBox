@@ -135,7 +135,7 @@ POST_NOTICES = {
     "/projects": "created", "/projects/{project_id}": "saved", "/projects/{project_id}/delete": "deleted",
     "/businesses": "(옛 주소: 307 로 /projects 에 넘김)", "/businesses/{rest:path}": "(옛 주소: 307 로 /projects 에 넘김)",
     "/bms": "created", "/bms/{bm_id}": "saved", "/bms/{bm_id}/delete": "deleted",
-    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won", "/opportunities/{opportunity_id}/close": "opportunity_stage.won",
+    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won, opportunity_stage_open.discovery.proposing.3", "/opportunities/{opportunity_id}/close": "opportunity_stage.won", "/opportunities/{opportunity_id}/ai/review": "ai_review_started, ai_review_waiting, ai_no_activity, ai_not_open, ai_off", "/opportunities/{opportunity_id}/ai/{insight_id}/{sid}/{what}": "ai_applied, ai_applied_changed, ai_dismissed, ai_stale, ai_stage_open.discovery.proposing.2", "/opportunities/{opportunity_id}/checks": "(알림 없음: 확인 항목 카드 자리로 돌아가거나 HTMX 로 카드만 바뀐다)",
     "/opportunities/{opportunity_id}/convert": "converted, linked_project", "/opportunities/{opportunity_id}/delete": "deleted",
     "/activities": "created", "/activities/raw": "created", "/activities/draft": "ai_off, (AI 초안 진행 화면)", "/activities/draft/{job_id}/retry": "ai_off, (AI 초안 진행 화면)",
     "/activities/{activity_id}": "saved", "/activities/{activity_id}/delete": "deleted",

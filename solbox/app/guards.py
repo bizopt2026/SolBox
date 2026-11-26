@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
 from app import ontology
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityFieldChange, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityCheck, OpportunityFieldChange, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user
 
@@ -292,7 +292,9 @@ def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
                 old = hist.deleted[0]
             if obj.stage is None:  # 기본값은 flush 때 채워진다: 새 줄이면 기본 단계를 쓴다
                 obj.stage = ontology.OPPORTUNITY_STAGE_DEFAULT
-            session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid))
+            src = session.info.get("change_source", "")
+            session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid,
+                                               source=src, evidence=session.info.get("change_evidence", "") if src else ""))
 
 
 def history_text(value) -> str:
@@ -308,6 +310,7 @@ def _stamp_field_changes(session: Session, obj: Opportunity, uid, now: datetime)
     """영업기회 진행 칸(ontology.OPPORTUNITY_TRACKED_FIELDS)이 바뀌었으면 한 칸에 한 줄씩 남긴다. 만들 때는 값이 있는 칸만.
     글로 바꿔 같으면 (같은 값을 다시 넣음) 남기지 않는다. 출처(사람/AI)는 세션의 `change_source` (B 단계가 단다)."""
     source = session.info.get("change_source", "")
+    evidence = session.info.get("change_evidence", "") if source else ""
     state = sa_inspect(obj)
     for field_name in ontology.OPPORTUNITY_TRACKED_FIELDS:
         if obj in session.new:
@@ -320,7 +323,25 @@ def _stamp_field_changes(session: Session, obj: Opportunity, uid, now: datetime)
             new = history_text(hist.added[0]) if hist.added else ""
         if old != new:
             session.add(OpportunityFieldChange(opportunity=obj, field=field_name, old_value=old, new_value=new,
-                                               changed_at=now, changed_by_id=uid, source=source))
+                                               changed_at=now, changed_by_id=uid, source=source, evidence=evidence))
+
+
+def _stamp_check_changes(session: Session, uid, now: datetime) -> None:
+    """확인 항목 줄이 생기거나 지워지면 필드 이력(field="check")에 한 줄씩 남기고 영업기회의 고친 표시를 올린다 (영업 B)."""
+    for obj, added in [*((o, True) for o in session.new), *((o, False) for o in session.deleted)]:
+        if not isinstance(obj, OpportunityCheck):
+            continue
+        opp = obj.opportunity if obj.opportunity is not None else session.get(Opportunity, obj.opportunity_id)
+        if opp is None or opp in session.deleted:
+            continue
+        session.add(OpportunityFieldChange(opportunity=opp, field="check", old_value="" if added else obj.item, new_value=obj.item if added else "",
+                                           changed_at=now, changed_by_id=uid,
+                                           source=(obj.source or "") if added else session.info.get("change_source", ""),  # 풀기는 푼 쪽(보통 사람)
+                                           evidence=(obj.evidence or "") if added else ""))
+        if opp not in session.new:
+            opp.updated_at = now
+            if uid is not None:
+                opp.updated_by_id = uid
 
 
 # insert=True: 번호 처리기(idmarks)보다 먼저 돌아야 여기서 더한 새 줄도 번호를 받는다
@@ -330,6 +351,7 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
     uid = session.info.get("user_id")
     now = datetime.now()
     _stamp_report_dates(session, uid, now)
+    _stamp_check_changes(session, uid, now)
     parents: set[int] = set()
     solution_parents: set[int] = set()  # 사업방식 줄이 바뀐 솔루션 (베타 Y)
 
