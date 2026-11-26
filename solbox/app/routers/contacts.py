@@ -84,7 +84,7 @@ def create(
     values = ct.clean(dict(name=name, title=title, role=role, phone=phone, office_phone=office_phone, email=email, note=note))
     if not values["name"]:
         return _form_page(request, company, values, error="이름을 입력하세요.")
-    if confirm_dup != "1" and (same := ct.find_same(company.contacts, values["name"], values["phone"], values["email"])):
+    if confirm_dup != "1" and (same := ct.same_person(company.contacts, values["name"], values["phone"], values["email"])):
         return _form_page(request, company, values, same=same)
     person = Contact(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
     setattr(person, _code(company), company)
@@ -128,7 +128,7 @@ def update(
         return _form_page(request, company, values, person, error="이름을 입력하세요.")
     changed_keys = (ct.digits(values["phone"]) != ct.digits(person.phone) or values["email"].lower() != (person.email or "").lower()
                     or (not values["phone"] and not values["email"] and values["name"] != person.name))
-    if confirm_dup != "1" and changed_keys and (same := ct.find_same(company.contacts, values["name"], values["phone"], values["email"], exclude=person)):
+    if confirm_dup != "1" and changed_keys and (same := ct.same_person([c for c in company.contacts if c is not person], values["name"], values["phone"], values["email"])):
         return _form_page(request, company, values, person, same=same)
     for field, value in values.items():
         setattr(person, field, value)
@@ -184,7 +184,7 @@ def _split_post(kind: str):
             values = ct.clean({f: str(form.get(f"{f}_{i}", "")) for f in ct.FIELDS})
             if not values["name"]:  # 이름 없는 줄은 넣을 수 없다
                 continue
-            if ct.find_same(company.contacts, values["name"], values["phone"], ct.first_email(values["email"])):
+            if ct.same_person(company.contacts, values["name"], values["phone"], values["email"]):
                 continue  # 그사이 같은 사람이 생겼다
             person = Contact(**values, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
             setattr(person, kind, company)

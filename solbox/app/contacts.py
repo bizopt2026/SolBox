@@ -20,9 +20,15 @@ ENGLISH_WORD_RE = re.compile(r"^[A-Z][a-z]+(?:[-'][A-Za-z]+)?$")
 # 사람 이름이 아닌 흔한 첫 낱말 (대표번호·본사 같은 줄을 사람으로 잡지 않는다)
 NOT_NAMES = {"대표", "대표번호", "본사", "지사", "사무실", "사무소", "팩스", "고객센터", "전화", "휴대폰", "핸드폰", "연락처", "담당", "담당자",
              "주소", "메일", "이메일", "문의", "영업", "영업팀", "구매", "구매팀", "기술", "기술팀", "총무", "인사", "회사", "공장", "연구소", "주식회사"}
-NOT_NAME_ENDS = ("팀", "부", "실", "센터", "본부", "번호", "사무소", "지점", "공장", "연구소", "그룹")
+NOT_NAMES |= {"대표전화", "전화번호", "팩스번호", "홈페이지", "사업장", "물류센터", "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "제주"}
+NOT_NAME_ENDS = ("팀", "부", "실", "센터", "본부", "번호", "사무소", "지점", "공장", "연구소", "그룹", "요일", "전화", "메일")
+# 주소 첫 낱말: 서울시·경기도·성남시·강남구처럼 시·도 이름 (사람 이름 끝 글자 '도'·'구' 와 헷갈리지 않게 목록으로 본다)
+PLACE_WORDS = {"서울시", "서울특별시", "부산시", "대구시", "인천시", "광주시", "대전시", "울산시", "세종시", "경기도", "강원도", "충청북도", "충청남도",
+               "충북", "충남", "전라북도", "전라남도", "전북", "전남", "경상북도", "경상남도", "경북", "경남", "제주도", "제주시", "성남시", "수원시",
+               "용인시", "고양시", "화성시", "평택시", "안산시", "안양시", "부천시", "천안시", "청주시", "전주시", "창원시", "포항시", "김해시"}
 ENGLISH_TITLES = {"Manager", "Director", "President", "Engineer", "Sales", "Team", "Lead", "Leader", "Head", "Senior", "Junior", "Chief", "Officer",
-                  "Vice", "General", "Executive", "Partner", "Owner", "Founder", "Consultant", "Specialist", "Staff", "Assistant", "Office", "Main"}
+                  "Vice", "General", "Executive", "Partner", "Owner", "Founder", "Consultant", "Specialist", "Staff", "Assistant", "Office", "Main",
+                  "Tel", "Phone", "Mobile", "Cell", "Fax", "Email", "Mail", "Address", "Web", "Homepage", "Seoul", "Korea", "Busan", "Contact"}
 
 
 def digits(text: str | None) -> str:
@@ -49,7 +55,7 @@ def find_same(contacts, name: str = "", phone: str = "", email: str = "", exclud
             continue
         if p and digits(c.phone) == p:
             return c
-        if e and (c.email or "").strip().lower() == e:
+        if e and (e == (c.email or "").strip().lower() or e in {x.lower() for x in EMAIL_RE.findall(c.email or "")}):
             return c
         if not p and not e and n and _name_key(c.name) == n:
             return c
@@ -58,7 +64,7 @@ def find_same(contacts, name: str = "", phone: str = "", email: str = "", exclud
 
 def _is_name(word: str) -> bool:
     if HANGUL_NAME_RE.match(word):
-        return word not in NOT_NAMES and not word.endswith(NOT_NAME_ENDS)
+        return word not in NOT_NAMES and word not in PLACE_WORDS and not word.endswith(NOT_NAME_ENDS)
     return bool(ENGLISH_WORD_RE.match(word)) and word not in ENGLISH_TITLES
 
 
@@ -118,12 +124,13 @@ def split_rows(company) -> list[dict]:
     rows = []
     for cand in parse_text(company.contact):
         existing = find_same(company.contacts, cand["name"], cand["phone"], first_email(cand["email"])) if cand["name"] else None
-        rows.append({**cand, "existing": existing, "checked": bool(cand["name"]) and existing is None})
+        reach = bool(cand["phone"] or cand["office_phone"] or cand["email"])  # 이름만 잡힌 줄(회사·부서 이름일 수 있다)은 처음부터 넣지 않는다
+        rows.append({**cand, "existing": existing, "checked": bool(cand["name"]) and reach and existing is None})
     return rows
 
 
 def pending_split_count(company) -> int:
-    """연락처 글 가운데 이름이 잡히고 아직 담당자 기록에 없는 줄 수 (상세의 나누기 링크)."""
+    """연락처 글 가운데 이름과 전화·이메일이 잡히고 아직 담당자 기록에 없는 줄 수 (상세의 나누기 링크)."""
     return sum(1 for r in split_rows(company) if r["checked"])
 
 
@@ -172,11 +179,18 @@ def from_intake(v: dict) -> dict:
 
 
 def split_for_new_company(text: str) -> tuple[list[dict], str]:
-    """새 회사의 연락처 글 → (이름이 잡힌 줄의 담당자 칸들, 이름이 없는 줄만 남긴 연락처 글)."""
+    """새 회사의 연락처 글 → (담당자 칸들, 남은 줄만 둔 연락처 글). 사람 확인 없이 저장되므로 이름과 휴대폰·이메일이 함께 잡힌 줄만
+    담당자로 만든다. 나머지 줄과 같은 글 안의 같은 사람 줄은 글에 남긴다 (정보를 잃지 않는다)."""
     people, rest = [], []
+
+    class _P:
+        def __init__(self, d):
+            self.name, self.phone, self.email = d["name"], d["phone"], first_email(d["email"])
+
     for row in parse_text(text):
-        if row["name"]:
-            people.append({f: row[f] for f in FIELDS})
+        fields = {f: row[f] for f in FIELDS}
+        if row["name"] and (row["phone"] or row["email"]) and find_same([_P(p) for p in people], row["name"], row["phone"], first_email(row["email"])) is None:
+            people.append(fields)
         else:
             rest.append(row["line"])
     return people, "\n".join(rest)

@@ -162,3 +162,32 @@ def test_partner_split_route(user_client, db):
     assert user_client.get(f"/partners/{p.id}/contacts/split").status_code == 200
     user_client.post(f"/partners/{p.id}/contacts/split", data={"pick": ["0"], "name_0": "박기사", "phone_0": "010-5555-6666"})
     assert db.scalar(select(Contact)).partner_id == p.id
+
+
+@pytest.mark.parametrize("line", ["서울시 강남구 테헤란로 123", "경기도 성남시 분당구", "월요일 방문 예정", "대표전화 1588-1234",
+                                  "Tel 02-555-1234", "Email kim@x.com", "Mobile 010-1234-5678", "Seoul Office 02-1234-5678", "Fax 02-111-2222"])
+def test_parser_does_not_take_places_or_labels_as_names(line):
+    assert ct.parse_line(line)["name"] == ""
+
+
+def test_new_company_split_needs_phone_or_email_and_keeps_skipped_lines():
+    people, rest = ct.split_for_new_company("김민수 부장 010-1234-5678\n삼성전자 구매팀\n김민수 02-555-0000\n이영희 lee@x.com")
+    assert [p["name"] for p in people] == ["김민수", "이영희"]
+    assert rest == "삼성전자 구매팀\n김민수 02-555-0000"  # 번호·이메일 없는 줄, 같은 글 안 같은 사람 줄은 글에 남는다
+
+
+def test_split_page_does_not_precheck_name_only_lines(user_client, db):
+    c = _customer(db, "삼성전자 구매팀")
+    page = user_client.get(f"/customers/{c.id}/contacts/split").text
+    assert 'name="pick" value="0" checked' not in page
+    assert "담당자로 나누기" not in user_client.get(f"/customers/{c.id}").text
+
+
+def test_email_field_accepts_several_addresses_and_manual_same_person_uses_any(user_client, db):
+    c = _customer(db)
+    db.add(Contact(name="김민수", customer=c, email="a@x.kr, b@y.kr"))
+    db.commit()
+    page = user_client.get(f"/contacts/new?customer_id={c.id}").text
+    assert 'type="email"' not in page
+    r = user_client.post("/contacts", data={"customer_id": str(c.id), "name": "다른 이름", "email": "B@y.kr"})
+    assert "같은 사람일 수 있어요" in r.text

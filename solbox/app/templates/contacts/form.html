@@ -19,7 +19,7 @@
       {{ select_field(ont.prop("contact", "role"), "role", roles, form.role, help="의사결정자: 계약을 정하는 사람 · 실무자: 실제로 쓰거나 검토하는 사람 · 영향자: 결정에 의견을 주는 사람") }}
       {{ text_field(ont.prop("contact", "phone"), "phone", form.phone, type="tel") }}
       {{ text_field(ont.prop("contact", "office_phone"), "office_phone", form.office_phone, type="tel") }}
-      {{ text_field(ont.prop("contact", "email"), "email", form.email, type="email") }}
+      {{ text_field(ont.prop("contact", "email"), "email", form.email, help="여러 개면 쉼표로 나눠 적어요.") }}
       {{ text_field(ont.prop("contact", "note"), "note", form.note, rows=3) }}
     </div>
   </section>
