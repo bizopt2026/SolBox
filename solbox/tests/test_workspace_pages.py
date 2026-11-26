@@ -163,3 +163,24 @@ def test_workspace_file_too_big_and_owner_delete_removes_files(user_client, db, 
     db.expire_all()
     assert not raw.exists() and db.scalars(select(WorkspaceFile)).all() == []
     assert not (settings.knowledge_dir / f"workspaces/strategy/{sid}").exists()
+
+
+def test_edit_keeps_link_to_closed_strategy(user_client, db):
+    s = Strategy(title="지난 방향", status="closed")
+    item = Initiative(title="실증 추진", strategy=s)
+    db.add_all([s, item])
+    db.commit()
+    form = user_client.get(f"/initiatives/{item.id}/edit").text
+    assert re.search(rf'<option value="{s.id}"\s+selected', form) and "(종료)" in form
+
+
+def test_status_conflict_keeps_typed_values(user_client, db):
+    item = Initiative(title="실증 추진")
+    db.add(item)
+    db.commit()
+    rev = _rev(user_client, f"/initiatives/{item.id}")
+    item.title = "다른 곳에서 고침"
+    db.commit()
+    r = user_client.post(f"/initiatives/{item.id}/status", data={"status": "blocked", "progress_line": "인허가 대기", "_rev": rev})
+    assert r.status_code == 409
+    assert re.search(r'<option value="blocked"\s+selected', r.text) and 'value="인허가 대기"' in r.text

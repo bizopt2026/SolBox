@@ -24,8 +24,9 @@
       <form method="post" action="/initiatives/{{ item.id }}/status" class="stack">
         {{ rev_fields(item, conflict, "/initiatives/" ~ item.id) }}
         <div class="fld"><label for="f-status">{{ ont.prop("initiative", "status") }}</label>
-          <select id="f-status" name="status">{% for code, name in ont.INITIATIVE_STATUSES.items() %}<option value="{{ code }}"{% if code == item.status %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
-        <div class="fld"><label for="f-progress-line">진행 한 줄 (선택)</label><input id="f-progress-line" name="progress_line" type="text" placeholder="예: 부지 후보 3곳 현장 확인"></div>
+          {% set chosen = typed_status if conflict and typed_status else item.status %}
+          <select id="f-status" name="status">{% for code, name in ont.INITIATIVE_STATUSES.items() %}<option value="{{ code }}"{% if code == chosen %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+        <div class="fld"><label for="f-progress-line">진행 한 줄 (선택)</label><input id="f-progress-line" name="progress_line" type="text" value="{{ typed_line if conflict and typed_line else "" }}" placeholder="예: 부지 후보 3곳 현장 확인"></div>
         <button type="submit" class="small">저장</button>
       </form>
     </section>

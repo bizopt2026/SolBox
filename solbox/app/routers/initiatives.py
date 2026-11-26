@@ -6,7 +6,7 @@ from datetime import date
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import guards, notices, ontology, relations, ui, workspaces as ws
@@ -30,13 +30,14 @@ BAD_OWNER = ui.FieldError("담당은 목록의 사용자여야 합니다.", "own
 BAD_STRATEGY = ui.FieldError("없는 사업 방향입니다.", "strategy_id")
 
 
-def _choices(db: Session) -> dict:
+def _choices(db: Session, keep_strategy_id: int | None = None) -> dict:
     """폼의 고르는 칸 목록. 연결 고르기는 이름(name) 속성으로 그린다."""
     users = db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.name, User.id)).all()
     return {
         "users": [(str(u.id), u.name or u.username) for u in users],
         "strategies": [(str(s.id), s.title + ("" if s.status == ontology.STRATEGY_STATUS_AGREED else f" ({ontology.STRATEGY_STATUSES.get(s.status, s.status)})"))
-                       for s in db.scalars(select(Strategy).where(Strategy.status != "closed").order_by(Strategy.title, Strategy.id))],
+                       for s in db.scalars(select(Strategy).where(or_(Strategy.status != "closed", Strategy.id == keep_strategy_id))
+                                           .order_by(Strategy.title, Strategy.id))],  # 종료한 방향은 새로 고를 수 없지만 지금 속한 방향은 남긴다
         "solutions": db.scalars(select(Solution).order_by(Solution.name, Solution.id)).all(),
         "partners": db.scalars(select(Partner).order_by(Partner.name, Partner.id)).all(),
         "customers": db.scalars(select(Customer).order_by(Customer.name, Customer.id)).all(),
@@ -47,7 +48,8 @@ def _choices(db: Session) -> dict:
 
 def _form_page(request: Request, db: Session, form: dict, item: Initiative | None = None, error=None, conflict=None):
     return render(request, "initiatives/form.html", status_code=409 if conflict else 400 if error else 200,
-                  form=form, item=item, error=error, conflict=conflict, **_choices(db))
+                  form=form, item=item, error=error, conflict=conflict,
+                  **_choices(db, parse_id(str(form.get("strategy_id") or "")) or (item.strategy_id if item else None)))
 
 
 def _detail_page(request: Request, db: Session, user: User, item: Initiative, status_code: int = 200, conflict=None, **extra):
@@ -229,8 +231,8 @@ def change_status(
 ):
     """상세 화면에서 상태만 바꾸기 (진행 메모 한 줄을 함께 덧붙일 수 있다)."""
     item = get_or_404(db, Initiative, item_id)
-    if conflict := guards.check_rev(item, rev):
-        return _detail_page(request, db, user, item, status_code=409, conflict=conflict)
+    if conflict := guards.check_rev(item, rev):  # 쓴 값 그대로 다시 그린다 ("그래도 내 내용으로 저장" 도 그 값을 보낸다)
+        return _detail_page(request, db, user, item, status_code=409, conflict=conflict, typed_status=status, typed_line=progress_line)
     if status not in ontology.INITIATIVE_STATUSES:
         raise HTTPException(status_code=400, detail=str(ws.BAD_STATUS))
     item.status = status
