@@ -53,7 +53,7 @@
       <li class="opp-row">
         <a class="opp-t" href="/opportunities/{{ o.id }}">{{ o.name }}</a>
         <span class="num opp-amt{{ ' muted' if not it.amount }}">{{ it.amount or "금액 없음" }}</span>
-        <span class="opp-m">{% for tone, t in it.badges %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}<span class="muted">· {{ ont.OPPORTUNITY_STAGES[o.stage] }} · {{ o.customer.name }}{% if stale.who != "mine" and o.owner %} · {{ o.owner.name or o.owner.username }}{% endif %}</span></span>
+        <span class="opp-m">{% if it.ai %}<span class="badge tone-brand">AI 제안 {{ it.ai }}</span>{% endif %}{% for tone, t in it.badges %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}<span class="muted">· {{ ont.OPPORTUNITY_STAGES[o.stage] }} · {{ o.customer.name }}{% if stale.who != "mine" and o.owner %} · {{ o.owner.name or o.owner.username }}{% endif %}</span></span>
       </li>
       {% endfor %}
     </ul>

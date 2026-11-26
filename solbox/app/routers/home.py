@@ -87,7 +87,11 @@ def stale_opportunities(db: Session, user: User, now: date, view: str) -> dict:
     team = [o for o in stale if user.team_id is not None and opps.team_id_of(o) == user.team_id]
     picked = {"mine": mine, "team": team, "all": stale}[view]
     picked.sort(key=lambda o: (not any(t == "bad" for t, _ in badges[o.id]), -(o.amount or 0), o.id))
-    items = [{"opp": o, "badges": badges[o.id], "amount": money.format_amount(o.amount)} for o in picked[:STALE_SHOWN]]
+    from app import opportunity_ai
+
+    shown = picked[:STALE_SHOWN]
+    ai = opportunity_ai.pending_counts(db, [o.id for o in shown]) if shown else {}
+    items = [{"opp": o, "badges": badges[o.id], "amount": money.format_amount(o.amount), "ai": ai.get(o.id, 0)} for o in shown]
     return {"items": items, "counts": {"mine": len(mine), "team": len(team), "all": len(stale)}, "who": view, "more": max(0, len(picked) - STALE_SHOWN),
             "has_team": user.team_id is not None}
 

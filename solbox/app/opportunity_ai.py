@@ -380,3 +380,21 @@ def suggestion_rows(db: Session, opp: Opportunity, insight, today_) -> list[dict
                      "activity_id": s.get("activity_id") if title else None, "activity_title": title,
                      "activity_date": short_date(when, today_) if when else ""})
     return rows
+
+
+def pending_counts(db: Session, opp_ids) -> dict[int, int]:
+    """영업기회마다 최신 분석의 반영 대기 제안 수 (0 이면 빠진다). 질의 하나 (영업기회마다 가장 큰 번호의 분석)."""
+    from sqlalchemy import func, select
+
+    from app.models import OpportunityInsight
+
+    ids = list(dict.fromkeys(opp_ids))
+    if not ids:
+        return {}
+    newest = select(func.max(OpportunityInsight.id)).where(OpportunityInsight.opportunity_id.in_(ids)).group_by(OpportunityInsight.opportunity_id)
+    out = {}
+    for oid, sugs in db.execute(select(OpportunityInsight.opportunity_id, OpportunityInsight.suggestions).where(OpportunityInsight.id.in_(newest))):
+        n = sum(1 for s in sugs or [] if s.get("state") == "pending")
+        if n:
+            out[oid] = n
+    return out

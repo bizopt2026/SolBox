@@ -110,7 +110,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
@@ -123,6 +123,10 @@ def list_opportunities(
     stale_on = stale == "1"
     if stale_on:
         found = [o for o in found if stale_all[o.id]]
+    ai_all = oai.pending_counts(db, [o.id for o in found])  # 반영 대기 AI 제안 수 (영업 B)
+    ai_on = ai == "1"
+    if ai_on:
+        found = [o for o in found if ai_all.get(o.id)]
     who_n, who_total = opps.who_counts(found, user), len(found)
     found, who = opps.who_filter(found, user, who)
     who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
@@ -144,9 +148,12 @@ def list_opportunities(
     from urllib.parse import urlencode
 
     stale_href = "/opportunities?" + urlencode(keep + ([] if stale_on else [("stale", "1")]))
+    keep_ai = [(k, v) for k, v in request.query_params.multi_items() if k not in ("ai", "page", "notice", "nt")]
+    ai_href = ("/opportunities?" + urlencode(keep_ai + ([] if ai_on else [("ai", "1")]))).rstrip("?")
+    ai_n = sum(1 for o in found if ai_all.get(o.id))
     return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
-                  stale=stale_all, today=now, money=money)
+                  stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n)
 
 
 @router.get("/new")

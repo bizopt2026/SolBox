@@ -1576,3 +1576,4 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .hist-ev { font-size: var(--fs-small); color: var(--ink-2); }
 .hist-ev summary { cursor: pointer; color: var(--brand); }
 @media (max-width: 600px) { .ai-sug { grid-template-columns: minmax(0, 1fr); } .ai-btns { grid-column: 1; grid-row: auto; } }
+.ai-chip.on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
