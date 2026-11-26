@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from urllib.parse import urlencode
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -110,7 +111,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "", view: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
@@ -131,6 +132,7 @@ def list_opportunities(
     found, who = opps.who_filter(found, user, who)
     who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
     who_tabs = ui.seg_tabs(request, "who", who_choices, who_n, who, who_total)
+    board_rows = list(found)  # 보드는 단계 탭을 쓰지 않는다 (영업 C)
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -151,7 +153,16 @@ def list_opportunities(
     keep_ai = [(k, v) for k, v in request.query_params.multi_items() if k not in ("ai", "page", "notice", "nt")]
     ai_href = ("/opportunities?" + urlencode(keep_ai + ([] if ai_on else [("ai", "1")]))).rstrip("?")
     ai_n = sum(1 for o in found if ai_all.get(o.id))
-    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
+    board = view == "board"
+    view_qs = urlencode([(k, v) for k, v in request.query_params.multi_items() if k in opps.BOARD_QS_KEYS])
+    common = dict(view_qs=view_qs, board=board)
+    if board:
+        return render(request, "opportunities/board.html", pg=pg, q=q.strip(), flt=flt, type_tabs=type_tabs, type_now=type_now,
+                      who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
+                      stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n,
+                      columns=opps.board_columns(board_rows, now), closed=opps.recent_closes(board_rows, now),
+                      hold_n=sum(1 for o in board_rows if o.stage == "hold"), **common)
+    return render(request, "opportunities/list.html", **common, pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
                   stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n)
 
@@ -264,7 +275,7 @@ def update(
 
 @router.post("/{opportunity_id}/stage")
 def change_stage(
-    opportunity_id: int, stage: str = Form(""),
+    opportunity_id: int, stage: str = Form(""), back: str = Form(""), qs: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
@@ -272,7 +283,10 @@ def change_stage(
     if error := opps.stage_problem(stage):
         raise HTTPException(status_code=400, detail=error)
     if opp.stage != stage and opps.needs_reason(stage):  # 수주·실패는 사유 화면을 거친다 (스크립트 없이도 같은 길)
-        return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}", status_code=303)
+        from urllib.parse import quote
+
+        tail = f"&back=board&qs={quote(qs)}" if back == "board" else ""
+        return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}{tail}", status_code=303)
     code = f"opportunity_stage.{stage}"
     if opp.stage != stage:  # 어디서 어디로든 바꿀 수 있다
         code = oai.leftovers_notice(opp, opp.stage, stage) or code  # 앞으로 넘기면 떠난 단계의 남은 확인 항목을 알린다 (막지 않는다)
@@ -281,7 +295,7 @@ def change_stage(
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
-    return notices.redirect(f"/opportunities/{opp.id}", code)
+    return notices.redirect(opps.back_url(back, qs, opp.id), code)
 
 
 @router.post("/{opportunity_id}/ai/review", dependencies=[Depends(require_ai_on)])
@@ -358,25 +372,28 @@ def toggle_check(
     return RedirectResponse(f"/opportunities/{opp.id}#checks", status_code=303)
 
 
-def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None):
+def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None, back: str = "", qs: str = ""):
+    back = "board" if back == "board" else ""
     return render(
         request, "opportunities/close.html", status_code=400 if error else 200,
         opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX,
+        back=back, qs=qs if back else "", cancel_url=opps.back_url(back, qs, opp.id),
     )
 
 
 @router.get("/{opportunity_id}/close")
-def close_form(opportunity_id: int, request: Request, to: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+def close_form(opportunity_id: int, request: Request, to: str = "", back: str = "", qs: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
     opp = get_or_404(db, Opportunity, opportunity_id)
     if not opps.needs_reason(to):
         return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
     same = opp.stage == to
-    return _close_page(request, opp, to, opp.close_reason if same else "", opp.close_note if same else "")
+    return _close_page(request, opp, to, opp.close_reason if same else "", opp.close_note if same else "", back=back, qs=qs)
 
 
 @router.post("/{opportunity_id}/close")
 def close(
     opportunity_id: int, request: Request, stage: str = Form(""), reason: str = Form(""), note: str = Form(""),
+    back: str = Form(""), qs: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다."""
@@ -384,13 +401,13 @@ def close(
     if error := opps.close_problem(stage, reason):
         if not opps.needs_reason(stage):
             raise HTTPException(status_code=400, detail=error)
-        return _close_page(request, opp, stage, reason, note, error)
+        return _close_page(request, opp, stage, reason, note, error, back=back, qs=qs)
     opps.apply_stage(opp, stage, reason, note)
     db.commit()
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, [opp.customer, opp.bm])
-    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
+    return notices.redirect(opps.back_url(back, qs, opp.id), f"opportunity_stage.{stage}")
 
 
 def _convert_page(request: Request, db: Session, opp: Opportunity, form: dict, error: str | None = None):

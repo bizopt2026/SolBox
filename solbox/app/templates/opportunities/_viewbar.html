@@ -1,0 +1,8 @@
+{# 영업기회 목록 보기 전환 [표 | 보드] + 분석 링크 (영업 C). 걸러 보기(담당·멈춘 건·AI 제안·검색·사업방식)는 그대로 넘긴다. 값: board, view_qs #}
+<div class="viewbar">
+  <nav class="viewtog" aria-label="보기">
+    <a href="/opportunities{{ ('?' ~ view_qs) if view_qs }}"{% if not board %} aria-current="page"{% endif %}>표</a>
+    <a href="/opportunities?view=board{{ ('&' ~ view_qs) if view_qs }}"{% if board %} aria-current="page"{% endif %}>보드</a>
+  </nav>
+  <a class="button small" href="/opportunities/analysis">분석</a>
+</div>

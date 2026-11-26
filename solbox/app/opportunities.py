@@ -540,3 +540,48 @@ def open_by_customer(db: Session, customer_ids: Iterable[int]) -> dict[int, tupl
                       .where(Opportunity.customer_id.in_(ids), Opportunity.stage.in_(ontology.OPPORTUNITY_OPEN_STAGES))
                       .group_by(Opportunity.customer_id)).all()
     return {cid: (n, total) for cid, n, total in rows}
+
+
+# ---- 영업 C 단계: 보드 ----
+
+BOARD_QS_KEYS = ("who", "stale", "ai", "q", "business_type")  # 보드로 돌아갈 때 지키는 걸러 보기 (그 밖의 값은 버린다)
+BOARD_RECENT_DAYS = 30
+
+
+def board_url(qs: str) -> str:
+    """보드 주소 (걸러 보기는 정해진 이름만, 쪽 번호·정렬·다른 값은 버린다)."""
+    from urllib.parse import parse_qsl, urlencode
+
+    keep = [(k, v) for k, v in parse_qsl(qs or "", keep_blank_values=False) if k in BOARD_QS_KEYS][:10]
+    return "/opportunities?" + urlencode([("view", "board"), *keep])
+
+
+def back_url(back: str, qs: str, opp_id: int) -> str:
+    """단계를 바꾼 뒤 돌아갈 곳: `back=board` 만 보드, 그 밖에는 상세."""
+    return board_url(qs) if back == "board" else f"/opportunities/{opp_id}"
+
+
+def board_columns(rows, today) -> list[dict]:
+    """진행 중 단계별 열: 카드는 다음 할 일 날짜 빠른 순(없으면 뒤) → 금액 큰 순. 열마다 건수·금액 합·금액 없는 건 수."""
+    cols = []
+    for stage in ontology.OPPORTUNITY_OPEN_STAGES:
+        cards = sorted((o for o in rows if o.stage == stage),
+                       key=lambda o: (o.next_step_due is None, o.next_step_due.toordinal() if o.next_step_due else 0, -(o.amount or 0), o.id))
+        cols.append({"stage": stage, "name": ontology.OPPORTUNITY_STAGES[stage], "cards": cards, "n": len(cards),
+                     "amount": sum(o.amount or 0 for o in cards), "missing": sum(1 for o in cards if not o.amount)})
+    return cols
+
+
+def recent_closes(rows, today) -> list[dict]:
+    """최근 30일에 수주·실패로 닫힌 건 (지금도 닫혀 있는 것, 닫은 때 최신순): {opp, stage, at, reason}."""
+    from datetime import datetime, timedelta
+
+    since = datetime.combine(today - timedelta(days=BOARD_RECENT_DAYS), datetime.min.time())
+    out = []
+    for o in rows:
+        if o.stage not in ontology.OPPORTUNITY_CLOSED_STAGES:
+            continue
+        last = max((c for c in o.stage_changes if c.to_stage == o.stage), key=lambda c: (c.changed_at, c.id), default=None)
+        if last is not None and last.changed_at >= since:
+            out.append({"opp": o, "stage": o.stage, "at": last.changed_at, "reason": ontology.close_reasons(o.stage).get(o.close_reason, "")})
+    return sorted(out, key=lambda r: r["at"], reverse=True)

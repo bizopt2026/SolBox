@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_head, list_tools, seg, type_box, opportunity_badge %}
+{% block title %}{{ ont.label("opportunity") }} 보드{% endblock %}
+{% block content %}
+{{ list_head(ont.label("opportunity"), pg, q or flt or type_now or who or stale_on or ai_on, "/opportunities/new", type="opportunity") }}
+{% include "opportunities/_viewbar.html" %}
+{% set bt_extra %}<span class="type-tools"><span class="sort-label">담당</span>{{ seg(who_tabs, "담당") }}</span>{{ type_box(type_tabs) }}<a class="chip stale-chip{{ ' on' if stale_on }}" href="{{ stale_href }}"{% if stale_on %} aria-current="true"{% endif %}>멈춘 건 <b>{{ stale_n }}</b>{% if stale_on %} <span aria-hidden="true">✕</span>{% endif %}</a><a class="chip ai-chip{{ ' on' if ai_on }}" href="{{ ai_href }}"{% if ai_on %} aria-current="true"{% endif %}>AI 제안 있음 <b>{{ ai_n }}</b>{% if ai_on %} <span aria-hidden="true">✕</span>{% endif %}</a>{% if hold_n %}<a class="chip" href="/opportunities?stage=hold">보류 {{ hold_n }}건</a>{% endif %}{% endset %}
+{{ list_tools(request, none, "", q, flt, "이름, 고객으로 찾기", extra=bt_extra) }}
+<div class="board" data-board data-qs="{{ view_qs }}">
+  {% for col in columns %}
+  <section class="board-col" data-stage="{{ col.stage }}" aria-labelledby="col-{{ col.stage }}">
+    <header class="board-head"><h2 id="col-{{ col.stage }}">{{ col.name }} <span class="muted">{{ col.n }}건</span></h2>
+      <span class="num board-sum">{{ money.format_amount(col.amount) or "0원" }}{% if col.missing %} <small class="muted">(금액 없음 {{ col.missing }})</small>{% endif %}</span></header>
+    {% for o in col.cards %}
+    <article class="kcard" draggable="true" data-id="{{ o.id }}" data-stage="{{ o.stage }}">
+      <a class="kcard-t" href="/opportunities/{{ o.id }}">{{ o.name }}</a>
+      <span class="muted small">{{ o.customer.name }}</span>
+      <span class="kcard-m"><span class="num">{{ money.format_amount(o.amount) or "–" }}</span><span>{% if o.owner %}{{ o.owner.name or o.owner.username }}{% endif %}</span></span>
+      {% if o.next_step %}<span class="small">{% if o.next_step_due %}<span class="num{{ ' overdue' if o.next_step_due < today }}">{{ ui.short_date(o.next_step_due, today) }}</span> {% endif %}{{ o.next_step }}</span>{% endif %}
+      {% if stale[o.id] or ai_counts.get(o.id) %}<span class="row-badges">{% if ai_counts.get(o.id) %}<span class="badge tone-brand">AI 제안 {{ ai_counts[o.id] }}</span>{% endif %}{% for tone, t in stale[o.id] %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}</span>{% endif %}
+      <details class="kcard-move"><summary>단계 바꾸기</summary>
+        <form method="post" action="/opportunities/{{ o.id }}/stage" class="kcard-btns">
+          <input type="hidden" name="back" value="board"><input type="hidden" name="qs" value="{{ view_qs }}">
+          {% for code, name in ont.OPPORTUNITY_STAGES.items() if code != o.stage %}<button type="submit" name="stage" value="{{ code }}" class="small">{{ name }}{{ "…" if code in ont.OPPORTUNITY_CLOSED_STAGES }}</button>{% endfor %}
+        </form>
+      </details>
+    </article>
+    {% else %}<p class="muted small board-empty">없음</p>{% endfor %}
+  </section>
+  {% endfor %}
+  <aside class="board-closed" aria-label="최근 {{ 30 }}일 닫힌 건">
+    <div class="board-drop" data-stage="won">여기에 놓으면 수주 (사유 화면으로)</div>
+    <div class="board-drop" data-stage="lost">여기에 놓으면 실패 (사유 화면으로)</div>
+    {% set won_n = closed | selectattr("stage", "equalto", "won") | list | length %}
+    <details{% if closed %} open{% endif %}><summary>최근 30일 수주 {{ won_n }} · 실패 {{ closed | length - won_n }}</summary>
+      <ul class="board-closed-list">{% for c in closed %}<li>{{ opportunity_badge(c.stage) }} <a href="/opportunities/{{ c.opp.id }}">{{ c.opp.name }}</a>{% if c.opp.amount %} · <span class="num">{{ money.format_amount(c.opp.amount) }}</span>{% endif %}{% if c.reason %} <span class="muted">· {{ c.reason }}</span>{% endif %}</li>{% endfor %}</ul>
+    </details>
+  </aside>
+</div>
+{% endblock %}
