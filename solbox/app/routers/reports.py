@@ -38,6 +38,7 @@ DEFAULT_STEP = {ontology.REPORT_STATUS_DEFAULT: "result", ontology.REPORT_STATUS
 NOTE_STEP = {"kpi": "result", "opps": "result", "proposals": "result", "issues": "result", "check": "check", "plan": "plan"}  # 구역 문구가 놓인 단계
 ACTIVITY_PREVIEW = 5  # 실적 단계의 "주요 활동" 에 보이는 수 (나머지는 활동 기록 목록에서)
 PLAN_LOCKED = "확정한 계획은 고칠 수 없습니다. 확정·파일 단계에서 확정을 먼저 풀어 주세요. 저장하지 않았습니다."
+CHECK_LOCKED = "확정한 보고의 지난 계획 점검은 고칠 수 없습니다. 확정·파일 단계에서 확정을 먼저 풀어 주세요. 저장하지 않았습니다."
 EMPTY_MESSAGE = "메시지를 입력하세요."
 MAX_MESSAGE = 4000
 TOO_LONG_MESSAGE = f"메시지는 {MAX_MESSAGE}자까지 보낼 수 있습니다."
@@ -234,8 +235,11 @@ async def save_check(
     report_id: int, request: Request,
     user: User = Depends(require_user), db: Session = Depends(get_db), rev: Rev = Depends(rev_form),
 ):
-    """지난 계획 점검 표: 숨은 칸 `item_id` 여러 개와 줄마다 `result_<번호>`·`note_<번호>`. 확정 전이면 넘길 항목을 다시 맞춘다."""
+    """지난 계획 점검 표: 숨은 칸 `item_id` 여러 개와 줄마다 `result_<번호>`·`note_<번호>`. 넘길 항목을 다시 맞춘다.
+    확정한 보고는 고칠 수 없다 (계획과 같이 409: 확정 뒤 결과를 바꾸면 넘어온 줄·굳힌 점검 문구와 어긋난다)."""
     r = get_or_404(db, Report, report_id)
+    if r.status == ontology.REPORT_STATUS_CONFIRMED:
+        raise HTTPException(status_code=409, detail=CHECK_LOCKED)
     form = await request.form()
     results: dict[int, tuple[str, str]] = {}
     for raw in form.getlist("item_id"):

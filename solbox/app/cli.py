@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--name", required=True)
     p.add_argument("--password", help="생략하면 입력창에서 두 번 입력받는다")
     sub.add_parser("rebuild-knowledge", help="knowledge 폴더를 DB 기준으로 다시 만들기")
-    p = sub.add_parser("backup", help="app.db, uploads, decks 를 백업 폴더에 복사하기")
+    p = sub.add_parser("backup", help="app.db, uploads, decks, reports 를 백업 폴더에 복사하기")
     p.add_argument("--verify", metavar="폴더", help="백업을 만들지 않고 이 백업 폴더를 점검한다")
     p = sub.add_parser("make-cert", help="자체 서명 HTTPS 인증서 만들기")
     p.add_argument("--host", action="append", required=True, help="접속 주소(IP 또는 이름). 여러 번 쓸 수 있고 첫 항목이 대표 이름이 된다")

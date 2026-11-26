@@ -364,3 +364,62 @@ def test_detail_heading_and_reload_links_keep_step(user_client, db):
 def test_overdue_kpi_card_has_style(user_client, db):
     css = (__import__("pathlib").Path(__file__).resolve().parent.parent / "app" / "static" / "app.css").read_text(encoding="utf-8")
     assert ".kpi.kpi-bad" in css
+
+
+@pytest.mark.parametrize("unit,periods,days", [
+    ("week", (W1, W2, W3), ("2026-11-25", "2026-12-02")),
+    ("day", ((date(2026, 11, 23),) * 2, (date(2026, 11, 24),) * 2, (date(2026, 11, 25),) * 2), ("2026-11-24", "2026-11-25")),
+])
+def test_create_third_period_does_not_carry_twice(user_client, db, unit, periods, days):
+    """확정 A → B 만들기(A 의 항목이 넘어옴, 점검 전) → C 만들기: 500 없이 만들어지고 A 의 항목은 B 에만 한 번 넘어간다."""
+    prev = _report(db, periods[0], unit=unit, status="confirmed")
+    items = [ReportPlanItem(report_id=prev.id, position=i, task=f"할 일 {i}") for i in range(2)]
+    db.add_all(items)
+    db.commit()
+    assert user_client.post("/reports", data={"unit": unit, "day": days[0]}, follow_redirects=False).status_code == 303
+    r = user_client.post("/reports", data={"unit": unit, "day": days[1]}, follow_redirects=False)
+    assert r.status_code == 303
+    db.expire_all()
+    b = db.scalars(select(Report).where(Report.unit == unit, Report.period_start == periods[1][0])).one()
+    c = db.scalars(select(Report).where(Report.unit == unit, Report.period_start == periods[2][0])).one()
+    assert sorted(i.carried_from_id for i in b.plan_items) == sorted(i.id for i in items)
+    assert [i.carried_from_id for i in c.plan_items] == []
+    carried = db.scalars(select(ReportPlanItem.carried_from_id).where(ReportPlanItem.carried_from_id.is_not(None))).all()
+    assert len(carried) == len(set(carried)) == 2
+    assert "처음 보고입니다" in user_client.get(f"/reports/{c.id}?step=check").text
+
+
+def test_confirmed_check_is_locked(user_client, db):
+    """확정한 보고의 지난 계획 점검은 고칠 수 없다 (계획과 같이 409, 폼은 잠김)."""
+    prev, (a, b) = _prev_with_items(db, 2)
+    rep = _report(db, W2, status="planning")
+    a.result, a.checked_in_report_id = "done", rep.id
+    db.commit()
+    rep.status = "confirmed"
+    db.commit()
+    html = user_client.get(f"/reports/{rep.id}?step=check").text
+    assert "<fieldset class=\"bare\" disabled>" in html
+    r = user_client.post(f"/reports/{rep.id}/check", data={"item_id": [str(a.id)], f"result_{a.id}": "todo"}, follow_redirects=False)
+    assert r.status_code == 409
+    db.expire_all()
+    assert (a.result, a.checked_in_report_id) == ("done", rep.id)
+
+
+def test_confirmed_check_page_keeps_its_source_after_backfill(user_client, db):
+    """A0 확정 → W2 가 A0 를 점검·확정 → 건너뛴 W1 을 나중에 만들어 확정해도 W2 의 점검 화면은 A0 의 항목."""
+    a0 = _report(db, (date(2026, 11, 9), date(2026, 11, 15)), status="confirmed")
+    x = ReportPlanItem(report_id=a0.id, task="A0 에서 세운 일")
+    db.add(x)
+    db.commit()
+    w2 = _report(db, W2, status="planning")
+    x.result, x.checked_in_report_id = "done", w2.id
+    db.commit()
+    w2.status = "confirmed"
+    db.commit()
+    assert user_client.post("/reports", data={"unit": "week", "day": "2026-11-18"}, follow_redirects=False).status_code == 303
+    w1 = db.scalars(select(Report).where(Report.period_start == W1[0])).one()
+    db.add(ReportPlanItem(report_id=w1.id, task="W1 에서 세운 일"))
+    w1.status = "confirmed"
+    db.commit()
+    html = user_client.get(f"/reports/{w2.id}?step=check").text
+    assert "A0 에서 세운 일" in html and "W1 에서 세운 일" not in html

@@ -207,3 +207,66 @@ def test_note_lines_normalizes():
     assert reports.note_lines("가\n\n 나 \n") == ["가", "나"]
     assert reports.note_lines(["가", "", " "]) == ["가"]
     assert reports.note_lines(None) == []
+
+
+def test_third_report_does_not_carry_again(db):
+    """확정 A → 다음 B 가 A 의 항목을 넘겨받은(점검 전) 뒤 그다음 C 를 만들어도 A 의 항목을 다시 넘기지 않는다 (한 항목은 한 번만)."""
+    prev, (a, b) = _prev_with_items(db, 2)
+    nxt = _report(db, W2)
+    reports.sync_carry(db, nxt)
+    db.commit()
+    third = _report(db, W3)
+    assert reports.previous_report(db, third) is None  # A 는 B 가 넘겨받았다
+    reports.sync_carry(db, third)
+    db.commit()
+    assert _carried(third) == [] and {i.carried_from_id for i in _carried(nxt)} == {a.id, b.id}
+    assert reports.previous_report(db, nxt).id == prev.id
+
+
+def test_confirmed_check_stays_on_its_source_after_backfill(db):
+    """A0 확정 → W1 건너뜀 → W2 가 A0 를 점검·확정 → 나중에 W1 을 채워 확정해도 W2 의 지난 계획 점검은 A0 그대로."""
+    a0 = _report(db, (date(2026, 11, 9), date(2026, 11, 15)), status="confirmed")
+    x = ReportPlanItem(report_id=a0.id, task="A0 일")
+    db.add(x)
+    db.commit()
+    w2 = _report(db, W2)
+    reports.save_check(db, w2, {x.id: ("done", "")})
+    reports.confirm(db, w2, None)
+    db.commit()
+    w1 = _report(db, W1)
+    reports.sync_carry(db, w1)
+    db.add(ReportPlanItem(report_id=w1.id, task="W1 일"))
+    reports.confirm(db, w1, None)
+    db.commit()
+    assert [i.id for i in reports.items_to_check(db, w2)] == [x.id]
+    assert reports.previous_report(db, w2).id == a0.id
+
+
+def test_carry_only_anchor_keeps_source(db):
+    """점검은 안 했고 넘어온 줄만 있는 확정 보고도 그 줄의 원래 보고를 점검한다."""
+    a0 = _report(db, (date(2026, 11, 9), date(2026, 11, 15)), status="confirmed")
+    x = ReportPlanItem(report_id=a0.id, task="A0 일")
+    db.add(x)
+    db.commit()
+    w2 = _report(db, W2)
+    reports.sync_carry(db, w2)
+    reports.confirm(db, w2, None)
+    db.commit()
+    w1 = _report(db, W1)
+    db.add(ReportPlanItem(report_id=w1.id, task="W1 일"))
+    reports.confirm(db, w1, None)
+    db.commit()
+    assert [i.id for i in reports.items_to_check(db, w2)] == [x.id]
+    assert [i.carried_from_id for i in _carried(w2)] == [x.id]
+
+
+def test_unconfirmed_source_releases_carry_of_open_report(db):
+    """넘겨준 보고의 확정을 풀면 (확정 전인) 다음 보고는 그 줄을 다시 맞출 때 뺀다 (예전과 같다)."""
+    prev, (a, b) = _prev_with_items(db, 2)
+    cur = _report(db, W2)
+    reports.sync_carry(db, cur)
+    db.commit()
+    assert reports.unconfirm(db, prev) is None
+    reports.sync_carry(db, cur)
+    db.commit()
+    assert _carried(cur) == [] and reports.previous_report(db, cur) is None

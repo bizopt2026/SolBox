@@ -6,7 +6,7 @@ import re
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import and_, exists, func, or_, select, update
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 
 from app import ontology, report_periods
 from app.models import (
@@ -130,19 +130,69 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
     }
 
 
+# ---- 계획 이어짐 규칙 (보고 R 이 어느 보고를 점검하고 어떤 항목을 넘겨받는지는 여기서만 정한다) ----
+# 한 보고의 계획 항목은 한 다음 보고만 점검하고 넘겨받는다: 다른 보고가 점검했거나(checked_in_report_id) 넘겨받은(carried_from_id) 항목이 있는
+# 보고는 이미 "가져간" 보고다. 한번 점검하거나 넘겨받은 보고는 그 원래 보고에 묶인다 (나중에 사이 기간을 채워 확정해도 바뀌지 않는다).
+
+def _anchored_source(db: Session, report: Report) -> Report | None:
+    """이 보고가 이미 묶인 지난 보고: 이 보고가 점검 표시를 단 항목, 없으면 이 보고에 넘어온 줄의 원래 항목이 속한 보고.
+    확정 전 보고는 그 원래 보고가 확정일 때만 묶인다 (넘겨준 보고의 확정을 풀면 다시 맞출 때 그 줄이 빠진다)."""
+    if report.id is None:
+        return None
+    src_id = db.scalar(
+        select(ReportPlanItem.report_id)
+        .where(ReportPlanItem.checked_in_report_id == report.id, ReportPlanItem.report_id != report.id)
+        .order_by(ReportPlanItem.id).limit(1)
+    )
+    if src_id is None:
+        line, orig = aliased(ReportPlanItem), aliased(ReportPlanItem)
+        src_id = db.scalar(
+            select(orig.report_id).join(line, line.carried_from_id == orig.id)
+            .where(line.report_id == report.id, orig.report_id != report.id)
+            .order_by(line.id).limit(1)
+        )
+    src = db.get(Report, src_id) if src_id is not None else None
+    if src is None or (report.status != ontology.REPORT_STATUS_CONFIRMED and src.status != ontology.REPORT_STATUS_CONFIRMED):
+        return None
+    return src
+
+
 def previous_report(db: Session, report: Report) -> Report | None:
-    """지난 계획을 점검할 보고: 같은 단위의 확정 보고 중 이 보고보다 앞서는 가장 최근 것 (기간을 건너뛰어도 이어진다).
-    그 보고의 항목을 이 보고가 아닌 다른 보고가 이미 점검했으면 건너뛴다."""
+    """지난 계획을 점검할 보고. 이 보고가 이미 묶인 보고가 있으면 그 보고 (`_anchored_source`).
+    없으면 같은 단위의 확정 보고 중 이 보고보다 앞서는 가장 최근 것 (기간을 건너뛰어도 이어진다).
+    그 보고의 항목을 이 보고가 아닌 다른 보고가 이미 점검했거나 넘겨받았으면 건너뛴다."""
+    anchored = _anchored_source(db, report)
+    if anchored is not None:
+        return anchored
+    line, orig = aliased(ReportPlanItem), aliased(ReportPlanItem)
     other_checked = ReportPlanItem.checked_in_report_id.is_not(None)
+    other_line = line.report_id != Report.id
     if report.id is not None:
         other_checked = and_(other_checked, ReportPlanItem.checked_in_report_id != report.id)
-    taken = exists().where(ReportPlanItem.report_id == Report.id, other_checked)
+        other_line = and_(other_line, line.report_id != report.id)
+    checked = exists().where(ReportPlanItem.report_id == Report.id, other_checked)
+    carried = exists().where(orig.report_id == Report.id, line.carried_from_id == orig.id, other_line)
     return db.scalars(
         select(Report)
-        .where(Report.unit == report.unit, Report.status == ontology.REPORT_STATUS_CONFIRMED, Report.period_start < report.period_start, ~taken)
+        .where(Report.unit == report.unit, Report.status == ontology.REPORT_STATUS_CONFIRMED, Report.period_start < report.period_start, ~checked, ~carried)
         .order_by(Report.period_start.desc(), Report.id.desc())
         .limit(1)
     ).first()
+
+
+def carry_targets(db: Session, report: Report) -> list[ReportPlanItem]:
+    """이 보고가 넘겨받을 지난 항목: 점검할 항목 중 미완료(미착수·진행 중·점검 안 함)이고 다른 보고에 아직 넘어가지 않은 것.
+    확정한 보고는 새로 넘겨받지 않는다 (빈 목록)."""
+    if report.status == ontology.REPORT_STATUS_CONFIRMED:
+        return []
+    items = [i for i in items_to_check(db, report) if i.result in ontology.PLAN_CARRY_RESULTS]
+    if not items:
+        return []
+    cond = ReportPlanItem.carried_from_id.in_([i.id for i in items])
+    if report.id is not None:
+        cond = and_(cond, ReportPlanItem.report_id != report.id)
+    taken = set(db.scalars(select(ReportPlanItem.carried_from_id).where(cond)))
+    return [i for i in items if i.id not in taken]
 
 
 # ---- 계획 넘김 · 점검 · 확정 ----
@@ -177,10 +227,10 @@ def save_check(db: Session, report: Report, results: dict[int, tuple[str, str]])
 
 def sync_carry(db: Session, report: Report) -> None:
     """미완료(미착수·진행 중·점검 안 함) 지난 항목을 이 보고 계획 맨 앞에 한 줄씩 두고 (task·owner 복사, 기한 비움),
-    대상에서 빠진 항목의 넘어온 줄은 지운다 (사용자가 고친 줄도 같다). 이미 있는 줄은 다시 만들지 않는다. 확정된 보고는 그대로 둔다."""
+    대상(`carry_targets`)에서 빠진 항목의 넘어온 줄은 지운다 (사용자가 고친 줄도 같다). 이미 있는 줄은 다시 만들지 않는다. 확정된 보고는 그대로 둔다."""
     if report.status == ontology.REPORT_STATUS_CONFIRMED:
         return
-    targets = [i for i in items_to_check(db, report) if i.result in ontology.PLAN_CARRY_RESULTS]
+    targets = carry_targets(db, report)
     target_ids = {i.id for i in targets}
     for line in list(report.plan_items):
         if line.carried_from_id is not None and line.carried_from_id not in target_ids:
@@ -448,10 +498,7 @@ def apply_plan_draft(db: Session, report: Report, index) -> int:
     그 밖의 기존 줄은 초안으로 바뀐다. 넘어온 줄이 맨 앞. 방향은 초안의 것으로. 잇지 못한 고객 이름 수를 돌려준다. 커밋은 부르는 쪽이 한다."""
     draft = report.plan_draft or {}
     by_carry = {l.carried_from_id: l for l in report.plan_items if l.carried_from_id is not None}
-    targets = set()
-    if report.status != ontology.REPORT_STATUS_CONFIRMED:
-        targets = {i.id for i in items_to_check(db, report) if i.result in ontology.PLAN_CARRY_RESULTS}
-    taken = set(db.scalars(select(ReportPlanItem.carried_from_id).where(ReportPlanItem.carried_from_id.in_(targets), ReportPlanItem.report_id != report.id))) if targets else set()
+    targets = {i.id for i in carry_targets(db, report)}
     carried, fresh, used = [], [], set()
     unlinked = 0
     for d in draft.get("items") or []:
@@ -459,7 +506,7 @@ def apply_plan_draft(db: Session, report: Report, index) -> int:
         if not task:
             continue
         cf = d.get("carried_from")
-        if isinstance(cf, int) and cf not in used and (cf in by_carry or (cf in targets and cf not in taken)):
+        if isinstance(cf, int) and cf not in used and (cf in by_carry or cf in targets):
             item = by_carry.get(cf) or ReportPlanItem(report_id=report.id, carried_from_id=cf)
             used.add(cf)
             carried.append(item)
