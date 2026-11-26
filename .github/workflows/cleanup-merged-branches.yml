@@ -1,0 +1,42 @@
+# main 에 다 들어간 claude/* 작업 브랜치를 지운다.
+# 클라우드 세션의 git 프록시는 원격 브랜치 삭제를 막는다(HTTP 403). 그래서 삭제는 GitHub 안에서 이 워크플로가 한다.
+# 지우는 것: 끝 커밋이 main 에 이미 들어 있는 claude/* 브랜치만. main 에 없는 커밋이 하나라도 있는 브랜치(진행 중인 작업)는 건드리지 않는다.
+name: cleanup merged branches
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cleanup-merged-branches
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: delete claude/* branches already in main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          deleted=0
+          for ref in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/claude/'); do
+            branch="${ref#origin/}"
+            if git merge-base --is-ancestor "$ref" origin/main; then
+              echo "지움: $branch (main 에 다 들어 있음)"
+              git push origin --delete "$branch" || echo "지우지 못함: $branch"
+              deleted=$((deleted + 1))
+            else
+              echo "남김: $branch (main 에 없는 커밋이 있음)"
+            fi
+          done
+          echo "지운 브랜치: $deleted"
