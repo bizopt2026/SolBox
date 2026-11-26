@@ -42,7 +42,7 @@
     {% if history %}
     <section class="card hist-card" aria-labelledby="h-hist">
       <h2 id="h-hist">변경 이력</h2>
-      {% macro hist_line(r) %}<li><time>{{ r.when }}</time><div>{{ r.label }} {% if r.old %}<span class="old">{{ r.old }}</span><span class="arrow" aria-label="에서">→</span>{% endif %}<b>{{ r.new or "(비움)" }}</b>{% if r.by %}<small class="by">{{ r.by }}{% if r.source == "ai" %} · AI 제안{% endif %}</small>{% endif %}</div></li>{% endmacro %}
+      {% macro hist_line(r) %}<li><time>{{ r.when }}</time><div>{{ r.label }} {% if r.old %}<span class="old">{{ r.old }}</span><span class="arrow" aria-label="에서">→</span>{% endif %}<b>{{ r.new or "(비움)" }}</b>{% if r.by or r.source == "ai" %}<small class="by">{{ r.by }}{% if r.source == "ai" %}{{ " · " if r.by }}<span class="ai-tag">AI 제안</span>{% endif %}</small>{% endif %}{% if r.source == "ai" and r.evidence %}<details class="hist-ev"><summary>근거</summary>“{{ r.evidence }}”</details>{% endif %}</div></li>{% endmacro %}
       <ul class="hist">{% for r in history[:history_shown] %}{{ hist_line(r) }}{% endfor %}</ul>
       {% if history | length > history_shown %}<details class="hist-more"><summary>이전 기록 {{ history | length - history_shown }}건 더 보기</summary><ul class="hist">{% for r in history[history_shown:] %}{{ hist_line(r) }}{% endfor %}</ul></details>{% endif %}
     </section>

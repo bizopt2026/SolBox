@@ -340,3 +340,43 @@ def decide(db: Session, opp: Opportunity, insight_id: int, sid: int, user_id: in
     ins.suggestions = [{**s, "state": state, "decided_by": user_id, "decided_at": datetime.now().isoformat(timespec="seconds")} if s.get("id") == sid else s
                        for s in ins.suggestions]
     return code
+
+
+# ---- 화면 ----
+
+def suggestion_rows(db: Session, opp: Opportunity, insight, today_) -> list[dict]:
+    """제안 띠의 줄들 (반영 대기만): {id, label, old, new, evidence, verified, activity_id, activity_title}."""
+    from app import money
+    from app.models import Activity
+    from app.ui import short_date
+
+    if insight is None:
+        return []
+    pending = [s for s in insight.suggestions or [] if s.get("state") == "pending"]
+    ids = {s["activity_id"] for s in pending if s.get("activity_id")}
+    titles = {a.id: (a.title or "활동 기록", a.date) for a in db.query(Activity).filter(Activity.id.in_(ids))} if ids else {}
+
+    def day(iso):
+        from datetime import date
+
+        return short_date(date.fromisoformat(iso), today_) if iso else ""
+
+    rows = []
+    for s in pending:
+        kind, field = s["kind"], s.get("field")
+        if kind == "stage":
+            label, old, new = ontology.prop("opportunity", "stage"), ontology.OPPORTUNITY_STAGES[opp.stage], ontology.OPPORTUNITY_STAGES.get(s["value"], s["value"])
+        elif kind == "check":
+            label, old, new = ontology.prop("opportunity", "checks"), "", ontology.check_label(s["item"])
+        elif field == "amount":
+            label, old, new = ontology.prop("opportunity", "amount"), money.format_amount(opp.amount), money.format_amount(s["value"])
+        elif field == "expected_close":
+            label, old, new = ontology.prop("opportunity", "expected_close"), short_date(opp.expected_close, today_), day(s["value"])
+        else:
+            label, old = ontology.prop("opportunity", "next_step"), opp.next_step or ""
+            new = s["value"] + (f" ({day(s['due'])})" if s.get("due") else "")
+        title, when = titles.get(s.get("activity_id"), ("", None))
+        rows.append({"id": s["id"], "label": label, "old": old, "new": new, "evidence": s.get("evidence", ""), "verified": s.get("verified"),
+                     "activity_id": s.get("activity_id") if title else None, "activity_title": title,
+                     "activity_date": short_date(when, today_) if when else ""})
+    return rows

@@ -1,3 +1,20 @@
-{# 영업기회 상세의 AI 구역 (영업 B): 분석 진행 상자 → 제안 띠. 브리핑 카드는 `_brief.html`. 값: opp, ai_job #}
-{% set aig = ai_gate() %}
+{# 영업기회 상세의 AI 구역 (영업 B): 분석 진행 상자 → 반영 대기 제안 띠. 브리핑 카드는 `_brief.html`. 값: opp, ai_job, insight, ai_rows #}
 {% if ai_job %}{% with job = ai_job %}{% include "opportunities/_ai_job.html" %}{% endwith %}{% endif %}
+{% if ai_rows %}
+<section class="ai-band" id="ai-band" aria-labelledby="h-ai-band">
+  <header class="ai-band-head"><h2 id="h-ai-band">AI 제안 {{ ai_rows | length }}건</h2>
+    <span>{{ kdate(insight.created_at.date()) }} {{ insight.created_at.strftime("%H:%M") }} 분석 · 활동 기록 {{ (insight.basis or {}).get("activity_ids", []) | length }}건 읽음 · 반영해야 값이 바뀝니다</span></header>
+  <ul class="ai-sugs">
+    {% for r in ai_rows %}
+    <li class="ai-sug">
+      <div class="ai-what"><small>{{ r.label }}</small>{% if r.old %}<span class="old">{{ r.old }}</span> <span class="arrow" aria-label="에서">→</span> {% endif %}<b>{{ r.new }}</b></div>
+      <p class="ai-ev">{% if r.evidence %}“{{ r.evidence }}”{% endif %}{% if r.activity_id %} · <a href="/activities/{{ r.activity_id }}">{{ r.activity_date }} {{ r.activity_title }}</a>{% endif %}{% if not r.verified %} <span class="ai-unv">· 원문에서 근거를 찾지 못했어요</span>{% endif %}</p>
+      <div class="ai-btns">
+        <form method="post" action="/opportunities/{{ opp.id }}/ai/{{ insight.id }}/{{ r.id }}/apply"><button type="submit" class="primary small" aria-label="{{ r.label }} {{ r.new }} 반영">반영</button></form>
+        <form method="post" action="/opportunities/{{ opp.id }}/ai/{{ insight.id }}/{{ r.id }}/dismiss"><button type="submit" class="small" aria-label="{{ r.label }} 제안 무시">무시</button></form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
