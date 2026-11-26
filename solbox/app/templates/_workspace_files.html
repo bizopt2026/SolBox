@@ -1,0 +1,30 @@
+{# 사업 방향·과제 공간의 자료 카드 (AI 코워크 ①). owner_url = "/strategies/3" 또는 "/initiatives/5", files = 그 공간의 자료 #}
+{% from "_macros.html" import confirm_link, filepick %}
+<section class="card stack" id="files" aria-labelledby="h-wfiles">
+  <header class="card-head">
+    <h2 id="h-wfiles">{{ ont.prop("initiative", "files") }}{% if files %}<span class="count">{{ files | length }}건</span>{% endif %}</h2>
+  </header>
+  {% if upload_notice %}<p class="error" role="alert">{{ upload_notice }}</p>{% endif %}
+  {% if files %}
+  <ul class="files">
+    {% for f in files %}
+    {% set ext = f.original_name.rsplit(".", 1)[1] if "." in f.original_name else "" %}
+    <li class="file">
+      <span class="ext" aria-hidden="true">{{ (ext[:4] | upper) if ext else "파일" }}</span>
+      <div class="file-main">
+        <b>{{ f.original_name }}</b>
+        <small>{{ (f.size / 1024 / 1024)|round(2) if f.size >= 1048576 else (f.size / 1024)|round(1) }} {{ "MB" if f.size >= 1048576 else "KB" }}{% if f.extract_status == "failed" %} · <span class="bad">텍스트 추출 실패</span>{% elif f.extract_status == "unsupported" %} · 텍스트 추출 미지원{% elif f.extract_status == "ok" %} · 글 추출됨 (AI 가 읽을 수 있음){% endif %}</small>
+      </div>
+      <div class="file-actions">
+        <a class="button small" href="/workspace-files/{{ f.id }}/download">내려받기</a>
+        {% if file_del.get(f.id) %}{{ confirm_link("/workspace-files/" ~ f.id ~ "/delete", cls="small ghost danger", ask="정말 지울까요?", aria=f.original_name ~ " 삭제") }}{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">올린 자료가 없습니다. 회의록·검토 문서·RFP 를 올리면 AI 와 함께 쓸 수 있어요.</p>{% endif %}
+  <form method="post" action="{{ owner_url }}/files" enctype="multipart/form-data" class="add-panel">
+    <div class="fld"><label for="f-wfiles">파일 올리기</label>{{ filepick("files", id="f-wfiles", multiple=true, required=true) }}</div>
+    <button type="submit" class="small">올리기</button>
+  </form>
+</section>

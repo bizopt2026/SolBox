@@ -294,7 +294,7 @@ def test_intake_backed_groups_respect_viewer(db, world, kim):
 # ---- 5. 목록 걸러 보기 ----
 
 def _count_rows(html):
-    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions)/\d+"', html))
+    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions|initiatives)/\d+"', html))
 
 
 def test_list_filters_match_group_totals(admin_client, db, world):
@@ -314,7 +314,8 @@ def test_list_filters_match_group_totals(admin_client, db, world):
 
 
 def _owner(w, owner, key):
-    return {"customer": w.c_hanbit, "solution": w.s_hvac, "partner": w.p_green, "project": w.pr_hanbit, "opportunity": w.o_hanbit, "bm": w.bm_energy}[owner]
+    return {"customer": w.c_hanbit, "solution": w.s_hvac, "partner": w.p_green, "project": w.pr_hanbit, "opportunity": w.o_hanbit, "bm": w.bm_energy,
+            "strategy": w.st_public}[owner]
 
 
 def _group_ids(db, owner_obj, key, list_type):

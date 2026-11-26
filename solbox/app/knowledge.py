@@ -33,8 +33,10 @@ def workspace_owner(f) -> tuple[str, int]:
     return ("strategy", f.strategy_id) if f.strategy_id is not None else ("initiative", f.initiative_id)
 
 
-def file_markdown(f: SolutionFile, text: str) -> str:
-    """자료 파일에서 뽑은 본문을 사본 형식으로 만든다."""
+def file_markdown(f: SolutionFile | WorkspaceFile, text: str) -> str:
+    """자료 파일에서 뽑은 본문을 사본 형식으로 만든다 (공간 자료는 종류가 없어 이름만)."""
+    if isinstance(f, WorkspaceFile):
+        return f"# {f.original_name}\n\n{text}\n"
     return f"# {f.original_name} ({labels.FILE_KINDS.get(f.kind, f.kind)})\n\n{text}\n"
 
 

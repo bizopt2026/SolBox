@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import impact as impact_lib, ontology, opportunities as opps, solution_fields as sfields, ui
 from app.db import get_db
 from app.main import render
-from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User
+from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User, Strategy, Initiative, WorkspaceFile
 from app.routers._common import get_deletable_or_404, get_or_404
 from app.security import ensure_can_delete, require_admin, require_user
 
@@ -60,6 +60,22 @@ def _load_file(db, user, p):
     f = get_or_404(db, SolutionFile, _num(p["obj_id"]))
     ensure_can_delete(user, f)
     return f
+
+
+def _load_workspace_file(db, user, p):
+    f = get_or_404(db, WorkspaceFile, _num(p["obj_id"]))
+    ensure_can_delete(user, f)
+    return f
+
+
+def _workspace_back(f) -> str:
+    return f"/strategies/{f.strategy_id}" if f.strategy_id is not None else f"/initiatives/{f.initiative_id}"
+
+
+def _workspace_crumbs(f, name):
+    owner = f.owner
+    code = "strategy" if f.strategy_id is not None else "initiative"
+    return ui.crumbs(code, owner.title if owner else "", _workspace_back(f), "자료 삭제")
 
 
 def _load_intake(db, user, p):
@@ -110,6 +126,8 @@ SPECS: tuple[Spec, ...] = (
     Spec("/projects/{obj_id}/delete", "project", _owned(Project), lambda o: o.name, lambda o: f"/projects/{o.id}", _crumb("project"), "프로젝트"),
     Spec("/bms/{obj_id}/delete", "bm", _owned(BM), lambda o: o.name, lambda o: f"/bms/{o.id}", _crumb("bm"), "BM",
          blocker=lambda db, o: opps.bm_delete_problem(db, o)),
+    Spec("/strategies/{obj_id}/delete", "strategy", _owned(Strategy), lambda o: o.title, lambda o: f"/strategies/{o.id}", _crumb("strategy"), "사업 방향"),
+    Spec("/initiatives/{obj_id}/delete", "initiative", _owned(Initiative), lambda o: o.title, lambda o: f"/initiatives/{o.id}", _crumb("initiative"), "과제"),
     Spec("/opportunities/{obj_id}/delete", "opportunity", _owned(Opportunity), lambda o: o.name, lambda o: f"/opportunities/{o.id}", _crumb("opportunity"), "영업기회"),
     Spec("/activities/{obj_id}/delete", "activity", _owned(Activity), lambda o: o.title or "(제목 없음)", lambda o: f"/activities/{o.id}", _crumb("activity"), "활동 기록"),
     Spec("/proposals/{obj_id}/delete", "proposal", _owned(Proposal), lambda o: _proposal_name(o), lambda o: f"/proposals/{o.id}", _crumb("proposal"), "제안 건"),
@@ -117,6 +135,7 @@ SPECS: tuple[Spec, ...] = (
          _crumb("report"), "업무 보고"),  # 팀원 누구나 지울 수 있다 (설계 §5.4b)
     Spec("/files/{obj_id}/delete", "solution_file", _load_file, lambda o: o.original_name, lambda o: f"/solutions/{o.solution_id}",
          lambda o, name: ui.crumbs("solution", o.solution.name, f"/solutions/{o.solution_id}", "자료 삭제"), "자료"),
+    Spec("/workspace-files/{obj_id}/delete", "workspace_file", _load_workspace_file, lambda o: o.original_name, _workspace_back, _workspace_crumbs, "자료"),
     Spec("/intake/{obj_id}/discard", "intake_discard", _load_intake, lambda o: f"올리기 묶음 {o.id}번", lambda o: f"/intake/{o.id}",
          lambda o, name: [(ontology.nav_group_label("intake"), None), (ontology.label("intake"), "/intake"), (name, f"/intake/{o.id}"), ("버리기", None)], "올리기 묶음", verb="버리기", blocker=_intake_blocker),
     Spec("/research/runs/{obj_id}/delete", "research_run", _load_admin(ResearchRun, "조사 실행을 찾을 수 없습니다."),

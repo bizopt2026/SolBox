@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail_head, meta_card, pill, rev_fields %}
+{% from "_related.html" import related_card, main_cards %}
+{% block title %}{{ item.title }}{% endblock %}
+{% block content %}
+{% set owner_name = (item.owner.name or item.owner.username) if item.owner else "" %}
+{% set status_badges %}{{ pill("initiative_kind", item.kind) }} {{ pill("initiative_status", item.status) }}{% endset %}
+{% set sub = [owner_name, ("기한 " ~ ui.short_date(item.due, today)) if item.due else none] | select | join(" · ") %}
+{{ detail_head(item.title, "/initiatives", item, can_delete, crumbs=ui.crumbs("initiative", item.title), sub=sub or none, status=status_badges) }}
+<div class="dgrid">
+  <div class="dmain">
+    {% if item.description %}
+    <section class="card stack" aria-labelledby="h-desc"><h2 id="h-desc">{{ ont.prop("initiative", "description") }}</h2><div class="md">{{ item.description | md }}</div></section>
+    {% endif %}
+    <section class="card stack" aria-labelledby="h-progress">
+      <header class="card-head"><h2 id="h-progress">{{ ont.prop("initiative", "progress") }}</h2><a class="button small ghost" href="/initiatives/{{ item.id }}/edit">고치기</a></header>
+      {% if item.progress %}<div class="md">{{ item.progress | md }}</div>{% else %}<p class="muted">아직 진행 메모가 없습니다. 오른쪽 "상태 바꾸기"에서 한 줄씩 덧붙일 수 있어요. 첫 줄이 업무 보고에 실립니다.</p>{% endif %}
+    </section>
+    {{ main_cards(main) }}
+  </div>
+  <aside class="daside" aria-label="공간 정보">
+    <section class="card stack" aria-labelledby="h-status">
+      <h2 id="h-status">상태 바꾸기</h2>
+      <form method="post" action="/initiatives/{{ item.id }}/status" class="stack">
+        {{ rev_fields(item, conflict, "/initiatives/" ~ item.id) }}
+        <div class="fld"><label for="f-status">{{ ont.prop("initiative", "status") }}</label>
+          <select id="f-status" name="status">{% for code, name in ont.INITIATIVE_STATUSES.items() %}<option value="{{ code }}"{% if code == item.status %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+        <div class="fld"><label for="f-progress-line">진행 한 줄 (선택)</label><input id="f-progress-line" name="progress_line" type="text" placeholder="예: 부지 후보 3곳 현장 확인"></div>
+        <button type="submit" class="small">저장</button>
+      </form>
+    </section>
+    <section class="card stack" aria-labelledby="h-props">
+      <h2 id="h-props">공간 정보</h2>
+      <dl class="props compact">
+        <dt>{{ ont.prop("initiative", "strategy") }}</dt>
+        <dd>{% if item.strategy %}<a href="/strategies/{{ item.strategy_id }}">{{ item.strategy.title }}</a> {{ pill("strategy_status", item.strategy.status) }}{% if item.strategy.consensus %}<small class="muted block">{{ item.strategy.consensus | first_line }}</small>{% endif %}{% else %}–{% endif %}</dd>
+        <dt>{{ ont.prop("initiative", "owner") }}</dt><dd>{{ owner_name or "–" }}</dd>
+        <dt>{{ ont.prop("initiative", "due") }}</dt><dd>{% if item.due %}<span class="num{{ ' overdue' if item.due < today and item.status in ont.INITIATIVE_OPEN }}">{{ ui.short_date(item.due, today) }}</span>{% else %}–{% endif %}</dd>
+        <dt>{{ ont.prop("initiative", "instructions") }}</dt><dd>{{ item.instructions or "–" }}</dd>
+      </dl>
+    </section>
+    {% set owner_url = "/initiatives/" ~ item.id %}{% include "_workspace_files.html" %}
+    {% include "_workspace_changes.html" %}
+    {{ related_card(related, hide_empty=true) }}
+    {{ meta_card(meta) }}
+  </aside>
+</div>
+{% endblock %}

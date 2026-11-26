@@ -445,6 +445,18 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
         elif code == "report":
             it.label = report_label(o)
             it.badge = (ontology.tone_class("report_status", o.status), ontology.REPORT_STATUSES.get(o.status, o.status))
+        elif code == "strategy":
+            it.label = o.title or "(제목 없음)"
+            it.badge = (ontology.tone_class("strategy_status", o.status), ontology.STRATEGY_STATUSES.get(o.status, o.status))
+            it.note = (o.consensus or "").strip().splitlines()[0][:100] if (o.consensus or "").strip() else ""
+        elif code == "initiative":
+            it.label = o.title or "(제목 없음)"
+            it.badge = (ontology.tone_class("initiative_status", o.status), ontology.INITIATIVE_STATUSES.get(o.status, o.status))
+            it.note = ontology.INITIATIVE_KINDS.get(o.kind, o.kind)
+            it.done = o.status in ontology.INITIATIVE_CLOSED
+        elif code == "workspace_file":
+            it.label = o.original_name
+            it.url = f"/workspace-files/{o.id}/download"
         elif code == "report_item":
             it.label = " ".join(o.task.split())
             it.url = f"/reports/{o.report_id}"

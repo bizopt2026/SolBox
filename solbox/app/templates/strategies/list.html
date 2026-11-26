@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, pill, none_dash %}
+{% block title %}{{ ont.label("strategy") }}{% endblock %}
+{% block content %}
+{{ list_head(ont.label("strategy"), pg, q or status, "/strategies/new", type="strategy") }}
+{{ list_tools(request, tabs, ont.prop("strategy", "status"), q, none, "제목, 합의 내용으로 찾기") }}
+{% if pg.items %}
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>{{ ont.label("strategy") }}</th><th class="col-sec">{{ ont.prop("strategy", "status") }}</th><th class="col-sec">{{ ont.prop("strategy", "period") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
+  <tbody>
+  {% for s in pg.items %}
+    {% set i = info[s.id] %}
+    <tr>
+      {% call title_cell("/strategies/" ~ s.id, s.title, (s.consensus.splitlines()[0] if s.consensus else none)) %}{{ pill("strategy_status", s.status) }}{% if s.id in active %}<span class="badge tone-ok">잣대로 쓰는 중</span>{% endif %}{% endcall %}
+      <td class="col-sec">{{ pill("strategy_status", s.status) }}{% if s.id in active %} <small class="muted">잣대</small>{% endif %}</td>
+      <td class="col-sec num">{% if s.period_start or s.period_end %}{{ kdate(s.period_start) if s.period_start else "" }} ~ {{ kdate(s.period_end) if s.period_end else "" }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec num">{{ kdate(s.updated_at.date()) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{{ pager(pg, request) }}
+{% else %}{{ empty_list(q or status, "아직 등록된 " ~ ont.label("strategy") ~ "이 없습니다. 팀이 합의한 방향을 적어 두면 과제와 AI 가 그 방향을 기준으로 일합니다.", "/strategies/new", clear_url="/strategies") }}{% endif %}
+{% endblock %}
