@@ -297,7 +297,8 @@ def backfill_owners_once(engine) -> int:
         if db.get(AppSetting, OWNER_BACKFILL_KEY) is not None:
             return 0
         n = db.execute(update(Opportunity).where(Opportunity.owner_user_id.is_(None), Opportunity.created_by_id.is_not(None))
-                       .values(owner_user_id=Opportunity.created_by_id).execution_options(synchronize_session=False)).rowcount
+                       .values(owner_user_id=Opportunity.created_by_id, updated_at=Opportunity.updated_at)  # 고친 시각은 그대로 (onupdate 가 올리지 않게)
+                       .execution_options(synchronize_session=False)).rowcount
         db.add(AppSetting(key=OWNER_BACKFILL_KEY, value={"filled": n}))
         db.commit()
         return n
@@ -483,13 +484,14 @@ def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
     from app import money
     from app.ui import short_date
 
-    stage_at = {ch.changed_at: ch.to_stage for ch in opp.stage_changes}
+    stage_at = {ch.changed_at: ch.to_stage for ch in opp.stage_changes}  # 같은 저장(같은 시각)의 단계: 새 사유 이름은 새 단계로,
+    stage_before = {ch.changed_at: ch.from_stage for ch in opp.stage_changes}  # 옛 사유 이름은 옛 단계로 찾는다
     ids = {ch.changed_by_id for ch in (*opp.stage_changes, *opp.field_changes)}
     ids |= {int(v) for ch in opp.field_changes if ch.field == "owner_user_id" for v in (ch.old_value, ch.new_value) if v.isdigit()}
     ids.discard(None)
     names = {u.id: (u.name or u.username) for u in db.scalars(select(User).where(User.id.in_(ids)))} if ids else {}
 
-    def shown(field: str, raw: str, at) -> str:
+    def shown(field: str, raw: str, at, old: bool = False) -> str:
         if not raw:
             return ""
         if field == "amount":
@@ -504,7 +506,7 @@ def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
         if field == "owner_user_id":
             return names.get(int(raw), "(지운 계정)") if raw.isdigit() else raw
         if field == "close_reason":
-            stage = stage_at.get(at, opp.stage)
+            stage = (stage_before if old else stage_at).get(at, opp.stage)
             return ontology.close_reasons(stage).get(raw) or ontology.OPPORTUNITY_LOST_REASONS.get(raw) or raw
         if field == "stage":
             return ontology.OPPORTUNITY_STAGES.get(raw, raw)
@@ -512,7 +514,7 @@ def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
 
     rows = [{"at": ch.changed_at, "field": "stage", "old": shown("stage", ch.from_stage, ch.changed_at), "new": shown("stage", ch.to_stage, ch.changed_at),
              "by": names.get(ch.changed_by_id, ""), "source": ""} for ch in opp.stage_changes if ch.from_stage]  # 만들 때 줄(옛 단계 없음)은 뺀다
-    rows += [{"at": ch.changed_at, "field": ch.field, "old": shown(ch.field, ch.old_value, ch.changed_at), "new": shown(ch.field, ch.new_value, ch.changed_at),
+    rows += [{"at": ch.changed_at, "field": ch.field, "old": shown(ch.field, ch.old_value, ch.changed_at, old=True), "new": shown(ch.field, ch.new_value, ch.changed_at),
               "by": names.get(ch.changed_by_id, ""), "source": ch.source} for ch in opp.field_changes]
     for r in rows:
         r["label"] = ontology.prop("opportunity", _HISTORY_LABEL.get(r["field"], r["field"]))

@@ -152,7 +152,7 @@ def _old_db(settings):
     with engine.begin() as conn:
         conn.exec_driver_sql("INSERT INTO users (id, username, name, password_hash, role, is_active) VALUES (7, 'kim', '김영업', '', 'user', 1)")
         conn.exec_driver_sql("INSERT INTO customers (id, name, industry, contact, memo) VALUES (1, '한빛물류', '', '', '')")
-        conn.exec_driver_sql("INSERT INTO opportunities (id, name, customer_id, stage, memo, business_types, created_by_id) VALUES (1, '옛 건', 1, 'discovery', '', '', 7)")
+        conn.exec_driver_sql("INSERT INTO opportunities (id, name, customer_id, stage, memo, business_types, created_by_id, updated_at) VALUES (1, '옛 건', 1, 'discovery', '', '', 7, '2026-09-01 10:00:00')")
         conn.exec_driver_sql("INSERT INTO opportunities (id, name, customer_id, stage, memo, business_types) VALUES (2, '만든 사람 모름', 1, 'discovery', '', '')")
     engine.dispose()
 
@@ -171,6 +171,7 @@ def test_old_db_gets_columns_tables_and_owner_backfill_once(settings):
         for t in ("teams", "opportunity_field_changes"):
             assert con.execute("SELECT name FROM sqlite_master WHERE name=?", (t,)).fetchone() is not None, t
         assert con.execute("SELECT id, owner_user_id FROM opportunities ORDER BY id").fetchall() == [(1, 7), (2, None)]
+        assert con.execute("SELECT updated_at FROM opportunities WHERE id = 1").fetchone()[0].startswith("2026-09-01 10:00:00")  # 이관은 고친 시각을 건드리지 않는다
         con.execute("UPDATE opportunities SET owner_user_id = NULL WHERE id = 1")
         con.commit()
         con.close()

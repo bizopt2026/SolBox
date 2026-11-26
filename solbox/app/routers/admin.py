@@ -22,6 +22,8 @@ from app.models import AIJob, ResearchRun, ResearchTopic, Team, User
 from app.research import KEYWORDS_JOB_KIND, Schedule, get_schedule, set_schedule
 from app import guards
 from app.guards import Once, Rev, form_once, rev_form
+from app.knowledge import KnowledgeMirror, get_mirror
+from app.routers._common import resync_objects
 from app.security import PASSWORD_RULE, hash_password, password_problem, password_version, require_admin
 from app.system import app_version, describe, folder_size, human_size, run_checks
 
@@ -88,6 +90,7 @@ def update_user(
     team_field: str = Form(""),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
+    mirror: KnowledgeMirror = Depends(get_mirror),
     rev: Rev = Depends(rev_form),
 ):
     target = db.get(User, user_id)
@@ -100,6 +103,7 @@ def update_user(
     active = is_active is not None
     if target.id == admin.id and (not active or role != "admin"):
         return _page(request, db, "자기 자신을 비활성화하거나 관리자 권한을 내릴 수 없습니다.", 400)
+    shown_before = (target.name, target.team_id)  # 영업기회 사본에 보이는 이름·팀
     if team_field:  # 팀 칸이 있는 화면만 (숨은 칸 team_field). 팀 칸이 없는 옛 화면은 팀을 그대로 둔다. 빈 값은 "팀 없음"
         tid, problem = teams.parse_team_id(db, team_id)
         if problem:
@@ -117,7 +121,10 @@ def update_user(
             request.session["pv"] = password_version(target)
         else:  # 정해 준 비밀번호: 이 사용자는 다음 로그인 뒤 바꿔야 한다
             target.must_change_password = True
+    shown_changed = (target.name, target.team_id) != shown_before
     db.commit()
+    if shown_changed:  # 영업기회 사본의 "담당: 이름 (팀)" 을 다시 쓴다
+        resync_objects(db, mirror, teams.owned_opportunities(db, [target.id]))
     return notices.redirect("/admin/users", "saved")
 
 
@@ -149,6 +156,7 @@ def create_team(
 def rename_team(
     team_id: int, request: Request, name: str = Form(""),
     admin: User = Depends(require_admin), db: Session = Depends(get_db), rev: Rev = Depends(rev_form),
+    mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     team = _team_or_404(db, team_id)
     if guards.check_rev(team, rev) is not None:  # 사용자 줄처럼 "그래도 저장" 없이 새로 보고 다시 고치게 한다
@@ -159,13 +167,17 @@ def rename_team(
     if new != team.name:
         team.name = new
         db.commit()
+        resync_objects(db, mirror, teams.owned_opportunities(db, [u.id for u in team.members]))  # 사본의 "담당: 이름 (팀)"
     return notices.redirect("/admin/users", "team_saved")
 
 
 @router.post("/teams/{team_id}/delete")
-def delete_team(team_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    teams.remove(db, _team_or_404(db, team_id))
+def delete_team(team_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror)):
+    team = _team_or_404(db, team_id)
+    member_ids = [u.id for u in team.members]
+    teams.remove(db, team)
     db.commit()
+    resync_objects(db, mirror, teams.owned_opportunities(db, member_ids))  # 사본의 "담당: 이름 (팀)" 에서 팀이 빠진다
     return notices.redirect("/admin/users", "team_deleted")
 
 

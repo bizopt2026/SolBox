@@ -63,6 +63,14 @@ def parse_team_id(db: Session, raw: str) -> tuple[int | None, FieldError | None]
     return int(raw), None
 
 
+def owned_opportunities(db: Session, user_ids) -> list:
+    """이 사람들이 담당인 영업기회 (지식 사본에 "담당: 이름 (팀)" 이 적혀 있어, 이름·팀이 바뀌면 사본을 다시 쓴다)."""
+    from app.models import Opportunity
+
+    ids = [i for i in user_ids if i is not None]
+    return list(db.scalars(select(Opportunity).where(Opportunity.owner_user_id.in_(ids)))) if ids else []
+
+
 def team_name(user: User | None) -> str:
     return user.team.name if user is not None and user.team is not None else ""
 
