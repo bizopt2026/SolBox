@@ -187,6 +187,7 @@ JOB_KINDS = {
     "report_plan": "업무 보고 계획 초안",
     "report_chat": "업무 보고 계획 대화 답변",
     "report_notes": "업무 보고 구역별 보고 문구",
+    "opportunity_review": "영업기회 AI 분석 (제안·브리핑)",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -206,6 +207,7 @@ JOB_EXPECTED = {
     "report_plan": "보통 1분 안에",
     "report_chat": "보통 1분 안에",
     "report_notes": "보통 30초 안에",
+    "opportunity_review": "보통 30초~1분",
 }
 
 ERROR_KINDS = {
