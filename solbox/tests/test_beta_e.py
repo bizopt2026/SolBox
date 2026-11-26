@@ -179,7 +179,7 @@ AI_POSTS = {
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
     "/reports/{report_id}/ai/summary", "/reports/{report_id}/ai/plan", "/reports/{report_id}/chat", "/reports/{report_id}/chat/retry",
-    "/reports/{report_id}/ai/notes",
+    "/reports/{report_id}/ai/notes", "/proposals/{proposal_id}/outline/slides/{index}/ai",
 }
 # 처리기가 꺼져 있으면 일은 하되 작업을 넣지 않는 라우트 (알림으로 알린다)
 AI_KEEPS = {"/intake", "/proposals", "/reports/{report_id}/confirm"}  # 업무 보고 확정: 꺼져 있으면 AI 보고 문구를 넣지 않고 기본 문장 그대로
@@ -239,6 +239,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/reports/{report_id}/ai/summary": f"/reports/{rep.id}/ai/summary", "/reports/{report_id}/ai/plan": f"/reports/{rep.id}/ai/plan",
         "/reports/{report_id}/chat": f"/reports/{rep.id}/chat", "/reports/{report_id}/chat/retry": f"/reports/{rep.id}/chat/retry",
         "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes", "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review",
+        "/proposals/{proposal_id}/outline/slides/{index}/ai": f"/proposals/{sol.id}/outline/slides/1/ai",
     }
     assert set(paths) == AI_POSTS
     before = db.query(AIJob).count()

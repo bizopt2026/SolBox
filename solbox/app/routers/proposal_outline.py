@@ -12,13 +12,18 @@ from app.guards import Rev, rev_form
 from app.db import get_db
 from app.main import render
 from app.models import Proposal, User
-from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, check_items, display_title, outline_check_summary, keep_checked, slide_sources, save_outline, slide_check_state, slide_from_form, slide_to_form
+from app.ai.gate import require_ai_on
+from app.ai.queue import queue_position
+from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, start_job, check_items, display_title, outline_check_summary, keep_checked, slide_sources, save_outline, slide_check_state, slide_from_form, slide_to_form
 from app.routers._common import get_or_404
 from app.sources import SourceLookup
 from app.security import require_user
 
 router = APIRouter(prefix="/proposals/{proposal_id}/outline")
 BUSY = "AI 작업이 끝난 뒤 수정하세요."
+MAX_SLIDE_INSTRUCTION = 300
+TOO_LONG_SLIDE_INSTRUCTION = f"요청은 {MAX_SLIDE_INSTRUCTION}자까지 쓸 수 있습니다."
+NO_UNDO = "되돌릴 AI 다시 쓰기가 없습니다."
 FIELDS = (
     "title", "key_message", "subtitle", "bullets", "left_title", "left", "right_title", "right",
     "columns", "rows", "steps", "sources", "needs_check",
@@ -73,6 +78,7 @@ def _outline_page(request: Request, db: Session, p: Proposal, open_index: int | 
         open_index = next((c["index"] for c in cards if c["unchecked"]), None)
     return render(
         request, "proposals/outline.html", status_code=status_code, proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy,
+        position=queue_position(db, p.active_job) if busy else 0,
         summary=outline_check_summary(p.outline), src=SourceLookup(db), can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
         chart_types=ontology.CHART_TYPES, diagram_types=ontology.DIAGRAM_TYPES, diagram_help=ontology.DIAGRAM_TYPE_DESCRIPTIONS, quadrants=list(ontology.MATRIX_QUADRANTS),
     )
@@ -204,3 +210,39 @@ def add_slide(
     slides.insert(n + 1, slide_from_form("bullets", {"title": "새 슬라이드", "needs_check": NO_SOURCE_NOTE}))
     save_outline(db, p, slides)
     return _back(p, n + 1, renumber=True, notice="slide_added")
+
+
+@router.post("/slides/{index}/ai", dependencies=[Depends(require_ai_on)])
+def rewrite_slide(
+    proposal_id: int, index: int, instruction: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """한 장만 AI 로 다시 쓴다 (베타 AJ). 표지(0번)는 다시 쓰지 않는다. 작업이 끝나면 구성안 화면의 진행 상자가 쪽을 새로 고친다."""
+    p = _load(db, proposal_id)
+    slides = p.outline["slides"]
+    if not 0 < index < len(slides):
+        raise HTTPException(status_code=404, detail="없는 슬라이드입니다.")
+    if p.selected_index is None or not 0 <= p.selected_index < len(p.directions or []):
+        raise HTTPException(status_code=400, detail="먼저 제안 방향을 선택하세요.")
+    text = instruction.strip()
+    if len(text) > MAX_SLIDE_INSTRUCTION:
+        raise HTTPException(status_code=400, detail=TOO_LONG_SLIDE_INSTRUCTION)
+    page = f"/proposals/{p.id}/outline?open={index}#slide-{index}"
+    if not start_job(db, p, "proposal_slide", user, {"index": index, "instruction": text, "base": dict(slides[index])}):
+        return notices.redirect(f"/proposals/{p.id}/outline?open={index}", "busy")
+    return RedirectResponse(page, status_code=303)  # 작업이 시작됨: 진행 상자가 알림을 대신한다
+
+
+@router.post("/slides/{index}/undo")
+def undo_slide(
+    proposal_id: int, index: int,
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """마지막 한 장 AI 다시 쓰기를 되돌린다. 그 뒤에 구성안을 다른 방법으로 저장했으면 되돌릴 것이 없다 (`save_outline` 이 지운다)."""
+    p, slides = _load_for_edit(db, proposal_id, index)
+    undo = p.outline.get("slide_undo") or {}
+    if undo.get("index") != index or not isinstance(undo.get("slide"), dict):
+        raise HTTPException(status_code=400, detail=NO_UNDO)
+    slides[index] = undo["slide"]
+    save_outline(db, p, slides)
+    return _back(p, index, notice="slide_restored")

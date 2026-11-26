@@ -922,12 +922,14 @@ def keep_checked(old: dict, new: dict) -> dict:
     return {**new, "checked": [t for t in old.get("checked") or [] if t in wanted]}
 
 
-def save_outline(db: Session, p: Proposal, slides: list[dict]) -> None:
-    """구성안의 장 목록을 저장한다. 저장 시각은 늘 이전보다 커진다."""
+def save_outline(db: Session, p: Proposal, slides: list[dict], undo: dict | None = None) -> None:
+    """구성안의 장 목록을 저장한다. 저장 시각은 늘 이전보다 커진다.
+    `undo`(한 장 AI 다시 쓰기의 옛 장 `{"index", "slide"}`)를 주면 "되돌리기" 용으로 남기고, 주지 않으면(다른 모든 저장) 지운다: 장 번호·내용이 바뀌면 옛 장이 맞지 않는다."""
     now = datetime.now()
     if p.outline_updated_at is not None and now <= p.outline_updated_at:
         now = p.outline_updated_at + timedelta(microseconds=1)
-    p.outline = {**(p.outline or {}), "slides": slides}
+    rest = {k: v for k, v in (p.outline or {}).items() if k != "slide_undo"}
+    p.outline = {**rest, "slides": slides, **({"slide_undo": undo} if undo else {})}
     p.outline_updated_at = now
     if p.status == "deck":
         p.status = "outlined"  # 만든 제안서가 구성안과 달라졌다. 다시 만들어야 하는 건으로 되돌린다
@@ -939,6 +941,7 @@ def reset_for_new_direction(p: Proposal, decks_dir: Path) -> None:
     deck = decks_dir / str(p.id) / p.deck_name if p.deck_name else None
     if deck is not None:
         internal_deck_path(deck).unlink(missing_ok=True)
+        deck.with_suffix(".pdf").unlink(missing_ok=True)  # 제안서 PDF (베타 AJ, `pdf_export.pdf_path`)
     p.outline, p.outline_updated_at = None, None
     p.deck_name, p.deck_built_at = "", None
     p.chat_from_id = p.messages[-1].id if p.messages else None

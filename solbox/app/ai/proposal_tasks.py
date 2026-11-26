@@ -18,8 +18,8 @@ from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
 from app.korean import josa
 from app.models import AIJob, Proposal, ProposalMessage
-from app.proposals import (accept_review, candidate_solutions, clean_directions, clean_outline, is_group, priority_groups, reset_for_new_direction, review_changes,
-                           target_name)
+from app.proposals import (accept_review, candidate_solutions, clean_directions, clean_outline, is_group, keep_checked, priority_groups, reset_for_new_direction,
+                           review_changes, save_outline, target_name)
 
 
 log = logging.getLogger(__name__)
@@ -405,6 +405,22 @@ def _material(text: str) -> str:
     return text.replace(OUTLINE_CLOSE, "MATERIAL> >>").replace(OUTLINE_OPEN, "<<< MATERIAL")
 
 
+def _outline_prompt(db: Session, p: Proposal, direction: dict, conversation: str, instruction: str) -> str:
+    """구성안 프롬프트 (구성안 만들기와 한 장 다시 쓰기가 같은 글을 쓴다: 한 장 다시 쓰기는 이 글에서 자료·규칙 구역을 잘라 쓴다)."""
+    return load_prompt(
+        "proposal_outline",
+        direction=json.dumps(direction, ensure_ascii=False, indent=2),
+        target_line=_target_line(p),
+        project_line=_project_line(p),
+        solutions=_solution_lines(db, direction),
+        business_type_section=_business_type_section(p, direction),
+        invest_rule=(INVEST_SLIDE_RULE if ontology.BUSINESS_TYPE_INVEST in _types_of(p) or direction.get("business_type") == ontology.BUSINESS_TYPE_INVEST else f"(해당 없음: {josa(_INVEST, '을/를')} 검토하지 않습니다)"),
+        conversation=conversation if conversation else "(없음)",
+        instruction=_material(instruction) if instruction else "(없음)",
+        subtitle_example="대상 그룹 이름 · 날짜" if is_group(p) else "고객명 · 날짜",
+    )
+
+
 def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     p = db.get(Proposal, input.get("proposal_id"))
     if p is None:
@@ -417,18 +433,7 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     recent = _recent_messages(db, p)
     conversation = "\n\n".join(f"[{ROLE_LABELS.get(m.role, m.role)}]\n{_material(m.content or '')}" for m in recent)
     instruction = str(input.get("instruction") or "").strip()
-    prompt = load_prompt(
-        "proposal_outline",
-        direction=json.dumps(direction, ensure_ascii=False, indent=2),
-        target_line=_target_line(p),
-        project_line=_project_line(p),
-        solutions=_solution_lines(db, direction),
-        business_type_section=_business_type_section(p, direction),
-        invest_rule=(INVEST_SLIDE_RULE if ontology.BUSINESS_TYPE_INVEST in _types_of(p) or direction.get("business_type") == ontology.BUSINESS_TYPE_INVEST else f"(해당 없음: {josa(_INVEST, '을/를')} 검토하지 않습니다)"),
-        conversation=conversation if conversation else "(없음)",
-        instruction=_material(instruction) if instruction else "(없음)",
-        subtitle_example="대상 그룹 이름 · 날짜" if is_group(p) else "고객명 · 날짜",
-    )
+    prompt = _outline_prompt(db, p, direction, conversation, instruction)
     pid, job_id = p.id, input.get("_job_id")
     out = run_json(db, runner, prompt, Outline, settings)  # 읽기 트랜잭션은 여기서 끝난다
     p = db.get(Proposal, pid)
@@ -482,3 +487,72 @@ def _review_outline(db: Session, runner: ClaudeRunner, settings: Settings, direc
         log.warning("구성안 AI 검토를 버리고 초안을 씁니다 (작업 %s): %s", job_id, why)
         return {**draft, "review": {"status": "rejected", "changes": []}}
     return {**accepted, "review": {"status": "applied", "changes": review_changes(out.changes)}}
+
+
+# ---------------------------------------------------------------- 한 장 AI 다시 쓰기 (베타 AJ)
+
+SLIDE_MATERIALS_START, SLIDE_MATERIALS_END = "## 대상과 자료", "## 대화 내역과 추가 지시"
+SLIDE_RULES_START, SLIDE_RULES_END = "슬라이드 종류(`kind`)는", "9. 출력은"
+SLIDE_CHANGED = "AI 가 쓰는 동안 구성안이 바뀌어 이 장을 바꾸지 않았습니다. 구성안 화면에서 다시 시도하세요."
+
+
+def _cut(text: str, start: str, end: str) -> str:
+    """구성안 프롬프트에서 [start, end) 구역을 잘라 낸다 (표지가 없으면 프롬프트가 바뀐 것이라 바로 알린다)."""
+    i, j = text.index(start), text.index(end)
+    return text[i:j].rstrip() + "\n"
+
+
+def slide_prompt_parts(outline_prompt: str) -> tuple[str, str]:
+    """구성안 프롬프트의 (자료 구역, 장 종류·규칙 구역). 한 장 다시 쓰기는 구성안과 같은 규칙 글을 쓴다 (따로 적어 두면 어긋난다)."""
+    return _cut(outline_prompt, SLIDE_MATERIALS_START, SLIDE_MATERIALS_END), _cut(outline_prompt, SLIDE_RULES_START, SLIDE_RULES_END)
+
+
+def _slide(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
+    """구성안의 장 하나를 AI 가 다시 쓴다 (작성자의 요청이 있으면 그대로). 시작할 때의 장(`base`)과 지금 장이 다르면 바꾸지 않는다.
+    바꾼 뒤에는 옛 장을 `outline["slide_undo"]` 에 남겨 "되돌리기" 를 할 수 있게 한다 (다른 저장이 있으면 `save_outline` 이 지운다)."""
+    p = db.get(Proposal, input.get("proposal_id"))
+    if p is None:
+        return "deleted"
+    directions = p.directions or []
+    i = p.selected_index
+    if i is None or not 0 <= i < len(directions):
+        raise ClaudeError("bad_output", "먼저 제안 방향을 선택하세요.")
+    index, base = input.get("index"), input.get("base")
+    slides = list((p.outline or {}).get("slides") or [])
+    if not isinstance(index, int) or not 0 < index < len(slides) or slides[index] != base:
+        raise ClaudeError("bad_output", SLIDE_CHANGED)
+    direction = directions[i]
+    materials, rules = slide_prompt_parts(_outline_prompt(db, p, direction, "", ""))
+    titles = "\n".join(f"{'>> ' if k == index else ''}{k + 1}. [{s.get('kind', '')}] {s.get('title') or '(제목 없음)'}" for k, s in enumerate(slides))
+    closing = base.get("kind") == "closing"
+    instruction = str(input.get("instruction") or "").strip()
+    prompt = load_prompt(
+        "proposal_slide",
+        count=str(len(slides)), number=str(index + 1),
+        direction=json.dumps(direction, ensure_ascii=False, indent=2),
+        materials=materials, rules=rules, titles=_material(titles),
+        slide=_material(json.dumps({k: v for k, v in base.items() if k != "checked"}, ensure_ascii=False, indent=1)),
+        instruction=_material(instruction) if instruction else "(없음)",
+        kind_rule=("이 장은 마무리 장입니다. `kind` 는 `closing` 그대로 쓰세요." if closing else
+                   "`kind` 는 `cover`·`closing` 이 아닌 종류로 쓰세요 (표지와 마무리는 이 장이 아닙니다)."),
+    )
+    pid, job_id, title = p.id, input.get("_job_id"), (p.outline or {}).get("title") or ""
+    out = run_json(db, runner, prompt, AISlide, settings)  # 읽기 트랜잭션은 여기서 끝난다
+    p = db.get(Proposal, pid)
+    if p is None:
+        return "deleted"
+    if p.active_job_id != job_id:
+        return "superseded"
+    slides = list((p.outline or {}).get("slides") or [])
+    if not index < len(slides) or slides[index] != base:
+        raise ClaudeError("bad_output", SLIDE_CHANGED)
+    new = clean_outline(Outline(title=title, slides=[AISlide(kind="cover", title=title), out]), settings.knowledge_dir)["slides"][1]
+    if (new["kind"] == "closing") != closing:
+        raise ClaudeError("bad_output", "AI 가 이 장을 다른 자리의 종류(마무리)로 썼습니다. 다시 시도하세요." if not closing else "마무리 장을 다른 종류로 썼습니다. 다시 시도하세요.")
+    slides[index] = keep_checked(base, new)
+    p.active_job_id = None
+    save_outline(db, p, slides, undo={"index": index, "slide": base})
+    return "ok"
+
+
+HANDLERS["proposal_slide"] = _slide

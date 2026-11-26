@@ -161,3 +161,23 @@
 - **구성안 프롬프트 목차**: 표지 → **핵심 요약** → 현황과 과제 → 제안 개요 → 솔루션 구성 → 상세 1~3장 → **왜 우리인가** → 기대 효과 → 추진·일정 → 마무리. 핵심 요약은 표지 바로 뒤 `bullets` 한 장(`과제:`·`제안:`·`효과:`(·`근거:`), 뒤 장에 있는 내용만, "글머리 장 2장까지" 제한에 세지 않음). 왜 우리인가는 `table`·`two_column`·`hub` 한 장이고 읽은 파일의 차별점·실적만 쓰며, 없으면 만들지 않고 제안 개요 장의 `needs_check` 에 "차별점·실적 자료 확인".
 - 시험 `tests/test_beta_ai.py`. 바꾼 기존 시험: `tests/conftest.py`(`settings` 의 `proposal_review=False`), `test_beta_u.py`·`test_ux_wait.py`(구성안 예상 시간 "2분").
 - **하지 못한 것**: 실제 Claude CLI 로 검토 품질을 재 보지 못했다 (시험은 가짜 CLI). 검토가 자주 버려지는지(숫자 규칙이 너무 엄한지)는 app.log 의 "구성안 AI 검토를 버리고" 줄로 지켜본다.
+
+## 베타 AJ 묶음이 바꾼 규칙
+- **사용자 요청 2026-11-26: "제안 PT 자료 품질 향상 방안" 의 3번 묶음 (고치는 시간 줄이기).** 한 장이 마음에 들지 않으면 구성안 전체를 다시 만들거나 손으로 고쳐야 했고, 덱 모양은 PPT 를 내려받아 열어야만 볼 수 있었다.
+- **한 장 AI 다시 쓰기** (작업 종류 `proposal_slide`, `ai/proposal_tasks._slide`, 프롬프트 `prompts/proposal_slide.md`): 구성안 화면에서 표지를 뺀 장마다 "AI로 다시 쓰기"(요청 300자까지, 선택) → `POST /proposals/{id}/outline/slides/{index}/ai`(`require_ai_on`, 알림 `busy`·`ai_off`). 작업 입력은 `index`·`instruction`·시작할 때의 장 `base`. **장 종류·규칙 글은 구성안 프롬프트를 그대로 잘라 쓴다** (`slide_prompt_parts`: `## 대상과 자료` ~ `## 대화 내역과 추가 지시`, `슬라이드 종류(`kind`)는` ~ `9. 출력은`). 구성안 프롬프트의 이 표지 글을 바꾸면 `tests/test_beta_aj.py` 가 먼저 깨진다. 프롬프트에는 전체 장 제목(다시 쓸 장 앞 `>>`)·지금 장 JSON·요청을 자료(`<<<MATERIAL`)로 넣는다. 도구는 구성안과 같은 파일 도구(지식 폴더 읽기).
+- 결과는 `clean_outline` 을 거친다 (표지 한 장을 앞에 붙여 정리한 뒤 두 번째 장만 쓴다). 마무리 장은 마무리로만, 다른 장은 마무리가 아닌 종류로만 받고 어기면 실패. 실행 전·후 모두 지금 장이 `base` 와 같지 않으면 바꾸지 않고 실패(`SLIDE_CHANGED`). 확인한 표시는 `keep_checked` 로 남은 문구만.
+- **되돌리기**: 바꿀 때 옛 장을 `outline["slide_undo"] = {"index", "slide"}` 에 남기고(`save_outline(…, undo=)`), 그 장 카드에 "다시 쓰기 전으로 되돌리기" (`POST …/slides/{index}/undo`, 알림 `slide_restored`, 쓰기 잠금 `_load_for_edit`). **다른 모든 `save_outline` 은 `slide_undo` 를 지운다** (장 번호·내용이 바뀌면 옛 장이 맞지 않는다). 한 번만 되돌린다.
+- 화면: 구성안 화면 맨 위에 이 작업의 진행 상자(`_job_box.html`, "AI가 n번 장을 다시 쓰는 중…", 끝나면 HX-Refresh)·실패 줄("AI가 n번 장을 다시 쓰지 못했어요 … 장은 그대로입니다"), AI 이유 줄(`ai_note`, id `slide-ai-note`)은 쪽에 한 번. `ontology.JOB_KIND_STEP["proposal_slide"] = "outline"`, 예상 "보통 1분 안에".
+- **제안서 PDF** (`app/pdf_export.py`): 제안서 상자에 "PDF 만들기 (미리보기)" → `POST /proposals/{id}/deck/pdf`(요청 안에서 기다림, 알림 `pdf_built`·`pdf_failed`·`pdf_unavailable`), 만든 뒤 "PDF 미리보기"(`GET …/deck/pdf`, inline, 새 탭)·"고객용 PDF 내려받기"(`?download=1`). **고객용 PPT 로만 만든다** (내부 검토용 노트가 들어가지 않게). PDF 는 고객용 PPT 와 같은 이름(`pdf_path`)이라 PPT 를 다시 만들면 맞지 않게 되고, 라우터가 옛 PPT 와 함께 지운다 (방향 바꾸기 `reset_for_new_direction`·제안 건 삭제도 지운다). 구성안이 바뀌어 PPT 가 낡았으면 400.
+- 변환 방법(`methods`): 설정 `pdf_converter` = `auto`(기본: Windows 는 PowerPoint → LibreOffice, 그 밖에는 LibreOffice) | `powerpoint` | `libreoffice` | `none`, `soffice_path`(선택). PowerPoint 는 PowerShell COM(`Presentations.Open` → `SaveAs(…, 32)`, 경로는 환경 변수 `SOLBOX_PPTX`·`SOLBOX_PDF` 로), LibreOffice 는 데이터 폴더 안 따로 둔 프로필(`-env:UserInstallation`)로 `--convert-to pdf`. 작업 폴더 `decks/.pdf-work/<무작위>` 는 끝나면 지운다. 한 방법에 `PDF_TIMEOUT_S`(180초)까지, `system.run_bounded_ex` 가 넘으면 프로세스 나무를 죽인다. 방법이 없으면 버튼을 그리지 않는다(템플릿 전역 `deck_pdf`). 점검 "PDF 만들기" 줄(`system._check_pdf`, 문제로 치지 않음). 패키지는 더하지 않았다.
+- 시험 `tests/test_beta_aj.py` (LibreOffice 가 있으면 실제 변환 시험도 돈다, `slow`). 바꾼 기존 시험: `test_beta_e.py`(`AI_POSTS` 에 새 경로), `test_ux_notices.py`(`POST_NOTICES`).
+- **하지 못한 것**: Windows 에서 PowerPoint COM 변환을 돌려 보지 못했다 (README 수동 확인 21번). 실제 Claude CLI 로 한 장 다시 쓰기 품질을 보지 못했다 (22번).
+
+## 베타 AK 묶음이 바꾼 규칙
+- **사용자 요청 2026-11-26: "남은 디자인 개선도 진행해"** (품질 향상 방안의 디자인 항목 중 1번 묶음에서 하지 않은 것). LibreOffice 렌더로 본 문제: 2×2 의 우리 자리가 옅은 블루라 눈에 띄지 않고 칸마다 이름 한 줄뿐, 그래프 라벨·눈금마다 단위가 되풀이("420 백만원"), 표지 카드 오른쪽과 아래가 비어 있음, 2단 비교·도입 전후·단계 카드는 항목이 적어도 글자가 작아 비어 보임.
+- **2×2** (`_draw_matrix`): 첫 항목이 든 칸은 브랜드 블루 면(`002FA7`)에 흰 글자. 칸 안은 이름(굵게) 한 줄 + 설명(아래 줄, 보조 본문색)이고 크기는 `MATRIX_SIZES`(20/13 부터 줄여 감, `_matrix_need`). 한 칸에 항목이 둘 이상일 때만 글머리. 축 이름은 잉크색 13pt 부터, 축 양 끝에 "낮음"·"높음"(9pt, 도형 이름 `축 끝`).
+- **그래프 단위** (`_number_format`·`_unit_caption`): 숫자 서식에 단위를 붙이지 않는다 (라벨·값 축 눈금은 숫자만). 단위가 있으면 그래프 카드 왼쪽 위에 "단위: …" 한 줄(10pt, 도형 이름 `단위`)을 쓰고 그래프를 그만큼 내린다. 도넛(%)·오른쪽 값 요약 카드는 그대로.
+- **표지** (`_draw_cover`·`_cover_motif`): 브랜드 카드 오른쪽에 승인 팔레트의 원 셋(딥 블루 큰 원, 블루 틴트 작은 원, 오렌지 점, 도형 이름 `표지 장식`)을 카드 안에만 그린다 (그림·로고 아님). 제목 글 폭은 그 앞까지(`COVER_MOTIF_W` 3.4). 아래 정보 줄은 이름표(`표지 라벨`, 10pt)와 값(18pt Bold 페이스) 두 줄: "제안 대상"(고객 이름, 있을 때만) · "제안일", 사이에 얇은 세로선.
+- **큰 글자**: 2단 비교·도입 전후의 반 폭 카드는 `COLUMN_SIZES`(18 부터), 단계 카드는 이름 20·설명 15 부터 (`STEP_NAME_SIZES`·`STEP_DETAIL_SIZES` 앞에 더함. 6단계 이상은 전처럼 14 까지). 쪽 나누기 기준(가장 작은 글자)은 그대로다.
+- **하지 않은 것: 아이콘.** 저장소에 라이선스가 확인된 아이콘 묶음이 없어 넣지 않았다 (도형으로 흉내 낸 아이콘도 만들지 않았다). 넣으려면 회사가 쓸 수 있는 아이콘 묶음(라이선스 포함)을 먼저 정해야 한다.
+- 시험 `tests/test_beta_ak.py`. 바꾼 기존 시험: `test_beta_ag.py`(2×2 강조 색, 값 축 서식에 단위 없음과 "단위:" 줄).

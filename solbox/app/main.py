@@ -359,6 +359,14 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["is_group"] = is_group
     app.state.templates.env.globals["deck_is_stale"] = deck_is_stale
     app.state.templates.env.globals["deck_is_old"] = deck_is_old
+    from app import pdf_export
+
+    def _deck_pdf(p) -> dict:
+        """제안서 상자의 PDF 줄: 이 PC 에서 만들 수 있는지, 지금 고객용 파일의 PDF 가 있는지 (베타 AJ)."""
+        exists = bool(p.deck_name) and pdf_export.pdf_path(settings.decks_dir / str(p.id) / p.deck_name).is_file()
+        return {"can": bool(pdf_export.methods(settings)), "exists": exists}
+
+    app.state.templates.env.globals["deck_pdf"] = _deck_pdf
     from app.deck_gates import counts as _deck_quality_counts
 
     app.state.templates.env.globals["deck_quality_counts"] = _deck_quality_counts  # 제안서 상자의 "품질 검사: 경고 N건"

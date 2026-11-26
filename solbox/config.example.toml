@@ -52,6 +52,12 @@ backup_keep_days = 14
 # 끄려면 false. 검토가 실패하거나 초안에 없는 숫자를 넣으면 초안을 그대로 쓴다.
 proposal_review = true
 
+# 제안서 PDF 만들기 (미리보기·고객 전달용). 서버 PC 에 있는 프로그램으로 바꾼다: auto(기본) | powerpoint | libreoffice | none
+# auto 는 Windows 에서 PowerPoint 를 먼저, 안 되면 LibreOffice 를 쓴다. 둘 다 없으면 화면에 PDF 버튼이 나오지 않는다.
+# pdf_converter = "auto"
+# LibreOffice 를 다른 곳에 설치했으면 soffice 실행 파일 경로를 적는다.
+# soffice_path = "C:/Program Files/LibreOffice/program/soffice.exe"
+
 # 업로드 파일 최대 크기(MB). 파일 하나마다 적용되고, 올리기 묶음은 한 번에 20개까지 받는다.
 max_upload_mb = 100
 

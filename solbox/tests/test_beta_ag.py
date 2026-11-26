@@ -318,7 +318,8 @@ def test_native_chart_with_data_labels(tmp_path, ctype, cats, series):
     if ctype != "doughnut":
         assert root.find(f".//{C}catAx/{C}majorGridlines") is None and root.find(f".//{C}valAx/{C}majorGridlines") is not None
         assert {t.get("val") for t in root.iter(f"{C}majorTickMark")} == {"none"}
-        assert root.find(f".//{C}valAx/{C}numFmt").get("formatCode").endswith('"주"')
+        assert root.find(f".//{C}valAx/{C}numFmt").get("formatCode") == "#,##0"  # 베타 AK: 단위는 눈금·라벨에 되풀이하지 않고
+        assert "단위: 주" in _texts(slide)  # 그래프 위 한 줄에 한 번만
     else:
         assert root.find(f".//{C}holeSize").get("val") == "56"
     assert root.find(f"{C}roundedCorners").get("val") == "0"
@@ -405,7 +406,7 @@ def test_matrix_places_items_and_highlights_first(tmp_path):
     prs, stats, _ = _build(tmp_path, [data])
     cells = [sh for sh in prs.slides[1].shapes if sh.name == "칸"]
     fills = [str(sh.fill.fore_color.rgb) for sh in cells]
-    assert fills == ["F6F7FB", "F6F7FB", "F6F7FB", "EAEEF8"]  # 첫 항목이 든 칸(오른쪽 아래)만 강조
+    assert fills == ["F6F7FB", "F6F7FB", "F6F7FB", "002FA7"]  # 첫 항목이 든 칸(오른쪽 아래)만 강조 (베타 AK: 브랜드 면·흰 글자)
     boxes = sorted((sh for sh in prs.slides[1].shapes if sh.name == "칸 글"), key=lambda sh: (sh.top, sh.left))
     assert [b.text_frame.text for b in boxes] == ["다른 것", "자리 없음", "우리 제안"]  # 자리 없는 셋째 항목은 순서대로 셋째 칸(왼쪽 아래)
     assert _layout(stats["quality"]) == []
