@@ -1,6 +1,6 @@
 # 영업 CRM 보강 B 단계: 단계별 확인 항목, AI 자동 제안, AI 브리핑
 
-작성 2026-11-26. 상태: **초안 (시안 검토 전)**. A 단계 설계: `2026-11-26-sales-crm-a-design.md` (로드맵·원칙은 그 문서 2장).
+작성 2026-11-26. 상태: **승인 (2026-11-26)**: 확인 항목 목록 시안대로 확정, 목록에 "AI 제안 있음" 칩 추가. 화면 시안: claude.ai 아티팩트 "솔박스 영업 B 단계 시안". A 단계 설계: `2026-11-26-sales-crm-a-design.md` (로드맵·원칙은 그 문서 2장).
 
 ## 1. 왜 하나
 
@@ -59,7 +59,7 @@ A 단계로 영업기회에 금액·수주일·담당·다음 할 일과 이력�
 ### 4.3 제안 한 줄 (JSON, 새 list 를 대입한다)
 `{"id": 1, "kind": "field"|"check"|"stage", "field": "amount"|"expected_close"|"next_step"|null, "item": 항목 코드|null, "value": 저장할 값(금액 정수, 날짜 ISO, 글, 단계 코드), "due": 다음 할 일 날짜 ISO|null, "evidence": 근거 문장, "activity_id": 번호|null, "verified": 원문에서 근거를 찾았는지, "state": "pending"|"applied"|"dismissed"|"superseded", "decided_by": 번호|null, "decided_at": ISO|null}`
 
-### 4.4 확인 항목 목록 (`ontology.OPPORTUNITY_CHECKLIST`, 초안: 시안 검토로 확정)
+### 4.4 확인 항목 목록 (`ontology.OPPORTUNITY_CHECKLIST`, 사용자 확정 2026-11-26)
 | 단계 | 코드 | 항목 |
 |---|---|---|
 | 발굴 | discovery.need | 고객 니즈·문제 확인 |
@@ -117,7 +117,7 @@ AI 제안을 반영한 이력 줄에 근거 문장을 남긴다 (`source = "ai"`
 5. 오른쪽: 변경 이력(A, AI 반영 줄은 "AI 제안 · 반영한 사람" 과 근거 펼침)
 
 ### 5.6 다른 화면
-- 영업기회 목록·홈 "챙길 영업기회": 반영 대기 제안이 있으면 배지 "AI 제안 n" (브랜드 색).
+- 영업기회 목록·홈 "챙길 영업기회": 반영 대기 제안이 있으면 배지 "AI 제안 n" (브랜드 색). 목록에 걸러 보기 칩 "AI 제안 있음" (`?ai=1`, 사용자 결정).
 - 지식 사본: 확인한 항목 줄 "- 확인 항목: 고객 니즈·문제 확인, …" (`KNOWLEDGE_FORMAT` 13). 브리핑은 AI 초안이라 사본에 넣지 않는다.
 - 도움말·화면구성도·운영가이드(자동 분석은 AI 처리기가 켜져 있어야 함, 대기열 부담)·`docs/rules/AI-작업과-오류.md`(예외 규칙)·`docs/ontology.md`.
 
