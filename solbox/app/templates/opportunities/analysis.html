@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, seg, opportunity_badge %}
+{% from "_macros.html" import page_header, seg, opportunity_badge, ai_attrs, ai_note %}
 {% block title %}{{ ont.label("opportunity") }} 분석{% endblock %}
 {% block content %}
 {% macro pct(v) %}{% if v is none %}–{% else %}{{ (v * 100) | round | int }}%{% endif %}{% endmacro %}
@@ -65,7 +65,19 @@
 </section>
 {% endif %}
 
-{% block ai_section %}{% endblock %}
+{% set aig = ai_gate() %}
+<section class="card insight-card" id="pipeline-ai" aria-labelledby="h-pai">
+  <header class="card-head"><h2 id="h-pai">AI 해석 <span class="ai-tag">AI 초안</span></h2>
+    <form method="post" action="/opportunities/analysis/ai" class="inline"><input type="hidden" name="period" value="{{ s.period }}"><input type="hidden" name="team" value="{{ team_raw }}">
+      <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-pai") }}{% if ai_job %} disabled{% endif %}>{{ "다시 받기" if ai_done else "AI 해석 받기" }}</button></form></header>
+  {{ ai_note(aig, id="ai-note-pai") }}
+  {% if ai_job %}{% with job = ai_job, period = s.period %}{% include "opportunities/_insight_job.html" %}{% endwith %}{% endif %}
+  {% if ai_done %}
+  <p class="muted small">{% if ai_done.finished_at %}{{ kdate(ai_done.finished_at.date()) }} {{ ai_done.finished_at.strftime("%H:%M") }} · {% endif %}{{ ai_done.start }} ~ {{ ai_done.end }} 숫자 기준{% if ai_done.numbers_hash != s.numbers_hash %} · <b class="warn-text">그 뒤 숫자가 바뀌었어요. 다시 받기를 눌러 새로 받으세요.</b>{% endif %}</p>
+  {% if ai_done.summary %}<p>{{ ai_done.summary }}</p>{% endif %}
+  {% for key, title in (("highlights", "주목할 점"), ("causes", "원인 추정"), ("actions", "권하는 행동")) %}{% if ai_done[key] %}<h3>{{ title }}</h3><ul>{% for x in ai_done[key] %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endfor %}
+  {% elif not ai_job %}<p class="muted">위 숫자를 AI 가 읽고 주목할 점·원인 추정·권하는 행동을 정리합니다. AI 는 이 화면의 숫자만 쓰고, 결과는 초안입니다.</p>{% endif %}
+</section>
 
 <details class="card stat-defs"><summary>숫자는 이렇게 셉니다</summary>
   <ul>

@@ -174,7 +174,7 @@ def analysis(request: Request, period: str = "", team: str = "", user: User = De
     from app import pipeline_stats as ps
 
     team_list = teams.ordered(db)
-    team_key = ps.TEAM_NONE if team == ps.TEAM_NONE else next((t.id for t in team_list if str(t.id) == team), None)
+    team_key = ps.TEAM_NONE if team == ps.TEAM_NONE else next((t.id for t in team_list if str(t.id) == team), None)  # 없는 팀은 전체
     now = _today()
     stats = ps.compute(db, period, team_key, now)
 
@@ -186,9 +186,56 @@ def analysis(request: Request, period: str = "", team: str = "", user: User = De
     team_tabs = [ui.SegTab("", "전체", None, href(stats["period"], None), team_key is None)]
     team_tabs += [ui.SegTab(str(t.id), t.name, None, href(stats["period"], t.id), team_key == t.id) for t in team_list]
     team_tabs.append(ui.SegTab(ps.TEAM_NONE, ps.NO_TEAM, None, href(stats["period"], ps.TEAM_NONE), team_key == ps.TEAM_NONE))
+    from app.ai import pipeline_tasks
+
+    team_raw = "" if team_key is None else str(team_key)
+    ai_job, ai_done = pipeline_tasks.find_jobs(db, stats["period"], team_raw)
     team_name = "전체" if team_key is None else (ps.NO_TEAM if team_key == ps.TEAM_NONE else next(t.name for t in team_list if t.id == team_key))
     return render(request, "opportunities/analysis.html", stats=stats, chart=ps.month_chart(stats["months"]), period_tabs=period_tabs,
-                  team_tabs=team_tabs, team_key=team_key, team_name=team_name, money=money, generated=datetime.now(), today=now)
+                  team_tabs=team_tabs, team_key=team_key, team_name=team_name, money=money, generated=datetime.now(), today=now,
+                  team_raw=team_raw, ai_job=ai_job, ai_done=ai_done)
+
+
+def _analysis_url(period: str, team_raw: str) -> str:
+    from app import pipeline_stats as ps
+
+    pairs = ([("period", period)] if period != ps.PERIOD_DEFAULT else []) + ([("team", team_raw)] if team_raw else [])
+    return "/opportunities/analysis" + (("?" + urlencode(pairs)) if pairs else "")
+
+
+def _analysis_params(db: Session, period: str, team: str) -> tuple[str, str]:
+    from app import pipeline_stats as ps
+
+    period = period if period in ps.PERIODS else ps.PERIOD_DEFAULT
+    if team == ps.TEAM_NONE:
+        return period, team
+    return period, team if team.isdigit() and any(str(t.id) == team for t in teams.ordered(db)) else ""
+
+
+@router.post("/analysis/ai", dependencies=[Depends(require_ai_on)])
+def start_insight(period: str = Form(""), team: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """[AI 해석 받기] (영업 C): 지금 고른 기간·팀의 숫자를 AI 가 읽고 해석을 쓴다. 같은 기간·팀 작업이 있으면 그것을 기다린다."""
+    from app.ai import pipeline_tasks
+    from app.ai.queue import enqueue
+
+    period, team_raw = _analysis_params(db, period, team)
+    url = _analysis_url(period, team_raw)
+    running, _ = pipeline_tasks.find_jobs(db, period, team_raw)
+    if running is not None:
+        return notices.redirect(url, "ai_insight_waiting")
+    enqueue(db, pipeline_tasks.JOB_KIND, {"period": period, "team": team_raw}, user.id, 0)
+    return notices.redirect(url, "ai_insight_started")
+
+
+@router.get("/analysis/ai/progress")
+def insight_progress(request: Request, period: str = "", team: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    from app.ai import pipeline_tasks
+
+    period, team_raw = _analysis_params(db, period, team)
+    running, _ = pipeline_tasks.find_jobs(db, period, team_raw)
+    if running is None:
+        return Response("끝났습니다.", headers={"HX-Refresh": "true"})
+    return render(request, "opportunities/_insight_job.html", job=running, period=period, team_raw=team_raw)
 
 
 @router.get("/new")

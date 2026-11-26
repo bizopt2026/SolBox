@@ -1,0 +1,7 @@
+{# 분석 AI 해석 진행 상자 (영업 C): 2초마다 다시 불러 끝나면 쪽을 새로 고친다. 값: job, period, team_raw #}
+{% set stalled = ai_off and job.status == "pending" %}
+<div id="pipeline-ai-job" class="job-box" role="status" aria-live="polite"
+  {% if not stalled %}hx-get="/opportunities/analysis/ai/progress?period={{ period }}&amp;team={{ team_raw }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+  {% else %}<p><span class="pulse" aria-hidden="true"></span><b>AI 가 위 숫자를 읽고 해석을 쓰고 있어요.</b> <span class="muted">{{ wait_detail(job) }}</span></p>{% endif %}
+</div>

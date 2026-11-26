@@ -100,6 +100,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "ai_dismissed": ("ok", "제안을 무시했습니다. 값은 그대로입니다."),
     "ai_stale": ("warn", "이 제안은 이미 처리됐거나 새 분석으로 바뀌었습니다. 아래 최신 제안을 확인해 주세요."),
     "ai_not_open": ("warn", "진행 중인 영업기회만 AI 로 분석합니다."),
+    "ai_insight_started": ("ok", "AI 해석을 시작했습니다. 끝나면 아래 'AI 해석' 에 나타납니다."),
+    "ai_insight_waiting": ("warn", "같은 기간·팀의 AI 해석이 이미 진행 중입니다."),
     "ai_review_started": ("ok", "AI 분석을 시작했습니다. 끝나면 이 화면에 제안과 브리핑이 나타납니다."),
     "ai_review_waiting": ("warn", "이 영업기회의 AI 분석이 이미 기다리고 있습니다."),
     "ai_no_activity": ("warn", "연결된 활동 기록이 없어 AI 가 읽을 것이 없습니다. 활동 기록을 먼저 남겨 주세요."),

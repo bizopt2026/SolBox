@@ -174,7 +174,7 @@ def test_full_proposal_page_shows_stalled_notice_when_off(app, admin_client, db,
 
 # AI 작업을 새로 만드는 POST 라우트 (require_ai_on 을 다는 곳). 새 것이 생기면 여기와 알림 표를 함께 고친다.
 AI_POSTS = {
-    "/opportunities/{opportunity_id}/ai/review", "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
+    "/opportunities/{opportunity_id}/ai/review", "/opportunities/analysis/ai", "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
     "/jobs/{job_id}/retry", "/proposals/{proposal_id}/directions", "/proposals/{proposal_id}/chat",
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
@@ -238,7 +238,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/admin/research/keywords": "/admin/research/keywords", "/admin/duplicates/ai/{kind}": "/admin/duplicates/ai/partner",
         "/reports/{report_id}/ai/summary": f"/reports/{rep.id}/ai/summary", "/reports/{report_id}/ai/plan": f"/reports/{rep.id}/ai/plan",
         "/reports/{report_id}/chat": f"/reports/{rep.id}/chat", "/reports/{report_id}/chat/retry": f"/reports/{rep.id}/chat/retry",
-        "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes", "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review",
+        "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes", "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review", "/opportunities/analysis/ai": "/opportunities/analysis/ai",
         "/proposals/{proposal_id}/outline/slides/{index}/ai": f"/proposals/{sol.id}/outline/slides/1/ai",
     }
     assert set(paths) == AI_POSTS

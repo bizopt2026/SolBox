@@ -1635,3 +1635,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .stat-defs summary { cursor: pointer; font-weight: var(--fw-strong); }
 .stat-defs ul { margin: var(--s2) 0 0; padding-left: 18px; color: var(--ink-2); }
 @media (max-width: 860px) { .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analysis-grid { grid-template-columns: minmax(0, 1fr); } }
+.insight-card h3 { font-size: var(--fs-note); color: var(--ink-2); margin: var(--s3) 0 4px; }
+.insight-card ul { margin: 0; padding-left: 18px; }
+.insight-card .card-head form.inline { margin: 0; }
+.warn-text { color: var(--warn); }
