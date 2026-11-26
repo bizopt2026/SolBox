@@ -200,21 +200,44 @@ def test_unit_wording_everywhere(db, tmp_path, unit, period, this, last, nxt):
     assert not any("지난 일간" in t for t in texts)
 
 
+def _stress_content(db, **kw):
+    c = _content(db, **kw)
+    c["opps"] = [(f"기회{i}", "고객", "발굴") for i in range(25)]
+    c["summary"] = [f"성과 {i}" for i in range(8)]
+    c["check"] = [(f"점검{i}", "김", "완료", "") for i in range(25)]
+    c["issues"] = [f"이슈 {i}" for i in range(20)]
+    return c
+
+
 def test_pptx_nothing_overlaps_footer(db, tmp_path):
+    """바닥글(6.95in)을 뺀 모든 도형은 맨 아래가 바닥글 위에서 끝난다 (맨 끝 장·"(계속)" 장 포함)."""
     from pptx.util import Inches
 
-    def prs_of(**kw):
-        c = _content(db, **kw)
-        c["opps"] = [(f"기회{i}", "고객", "발굴") for i in range(9)]
-        c["summary"] = [f"성과 {i}" for i in range(8)]
-        return Presentation(str(report_files.write(c, "pptx", tmp_path / str(len(kw)), "f")))
+    foot = Inches(6.95)
+    c = _stress_content(db, period=(date(2026, 12, 21), date(2026, 12, 27)), plan=15)
+    prs = Presentation(str(report_files.write(c, "pptx", tmp_path, "f")))
+    assert len(prs.slides) > 10
+    for n, sl in enumerate(prs.slides):
+        if n == 0:
+            continue  # 표지는 바닥글이 없다
+        shapes = list(sl.shapes)
+        footers = [sh for sh in shapes if sh.top == foot]
+        assert len(footers) == 2 and any(sh.text_frame.text.startswith("주간 업무 보고 ·") for sh in footers)
+        for sh in shapes:
+            if sh not in footers:
+                assert sh.top + sh.height <= foot, (n + 1, sh.shape_type, round((sh.top + sh.height) / 914400, 2))
 
-    for prs in (prs_of(), prs_of(period=(date(2026, 12, 21), date(2026, 12, 27)), plan=15)):
-        for n, sl in enumerate(prs.slides):
-            if n == 0:
-                continue  # 표지는 바닥글이 없다
-            footer = min(sh.top for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.startswith("주간 업무 보고 ·"))
-            assert footer == Inches(6.95)
-            for sh in sl.shapes:
-                if sh.top < footer:
-                    assert sh.top + sh.height <= footer, (n + 1, sh.shape_type, sh.top + sh.height)
+
+def test_pptx_summary_text_clears_next_shape(db, tmp_path):
+    """주요 성과 장: 요약 줄이 가장 많을 때(자름 줄 + "외 n건"), 각 문단이 2줄로 넘어가도 글이 "영업기회 단계 변화" 제목 위에서 끝난다."""
+    prs = Presentation(str(report_files.write(_stress_content(db), "pptx", tmp_path, "s")))
+    sl = prs.slides[2]
+    box = next(sh for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.startswith("■"))
+    heading = next(sh for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text == "영업기회 단계 변화")
+    paras = box.text_frame.paragraphs
+    assert len(paras) == report_files.SUMMARY_CAP + 1 and paras[-1].text.startswith("외 ")
+    size = paras[0].runs[0].font.size.pt
+    gap = paras[0].space_after.pt
+    text_h = len(paras) * (2 * size * 1.2 + gap) * 12700  # 문단마다 2줄 + 줄 간격 (EMU)
+    assert box.top + text_h <= heading.top - 0.1 * 914400  # 0.1in 이상 띄운다
+    assert box.top + box.height <= heading.top

@@ -17,6 +17,9 @@ MEDIA_TYPES = {
 }
 MAX_ROWS = 10  # PPT 표 한 장의 최대 줄 (넘으면 다음 장으로 "(계속)")
 FIRST_OPPS_ROWS = 4  # 주요 성과 장에서 영업기회 표가 쓸 수 있는 줄 (글 아래라 좁다)
+SUMMARY_CAP = 3  # 주요 성과 장에 보이는 요약 줄 수 (나머지는 "외 n건", 전체는 워드·MD 에)
+SUMMARY_SIZE, SUMMARY_GAP = 15, 8  # 요약 줄 글자 크기·줄 간격 (pt)
+SUMMARY_BOX_H = 2.6  # in. 최대 4문단(3줄 + "외 n건"), 각각 2줄로 넘어가도 들어간다: 4 × (2 × 15 × 1.2 + 8) pt ≈ 2.6in
 
 # 단위별 말: (이번, 지난, 다음)
 WORDS = {"day": ("오늘", "지난 보고", "다음 평일"), "week": ("이번 주", "지난 주", "다음 주"), "month": ("이번 달", "지난 달", "다음 달")}
@@ -241,7 +244,7 @@ def _pptx(c: dict, path: Path) -> None:
     white, amber, green = P(0xFF, 0xFF, 0xFF), P(0xB4, 0x53, 0x09), P(0x15, 0x80, 0x3D)
     counter = {"n": 0}
 
-    def text(sl, x, y, w, h, s, size=16, bold=False, color=ink, align=None):
+    def text(sl, x, y, w, h, s, size=16, bold=False, color=ink, align=None, gap=8):
         tb = sl.shapes.add_textbox(x, y, w, h)
         tf = tb.text_frame
         tf.word_wrap = True
@@ -251,7 +254,7 @@ def _pptx(c: dict, path: Path) -> None:
             run.text = ln
             run.font.size, run.font.bold, run.font.name = Pt(size), bold, DOC_FONT
             run.font.color.rgb = color
-            par.space_after = Pt(8)
+            par.space_after = Pt(gap)
             if align:
                 par.alignment = align
 
@@ -321,14 +324,14 @@ def _pptx(c: dict, path: Path) -> None:
     # 3 주요 성과 + 영업기회 (표가 길면 나머지는 다음 장)
     first, rest = c["opps"][:FIRST_OPPS_ROWS], c["opps"][FIRST_OPPS_ROWS:]
     sl = frame("주요 성과")
-    shown = c["summary"][:5]
-    bullets = ["■ " + s for s in shown] + ([f"외 {len(c['summary']) - 5}건"] if len(c["summary"]) > 5 else [])
-    text(sl, Inches(0.6), Inches(1.4), Inches(12), Inches(2.2), bullets or ["작성된 요약 글이 없습니다."], 18, color=ink if bullets else muted)
-    text(sl, Inches(0.6), Inches(3.7), Inches(12), Inches(0.5), "영업기회 단계 변화", 18, True, navy)
+    shown = c["summary"][:SUMMARY_CAP]
+    bullets = ["■ " + s for s in shown] + ([f"외 {len(c['summary']) - SUMMARY_CAP}건"] if len(c["summary"]) > SUMMARY_CAP else [])
+    text(sl, Inches(0.6), Inches(1.3), Inches(12), Inches(SUMMARY_BOX_H), bullets or ["작성된 요약 글이 없습니다."], SUMMARY_SIZE, color=ink if bullets else muted, gap=SUMMARY_GAP)
+    text(sl, Inches(0.6), Inches(4.0), Inches(12), Inches(0.5), "영업기회 단계 변화", 18, True, navy)
     if first:
-        ptable(sl, ["영업기회", "고객", "변화"], first, Inches(4.2), [5.0, 3.0, 4.1])
+        ptable(sl, ["영업기회", "고객", "변화"], first, Inches(4.5), [5.0, 3.0, 4.1])
     else:
-        text(sl, Inches(0.6), Inches(4.2), Inches(12), Inches(0.6), "단계가 바뀌거나 새로 생긴 영업기회가 없습니다.", 16, color=muted)
+        text(sl, Inches(0.6), Inches(4.5), Inches(12), Inches(0.6), "단계가 바뀌거나 새로 생긴 영업기회가 없습니다.", 16, color=muted)
     for chunk in _chunks(rest) if rest else []:
         sl = frame("영업기회 단계 변화 (계속)")
         ptable(sl, ["영업기회", "고객", "변화"], chunk, Inches(1.6), [5.0, 3.0, 4.1])
