@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app import aliases, backup, same_company
 from app.models import (
-    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, Solution, User,
+    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User,
     activity_customers, activity_partners, proposal_customers,
 )
 
@@ -301,6 +301,8 @@ def _move(db: Session, kind: str, keep, absorb) -> None:
             a.customers = rest if keep in rest else [*rest, keep]
         for need in list(db.scalars(select(CustomerNeed).where(CustomerNeed.customer_id == absorb.id))):
             need.customer = keep  # 쓴 이름(`customer_name`)은 그대로, 묶인 영업기회도 그대로 (영업기회도 같이 옮겨 같은 고객이다)
+        for item in list(db.scalars(select(ReportPlanItem).where(ReportPlanItem.customer_id == absorb.id))):
+            item.customer = keep  # 업무 보고 계획 항목의 고객 연결 (항목 글은 그대로)
         partner = same_company.partner_of(db, absorb)
         if partner is not None:
             partner.customer = keep

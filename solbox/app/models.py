@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, String, Table, Text, func
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from app import ontology
@@ -528,6 +528,84 @@ class ProposalMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
 
     proposal: Mapped[Proposal] = relationship(back_populates="messages")
+
+
+class Report(Stamped, Base):
+    """팀 업무 보고 한 건: 한 단위(일·주·월)·한 기간의 실적과 다음 기간 계획. 같은 단위·같은 시작일의 보고는 하나만."""
+
+    __tablename__ = "reports"
+    __table_args__ = (UniqueConstraint("unit", "period_start", name="uq_reports_unit_period"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    unit: Mapped[str] = mapped_column(String, default=ontology.REPORT_UNIT_DEFAULT)  # day / week / month (ontology.REPORT_UNITS)
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String, default=ontology.REPORT_STATUS_DEFAULT)  # draft / planning / confirmed (ontology.REPORT_STATUSES)
+    summary_md: Mapped[str] = mapped_column(Text, default="")  # 실적 요약 글
+    highlights_md: Mapped[str] = mapped_column(Text, default="")  # 이슈·건의
+    section_notes: Mapped[dict] = mapped_column(JSON, default=dict)  # 구역별 보고 문구 {kpi, opps, proposals, check, plan, issues: [문장]}
+    snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # 확정 때의 집계 결과 (확정 전에는 비어 있고 열 때마다 새로 센다)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+    chat_from_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 이 번호 이하의 대화는 지금 계획의 것이 아니다
+    file_names: Mapped[dict] = mapped_column(JSON, default=dict)  # 형식 -> 마지막으로 만든 파일 이름
+    files_built_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    plan_draft: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # AI 가 낸 계획 초안 (사용자가 "이 초안 쓰기"를 눌러야 항목에 반영)
+    direction: Mapped[str] = mapped_column(Text, default="")  # 계획 방향 한 줄
+
+    messages: Mapped[list[ReportMessage]] = relationship(
+        back_populates="report", cascade="all, delete-orphan", passive_deletes=True, order_by="ReportMessage.id"
+    )
+    plan_items: Mapped[list[ReportPlanItem]] = relationship(
+        back_populates="report", cascade="all, delete-orphan", passive_deletes=True,
+        foreign_keys="ReportPlanItem.report_id", order_by="(ReportPlanItem.position, ReportPlanItem.id)",
+    )
+    active_job: Mapped[AIJob | None] = relationship(foreign_keys=[active_job_id])
+
+
+class ReportMessage(Base):
+    """업무 보고의 계획 대화 한 줄 (제안 대화와 같은 모양)."""
+
+    __tablename__ = "report_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String)  # user / assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+    report: Mapped[Report] = relationship(back_populates="messages")
+
+
+class ReportPlanItem(Base):
+    """업무 보고가 세운 계획 항목 한 줄. 다음 보고가 점검한다 (result·checked_in_report_id).
+    고객·영업기회·프로젝트를 지우면 연결만 비워진다 (항목 글은 남는다). 한 항목은 한 번만 다음 계획으로 넘어간다 (carried_from_id 유일)."""
+
+    __tablename__ = "report_plan_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)  # 이 계획을 세운 보고
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    task: Mapped[str] = mapped_column(Text)
+    owner: Mapped[str] = mapped_column(String, default="")  # 담당 (쓴 그대로)
+    due: Mapped[date | None] = mapped_column(Date, nullable=True)
+    note: Mapped[str] = mapped_column(String, default="")
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id", ondelete="SET NULL"), nullable=True)
+    project_id: Mapped[int | None] = mapped_column("business_id", ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True)
+    result: Mapped[str] = mapped_column(String, default="")  # 점검 결과 (ontology.PLAN_RESULTS, 빈 값 = 아직 점검 안 함)
+    result_note: Mapped[str] = mapped_column(String, default="")
+    checked_in_report_id: Mapped[int | None] = mapped_column(ForeignKey("reports.id", ondelete="SET NULL"), nullable=True)  # 점검한 보고
+    carried_from_id: Mapped[int | None] = mapped_column(ForeignKey("report_plan_items.id", ondelete="SET NULL"), nullable=True, unique=True)  # 넘어온 원래 항목
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
+    )
+
+    report: Mapped[Report] = relationship(back_populates="plan_items", foreign_keys=[report_id])
+    customer: Mapped[Customer | None] = relationship()
+    opportunity: Mapped[Opportunity | None] = relationship()
+    project: Mapped[Project | None] = relationship()
 
 
 class ResearchTopic(Stamped, Base):

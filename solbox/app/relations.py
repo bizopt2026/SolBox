@@ -291,9 +291,11 @@ def _count_existing(db: Session, code: str, ids) -> int:
 
 
 def _order(code: str):
-    from app.models import Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Proposal, ResearchReport
+    from app.models import Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Proposal, Report, ReportPlanItem, ResearchReport
 
     return {
+        "report": (Report.period_start.desc(), Report.id.desc()),
+        "report_item": (ReportPlanItem.report_id.desc(), ReportPlanItem.position, ReportPlanItem.id),
         "activity": (Activity.date.is_(None), Activity.date.desc(), Activity.id.desc()),
         "proposal": (Proposal.updated_at.desc(), Proposal.id.desc()),
         "follow_up": (FollowUp.due.is_(None), FollowUp.due, FollowUp.id),
@@ -313,9 +315,10 @@ def _name_order(code: str):
 
 class _LoadOptions(dict):
     def get(self, code, default=()):
-        from app.models import CustomerNeed, FollowUp, IntakeFile, Opportunity, Project, Proposal
+        from app.models import CustomerNeed, FollowUp, IntakeFile, Opportunity, Project, Proposal, ReportPlanItem
 
         table = {
+            "report_item": (joinedload(ReportPlanItem.report),),
             "project": (joinedload(Project.customer),),
             "opportunity": (joinedload(Opportunity.customer),),
             "proposal": (joinedload(Proposal.customer), joinedload(Proposal.project)),
@@ -439,8 +442,25 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
             it.label = f"리서치 {fmt(o.started_at.date())}"
         elif code == "user":
             it.label = o.name or o.username
+        elif code == "report":
+            it.label = report_label(o)
+            it.badge = (ontology.tone_class("report_status", o.status), ontology.REPORT_STATUSES.get(o.status, o.status))
+        elif code == "report_item":
+            it.label = " ".join(o.task.split())
+            it.url = f"/reports/{o.report_id}"
+            it.note = report_label(o.report)
+            if o.result in ontology.PLAN_RESULTS:
+                it.badge = (ontology.tone_class("plan_result", o.result), ontology.PLAN_RESULTS[o.result])
+            it.done = o.result == "done"
         out[o.id] = it
     return out
+
+
+def report_label(r) -> str:
+    """업무 보고 건의 이름: "주간 보고 2026-11-23 ~ 2026-11-29" (기간이 하루면 날짜 하나)."""
+    unit = ontology.REPORT_UNITS.get(r.unit, r.unit)
+    start, end = r.period_start.isoformat(), r.period_end.isoformat()
+    return f"{unit} 보고 {start}" if start == end else f"{unit} 보고 {start} ~ {end}"
 
 
 def _visible(viewer, code: str, objs: list) -> list:

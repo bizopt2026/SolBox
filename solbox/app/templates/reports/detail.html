@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, pill %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{{ page_header(title, crumbs=crumbs, sub=ont.TYPES["report"].description, status=pill("report_status", report.status), cls="detail") }}
+{% endblock %}

@@ -348,6 +348,15 @@ def ai_generated_note(obj) -> str | None:
     return f"예 ({label('research_report')}{tag} 에서 AI 가 제안)"
 
 
+# ---- 팀 업무 보고 (2026-11-25 설계: docs/superpowers/specs/2026-11-25-team-report-design.md) ----
+REPORT_UNITS = {"day": "일간", "week": "주간", "month": "월간"}  # 보고 단위 (일=하루, 주=월~일, 월=달력 월)
+REPORT_UNIT_DEFAULT = "week"
+REPORT_STATUSES = {"draft": "실적 확인", "planning": "계획 작성 중", "confirmed": "확정"}  # 보고 진행 상태
+REPORT_STATUS_DEFAULT = "draft"
+PLAN_RESULTS = {"done": "완료", "doing": "진행 중", "todo": "미착수", "dropped": "취소"}  # 계획 항목의 점검 결과 (빈 값 = 아직 점검 안 함)
+PLAN_CARRY_RESULTS = ("doing", "todo", "")  # 다음 계획으로 넘어가는 결과 (완료·취소는 넘기지 않는다)
+REPORT_STEPS = (("result", "실적"), ("check", "지난 계획 점검"), ("plan", "다음 계획"), ("files", "확정·파일"))  # 보고 화면의 단계 띠 (순서 강제 없음)
+
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
 
 CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
@@ -377,6 +386,9 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("project_status", "프로젝트 상태", PROJECT_STATUSES),
     CodeList("opportunity_stage", "영업기회 단계", OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_DEFAULT, OPPORTUNITY_STAGE_DESCRIPTIONS),
     CodeList("business_type", "사업방식", BUSINESS_TYPES, None, BUSINESS_TYPE_DESCRIPTIONS),
+    CodeList("report_unit", "보고 단위", REPORT_UNITS, REPORT_UNIT_DEFAULT),
+    CodeList("report_status", "보고 진행 상태", REPORT_STATUSES, REPORT_STATUS_DEFAULT),
+    CodeList("plan_result", "계획 점검 결과", PLAN_RESULTS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -400,6 +412,8 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "intake_file_kind": {"document": "brand", "image": "violet", "audio": "warn", "other": "slate"},
     "origin_type": {"manual": "slate", "intake": "brand", "import": "brand", "research": "violet"},
     "business_type": {"build": "brand", "lease": "violet", "invest": "warn"},
+    "report_status": {"draft": "slate", "planning": "warn", "confirmed": "ok"},
+    "plan_result": {"done": "ok", "doing": "warn", "todo": "bad", "dropped": "slate"},
 }
 
 
@@ -436,6 +450,9 @@ COLUMN_CODES = {
     ("users", "role"): "user_role",
     ("ai_jobs", "status"): "job_status",
     ("ai_jobs", "kind"): "job_kind",
+    ("reports", "unit"): "report_unit",
+    ("reports", "status"): "report_status",
+    ("report_plan_items", "result"): "plan_result",
 }
 
 # ======================================================================================
@@ -557,6 +574,14 @@ _TYPE_LIST = [
         description="특정 고객(과 프로젝트·영업기회) 또는 다수 고객(대상 그룹)을 대상으로 한 제안 작업 한 건",
     ),
     ObjectType(
+        "report", "업무 보고", "작업", "Report", "reports", "/reports", "/reports/{id}", nav="업무 보고", nav_group="today",
+        props={"unit": "단위", "period": "기간", "status": "진행 상태", "summary_md": "실적 요약", "highlights_md": "이슈·건의",
+               "section_notes": "보고 문구", "plan_items": "계획 항목", "direction": "계획 방향", "messages": "계획 대화", "files": "보고서 파일"},
+        description="팀 전체 기록으로 만드는 일·주·월 실적과 다음 기간 계획",
+    ),
+    ObjectType("report_item", "보고 계획 항목", "부속", "ReportPlanItem", "report_plan_items", parent=("report", "report_id"),
+               props={"task": "할 일", "owner": "담당", "due": "기한", "result": "결과"}),
+    ObjectType(
         "solution_file", "자료", "부속", "SolutionFile", "solution_files",
         mirror_path="solutions/{solution_id}/files/{id}-{name}.md", mirror_dir_format="solutions/{solution_id}/files/",
         parent=("solution", "solution_id"),
@@ -638,11 +663,11 @@ def _type_nav_item(code: str) -> NavItem:
     return NavItem(t.list_url.strip("/"), t.nav, t.nav_group)
 
 
-# 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록, 발굴 = 솔루션·파트너·리서치, 영업 = 고객·영업기회·제안·프로젝트·BM
+# 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록·업무 보고, 발굴 = 솔루션·파트너·리서치, 영업 = 고객·영업기회·제안·프로젝트·BM
 NAV_ITEMS = (
     NavItem("", "홈", "today"),
     NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
-    _type_nav_item("activity"),
+    _type_nav_item("activity"), _type_nav_item("report"),
     _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
 )
@@ -655,6 +680,7 @@ NAV_ICONS = {
     "": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
     "intake": '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
     "activities": '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+    "reports": '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     "solutions": '<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
     "partners": '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c3 .2 5 2.3 5 5.8"/>',
     "research": '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
@@ -917,6 +943,11 @@ RELATIONS: tuple[Relation, ...] = (
     # 베타 AD: 솔루션 분야 (2026-11-24 결정). 분야 목록은 관리자가 고치는 데이터다
     _r("R36", "묶는다", "solution_field", "solution", "1:N", "fk", "solutions.field_id",
        "선택 (비면 분야 미지정). 분야를 지울 수 있는 것은 쓰는 솔루션이 없을 때뿐이고, 사용을 끈 분야는 새로 고를 수 없지만 붙은 솔루션은 그대로 가진다"),
+    # 팀 업무 보고 (2026-11-25 설계): 보고가 세운 계획 항목과 그 항목이 가리키는 고객·영업기회·프로젝트. 지식 사본에는 넣지 않는다 (UNMIRRORED)
+    _r("R37", "세운다", "report", "report_item", "1:N", "fk", "report_plan_items.report_id", "보고를 지우면 함께 지워진다"),
+    _r("R38", "가리킨다", "report_item", "customer", "N:1", "fk", "report_plan_items.customer_id", "선택. 고객을 지우면 연결만 비워진다 (항목 글은 남는다)"),
+    _r("R39", "가리킨다", "report_item", "opportunity", "N:1", "fk", "report_plan_items.opportunity_id", "선택. 영업기회를 지우면 연결만 비워진다"),
+    _r("R40", "가리킨다", "report_item", "project", "N:1", "fk", "report_plan_items.business_id", "선택. 프로젝트를 지우면 연결만 비워진다"),
 )
 
 # ======================================================================================
@@ -934,6 +965,8 @@ UNTRAVERSED = {
     "R17": "근거는 방향·장·제안 안의 지식 사본 경로 글자라 대상 기록이 없다. 해석은 parse_rel / sources.py",
     "R36": "분야는 관리자가 고치는 분류 목록이라 상세 화면이 없다. 솔루션 화면의 속성 줄·목록의 묶어 보기로 보이고 연결 목록에는 올리지 않는다",
 }
+# 화면의 "연결된 것" 에는 보이지만 지식 사본의 "## 연결" 에는 적지 않는 관계와 그 이유 (knowledge.CARD_EXCLUDE 가 읽는다)
+UNMIRRORED = {key: "업무 보고는 사본을 만들지 않는다 (팀 내부 보고라 AI 가 읽는 지식 폴더에 넣지 않는다)" for key in ("R37", "R38", "R39", "R40")}
 # 연결 목록에 올리지 않는 관계 (모든 대상에 붙어 소음이 된다). 따라가기(path_query)는 된다.
 QUIET_RELATIONS = {"R24": "작성자는 모든 핵심 대상에 붙어 연결 목록에 올리지 않는다"}
 
@@ -986,6 +1019,10 @@ for _key, _pairs in {
     "R33": {("bm", "solution"): "솔루션", ("solution", "bm"): "BM"},
     "R34": {("proposal", "customer"): "붙인 고객", ("customer", "proposal"): "붙은 다수 고객 제안 건"},
     "R35": {("proposal", "bm"): "신규 사업 (BM)", ("bm", "proposal"): "신규 사업으로 삼은 다수 고객 제안 건"},
+    "R37": {("report", "report_item"): "계획 항목", ("report_item", "report"): "세운 업무 보고"},
+    "R38": {("report_item", "customer"): "고객", ("customer", "report_item"): "업무 보고 계획"},
+    "R39": {("report_item", "opportunity"): "영업기회", ("opportunity", "report_item"): "업무 보고 계획"},
+    "R40": {("report_item", "project"): "프로젝트", ("project", "report_item"): "업무 보고 계획"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -1305,6 +1342,7 @@ OPPORTUNITY_RULES = {
 }
 
 
+REPORT_PLAN_LINK_EFFECT = "업무 보고 계획 항목의 연결이 비워집니다 (항목 글은 남습니다)."
 # ---- 삭제 확인 화면의 "지우면 이렇게 됩니다" (각 삭제 라우터의 규칙을 그대로 옮겨 적은 것. 확인 화면 `routers/confirm.py` 가 읽는다) ----
 DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "solution": ("올린 자료 파일과 지식 사본이 함께 지워집니다.",
@@ -1314,10 +1352,11 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
                 "활동 기록과의 연결이 풀립니다."),
     "customer": ("고객 니즈 줄은 남고 고객 연결만 풀립니다 (적힌 고객 이름은 그대로).",
                  "다수 고객 제안 건에 붙은 것이 빠집니다 (제안 건은 남습니다).",
-                 "같은 회사로 이은 파트너 연결이 풀립니다 (파트너 기록은 남습니다)."),
-    "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다)."),
+                 "같은 회사로 이은 파트너 연결이 풀립니다 (파트너 기록은 남습니다).",
+                 REPORT_PLAN_LINK_EFFECT),
+    "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다).", REPORT_PLAN_LINK_EFFECT),
     "bm": ("솔루션과의 연결이 풀립니다 (솔루션은 남습니다).",),
-    "opportunity": (OPPORTUNITY_RULES["delete"] + ".",),
+    "opportunity": (OPPORTUNITY_RULES["delete"] + ".", REPORT_PLAN_LINK_EFFECT),
     "activity": ("후속 조치와 고객 니즈 줄이 함께 지워집니다.",
                  "연결된 솔루션·고객·파트너·프로젝트는 남습니다.",
                  "이 기록을 만든 올린 원본 파일은 남습니다."),
@@ -1328,6 +1367,9 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "solution_field": ("이 분야는 목록에서 사라집니다 (쓰는 솔루션이 없을 때만 지울 수 있습니다).",),
     "research_topic": ("이 주제는 다음 조사부터 빠집니다. 이미 끝난 조사 결과는 남습니다.",),
     "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
+    "report": ("이 보고의 계획 항목·계획 대화와 만든 보고서 파일이 함께 지워집니다.",
+               "이 보고가 점검한 지난 계획 항목은 남고 점검한 보고 표시만 비워집니다.",
+               "활동 기록·고객·영업기회 같은 팀 기록은 그대로입니다."),
 }
 
 

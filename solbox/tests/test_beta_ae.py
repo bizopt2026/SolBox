@@ -737,7 +737,7 @@ def test_merge_moves_every_foreign_key_to_partners_and_customers(db):
     known = {
         "solutions.partner_id", "activity_partners.partner_id", "partners.customer_id",
         "businesses.customer_id", "opportunities.customer_id", "proposals.customer_id", "proposal_customers.customer_id",
-        "activity_customers.customer_id", "customer_needs.customer_id",
+        "activity_customers.customer_id", "customer_needs.customer_id", "report_plan_items.customer_id",
     }
     found = set()
     for table in Base.metadata.sorted_tables:
