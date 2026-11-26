@@ -5,7 +5,7 @@ from collections import Counter
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -22,6 +22,7 @@ from app.routers._common import (
     list_filter,
     get_deletable_or_404, get_or_404, newest_first, duplicate_warning, paginate, resync_objects, row_info, search_by_name, sort_rows,
 )
+from app.ai.gate import require_ai_on
 from app.security import can_delete, require_user
 
 router = APIRouter(prefix="/opportunities")
@@ -101,7 +102,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         close_reason=opps.close_reason_label(opp), today=now, money=money,
         stale=opps.stale_badges(opp, now, touch),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
-        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp),
+        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=None,
         step_notes={s: f"확인 {d}/{t}" for s, (d, t) in oai.stage_counts(opp).items()},
     )
 
@@ -273,6 +274,32 @@ def change_stage(
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
     return notices.redirect(f"/opportunities/{opp.id}", code)
+
+
+@router.post("/{opportunity_id}/ai/review", dependencies=[Depends(require_ai_on)])
+def start_review(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """[다시 분석] (영업 B): 사람이 누른 분석은 대기열 앞쪽(우선순위 0). 같은 영업기회의 작업이 이미 있으면 그것을 기다린다."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if oai.pending_job(db, opp.id) is not None:
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_review_waiting")
+    if not oai.has_activities(db, opp):
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_no_activity")
+    from app.ai.queue import enqueue
+
+    enqueue(db, oai.REVIEW_KIND, {"opportunity_id": opp.id}, user.id, 0)
+    return notices.redirect(f"/opportunities/{opp.id}", "ai_review_started")
+
+
+@router.get("/{opportunity_id}/ai/progress")
+def review_progress(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """분석 진행 상자 조각: 끝나면 쪽을 새로 고쳐(HX-Refresh) 제안·브리핑을 보인다."""
+    opp = db.get(Opportunity, opportunity_id)
+    if opp is None:
+        return Response("", headers={"HX-Redirect": "/opportunities"})
+    job = oai.pending_job(db, opp.id)
+    if job is not None:
+        return render(request, "opportunities/_ai_job.html", opp=opp, job=job)
+    return Response("분석이 끝났습니다.", headers={"HX-Refresh": "true"})
 
 
 @router.post("/{opportunity_id}/checks")

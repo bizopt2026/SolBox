@@ -1,0 +1,12 @@
+{# 영업기회 상세 왼쪽 맨 위 "브리핑" 카드 (영업 B, AI 초안). 분석이 없으면 [AI 분석] 단추만. 값: opp, insight(최신 분석 또는 None), ai_job #}
+{% set aig = ai_gate() %}
+{% if opp.stage in ont.OPPORTUNITY_OPEN_STAGES or insight %}
+<section class="card brief-card" id="brief" aria-labelledby="h-brief">
+  <header class="card-head"><h2 id="h-brief">브리핑 <span class="ai-tag">AI 초안</span></h2>
+    <form method="post" action="/opportunities/{{ opp.id }}/ai/review" class="inline">
+      <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-brief") }}{% if ai_job %} disabled{% endif %}>{{ "다시 분석" if insight else "AI 분석" }}</button>
+    </form></header>
+  {{ ai_note(aig, id="ai-note-brief") }}
+  {% if not insight %}<p class="muted">아직 분석이 없습니다. 이 {{ ont.label("opportunity") }}에 연결된 활동 기록을 저장하면 AI 가 저절로 읽고 상황·위험·다음 행동을 정리합니다.</p>{% endif %}
+</section>
+{% endif %}

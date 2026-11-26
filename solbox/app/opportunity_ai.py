@@ -69,3 +69,42 @@ def check_view(opp: Opportunity) -> dict | None:
     earlier = [{"stage": s, "name": ontology.OPPORTUNITY_STAGES[s], "items": open_items(opp, s)} for s in flow[:flow.index(opp.stage)]]
     return {"stage": opp.stage, "rows": rows, "done": sum(1 for r in rows if r["row"]), "total": len(rows),
             "earlier": [e for e in earlier if e["items"]]}
+
+
+# ---- AI 자동 분석 요청 ----
+
+REVIEW_KIND = "opportunity_review"
+REVIEW_PRIORITY = 5  # 사람이 누른 작업(0)보다 뒤, 리서치(10)보다 앞
+
+
+def has_activities(db: Session, opp: Opportunity) -> bool:
+    return bool(opp.activities)
+
+
+def pending_job(db: Session, opp_id: int):
+    """이 영업기회의 대기·진행 중 분석 작업 (없으면 None)."""
+    from sqlalchemy import select
+
+    from app.models import AIJob
+
+    for job in db.scalars(select(AIJob).where(AIJob.kind == REVIEW_KIND, AIJob.status.in_(("pending", "running"))).order_by(AIJob.id)):
+        if (job.input or {}).get("opportunity_id") == opp_id:
+            return job
+    return None
+
+
+def request_review(db: Session, opp_ids, user_id: int | None, request, priority: int = REVIEW_PRIORITY) -> list:
+    """활동 기록 저장 뒤 부른다: 진행 중이고 연결된 활동 기록이 있는 영업기회마다 분석 작업을 하나씩 (이미 대기·진행 중이면 넣지 않는다).
+    AI 처리기가 꺼져 있으면 아무것도 하지 않는다 (저장은 그대로 성공). 이 함수만 자동으로 AI 작업을 만든다 (docs/rules/AI-작업과-오류.md)."""
+    from app.ai import gate
+    from app.ai.queue import enqueue
+
+    if gate.ai_is_off(request):
+        return []
+    made = []
+    for oid in dict.fromkeys(opp_ids):
+        opp = db.get(Opportunity, oid)
+        if opp is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES or not has_activities(db, opp) or pending_job(db, oid) is not None:
+            continue
+        made.append(enqueue(db, REVIEW_KIND, {"opportunity_id": oid}, user_id, priority))
+    return made

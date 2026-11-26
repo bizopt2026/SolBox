@@ -1552,3 +1552,5 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .check-earlier { margin-top: var(--s3); font-size: var(--fs-note); }
 .check-earlier summary { cursor: pointer; color: var(--ink-2); }
 .check-earlier .checks { margin-top: var(--s2); }
+.ai-tag { font-size: 11px; font-weight: 700; color: var(--violet); background: var(--violet-soft); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+.brief-card .card-head form.inline { margin: 0; }

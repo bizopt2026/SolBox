@@ -1,0 +1,12 @@
+{# 영업기회 AI 분석 진행 상자 (영업 B): 2초마다 `/opportunities/{id}/ai/progress` 를 불러 바꾸고, 끝나면 서버가 쪽을 새로 고친다(HX-Refresh). 값: opp, job #}
+{% set stalled = ai_off and job.status == "pending" %}
+<div id="opp-ai-job" class="job-box" role="status" aria-live="polite"
+  {% if not stalled %}hx-get="/opportunities/{{ opp.id }}/ai/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+  {% elif job.status == "pending" %}
+  <p><span class="pulse" aria-hidden="true"></span><b>AI 분석이 차례를 기다리고 있어요.</b>{% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">앞: {{ ahead.lines | join(", ") }}</span>{% endif %}</p>
+  {% else %}
+  <p><span class="pulse" aria-hidden="true"></span><b>AI 가 활동 기록 {{ opp.activities | length }}건을 읽고 있어요.</b> <span class="muted">{{ wait_detail(job) }}</span></p>
+  {% endif %}
+  <p class="muted job-box-note">이 쪽을 닫아도 계속됩니다. 끝나면 이 자리에 제안과 브리핑이 나타나요.</p>
+</div>

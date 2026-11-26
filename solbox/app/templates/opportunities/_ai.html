@@ -1,0 +1,3 @@
+{# 영업기회 상세의 AI 구역 (영업 B): 분석 진행 상자 → 제안 띠. 브리핑 카드는 `_brief.html`. 값: opp, ai_job #}
+{% set aig = ai_gate() %}
+{% if ai_job %}{% with job = ai_job %}{% include "opportunities/_ai_job.html" %}{% endwith %}{% endif %}

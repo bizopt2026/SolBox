@@ -155,6 +155,14 @@ def _submitted_values(
     }
 
 
+def review_linked(db: Session, activity: Activity, user: User, request: Request) -> None:
+    """영업 B: 저장한 활동 기록에 연결된 진행 중 영업기회의 AI 분석을 자동으로 요청한다 (AI 꺼짐이면 아무것도 안 함)."""
+    from app import opportunity_ai
+
+    db.refresh(activity)
+    opportunity_ai.request_review(db, [o.id for o in activity.opportunities], user.id, request)
+
+
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
           partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=(),
@@ -186,6 +194,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
+    review_linked(db, activity, user, request)
     response = notices.redirect(f"/activities/{activity.id}", "created" if is_new else "saved")
     return once.done(response) if once is not None else response
 
@@ -247,6 +256,7 @@ def save_raw(
     db.add(activity)
     db.commit()
     sync_all(mirror, activity)
+    review_linked(db, activity, user, request)
     return once.done(notices.redirect(f"/activities/{activity.id}", "created"))
 
 
