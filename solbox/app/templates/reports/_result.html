@@ -1,0 +1,87 @@
+{# 1단계 실적: 숫자 카드 8칸 → 실적 요약 글(+ 이슈·건의) → 영업기회 단계 변화 → 제안 진행 → 주요 활동. 구역마다 아래에 접힌 "보고 문구". #}
+{% from "_macros.html" import ai_attrs, pill, rev_fields %}
+{% from "reports/_notes.html" import notes_box with context %}
+{% set k = data.kpis %}
+{% set vs = {"day": "앞 평일 대비", "week": "지난주 대비", "month": "지난달 대비"} %}
+{% macro mmdd(d) %}{{ (d | string)[5:10] }}{% endmacro %}
+<section class="card" id="kpi" aria-labelledby="kpi-h">
+  <div class="card-head"><h2 id="kpi-h">요약 숫자</h2><span class="muted small">{{ vs.get(report.unit, "앞 기간 대비") }}</span></div>
+  {% set diff = k.activities - k.activities_prev %}
+  {% set kinds = [] %}{% for code, n in (k.activities_by_kind or {}).items() %}{% set _ = kinds.append(ont.ACTIVITY_KINDS.get(code, code) ~ " " ~ n) %}{% endfor %}
+  <ul class="kpi-grid">
+    <li class="kpi"><b class="kpi-n" data-kpi="activities">{{ k.activities }}</b>{% if diff %} <small class="kpi-diff {{ 'up' if diff > 0 else 'down' }}">{{ "%+d" % diff }}</small>{% endif %}<span>활동 기록{% if kinds %} ({{ kinds | join(" · ") }}){% endif %}</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="needs">{{ k.needs }}</b><span>새 {{ ont.label("customer_need") }}</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="opportunities_new">{{ k.opportunities_new }}</b><span>새 {{ ont.label("opportunity") }}</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="won">{{ k.won }}</b><span>수주</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="proposals_active">{{ k.proposals_active }}</b><span>제안 진행 (새 제안 {{ k.proposals_new }} · 제안서 {{ k.decks_built }}건 작성)</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="solutions_new">{{ k.solutions_new }}</b><span>새 솔루션 · 고객 {{ k.customers_new }} · 파트너 {{ k.partners_new }}</span></li>
+    <li class="kpi"><b class="kpi-n" data-kpi="followups_done">{{ k.followups_done }}</b><span>후속 조치 완료</span></li>
+    <li class="kpi{{ ' kpi-bad' if k.followups_overdue }}"><b class="kpi-n" data-kpi="followups_overdue">{{ k.followups_overdue }}</b>{% if k.followups_overdue %} <small class="kpi-diff down">지연</small>{% endif %}<span>기한 지난 후속 조치</span></li>
+  </ul>
+  {{ notes_box("kpi", "요약 숫자") }}
+</section>
+
+{% set sf = form["values"] if form.which == "summary" else none %}
+<section class="card" id="summary" aria-labelledby="summary-h">
+  <div class="card-head"><h2 id="summary-h">실적 요약 글</h2>
+    <form method="post" action="/reports/{{ report.id }}/ai/summary"><button type="submit" class="small"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, by="ai-note-report") }} data-busy-label="쓰는 중…">{{ "AI 요약 다시 쓰기" if report.summary_md else "AI 요약 쓰기" }}</button></form>
+  </div>
+  {% with kinds=("report_summary",) %}{% include "reports/_job_here.html" %}{% endwith %}
+  {% if report.summary_md %}<div class="md">{{ report.summary_md | md }}</div>
+  {% if summary_job %}<p class="muted small" data-summary-origin>AI 초안 · {{ kdatetime(summary_job.finished_at) if summary_job.finished_at else "" }}{% if report.summary_md.strip() != (summary_job.result or "").strip() %} · 직접 고침{% endif %}</p>{% endif %}
+  {% else %}<p class="muted">아직 요약 글이 없습니다. "AI 요약 쓰기"로 초안을 받거나 아래 "직접 고치기"에서 이번 기간의 주요 성과·이슈를 적어 주세요.</p>{% endif %}
+  {% if report.highlights_md %}<h3>{{ ont.prop("report", "highlights_md") }}</h3><div class="md">{{ report.highlights_md | md }}</div>{% endif %}
+  <details class="edit-summary"{% if sf is not none %} open{% endif %}>
+    <summary>직접 고치기</summary>
+    <form method="post" action="/reports/{{ report.id }}/summary" class="stack">
+      {{ rev_fields(report, form.conflict if sf is not none else none, "/reports/" ~ report.id ~ "?step=result") }}
+      <label for="f-summary_md">{{ ont.prop("report", "summary_md") }}</label>
+      <textarea id="f-summary_md" name="summary_md" rows="6" aria-describedby="h-summary_md">{{ sf.summary_md if sf is not none else report.summary_md }}</textarea>
+      <p class="help" id="h-summary_md">마크다운으로 적을 수 있습니다 (- 목록, **굵게**). 자료에 없는 실적은 쓰지 않습니다.</p>
+      <label for="f-highlights_md">{{ ont.prop("report", "highlights_md") }} (선택)</label>
+      <textarea id="f-highlights_md" name="highlights_md" rows="3">{{ sf.highlights_md if sf is not none else report.highlights_md }}</textarea>
+      <div><button type="submit" class="primary">저장</button></div>
+    </form>
+  </details>
+  {{ notes_box("issues", ont.prop("report", "highlights_md")) }}
+</section>
+
+<section class="card" id="opps" aria-labelledby="opps-h">
+  <div class="card-head"><h2 id="opps-h">{{ ont.label("opportunity") }} 단계 변화</h2><span class="muted small">{{ data.opportunities | length }}</span></div>
+  {% if data.opportunities %}
+  <div class="tablewrap"><table>
+    <thead><tr><th>{{ ont.label("opportunity") }}</th><th>고객</th><th>단계 변화</th></tr></thead>
+    <tbody>{% for o in data.opportunities %}
+      <tr><td><a href="/opportunities/{{ o.id }}">{{ o.name }}</a></td><td>{{ o.customer }}</td>
+        <td>{% if o.from_stage %}{{ pill("opportunity_stage", o.from_stage) }} → {% elif o.new %}<span class="badge tone-violet" data-code="new">새로 생김</span> {% endif %}{{ pill("opportunity_stage", o.to_stage) }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">단계가 바뀌거나 새로 생긴 {{ ont.label("opportunity") }}가 없습니다.</p>{% endif %}
+  {{ notes_box("opps", ont.label("opportunity") ~ " 단계 변화") }}
+</section>
+
+<section class="card" id="proposals" aria-labelledby="proposals-h">
+  <div class="card-head"><h2 id="proposals-h">제안 진행</h2><span class="muted small">{{ data.proposals | length }}</span></div>
+  {% if data.proposals %}
+  <div class="tablewrap"><table>
+    <thead><tr><th>제안</th><th>고객</th><th>지금 단계</th></tr></thead>
+    <tbody>{% for p in data.proposals %}
+      <tr><td><a href="/proposals/{{ p.id }}">{{ p.title or "(제목 없음)" }}</a></td><td>{{ p.customer }}</td><td>{{ pill("proposal_status", p.status) }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">이 기간에 만들거나 진행한 제안이 없습니다.</p>{% endif %}
+  {{ notes_box("proposals", "제안 진행") }}
+</section>
+
+<section class="card" id="activities" aria-labelledby="activities-h">
+  <div class="card-head"><h2 id="activities-h">주요 활동</h2><span class="muted small">{% if data.activities | length > activity_preview %}{{ data.activities | length }}건 중 {{ activity_preview }}{% else %}{{ data.activities | length }}{% endif %}</span></div>
+  {% if data.activities %}
+  <div class="tablewrap"><table>
+    <thead><tr><th>날짜</th><th>종류</th><th>제목</th><th>고객</th></tr></thead>
+    <tbody>{% for a in data.activities[:activity_preview] %}
+      <tr><td class="num">{{ mmdd(a.date) }}</td><td>{{ pill("activity_kind", a.kind) }}</td><td><a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></td><td>{{ a.customers | join(", ") }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% if data.activities | length > activity_preview %}<p class="card-foot"><a href="/activities">{{ data.activities | length }}건 모두 보기</a></p>{% endif %}
+  {% else %}<p class="muted">이 기간의 활동 기록이 없습니다.</p>{% endif %}
+</section>

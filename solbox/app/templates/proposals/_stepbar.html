@@ -1,4 +1,4 @@
-<nav class="stepbar" id="stepbar" aria-label="제안 진행 단계"{% if oob %} hx-swap-oob="true"{% endif %}>
+<nav class="stepbar" id="stepbar" aria-label="{{ stepbar_label | default('제안 진행 단계') }}"{% if oob %} hx-swap-oob="true"{% endif %}>
   <ol>
     {% for st in steps %}
     <li class="step {{ st.state }}{{ ' busy' if st.busy }}">{% if st.href %}<a href="{{ st.href }}"{% if st.state == "current" %} aria-current="step"{% endif %}><span class="step-no" aria-hidden="true">{{ "✓" if st.state == "done" else loop.index }}</span>{% if st.state == "done" %}<span class="sr-only">끝남: </span>{% endif %}<span class="step-name">{{ st.label }}</span>{% if st.busy %}<span class="busy-label">진행 중</span>{% endif %}</a>{% else %}<span aria-disabled="true"><span class="step-no" aria-hidden="true">{{ loop.index }}</span><span class="step-name">{{ st.label }}</span></span>{% endif %}</li>

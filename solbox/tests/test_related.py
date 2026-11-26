@@ -100,6 +100,10 @@ EXPECT = {
     "R33": [("bm_energy", "R33", ["s_hvac", "s_solar", "s_light"]), ("s_hvac", "R33", ["bm_energy"])],
     "R34": [("pro_group", "R34", ["c_hanbit", "c_daesung"]), ("c_hanbit", "R34", ["pro_group"]), ("c_daesung", "R34", ["pro_group"])],
     "R35": [("pro_group", "R35", ["bm_energy"]), ("bm_energy", "R35", ["pro_group"])],
+    "R37": [("wr", "R37", ["ri_hanbit", "ri_free"]), ("ri_free", "R37", ["wr"])],
+    "R38": [("ri_hanbit", "R38", ["c_hanbit"]), ("c_hanbit", "R38", ["ri_hanbit"]), ("ri_free", "R38", [])],
+    "R39": [("ri_hanbit", "R39", ["o_hanbit"]), ("o_hanbit", "R39", ["ri_hanbit"])],
+    "R40": [("ri_hanbit", "R40", ["pr_hanbit"]), ("pr_hanbit", "R40", ["ri_hanbit"])],
 }
 
 
@@ -541,3 +545,18 @@ def test_q5_needs_from_latest_intake_grouped_by_customer_with_opportunity(db, wo
         opp = pq(db, n, "R26")
         grouped.setdefault(db.get(Customer, n.customer_id).name, []).append((n.content, names(opp)))
     assert grouped == {"미래제조": [("설비 고장 예측", ["미래제조 예지보전"])], "한빛병원": [("야간 조명 전력 줄이기", [])]}
+
+
+def test_report_plan_links_on_screen_but_not_in_mirror(db, world, settings, kim):
+    """업무 보고 계획 항목은 고객·영업기회·프로젝트 화면의 "연결된 것" 에는 보이고, 지식 사본의 "## 연결" 에는 적지 않는다 (ontology.UNMIRRORED)."""
+    for obj in (world.c_hanbit, world.o_hanbit, world.pr_hanbit):
+        groups = {g.key: g for g in ontology.related(db, obj, viewer=kim)}
+        key = next(k for k in groups if k.endswith(":report_item"))
+        g = groups[key]
+        assert g.label == "업무 보고 계획" and [i.label for i in g.items] == ["한빛 견적 보내기"]
+        assert g.items[0].url == f"/reports/{world.wr.id}" and g.items[0].note == "주간 2026-11-16 ~ 11-22"
+    mirror = KnowledgeMirror(settings.knowledge_dir)
+    mirror.rebuild_all(db, settings.uploads_dir)
+    for obj in (world.c_hanbit, world.o_hanbit, world.pr_hanbit):
+        text = mirror.path_for(obj).read_text(encoding="utf-8")
+        assert "업무 보고" not in text and "한빛 견적 보내기" not in text

@@ -1,0 +1,7 @@
+{# 구역 안의 AI 실패 안내: 그 구역의 마지막 AI 작업이 실패했을 때 이유와 "다시 시도" (같은 AI POST). 필요한 값: report, job #}
+{% from "_macros.html" import ai_attrs %}
+{% set what, path = {"report_summary": ("실적 요약 글을", "ai/summary"), "report_plan": ("계획 초안을", "ai/plan"), "report_notes": ("보고 문구를", "ai/notes")}[job.kind] %}
+<div class="error job-failed" role="alert">
+  <p><b>AI 가 {{ what }} 쓰지 못했습니다.</b> {{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
+  <form method="post" action="/reports/{{ report.id }}/{{ path }}"><button type="submit"{{ ai_attrs(ai_gate()) }} data-busy-label="쓰는 중…">다시 시도</button></form>
+</div>

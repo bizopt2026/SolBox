@@ -1,0 +1,49 @@
+{% from "_macros.html" import ai_attrs %}
+{# 4단계 확정·파일: 확정 안내 (확정·확정 풀기 버튼은 제목 줄의 다음 동작). 보고서 파일 만들기·내려받기는 맨 아래 카드. #}
+<section class="card" id="confirm" aria-labelledby="confirm-h">
+  <div class="card-head"><h2 id="confirm-h">계획 확정</h2>{% if confirmed and report.confirmed_at %}<span class="muted small">{{ kdatetime(report.confirmed_at) }} 확정 · 숫자 고정됨</span>{% endif %}</div>
+  {% if confirmed %}
+  <p>확정한 계획 {{ plan | length }}개. 다음 {{ ont.REPORT_UNITS.get(report.unit, "") }} 보고({{ next_text }})를 만들면 이 계획이 "지난 계획 점검"에 나옵니다.</p>
+  {% if unconfirm_problem %}<p class="notice" role="note">{{ unconfirm_problem }}</p>
+  {% else %}<p class="muted">위의 "확정 풀기"로 풀면 숫자를 다시 지금 기록에서 세고 계획을 고칠 수 있습니다.</p>{% endif %}
+  {% else %}
+  <p>확정하면 지금 숫자가 보고서에 고정되고, 비어 있는 보고 문구는 기본 문장으로 채워집니다. 다음 보고가 이 계획을 점검하기 전에는 확정을 풀 수 있습니다.</p>
+  <p class="muted">계획 {{ plan | length }}개 · 실적 요약 글 {{ "있음" if report.summary_md else "없음" }} · 위의 "계획 확정"을 누르세요.</p>
+  {% endif %}
+</section>
+{% set note_names = {"kpi": "요약 숫자", "opps": ont.label("opportunity") ~ " 단계 변화", "proposals": "제안 진행", "check": "지난 계획 점검", "plan": "다음 계획", "issues": ont.prop("report", "highlights_md")} %}
+<section class="card" id="report-notes" aria-labelledby="report-notes-h">
+  <div class="card-head"><h2 id="report-notes-h">보고 문구</h2>
+    <form method="post" action="/reports/{{ report.id }}/ai/notes"><button type="submit" class="small"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, by="ai-note-report") }} data-busy-label="쓰는 중…">보고 문구 다시 쓰기</button></form>
+  </div>
+  {% with kinds=("report_notes",) %}{% include "reports/_job_here.html" %}{% endwith %}
+  <p class="muted">워드·MD 보고서에서 구역마다 표 위에 들어가는 1~2문장입니다. 확정하면 비어 있는 구역은 숫자만 넣은 기본 문장으로 채워지고, AI 가 켜져 있으면 AI 가 한 번 다듬습니다. 각 단계 카드 아래 "보고 문구"에서 고칠 수 있습니다.</p>
+  <dl class="note-summary">
+  {% for key, name in note_names.items() %}
+    {% set lines = notes.get(key) or default_notes[key] %}{% set flags = note_flags.get(key, []) %}
+    <dt><a href="/reports/{{ report.id }}?step={{ {"check": "check", "plan": "plan"}.get(key, "result") }}#notes-{{ key }}">{{ name }}</a>{% if not notes.get(key) %} <span class="muted small">(기본 문장)</span>{% endif %}</dt>
+    <dd>{% for line in lines %}<p>{{ line }}{% if notes.get(key) and flags[loop.index0] %} <span class="badge tone-warn" title="집계에 없는 숫자: {{ flags[loop.index0] | join(', ') }}">숫자 확인</span>{% endif %}</p>{% endfor %}</dd>
+  {% endfor %}
+  </dl>
+</section>
+{% if confirmed %}
+<section class="card" id="report-files" aria-labelledby="report-files-h">
+  <div class="card-head"><h2 id="report-files-h">보고서 파일</h2>{% if report.files_built_at %}<span class="muted small">마지막으로 만든 때 {{ kdatetime(report.files_built_at) }}</span>{% endif %}</div>
+  {% if file_error %}<p class="notice error" role="alert">{{ file_error }}</p>{% endif %}
+  <form method="post" action="/reports/{{ report.id }}/files">
+    <div class="kind-opts">
+    {% for code, (name, desc) in file_formats.items() %}
+      <label class="check kind-opt"><input type="radio" name="fmt" value="{{ code }}"{{ " checked" if loop.first }}> <span><b>{{ name }}</b> {{ desc }}</span></label>
+    {% endfor %}
+    </div>
+    <p><button type="submit" class="button primary">파일 만들기</button></p>
+    {% if busy %}<p class="muted small">보고 문구를 쓰는 중입니다. 끝난 뒤 만들면 다듬어진 문구가 들어갑니다.</p>{% endif %}
+  </form>
+  {% if files %}
+  <table class="list-table">
+    <thead><tr><th>만든 파일</th><th>시각</th><th></th></tr></thead>
+    <tbody>{% for f in files %}<tr><td>{{ f.name }}</td><td>{{ kdatetime(f.built_at) }}</td><td><a class="button small" href="/reports/{{ report.id }}/files/{{ f.fmt }}">내려받기</a></td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">아직 만든 파일이 없습니다.</p>{% endif %}
+</section>
+{% endif %}

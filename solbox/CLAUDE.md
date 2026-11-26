@@ -8,7 +8,7 @@
 - `app/` 코드. `routers/` 화면·API, `ai/` AI 작업(대기열 `queue.py`, 실행기 `runner.py`, 처리기, `prompts/`), `templates/`, `static/` (`app.css` 하나, 글꼴 Pretendard Variable 은 `static/fonts/` 에 OFL 라이선스 글과 함께 담았다. 바깥 주소·CDN 을 부르지 않는다)
 - `app/research.py` 리서치, `scheduler.py` 주간 조사·일일 작업, `backup.py` 백업, `certs.py` 인증서, `system.py` 점검, `cli.py` 명령줄, `migrate.py` 컬럼 자동 추가, `guards.py` 고침 표시·폼 표·고친 사람
 - `tests/` pytest (가짜 CLI `tests/fake_claude.py`), `scripts/` Windows PowerShell 스크립트, `docs/` 문서
-- 운영 데이터는 `data_dir` (기본은 `solbox/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `logs/`, `research_work/`, `intake_work/`(올리기 묶음별 작업 폴더), `models/`(음성 받아쓰기 모델, 백업하지 않음)
+- 운영 데이터는 `data_dir` (기본은 `solbox/data`이며 커밋하지 않는다. `config.toml` 로 다른 경로를 정할 수 있다): `app.db`, `uploads/`, `knowledge/`, `decks/`, `reports/`(업무 보고 파일), `logs/`, `research_work/`, `intake_work/`(올리기 묶음별 작업 폴더), `models/`(음성 받아쓰기 모델, 백업하지 않음)
 
 ## 실행·테스트
 - 설치 `pip install -e ".[dev]"`, 설정 `config.example.toml` → `config.toml` (저장소에 올리지 않는다)
@@ -34,7 +34,7 @@
 - 음성 받아쓰기는 `app/transcribe.py` 의 연결 지점(설정 `transcriber`: `none` 은 "받아쓰기 필요"로 보관만, `faster-whisper` 는 서버 안 CPU 받아쓰기)이다. 설계 `docs/superpowers/specs/2026-11-20-audio-transcription-design.md`. 실제 받아쓰기는 개발 환경에서 돌려 보지 못했다 (모델 저장소 접속 불가).
 
 ## 온톨로지 (단일 정의)
-- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R36), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
+- `app/ontology.py` 가 대상 유형(한국어 이름·모델·물리 표·주소·지식 사본 경로·속성 이름표), 코드 값 목록(발굴 단계·활동 종류·제안 단계 …), 관계(R1~R40), 사본 경로 해석(`parse_rel`, 옛 `businesses/N.md` 도 읽는다)을 한 곳에 정의한다. 새 목록·이름표·경로 형식은 여기에 더하고, 다른 곳(`labels.py` 는 다시 내보내기뿐)에 다시 적지 않는다. 일관성은 `tests/test_ontology.py` 가 검사한다.
 - 프로젝트(옛 "기존 사업")는 코드에서 `Project`·`project_id`·`/projects` 이지만 물리 표·열은 `businesses`·`business_id`·`activity_businesses` 그대로다 (표·열 이름을 바꾸거나 지우지 않는다). 옛 `/businesses` 주소는 영구 이동한다. 저장된 옛 값(정리안의 `businesses` 키, 출처 `businesses/N.md`)은 읽을 수 있어야 하고 고쳐 쓰지 않는다.
 - 용어: 프로젝트, 제안 건(메뉴는 "제안", PPT 는 "제안서"), 올리기 묶음/올린 파일, 자료, 고객 니즈(JSON 키는 `demand_signals` 그대로), 확인 항목(근거 문제·확인할 점), 출처/이유. 화면·사본·프롬프트는 `ontology.label/prop/term` 에서 읽는다.
 - 후속 조치·고객 니즈는 `follow_ups`·`customer_needs` 표가 원본이다. `activities.follow_ups`·`demand_signals` JSON 열은 옛 데이터로만 남아 있으니 읽지도 쓰지도 않는다 (ORM 이름 `legacy_*`, 시작 때 한 번 복사하는 `migrate.copy_activity_json` 만 읽는다). 화면에서 저장할 때는 줄 번호(숨은 칸 `fu_id`·`ds_id`)로 행을 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객·담당 연결은 `activity_rows.LinkIndex` 의 정확히 하나 일치 규칙 한 곳만 쓴다.
@@ -76,6 +76,7 @@
 | `docs/rules/올리기.md` | 글 붙여넣기·사진 붙여넣기·명함 파일 가져오기 | `intake`·`cardfile`·`cardplan` 을 고칠 때 (기본 구조는 CLAUDE.md "올리기 구조") |
 | `docs/rules/대상과-데이터.md` | 프로젝트 상태·AI 생성 표기·리서치 설정·사업방식·솔루션 분야·다른 이름·합치기·중복 정리 | 대상 유형의 칸·목록·사본 형식을 고칠 때 |
 | `docs/rules/화면.md` | 화면 공통(조사·좁은 화면·충돌 화면·유래 걸러 보기 등) | 템플릿·`app.js`·`app.css` 를 고칠 때 (기본 틀은 CLAUDE.md "화면 틀") |
+| `docs/rules/업무-보고.md` | 팀 업무 보고: 날짜 기록 처리기·기간·넘김·확정 스냅숏·AI 작업·파일 형식 | `reports.py`·`report_files.py`·`ai/report_tasks.py`·`routers/reports.py` 를 고칠 때 |
 | `docs/rules/시스템-업데이트.md` | 관리 › 시스템의 업데이트·다시 시작·화면 파일 스냅숏 | `update.py`·관리 › 시스템·시작 과정을 고칠 때 |
 
 ## 새로 더할 때 확인할 것 (자세한 것은 위 규칙과 영역 파일)

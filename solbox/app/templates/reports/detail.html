@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ai_note, detail_head, pill, meta_card, form_token %}
+{% block title %}{{ page_title or title }}{% endblock %}
+{% block content %}
+{% set confirmed = report.status == ont.REPORT_STATUS_CONFIRMED %}
+{% set rid = report.id %}
+{% set aig = ai_gate() %}
+{% set busy = report.active_job is not none and report.active_job.status in ont.JOB_ACTIVE %}
+{% set heads = {"result": ("다음: 지난 계획 점검 →", "?step=check"), "check": ("다음: 다음 계획 →", "?step=plan")} %}
+{% set status_html %}{{ pill("report_unit", report.unit) }} {{ pill("report_status", report.status) }}{% endset %}
+{# 제목 줄: 삭제 → 다음 동작 하나 (실적·점검은 다음 단계로, 계획·확정 단계는 확정 / 확정 풀기). 따로 고치는 화면은 없다 (각 카드의 폼에서 고친다) #}
+{% call detail_head(title, "/reports", report, true, crumbs=crumbs, sub=sub, status=status_html, primary=heads.get(step), edit=false) %}
+  {% if step in ("plan", "files") and not confirmed %}
+  <form method="post" action="/reports/{{ rid }}/confirm">{{ form_token() }}<button type="submit" class="button primary">계획 확정 →</button></form>
+  {% elif step == "files" and confirmed and not unconfirm_problem %}
+  <form method="post" action="/reports/{{ rid }}/unconfirm"><button type="submit" class="button">확정 풀기</button></form>
+  {% endif %}
+{% endcall %}
+{% include "proposals/_stepbar.html" %}
+{{ ai_note(aig, id="ai-note-report") }}
+<div class="dgrid report-grid">
+<div class="dmain">
+  {% include "reports/_" ~ step ~ ".html" %}
+</div>
+<aside class="daside">
+  <section class="card" aria-label="보고 정보">
+    <h2>보고 정보</h2>
+    <dl class="props compact">
+      <dt>{{ ont.prop("report", "unit") }}</dt><dd>{{ ont.REPORT_UNITS.get(report.unit, report.unit) }}</dd>
+      <dt>기간</dt><dd>{{ period }}</dd>
+      <dt>지난 보고</dt><dd>{% if prev %}<a href="/reports/{{ prev.id }}">{{ report_label(prev) }}</a> ({{ ont.REPORT_STATUSES[prev.status] }}){% else %}<span class="muted">없음 (처음 보고)</span>{% endif %}</dd>
+      <dt>다음 기간</dt><dd>{{ next_text }}</dd>
+      <dt>{{ ont.prop("report", "status") }}</dt><dd>{{ pill("report_status", report.status) }}</dd>
+    </dl>
+  </section>
+  <section class="card" aria-label="안내">
+    <h2>안내</h2>
+    <p class="muted">{% if confirmed %}숫자는 확정한 때({{ kdatetime(report.confirmed_at) if report.confirmed_at else "확정 때" }})의 값으로 고정돼 있습니다. 확정을 풀면 다시 지금 기록에서 셉니다.{% else %}숫자는 솔박스 기록에서 바로 센 값입니다. 확정하면 이 숫자가 보고서에 고정됩니다.{% endif %}</p>
+    {% if data.legacy_undated %}<p class="muted">완료·단계 변경 날짜 기록이 생기기 전에 바뀐 후속 조치·영업기회 {{ data.legacy_undated }}건은 날짜를 몰라 이번 숫자에서 빠졌습니다.</p>{% endif %}
+  </section>
+  {{ meta_card(meta) }}
+</aside>
+</div>
+{% endblock %}

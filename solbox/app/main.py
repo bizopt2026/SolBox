@@ -369,6 +369,9 @@ def create_app(settings: Settings) -> FastAPI:
     from app.korean import josa as _josa
 
     app.state.templates.env.globals["josa"] = _josa
+    from app.relations import report_label as _report_label
+
+    app.state.templates.env.globals["report_label"] = _report_label  # 업무 보고 건 이름 ("주간 2026-11-23 ~ 11-29")
     app.state.templates.env.globals["current_sort"] = ui.current_sort
     from app.checks import is_unopened as _is_unopened
 
@@ -406,7 +409,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -434,6 +437,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(proposals.router)
     app.include_router(proposal_outline.router)
     app.include_router(research.router)
+    app.include_router(reports.router)
     app.include_router(help_router.router)
     app.include_router(confirm.router)  # 삭제 확인 화면 (GET …/delete): 기존 POST 라우터와 같은 주소
     return app

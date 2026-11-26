@@ -28,7 +28,7 @@ def test_every_orm_model_is_a_type_or_listed():
     mapped = {m.class_.__name__ for m in Base.registry.mappers}
     defined = {t.model_name for t in ontology.TYPES.values() if t.model_name}
     # 쓰이는 대상이 아닌 보조 표: 제안 대화, 설정, 한 번 쓰는 폼 표, 번호 표시, 솔루션의 사업방식 줄 (연결 표, 베타 Y), "다른 회사임" 으로 표시한 쌍 (베타 AE)
-    assert mapped - defined == {"ProposalMessage", "AppSetting", "FormToken", "IdMark", "SolutionBusinessType", "DuplicateDismissal"}
+    assert mapped - defined == {"ProposalMessage", "AppSetting", "FormToken", "IdMark", "SolutionBusinessType", "DuplicateDismissal", "OpportunityStageChange", "ReportMessage"}
 
 
 def _route_paths(app) -> set[str]:
@@ -104,7 +104,7 @@ def test_proposal_steps_come_from_status_codes():
 
 def test_relations_use_defined_types_and_real_storage():
     keys = [r.key for r in ontology.RELATIONS]
-    assert keys == [f"R{i}" for i in range(1, 37)]
+    assert keys == [f"R{i}" for i in range(1, 41)]
     tables = Base.metadata.tables
     for r in ontology.RELATIONS:
         assert r.source and r.target and r.label

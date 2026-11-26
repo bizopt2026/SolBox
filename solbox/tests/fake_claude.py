@@ -53,6 +53,10 @@ def main() -> int:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     result = control.get("result", "")
+    for marker, answer in control.get("by_prompt", []):  # 프롬프트에 든 표지로 답을 고른다 (업무 보고처럼 작업마다 다른 답: [[표지, 답], ...], 먼저 맞은 것)
+        if marker in stdin:
+            result = answer
+            break
     if isinstance(result, list):
         count_path = Path(str(control_path) + ".count")
         n = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0

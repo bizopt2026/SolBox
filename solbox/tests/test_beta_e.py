@@ -150,7 +150,7 @@ def test_every_template_import_names_a_macro():
         for m in pat.finditer(f.read_text(encoding="utf-8")):
             src = (tdir / m.group(1))
             text = src.read_text(encoding="utf-8")
-            for part in m.group(2).split(","):
+            for part in re.sub(r"\s+with(out)?\s+context$", "", m.group(2)).split(","):  # `import x with context` (Jinja 의 맥락 넘기기)
                 name = part.strip().split(" as ")[0].strip()
                 if not name:
                     continue
@@ -178,9 +178,11 @@ AI_POSTS = {
     "/jobs/{job_id}/retry", "/proposals/{proposal_id}/directions", "/proposals/{proposal_id}/chat",
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
+    "/reports/{report_id}/ai/summary", "/reports/{report_id}/ai/plan", "/reports/{report_id}/chat", "/reports/{report_id}/chat/retry",
+    "/reports/{report_id}/ai/notes",
 }
 # 처리기가 꺼져 있으면 일은 하되 작업을 넣지 않는 라우트 (알림으로 알린다)
-AI_KEEPS = {"/intake", "/proposals"}
+AI_KEEPS = {"/intake", "/proposals", "/reports/{report_id}/confirm"}  # 업무 보고 확정: 꺼져 있으면 AI 보고 문구를 넣지 않고 기본 문장 그대로
 JOB_MAKERS = ("enqueue(", "start_job(", "start_analysis(", "start_run(", "AIJob(", "_start(")
 
 
@@ -217,6 +219,13 @@ def test_no_other_post_route_makes_ai_jobs(app):
 def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
     assert not settings.ai_worker_enabled
     sol = refining_proposal(db, settings)  # 제안 건 1 (고객·솔루션 포함)
+    from datetime import date
+
+    from app.models import Report
+
+    rep = Report(unit="week", period_start=date(2026, 11, 23), period_end=date(2026, 11, 29), status="planning")
+    db.add(rep)
+    db.commit()
     paths = {
         "/solutions/{solution_id}/draft": "/solutions/1/draft", "/activities/draft": "/activities/draft",
         "/activities/draft/{job_id}/retry": "/activities/draft/1/retry", "/admin/system/ai-check": "/admin/system/ai-check",
@@ -225,12 +234,15 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/proposals/{proposal_id}/outline": f"/proposals/{sol.id}/outline", "/research/run": "/research/run",
         "/research/reports/{report_id}/retry": "/research/reports/1/retry", "/intake/{intake_id}/analyze": "/intake/1/analyze",
         "/admin/research/keywords": "/admin/research/keywords", "/admin/duplicates/ai/{kind}": "/admin/duplicates/ai/partner",
+        "/reports/{report_id}/ai/summary": f"/reports/{rep.id}/ai/summary", "/reports/{report_id}/ai/plan": f"/reports/{rep.id}/ai/plan",
+        "/reports/{report_id}/chat": f"/reports/{rep.id}/chat", "/reports/{report_id}/chat/retry": f"/reports/{rep.id}/chat/retry",
+        "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes",
     }
     assert set(paths) == AI_POSTS
     before = db.query(AIJob).count()
     for route, url in paths.items():
         r = admin_client.post(url, data={"message": "x", "raw_text": "메모"}, headers={"referer": "http://testserver/proposals/1"}, follow_redirects=False)
-        if route in ("/activities/draft", "/proposals/{proposal_id}/chat"):  # 베타 F: 쓴 글이 있는 라우트는 글을 채운 같은 폼을 돌려준다 (test_beta_f)
+        if route in ("/activities/draft", "/proposals/{proposal_id}/chat", "/reports/{report_id}/chat"):  # 베타 F: 쓴 글이 있는 라우트는 글을 채운 같은 폼을 돌려준다 (test_beta_f)
             assert r.status_code == 409 and "AI 작업 처리기가 꺼져 있어" in r.text, (route, r.status_code)
             continue
         assert r.status_code == 303, (route, r.status_code)

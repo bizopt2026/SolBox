@@ -1,0 +1,55 @@
+{# 3단계 다음 계획: 계획 항목 표 (직접 추가·수정·삭제). 지난 계획에서 넘어온 줄은 "지난 계획" 표시와 함께 맨 앞.
+   줄 번호(pi_id)로 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객은 등록된 고객 하나와 이름이 정확히 맞을 때만 연결된다. #}
+{% from "_macros.html" import ai_attrs, rev_fields %}
+{% from "reports/_notes.html" import notes_box with context %}
+{% set typed = form["values"] if form.which == "plan" else none %}
+{% set rows = typed if typed is not none else plan %}
+{% set carried_ids = plan | selectattr("carried_from_id") | map(attribute="id") | list %}
+<section class="card" id="plan" aria-labelledby="plan-h">
+  <div class="card-head"><h2 id="plan-h">다음 계획 <span class="count muted">{{ plan | length }}</span></h2><span class="muted small">다음 기간 {{ next_text }}</span>
+    {% if not confirmed %}<form method="post" action="/reports/{{ report.id }}/ai/plan"><button type="submit" class="small"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, by="ai-note-report") }} data-busy-label="만드는 중…">{{ "AI 계획 초안 다시" if report.plan_draft or plan or report.messages else "AI 계획 초안" }}</button></form>{% endif %}
+  </div>
+  {% with kinds=("report_plan",) %}{% include "reports/_job_here.html" %}{% endwith %}
+  {% include "reports/_draft.html" %}
+  {% if report.direction %}<p class="plan-direction"><b>방향</b> {{ report.direction }}</p>{% endif %}
+  {% if carried_ids %}<p class="muted">"지난 계획" 표시 줄은 지난 보고에서 끝내지 못해 넘어온 항목입니다. 점검 결과를 바꾸면 이 줄은 다시 맞춰집니다 (고친 내용도 빠질 수 있어요).</p>{% endif %}
+  {% if confirmed %}<p class="notice" role="note">확정한 계획입니다. 고치려면 확정·파일 단계에서 먼저 확정을 풀어 주세요.</p>{% endif %}
+  <form method="post" action="/reports/{{ report.id }}/plan">
+    <fieldset class="bare"{% if confirmed %} disabled{% endif %}>
+    {{ rev_fields(report, form.conflict if typed is not none else none, "/reports/" ~ report.id ~ "?step=plan") }}
+    <div class="tablewrap"><table class="plan-table">
+      <thead><tr><th>{{ ont.prop("report_item", "task") }}</th><th>{{ ont.prop("report_item", "owner") }}</th><th>{{ ont.prop("report_item", "due") }}</th><th>고객</th><th>메모</th><th><span class="sr-only">빼기</span></th></tr></thead>
+      <tbody id="plan-rows">
+      {% for it in rows %}
+        {% set n = loop.index0 %}
+        {% if typed is not none %}{% set v = it %}{% else %}{% set v = {"id": it.id, "task": it.task, "owner": it.owner, "due": it.due.isoformat() if it.due else "", "note": it.note, "customer": it.customer.name if it.customer else ""} %}{% endif %}
+        <tr>
+          <td><input type="hidden" name="pi_id" value="{{ v.id or '' }}">{% if v.id in carried_ids %}<span class="badge tone-violet" data-code="carried">지난 계획</span> {% endif %}<label class="sr-only" for="pt-{{ n }}">{{ ont.prop("report_item", "task") }}</label><input id="pt-{{ n }}" name="pi_task" value="{{ v.task }}"></td>
+          <td><input name="pi_owner" value="{{ v.owner }}" aria-label="{{ ont.prop('report_item', 'owner') }}"></td>
+          <td><input type="date" name="pi_due" value="{{ v.due }}" aria-label="{{ ont.prop('report_item', 'due') }}"></td>
+          <td><input name="pi_customer" value="{{ v.customer }}" list="plan-customers" autocomplete="off" aria-label="고객"></td>
+          <td><input name="pi_note" value="{{ v.note }}" aria-label="메모"></td>
+          <td><label class="check small"><input type="checkbox" name="pi_drop" value="{{ n }}"> 빼기</label></td>
+        </tr>
+      {% endfor %}
+        <tr>
+          <td><input type="hidden" name="pi_id" value=""><input name="pi_task" placeholder="새 할 일" aria-label="새 {{ ont.prop('report_item', 'task') }}"></td>
+          <td><input name="pi_owner" aria-label="{{ ont.prop('report_item', 'owner') }}"></td>
+          <td><input type="date" name="pi_due" aria-label="{{ ont.prop('report_item', 'due') }}"></td>
+          <td><input name="pi_customer" list="plan-customers" autocomplete="off" aria-label="고객"></td>
+          <td><input name="pi_note" aria-label="메모"></td>
+          <td><label class="check small"><input type="checkbox" name="pi_drop" value="{{ rows | length }}"> 빼기</label></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <datalist id="plan-customers">{% for name in customer_names %}<option value="{{ name }}">{% endfor %}</datalist>
+    <p class="help">할 일을 비우거나 "빼기"를 고른 줄은 지워집니다. 고객 이름은 등록된 고객 하나와 정확히 맞을 때만 연결됩니다.</p>
+    <div class="row"><button type="submit" class="primary">계획 저장</button><button type="button" class="small" data-add-row="plan-rows">+ 항목 더하기</button></div>
+    </fieldset>
+  </form>
+  {{ notes_box("plan", "다음 계획") }}
+</section>
+<section class="card" id="chat" aria-labelledby="chat-h">
+  <div class="card-head"><h2 id="chat-h">방향 대화</h2><span class="muted small">계획을 말로 다듬으면 AI 가 고친 초안을 위에 올립니다</span></div>
+  {% include "reports/_chat.html" %}
+</section>

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import impact as impact_lib, ontology, opportunities as opps, solution_fields as sfields, ui
 from app.db import get_db
 from app.main import render
-from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, User
+from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, User
 from app.routers._common import get_deletable_or_404, get_or_404
 from app.security import ensure_can_delete, require_admin, require_user
 
@@ -113,6 +113,8 @@ SPECS: tuple[Spec, ...] = (
     Spec("/opportunities/{obj_id}/delete", "opportunity", _owned(Opportunity), lambda o: o.name, lambda o: f"/opportunities/{o.id}", _crumb("opportunity"), "영업기회"),
     Spec("/activities/{obj_id}/delete", "activity", _owned(Activity), lambda o: o.title or "(제목 없음)", lambda o: f"/activities/{o.id}", _crumb("activity"), "활동 기록"),
     Spec("/proposals/{obj_id}/delete", "proposal", _owned(Proposal), lambda o: _proposal_name(o), lambda o: f"/proposals/{o.id}", _crumb("proposal"), "제안 건"),
+    Spec("/reports/{obj_id}/delete", "report", lambda db, user, p: get_or_404(db, Report, _num(p["obj_id"])), lambda o: _report_name(o), lambda o: f"/reports/{o.id}",
+         _crumb("report"), "업무 보고"),  # 팀원 누구나 지울 수 있다 (설계 §5.4b)
     Spec("/files/{obj_id}/delete", "solution_file", _load_file, lambda o: o.original_name, lambda o: f"/solutions/{o.solution_id}",
          lambda o, name: ui.crumbs("solution", o.solution.name, f"/solutions/{o.solution_id}", "자료 삭제"), "자료"),
     Spec("/intake/{obj_id}/discard", "intake_discard", _load_intake, lambda o: f"올리기 묶음 {o.id}번", lambda o: f"/intake/{o.id}",
@@ -129,6 +131,12 @@ SPECS: tuple[Spec, ...] = (
          lambda o: (o[2].get("title") or f"{o[1] + 1}번째 슬라이드"), lambda o: f"/proposals/{o[0].id}/outline#slide-{o[1]}",
          lambda o, name: ui.crumbs("proposal", _proposal_name(o[0]), f"/proposals/{o[0].id}", "슬라이드 삭제"), "슬라이드", blocker=_slide_blocker),
 )
+
+
+def _report_name(r) -> str:
+    from app.relations import report_label
+
+    return report_label(r)
 
 
 def _proposal_name(p) -> str:

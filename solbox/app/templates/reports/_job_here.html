@@ -1,0 +1,6 @@
+{# 이 구역(`kinds`)의 AI 작업 상자: 진행 중이면 진행 상자, 마지막 작업이 실패했으면 실패 안내. 필요한 값: report, kinds #}
+{% set job = report.active_job %}
+{% if job is not none and job.kind in kinds %}
+{% if job.status in ont.JOB_ACTIVE %}{% include "reports/_job_box.html" %}
+{% elif job.status == ont.JOB_FAILED %}{% include "reports/_job_failed.html" %}{% endif %}
+{% endif %}

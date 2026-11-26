@@ -8,8 +8,8 @@ from datetime import date, datetime
 from types import SimpleNamespace
 
 from app.models import (
-    BM, Activity, Customer, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Partner, Project, Proposal, ResearchReport, ResearchRun,
-    Solution, SolutionFile, User,
+    BM, Activity, Customer, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Partner, Project, Proposal, Report, ReportPlanItem, ResearchReport,
+    ResearchRun, Solution, SolutionFile, User,
 )
 
 
@@ -118,5 +118,11 @@ def build(db, owner: User | None = None) -> SimpleNamespace:
     db.add(w.report)
     db.flush()
     w.s_solar.origin_type, w.s_solar.origin_id, w.s_solar.origin_item = "research", w.report.id, "suggestion:1"
+    # 팀 업무 보고 (주간) 와 그 계획 항목: 한빛의 고객·영업기회·프로젝트를 가리키는 것 하나, 연결 없는 것 하나
+    w.wr = Report(unit="week", period_start=date(2026, 11, 16), period_end=date(2026, 11, 22))
+    w.ri_hanbit = ReportPlanItem(position=0, task="한빛 견적 보내기", customer_id=w.c_hanbit.id, opportunity_id=w.o_hanbit.id, project_id=w.pr_hanbit.id)
+    w.ri_free = ReportPlanItem(position=1, task="주간 회의 자료 정리")
+    w.wr.plan_items = [w.ri_hanbit, w.ri_free]
+    db.add(w.wr)
     db.commit()
     return w

@@ -35,7 +35,7 @@ copy config.example.toml config.toml
   ```powershell
   python -c "import secrets; print(secrets.token_urlsafe(32))"
   ```
-- `data_dir`: 데이터(`app.db`, `uploads/`, `knowledge/`, `decks/`)를 저장할 폴더. 상대 경로는 `config.toml` 이 있는 폴더 기준입니다. Windows 경로는 `data_dir = "C:/solbox/data"` 처럼 `/` 로 쓰거나 `data_dir = 'C:\solbox\data'` 처럼 작은따옴표로 감싸세요 (큰따옴표 안의 `\` 는 오류가 납니다).
+- `data_dir`: 데이터(`app.db`, `uploads/`, `knowledge/`, `decks/`, `reports/`)를 저장할 폴더. 상대 경로는 `config.toml` 이 있는 폴더 기준입니다. Windows 경로는 `data_dir = "C:/solbox/data"` 처럼 `/` 로 쓰거나 `data_dir = 'C:\solbox\data'` 처럼 작은따옴표로 감싸세요 (큰따옴표 안의 `\` 는 오류가 납니다).
 - `host`, `port`: 기본은 `127.0.0.1`, `8443` 입니다. 다른 PC에서도 접속하게 하려면 `host = "0.0.0.0"` 으로 바꿉니다.
 - `ssl_certfile`, `ssl_keyfile`: 인증서와 키 파일 경로. 둘 다 적으면 HTTPS로, 적지 않으면 HTTP로 열립니다. 자체 서명 인증서는 `python -m app.cli make-cert --host <접속 주소>` 로 만들고, 출력되는 두 줄을 넣습니다.
 

@@ -1,4 +1,4 @@
-"""매일 백업: app.db(SQLite 온라인 백업) + uploads/ + decks/ 복사, 오래된 백업 정리, 점검."""
+"""매일 백업: app.db(SQLite 온라인 백업) + uploads/ + decks/ + reports/ 복사, 오래된 백업 정리, 점검."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 STAMP_FORMAT = "%Y%m%d-%H%M%S"
 _STAMP_RE = re.compile(r"\d{8}-\d{6}")
 PARTIAL_MAX_AGE = timedelta(days=1)
-_COPIED_FOLDERS = ("uploads", "decks")  # knowledge/ 는 다시 만들 수 있으므로 복사하지 않는다
+_COPIED_FOLDERS = ("uploads", "decks", "reports")  # knowledge/ 는 다시 만들 수 있으므로 복사하지 않는다
 
 
 def _stamp(name: str) -> datetime | None:

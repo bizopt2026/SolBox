@@ -1,0 +1,24 @@
+{# 구역 카드 아래 접힌 "보고 문구" 칸 (설계 §5.6a): 보고서 파일에서 그 구역 표 위에 들어가는 1~2문장. 한 줄이 한 문장이다.
+   비워 두면 확정할 때 기본 문장(지금 숫자로 만든 틀 문장)이 들어간다. 저장은 보고 건의 고침 표시를 쓴다. #}
+{% from "_macros.html" import rev_fields %}
+{% macro notes_box(key, label) %}
+{% set mine = form.which == "notes" and key in form["values"] %}
+{% set lines = notes.get(key, []) %}
+{% set flags = note_flags.get(key, []) %}
+{% set warned = flags | select | list %}
+<details class="report-notes" id="notes-{{ key }}"{% if mine or warned %} open{% endif %}>
+  <summary>보고 문구{% if lines %} <span class="muted">· {{ lines | length }}줄</span>{% else %} <span class="muted">· 기본 문장</span>{% endif %}{% if warned %} <span class="badge tone-warn" data-code="number-check">숫자 확인</span>{% endif %}</summary>
+  {% if warned %}
+  <ul class="note-lines">{% for line in lines %}<li>{{ line }}{% if flags[loop.index0] %} <span class="badge tone-warn" title="집계에 없는 숫자: {{ flags[loop.index0] | join(', ') }}">숫자 확인</span>{% endif %}</li>{% endfor %}</ul>
+  <p class="help">"숫자 확인" 문장의 숫자({{ warned | sum(start=[]) | unique | join(", ") }})가 이 구역 집계에 없습니다. 맞는지 확인하고 고쳐 주세요 (지우지는 않았습니다).</p>
+  {% endif %}
+  <form method="post" action="/reports/{{ report.id }}/notes" class="stack">
+    {{ rev_fields(report, form.conflict if mine else none, "/reports/" ~ report.id ~ "?step=" ~ step) }}
+    <input type="hidden" name="step" value="{{ step }}">
+    <label for="sn-{{ key }}" class="sr-only">{{ label }} 보고 문구</label>
+    <textarea id="sn-{{ key }}" name="sn_{{ key }}" rows="3" placeholder="{{ default_notes[key] | join('\n') }}" aria-describedby="snh-{{ key }}">{{ form["values"][key] if mine else lines | join("\n") }}</textarea>
+    <p class="help" id="snh-{{ key }}">보고서 파일에서 "{{ label }}" 표 위에 들어갑니다. 한 줄이 한 문장이고, 비워 두면 확정할 때 흐린 글의 기본 문장이 들어갑니다.</p>
+    <div><button type="submit" class="small">문구 저장</button></div>
+  </form>
+</details>
+{% endmacro %}

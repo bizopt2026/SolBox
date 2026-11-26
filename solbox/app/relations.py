@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm import Session
 
-from app import ontology, origin
+from app import ontology, origin, report_periods
 from app.db import Base
 
 CHUNK = 500  # IN 목록 하나의 최대 길이
@@ -291,9 +291,11 @@ def _count_existing(db: Session, code: str, ids) -> int:
 
 
 def _order(code: str):
-    from app.models import Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Proposal, ResearchReport
+    from app.models import Activity, CustomerNeed, FollowUp, Intake, IntakeFile, Proposal, Report, ReportPlanItem, ResearchReport
 
     return {
+        "report": (Report.period_start.desc(), Report.id.desc()),
+        "report_item": (ReportPlanItem.report_id.desc(), ReportPlanItem.position, ReportPlanItem.id),
         "activity": (Activity.date.is_(None), Activity.date.desc(), Activity.id.desc()),
         "proposal": (Proposal.updated_at.desc(), Proposal.id.desc()),
         "follow_up": (FollowUp.due.is_(None), FollowUp.due, FollowUp.id),
@@ -313,9 +315,10 @@ def _name_order(code: str):
 
 class _LoadOptions(dict):
     def get(self, code, default=()):
-        from app.models import CustomerNeed, FollowUp, IntakeFile, Opportunity, Project, Proposal
+        from app.models import CustomerNeed, FollowUp, IntakeFile, Opportunity, Project, Proposal, ReportPlanItem
 
         table = {
+            "report_item": (joinedload(ReportPlanItem.report),),
             "project": (joinedload(Project.customer),),
             "opportunity": (joinedload(Opportunity.customer),),
             "proposal": (joinedload(Proposal.customer), joinedload(Proposal.project)),
@@ -439,8 +442,23 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
             it.label = f"리서치 {fmt(o.started_at.date())}"
         elif code == "user":
             it.label = o.name or o.username
+        elif code == "report":
+            it.label = report_label(o)
+            it.badge = (ontology.tone_class("report_status", o.status), ontology.REPORT_STATUSES.get(o.status, o.status))
+        elif code == "report_item":
+            it.label = " ".join(o.task.split())
+            it.url = f"/reports/{o.report_id}"
+            it.note = report_label(o.report)
+            if o.result in ontology.PLAN_RESULTS:
+                it.badge = (ontology.tone_class("plan_result", o.result), ontology.PLAN_RESULTS[o.result])
+            it.done = o.result == "done"
         out[o.id] = it
     return out
+
+
+def report_label(r) -> str:
+    """업무 보고 건의 이름: "주간 2026-11-23 ~ 11-29" (기간 글은 report_periods.label 하나)."""
+    return report_periods.label(r.unit, r.period_start, r.period_end)
 
 
 def _visible(viewer, code: str, objs: list) -> list:

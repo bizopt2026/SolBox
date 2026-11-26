@@ -72,6 +72,18 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "slide_deleted": ("ok", "슬라이드를 삭제했습니다."),
     "fu_mine": ("ok", "내 할 일로 바꿨습니다."),
     "busy": ("warn", "이미 AI 작업이 진행 중입니다."),
+    # 업무 보고
+    "report_created": ("ok", "보고를 만들었습니다. 숫자는 지금 기록에서 바로 센 값입니다."),
+    "report_exists": ("warn", "같은 기간의 보고가 이미 있어 그 보고로 왔습니다."),
+    "report_checked": ("ok", "점검 결과를 저장했습니다. 미완료 항목은 다음 계획 맨 앞에 넘어가 있습니다."),
+    "report_planned": ("ok", "계획을 저장했습니다."),
+    "report_planned_unlinked": ("warn", "계획을 저장했습니다. 등록된 고객 하나와 정확히 맞지 않는 고객 이름은 연결하지 않았습니다."),
+    "report_confirmed": ("ok", "계획을 확정했습니다. 보고서 숫자가 지금 값으로 고정됐습니다."),
+    "report_unconfirmed": ("ok", "확정을 풀었습니다. 숫자는 다시 지금 기록에서 셉니다."),
+    "report_unconfirm_blocked": ("warn", "확정을 풀지 못했습니다. 아래 안내를 확인해 주세요."),
+    "report_file_built": ("ok", "보고서 파일을 만들었습니다. 아래에서 내려받을 수 있습니다."),
+    "report_not_confirmed": ("warn", "계획을 확정한 보고에서만 보고서 파일을 만들고 내려받을 수 있습니다."),
+    "report_draft_applied": ("ok", "AI 초안을 계획 표에 옮겼습니다. 지난 계획에서 넘어온 줄은 넘어온 표시 그대로입니다."),
     # 리서치·관리
     "research_started": ("ok", "조사를 시작했습니다. 끝나면 목록에 나타납니다."),
     "research_retry": ("ok", "다시 조사를 시작했습니다."),

@@ -322,6 +322,8 @@ F8_URLS = {
     "/proposals/{proposal_id}/chat": "/proposals/1/chat", "/proposals/{proposal_id}/chat/retry": "/proposals/1/chat/retry",
     "/proposals/{proposal_id}/outline": "/proposals/1/outline", "/research/run": "/research/run",
     "/research/reports/{report_id}/retry": "/research/reports/1/retry", "/intake/{intake_id}/analyze": "/intake/1/analyze", "/admin/duplicates/ai/{kind}": "/admin/duplicates/ai/partner",
+    "/reports/{report_id}/ai/summary": "/reports/1/ai/summary", "/reports/{report_id}/ai/plan": "/reports/1/ai/plan", "/reports/{report_id}/chat": "/reports/1/chat",
+    "/reports/{report_id}/chat/retry": "/reports/1/chat/retry", "/reports/{report_id}/ai/notes": "/reports/1/ai/notes",
 }
 ADMIN_ONLY = {"/admin/duplicates/ai/{kind}", "/admin/system/ai-check", "/research/run", "/research/reports/{report_id}/retry"}
 
