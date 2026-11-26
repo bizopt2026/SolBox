@@ -257,6 +257,10 @@ class Opportunity(Stamped, Base):
     field_changes: Mapped[list[OpportunityFieldChange]] = relationship(
         back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityFieldChange.id",
     )
+    checks: Mapped[list[OpportunityCheck]] = relationship(back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True)
+    insights: Mapped[list[OpportunityInsight]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityInsight.id",
+    )
 
 
 class OpportunityStageChange(Base):
@@ -288,8 +292,44 @@ class OpportunityFieldChange(Base):
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     source: Mapped[str] = mapped_column(String, default="", server_default="")
+    evidence: Mapped[str] = mapped_column(Text, default="", server_default="")  # AI 제안을 반영한 줄의 근거 문장 (영업 B). 옛 DB 는 migrate 가 칸을 더한다
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="field_changes")
+
+
+class OpportunityCheck(Base):
+    """영업기회의 확인한 항목 한 줄 (영업 B, 항목 목록은 ontology.OPPORTUNITY_CHECKLIST). 체크를 풀면 줄을 지운다.
+    줄이 생기거나 지워지면 guards 가 필드 이력(field="check")을 남긴다."""
+
+    __tablename__ = "opportunity_checks"
+    __table_args__ = (UniqueConstraint("opportunity_id", "item", name="ux_opportunity_checks_item"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id", ondelete="CASCADE"), index=True)
+    item: Mapped[str] = mapped_column(String)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    checked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String, default="", server_default="")  # 빈 글 = 사람, "ai" = AI 제안 반영
+    evidence: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="checks")
+    checked_by: Mapped[User | None] = relationship()
+
+
+class OpportunityInsight(Base):
+    """AI 분석 한 번의 결과 (영업 B): 브리핑과 제안 목록. 화면은 영업기회마다 최신 줄만 쓴다. JSON 칸은 새 값을 대입한다."""
+
+    __tablename__ = "opportunity_insights"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    briefing: Mapped[dict] = mapped_column(JSON, default=dict)
+    suggestions: Mapped[list] = mapped_column(JSON, default=list)
+    basis: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="insights")
 
 
 class Solution(Stamped, Origin, Base):
