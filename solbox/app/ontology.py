@@ -195,7 +195,7 @@ JOB_EXPECTED = {
     "solution_draft": "보통 30초 안에",
     "proposal_directions": "보통 1분 안에",
     "proposal_chat": "보통 1분 안에",
-    "proposal_outline": "보통 1분 안에",
+    "proposal_outline": "보통 2분 안에",
     "research_area": "분야마다 1~2분",
     "research_suggest": "보통 1분 안에",
     "research_keywords": "보통 1~2분 안에",

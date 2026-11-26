@@ -10,6 +10,17 @@
   <p><strong>{{ slides | length }}장</strong>{% if proposal.outline_updated_at %} <span class="muted">· 마지막 저장 {{ kdatetime(proposal.outline_updated_at) }}</span>{% endif %}</p>
   <a class="button" href="/proposals/{{ proposal.id }}/outline">구성안 검토·수정</a>
 </div>
+{% set review = proposal.outline.get("review") or {} %}
+{% if review.get("status") == "applied" and review.get("changes") %}
+<details class="outline-review">
+  <summary>AI 검토에서 고친 점 {{ review.changes | length }}가지</summary>
+  <ul>{% for c in review.changes %}<li>{{ c }}</li>{% endfor %}</ul>
+</details>
+{% elif review.get("status") == "applied" %}
+<p class="outline-review muted">AI 검토: 고칠 점이 없었습니다.</p>
+{% elif review.get("status") in ("rejected", "failed") %}
+<p class="outline-review muted">AI 검토 결과를 쓰지 않고 초안을 그대로 두었습니다{% if review.get("status") == "rejected" %} (검토가 규칙을 어겼습니다){% endif %}.</p>
+{% endif %}
 <ol class="slide-mini">
   {% for s in slides[:8] %}<li><span class="no">{{ loop.index }}</span><span class="t">{{ s.title or "(제목 없음)" }}</span></li>{% endfor %}
   {% if slides | length > 8 %}<li class="more muted">외 {{ slides | length - 8 }}장</li>{% endif %}

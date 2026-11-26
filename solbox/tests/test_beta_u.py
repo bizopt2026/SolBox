@@ -33,7 +33,7 @@ def test_u1_pending_outline_shows_box_inside_section(app, user_client, db, setti
     _outline_job(user_client, db, p)
     sec = _section(user_client.get(f"/proposals/{p.id}").text, "outline")
     assert 'id="job-box-outline"' in sec and 'role="status"' in sec
-    assert "AI 대기 1번째" in sec and "보통 1분 안에" in sec
+    assert "AI 대기 1번째" in sec and "보통 2분 안에" in sec  # 구성안은 AI 검토까지 (베타 AI)
     assert f'hx-get="/proposals/{p.id}/progress?section=outline"' in sec and 'hx-trigger="every 2s"' in sec
     assert "대화를 마치고" not in sec  # 빈 상태 글은 진행 중에는 보이지 않는다
 
@@ -43,7 +43,7 @@ def test_u1_running_outline_shows_elapsed_and_hint(app, user_client, db, setting
     p = refining_proposal(db, settings)
     _outline_job(user_client, db, p, "running")
     sec = _section(user_client.get(f"/proposals/{p.id}").text, "outline")
-    assert "AI가 슬라이드 구성안을 만드는 중" in sec and "35초 경과" in sec and "보통 1분 안에 끝납니다" in sec
+    assert "AI가 슬라이드 구성안을 만드는 중" in sec and "35초 경과" in sec and "보통 2분 안에 끝납니다" in sec
 
 
 def test_u1_regenerate_hides_form_and_shows_box(app, user_client, db, settings):

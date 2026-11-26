@@ -37,7 +37,7 @@ def test_wait_detail_combines_expected_and_elapsed():
     now = datetime(2026, 11, 18, 12, 0, 0)
     class J:  # noqa: D401
         kind = "proposal_outline"; started_at = now - timedelta(seconds=35)
-    assert labels.wait_detail(J, now) == "(보통 1분 안에 끝납니다 · 35초 경과)"
+    assert labels.wait_detail(J, now) == "(보통 2분 안에 끝납니다 · 35초 경과)"  # 구성안은 AI 검토까지 (베타 AI)
     J.kind = "research_area"
     assert labels.wait_detail(J, now) == "(분야마다 1~2분 · 35초 경과)"
     J.kind = "nope"

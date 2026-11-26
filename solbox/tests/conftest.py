@@ -73,6 +73,7 @@ def settings(tmp_path):
         ai_worker_enabled=False,
         scheduler_enabled=False,
         claude_cmd=[sys.executable, str(FAKE_CLAUDE)],
+        proposal_review=False,  # 구성안 AI 검토(두 번째 호출)는 끈다: 마지막 호출이 구성안 프롬프트라고 보는 기존 시험이 많다. 검토 시험은 켜고 돈다 (test_beta_ai.py)
     )
 
 

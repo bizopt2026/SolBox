@@ -18,7 +18,8 @@ from app.ai.tasks import HANDLERS, MEMO_CLOSE, MEMO_OPEN, load_prompt, run_json
 from app.config import Settings
 from app.korean import josa
 from app.models import AIJob, Proposal, ProposalMessage
-from app.proposals import candidate_solutions, clean_directions, clean_outline, is_group, priority_groups, reset_for_new_direction, target_name
+from app.proposals import (accept_review, candidate_solutions, clean_directions, clean_outline, is_group, priority_groups, reset_for_new_direction, review_changes,
+                           target_name)
 
 
 log = logging.getLogger(__name__)
@@ -272,6 +273,11 @@ class Outline(BaseModel):
     slides: list[AISlide]
 
 
+class ReviewedOutline(Outline):
+    """AI 검토가 돌려주는 구성안: 같은 구조에 고친 점(`changes`)을 더한다."""
+    changes: list[str] = []
+
+
 def _directions(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     p = db.get(Proposal, input.get("proposal_id"))
     if p is None:
@@ -433,6 +439,13 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     outline = clean_outline(out, settings.knowledge_dir)
     if not OUTLINE_MIN_SLIDES <= len(outline["slides"]) <= OUTLINE_MAX_SLIDES:
         raise ClaudeError("bad_output", "슬라이드 수가 범위를 벗어났습니다.")
+    if settings.proposal_review:
+        outline = _review_outline(db, runner, settings, direction, outline, job_id)
+        p = db.get(Proposal, pid)
+        if p is None:
+            return "deleted"
+        if p.active_job_id != job_id:
+            return "superseded"
     p.outline = outline
     p.outline_updated_at = datetime.now()
     p.status = "outlined"
@@ -444,3 +457,28 @@ def _outline(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
 
 
 HANDLERS["proposal_outline"] = _outline
+
+
+def _review_outline(db: Session, runner: ClaudeRunner, settings: Settings, direction: dict, draft: dict, job_id) -> dict:
+    """구성안 초안을 두 번째 AI 가 검토해 고친다 (이야기 흐름·핵심 요약 장·결론 제목·장 종류·문구). 도구 없이 초안 글만 본다.
+    검토가 실패하거나(시간 초과·형식 오류 …) 규칙을 어기면(`proposals.accept_review`) 초안을 그대로 쓴다: 검토는 덧붙이는 단계라 작업을 실패시키지 않는다.
+    결과 구성안의 `review` 에 검토 상태(`applied`·`rejected`·`failed`)와 고친 점을 적는다 (구성안 화면이 보여 준다)."""
+    prompt = load_prompt(
+        "proposal_outline_review",
+        direction=json.dumps(direction, ensure_ascii=False, indent=2),
+        draft=_material(json.dumps({"title": draft["title"], "slides": draft["slides"]}, ensure_ascii=False, indent=1)),
+    )
+    try:
+        out = run_json(db, runner, prompt, ReviewedOutline, settings, allowed_tools=())
+    except ClaudeError as e:
+        log.warning("구성안 AI 검토 실패, 초안을 씁니다 (작업 %s, %s): %s", job_id, e.kind, e.message)
+        return {**draft, "review": {"status": "failed", "changes": []}}
+    reviewed = clean_outline(out, settings.knowledge_dir)
+    if not OUTLINE_MIN_SLIDES <= len(reviewed["slides"]) <= OUTLINE_MAX_SLIDES:
+        accepted, why = None, "슬라이드 수가 범위를 벗어났습니다"
+    else:
+        accepted, why = accept_review(draft, reviewed)
+    if accepted is None:
+        log.warning("구성안 AI 검토를 버리고 초안을 씁니다 (작업 %s): %s", job_id, why)
+        return {**draft, "review": {"status": "rejected", "changes": []}}
+    return {**accepted, "review": {"status": "applied", "changes": review_changes(out.changes)}}
