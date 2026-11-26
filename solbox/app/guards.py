@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
 from app import ontology
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityCheck, OpportunityFieldChange, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityCheck, OpportunityFieldChange, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User, Strategy, Initiative, WorkspaceChange
 from app.db import get_db
 from app.security import require_user
 
@@ -281,6 +281,8 @@ def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
                     obj.done_at = now
             elif obj.done_at is not None and (obj in session.new or hist.has_changes()):
                 obj.done_at = None
+        elif isinstance(obj, (Strategy, Initiative)):
+            _stamp_workspace_changes(session, obj, uid, now)
         elif isinstance(obj, Opportunity):
             _stamp_field_changes(session, obj, uid, now)
             if obj in session.new:
@@ -324,6 +326,46 @@ def _stamp_field_changes(session: Session, obj: Opportunity, uid, now: datetime)
         if old != new:
             session.add(OpportunityFieldChange(opportunity=obj, field=field_name, old_value=old, new_value=new,
                                                changed_at=now, changed_by_id=uid, source=source, evidence=evidence))
+
+
+def _stamp_workspace_changes(session: Session, obj, uid, now: datetime) -> None:
+    """사업 방향·과제의 추적 칸(ontology.STRATEGY_TRACKED_FIELDS·INITIATIVE_TRACKED_FIELDS)이 바뀌면 한 칸에 한 줄씩 남긴다.
+    만들 때는 값이 있는 칸만 (기본값은 flush 전에 채운다). 글로 바꿔 같으면 남기지 않는다."""
+    is_strategy = isinstance(obj, Strategy)
+    fields = ontology.STRATEGY_TRACKED_FIELDS if is_strategy else ontology.INITIATIVE_TRACKED_FIELDS
+    new_row = obj in session.new
+    if new_row:  # 기본값은 flush 때 채워진다: 이력에 처음 값이 남도록 미리 채운다
+        if obj.status is None:
+            obj.status = ontology.STRATEGY_STATUS_DEFAULT if is_strategy else ontology.INITIATIVE_STATUS_DEFAULT
+        if not is_strategy and obj.kind is None:
+            obj.kind = ontology.INITIATIVE_KIND_DEFAULT
+    state = sa_inspect(obj)
+    for field_name in fields:
+        value = getattr(obj, field_name)
+        if field_name == "strategy_id" and value is None and getattr(obj, "strategy", None) is not None:
+            value = obj.strategy.id  # 관계로만 이은 새 줄 (번호는 flush 뒤에 채워진다)
+        if new_row:
+            old, new = "", history_text(value)
+        else:
+            hist = state.attrs[field_name].history
+            if field_name == "strategy_id" and not hist.has_changes():
+                rel = state.attrs.strategy.history
+                if not rel.has_changes():
+                    continue
+                old = history_text(rel.deleted[0].id) if rel.deleted and rel.deleted[0] is not None else ""
+                new = history_text(rel.added[0].id) if rel.added and rel.added[0] is not None else ""
+            elif not hist.has_changes():
+                continue
+            else:
+                old = history_text(hist.deleted[0]) if hist.deleted else ""
+                new = history_text(hist.added[0]) if hist.added else ""
+        if old != new:
+            change = WorkspaceChange(field=field_name, old_value=old, new_value=new, changed_at=now, changed_by_id=uid)
+            if is_strategy:
+                change.strategy = obj
+            else:
+                change.initiative = obj
+            session.add(change)
 
 
 def _stamp_check_changes(session: Session, uid, now: datetime) -> None:

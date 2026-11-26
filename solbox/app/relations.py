@@ -714,7 +714,7 @@ def filter_ids(db: Session, list_type: str, param: str, raw) -> list[int] | None
     return list(dict.fromkeys(ids))
 
 
-MIRRORED_TYPES = ("solution", "customer", "partner", "project", "opportunity", "bm", "activity")
+MIRRORED_TYPES = ("solution", "customer", "partner", "project", "opportunity", "bm", "activity", "strategy", "initiative")
 
 
 def mirror_neighbors(db: Session, obj) -> list:

@@ -104,6 +104,15 @@ EXPECT = {
     "R38": [("ri_hanbit", "R38", ["c_hanbit"]), ("c_hanbit", "R38", ["ri_hanbit"]), ("ri_free", "R38", [])],
     "R39": [("ri_hanbit", "R39", ["o_hanbit"]), ("o_hanbit", "R39", ["ri_hanbit"])],
     "R40": [("ri_hanbit", "R40", ["pr_hanbit"]), ("pr_hanbit", "R40", ["ri_hanbit"])],
+    "R41": [("in_ess", "R41", ["st_public"]), ("st_public", "R41", ["in_ess"])],
+    "R42": [("in_ess", "R42", ["s_hvac"]), ("s_hvac", "R42", ["in_ess"])],
+    "R43": [("in_ess", "R43", ["p_green"]), ("p_green", "R43", ["in_ess"])],
+    "R44": [("in_ess", "R44", ["c_hanbit"]), ("c_hanbit", "R44", ["in_ess"])],
+    "R45": [("in_ess", "R45", ["o_hanbit"]), ("o_hanbit", "R45", ["in_ess"])],
+    "R46": [("in_ess", "R46", ["pr_hanbit"]), ("pr_hanbit", "R46", ["in_ess"])],
+    "R47": [("st_public", "R47", ["wf_st"]), ("wf_st", "R47", ["st_public"])],
+    "R48": [("in_ess", "R48", ["wf_in"]), ("wf_in", "R48", ["in_ess"])],
+    "R49": [("in_ess", "R49", ["kim"]), ("kim", "R49", ["in_ess"])],
 }
 
 

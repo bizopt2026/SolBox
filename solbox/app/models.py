@@ -748,3 +748,112 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+# ======================================================================================
+# AI 코워크 ①: 사업 방향·과제 공간 (설계 docs/superpowers/specs/2026-11-26-ai-cowork-design.md)
+# ======================================================================================
+
+def _initiative_link(name: str, col: str, target: str) -> Table:
+    return Table(
+        name, Base.metadata,
+        Column("initiative_id", ForeignKey("initiatives.id", ondelete="CASCADE"), primary_key=True),
+        Column(col, ForeignKey(f"{target}.id", ondelete="CASCADE"), primary_key=True),
+    )
+
+
+initiative_solutions = _initiative_link("initiative_solutions", "solution_id", "solutions")
+initiative_partners = _initiative_link("initiative_partners", "partner_id", "partners")
+initiative_customers = _initiative_link("initiative_customers", "customer_id", "customers")
+initiative_opportunities = _initiative_link("initiative_opportunities", "opportunity_id", "opportunities")
+initiative_projects = _initiative_link("initiative_projects", "business_id", "businesses")  # 프로젝트의 물리 표·열 이름 그대로
+
+
+class Strategy(Stamped, Base):
+    """사업 방향: 팀이 합의한 사업개발 방향. 합의 내용(consensus)이 다른 기록을 재는 잣대가 된다 (합의 상태이고 기간 안일 때만)."""
+
+    __tablename__ = "strategies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String)
+    body: Mapped[str] = mapped_column(Text, default="")  # 배경·목표
+    consensus: Mapped[str] = mapped_column(Text, default="", active_history=True)  # 합의 내용 (바뀌면 이력)
+    instructions: Mapped[str] = mapped_column(Text, default="")  # 이 공간 대화에서 AI 가 지킬 것
+    period_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String, default=ontology.STRATEGY_STATUS_DEFAULT, active_history=True)  # ontology.STRATEGY_STATUSES
+
+    initiatives: Mapped[list[Initiative]] = relationship(back_populates="strategy", order_by="Initiative.id")
+    files: Mapped[list[WorkspaceFile]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceFile.id")
+    changes: Mapped[list[WorkspaceChange]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceChange.id")
+
+
+class Initiative(Stamped, Base):
+    """과제: 이슈 또는 개별 과제 한 건 (종류 칸). 담당·기한·상태·속한 방향을 갖고 다른 기록과 잇는다."""
+
+    __tablename__ = "initiatives"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String)
+    kind: Mapped[str] = mapped_column(String, default=ontology.INITIATIVE_KIND_DEFAULT, active_history=True)  # ontology.INITIATIVE_KINDS
+    status: Mapped[str] = mapped_column(String, default=ontology.INITIATIVE_STATUS_DEFAULT, active_history=True)  # ontology.INITIATIVE_STATUSES
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, active_history=True)
+    due: Mapped[date | None] = mapped_column(Date, nullable=True, active_history=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="SET NULL"), nullable=True, active_history=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    progress: Mapped[str] = mapped_column(Text, default="")  # 진행 메모 (보고서에 실린다)
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="initiatives")
+    owner: Mapped[User | None] = relationship(foreign_keys=[owner_user_id])
+    solutions: Mapped[list[Solution]] = relationship(secondary=initiative_solutions, order_by="Solution.name")
+    partners: Mapped[list[Partner]] = relationship(secondary=initiative_partners, order_by="Partner.name")
+    customers: Mapped[list[Customer]] = relationship(secondary=initiative_customers, order_by="Customer.name")
+    opportunities: Mapped[list[Opportunity]] = relationship(secondary=initiative_opportunities, order_by="Opportunity.name")
+    projects: Mapped[list[Project]] = relationship(secondary=initiative_projects, order_by="Project.name")
+    files: Mapped[list[WorkspaceFile]] = relationship(
+        back_populates="initiative", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceFile.id")
+    changes: Mapped[list[WorkspaceChange]] = relationship(
+        back_populates="initiative", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceChange.id")
+
+
+class WorkspaceFile(Stamped, Base):
+    """사업 방향·과제 공간에 올린 자료 파일. strategy_id 와 initiative_id 중 정확히 하나가 채워진다 (응용 수준)."""
+
+    __tablename__ = "workspace_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="CASCADE"), nullable=True, index=True)
+    initiative_id: Mapped[int | None] = mapped_column(ForeignKey("initiatives.id", ondelete="CASCADE"), nullable=True, index=True)
+    original_name: Mapped[str] = mapped_column(String, default="")
+    stored_name: Mapped[str] = mapped_column(String, default="")
+    extract_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="files")
+    initiative: Mapped[Initiative | None] = relationship(back_populates="files")
+
+    @property
+    def owner(self):
+        return self.strategy if self.strategy_id is not None else self.initiative
+
+
+class WorkspaceChange(Base):
+    """사업 방향·과제의 칸이 바뀐 기록 한 줄 (ontology.STRATEGY_TRACKED_FIELDS·INITIATIVE_TRACKED_FIELDS). guards 가 남긴다. 보고서가 기간을 센다."""
+
+    __tablename__ = "workspace_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="CASCADE"), nullable=True, index=True)
+    initiative_id: Mapped[int | None] = mapped_column(ForeignKey("initiatives.id", ondelete="CASCADE"), nullable=True, index=True)
+    field: Mapped[str] = mapped_column(String)
+    old_value: Mapped[str] = mapped_column(Text, default="")
+    new_value: Mapped[str] = mapped_column(Text, default="")
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="changes")
+    initiative: Mapped[Initiative | None] = relationship(back_populates="changes")
