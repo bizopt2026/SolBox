@@ -1,11 +1,12 @@
-"""올리기 `add_contact`: 이미 등록된 파트너·고객의 연락처 칸에 한 줄을 덧붙인다 (덮어쓰지 않는다)."""
+"""올리기 `add_contact`: 사람 이름이 있으면 그 회사에 담당자 기록을 만들고 (영업 D), 이름이 없으면 연락처 칸에 한 줄을 덧붙인다 (덮어쓰지 않는다)."""
 import re
 from datetime import date
 
 from app import intake as intake_lib
 from app.ai import intake_tasks
 from app.ai.intake_tasks import Contact, IntakePlanOut, NewCustomer, NewPartner
-from app.models import Customer, Intake, IntakeFile, Partner
+from app.models import Contact as Person, Customer, Intake, IntakeFile, Partner
+from sqlalchemy import select
 from tests.conftest import form_from_page, ready_bundle, nloc
 
 TODAY = date(2026, 11, 19)
@@ -135,20 +136,35 @@ def test_review_form_default_roundtrips_to_apply(app, user_client, db, settings)
 
 # ---- 저장 ----
 
-def test_apply_appends_one_line_and_never_overwrites(app, user_client, db, settings):
+def test_apply_with_person_makes_contact_record_and_keeps_text(app, user_client, db, settings):
     p, _ = _world(db)
-    it = _plan(db, settings, p)
+    it = _plan(db, settings, p, address="서울 강남구")
     r = _apply(user_client, it)
     assert r.status_code == 303 and nloc(r) == f"/intake/{it.id}?notice=intake_applied"
     db.expire_all()
     p = db.get(Partner, p.id)
+    assert p.contact == "대표전화 02-111-2222"  # 사람이 있으면 연락처 글에는 덧붙이지 않는다
+    person = db.scalar(select(Person))
+    assert (person.partner_id, person.name, person.title, person.phone, person.office_phone, person.email) == (
+        p.id, "박서연", "팀장", "", "02-555-0142", "seoyeon@hanbit.example")
+    assert person.note == "주소: 서울 강남구" and (person.origin_type, person.origin_id) == ("intake", it.id)
+    assert p.memo == "메모 그대로" and p.description == ""
+    assert it.status == "applied" and it.result == [{"type": "partner", "id": p.id, "label": "한빛센서테크(주) (담당자 추가: 박서연)"}]
+    assert (it.files[0].target_type, it.files[0].target_id) == ("partner", p.id)
+    assert "박서연" in app.state.mirror.path_for(p).read_text(encoding="utf-8")  # 지식 사본도 갱신 (담당자 구역)
+
+
+def test_apply_without_person_appends_one_line_and_never_overwrites(app, user_client, db, settings):
+    p, _ = _world(db)
+    it = _plan(db, settings, p, person="", role="")
+    _apply(user_client, it)
+    db.expire_all()
+    p = db.get(Partner, p.id)
     lines = p.contact.split("\n")
     assert lines[0] == "대표전화 02-111-2222" and len(lines) == 2  # 기존 글은 그대로, 한 줄만 더해진다
-    assert re.fullmatch(r"박서연 팀장 · 02-555-0142 · seoyeon@hanbit\.example \(.+, \d{4}-\d{2}-\d{2} 올리기\)", lines[1])
-    assert p.memo == "메모 그대로" and p.description == ""
-    assert it.status == "applied" and it.result == [{"type": "partner", "id": p.id, "label": "한빛센서테크(주) (연락처 추가)"}]
-    assert (it.files[0].target_type, it.files[0].target_id) == ("partner", p.id)
-    assert lines[1] in app.state.mirror.path_for(p).read_text(encoding="utf-8")  # 지식 사본도 갱신
+    assert re.fullmatch(r"02-555-0142 · seoyeon@hanbit\.example \(.+, \d{4}-\d{2}-\d{2} 올리기\)", lines[1])
+    assert it.result == [{"type": "partner", "id": p.id, "label": "한빛센서테크(주) (연락처 추가)"}] and db.scalar(select(Person)) is None
+    assert lines[1] in app.state.mirror.path_for(p).read_text(encoding="utf-8")
     page = user_client.get(f"/intake/{it.id}").text
     assert f'href="/partners/{p.id}"' in page
 
@@ -162,9 +178,20 @@ def test_apply_to_empty_contact_has_no_blank_line(app, user_client, db, settings
     assert it.result[0]["type"] == "customer"
 
 
+def test_old_text_line_still_becomes_contact_record_once(app, user_client, db, settings):
+    p, _ = _world(db, contact="박서연 025550142\n기타")
+    for _ in range(2):
+        it = _plan(db, settings, p, phone="010-5550-0142")
+        _apply(user_client, it)
+    db.expire_all()
+    assert db.get(Partner, p.id).contact == "박서연 025550142\n기타"
+    assert len(db.scalars(select(Person)).all()) == 1  # 옛 글에 있어도 담당자 기록은 만들고, 두 번째는 같은 사람으로 건너뛴다
+    assert it.result[0]["type"] == "skipped" and "이미 있는 담당자" in it.result[0]["reason"]
+
+
 def test_apply_skips_same_phone_or_email(app, user_client, db, settings):
     p, _ = _world(db, contact="박서연 025550142\n기타")
-    it = _plan(db, settings, p, email="")
+    it = _plan(db, settings, p, email="", person="", role="")
     _apply(user_client, it)
     db.expire_all()
     assert db.get(Partner, p.id).contact == "박서연 025550142\n기타"
@@ -174,7 +201,7 @@ def test_apply_skips_same_phone_or_email(app, user_client, db, settings):
     p2 = Partner(name="둘째", contact="박서연 메일 SeoYeon@Hanbit.example")
     db.add(p2)
     db.commit()
-    it2 = ready_bundle(db, settings, [CARD], contacts=[_contact(p2, phone="")])
+    it2 = ready_bundle(db, settings, [CARD], contacts=[_contact(p2, phone="", person="")])
     _apply(user_client, it2)
     db.expire_all()
     assert db.get(Partner, p2.id).contact == "박서연 메일 SeoYeon@Hanbit.example"
@@ -185,7 +212,15 @@ def test_same_card_twice_adds_once(app, user_client, db, settings):
     for _ in range(2):
         _apply(user_client, _plan(db, settings, p))
     db.expire_all()
-    assert db.get(Partner, p.id).contact.count("02-555-0142") == 1
+    assert len(db.scalars(select(Person)).all()) == 1
+
+
+def test_name_only_card_twice_makes_one_contact(app, user_client, db, settings):
+    p, _ = _world(db)
+    for _ in range(2):
+        _apply(user_client, _plan(db, settings, p, phone="", email="", role="", address="판교"))
+    db.expire_all()
+    assert [x.name for x in db.scalars(select(Person))] == ["박서연"]  # 번호·이메일이 없으면 이름으로 같은 사람
 
 
 def test_apply_deleted_target_is_skipped(app, user_client, db, settings):
@@ -228,7 +263,7 @@ def test_form_target_must_be_existing_record_of_right_type(app, user_client, db,
     form["ct1__target"] = [str(p2.id)]  # 같은 종류의 다른 등록 파트너는 고를 수 있다
     _apply(user_client, it, form)
     db.expire_all()
-    assert "02-555-0142" in db.get(Partner, p2.id).contact and db.get(Partner, p.id).contact == "대표전화 02-111-2222"
+    assert db.scalar(select(Person)).partner_id == p2.id and db.get(Partner, p.id).contact == "대표전화 02-111-2222"
     assert db.get(Customer, c.id).contact == ""
 
     it = _plan(db, settings, p)
@@ -239,6 +274,7 @@ def test_form_target_must_be_existing_record_of_right_type(app, user_client, db,
     db.expire_all()
     assert it.result[0]["type"] == "skipped"  # 직접 고른 값이 없는 번호면 정리안의 대상으로 돌아가지 않고 건너뛴다
     assert db.get(Customer, c.id).contact == "" and "031-999-0000" not in db.get(Partner, p.id).contact
+    assert len(db.scalars(select(Person)).all()) == 1
 
 
 def test_form_cannot_change_target_type(app, user_client, db, settings):
@@ -268,6 +304,7 @@ def test_newlines_in_fields_stay_one_line(app, user_client, db, settings):
     it = _plan(db, settings, p)
     form = form_from_page(user_client, it)
     form["ct1__note"] = ["첫줄\n둘째줄\t끝"]
+    form["ct1__person"] = [""]
     _apply(user_client, it, form)
     db.expire_all()
     assert len(db.get(Partner, p.id).contact.split("\n")) == 2
@@ -305,3 +342,14 @@ def test_prompt_file_text():
     from pathlib import Path
     text = (Path(intake_tasks.__file__).parent / "prompts" / "intake_analyze.md").read_text(encoding="utf-8")
     assert "`contacts`" in text and "새로 만들지 마세요" in text
+
+
+def test_new_company_named_lines_become_contacts_unnamed_stay_text(app, user_client, db, settings):
+    it = ready_bundle(db, settings, [CARD], customers=[NewCustomer(name="새병원", contact="김부장 원무과 010-1111-2222 kim@new.example\n대표번호 02-123-4567", files=[1])])
+    _apply(user_client, it)
+    db.expire_all()
+    c = db.query(Customer).filter_by(name="새병원").one()
+    assert c.contact == "대표번호 02-123-4567"
+    assert [(x.name, x.title, x.phone, x.email) for x in c.contacts] == [("김부장", "원무과", "010-1111-2222", "kim@new.example")]
+    assert (c.contacts[0].origin_type, c.contacts[0].origin_id) == ("intake", it.id)
+    assert any(e.get("label") == "새병원 (담당자 1명 추가)" for e in it.result)

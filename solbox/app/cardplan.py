@@ -75,8 +75,15 @@ def _line(card: cardfile.Card, where: str) -> str:
     return f"{text} ({where})" if where else text
 
 
-def _dup_note(existing: str, v: dict, card: cardfile.Card) -> str:
-    """대상의 연락처 글에 같은 휴대폰·이메일(없으면 같은 줄)이 이미 있으면 그 까닭 글."""
+def _dup_note(target, v: dict, card: cardfile.Card) -> str:
+    """같은 사람이 이미 있으면 그 까닭 글. 사람 이름이 있는 카드는 담당자 기록과 견주고 (영업 D: 저장하면 담당자를 만든다),
+    이름이 없는 카드는 연락처 글에 같은 휴대폰·이메일(없으면 같은 줄)이 있는지 본다."""
+    from app import contacts as ct
+
+    if (v.get("person") or "").strip():
+        same = ct.same_person(target.contacts, v["person"], v["phone"], v["email"])
+        return f"같은 담당자({same.name})가 이미 있어요" if same is not None else ""
+    existing = target.contact
     if not (existing or "").strip():
         return ""
     if any(il._phone_key(n) in il._phone_keys(existing) for n in card.mobiles if len(il._phone_key(n)) >= 5):
@@ -126,7 +133,7 @@ def build_plan(db: Session, intake: Intake, parsed: cardfile.Parsed, default_kin
     def contact_item(target_type: str, target, entry: dict, skip_note: str = "", extra_skip: bool = False) -> dict:
         card, values = entry["card"], contact_values(entry["card"])
         where = _where(parsed, entry["rows"])
-        dup = _dup_note(target.contact, values, card)
+        dup = _dup_note(target, values, card)
         item = {"kind": "add_contact", "reason": f"명함 파일 {where}" + (" · 등록된 " + ("파트너" if target_type == "partner" else "고객") + "와 회사 이름이 같음"),
                 **base, "target_type": target_type, "target_id": target.id, "target_name": target.name, **values}
         note = dup + (" — 제외로 해 두었어요. 그래도 넣으려면 \"이 항목 제외\"를 풀어 주세요." if dup else "")

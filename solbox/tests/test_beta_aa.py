@@ -9,7 +9,7 @@ from openpyxl import Workbook
 
 from app import cardfile, cardplan, intake as intake_lib, ontology, origin
 from app.main import create_app
-from app.models import AIJob, Customer, Intake, Partner
+from app.models import AIJob, Contact, Customer, Intake, Partner
 from tests.conftest import _PageForm, nloc
 
 HEADER = ["이름", "회사", "부서", "직책", "휴대폰", "전화", "이메일"]
@@ -206,12 +206,14 @@ def _world(db):
     p = Partner(name="루미텍(주)", contact="")
     db.add_all([c, p])
     db.commit()
+    db.add(Contact(name="김원장", phone="010-0000-0099", customer=c))  # 영업 D: 같은 사람은 담당자 기록과 견준다
+    db.commit()
     return c, p
 
 
 WORLD_ROWS = [
     ["김가짜", "한빛병원", "원무과", "과장", "010-0000-0001", "02-000-0001", "kim@example.com"],       # 등록된 고객
-    ["이기존", "한빛병원", "", "", "010-0000-0099", "", ""],                                          # 이미 연락처에 있는 휴대폰
+    ["이기존", "한빛병원", "", "", "010-0000-0099", "", ""],                                          # 이미 담당자에 있는 휴대폰
     ["박파트", "㈜루미텍", "개발", "팀장", "010-0000-0002", "", "park@example.com"],                  # 등록된 파트너
     ["최신규", "새로운(주)", "", "대표", "010-0000-0003", "", "choi@example.com"],                    # 새 회사 (둘이 한 항목)
     ["정신규", "새로운", "", "이사", "010-0000-0004", "", ""],
@@ -241,7 +243,7 @@ def test_import_builds_plan_without_ai(user_client, db, settings):
     assert [x["person"] for x in contacts] == ["김가짜", "이기존", "박파트"]
     assert contacts[0]["role"] == "원무과 과장" and contacts[0]["phone"] == "010-0000-0001 / 02-000-0001" and contacts[0]["target_id"] == c.id
     assert contacts[2]["target_type"] == "partner" and contacts[2]["target_id"] == p.id
-    assert contacts[1]["skip_default"] and "휴대폰" in contacts[1]["skip_note"] and "skip_default" not in contacts[0]
+    assert contacts[1]["skip_default"] and "같은 담당자(김원장)" in contacts[1]["skip_note"] and "skip_default" not in contacts[0]
     unplaced = items[-1]
     assert unplaced["kind"] == "unplaced" and any("무회사" in line and "회사 이름이 없어요" in line for line in unplaced["lines"])
     r = user_client.get(f"/intake/{it.id}")
@@ -256,16 +258,19 @@ def test_apply_creates_records_with_import_origin_and_contact_lines(user_client,
     _post_cards(user_client, "cards.csv", csv_bytes(WORLD_ROWS))
     it = db.query(Intake).one()
     r, form = _form(user_client, it.id)
-    assert "skip_ct2" in form and "skip_ct1" not in form  # 이미 있는 연락처는 처음부터 제외로
+    assert "skip_ct2" in form and "skip_ct1" not in form  # 이미 있는 담당자는 처음부터 제외로
     r = user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     assert r.status_code == 303 and "notice=intake_applied" in r.headers["location"]
     db.expire_all()
     hanbit, lumi = db.get(Customer, c.id), db.get(Partner, p.id)
-    assert hanbit.contact.splitlines()[0] == "김원장 010-0000-0099"  # 기존 글은 그대로
-    assert "김가짜 원무과 과장 · 010-0000-0001 / 02-000-0001 · kim@example.com (명함 파일, " in hanbit.contact and "이기존" not in hanbit.contact
-    assert "박파트 개발 팀장" in lumi.contact
+    assert hanbit.contact == "김원장 010-0000-0099"  # 기존 글은 그대로, 사람은 담당자 기록으로 (영업 D)
+    kim = db.query(Contact).filter_by(name="김가짜").one()
+    assert (kim.customer_id, kim.title, kim.phone, kim.office_phone, kim.email) == (c.id, "원무과 과장", "010-0000-0001", "02-000-0001", "kim@example.com")
+    assert (kim.origin_type, kim.origin_id) == (ontology.ORIGIN_IMPORT, it.id) and db.query(Contact).filter_by(name="이기존").count() == 0
+    assert lumi.contact == "" and [x.title for x in lumi.contacts] == ["개발 팀장"]
     new = db.query(Customer).filter_by(name="새로운(주)").one()
-    assert "최신규 대표 · 010-0000-0003" in new.contact and "정신규 이사 · 010-0000-0004" in new.contact
+    assert new.contact == "" and [(x.name, x.title, x.phone) for x in new.contacts] == [("최신규", "대표", "010-0000-0003"), ("정신규", "이사", "010-0000-0004")]
+    assert any("새로운(주) (담당자 2명 추가)" == e.get("label") for e in db.get(Intake, it.id).result)
     assert (new.origin_type, new.origin_id) == (ontology.ORIGIN_IMPORT, it.id)
     assert not ontology.is_ai_generated(new) and ontology.ai_generated_note(new) is None
     assert db.query(Customer).count() == 2 and db.query(AIJob).count() == 0
@@ -289,7 +294,7 @@ def test_double_apply_saves_once(user_client, db, settings):
     second = user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     assert first.status_code == second.status_code == 303
     db.expire_all()
-    assert db.get(Customer, c.id).contact.count("김가짜") == 1 and db.query(Customer).filter_by(name="새로운(주)").count() == 1
+    assert db.query(Contact).filter_by(name="김가짜").count() == 1 and db.query(Customer).filter_by(name="새로운(주)").count() == 1
 
 
 def test_double_submit_of_the_upload_form_makes_one_batch(user_client, db):
@@ -314,7 +319,7 @@ def test_switch_new_customer_to_partner_and_skip(user_client, db):
     assert r.status_code == 303
     db.expire_all()
     partner = db.query(Partner).filter_by(name="새로운(주)").one()
-    assert "최신규 대표" in partner.contact and (partner.origin_type, partner.origin_id) == ("import", it.id)
+    assert [x.name for x in partner.contacts] == ["최신규"] and (partner.origin_type, partner.origin_id) == ("import", it.id)
     assert db.query(Customer).count() == 0  # 고객으로는 만들지 않았고, 제외한 회사도 없다
 
 
@@ -468,9 +473,11 @@ def test_pages_and_links_and_paste_hint(user_client):
 
 
 def test_existing_contact_listed_twice_is_not_added_again_at_apply(user_client, db):
-    """화면에서 제외를 풀어도 저장할 때 기존 `CONTACT_EXISTS` 규칙이 한 번 더 건너뛴다."""
-    c = Customer(name="한빛병원", contact="김가짜 010-0000-0001 kim@example.com")
+    """화면에서 제외를 풀어도 저장할 때 같은 사람 규칙(`CONTACT_PERSON_EXISTS`)이 한 번 더 건너뛴다."""
+    c = Customer(name="한빛병원", contact="")
     db.add(c)
+    db.commit()
+    db.add(Contact(name="김가짜", phone="010-0000-0001", email="kim@example.com", customer=c))
     db.commit()
     _post_cards(user_client, "cards.csv", csv_bytes([["김가짜", "한빛병원", "", "", "010-0000-0001", "", "kim@example.com"],
                                                        ["이다른", "한빛병원", "", "", "010-0000-0007", "", ""]]))
@@ -479,5 +486,5 @@ def test_existing_contact_listed_twice_is_not_added_again_at_apply(user_client, 
     form.pop("skip_ct1", None)
     user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     db.expire_all()
-    assert db.get(Customer, c.id).contact.count("010-0000-0001") == 1 and "이다른" in db.get(Customer, c.id).contact
-    assert any("이미 있는 연락처" in str(e.get("label")) for e in db.get(Intake, it.id).result)
+    assert db.query(Contact).filter_by(name="김가짜").count() == 1 and db.query(Contact).filter_by(name="이다른").count() == 1
+    assert any("이미 있는 담당자" in str(e.get("label")) for e in db.get(Intake, it.id).result)

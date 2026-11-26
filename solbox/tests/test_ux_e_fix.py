@@ -36,8 +36,8 @@ def test_interleaved_appends_keep_both_lines(app, user_client, db, settings, mon
     p = Partner(name="한빛", contact="대표 02-111-2222")
     db.add(p)
     db.commit()
-    a = ready_bundle(db, settings, [CARD], contacts=[_c(p)])
-    b = ready_bundle(db, settings, [CARD], contacts=[_c(p, person="이민호", phone="010-9999-8888", email="minho@hanbit.example")])
+    a = ready_bundle(db, settings, [CARD], contacts=[_c(p, person="")])  # 이름 없는 연락처: 글에 덧붙인다 (사람은 담당자 기록, 영업 D)
+    b = ready_bundle(db, settings, [CARD], contacts=[_c(p, person="", phone="010-9999-8888", email="minho@hanbit.example")])
     fa, fb = form_from_page(user_client, a), form_from_page(user_client, b)
     user = db.query(User).filter_by(username="kim").one()
     errors = []
@@ -76,7 +76,7 @@ def test_append_refreshes_mirror_with_new_value(app, user_client, db, settings):
     p = Partner(name="한빛", contact="")
     db.add(p)
     db.commit()
-    it = ready_bundle(db, settings, [CARD], contacts=[_c(p)])
+    it = ready_bundle(db, settings, [CARD], contacts=[_c(p, person="")])
     _apply(user_client, it)
     assert "02-555-0142" in app.state.mirror.path_for(db.get(Partner, p.id)).read_text(encoding="utf-8")
 
@@ -119,8 +119,8 @@ def test_same_card_twice_is_skipped_but_other_person_is_appended(app, user_clien
     for contact in (_c(p), _c(p), _c(p, person="이민호", email="")):
         _apply(user_client, ready_bundle(db, settings, [CARD], contacts=[contact]))
     db.expire_all()
-    lines = db.get(Partner, p.id).contact.split("\n")
-    assert len(lines) == 2 and "박서연" in lines[0] and "이민호" in lines[1]
+    assert [x.name for x in db.get(Partner, p.id).contacts] == ["박서연", "이민호"]  # 영업 D: 담당자 기록, 같은 사람은 한 번
+    assert db.get(Partner, p.id).contact == ""
 
 
 # ---- I3 폼의 대상이 이상하면 정리안 대상으로 돌아가지 않고 건너뛴다 ----
@@ -144,7 +144,7 @@ def test_absent_or_empty_target_uses_plan_target(app, user_client, db, settings)
     p = Partner(name="한빛", contact="")
     db.add(p)
     db.commit()
-    it = ready_bundle(db, settings, [CARD], contacts=[_c(p)])
+    it = ready_bundle(db, settings, [CARD], contacts=[_c(p, person="")])
     form = form_from_page(user_client, it)
     del form["ct1__target"]
     _apply(user_client, it, form)
@@ -182,7 +182,9 @@ def test_contact_fields_are_capped_and_invisible_marks_removed(app, user_client,
     form["ct1__role"] = ["R" * 1000]
     _apply(user_client, it, form)
     db.expire_all()
-    contact = db.get(Partner, p.id).contact
+    person = db.get(Partner, p.id).contacts[0]  # 영업 D: 사람이 있으면 담당자 기록 (칸 길이 제한은 그대로)
+    assert len(person.name) == 100 and len(person.title) == 100 and "​" not in person.note and "‮" not in person.note
+    contact = person.note + person.title
     assert len(contact) < 1000 and "A" * 200 in contact and "A" * 201 not in contact and "R" * 100 in contact and "R" * 101 not in contact
 
 
@@ -224,7 +226,7 @@ def test_renamed_target_can_be_confirmed_by_the_user(app, user_client, db, setti
     form["ct1__target_ok"] = ["on"]
     _apply(user_client, it, form)
     db.expire_all()
-    assert "02-555-0142" in db.get(Partner, p.id).contact
+    assert db.get(Partner, p.id).contacts[0].office_phone == "02-555-0142"
 
 
 def test_unchanged_target_has_no_warning(app, user_client, db, settings):

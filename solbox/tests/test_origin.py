@@ -113,7 +113,8 @@ def test_add_contact_changes_no_origin(app, user_client, db, settings):
     assert user_client.post(f"/intake/{it.id}/apply", data=form_from_page(user_client, it), follow_redirects=False).status_code == 303
     db.expire_all()
     assert db.get(Partner, p.id).origin_type == "manual" and db.get(Customer, c.id).origin_type is None
-    assert "010-1234-5678" in db.get(Partner, p.id).contact  # 연락처는 실제로 덧붙었다
+    person = db.get(Partner, p.id).contacts[0]  # 사람은 담당자 기록으로 (영업 D): 회사의 유래는 그대로, 담당자의 유래는 이 묶음
+    assert person.phone == "010-1234-5678" and (person.origin_type, person.origin_id) == ("intake", it.id)
 
 
 def _research_post(client, run, report, index, source="suggestion"):

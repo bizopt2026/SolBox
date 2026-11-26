@@ -866,6 +866,7 @@ CONTACT_TARGET_GONE = {"partner": "대상 파트너가 삭제되어 연락처를
 TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 자료를 추가하지 못했습니다. 대상을 다시 고르세요."
 CONTACT_TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 연락처를 추가하지 못했습니다. 대상을 다시 고르세요."
 CONTACT_EXISTS = "이미 있는 연락처"
+CONTACT_PERSON_EXISTS = "이미 있는 담당자"
 NO_CONTACT_FIELD = "담당자·전화·이메일·주소 중 하나는 입력하세요."
 _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "catalog")), ("spec", ("스펙", "spec", "사양", "규격", "datasheet")))
 
@@ -1510,6 +1511,9 @@ def _append_contact(run: _Run, item: dict, v: dict) -> None:
     if from_plan and not v.get("target_ok") and stored and normalize_name(stored) != normalize_name(obj.name):
         _skip(run, "add_contact", CONTACT_TARGET_CHANGED, files)
         return
+    if _flat(v.get("person", "")):  # 사람 이름이 있으면 담당자 기록만 만든다 (영업 D: 연락처 글에는 덧붙이지 않는다)
+        _add_person(run, item, v, obj, files)
+        return
     if _already_listed(obj.contact or "", v):
         _skip(run, "add_contact", CONTACT_EXISTS, files, obj.name)
         return
@@ -1525,6 +1529,44 @@ def _append_contact(run: _Run, item: dict, v: dict) -> None:
     run.result.append({"type": item["target_type"], "id": obj.id, "label": f"{obj.name} (연락처 추가)"})
 
 
+def _new_contact(run: _Run, company, company_type: str, fields: dict):
+    """회사에 담당자 기록 하나를 만든다 (유래 = 이 묶음). 같은 사람이 이미 있으면 None."""
+    from app import contacts as ct
+    from app.models import Contact
+
+    if ct.same_person(company.contacts, fields["name"], " ".join((fields["phone"], fields["office_phone"])), fields["email"]) is not None:
+        return None
+    person = Contact(**fields, created_by_id=run.user.id, origin_type=run.origin[0], origin_id=run.origin[1])
+    setattr(person, company_type, company)
+    run.db.add(person)
+    run.db.flush()
+    return person
+
+
+def _add_person(run: _Run, item: dict, v: dict, obj, files: list[dict]) -> None:
+    from app import contacts as ct
+
+    same = ct.same_person(obj.contacts, v["person"], v["phone"], v["email"])
+    if same is not None:
+        _skip(run, "add_contact", CONTACT_PERSON_EXISTS, files, f"{obj.name} {same.name}")
+        return
+    person = _new_contact(run, obj, item["target_type"], ct.from_intake(v))
+    for f in _item_files(run.intake, item):
+        if not f.target_type and run.intake.source != "cards":
+            f.target_type, f.target_id = item["target_type"], obj.id
+    run.remember("partners" if item["target_type"] == "partner" else "customers", obj)
+    run.result.append({"type": item["target_type"], "id": obj.id, "label": f"{obj.name} (담당자 추가: {person.name})"})
+
+
+def _people_into(run: _Run, company, company_type: str, people: list[dict]) -> int:
+    """새 회사 항목의 연락처 글에서 이름이 잡힌 줄을 담당자로 (같은 사람은 건너뛴다). 만든 수."""
+    return sum(1 for fields in people if _new_contact(run, company, company_type, fields) is not None)
+
+
+def _people_note(n: int) -> str:
+    return f" (담당자 {n}명 추가)" if n else ""
+
+
 def entity_kind(item: dict, v: dict) -> str:
     """새 회사 항목이 실제로 만들 종류: 정리안의 종류, 확인 화면에서 "분류" 를 바꿨으면 그것 (`new_customer` / `new_partner`)."""
     if item["kind"] in ("new_customer", "new_partner") and v.get("as_kind") in ("customer", "partner"):
@@ -1534,26 +1576,37 @@ def entity_kind(item: dict, v: dict) -> str:
 
 def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
     """고른 항목으로 기록을 만든다 (커밋하지 않는다): 파트너, 고객, 솔루션, 솔루션 자료, 활동 기록 순서."""
+    from app import contacts as ct
     from app import records
 
     db, user = run.db, run.user
     partners_for: dict[str, object] = {}
     for item, v in chosen:
         if entity_kind(item, v) == "new_partner":
-            partner, created = records.get_or_create(db, Partner, v["name"], user, origin=run.origin, contact=v["contact"].strip(),
+            people, rest = ct.split_for_new_company(v["contact"])  # 영업 D: 이름이 잡힌 줄은 담당자로, 남은 줄만 연락처 메모로
+            partner, created = records.get_or_create(db, Partner, v["name"], user, origin=run.origin, contact=rest.strip(),
                                                      description=v.get("description", "").strip(), memo=v["memo"].strip())
-            if created:
-                run.result.append({"type": "partner", "id": partner.id, "label": partner.name})
+            if partner is not None:
+                made = _people_into(run, partner, "partner", people)
+                if created:
+                    run.result.append({"type": "partner", "id": partner.id, "label": partner.name + _people_note(made)})
+                elif made:
+                    run.result.append({"type": "partner", "id": partner.id, "label": f"{partner.name} (이미 있는 파트너에 담당자 {made}명 추가)"})
             run.remember("partners", partner)
     for item, v in chosen:
         if item["kind"] == "new_solution":
             partners_for[item["key"]] = run.partner_for(v)
     for item, v in chosen:
         if entity_kind(item, v) == "new_customer":
+            people, rest = ct.split_for_new_company(v["contact"])
             customer, created = records.get_or_create(db, Customer, v["name"], user, origin=run.origin, industry=v.get("industry", "").strip(),
-                                                      contact=v["contact"].strip(), memo=v["memo"].strip())
-            if created:
-                run.result.append({"type": "customer", "id": customer.id, "label": customer.name})
+                                                      contact=rest.strip(), memo=v["memo"].strip())
+            if customer is not None:
+                made = _people_into(run, customer, "customer", people)
+                if created:
+                    run.result.append({"type": "customer", "id": customer.id, "label": customer.name + _people_note(made)})
+                elif made:
+                    run.result.append({"type": "customer", "id": customer.id, "label": f"{customer.name} (이미 있는 고객에 담당자 {made}명 추가)"})
             run.remember("customers", customer)
 
     for item, v in chosen:

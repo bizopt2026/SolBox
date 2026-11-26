@@ -137,3 +137,46 @@ def clean(values: dict) -> dict:
 
 def role_label(code: str) -> str:
     return ontology.CONTACT_ROLES.get(code or "", "")
+
+
+def _mobiles_and_others(phone_text: str) -> tuple[list[str], list[str]]:
+    found = [p.strip() for p in PHONE_RE.findall(phone_text or "")]
+    if not found and digits(phone_text):
+        found = [(phone_text or "").strip()]
+    return [p for p in found if is_mobile(p)], [p for p in found if not is_mobile(p)]
+
+
+def same_person(contacts, name: str, phone_text: str = "", email_text: str = ""):
+    """`find_same` 를 여러 번호·이메일이 든 글로: 휴대폰 하나라도 같거나 이메일 하나라도 같으면, 둘 다 없으면 이름이 같으면 같은 사람."""
+    mobiles, _ = _mobiles_and_others(phone_text)
+    emails = [e.lower() for e in EMAIL_RE.findall(email_text or "")]
+    for m in mobiles:
+        if (c := find_same(contacts, name, m, "")) is not None:
+            return c
+    for e in emails:
+        if (c := find_same(contacts, name, "", e)) is not None:
+            return c
+    if not mobiles and not emails:
+        return find_same(contacts, name)
+    return None
+
+
+def from_intake(v: dict) -> dict:
+    """올리기·명함의 연락처 칸(person·role·phone·email·address·note) → 담당자 칸. 휴대폰은 첫 휴대폰, 나머지 번호는 사무실 전화,
+    주소는 메모에 "주소: …" 로 붙인다 (DB 칸을 늘리지 않는다)."""
+    mobiles, others = _mobiles_and_others(v.get("phone", ""))
+    note = " · ".join(x for x in ((v.get("note") or "").strip(), ("주소: " + v["address"].strip()) if (v.get("address") or "").strip() else "") if x)
+    return {"name": (v.get("person") or "").strip(), "title": (v.get("role") or "").strip(), "role": "",
+            "phone": mobiles[0] if mobiles else "", "office_phone": ", ".join(others + mobiles[1:]),
+            "email": ", ".join(EMAIL_RE.findall(v.get("email", ""))) or (v.get("email") or "").strip(), "note": note}
+
+
+def split_for_new_company(text: str) -> tuple[list[dict], str]:
+    """새 회사의 연락처 글 → (이름이 잡힌 줄의 담당자 칸들, 이름이 없는 줄만 남긴 연락처 글)."""
+    people, rest = [], []
+    for row in parse_text(text):
+        if row["name"]:
+            people.append({f: row[f] for f in FIELDS})
+        else:
+            rest.append(row["line"])
+    return people, "\n".join(rest)
