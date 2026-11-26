@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error %}
+{% set stage_name = ont.OPPORTUNITY_STAGES[stage] %}
+{% set action_name = josa(stage_name, "으로/로") ~ " 바꾸기" %}
+{% block title %}{{ action_name }}{% endblock %}
+{% block content %}
+{{ page_header(action_name, crumbs=ui.crumbs("opportunity", opp.name, "/opportunities/" ~ opp.id, action_name), sub=opp.name ~ " · " ~ opp.customer.name) }}
+{{ form_error(error) }}
+<form method="post" action="/opportunities/{{ opp.id }}/close" class="form-page">
+  <input type="hidden" name="stage" value="{{ stage }}">
+  <section class="card stack close-card">
+    <fieldset class="reason-pick{{ ' has-error' if error and error_field(error) == 'reason' }}"{% if error and error_field(error) == 'reason' %} aria-invalid="true" aria-describedby="e-reason"{% endif %}>
+      <legend>{{ stage_name }} {{ ont.prop("opportunity", "close_reason") }}<span class="req" aria-hidden="true"> *</span><span class="sr-only"> (필수)</span></legend>
+      <div class="reason-chips">
+        {% for code, text in reasons.items() %}<label><input type="radio" name="reason" value="{{ code }}"{% if reason == code %} checked{% endif %}> {{ text }}</label>{% endfor %}
+      </div>
+      {% if error and error_field(error) == 'reason' %}<p class="field-err" id="e-reason">{{ error }}</p>{% endif %}
+    </fieldset>
+    <div class="fld wide">
+      <label for="f-note">{{ ont.prop("opportunity", "close_note") }} <span class="muted">(선택)</span></label>
+      <textarea id="f-note" name="note" rows="3" maxlength="{{ note_max }}">{{ note }}</textarea>
+    </div>
+    <p class="muted help">사유는 나중에 이기고 지는 까닭을 모아 보는 데 씁니다. 진행 중 단계로 되돌리면 사유는 비워지고 변경 이력에는 남습니다.</p>
+  </section>
+  <div class="row savebar"><button type="submit" class="{{ 'danger danger-fill' if stage == ont.OPPORTUNITY_STAGE_LOST else 'primary' }}">{{ action_name }}</button> <a class="button" href="/opportunities/{{ opp.id }}">취소</a></div>
+</form>
+{% endblock %}

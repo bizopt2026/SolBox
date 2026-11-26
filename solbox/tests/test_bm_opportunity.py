@@ -296,7 +296,8 @@ def test_stage_any_to_any_and_bad_value(user_client, db):
     c = _customer(db)
     o = _opp_via_post(user_client, db, c)
     for stage in ("won", "lost", "discovery", "hold", "negotiating", "proposing"):
-        r = user_client.post(f"/opportunities/{o.id}/stage", data={"stage": stage}, follow_redirects=False)
+        url, data = (f"/opportunities/{o.id}/close", {"stage": stage, "reason": "other"}) if stage in ("won", "lost") else (f"/opportunities/{o.id}/stage", {"stage": stage})  # 수주·실패는 사유와 함께 (영업 A)
+        r = user_client.post(url, data=data, follow_redirects=False)
         assert r.status_code == 303
         db.refresh(o)
         assert o.stage == stage
@@ -315,7 +316,7 @@ def test_convert_only_when_won_and_once(user_client, db, settings):
     assert user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": "프로젝트"}).status_code == 400
     assert db.query(Project).count() == 0
     assert "프로젝트로 전환" not in user_client.get(f"/opportunities/{o.id}").text
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     page = user_client.get(f"/opportunities/{o.id}").text
     assert f'href="/opportunities/{o.id}/convert"' in page and "프로젝트로 전환" in page
     form = user_client.get(f"/opportunities/{o.id}/convert").text
@@ -345,7 +346,7 @@ def test_convert_only_when_won_and_once(user_client, db, settings):
 def test_convert_requires_name(user_client, db):
     c = _customer(db)
     o = _opp_via_post(user_client, db, c)
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     r = user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": " "})
     assert r.status_code == 400 and "이름을 입력하세요." in r.text and db.query(Project).count() == 0
 
@@ -358,7 +359,7 @@ def test_link_existing_project_same_customer_only(user_client, db):
     o = _opp_via_post(user_client, db, c1)
     o2 = _opp_via_post(user_client, db, c1, name="둘째")
     for x in (o, o2):
-        user_client.post(f"/opportunities/{x.id}/stage", data={"stage": "won"})
+        user_client.post(f"/opportunities/{x.id}/close", data={"stage": "won", "reason": "other"})
     form = user_client.get(f"/opportunities/{o.id}/convert").text
     assert f'<option value="{mine.id}"' in form and f'<option value="{theirs.id}"' not in form
     r = user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "link", "project_id": str(theirs.id)})
@@ -438,7 +439,7 @@ def test_admin_can_delete_others_opportunity(user_client, db):
 def test_project_delete_clears_opportunity_link(user_client, db, settings):
     c = _customer(db)
     o = _opp_via_post(user_client, db, c)
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": "프로젝트"})
     p = db.query(Project).one()
     pid = p.id
@@ -569,13 +570,13 @@ def test_opportunity_pages(user_client, db):
                    f'href="/customers/{c.id}"', f'href="/proposals/{prop.id}"', "한빛 제안"):
         assert needle in page, needle
     lst = user_client.get("/opportunities").text
-    assert "전력 절감 사업" in lst and "한빛병원" in lst and "에너지 절감 BM" in lst
+    assert "전력 절감 사업" in lst and "한빛병원" in lst and "에너지 절감 BM" not in lst  # BM 은 상세에서만 (영업 A: 목록에서 BM 칸을 뺌, 사용자 결정)
     assert "전력 절감 사업" in user_client.get("/opportunities?q=전력").text
     assert "전력 절감 사업" not in user_client.get("/opportunities?q=없음").text
     assert "전력 절감 사업" in user_client.get("/opportunities?stage=discovery").text
     assert "전력 절감 사업" not in user_client.get("/opportunities?stage=won").text
     assert "전력 절감 사업" in user_client.get("/opportunities?stage=open").text
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "lost"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "lost", "reason": "other"})
     assert "전력 절감 사업" not in user_client.get("/opportunities?stage=open").text
     bmpage = user_client.get(f"/bms/{bm.id}").text
     assert f'href="/opportunities/{o.id}"' in bmpage
@@ -586,7 +587,7 @@ def test_home_open_opportunity_line(user_client, db):
     c = _customer(db)
     _opp_via_post(user_client, db, c)
     o2 = _opp_via_post(user_client, db, c, name="둘째")
-    user_client.post(f"/opportunities/{o2.id}/stage", data={"stage": "lost"})
+    user_client.post(f"/opportunities/{o2.id}/close", data={"stage": "lost", "reason": "other"})
     home = _text(user_client.get("/").text)
     assert "진행 중인 영업기회 1건" in home
     assert 'href="/opportunities?stage=open"' in user_client.get("/").text
@@ -717,7 +718,7 @@ def test_mirror_files_and_source_resolution(user_client, db, settings):
     s = _sol(db, "에너지 관리")
     bm = _bm(db, solutions=[s])
     o = _opp_via_post(user_client, db, c, need_ids=[str(n.id)], solution_ids=[str(s.id)], bm_id=str(bm.id), memo="여기가 메모")
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     user_client.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": "한빛 전력"})
     p = db.query(Project).one()
     root = settings.knowledge_dir

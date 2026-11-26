@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token, dup_warning, bt_picker %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, field_shell, check_picker, save_bar, rev_fields, form_token, dup_warning, bt_picker %}
 {% block title %}{{ ont.label("opportunity") }} {{ "수정" if opp else "등록" }}{% endblock %}
 {% block content %}
 {% set label = ont.label("opportunity") %}
@@ -30,6 +30,25 @@
       {{ select_field(ont.prop("opportunity", "bm"), "bm_id", bopts, form.bm_id, error=error, help="선택 사항입니다.") }}
       <div class="wide">{{ bt_picker(form.business_types or [], ont.prop("opportunity", "business_types"), none, error, help="이 영업기회에서 고객과 검토하는 사업방식입니다. 제안 건을 만들 때 기본값으로 이어집니다.") }}</div>
       {{ text_field(ont.prop("opportunity", "memo"), "memo", form.memo, rows=3) }}
+    </div>
+  </section>
+  <section class="card" id="progress">
+    <h2>진행</h2>
+    <input type="hidden" name="progress" value="1">
+    <div class="fgrid">
+      {{ text_field(ont.prop("opportunity", "amount"), "amount", form.amount, error=error, help="3.5억, 5천만, 350000000 처럼 적어요.", placeholder="예: 3.5억") }}
+      {{ text_field(ont.prop("opportunity", "expected_close"), "expected_close", form.expected_close, type="date", error=error) }}
+      {% call(err) field_shell(ont.prop("opportunity", "owner"), "owner_user_id", help="팀별로 묶여 있습니다. 새로 등록하면 등록한 사람이 담당입니다.", error=error) %}
+      <select id="f-owner_user_id" name="owner_user_id"{% if err %} aria-invalid="true" aria-describedby="e-owner_user_id"{% else %} aria-describedby="h-owner_user_id"{% endif %}>
+        <option value="">담당 없음</option>
+        {% for group, members in owners %}<optgroup label="{{ group }}">
+          {% for u in members %}<option value="{{ u.id }}"{{ " selected" if form.owner_user_id | string == u.id | string }}>{{ u.name or u.username }}{% if not u.is_active %} (사용 중지){% endif %}</option>{% endfor %}
+        </optgroup>{% endfor %}
+      </select>
+      {% endcall %}
+      <div class="fld" aria-hidden="true"></div>
+      {{ text_field(ont.prop("opportunity", "next_step"), "next_step", form.next_step, error=error, placeholder="예: 수정 견적 회신") }}
+      {{ text_field(ont.prop("opportunity", "next_step_due"), "next_step_due", form.next_step_due, type="date", error=error) }}
     </div>
   </section>
   <section class="card">

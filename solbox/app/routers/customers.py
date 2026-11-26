@@ -36,23 +36,51 @@ def _form_page(request: Request, db: Session, form: dict, customer: Customer | N
     )
 
 
+def _contact_line(db: Session, customer: Customer, today) -> str:
+    """상세 제목 밑 한 줄: "마지막 접촉 24일 전 · 진행 중 영업기회 2건 (합계 4억)" (영업 A 단계). 둘 다 없으면 빈 글 (줄을 그리지 않는다)."""
+    from app import money
+
+    last = relations.latest_activity_dates(db, "customer", [customer.id]).get(customer.id)
+    parts = [f"마지막 접촉 {ui.days_ago(last, today)}"] if last else []  # 활동 기록이 아직 없으면 접촉 부분은 빼고 (빈 항목은 조용히: 화면 규칙)
+    n, total = opps.open_by_customer(db, [customer.id]).get(customer.id, (0, 0))
+    if n:
+        parts.append(f"진행 중 {ontology.label('opportunity')} {n}건" + (f" (합계 {money.format_amount(total)})" if total else ""))
+    return " · ".join(parts)
+
+
 def _detail_page(request: Request, db: Session, user: User, customer: Customer, error: str | None = None):
+    from app.routers.home import today
+
     return render(
         request, "customers/detail.html", status_code=400 if error else 200,
         customer=customer, **relations.page_related(db, customer, user),
         can_delete=can_delete(user, customer), error=error, origin=origin.view(db, user, customer), meta=ui.stamp_info(db, customer),
-        same_name=same_company.candidate_partner(db, customer),
+        same_name=same_company.candidate_partner(db, customer), contact_line=_contact_line(db, customer, today()),
     )
 
 
 @router.get("")
 def list_customers(
-    request: Request, q: str = "", page: str = "1",
+    request: Request, q: str = "", page: str = "1", quiet: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
+    from urllib.parse import urlencode
+
+    from app import money
+    from app.routers.home import today
+
+    now = today()
     rows, origin_tabs, origin_now = origin_filter(request, sort_rows(request, "customer", search_by_name(db, Customer, q), db=db))
+    quiet_on = quiet == "1"
+    if quiet_on:  # 마지막 접촉이 기준 날수보다 오래됐거나 한 번도 없는 고객 (영업 A)
+        latest = relations.latest_activity_dates(db, "customer", [c.id for c in rows])
+        rows = [c for c in rows if latest.get(c.id) is None or (now - latest[c.id]).days > ontology.CUSTOMER_QUIET_DAYS]
     pg = paginate(rows, page)
-    return render(request, "customers/list.html", pg=pg, q=q.strip(), info=row_info(db, "customer", pg.items), origin_tabs=origin_tabs, origin_now=origin_now)
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("quiet", "page", "notice", "nt")]
+    quiet_href = "/customers" + (f"?{urlencode(keep + ([] if quiet_on else [('quiet', '1')]))}" if keep or not quiet_on else "")
+    return render(request, "customers/list.html", pg=pg, q=q.strip(), info=row_info(db, "customer", pg.items), origin_tabs=origin_tabs, origin_now=origin_now,
+                  quiet_on=quiet_on, quiet_href=quiet_href, quiet_days=ontology.CUSTOMER_QUIET_DAYS, today=now, money=money,
+                  open_opps=opps.open_by_customer(db, [c.id for c in pg.items]))
 
 
 @router.get("/new")

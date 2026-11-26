@@ -480,4 +480,7 @@ def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
     from app import solution_fields  # 솔루션 분야 처음 채우기 (베타 AD): 표시가 없을 때만 한 번, 번호는 번호 표시 장치를 거쳐 정한다
 
     solution_fields.seed_once(engine)
+    from app import opportunities  # 영업 A 단계: 옛 영업기회의 담당을 만든 사람으로 한 번만 채운다
+
+    opportunities.backfill_owners_once(engine)
     return backup

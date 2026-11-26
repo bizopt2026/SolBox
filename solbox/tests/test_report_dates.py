@@ -92,7 +92,7 @@ def test_stage_change_ids_keep_id_marks_consistent(db):
 
 def test_stage_change_on_won_conversion(user_client, db):
     o = _opp(db)
-    r = user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"}, follow_redirects=False)
+    r = user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"}, follow_redirects=False)
     assert r.status_code == 303
     db.expire_all()
     assert [(c.from_stage, c.to_stage) for c in _changes(db, o)] == [("", "discovery"), ("discovery", "won")]

@@ -91,6 +91,24 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     contact: Mapped[str | None] = mapped_column(String, nullable=True)  # 제안서 마무리 장에 쓰는 연락처 (본인이 계정 화면에서 적는다)
     must_change_password: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # 관리자가 정해 준 비밀번호: 다음 로그인 뒤 바꿔야 쓸 수 있다
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)  # 소속 팀 (하나 또는 없음, 관리자가 정한다). 옛 DB 는 migrate 가 칸을 더한다
+
+    team: Mapped[Team | None] = relationship(back_populates="members", foreign_keys=[team_id])
+
+
+class Team(Base):
+    """영업 담당을 묶는 팀 (영업 A 단계). 사람에게 팀이 있고, 영업기회의 팀은 담당의 팀에서 읽는다.
+    Stamped 를 쓰지 않는다: 작성자 열(users 를 가리킴)이 있으면 users.team_id 와 외래 키가 서로를 가리켜 표 순서를 정할 수 없다."""
+
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now)
+
+    members: Mapped[list[User]] = relationship(back_populates="team", foreign_keys="User.team_id", passive_deletes=True)
 
 
 class FormToken(Base):
@@ -213,6 +231,14 @@ class Opportunity(Stamped, Base):
     project_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True)  # 이어진 프로젝트
     memo: Mapped[str] = mapped_column(Text, default="")
     business_types: Mapped[str] = mapped_column(String, default="")  # 검토 사업방식 (0..3, 쉼표로 이은 코드, 정의된 순서: ontology.clean_business_types). 베타 Y
+    # 영업 A 단계: 진행 칸 (모두 선택). 바뀔 때마다 guards 가 opportunity_field_changes 에 남긴다 (ontology.OPPORTUNITY_TRACKED_FIELDS)
+    amount: Mapped[int | None] = mapped_column(Integer, nullable=True, active_history=True)  # 예상 금액 (원, app/money.py)
+    expected_close: Mapped[date | None] = mapped_column(Date, nullable=True, active_history=True)  # 예상 수주일
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, active_history=True)  # 담당 (만들 때 기본은 만든 사람)
+    next_step: Mapped[str] = mapped_column(String, default="", server_default="", active_history=True)  # 다음 할 일
+    next_step_due: Mapped[date | None] = mapped_column(Date, nullable=True, active_history=True)
+    close_reason: Mapped[str] = mapped_column(String, default="", server_default="", active_history=True)  # 수주·실패 사유 코드 (ontology.close_reasons)
+    close_note: Mapped[str] = mapped_column(Text, default="", server_default="")
 
     @property
     def business_type_codes(self) -> list[str]:
@@ -226,6 +252,10 @@ class Opportunity(Stamped, Base):
     proposals: Mapped[list[Proposal]] = relationship(back_populates="opportunity")
     stage_changes: Mapped[list[OpportunityStageChange]] = relationship(
         back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityStageChange.changed_at",
+    )
+    owner: Mapped[User | None] = relationship(foreign_keys=[owner_user_id])
+    field_changes: Mapped[list[OpportunityFieldChange]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityFieldChange.id",
     )
 
 
@@ -242,6 +272,24 @@ class OpportunityStageChange(Base):
     changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="stage_changes")
+
+
+class OpportunityFieldChange(Base):
+    """영업기회 진행 칸이 바뀐 기록 한 줄 (영업 A 단계, Salesforce 필드 이력). guards._stamp_report_dates 가 남긴다.
+    값은 저장값을 글로: 날짜 ISO, 정수 글, 없음은 빈 글. source 는 빈 글 = 사람, "ai" = AI 제안을 반영 (B 단계)."""
+
+    __tablename__ = "opportunity_field_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id", ondelete="CASCADE"), index=True)
+    field: Mapped[str] = mapped_column(String)
+    old_value: Mapped[str] = mapped_column(Text, default="")
+    new_value: Mapped[str] = mapped_column(Text, default="")
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String, default="", server_default="")
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="field_changes")
 
 
 class Solution(Stamped, Origin, Base):

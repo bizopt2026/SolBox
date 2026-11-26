@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import business_types as bts, ontology, opportunities as opps, relations, ui
+from app import business_types as bts, money, ontology, opportunities as opps, relations, teams, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -36,11 +36,27 @@ def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | Non
         form=form, opp=opp, error=error, conflict=conflict, duplicate=duplicate, customer=customer, customers=search_by_name(db, Customer),
         bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs,
         unlinked_needs=opps.unlinked_same_name_needs(db, customer),
+        owners=teams.grouped_users(db, keep=opp.owner if opp is not None else None),
     )
 
 
-def _blank_form(customer_id: str = "") -> dict:
-    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": []}
+def _blank_form(customer_id: str = "", owner_id: int | None = None) -> dict:
+    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": [],
+            **opps.progress_form(None, owner_id)}
+
+
+class ProgressForm:
+    """폼의 진행 칸 (영업 A). `present` 는 숨은 칸 progress=1 이 왔는지: 없는 옛 화면·API 는 진행 칸을 건드리지 않는다."""
+
+    def __init__(self, progress: str = Form(""), amount: str = Form(""), expected_close: str = Form(""), owner_user_id: str = Form(""),
+                 next_step: str = Form(""), next_step_due: str = Form("")):
+        self.present = bool(progress)
+        self.typed = {"amount": amount.strip(), "expected_close": expected_close.strip(), "owner_user_id": owner_user_id.strip(),
+                      "next_step": next_step.strip(), "next_step_due": next_step_due.strip()}
+
+    def parse(self, db: Session, current_owner_id: int | None = None) -> tuple[dict, str | None]:
+        t = self.typed
+        return opps.parse_progress(db, t["amount"], t["expected_close"], t["owner_user_id"], t["next_step"], t["next_step_due"], current_owner_id)
 
 
 def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> tuple[dict, str | None]:
@@ -69,24 +85,45 @@ def _submitted(values: dict, need_ids, solution_ids, bt: "bts.BTForm | None" = N
             "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}
 
 
+def _today():
+    from app.routers.home import today
+
+    return today()
+
+
 def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None):
+    now = _today()
+    touch = opps.last_touches(db, [opp])[opp.id]
     return render(
         request, "opportunities/detail.html", status_code=400 if error else 200,
         opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
+        close_reason=opps.close_reason_label(opp), today=now, money=money,
+        stale=opps.stale_badges(opp, now, touch),
+        history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
+        owner_team=teams.team_name(opp.owner),
     )
 
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
-                           loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
+                           loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.owner).selectinload(User.team)))
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
     found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found, db=db))
     found, type_tabs, type_now = bts.type_tabs(request, found, lambda o: o.business_type_codes)
+    now = _today()
+    stale_all = opps.stale_view(db, found, now)  # 멈춘 사유 (걸러 보기 칩 건수와 줄 배지)
+    stale_on = stale == "1"
+    if stale_on:
+        found = [o for o in found if stale_all[o.id]]
+    who_n, who_total = opps.who_counts(found, user), len(found)
+    found, who = opps.who_filter(found, user, who)
+    who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
+    who_tabs = ui.seg_tabs(request, "who", who_choices, who_n, who, who_total)
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -99,7 +136,14 @@ def list_opportunities(
     pg = paginate(found, page)
     choices = [(ontology.OPPORTUNITY_FILTER_OPEN, "진행 중"), *ontology.OPPORTUNITY_STAGES.items()]
     tabs = ui.seg_tabs(request, "stage", choices, counts, stage, total)
-    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now, info=row_info(db, "opportunity", pg.items))
+    stale_n = sum(1 for o in found if stale_all.get(o.id))
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("stale", "page", "notice", "nt")]
+    from urllib.parse import urlencode
+
+    stale_href = "/opportunities?" + urlencode(keep + ([] if stale_on else [("stale", "1")]))
+    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
+                  info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
+                  stale=stale_all, today=now, money=money)
 
 
 @router.get("/new")
@@ -108,7 +152,7 @@ def new_form(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     cid = opps.parse_id(customer_id)
-    form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "")  # 없는 고객 번호는 무시한다
+    form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "", user.id)  # 없는 고객 번호는 무시한다
     nid = opps.parse_id(need_id)
     if nid is not None and any(n.id == nid for n in opps.bundlable_needs(db, opps.parse_id(customer_id))):
         form["need_ids"] = [nid]  # 고객 니즈에서 만들기: 그 니즈를 체크해 둔다 (그 고객의, 아직 묶이지 않은 니즈일 때만)
@@ -122,15 +166,18 @@ def create(
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once), bt: bts.BTForm = Depends(bts.bt_form),
+    pf: ProgressForm = Depends(),
 ):
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids, bt)
+    form = {**_submitted(values, need_ids, solution_ids, bt), **(pf.typed if pf.present else opps.progress_form(None, user.id))}
     error = error or (bts.codes_problem(bt.codes) if bt.present else None)
+    progress, problem = pf.parse(db) if pf.present else ({"owner_user_id": user.id}, None)
+    error = error or problem
     if error:
         return _form_page(request, db, form, error=error)
     if dup := duplicate_warning(db, Opportunity, name, confirm_dup):
         return _form_page(request, db, form, duplicate=dup)
-    opp = Opportunity(**values, business_types=",".join(ontology.clean_business_types(bt.codes)) if bt.present else "", created_by_id=user.id)
+    opp = Opportunity(**values, **progress, business_types=",".join(ontology.clean_business_types(bt.codes)) if bt.present else "", created_by_id=user.id)
     db.add(opp)
     db.flush()
     if error := opps.apply_needs(db, opp, need_ids):
@@ -153,7 +200,7 @@ def detail(opportunity_id: int, request: Request, user: User = Depends(require_u
 def edit_form(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     opp = get_or_404(db, Opportunity, opportunity_id)
     form = {"name": opp.name, "customer_id": opp.customer_id, "bm_id": opp.bm_id or "", "memo": opp.memo, "business_types": opp.business_type_codes,
-            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions]}
+            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions], **opps.progress_form(opp)}
     return _form_page(request, db, form, opp)
 
 
@@ -164,14 +211,21 @@ def update(
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form), bt: bts.BTForm = Depends(bts.bt_form),
+    pf: ProgressForm = Depends(),
 ):
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids, bt, opp)
-    typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else values
-    if conflict := guards.check_rev(opp, rev, values=typed, stored={**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}):
+    form = {**_submitted(values, need_ids, solution_ids, bt, opp), **(pf.typed if pf.present else opps.progress_form(opp))}
+    typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else dict(values)
+    stored = {**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}
+    if pf.present:  # 진행 칸도 견준다 (담당은 이름표가 없는 번호 칸이라 diff_fields 가 건너뛴다)
+        typed.update(pf.typed)
+        stored.update(opps.progress_form(opp))
+    if conflict := guards.check_rev(opp, rev, values=typed, stored=stored):
         return _form_page(request, db, form, opp, conflict=conflict)
     error = error or (bts.codes_problem(bt.codes) if bt.present else None)
+    progress, problem = pf.parse(db, opp.owner_user_id) if pf.present else ({}, None)
+    error = error or problem
     if error is None:
         error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
@@ -180,7 +234,7 @@ def update(
         return _form_page(request, db, form, opp, duplicate=dup)
     before = opps.dependents(db, opp)
     needs_before = {n.id for n in opps.needs_of(db, opp)}
-    for field, value in values.items():
+    for field, value in {**values, **progress}.items():
         setattr(opp, field, value)
     if bt.present:
         opp.business_types = ",".join(ontology.clean_business_types(bt.codes))
@@ -207,12 +261,49 @@ def change_stage(
     opp = get_or_404(db, Opportunity, opportunity_id)
     if error := opps.stage_problem(stage):
         raise HTTPException(status_code=400, detail=error)
+    if opp.stage != stage and opps.needs_reason(stage):  # 수주·실패는 사유 화면을 거친다 (스크립트 없이도 같은 길)
+        return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}", status_code=303)
     if opp.stage != stage:  # 어디서 어디로든 바꿀 수 있다
-        opp.stage = stage
+        opps.apply_stage(opp, stage)
         db.commit()
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
+    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
+
+
+def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None):
+    return render(
+        request, "opportunities/close.html", status_code=400 if error else 200,
+        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX,
+    )
+
+
+@router.get("/{opportunity_id}/close")
+def close_form(opportunity_id: int, request: Request, to: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if not opps.needs_reason(to):
+        return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
+    same = opp.stage == to
+    return _close_page(request, opp, to, opp.close_reason if same else "", opp.close_note if same else "")
+
+
+@router.post("/{opportunity_id}/close")
+def close(
+    opportunity_id: int, request: Request, stage: str = Form(""), reason: str = Form(""), note: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if error := opps.close_problem(stage, reason):
+        if not opps.needs_reason(stage):
+            raise HTTPException(status_code=400, detail=error)
+        return _close_page(request, opp, stage, reason, note, error)
+    opps.apply_stage(opp, stage, reason, note)
+    db.commit()
+    db.refresh(opp)
+    mirror.sync(opp)
+    resync_objects(db, mirror, [opp.customer, opp.bm])
     return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
 
 

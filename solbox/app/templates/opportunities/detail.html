@@ -9,16 +9,41 @@
 {{ detail_head(opp.name, "/opportunities", opp, can_delete, crumbs=ui.crumbs("opportunity", opp.name), sub=sub or none,
                status=opportunity_badge(opp.stage), primary=next) }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if stale %}<p class="notice stale-alert" role="status"><b>멈춘 건</b> {% for tone, t in stale %}{{ t }}{{ " · " if not loop.last }}{% endfor %} <a href="/opportunities/{{ opp.id }}/edit#progress">다음 할 일 고치기</a></p>{% endif %}
 {{ stage_stepper("/opportunities/" ~ opp.id ~ "/stage", ont.OPPORTUNITY_FLOW, ont.OPPORTUNITY_STAGES, opp.stage, ont.OPPORTUNITY_SIDE_STAGES, ont.prop("opportunity", "stage"), "opportunity_stage") }}
+{% set owner_name = (opp.owner.name or opp.owner.username) if opp.owner else "" %}
+<dl class="sumband" aria-label="진행 요약">
+  <div><dt>{{ ont.prop("opportunity", "amount") }}</dt><dd class="num big">{{ money.format_amount(opp.amount) or "–" }}</dd></div>
+  <div><dt>{{ ont.prop("opportunity", "expected_close") }}</dt><dd class="num big">{% if opp.expected_close %}{{ ui.short_date(opp.expected_close, today) }} {% set left = (opp.expected_close - today).days %}<small class="muted">{{ (left ~ "일 남음") if left >= 0 else ((-left) ~ "일 지남") }}</small>{% else %}–{% endif %}</dd></div>
+  <div><dt>{{ ont.prop("opportunity", "owner") }}</dt><dd>{% if opp.owner %}{{ owner_name }}{% if not opp.owner.is_active %} (사용 중지){% endif %}{% if owner_team %} · {{ owner_team }}{% endif %}{% else %}–{% endif %}</dd></div>
+  <div><dt>{{ ont.prop("opportunity", "next_step") }}</dt><dd>{% if opp.next_step %}{% if opp.next_step_due %}<span class="num{{ ' overdue' if opp.next_step_due < today }}">{{ ui.short_date(opp.next_step_due, today) }}</span> {% endif %}{{ opp.next_step }}{% else %}<span class="muted">없음</span>{% endif %}</dd></div>
+</dl>
 <div class="dgrid">
   <div class="dmain">
     {% set cust_link %}<a href="/customers/{{ opp.customer_id }}">{{ opp.customer.name }}</a>{% endset %}
     {% set bm_link %}{% if opp.bm %}<a href="/bms/{{ opp.bm_id }}">{{ opp.bm.name }}</a>{% endif %}{% endset %}
     {% set project_cell %}{% if opp.project %}<a href="/projects/{{ opp.project_id }}">{{ opp.project.name }}</a>{% elif can_convert %}<a class="button primary small" href="/opportunities/{{ opp.id }}/convert">{{ josa(ont.label("project"), "으로/로") }} 전환</a> <span class="muted">수주했습니다. 프로젝트를 만들거나 기존 프로젝트를 이을 수 있습니다.</span>{% else %}{% endif %}{% endset %}
-    {{ props_card("기본 정보", [(ont.prop("opportunity", "customer"), cust_link), (ont.prop("opportunity", "stage"), opportunity_badge(opp.stage)), (ont.prop("opportunity", "bm"), bm_link), (ont.prop("opportunity", "business_types"), bt_badges(opp.business_type_codes) | trim), (ont.prop("opportunity", "project"), project_cell | trim), (ont.prop("opportunity", "memo"), opp.memo)], "/opportunities/" ~ opp.id ~ "/edit") }}
+    {% set reason_cell %}{% if close_reason %}{{ close_reason }}{% if opp.close_note %} · {{ opp.close_note }}{% endif %}{% endif %}{% endset %}
+    {{ props_card("기본 정보", [(ont.prop("opportunity", "customer"), cust_link), (ont.prop("opportunity", "stage"), opportunity_badge(opp.stage)), (ont.prop("opportunity", "bm"), bm_link), (ont.prop("opportunity", "business_types"), bt_badges(opp.business_type_codes) | trim), (ont.prop("opportunity", "project"), project_cell | trim)] + ([(ont.OPPORTUNITY_STAGES[opp.stage] ~ " " ~ ont.prop("opportunity", "close_reason"), reason_cell | trim)] if close_reason else []) + [(ont.prop("opportunity", "memo"), opp.memo)], "/opportunities/" ~ opp.id ~ "/edit") }}
+    {% if open_fus %}
+    <section class="card" aria-labelledby="h-ofu">
+      <header class="card-head"><h2 id="h-ofu">연결된 활동의 열린 후속 조치</h2></header>
+      <ul class="fu-mini">
+        {% for f in open_fus %}<li>{% if f.due %}<span class="num{{ ' overdue' if f.due < today }}">{{ ui.short_date(f.due, today) }}</span> {% endif %}{{ f.task }} <span class="muted">· {% if f.owner %}{{ f.owner }} · {% endif %}<a href="/activities/{{ f.activity_id }}">{{ f.activity.title or "활동 기록" }}</a></span></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
+    {% if history %}
+    <section class="card hist-card" aria-labelledby="h-hist">
+      <h2 id="h-hist">변경 이력</h2>
+      {% macro hist_line(r) %}<li><time>{{ r.when }}</time><div>{{ r.label }} {% if r.old %}<span class="old">{{ r.old }}</span><span class="arrow" aria-label="에서">→</span>{% endif %}<b>{{ r.new or "(비움)" }}</b>{% if r.by %}<small class="by">{{ r.by }}{% if r.source == "ai" %} · AI 제안{% endif %}</small>{% endif %}</div></li>{% endmacro %}
+      <ul class="hist">{% for r in history[:history_shown] %}{{ hist_line(r) }}{% endfor %}</ul>
+      {% if history | length > history_shown %}<details class="hist-more"><summary>이전 기록 {{ history | length - history_shown }}건 더 보기</summary><ul class="hist">{% for r in history[history_shown:] %}{{ hist_line(r) }}{% endfor %}</ul></details>{% endif %}
+    </section>
+    {% endif %}
     {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>

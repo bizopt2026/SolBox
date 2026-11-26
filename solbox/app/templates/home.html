@@ -44,6 +44,24 @@
     {% else %}<p class="muted">처리할 후속 조치가 없습니다.</p>{% endif %}
   </section>
 
+  <section class="card o7" aria-labelledby="h-stale">
+    <header class="card-head"><h2 id="h-stale">챙길 {{ ont.label("opportunity") }}</h2><a href="{{ stale_list }}">멈춘 건 모두 보기</a></header>
+    {{ seg(stale_tabs, "챙길 영업기회 보기") }}
+    {% if stale["items"] %}
+    <ul class="opp-rows">
+      {% for it in stale["items"] %}{% set o = it.opp %}
+      <li class="opp-row">
+        <a class="opp-t" href="/opportunities/{{ o.id }}">{{ o.name }}</a>
+        <span class="num opp-amt{{ ' muted' if not it.amount }}">{{ it.amount or "금액 없음" }}</span>
+        <span class="opp-m">{% for tone, t in it.badges %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}<span class="muted">· {{ ont.OPPORTUNITY_STAGES[o.stage] }} · {{ o.customer.name }}{% if stale.who != "mine" and o.owner %} · {{ o.owner.name or o.owner.username }}{% endif %}</span></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if stale.more %}<p class="muted card-foot">외 {{ stale.more }}건 · <a href="{{ stale_list }}">모두 보기</a></p>{% endif %}
+    {% elif stale.who == "mine" %}<p class="muted">멈춘 내 {{ josa(ont.label("opportunity"), "이/가") }} 없습니다.</p>
+    {% else %}<p class="muted">멈춘 {{ josa(ont.label("opportunity"), "이/가") }} 없습니다.</p>{% endif %}
+  </section>
+
   <section class="card o4" aria-labelledby="h-act">
     <header class="card-head"><h2 id="h-act">최근 활동 기록</h2><a href="/activities">모두 보기</a></header>
     {% if recent %}
@@ -89,12 +107,12 @@
     <div class="stagebars">
       {% for b in opp.bars %}
       <a class="sb-row" href="/opportunities?stage={{ b.code }}" data-stage="{{ b.code }}">
-        <span>{{ b.name }}</span><i aria-hidden="true"><u class="{{ 'won' if b.code == ont.OPPORTUNITY_STAGE_WON }}" style="width: {{ b.pct }}%"></u></i><b>{{ b.count }}</b>
+        <span>{{ b.name }}</span><i aria-hidden="true"><u class="{{ 'won' if b.code == ont.OPPORTUNITY_STAGE_WON }}" style="width: {{ b.pct }}%"></u></i><small class="sb-amt num">{{ b.amount }}</small><b>{{ b.count }}</b>
       </a>
       {% endfor %}
     </div>
     {% else %}<p class="muted">아직 등록된 {{ josa(ont.label("opportunity"), "이/가") }} 없습니다.</p>{% endif %}
-    <p class="muted open-opps card-foot">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ opp.open }}건</a></p>
+    <p class="muted open-opps card-foot">진행 중인 {{ ont.label("opportunity") }} <a href="/opportunities?stage={{ ont.OPPORTUNITY_FILTER_OPEN }}">{{ opp.open }}건</a>{% if opp.open_amount %} · 합계 <b class="num">{{ opp.open_amount }}</b>{% endif %}{% if opp.open_missing %} (금액 미입력 {{ opp.open_missing }}건){% endif %}</p>
   </section>
 
   <section class="card o5" aria-labelledby="h-prop">

@@ -8,7 +8,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import follow_ups as fu_lib
-from app import labels, ontology, transcribe, ui
+from app import labels, money, ontology, opportunities as opps, transcribe, ui
 from app.db import get_db
 from app.main import render
 from app import intake as intake_lib
@@ -23,6 +23,8 @@ LATEST_INSIGHTS, LATEST_SUGGESTIONS = 5, 3
 INTAKE_LINK_LIMIT = 5
 INTAKE_ANALYZING_LIMIT = 3
 FOLLOW_UP_SHOWN = 8
+STALE_SHOWN = 6  # 홈 "챙길 영업기회" 카드 (나머지는 목록의 멈춘 건 걸러 보기)
+STALE_VIEWS = {"": "mine", "team": "team", "all": "all"}  # 주소 ?opp= -> 보기 (기본 내 건)
 AI_PROBLEMS = ("not_installed", "auth", "limit", "network")
 
 
@@ -59,12 +61,35 @@ def stage_flow(db: Session, today: date) -> dict:
 
 
 def opportunity_bars(db: Session) -> dict:
-    """영업기회: 진행 중 단계 + 수주의 건수(막대 길이는 가장 많은 단계 = 100%), 진행 중 합계, 전체. 질의 한 번."""
-    count = dict(db.execute(select(Opportunity.stage, func.count()).group_by(Opportunity.stage)).all())
+    """영업기회: 진행 중 단계 + 수주의 건수(막대 길이는 가장 많은 단계 = 100%)와 금액 합, 진행 중 합계(건수·금액·금액 없는 건수), 전체. 질의 한 번.
+    금액 합은 늘 전체 기준이다 (챙길 영업기회 카드의 내 건·우리 팀 탭을 따르지 않는다)."""
+    rows = db.execute(select(Opportunity.stage, func.count(), func.sum(Opportunity.amount), func.count(Opportunity.amount)).group_by(Opportunity.stage)).all()
+    count = {r[0]: r[1] for r in rows}
+    amount = {r[0]: r[2] or 0 for r in rows}
+    missing = {r[0]: r[1] - r[3] for r in rows}
     codes = (*ontology.OPPORTUNITY_OPEN_STAGES, ontology.OPPORTUNITY_STAGE_WON)
     top = max((count.get(c, 0) for c in codes), default=0)
-    bars = [{"code": c, "name": ontology.OPPORTUNITY_STAGES[c], "count": count.get(c, 0), "pct": round(100 * count.get(c, 0) / top) if top else 0} for c in codes]
-    return {"bars": bars, "open": sum(count.get(c, 0) for c in ontology.OPPORTUNITY_OPEN_STAGES), "total": sum(count.values())}
+    bars = [{"code": c, "name": ontology.OPPORTUNITY_STAGES[c], "count": count.get(c, 0), "pct": round(100 * count.get(c, 0) / top) if top else 0,
+             "amount": money.format_amount(amount.get(c) or None)} for c in codes]
+    open_codes = ontology.OPPORTUNITY_OPEN_STAGES
+    return {"bars": bars, "open": sum(count.get(c, 0) for c in open_codes), "total": sum(count.values()),
+            "open_amount": money.format_amount(sum(amount.get(c, 0) for c in open_codes) or None), "open_missing": sum(missing.get(c, 0) for c in open_codes)}
+
+
+def stale_opportunities(db: Session, user: User, now: date, view: str) -> dict:
+    """홈 "챙길 영업기회": 진행 중이고 멈춘 영업기회. view = mine / team / all. 질의 수는 건수와 무관하다
+    (진행 중 영업기회 한 번 + 담당·팀 미리 읽기 + 마지막 접촉). 날짜가 지난 사유가 있는 건 → 금액 큰 건 순."""
+    rows = list(db.scalars(select(Opportunity).where(Opportunity.stage.in_(ontology.OPPORTUNITY_OPEN_STAGES))
+                           .options(selectinload(Opportunity.customer), selectinload(Opportunity.owner).selectinload(User.team))))
+    badges = opps.stale_view(db, rows, now)
+    stale = [o for o in rows if badges[o.id]]
+    mine = [o for o in stale if o.owner_user_id == user.id]
+    team = [o for o in stale if user.team_id is not None and opps.team_id_of(o) == user.team_id]
+    picked = {"mine": mine, "team": team, "all": stale}[view]
+    picked.sort(key=lambda o: (not any(t == "bad" for t, _ in badges[o.id]), -(o.amount or 0), o.id))
+    items = [{"opp": o, "badges": badges[o.id], "amount": money.format_amount(o.amount)} for o in picked[:STALE_SHOWN]]
+    return {"items": items, "counts": {"mine": len(mine), "team": len(team), "all": len(stale)}, "who": view, "more": max(0, len(picked) - STALE_SHOWN),
+            "has_team": user.team_id is not None}
 
 
 def ai_problem(db: Session) -> str | None:
@@ -140,7 +165,7 @@ def summary_sentence(overdue: int, ready: int) -> str:
 
 
 @router.get("/")
-def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+def home(request: Request, fu_toggled: str = "", fu: str = "", opp: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
     now = today()
     follow_ups = upcoming_follow_ups(db, now)
     mine_only = fu == "mine"  # 후속 조치 카드의 "내 할 일" 보기: 주소로만 기억한다. 내 것 = 담당 칸이 내 이름과 정확히 일치해 연결된 것 (owner_user_id)
@@ -151,6 +176,22 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depe
         follow_ups = [f for f in follow_ups if f["owner_user_id"] == user.id]
     fu_tabs = [ui.SegTab("", f"{FOLLOW_UP_DAYS}일 이내", all_count, "/", not mine_only), ui.SegTab("mine", "내 할 일", mine_count, "/?fu=mine", mine_only)]
     intake = intake_summary(db, user)
+    view = STALE_VIEWS.get(opp, "mine")
+    if view == "team" and user.team_id is None:
+        view = "mine"
+    stale = stale_opportunities(db, user, now, view)
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("opp", "notice", "nt", "fu_toggled")]
+    from urllib.parse import urlencode
+
+    def stale_href(code: str) -> str:
+        pairs = keep + ([("opp", code)] if code else [])
+        return "/" + (f"?{urlencode(pairs)}" if pairs else "")
+
+    stale_tabs = [ui.SegTab("", "내 건", stale["counts"]["mine"], stale_href(""), view == "mine")]
+    if stale["has_team"]:
+        stale_tabs.append(ui.SegTab("team", "우리 팀", stale["counts"]["team"], stale_href("team"), view == "team"))
+    stale_tabs.append(ui.SegTab("all", "전체", stale["counts"]["all"], stale_href("all"), view == "all"))
+    stale_list = "/opportunities?stale=1" + {"mine": "&who=mine", "team": "&who=team", "all": ""}[view]
     flow, opp = stage_flow(db, now), opportunity_bars(db)
     recent = recent_activities(db)
     fresh_install = is_fresh_install(db)
@@ -162,6 +203,6 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", user: User = Depe
         intake=intake, max_files=intake_lib.MAX_FILES,
         max_mb=request.app.state.settings.max_upload_mb, max_note=intake_lib.MAX_NOTE, max_paste=intake_lib.MAX_PASTE,
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
-        flow=flow, opp=opp, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
+        flow=flow, opp=opp, stale=stale, stale_tabs=stale_tabs, stale_list=stale_list, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
         toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None,
     )

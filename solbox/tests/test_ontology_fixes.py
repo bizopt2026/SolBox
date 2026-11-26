@@ -127,7 +127,7 @@ def _threads(app, n, fn):
 def test_concurrent_convert_creates_exactly_one_project(app, user_client, db):
     c = _customer(db)
     o = _opp(user_client, db, c)
-    user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+    user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     res = _threads(app, 6, lambda cl, i: cl.post(f"/opportunities/{o.id}/convert", data={"mode": "create", "name": f"전환{i}"}, follow_redirects=False))
     assert all(not isinstance(r, Exception) and r.status_code == 303 for r in res), res
     db.expire_all()
@@ -145,7 +145,7 @@ def test_concurrent_link_same_project_from_two_opportunities_only_one_wins(app, 
     db.commit()
     opps_ = [_opp(user_client, db, c, name=f"기회{i}") for i in range(2)]
     for o in opps_:
-        user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+        user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     res = _threads(app, 6, lambda cl, i: cl.post(f"/opportunities/{opps_[i % 2].id}/convert", data={"mode": "link", "project_id": str(p.id)}, follow_redirects=False))
     assert all(not isinstance(r, Exception) for r in res), res  # 500 이 아니다 (TestClient 는 서버 오류를 예외로 올린다)
     assert sorted(r.status_code for r in res).count(303) >= 1
@@ -163,7 +163,7 @@ def test_link_unique_violation_shows_korean_message_not_500(user_client, db, mon
     db.commit()
     o1, o2 = _opp(user_client, db, c, name="a"), _opp(user_client, db, c, name="b")
     for o in (o1, o2):
-        user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"})
+        user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"})
     assert user_client.post(f"/opportunities/{o1.id}/convert", data={"mode": "link", "project_id": str(p.id)}, follow_redirects=False).status_code == 303
     monkeypatch.setattr(opps, "link_problem", lambda *a, **k: None)  # 사전 검사를 지나친 동시 요청을 흉내 낸다
     r = user_client.post(f"/opportunities/{o2.id}/convert", data={"mode": "link", "project_id": str(p.id)})

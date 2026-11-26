@@ -101,7 +101,7 @@ def test_stage_change_notices_for_solution_and_opportunity(user_client, db):
     db.commit()
     r = user_client.post(f"/solutions/{s.id}/stage", data={"stage": "tapping"}, follow_redirects=False)
     assert "발굴 단계를 &#39;사전 태핑&#39;으로 바꿨습니다." in _follow(user_client, r)
-    r = user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"}, follow_redirects=False)
+    r = user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"}, follow_redirects=False)
     assert "영업기회 단계를 &#39;수주&#39;로 바꿨습니다." in _follow(user_client, r)
 
 
@@ -135,7 +135,7 @@ POST_NOTICES = {
     "/projects": "created", "/projects/{project_id}": "saved", "/projects/{project_id}/delete": "deleted",
     "/businesses": "(옛 주소: 307 로 /projects 에 넘김)", "/businesses/{rest:path}": "(옛 주소: 307 로 /projects 에 넘김)",
     "/bms": "created", "/bms/{bm_id}": "saved", "/bms/{bm_id}/delete": "deleted",
-    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won",
+    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won", "/opportunities/{opportunity_id}/close": "opportunity_stage.won",
     "/opportunities/{opportunity_id}/convert": "converted, linked_project", "/opportunities/{opportunity_id}/delete": "deleted",
     "/activities": "created", "/activities/raw": "created", "/activities/draft": "ai_off, (AI 초안 진행 화면)", "/activities/draft/{job_id}/retry": "ai_off, (AI 초안 진행 화면)",
     "/activities/{activity_id}": "saved", "/activities/{activity_id}/delete": "deleted",
@@ -148,7 +148,8 @@ POST_NOTICES = {
     "/research/run": "research_started, research_busy, no_topics, ai_off", "/research/reports/{report_id}/retry": "research_retry, research_busy, ai_off",
     "/admin/solution-fields": "field_created", "/admin/solution-fields/{field_id}": "field_renamed", "/admin/solution-fields/{field_id}/move": "field_moved",
     "/admin/solution-fields/{field_id}/active": "field_on, field_off", "/admin/solution-fields/{field_id}/delete": "field_deleted",
-    "/admin/users": "created", "/admin/users/{user_id}": "saved", "/admin/research/topics": "created", "/admin/research/topics/{topic_id}": "saved",
+    "/admin/users": "created", "/admin/users/{user_id}": "saved",
+    "/admin/teams": "team_created", "/admin/teams/{team_id}": "team_saved", "/admin/teams/{team_id}/delete": "team_deleted", "/admin/research/topics": "created", "/admin/research/topics/{topic_id}": "saved",
     "/admin/research/topics/{topic_id}/delete": "deleted", "/admin/research/schedule": "saved", "/admin/research/keywords": "keywords_started, ai_off", "/admin/system/ai-check": "ai_check, ai_off", "/admin/system/backup": "backup_done",
     "/admin/system/update/check": "update_checked", "/admin/system/update/apply": "(진행 화면 /admin/system/update/progress 으로 이동)",
     "/proposals": "created, created_ai_off", "/proposals/{proposal_id}/directions": "busy, ai_off, (작업이 시작되면 진행 표시)", "/proposals/{proposal_id}/select": "direction_selected, busy",
