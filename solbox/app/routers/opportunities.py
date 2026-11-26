@@ -38,14 +38,14 @@ def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | Non
     return render(
         request, "opportunities/form.html", status_code=409 if conflict else 400 if error else 200,
         form=form, opp=opp, error=error, conflict=conflict, duplicate=duplicate, customer=customer, customers=search_by_name(db, Customer),
-        bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs,
+        bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs, contact_options=opps.contact_choices(db, cid),
         unlinked_needs=opps.unlinked_same_name_needs(db, customer),
         owners=teams.grouped_users(db, keep=opp.owner if opp is not None else None),
     )
 
 
 def _blank_form(customer_id: str = "", owner_id: int | None = None) -> dict:
-    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": [],
+    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "contact_ids": [], "business_types": [],
             **opps.progress_form(None, owner_id)}
 
 
@@ -82,11 +82,12 @@ def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> t
     return values, None
 
 
-def _submitted(values: dict, need_ids, solution_ids, bt: "bts.BTForm | None" = None, opp: Opportunity | None = None) -> dict:
+def _submitted(values: dict, need_ids, solution_ids, bt: "bts.BTForm | None" = None, opp: Opportunity | None = None, contact_ids=None) -> dict:
     """오류로 폼을 다시 그릴 때의 값. 사업방식 칸이 안 왔으면 저장된 값(고치기)이나 빈 값(만들기)."""
     shown = ontology.clean_business_types(bt.codes) if bt is not None and bt.present else (opp.business_type_codes if opp is not None else [])
     return {**values, "business_types": shown, "need_ids": [n for i in need_ids if (n := parse_id(i)) is not None],
-            "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}
+            "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None],
+            "contact_ids": [n for i in (contact_ids or []) if (n := parse_id(i)) is not None] if contact_ids is not None else [c.id for c in opp.contacts] if opp is not None else []}
 
 
 def _today():
@@ -265,12 +266,13 @@ def create(
     request: Request,
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
+    contact_ids: list[str] = Form([]), contact_field: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once), bt: bts.BTForm = Depends(bts.bt_form),
     pf: ProgressForm = Depends(),
 ):
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = {**_submitted(values, need_ids, solution_ids, bt), **(pf.typed if pf.present else opps.progress_form(None, user.id))}
+    form = {**_submitted(values, need_ids, solution_ids, bt, contact_ids=contact_ids), **(pf.typed if pf.present else opps.progress_form(None, user.id))}
     error = error or (bts.codes_problem(bt.codes) if bt.present else None)
     progress, problem = pf.parse(db) if pf.present else ({"owner_user_id": user.id}, None)
     error = error or problem
@@ -285,6 +287,7 @@ def create(
         db.rollback()
         return _form_page(request, db, form, error=error)
     opp.solutions = pick(db, Solution, solution_ids)
+    opps.apply_contacts(db, opp, contact_ids)
     db.commit()
     db.refresh(opp)
     mirror.sync(opp)
@@ -302,7 +305,7 @@ def detail(opportunity_id: int, request: Request, user: User = Depends(require_u
 def edit_form(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     opp = get_or_404(db, Opportunity, opportunity_id)
     form = {"name": opp.name, "customer_id": opp.customer_id, "bm_id": opp.bm_id or "", "memo": opp.memo, "business_types": opp.business_type_codes,
-            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions], **opps.progress_form(opp)}
+            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions], "contact_ids": [c.id for c in opp.contacts], **opps.progress_form(opp)}
     return _form_page(request, db, form, opp)
 
 
@@ -311,13 +314,14 @@ def update(
     opportunity_id: int, request: Request,
     name: str = Form(""), customer_id: str = Form(""), bm_id: str = Form(""), memo: str = Form(""),
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
+    contact_ids: list[str] = Form([]), contact_field: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form), bt: bts.BTForm = Depends(bts.bt_form),
     pf: ProgressForm = Depends(),
 ):
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = {**_submitted(values, need_ids, solution_ids, bt, opp), **(pf.typed if pf.present else opps.progress_form(opp))}
+    form = {**_submitted(values, need_ids, solution_ids, bt, opp, contact_ids if contact_field else None), **(pf.typed if pf.present else opps.progress_form(opp))}
     typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else dict(values)
     stored = {**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}
     if pf.present:  # 진행 칸도 견준다 (담당은 이름표가 없는 번호 칸이라 diff_fields 가 건너뛴다)
@@ -345,7 +349,12 @@ def update(
         db.rollback()
         return _form_page(request, db, form, opp, error)
     opp.solutions = pick(db, Solution, solution_ids)
-    if {n.id for n in opps.needs_of(db, opp)} != needs_before:
+    contacts_before = {c.id for c in opp.contacts}
+    if contact_field:  # 숨은 칸: 담당자 칸이 있는 폼만 담당자를 바꾼다 (빈 선택 = 모두 풀기)
+        opps.apply_contacts(db, opp, contact_ids)
+    else:
+        opps.drop_foreign_contacts(opp)
+    if {n.id for n in opps.needs_of(db, opp)} != needs_before or {c.id for c in opp.contacts} != contacts_before:
         guards.touch(opp, user)  # 묶인 니즈만 바뀐 저장도 고친 표시를 올린다 (니즈 줄은 코어 UPDATE 라 기록 자신은 그대로이므로)
     db.commit()
     db.refresh(opp)

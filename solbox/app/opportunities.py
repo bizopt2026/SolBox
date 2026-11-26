@@ -133,6 +133,41 @@ def customer_change_problem(db: Session, opp: Opportunity, new_customer_id: int)
     return None
 
 
+# ---- 담당자 (영업 D) ----
+
+def contact_choices(db: Session, customer_id: int | None) -> list:
+    """영업기회 폼의 담당자 고르기: 그 고객의 담당자 (이름 · 직함 · 역할)."""
+    from types import SimpleNamespace
+
+    from app.models import Contact
+
+    if customer_id is None:
+        return []
+    rows = db.scalars(select(Contact).where(Contact.customer_id == customer_id).order_by(Contact.id))
+    return [SimpleNamespace(id=c.id, name=" · ".join(x for x in (c.name, c.title, ontology.CONTACT_ROLES.get(c.role, "")) if x)) for c in rows]
+
+
+def apply_contacts(db: Session, opp: Opportunity, contact_ids) -> None:
+    """고른 담당자를 잇는다. 같은 고객의 담당자만 (다른 고객의 번호는 조용히 무시한다)."""
+    from app.idparse import parse_id
+    from app.models import Contact
+
+    ids = {n for i in contact_ids if (n := parse_id(i)) is not None}
+    opp.contacts = list(db.scalars(select(Contact).where(Contact.id.in_(ids), Contact.customer_id == opp.customer_id).order_by(Contact.id))) if ids else []
+
+
+def drop_foreign_contacts(opp: Opportunity) -> None:
+    """고객이 바뀐 영업기회에서 다른 고객의 담당자 연결을 푼다 (담당자 칸이 없는 옛 폼·API 저장)."""
+    keep = [c for c in opp.contacts if c.customer_id == opp.customer_id]
+    if len(keep) != len(opp.contacts):
+        opp.contacts = keep
+
+
+def contacts_text(opp: Opportunity) -> str:
+    """"김부장(의사결정자) · 이대리(실무자)" (상세·AI 분석 프롬프트). 전화·이메일은 넣지 않는다."""
+    return " · ".join(c.name + (f"({ontology.CONTACT_ROLES[c.role]})" if c.role in ontology.CONTACT_ROLES else "") for c in opp.contacts)
+
+
 # ---- 단계, 전환 ----
 
 def stage_problem(stage: str) -> str | None:
