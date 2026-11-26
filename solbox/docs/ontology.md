@@ -212,8 +212,12 @@
 | R38 | 계획 항목이 고객을 **가리킨다** | 보고 계획 항목 → 고객 | N:1 | 키 `report_plan_items.customer_id` | **구현됨.** 선택. 고객을 지우면 연결만 비워진다(항목 글은 남는다). 고객 합치기는 남는 쪽으로 옮긴다 |
 | R39 | 계획 항목이 영업기회를 **가리킨다** | 보고 계획 항목 → 영업기회 | N:1 | 키 `report_plan_items.opportunity_id` | **구현됨.** 선택. 지우면 연결만 비워진다 |
 | R40 | 계획 항목이 프로젝트를 **가리킨다** | 보고 계획 항목 → 프로젝트 | N:1 | 키 `report_plan_items.business_id` | **구현됨.** 선택. 지우면 연결만 비워진다 |
+| R41 | 과제가 사업 방향에 **속한다** | 과제 → 사업 방향 | N:1 | 키 `initiatives.strategy_id` | **구현됨 (AI 코워크 ①).** 선택. 방향을 지우면 비운다 |
+| R42~R46 | 과제가 솔루션·파트너·고객·영업기회·프로젝트를 **다룬다** | 과제 → 각 대상 | N:M | 연결 표 `initiative_solutions`·`initiative_partners`·`initiative_customers`·`initiative_opportunities`·`initiative_projects`(열 `business_id`) | **구현됨.** 어느 쪽을 지워도 연결만 풀린다. 고객·파트너 합치기가 옮긴다 |
+| R47·R48 | 자료가 사업 방향·과제 공간에 **붙는다** | 방향·과제 → 공간 자료 | 1:N | 키 `workspace_files.strategy_id`·`initiative_id` (둘 중 하나) | **구현됨.** 공간을 지우면 함께 지워진다 |
+| R49 | 사용자가 과제를 **맡는다** | 과제 → 사용자 | N:1 | 키 `initiatives.owner_user_id` | **구현됨.** 선택. 만들 때 기본은 만든 사람 |
 
-R1~R40 은 `app/ontology.py` 의 `RELATIONS` 와 같은 키다. 저장 방식이 키(fk·연결 표)인 관계는 물리 위치와 ORM 메타데이터로 자동으로 따라가고, JSON·글인 관계만 `ontology.RESOLVERS` 에 작은 해석기를 둔다.
+R1~R49 는 `app/ontology.py` 의 `RELATIONS` 와 같은 키다. 저장 방식이 키(fk·연결 표)인 관계는 물리 위치와 ORM 메타데이터로 자동으로 따라가고, JSON·글인 관계만 `ontology.RESOLVERS` 에 작은 해석기를 둔다.
 
 - **JSON·글 기반(해석기)**: R15 (제안 건의 추가 후보 `extra_solution_ids`), R18 (리서치 제안의 `solution_ids`), R21 (올린 파일의 대상 종류+번호). 연결 목록에서 `storage` 가 `json`/`text` 로 표시된다.
 - **따라가지 않음**: R16 (방향은 JSON 안에만 있어 출발할 기록이 없다), R17 (근거는 사본 경로 글자). 이유는 `ontology.UNTRAVERSED`.
