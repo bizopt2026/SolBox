@@ -50,8 +50,12 @@
 {# 왼쪽 내용 칸의 연결 카드들 (정의: ontology.MAIN_GROUPS, 조립: relations.page_related). 카드 머리: 이름 + 건수, 오른쪽에 "모두 보기"·"+ …" 동작.
    cards = relations.MainCard 목록. 비어 있어도 정의에 show_empty 가 있으면 "아직 없습니다" + 동작을 보인다. #}
 {% macro main_cards(cards) %}
+{# 카드가 넷 이상이면 위에 구역 바로 가기 (UX 개선 2026-11-26: 긴 상세 화면에서 원하는 카드로 바로). 빈 카드는 한 줄로 줄인다 #}
+{% if cards | length >= 4 %}
+<nav class="jumpnav" aria-label="이 화면의 구역">{% for c in cards %}<a href="#rel-{{ c.key | replace(':', '-') }}">{{ c.label }} <span class="count">{{ c.group.total if c.group else 0 }}</span></a>{% endfor %}</nav>
+{% endif %}
 {% for c in cards %}{% set g = c.group %}
-<section class="card stack main-rel" aria-label="{{ c.label }}">
+<section class="card stack main-rel{{ ' empty-rel' if not g }}" id="rel-{{ c.key | replace(':', '-') }}" aria-label="{{ c.label }}">
   <div class="card-head"><h2>{{ c.label }}<span class="count">{{ g.total if g else 0 }}건</span></h2>
     {% if (g and g.more_url) or c.action %}<span class="head-actions">{% if g and g.more_url %}<a href="{{ g.more_url }}">모두 보기</a>{% endif %}{% if c.action %}<a href="{{ c.action[1] }}">{{ c.action[0] }}</a>{% endif %}</span>{% endif %}
   </div>

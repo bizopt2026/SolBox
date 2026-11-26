@@ -11,7 +11,7 @@ APP_JS = Path(__file__).resolve().parent.parent / "app" / "static" / "app.js"
 def test_list_primary_is_upload_and_manual_stays(user_client, url, manual):
     head = re.search(r'<header class="page-header">.*?</header>', user_client.get(url).text, re.S).group(0)
     assert 'class="button primary to-intake" href="/intake/new">올리기</a>' in head
-    assert f'href="{manual}">+ 등록</a>' in head and head.count("primary") == 1
+    assert f'href="{manual}">+ 새 ' in head and head.count("primary") == 1
     assert user_client.get(manual).status_code == 200
 
 

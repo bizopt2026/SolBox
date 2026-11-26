@@ -2,7 +2,7 @@
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, pill, none_dash %}
 {% block title %}{{ ont.label("report") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("report"), pg, unit, "/reports/new", "+ 보고 만들기", type="report") }}
+{{ list_head(ont.label("report"), pg, unit, "/reports/new", type="report") }}
 {{ list_tools(request, tabs, ont.CODE_LISTS["report_unit"].label, search=false) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">

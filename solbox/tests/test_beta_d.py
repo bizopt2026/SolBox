@@ -390,7 +390,7 @@ def test_account_save_bars_inside_their_cards(user_client):
 def test_list_header_labels_and_connection_title(user_client, db):
     for url in ("/solutions", "/activities"):
         head = re.search(r'<header class="page-header">.*?</header>', user_client.get(url).text, re.S).group(0)
-        assert ">+ 등록</a>" in head and ">올리기</a>" in head and "직접 입력" not in head
+        assert ">+ 새 " in head and ">올리기</a>" in head and "직접 입력" not in head
     s = Solution(name="s")
     db.add(s)
     db.commit()

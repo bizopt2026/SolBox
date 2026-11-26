@@ -1637,3 +1637,25 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .jobtray ul { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 280px; margin: 0; padding: 8px 0; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md, 10px); box-shadow: 0 8px 24px rgba(15, 23, 42, .12); }
 .jobtray li { display: flex; gap: 8px; align-items: center; padding: 6px 12px; }
 .jobtray li a { flex: 1 1 auto; }
+.jumpnav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: 5; padding: 8px 0; background: var(--canvas, #f4f6fa); }
+.jumpnav a { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: var(--fs-note, 13px); color: var(--ink-2); }
+.jumpnav a:hover { text-decoration: none; border-color: var(--brand); }
+.jumpnav .count { color: var(--ink-3); }
+.main-rel.empty-rel { flex-direction: row; align-items: center; justify-content: space-between; padding-top: 12px; padding-bottom: 12px; }
+.main-rel.empty-rel .card-head { flex: 1 1 auto; margin: 0; }
+.main-rel.empty-rel > p.muted { margin: 0; flex: none; }
+.main-rel { scroll-margin-top: 56px; }
+.quick-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: var(--gap, 16px); }
+.tabbar { display: none; }
+@media (max-width: 759px) {
+  .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .tabbar a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; font-size: 11px; color: var(--ink-3); }
+  .tabbar a:hover { text-decoration: none; }
+  .tabbar a[aria-current="page"] { color: var(--brand-deep); font-weight: var(--fw-strong); }
+  .tabbar .ni { width: 20px; height: 20px; }
+  .tabbar .tab-add span { display: grid; place-items: center; width: 44px; height: 44px; margin-top: -2px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 24px; line-height: 1; }
+  body.shell { padding-bottom: 64px; }
+  .stagebar .steps { overflow-x: auto; scrollbar-width: none; }
+  .stagebar .steps .step { flex: 0 0 auto; min-width: 88px; }
+  .stagebar .step-note { display: none; }
+}

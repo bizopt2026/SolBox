@@ -15,4 +15,4 @@ router = APIRouter()
 
 @router.get("/search")
 def search_page(request: Request, q: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return render(request, "search/results.html", result=search.search(db, q), min_chars=search.MIN_CHARS, per_type=search.PER_TYPE)
+    return render(request, "search/results.html", result=search.search(db, q), quick=search.quick_actions(q), min_chars=search.MIN_CHARS, per_type=search.PER_TYPE)

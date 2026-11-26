@@ -111,3 +111,30 @@ def test_ai_dock_groups_alignment_and_cowork(user_client, db):
     db.commit()
     dock = user_client.get(f"/opportunities/{o.id}").text.split('class="ai-dock"')[1].split('class="card related')[0]
     assert 'id="alignment"' in dock and 'id="cowork"' in dock and 'href="/ai/inbox"' in dock
+
+
+def test_search_quick_actions_and_ctrl_k(user_client):
+    page = user_client.get("/search?q=과제").text
+    quick = page.split('aria-label="바로 만들기"')[1].split("</nav>")[0]
+    assert 'href="/initiatives/new"' in quick
+    assert 'aria-label="바로 만들기"' not in user_client.get("/search?q=zzzz").text
+    js = user_client.get("/static/app.js").text
+    assert 'e.key === "k"' in js and "Control+K" in user_client.get("/").text
+
+
+def test_mobile_tabbar_and_new_button_labels(user_client):
+    html = user_client.get("/initiatives").text
+    bar = html.split('class="tabbar"')[1].split("</nav>")[0]
+    assert 'href="/activities/new"' in bar and 'href="/initiatives" aria-current="page"' in bar
+    assert ">+ 새 과제</a>" in html and ">+ 새 영업기회</a>" in user_client.get("/opportunities").text
+    css = user_client.get("/static/app.css").text
+    assert ".tabbar { display: none; }" in css and "@media (max-width: 759px)" in css
+
+
+def test_long_detail_pages_get_jump_nav_and_compact_empty_cards(user_client, db):
+    c = Customer(name="빈 고객")
+    db.add(c)
+    db.commit()
+    html = user_client.get(f"/customers/{c.id}").text
+    assert 'class="jumpnav"' in html and 'href="#rel-R27-opportunity"' in html and 'id="rel-R27-opportunity"' in html
+    assert 'main-rel empty-rel' in html
