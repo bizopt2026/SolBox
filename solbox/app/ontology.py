@@ -264,6 +264,29 @@ OPPORTUNITY_FLOW = ("discovery", "proposing", "negotiating", "won")  # 단계 �
 OPPORTUNITY_SIDE_STAGES = ("lost", "hold")  # 막대 옆에 따로 보이는 단계
 OPPORTUNITY_OPEN_STAGES = ("discovery", "proposing", "negotiating")  # 진행 중
 OPPORTUNITY_FILTER_OPEN = "open"  # 목록 거르기: 진행 중인 단계 모두
+OPPORTUNITY_STAGE_LOST = "lost"
+OPPORTUNITY_CLOSED_STAGES = ("won", "lost")  # 사유를 받고 바꾸는 단계 (영업 A 단계, 둘 다 사유 필수. 보류는 사유 없음)
+# 수주·실패 사유 (사용자 결정 2026-11-26: 시안 목록 확정). 저장은 코드라 운영 뒤 코드를 바꾸지 않는다. 이름만 여기서 고친다.
+OPPORTUNITY_LOST_REASONS = {
+    "price": "가격", "competitor": "경쟁사 선택", "no_budget": "예산 없음·취소", "delayed": "시기 연기",
+    "mismatch": "요구 불일치", "no_contact": "연락 끊김", "other": "기타",
+}
+OPPORTUNITY_WON_REASONS = {
+    "price": "가격 경쟁력", "tech": "기술·품질", "trust": "관계·신뢰", "reference": "레퍼런스",
+    "business_type": "사업방식(임대·투자) 조건", "other": "기타",
+}
+_CLOSE_REASONS = {"won": OPPORTUNITY_WON_REASONS, "lost": OPPORTUNITY_LOST_REASONS}
+
+
+def close_reasons(stage: str) -> dict[str, str]:
+    """그 단계로 바꿀 때 고르는 사유 목록 (수주·실패만, 나머지는 빈 목록)."""
+    return _CLOSE_REASONS.get(stage, {})
+
+
+# 영업기회 진행 칸 중 바뀌면 이력(opportunity_field_changes)에 남는 칸 (메모·이름 같은 자유 글은 넣지 않는다)
+OPPORTUNITY_TRACKED_FIELDS = ("amount", "expected_close", "owner_user_id", "next_step", "next_step_due", "close_reason")
+OPPORTUNITY_QUIET_DAYS = 30  # 진행 중 영업기회가 이 날수 넘게 활동 기록이 없으면 "멈춘 건"
+CUSTOMER_QUIET_DAYS = 90  # 고객 목록 "오래 연락 없음" 기준
 
 # 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.
 # 화면 이름·한 줄 뜻·AI 에 주는 설명은 모두 이 목록 하나에서 읽는다 (다른 곳에 다시 적지 않는다).
@@ -559,7 +582,9 @@ _TYPE_LIST = [
         "opportunity", "영업기회", "핵심", "Opportunity", "opportunities", "/opportunities", "/opportunities/{id}",
         "opportunities/{id}.md", mirror_dir_format="opportunities/", nav="영업기회", nav_group="sales",
         props={"name": "이름", "customer": "고객", "stage": "단계", "bm": "BM", "project": "프로젝트", "memo": "메모",
-               "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건", "business_types": "검토 사업방식"},
+               "needs": "고객 니즈", "solutions": "검토 솔루션", "activities": "활동 기록", "proposals": "제안 건", "business_types": "검토 사업방식",
+               "amount": "예상 금액", "expected_close": "예상 수주일", "owner": "담당", "next_step": "다음 할 일", "next_step_due": "다음 할 일 날짜",
+               "close_reason": "사유", "close_note": "사유 메모"},
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
@@ -636,8 +661,10 @@ _TYPE_LIST = [
     ObjectType("suggestion", "리서치 제안", "작업", embedded_in="research_reports.suggestions",
                props={"title": "제목", "detail": "내용", "reason": TERMS["reason"], "sources": TERMS["source"], "kind": "종류",
                       "solution_ids": "대상 솔루션"}),
-    ObjectType("user", "사용자", "시스템", "User", "users", "/admin/users", props={"username": "아이디", "name": "이름", "role": "역할"},
+    ObjectType("user", "사용자", "시스템", "User", "users", "/admin/users", props={"username": "아이디", "name": "이름", "role": "역할", "team": "팀"},
                description="로그인 계정"),
+    ObjectType("team", "팀", "시스템", "Team", "teams", "/admin/users", props={"name": "이름", "members": "사람"},
+               description="영업 담당을 묶는 팀 (관리자가 만들고 사람을 배정한다)"),
     ObjectType("ai_job", "AI 작업", "시스템", "AIJob", "ai_jobs", "/admin/jobs", props={"kind": "종류", "status": "상태"},
                description="AI 작업 대기열과 최근 결과"),
 ]

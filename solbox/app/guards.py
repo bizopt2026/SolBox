@@ -19,7 +19,7 @@ import secrets
 import threading
 import time
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from typing import NamedTuple
 
@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
 from app import ontology
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityFieldChange, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user
 
@@ -282,6 +282,7 @@ def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
             elif obj.done_at is not None and (obj in session.new or hist.has_changes()):
                 obj.done_at = None
         elif isinstance(obj, Opportunity):
+            _stamp_field_changes(session, obj, uid, now)
             if obj in session.new:
                 old = ""
             else:
@@ -292,6 +293,34 @@ def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
             if obj.stage is None:  # 기본값은 flush 때 채워진다: 새 줄이면 기본 단계를 쓴다
                 obj.stage = ontology.OPPORTUNITY_STAGE_DEFAULT
             session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid))
+
+
+def history_text(value) -> str:
+    """필드 이력에 남기는 글: 날짜는 ISO, 없음은 빈 글, 나머지는 str."""
+    if value is None:
+        return ""
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
+
+def _stamp_field_changes(session: Session, obj: Opportunity, uid, now: datetime) -> None:
+    """영업기회 진행 칸(ontology.OPPORTUNITY_TRACKED_FIELDS)이 바뀌었으면 한 칸에 한 줄씩 남긴다. 만들 때는 값이 있는 칸만.
+    글로 바꿔 같으면 (같은 값을 다시 넣음) 남기지 않는다. 출처(사람/AI)는 세션의 `change_source` (B 단계가 단다)."""
+    source = session.info.get("change_source", "")
+    state = sa_inspect(obj)
+    for field_name in ontology.OPPORTUNITY_TRACKED_FIELDS:
+        if obj in session.new:
+            old, new = "", history_text(getattr(obj, field_name))
+        else:
+            hist = state.attrs[field_name].history
+            if not hist.has_changes():
+                continue
+            old = history_text(hist.deleted[0]) if hist.deleted else ""
+            new = history_text(hist.added[0]) if hist.added else ""
+        if old != new:
+            session.add(OpportunityFieldChange(opportunity=obj, field=field_name, old_value=old, new_value=new,
+                                               changed_at=now, changed_by_id=uid, source=source))
 
 
 # insert=True: 번호 처리기(idmarks)보다 먼저 돌아야 여기서 더한 새 줄도 번호를 받는다

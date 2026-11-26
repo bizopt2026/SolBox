@@ -281,3 +281,23 @@ def dependents(db: Session, obj) -> list:
     if isinstance(obj, BM):
         return _unique([*obj.solutions, *obj.projects, *obj.opportunities])
     return []
+
+
+# ---- 영업 A 단계: 담당 한 번 채우기 ----
+
+OWNER_BACKFILL_KEY = "opportunity_owner_backfill"
+
+
+def backfill_owners_once(engine) -> int:
+    """시작할 때 한 번만: 담당이 빈 옛 영업기회의 담당을 만든 사람으로 채운다. 표시(app_settings)가 있으면 아무것도 하지 않는다
+    (사용자가 나중에 비운 담당을 다시 채우지 않게). 채운 건수를 돌려준다. 필드 이력은 남기지 않는다 (시작 때 옮기기)."""
+    from app.models import AppSetting
+
+    with Session(engine) as db:
+        if db.get(AppSetting, OWNER_BACKFILL_KEY) is not None:
+            return 0
+        n = db.execute(update(Opportunity).where(Opportunity.owner_user_id.is_(None), Opportunity.created_by_id.is_not(None))
+                       .values(owner_user_id=Opportunity.created_by_id).execution_options(synchronize_session=False)).rowcount
+        db.add(AppSetting(key=OWNER_BACKFILL_KEY, value={"filled": n}))
+        db.commit()
+        return n

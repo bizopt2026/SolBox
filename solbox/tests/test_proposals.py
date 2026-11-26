@@ -294,5 +294,5 @@ def test_new_tables_do_not_alter_existing(app):
     for table, cols in EXISTING_COLUMNS.items():
         actual = {c["name"] for c in insp.get_columns(table)}
         assert set(cols) <= actual, table  # 있던 칸은 그대로
-        assert actual - set(cols) <= {"updated_by_id", "must_change_password", "sha256", "contact", "aliases", "field_id"}, table  # 더해진 것은 "고친 사람"·"비밀번호 바꾸기 표시"·고객·파트너의 "다른 이름"(베타 AE)·솔루션의 "분야"(베타 AD) 뿐 (다른 변경 없음)
+        assert actual - set(cols) <= {"updated_by_id", "must_change_password", "sha256", "contact", "aliases", "field_id", "team_id"}, table  # 더해진 것은 "고친 사람"·"비밀번호 바꾸기 표시"·고객·파트너의 "다른 이름"(베타 AE)·솔루션의 "분야"(베타 AD)·사용자의 "팀"(영업 A) 뿐 (다른 변경 없음)
     assert {"proposals", "proposal_messages", "proposal_solutions"} <= set(insp.get_table_names())
