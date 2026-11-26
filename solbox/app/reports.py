@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app import ontology, report_periods
 from app.models import (
-    AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution,
+    AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, User,
 )
 
 
@@ -320,6 +320,76 @@ def default_notes(data: dict, check: list[ReportPlanItem], plan: list[ReportPlan
     else:
         issues_s = "기한이 지난 후속 조치는 없습니다."
     return {"kpi": [kpi], "opps": [opps_s], "proposals": [props_s], "check": [check_s], "plan": [plan_s], "issues": [issues_s]}
+
+
+# ---- 보고서 파일의 내용 모델 (MD·워드·PPT 가 같은 것을 쓴다: app/report_files.py) ----
+
+_BULLET = re.compile(r"^\s*(?:[-*+•■○]\s+|\d+[.)]\s+)")
+
+
+def _text_lines(text: str) -> list[str]:
+    """글(마크다운)에서 보고서에 넣을 줄: 빈 줄·제목 줄을 빼고 글머리 기호를 뗀다."""
+    out = []
+    for raw in (text or "").splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        line = _BULLET.sub("", raw).strip()
+        if line:
+            out.append(line)
+    return out
+
+
+def _stage_change(o: dict) -> str:
+    stages = ontology.OPPORTUNITY_STAGES
+    to = stages.get(o.get("to_stage"), o.get("to_stage") or "")
+    frm = stages.get(o.get("from_stage"), o.get("from_stage") or "")
+    if o.get("new") or not frm:
+        return f"신규 · {to}" if o.get("new") else to
+    return f"{frm} → {to}"
+
+
+def report_content(db: Session, report: Report) -> dict:
+    """세 형식 파일이 함께 쓰는 보고서 내용 (확정이면 스냅숏 숫자). 표 행은 모두 글(str) 로 돌려준다."""
+    data = data_of(db, report)
+    k = data.get("kpis") or {}
+    n = lambda key: int(k.get(key) or 0)  # noqa: E731
+    check = items_to_check(db, report)
+    plan = list(report.plan_items)
+    nxt = report_periods.next_period(report.unit, report.period_start, report.period_end)
+    diff = n("activities") - n("activities_prev")
+    overdue = n("followups_overdue")
+    kpis = [
+        ("활동 기록", str(n("activities")), f"{diff:+d}" if diff else ""),
+        ("새 고객 니즈", str(n("needs")), ""),
+        ("새 영업기회", str(n("opportunities_new")), ""),
+        ("수주", str(n("won")), ""),
+        ("제안 진행", str(n("proposals_active")), ""),
+        ("새 솔루션", str(n("solutions_new")), ""),
+        ("후속 조치 완료", str(n("followups_done")), ""),
+        ("기한 지남", str(overdue), "지연" if overdue else ""),
+    ]
+    notes = notes_of(report)
+    defaults = default_notes(data, check, plan)
+    author = db.get(User, report.created_by_id) if report.created_by_id else None
+    return {
+        "title": f"{ontology.REPORT_UNITS.get(report.unit, '')} 업무 보고",
+        "unit": report.unit,
+        "period": report_periods.period_text(report.unit, report.period_start, report.period_end),
+        "next_period": report_periods.period_text(report.unit, *nxt),
+        "author": (author.name or author.username) if author else "",
+        "confirmed_at": f"{report.confirmed_at:%m-%d %H:%M}" if report.confirmed_at else "",
+        "kpis": kpis,
+        "summary": _text_lines(report.summary_md),
+        "opps": [(o.get("name", ""), o.get("customer", ""), _stage_change(o)) for o in data.get("opportunities") or []],
+        "proposals": [(p.get("title", ""), p.get("customer", ""), ontology.PROPOSAL_STATUSES.get(p.get("status"), p.get("status") or "")) for p in data.get("proposals") or []],
+        "check": [(i.task, i.owner, ontology.PLAN_RESULTS.get(i.result, "점검 안 함"), i.result_note) for i in check],
+        "done_count": sum(1 for i in check if i.result == "done"),
+        "direction": (report.direction or "").strip(),
+        "plan": [(i.task, i.owner, f"{i.due:%m-%d}" if i.due else "", "지난 계획" if i.carried_from_id is not None else "") for i in plan],
+        "issues": _text_lines(report.highlights_md),
+        "notes": {key: notes.get(key) or defaults[key] for key in NOTE_KEYS},
+        "legacy_undated": int(data.get("legacy_undated") or 0),
+    }
 
 
 # ---- 화면 저장 (라우터가 부른다; 커밋은 부르는 쪽이 한다) ----

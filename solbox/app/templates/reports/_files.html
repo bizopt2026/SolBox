@@ -1,5 +1,5 @@
 {% from "_macros.html" import ai_attrs %}
-{# 4단계 확정·파일: 확정 안내 (확정·확정 풀기 버튼은 제목 줄의 다음 동작). 보고서 파일 만들기·내려받기는 아래 자리에 붙는다 (다음 작업). #}
+{# 4단계 확정·파일: 확정 안내 (확정·확정 풀기 버튼은 제목 줄의 다음 동작). 보고서 파일 만들기·내려받기는 맨 아래 카드. #}
 <section class="card" id="confirm" aria-labelledby="confirm-h">
   <div class="card-head"><h2 id="confirm-h">계획 확정</h2>{% if confirmed and report.confirmed_at %}<span class="muted small">{{ kdatetime(report.confirmed_at) }} 확정 · 숫자 고정됨</span>{% endif %}</div>
   {% if confirmed %}
@@ -26,4 +26,24 @@
   {% endfor %}
   </dl>
 </section>
-<div id="report-files">{# 보고서 파일(PPT·워드·MD) 만들기·내려받기 자리 (다음 작업) #}</div>
+{% if confirmed %}
+<section class="card" id="report-files" aria-labelledby="report-files-h">
+  <div class="card-head"><h2 id="report-files-h">보고서 파일</h2>{% if report.files_built_at %}<span class="muted small">마지막으로 만든 때 {{ kdatetime(report.files_built_at) }}</span>{% endif %}</div>
+  {% if file_error %}<p class="notice error" role="alert">{{ file_error }}</p>{% endif %}
+  <form method="post" action="/reports/{{ report.id }}/files">
+    <div class="kind-opts">
+    {% for code, (name, desc) in file_formats.items() %}
+      <label class="check kind-opt"><input type="radio" name="fmt" value="{{ code }}"{{ " checked" if loop.first }}> <span><b>{{ name }}</b> {{ desc }}</span></label>
+    {% endfor %}
+    </div>
+    <p><button type="submit" class="button primary">파일 만들기</button></p>
+    {% if busy %}<p class="muted small">보고 문구를 쓰는 중입니다. 끝난 뒤 만들면 다듬어진 문구가 들어갑니다.</p>{% endif %}
+  </form>
+  {% if files %}
+  <table class="list-table">
+    <thead><tr><th>만든 파일</th><th>시각</th><th></th></tr></thead>
+    <tbody>{% for f in files %}<tr><td>{{ f.name }}</td><td>{{ kdatetime(f.built_at) }}</td><td><a class="button small" href="/reports/{{ report.id }}/files/{{ f.fmt }}">내려받기</a></td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">아직 만든 파일이 없습니다.</p>{% endif %}
+</section>
+{% endif %}

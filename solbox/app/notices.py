@@ -81,6 +81,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "report_confirmed": ("ok", "계획을 확정했습니다. 보고서 숫자가 지금 값으로 고정됐습니다."),
     "report_unconfirmed": ("ok", "확정을 풀었습니다. 숫자는 다시 지금 기록에서 셉니다."),
     "report_unconfirm_blocked": ("warn", "확정을 풀지 못했습니다. 아래 안내를 확인해 주세요."),
+    "report_file_built": ("ok", "보고서 파일을 만들었습니다. 아래에서 내려받을 수 있습니다."),
+    "report_not_confirmed": ("warn", "계획을 확정한 보고에서만 보고서 파일을 만들고 내려받을 수 있습니다."),
     "report_draft_applied": ("ok", "AI 초안을 계획 표에 옮겼습니다. 지난 계획에서 넘어온 줄은 넘어온 표시 그대로입니다."),
     # 리서치·관리
     "research_started": ("ok", "조사를 시작했습니다. 끝나면 목록에 나타납니다."),

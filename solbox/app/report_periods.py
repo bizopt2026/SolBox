@@ -67,3 +67,26 @@ def file_stem(unit: str, start: date, end: date) -> str:
     if unit == "day" or start == end:
         return f"업무보고_{name}_{start.isoformat()}"
     return f"업무보고_{name}_{start.isoformat()}~{_end_text(start, end, same_month_short=True)}"
+
+
+_WD = "월화수목금토일"
+
+
+def _d(day: date, with_year: bool = True) -> str:
+    return f"{day.isoformat() if with_year else day.strftime('%m-%d')}({_WD[day.weekday()]})"
+
+
+def period_text(unit: str, start: date, end: date) -> str:
+    """"2026-11-23(월) ~ 11-29(일)", 일간은 "2026-11-24(화)"."""
+    if unit == "day" or start == end:
+        return _d(start)
+    return f"{_d(start)} ~ {_d(end, with_year=end.year != start.year)}"
+
+
+def short_period(unit: str, start: date, end: date) -> str:
+    """"11-30 ~ 12-06", 일간 "11-25(수)", 월간 "2026-12"."""
+    if unit == "month":
+        return f"{start:%Y-%m}"
+    if unit == "day" or start == end:
+        return _d(start, with_year=False)
+    return f"{start:%m-%d} ~ {end:%m-%d}"

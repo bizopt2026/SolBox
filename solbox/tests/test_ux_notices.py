@@ -161,7 +161,7 @@ POST_NOTICES = {
     "/reports": "report_created, report_exists", "/reports/{report_id}/summary": "saved", "/reports/{report_id}/notes": "saved",
     "/reports/{report_id}/check": "report_checked", "/reports/{report_id}/plan": "report_planned, report_planned_unlinked",
     "/reports/{report_id}/confirm": "report_confirmed", "/reports/{report_id}/unconfirm": "report_unconfirmed, report_unconfirm_blocked",
-    "/reports/{report_id}/delete": "deleted",
+    "/reports/{report_id}/files": "report_file_built, report_not_confirmed", "/reports/{report_id}/delete": "deleted",
     "/reports/{report_id}/ai/summary": "busy, ai_off, (작업이 시작되면 진행 상자)", "/reports/{report_id}/ai/plan": "busy, ai_off, (작업이 시작되면 진행 상자)",
     "/reports/{report_id}/ai/notes": "busy, ai_off, (작업이 시작되면 진행 상자)", "/reports/{report_id}/chat": "ai_off, (대화창에 내 글이 바로 보임)",
     "/reports/{report_id}/chat/retry": "busy, ai_off, (대화창에 진행이 보임)", "/reports/{report_id}/plan/apply-draft": "report_draft_applied, report_planned_unlinked",

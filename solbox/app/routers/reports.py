@@ -3,18 +3,21 @@
 팀원 누구나(관리자 구분 없음) 만들고·고치고·확정하고·지울 수 있다 (설계 §5.4b). 고치기 폼은 모두 보고 건의 고침 표시를 쓴다."""
 from __future__ import annotations
 
+import logging
 import shutil
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
+from urllib.parse import quote
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app import activity_rows, guards, notices, ontology, report_periods, reports, ui
+from app import activity_rows, guards, notices, ontology, report_files, report_periods, reports, ui
+from app.report_periods import period_text, short_period
 from app.ai import gate
 from app.ai.gate import keeps_text, require_ai_on
 from app.ai.report_tasks import PLAN_OPEN
@@ -34,7 +37,6 @@ STEP_KEYS = tuple(k for k, _ in ontology.REPORT_STEPS)
 DEFAULT_STEP = {ontology.REPORT_STATUS_DEFAULT: "result", ontology.REPORT_STATUS_PLANNING: "plan", ontology.REPORT_STATUS_CONFIRMED: "files"}
 NOTE_STEP = {"kpi": "result", "opps": "result", "proposals": "result", "issues": "result", "check": "check", "plan": "plan"}  # 구역 문구가 놓인 단계
 ACTIVITY_PREVIEW = 5  # 실적 단계의 "주요 활동" 에 보이는 수 (나머지는 활동 기록 목록에서)
-_WD = "월화수목금토일"
 PLAN_LOCKED = "확정한 계획은 고칠 수 없습니다. 확정·파일 단계에서 확정을 먼저 풀어 주세요. 저장하지 않았습니다."
 EMPTY_MESSAGE = "메시지를 입력하세요."
 MAX_MESSAGE = 4000
@@ -45,26 +47,6 @@ JOB_PLACE = {"report_summary": ("result", "summary"), "report_plan": ("plan", "p
 
 
 # ---- 기간 글 ----
-
-def _d(day: date, with_year: bool = True) -> str:
-    return f"{day.isoformat() if with_year else day.strftime('%m-%d')}({_WD[day.weekday()]})"
-
-
-def period_text(unit: str, start: date, end: date) -> str:
-    """"2026-11-23(월) ~ 11-29(일)", 일간은 "2026-11-24(화)"."""
-    if unit == "day" or start == end:
-        return _d(start)
-    return f"{_d(start)} ~ {_d(end, with_year=end.year != start.year)}"
-
-
-def short_period(unit: str, start: date, end: date) -> str:
-    """"11-30 ~ 12-06", 일간 "11-25(수)", 월간 "2026-12"."""
-    if unit == "month":
-        return f"{start:%Y-%m}"
-    if unit == "day" or start == end:
-        return _d(start, with_year=False)
-    return f"{start:%m-%d} ~ {end:%m-%d}"
-
 
 def _preview(db: Session, unit: str, day: date) -> dict:
     """만들기 화면의 기간 미리보기: 기간·다음 기간·지난 계획을 가져올 보고·같은 기간의 기존 보고."""
@@ -166,6 +148,10 @@ def _steps(r: Report, current: str) -> list[dict]:
     ]
 
 
+def _folder(request: Request, r: Report):
+    return request.app.state.settings.data_dir / "reports" / str(r.id)
+
+
 def _detail_page(request: Request, db: Session, r: Report, step: str, status_code: int = 200, form: dict | None = None, **extra):
     """상세 화면. `form` = 충돌로 다시 그릴 때 {"which": 폼 이름, "conflict": Conflict, "values": 쓴 값} (그 폼만 쓴 값으로 채운다)."""
     step = step if step in STEP_KEYS else DEFAULT_STEP.get(r.status, "result")
@@ -190,6 +176,7 @@ def _detail_page(request: Request, db: Session, r: Report, step: str, status_cod
         plan_open=PLAN_OPEN,
         unconfirm_problem=reports.unconfirm_problem(db, r) if r.status == ontology.REPORT_STATUS_CONFIRMED else None,
         activity_preview=ACTIVITY_PREVIEW, form=form or {}, meta=ui.stamp_info(db, r),
+        files=report_files.listing(_folder(request, r), r.file_names) if step == "files" and r.status == ontology.REPORT_STATUS_CONFIRMED else [], file_formats=report_files.FORMATS,
         customer_names=list(db.scalars(select(Customer.name).order_by(Customer.name))) if step == "plan" else [],  # 계획 표의 고객 칸 고르기 목록
         **extra,
     )
@@ -305,13 +292,51 @@ def confirm(request: Request, report_id: int, user: User = Depends(require_user)
 
 
 @router.post("/{report_id}/unconfirm")
-def unconfirm(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def unconfirm(report_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """확정 풀기: 다음 보고가 이 계획을 이미 점검했거나 확정이 아니면 바꾸지 않는다 (이유는 확정·파일 단계에 보인다)."""
     r = get_or_404(db, Report, report_id)
     if reports.unconfirm(db, r):
         return _back(r, "files", "report_unconfirm_blocked")
+    # 확정을 풀면 만든 파일은 옛 숫자라 지운다 (다시 확정한 뒤 새로 만든다)
+    r.file_names, r.files_built_at = {}, None
     db.commit()
+    shutil.rmtree(_folder(request, r), ignore_errors=True)
     return _back(r, "files", "report_unconfirmed")
+
+
+# ---- 보고서 파일 (설계 §5.6): 확정된 보고에서만 만들고 내려받는다 ----
+
+@router.post("/{report_id}/files")
+def build_file(report_id: int, request: Request, fmt: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """`fmt`=pptx|docx|md 파일을 만든다 (같은 형식은 덮어쓴다). 확정이 아니면 만들지 않는다."""
+    r = get_or_404(db, Report, report_id)
+    if r.status != ontology.REPORT_STATUS_CONFIRMED:
+        return _back(r, "files", "report_not_confirmed")
+    if fmt not in report_files.FORMATS:
+        return _detail_page(request, db, r, "files", status_code=400, file_error="만들 파일 형식을 골라 주세요.")
+    stem = report_periods.file_stem(r.unit, r.period_start, r.period_end)
+    try:
+        path = report_files.write(reports.report_content(db, r), fmt, _folder(request, r), stem)
+    except Exception as exc:  # noqa: BLE001 - 파일 만들기 실패는 화면에 알리고 로그에 남긴다
+        logging.getLogger(__name__).exception("업무 보고 파일 만들기 실패: %s", exc)
+        return _detail_page(request, db, r, "files", status_code=500, file_error="파일을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.")
+    r.file_names = {**(r.file_names or {}), fmt: path.name}
+    r.files_built_at = datetime.now()
+    db.commit()
+    return _back(r, "files", "report_file_built", "report-files")
+
+
+@router.get("/{report_id}/files/{fmt}")
+def download_file(report_id: int, fmt: str, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = get_or_404(db, Report, report_id)
+    if r.status != ontology.REPORT_STATUS_CONFIRMED:
+        return _back(r, "files", "report_not_confirmed")
+    name = (r.file_names or {}).get(fmt) if fmt in report_files.FORMATS else None
+    path = _folder(request, r) / name if name else None
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="만든 보고서 파일이 없습니다.")
+    disposition = f"attachment; filename=\"report-{r.id}.{fmt}\"; filename*=UTF-8''" + quote(name)
+    return FileResponse(path, media_type=report_files.MEDIA_TYPES[fmt], headers={"Content-Disposition": disposition})
 
 
 @router.post("/{report_id}/delete")
