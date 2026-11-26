@@ -81,13 +81,13 @@ def has_activities(db: Session, opp: Opportunity) -> bool:
     return bool(opp.activities)
 
 
-def pending_job(db: Session, opp_id: int):
-    """이 영업기회의 대기·진행 중 분석 작업 (없으면 None)."""
+def pending_job(db: Session, opp_id: int, statuses=("pending", "running")):
+    """이 영업기회의 대기·진행 중 분석 작업 (없으면 None). 자동 요청은 "대기" 만 본다 (진행 중인 분석은 새로 저장한 메모를 못 읽는다)."""
     from sqlalchemy import select
 
     from app.models import AIJob
 
-    for job in db.scalars(select(AIJob).where(AIJob.kind == REVIEW_KIND, AIJob.status.in_(("pending", "running"))).order_by(AIJob.id)):
+    for job in db.scalars(select(AIJob).where(AIJob.kind == REVIEW_KIND, AIJob.status.in_(tuple(statuses))).order_by(AIJob.id)):
         if (job.input or {}).get("opportunity_id") == opp_id:
             return job
     return None
@@ -104,7 +104,7 @@ def request_review(db: Session, opp_ids, user_id: int | None, request, priority:
     made = []
     for oid in dict.fromkeys(opp_ids):
         opp = db.get(Opportunity, oid)
-        if opp is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES or not has_activities(db, opp) or pending_job(db, oid) is not None:
+        if opp is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES or not has_activities(db, opp) or pending_job(db, oid, ("pending",)) is not None:
             continue
         made.append(enqueue(db, REVIEW_KIND, {"opportunity_id": oid}, user_id, priority))
     return made
@@ -116,6 +116,7 @@ ACT_OPEN, ACT_CLOSE = "<<<ACTIVITY", "ACTIVITY>>>"
 MAX_ACTIVITIES, MAX_ACTIVITY_CHARS, MAX_TOTAL_CHARS = 10, 4000, 30000
 MAX_EVIDENCE, MAX_BRIEF_TEXT, MAX_BRIEF_ITEMS = 300, 300, 5
 MAX_NEXT_STEP = 200
+MAX_AMOUNT = 10 ** 15  # 천조 원: SQLite 정수 범위 안에서 말이 되는 상한 (AI 가 터무니없는 수를 내면 버린다)
 INSIGHTS_KEPT = 20  # 영업기회마다 남기는 분석 수
 
 
@@ -164,12 +165,12 @@ def build_prompt(db: Session, opp: Opportunity, today_) -> tuple[str, dict[int, 
     texts: dict[int, str] = {}
     blocks, total = [], 0
     for a in _activities(opp):
-        body = (a.summary_md or "").strip() or (a.raw_text or "")
-        body = body[:MAX_ACTIVITY_CHARS]
-        if total + len(body) > MAX_TOTAL_CHARS:
-            body = body[:max(0, MAX_TOTAL_CHARS - total)]
-        if not body:
+        if total >= MAX_TOTAL_CHARS:
             break
+        body = ((a.summary_md or "").strip() or (a.raw_text or "").strip())[:MAX_ACTIVITY_CHARS]
+        body = body[:MAX_TOTAL_CHARS - total]
+        if not body:  # 글이 빈 기록은 건너뛰고 더 오래된 기록을 읽는다
+            continue
         total += len(body)
         texts[a.id] = body
         head = f"{ACT_OPEN} id={a.id} 일자={a.date.isoformat() if a.date else '모름'} 제목={_safe(a.title)[:100]}"
@@ -201,11 +202,13 @@ def _amount(value) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return int(value) if value > 0 and float(value).is_integer() else None
-    try:
-        return money.parse_amount(str(value))
-    except ValueError:
-        return None
+        found = int(value) if value > 0 and float(value).is_integer() else None
+    else:
+        try:
+            found = money.parse_amount(str(value))
+        except ValueError:
+            found = None
+    return found if found is not None and found <= MAX_AMOUNT else None
 
 
 def clean_suggestions(out, opp: Opportunity, texts: dict[int, str], today_) -> list[dict]:
@@ -304,6 +307,8 @@ def decide(db: Session, opp: Opportunity, insight_id: int, sid: int, user_id: in
     from app.models import OpportunityInsight
     from app.opportunities import apply_stage
 
+    if opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:  # 닫힌(수주·실패·보류) 건의 남은 제안은 반영하지 않는다 (사유 화면을 우회하지 않게)
+        return "ai_stale"
     db.execute(update(OpportunityInsight).where(OpportunityInsight.id == insight_id).values(job_id=OpportunityInsight.job_id))  # 쓰기 잠금
     ins = db.get(OpportunityInsight, insight_id)
     if ins is not None:
@@ -325,8 +330,7 @@ def decide(db: Session, opp: Opportunity, insight_id: int, sid: int, user_id: in
             opp.expected_close = date.fromisoformat(sug["value"])
         elif kind == "field" and field == "next_step":
             opp.next_step = sug["value"]
-            if sug.get("due"):
-                opp.next_step_due = date.fromisoformat(sug["due"])
+            opp.next_step_due = date.fromisoformat(sug["due"]) if sug.get("due") else None  # 새 할 일에 옛 기한이 남지 않게
         elif kind == "stage":
             old = opp.stage
             if sug["value"] in ontology.OPPORTUNITY_OPEN_STAGES and old != sug["value"]:
@@ -350,7 +354,7 @@ def suggestion_rows(db: Session, opp: Opportunity, insight, today_) -> list[dict
     from app.models import Activity
     from app.ui import short_date
 
-    if insight is None:
+    if insight is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:
         return []
     pending = [s for s in insight.suggestions or [] if s.get("state") == "pending"]
     ids = {s["activity_id"] for s in pending if s.get("activity_id")}

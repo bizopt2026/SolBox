@@ -1,6 +1,8 @@
 """활동 기록 화면."""
 from __future__ import annotations
 
+import logging
+
 from collections import Counter
 from datetime import date
 from urllib.parse import urlencode
@@ -34,6 +36,7 @@ from app.routers._common import (
 )
 from app.security import can_delete, require_user
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/activities")
 
 MEMO_REQUIRED = ui.FieldError("메모를 입력하세요.", "raw_text")
@@ -157,10 +160,16 @@ def _submitted_values(
 
 def review_linked(db: Session, activity: Activity, user: User, request: Request) -> None:
     """영업 B: 저장한 활동 기록에 연결된 진행 중 영업기회의 AI 분석을 자동으로 요청한다 (AI 꺼짐이면 아무것도 안 함)."""
+    from sqlalchemy.exc import OperationalError
+
     from app import opportunity_ai
 
     db.refresh(activity)
-    opportunity_ai.request_review(db, [o.id for o in activity.opportunities], user.id, request)
+    try:
+        opportunity_ai.request_review(db, [o.id for o in activity.opportunities], user.id, request)
+    except (OperationalError, guards.WriteBusy):  # 활동 기록은 이미 저장됐다: 잠금에 막힌 분석 요청만 버린다 ([다시 분석]으로 다시 할 수 있다)
+        db.rollback()
+        log.warning("영업기회 AI 분석 요청이 쓰기 잠금에 막혀 건너뜀 (활동 기록 %s)", activity.id)
 
 
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,

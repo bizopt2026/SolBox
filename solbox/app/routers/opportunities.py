@@ -288,6 +288,8 @@ def change_stage(
 def start_review(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     """[다시 분석] (영업 B): 사람이 누른 분석은 대기열 앞쪽(우선순위 0). 같은 영업기회의 작업이 이미 있으면 그것을 기다린다."""
     opp = get_or_404(db, Opportunity, opportunity_id)
+    if opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:
+        return notices.redirect(f"/opportunities/{opp.id}", "ai_not_open")
     if oai.pending_job(db, opp.id) is not None:
         return notices.redirect(f"/opportunities/{opp.id}", "ai_review_waiting")
     if not oai.has_activities(db, opp):
@@ -337,12 +339,18 @@ def toggle_check(
 ):
     """확인 항목 켜기·끄기 (영업 B). 알림 없이 상세의 카드로 돌아간다. HTMX 면 카드 조각만."""
     opp = get_or_404(db, Opportunity, opportunity_id)
+    from sqlalchemy.exc import IntegrityError
+
     try:
         changed = oai.set_check(db, opp, item, checked == "1", user.id)
+        if changed:
+            db.commit()
     except ValueError:
         raise HTTPException(status_code=400, detail="알 수 없는 확인 항목입니다.") from None
+    except IntegrityError:  # 다른 탭이 같은 항목을 방금 켰다: 이미 켜져 있으니 그대로 보인다
+        db.rollback()
+        changed = False
     if changed:
-        db.commit()
         db.refresh(opp)
         mirror.sync(opp)
     if request.headers.get("HX-Request"):

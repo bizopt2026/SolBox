@@ -292,7 +292,9 @@ def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
                 old = hist.deleted[0]
             if obj.stage is None:  # 기본값은 flush 때 채워진다: 새 줄이면 기본 단계를 쓴다
                 obj.stage = ontology.OPPORTUNITY_STAGE_DEFAULT
-            session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid))
+            src = session.info.get("change_source", "")
+            session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid,
+                                               source=src, evidence=session.info.get("change_evidence", "") if src else ""))
 
 
 def history_text(value) -> str:

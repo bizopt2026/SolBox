@@ -274,6 +274,8 @@ class OpportunityStageChange(Base):
     to_stage: Mapped[str] = mapped_column(String)
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String, default="", server_default="")  # "ai" = AI 단계 제안을 반영 (영업 B). 옛 DB 는 migrate 가 칸을 더한다
+    evidence: Mapped[str] = mapped_column(Text, default="", server_default="")
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="stage_changes")
 

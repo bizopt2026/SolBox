@@ -515,7 +515,7 @@ def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
         return raw
 
     rows = [{"at": ch.changed_at, "field": "stage", "old": shown("stage", ch.from_stage, ch.changed_at), "new": shown("stage", ch.to_stage, ch.changed_at),
-             "by": names.get(ch.changed_by_id, ""), "source": ""} for ch in opp.stage_changes if ch.from_stage]  # 만들 때 줄(옛 단계 없음)은 뺀다
+             "by": names.get(ch.changed_by_id, ""), "source": ch.source or "", "evidence": ch.evidence or ""} for ch in opp.stage_changes if ch.from_stage]  # 만들 때 줄(옛 단계 없음)은 뺀다
     rows += [{"at": ch.changed_at, "field": ch.field, "old": shown(ch.field, ch.old_value, ch.changed_at, old=True), "new": shown(ch.field, ch.new_value, ch.changed_at),
               "by": names.get(ch.changed_by_id, ""), "source": ch.source, "evidence": ch.evidence or ""} for ch in opp.field_changes]
     for r in rows:

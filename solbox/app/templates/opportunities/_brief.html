@@ -5,9 +5,9 @@
 <section class="card brief-card" id="brief" aria-labelledby="h-brief">
   <header class="card-head"><h2 id="h-brief">브리핑 <span class="ai-tag">AI 초안</span></h2>
     <span class="brief-tools">{% if insight %}<span class="muted">{{ kdate(insight.created_at.date()) }} {{ insight.created_at.strftime("%H:%M") }}</span>{% endif %}
-    <form method="post" action="/opportunities/{{ opp.id }}/ai/review" class="inline">
+    {% if opp.stage in ont.OPPORTUNITY_OPEN_STAGES %}<form method="post" action="/opportunities/{{ opp.id }}/ai/review" class="inline">
       <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-brief") }}{% if ai_job %} disabled{% endif %}>{{ "다시 분석" if insight else "AI 분석" }}</button>
-    </form></span></header>
+    </form>{% endif %}</span></header>
   {{ ai_note(aig, id="ai-note-brief") }}
   {% if b.get("situation") %}<h3>현재 상황</h3><p>{{ b.situation }}</p>{% endif %}
   {% if b.get("risks") %}<h3>위험</h3><ul>{% for x in b.risks %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
