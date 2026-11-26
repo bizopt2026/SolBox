@@ -53,7 +53,7 @@
 
 <section class="card stack team-card" aria-labelledby="h-teams">
   <h2 id="h-teams">팀</h2>
-  <p class="help muted">{{ ont.TYPES["team"].description }}. 영업기회 목록과 홈에서 "우리 팀" 으로 모아 볼 수 있습니다. 한 사람은 팀 하나에만 속합니다.</p>
+  <p class="help muted">영업기회 담당을 팀으로 묶어 영업기회 목록과 홈에서 "우리 팀" 으로 모아 봅니다. 한 사람은 팀 하나에만 속하고, 사람의 팀은 위 표의 "팀" 칸에서 고릅니다.</p>
   {% if teams %}
   <div class="tablewrap"><table class="inline-table">
     <thead><tr><th>이름</th><th>사람</th><th>관리</th></tr></thead>
@@ -61,7 +61,7 @@
     {% for t in teams %}
       {% set tid = "team" ~ t.id %}
       <tr>
-        <td><form id="{{ tid }}" method="post" action="/admin/teams/{{ t.id }}" class="inline-rename"></form><input form="{{ tid }}" type="hidden" name="_rev" value="{{ rev_of(t) }}">
+        <td class="team-name-cell"><form id="{{ tid }}" method="post" action="/admin/teams/{{ t.id }}" class="inline-rename"></form><input form="{{ tid }}" type="hidden" name="_rev" value="{{ rev_of(t) }}">
           <input form="{{ tid }}" name="name" value="{{ typed if error and team_error_id == t.id else t.name }}" maxlength="{{ team_name_max }}" aria-label="{{ t.name }} 이름"{% if error and team_error_id == t.id %} aria-invalid="true"{% endif %}>
           <button form="{{ tid }}" type="submit" class="small" aria-label="{{ t.name }} 이름 저장">저장</button></td>
         <td class="num">{{ team_counts.get(t.id, 0) }}명</td>

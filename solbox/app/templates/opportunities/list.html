@@ -22,7 +22,7 @@
       <td class="col-sec"><span{% if o.close_reason %} title="{{ ont.close_reasons(o.stage).get(o.close_reason, '') }}"{% endif %}>{{ opportunity_badge(o.stage) }}</span></td>
       <td class="col-sec num">{% if o.amount %}{{ money.format_amount(o.amount) }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num{{ ' overdue' if o.expected_close and o.expected_close < today and o.stage in ont.OPPORTUNITY_OPEN_STAGES }}">{% if o.expected_close %}{{ ui.short_date(o.expected_close, today) }}{% else %}{{ none_dash() }}{% endif %}</td>
-      <td class="col-sec">{% if o.owner %}<span class="who">{{ owner_name }}{% if not o.owner.is_active %} (사용 중지){% endif %}{% if o.owner.team %}<small>{{ o.owner.team.name }}</small>{% endif %}</span>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if o.owner %}<span class="owner-cell">{{ owner_name }}{% if not o.owner.is_active %} (사용 중지){% endif %}{% if o.owner.team %}<small>{{ o.owner.team.name }}</small>{% endif %}</span>{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec">{% if o.next_step %}{% if o.next_step_due %}<span class="num{{ ' overdue' if o.next_step_due < today }}">{{ ui.short_date(o.next_step_due, today) }}</span> {% endif %}{{ o.next_step }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>

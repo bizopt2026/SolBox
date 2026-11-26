@@ -1489,7 +1489,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .reason-pick { border: 0; padding: 0; margin: 0; }
 .reason-pick legend { font-weight: var(--fw-strong); margin-bottom: var(--s2); }
 .reason-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.reason-chips label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line-2); border-radius: var(--r-pill); background: var(--surface); cursor: pointer; font-size: var(--fs-note); }
+.reason-chips label { display: inline-flex; flex-direction: row; width: auto; margin: 0; font-weight: 400; color: var(--ink); align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line-2); border-radius: var(--r-pill); background: var(--surface); cursor: pointer; font-size: var(--fs-note); }
 .reason-chips label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
 .reason-chips label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .reason-pick.has-error .reason-chips label { border-color: var(--bad-line); }
@@ -1499,8 +1499,9 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .stale-chip.on { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); font-weight: var(--fw-strong); }
 .row-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .overdue { color: var(--bad); font-weight: var(--fw-strong); }
-.who { display: inline-flex; flex-direction: column; }
-.who small { color: var(--ink-3); font-size: var(--fs-small); }
+.owner-cell { display: inline-flex; flex-direction: column; line-height: 1.35; white-space: nowrap; }
+.owner-cell small { color: var(--ink-3); font-size: var(--fs-small); }
+.list-table td.num.overdue, .list-table .overdue { color: var(--bad); }
 .stale-alert { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .stale-alert a { margin-left: auto; font-weight: var(--fw-strong); }
 .sumband { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 0 var(--gap); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
@@ -1534,3 +1535,5 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .opp-amt { font-size: var(--fs-note); white-space: nowrap; }
 .opp-m { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--fs-small); }
 .contact-line { margin: calc(-1 * var(--s2)) 0 var(--gap); font-size: var(--fs-note); }
+.team-card .team-name-cell { display: flex; align-items: center; gap: var(--s2); }
+.team-card .team-name-cell input { max-width: 280px; }
