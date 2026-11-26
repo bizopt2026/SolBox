@@ -84,13 +84,13 @@ def test_matrix_highlight_and_axis_ends(tmp_path):
     assert _layout(stats) == []
 
 
-def test_half_cards_and_steps_use_larger_type_when_few(tmp_path):
+def test_half_cards_and_steps_use_the_type_scale(tmp_path):
     prs, stats = _build(tmp_path, [
         {"kind": "two_column", "title": "비교", "key_message": KM, "left_title": "전", "left": ["손으로 모읍니다"], "right_title": "후", "right": ["자동으로 모읍니다"]},
         {"kind": "steps", "title": "절차", "key_message": KM, "steps": [{"name": "진단", "detail": "설비 확인"}, {"name": "적용", "detail": "한 라인"}, {"name": "확대", "detail": "전 공장"}]},
     ])
     sizes = {r.font.size.pt for sh in _named(prs.slides[1], "목록") for p in sh.text_frame.paragraphs for r in p.runs}
-    assert sizes == {18}
+    assert sizes == {14}  # 베타 AL: "적으면 크게" 를 거두고 본문 14 로 고정
     step = _named(prs.slides[2], "단계 글")[0].text_frame.paragraphs
-    assert step[0].runs[0].font.size.pt == 20 and step[1].runs[0].font.size.pt == 15
+    assert step[0].runs[0].font.size.pt == 18 and step[1].runs[0].font.size.pt == 14
     assert _layout(stats) == []

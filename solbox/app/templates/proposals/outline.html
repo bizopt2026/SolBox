@@ -30,6 +30,20 @@
   <div class="card-head"><h2>제안서</h2></div>
   {% with back="outline" %}{% include "proposals/_deck.html" %}{% endwith %}
 </section>
+{% if export_text %}
+<section class="card stack" id="export">
+  <div class="card-head"><h2>Claude 로 디자인하기</h2></div>
+  <p class="help muted">이 구성안을 Claude(데스크톱 앱·claude.ai)에 붙여 넣으면 PPT 스킬로 디자인된 제안서를 만들 수 있습니다. 글에는 내용과 디자인 규칙(색·글꼴·글자 크기)이 함께 들어 있고, 내부 경로와 출처는 빠져 있습니다. 확인하지 않은 항목은 맨 아래 "작성자 확인 사항"으로 따로 붙습니다.</p>
+  <div class="export-actions">
+    <button type="button" class="primary" data-copy="#export-text" data-copied="복사했습니다" hidden>글 복사</button>
+    <a class="button" href="/proposals/{{ proposal.id }}/outline/export">파일로 받기 (.md)</a>
+  </div>
+  <details class="export-preview">
+    <summary>내보낼 글 보기</summary>
+    <textarea id="export-text" class="export-text" readonly rows="16" aria-label="Claude 에 붙여 넣을 구성안 글">{{ export_text }}</textarea>
+  </details>
+</section>
+{% endif %}
 <div class="slide-list">
 {% for card in cards %}
 {% set s = card.slide %}

@@ -799,6 +799,29 @@
     document.querySelectorAll('input[name="target_kind"]').forEach(function (r) { r.addEventListener("change", btSync); });
   }
 
+  // 글 복사 단추 (베타 AM, 구성안 내보내기): JS 가 있을 때만 보인다. 없으면 글 칸에서 직접 고르거나 파일로 받는다
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    var src = document.querySelector(btn.getAttribute("data-copy"));
+    if (!src) return;
+    btn.hidden = false;
+    var label = btn.textContent;
+    btn.addEventListener("click", function () {
+      var done = function () {
+        btn.textContent = btn.getAttribute("data-copied") || label;
+        setTimeout(function () { btn.textContent = label; }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(src.value).then(done, function () { src.select(); document.execCommand("copy"); done(); });
+      } else {
+        var box = src.closest("details");
+        if (box) box.open = true;
+        src.select();
+        document.execCommand("copy");
+        done();
+      }
+    });
+  });
+
   // 목록의 구분 탭: 현재 탭이 가려져 있으면 탭 줄 안에서만 가로로 옮겨 보이게 한다
   document.querySelectorAll(".seg").forEach(function (seg) {
     var cur = seg.querySelector('[aria-current="page"]');

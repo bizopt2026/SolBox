@@ -162,8 +162,9 @@ def _check_copy(slide_no: int | None, text: str, out: list[dict]):
 
 
 def _check_runs(slide_no: int, root, out: list[dict]):
-    """글꼴·굵게·윤곽선·글자 크기·글자색 (#5b-1, #5b-2, #5c-2, #5c-3, #8f, 최소 글자 8pt)."""
+    """글꼴·굵게·윤곽선·글자 크기·글자색 (#5b-1, #5b-2, #5c-2, #5c-3, #8f, 최소 글자 8pt, 글자 크기 체계)."""
     faces, bold, italic, no_outline, bad_outline, small, orange = set(), 0, 0, 0, 0, set(), 0
+    off_scale: set[float] = set()
     for rpr in root.iter(f"{{{_A}}}rPr"):
         for tag in ("latin", "ea", "cs"):
             face = rpr.find(f"a:{tag}", _NS)
@@ -175,6 +176,8 @@ def _check_runs(slide_no: int, root, out: list[dict]):
         italic += rpr.get("i") == "1"
         if rpr.get("sz") and int(rpr.get("sz")) < deck.MIN_FONT_PT * 100:
             small.add(int(rpr.get("sz")) / 100)
+        if rpr.get("sz") and int(rpr.get("sz")) / 100 not in deck.TYPE_SCALE:
+            off_scale.add(int(rpr.get("sz")) / 100)
         color = rpr.find("a:solidFill/a:srgbClr", _NS)
         white = color is not None and color.get("val", "").upper() == "FFFFFF"
         ln = rpr.find("a:ln", _NS)
@@ -196,6 +199,9 @@ def _check_runs(slide_no: int, root, out: list[dict]):
         out.append(_finding("error", "#5c-3 윤곽선 규격", slide_no, f"윤곽선이 1pt·투명도 100% 가 아닌 글자가 {bad_outline}곳 있습니다"))
     if small:
         out.append(_finding("error", "최소 글자 8pt", slide_no, f"{min(small):g}pt 글자가 있습니다. 8pt 보다 작게 쓰지 않습니다"))
+    if off_scale:  # 베타 AL: 글자 크기는 역할별 고정 체계(`deck.TYPE_SCALE`) 안에서만 쓴다
+        out.append(_finding("warn", "글자 크기 체계", slide_no, "글자 크기 체계(" + "·".join(f"{x:g}" for x in deck.TYPE_SCALE) + "pt) 밖의 크기가 있습니다: "
+                            + ", ".join(f"{x:g}pt" for x in sorted(off_scale))))
     if orange:
         out.append(_finding("error", "#8f 오렌지 글자색", slide_no, f"강조 오렌지를 글자색으로 쓴 곳이 {orange}곳 있습니다. 오렌지는 도형에만 씁니다"))
 
