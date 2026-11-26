@@ -1,0 +1,7 @@
+{# 사업 방향·과제의 최근 칸 이력 카드. changes = workspaces.change_rows #}
+{% if changes %}
+<section class="card hist-card" aria-labelledby="h-hist">
+  <h2 id="h-hist">변경 이력</h2>
+  <ul class="hist">{% for r in changes %}<li><time>{{ kdatetime(r.when) }}</time><div>{{ r.field }} {% if r.old %}<span class="old">{{ r.old }}</span><span class="arrow" aria-label="에서">→</span>{% endif %}<b>{{ r.new or "(비움)" }}</b>{% if r.by or r.source == "ai" %}<small class="by">{{ r.by }}{% if r.source == "ai" %}{{ " · " if r.by }}<span class="ai-tag">AI 제안</span>{% endif %}</small>{% endif %}{% if r.source == "ai" and r.evidence %}<details class="hist-ev"><summary>근거</summary>“{{ r.evidence }}”</details>{% endif %}</div></li>{% endfor %}</ul>
+</section>
+{% endif %}

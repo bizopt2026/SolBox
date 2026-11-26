@@ -68,7 +68,7 @@ def test_current_step_is_disabled_and_same_stage_post_writes_nothing(user_client
     s = _make(db, "survey")
     html = user_client.get(f"/solutions/{s.id}").text
     assert re.search(r'value="survey"[^>]*aria-current="step" disabled', html)
-    assert html.count("disabled") == 1
+    assert html.split('class="stagebar"')[1].split("</form>")[0].count("disabled") == 1  # 단계 막대 안에서는 지금 단계 하나만 (AI 꺼짐으로 잠긴 AI 동료 버튼은 따로)
     card = settings.knowledge_dir / "solutions" / str(s.id) / "card.md"
     assert not card.exists()
     r = user_client.post(f"/solutions/{s.id}/stage", data={"stage": "survey"}, follow_redirects=False)

@@ -18,7 +18,7 @@ from app.config import Settings
 from app.extract import ExtractResult, extract_text
 from app.intake import extension
 from app.knowledge import KnowledgeMirror
-from app.models import Activity, Opportunity, Solution, SolutionFile, User
+from app.models import Activity, Initiative, Opportunity, Solution, SolutionFile, Strategy, User, WorkspaceFile
 
 LINK_TYPES = {  # 연결 종류: (모델, Activity 관계 이름). 정의는 ontology.ACTIVITY_LINKS
     t: (ontology.model_for(t), rel) for t, rel in ontology.ACTIVITY_LINKS.items()
@@ -60,6 +60,56 @@ def stored_sha(path: Path, f) -> str | None:
 
 def solution_file_path(settings: Settings, f: SolutionFile) -> Path:
     return settings.uploads_dir / "solutions" / str(f.solution_id) / f.stored_name
+
+
+
+# ---- 사업 방향·과제 공간 자료 (AI 코워크 ①). 솔루션 자료와 같은 규칙: 같은 공간에 같은 내용이면 새로 만들지 않는다 ----
+
+def workspace_dir(settings: Settings, owner) -> Path:
+    kind = "strategy" if isinstance(owner, Strategy) else "initiative"
+    return settings.uploads_dir / "workspaces" / kind / str(owner.id)
+
+
+def workspace_file_path(settings: Settings, f: WorkspaceFile) -> Path:
+    kind, oid = ("strategy", f.strategy_id) if f.strategy_id is not None else ("initiative", f.initiative_id)
+    return settings.uploads_dir / "workspaces" / kind / str(oid) / f.stored_name
+
+
+def new_workspace_file(
+    db: Session, settings: Settings, owner: Strategy | Initiative, name: str, user: User, write: Callable[[Path], int | None],
+) -> tuple[WorkspaceFile, ExtractResult] | None:
+    """공간 자료 한 건 (커밋하지 않는다). 돌려주는 값과 예외는 `new_solution_file` 과 같다 (크기 초과 None, 같은 내용 `DuplicateFile`)."""
+    is_strategy = isinstance(owner, Strategy)
+    f = WorkspaceFile(strategy_id=owner.id if is_strategy else None, initiative_id=None if is_strategy else owner.id,
+                      original_name=name, created_by_id=user.id)
+    db.add(f)
+    db.flush()
+    f.stored_name = f"{f.id}{extension(name)}"
+    path = workspace_file_path(settings, f)
+    try:
+        size = write(path)
+        if size is None:
+            return None
+        f.size = size
+        f.sha256 = sha256_of(path)
+        col = WorkspaceFile.strategy_id if is_strategy else WorkspaceFile.initiative_id
+        for other in db.scalars(select(WorkspaceFile).where(col == owner.id, WorkspaceFile.id != f.id).order_by(WorkspaceFile.id)):
+            if stored_sha(workspace_file_path(settings, other), other) == f.sha256:
+                path.unlink(missing_ok=True)
+                db.delete(f)
+                db.flush()
+                raise DuplicateFile(other)
+        result = extract_text(path)
+        f.extract_status = result.status
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return f, result
+
+
+def remove_workspace_files(settings: Settings, owner: Strategy | Initiative) -> list[Path]:
+    """공간을 지울 때 지울 원본 파일 경로들 (호출자가 커밋한 뒤에 지운다). 폴더는 비면 지운다."""
+    return [workspace_file_path(settings, f) for f in owner.files]
 
 
 def new_solution_file(

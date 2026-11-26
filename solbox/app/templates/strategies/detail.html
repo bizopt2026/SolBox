@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail_head, meta_card, pill %}
+{% from "_related.html" import related_card, main_cards %}
+{% block title %}{{ s.title }}{% endblock %}
+{% block content %}
+{% set status_badges %}{{ pill("strategy_status", s.status) }}{% if active %} <span class="badge tone-ok">잣대로 쓰는 중</span>{% endif %}{% endset %}
+{{ detail_head(s.title, "/strategies", s, can_delete, crumbs=ui.crumbs("strategy", s.title), status=status_badges, primary=("+ 과제 만들기", "/initiatives/new?strategy_id=" ~ s.id)) }}
+<div class="dgrid">
+  <div class="dmain">
+    {% set cw_code, cw_obj, compact = "strategy", s, false %}{% include "cowork/_panel.html" %}
+    <section class="card stack" aria-labelledby="h-consensus">
+      <header class="card-head"><h2 id="h-consensus">{{ ont.prop("strategy", "consensus") }}</h2><a class="button small ghost" href="/strategies/{{ s.id }}/edit">고치기</a></header>
+      {% if s.consensus %}<div class="md">{{ s.consensus | md }}</div>{% else %}<p class="muted">아직 합의 내용이 없습니다. AI 가 이 방향을 잣대로 쓰려면 합의 내용을 적고 상태를 "합의"로 바꾸세요.</p>{% endif %}
+      {% if not active and s.status == "agreed" %}<p class="muted help">기간 밖이라 지금은 잣대로 쓰지 않습니다.</p>{% endif %}
+    </section>
+    {% if s.body %}
+    <section class="card stack" aria-labelledby="h-body"><h2 id="h-body">{{ ont.prop("strategy", "body") }}</h2><div class="md">{{ s.body | md }}</div></section>
+    {% endif %}
+    {{ main_cards(main) }}
+  </div>
+  <aside class="daside" aria-label="공간 정보">
+    <section class="card stack" aria-labelledby="h-props">
+      <h2 id="h-props">공간 정보</h2>
+      <dl class="props compact">
+        <dt>{{ ont.prop("strategy", "period") }}</dt><dd>{% if s.period_start or s.period_end %}{{ kdate(s.period_start) if s.period_start else "" }} ~ {{ kdate(s.period_end) if s.period_end else "" }}{% else %}기간 없음{% endif %}</dd>
+        <dt>{{ ont.prop("strategy", "instructions") }}</dt><dd>{{ s.instructions or "–" }}</dd>
+      </dl>
+    </section>
+    {% set owner_url = "/strategies/" ~ s.id %}{% include "_workspace_files.html" %}
+    {% include "_workspace_changes.html" %}
+    {{ related_card(related, hide_empty=true) }}
+    {{ meta_card(meta) }}
+  </aside>
+</div>
+{% endblock %}

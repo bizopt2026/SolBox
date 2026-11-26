@@ -748,3 +748,170 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+# ======================================================================================
+# AI 코워크 ①: 사업 방향·과제 공간 (설계 docs/superpowers/specs/2026-11-26-ai-cowork-design.md)
+# ======================================================================================
+
+def _initiative_link(name: str, col: str, target: str) -> Table:
+    return Table(
+        name, Base.metadata,
+        Column("initiative_id", ForeignKey("initiatives.id", ondelete="CASCADE"), primary_key=True),
+        Column(col, ForeignKey(f"{target}.id", ondelete="CASCADE"), primary_key=True),
+    )
+
+
+initiative_solutions = _initiative_link("initiative_solutions", "solution_id", "solutions")
+initiative_partners = _initiative_link("initiative_partners", "partner_id", "partners")
+initiative_customers = _initiative_link("initiative_customers", "customer_id", "customers")
+initiative_opportunities = _initiative_link("initiative_opportunities", "opportunity_id", "opportunities")
+initiative_projects = _initiative_link("initiative_projects", "business_id", "businesses")  # 프로젝트의 물리 표·열 이름 그대로
+
+
+class Strategy(Stamped, Base):
+    """사업 방향: 팀이 합의한 사업개발 방향. 합의 내용(consensus)이 다른 기록을 재는 잣대가 된다 (합의 상태이고 기간 안일 때만)."""
+
+    __tablename__ = "strategies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String)
+    body: Mapped[str] = mapped_column(Text, default="")  # 배경·목표
+    consensus: Mapped[str] = mapped_column(Text, default="", active_history=True)  # 합의 내용 (바뀌면 이력)
+    instructions: Mapped[str] = mapped_column(Text, default="")  # 이 공간 대화에서 AI 가 지킬 것
+    period_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String, default=ontology.STRATEGY_STATUS_DEFAULT, active_history=True)  # ontology.STRATEGY_STATUSES
+
+    initiatives: Mapped[list[Initiative]] = relationship(back_populates="strategy", order_by="Initiative.id")
+    files: Mapped[list[WorkspaceFile]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceFile.id")
+    changes: Mapped[list[WorkspaceChange]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceChange.id")
+
+
+class Initiative(Stamped, Base):
+    """과제: 이슈 또는 개별 과제 한 건 (종류 칸). 담당·기한·상태·속한 방향을 갖고 다른 기록과 잇는다."""
+
+    __tablename__ = "initiatives"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String)
+    kind: Mapped[str] = mapped_column(String, default=ontology.INITIATIVE_KIND_DEFAULT, active_history=True)  # ontology.INITIATIVE_KINDS
+    status: Mapped[str] = mapped_column(String, default=ontology.INITIATIVE_STATUS_DEFAULT, active_history=True)  # ontology.INITIATIVE_STATUSES
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, active_history=True)
+    due: Mapped[date | None] = mapped_column(Date, nullable=True, active_history=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="SET NULL"), nullable=True, active_history=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    progress: Mapped[str] = mapped_column(Text, default="")  # 진행 메모 (보고서에 실린다)
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="initiatives")
+    owner: Mapped[User | None] = relationship(foreign_keys=[owner_user_id])
+    solutions: Mapped[list[Solution]] = relationship(secondary=initiative_solutions, order_by="Solution.name")
+    partners: Mapped[list[Partner]] = relationship(secondary=initiative_partners, order_by="Partner.name")
+    customers: Mapped[list[Customer]] = relationship(secondary=initiative_customers, order_by="Customer.name")
+    opportunities: Mapped[list[Opportunity]] = relationship(secondary=initiative_opportunities, order_by="Opportunity.name")
+    projects: Mapped[list[Project]] = relationship(secondary=initiative_projects, order_by="Project.name")
+    files: Mapped[list[WorkspaceFile]] = relationship(
+        back_populates="initiative", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceFile.id")
+    changes: Mapped[list[WorkspaceChange]] = relationship(
+        back_populates="initiative", cascade="all, delete-orphan", passive_deletes=True, order_by="WorkspaceChange.id")
+
+
+class WorkspaceFile(Stamped, Base):
+    """사업 방향·과제 공간에 올린 자료 파일. strategy_id 와 initiative_id 중 정확히 하나가 채워진다 (응용 수준)."""
+
+    __tablename__ = "workspace_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="CASCADE"), nullable=True, index=True)
+    initiative_id: Mapped[int | None] = mapped_column(ForeignKey("initiatives.id", ondelete="CASCADE"), nullable=True, index=True)
+    original_name: Mapped[str] = mapped_column(String, default="")
+    stored_name: Mapped[str] = mapped_column(String, default="")
+    extract_status: Mapped[str] = mapped_column(String, default="")  # ok / failed / unsupported
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="files")
+    initiative: Mapped[Initiative | None] = relationship(back_populates="files")
+
+    @property
+    def owner(self):
+        return self.strategy if self.strategy_id is not None else self.initiative
+
+
+class WorkspaceChange(Base):
+    """사업 방향·과제의 칸이 바뀐 기록 한 줄 (ontology.STRATEGY_TRACKED_FIELDS·INITIATIVE_TRACKED_FIELDS). guards 가 남긴다. 보고서가 기간을 센다."""
+
+    __tablename__ = "workspace_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="CASCADE"), nullable=True, index=True)
+    initiative_id: Mapped[int | None] = mapped_column(ForeignKey("initiatives.id", ondelete="CASCADE"), nullable=True, index=True)
+    field: Mapped[str] = mapped_column(String)
+    old_value: Mapped[str] = mapped_column(Text, default="")
+    new_value: Mapped[str] = mapped_column(Text, default="")
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String, default="", server_default="")  # 빈 글 = 사람, "ai" = AI 동료 제안을 반영 (AI 코워크 ②)
+    evidence: Mapped[str] = mapped_column(Text, default="", server_default="")  # AI 제안을 반영한 줄의 근거 문장
+
+    strategy: Mapped[Strategy | None] = relationship(back_populates="changes")
+    initiative: Mapped[Initiative | None] = relationship(back_populates="changes")
+
+
+# ======================================================================================
+# AI 코워크 ②: AI 동료 칸의 대화 (팀 전체 공개). 대상은 종류+번호 (ontology.COWORK_TARGETS), 대상을 지우면 cowork 가 함께 지운다
+# ======================================================================================
+
+class AIThread(Stamped, Base):
+    __tablename__ = "ai_threads"
+    __table_args__ = (Index("ix_ai_threads_target", "target_type", "target_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_type: Mapped[str] = mapped_column(String)  # strategy / initiative / solution / partner / opportunity
+    target_id: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String, default="")
+    origin_type: Mapped[str] = mapped_column(String, default="")  # 과제로 옮긴 대화의 처음 대상 (보이기만 한다)
+    origin_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+
+    messages: Mapped[list[AIMessage]] = relationship(
+        back_populates="thread", cascade="all, delete-orphan", passive_deletes=True, order_by="AIMessage.id")
+    active_job: Mapped[AIJob | None] = relationship(foreign_keys=[active_job_id])
+    creator: Mapped[User | None] = relationship(primaryjoin="User.id == AIThread.created_by_id", foreign_keys="AIThread.created_by_id", viewonly=True)
+
+
+class AIMessage(Base):
+    __tablename__ = "ai_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("ai_threads.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String)  # user / assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # 쓴 사람 (AI 답은 물은 사람)
+    suggestions: Mapped[list] = mapped_column(JSON, default=list)  # AI 답의 제안 (cowork.clean_suggestions 모양). 새 list 를 대입한다
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+    thread: Mapped[AIThread] = relationship(back_populates="messages")
+    user: Mapped[User | None] = relationship(foreign_keys=[user_id])
+
+
+class AlignmentNote(Base):
+    """정렬 점검 한 번 (AI 코워크 ③): 기록 하나가 합의된 사업 방향과 맞는지 AI 가 근거와 함께 판단한 것. 대상마다 최신 줄만 화면에 쓴다."""
+
+    __tablename__ = "alignment_notes"
+    __table_args__ = (Index("ix_alignment_notes_target", "target_type", "target_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_type: Mapped[str] = mapped_column(String)  # initiative / opportunity / solution (ontology.ALIGNMENT_TARGETS)
+    target_id: Mapped[int] = mapped_column(Integer)
+    verdict: Mapped[str] = mapped_column(String, default="")  # ontology.ALIGNMENT_VERDICTS
+    strategy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 가장 가까운 사업 방향 (제약 없는 번호: 방향을 지우면 alignment 의 flush 처리기가 비운다)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    evidence: Mapped[str] = mapped_column(Text, default="")
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)  # 근거를 기록 글에서 찾았는지
+    basis: Mapped[str] = mapped_column(String, default="")  # 읽은 사업 방향들의 합의 내용 해시 (바뀌면 다시 점검 필요)
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)

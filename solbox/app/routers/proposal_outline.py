@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from datetime import date
+from urllib.parse import quote
+
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app import guards, labels, ontology
+from app import guards, labels, ontology, outline_export
 from app import notices
 from app.guards import Rev, rev_form
 from app.db import get_db
@@ -14,7 +17,7 @@ from app.main import render
 from app.models import Proposal, User
 from app.ai.gate import require_ai_on
 from app.ai.queue import queue_position
-from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, start_job, check_items, display_title, outline_check_summary, keep_checked, slide_sources, save_outline, slide_check_state, slide_from_form, slide_to_form
+from app.proposals import MAX_SLIDES, NO_SOURCE_NOTE, contact_lines, start_job, target_name, check_items, display_title, outline_check_summary, keep_checked, slide_sources, save_outline, slide_check_state, slide_from_form, slide_to_form
 from app.routers._common import get_or_404
 from app.sources import SourceLookup
 from app.security import require_user
@@ -62,6 +65,11 @@ def _back(p: Proposal, index: int, renumber: bool = False, notice: str = "") -> 
     return RedirectResponse(notices.with_notice(url, notice) if notice else url, status_code=303)
 
 
+def _export_text(p: Proposal, user: User) -> str:
+    """Claude 용 내보내기 글 (베타 AM, `app/outline_export.py`). 화면의 복사 칸과 파일 내려받기가 같은 글을 쓴다."""
+    return outline_export.export_markdown(p.outline, deck_title=display_title(p), target=target_name(p), contact=contact_lines(user), today=date.today())
+
+
 def _outline_page(request: Request, db: Session, p: Proposal, open_index: int | None, status_code: int = 200, conflict=None, submitted: dict | None = None):
     """구성안 화면. `conflict`·`submitted` 가 있으면 그 장의 폼은 저장하지 않은 충돌 상태(쓴 값 그대로 + 알림)로 그린다."""
     slides = p.outline["slides"]
@@ -79,6 +87,7 @@ def _outline_page(request: Request, db: Session, p: Proposal, open_index: int | 
     return render(
         request, "proposals/outline.html", status_code=status_code, proposal=p, title=display_title(p), cards=cards, open_index=open_index, busy=busy,
         position=queue_position(db, p.active_job) if busy else 0,
+        export_text=_export_text(p, request.state.user) if getattr(request.state, "user", None) is not None else "",
         summary=outline_check_summary(p.outline), src=SourceLookup(db), can_add=len(slides) < MAX_SLIDES, slide_kinds=labels.SLIDE_KINDS,
         chart_types=ontology.CHART_TYPES, diagram_types=ontology.DIAGRAM_TYPES, diagram_help=ontology.DIAGRAM_TYPE_DESCRIPTIONS, quadrants=list(ontology.MATRIX_QUADRANTS),
     )
@@ -246,3 +255,15 @@ def undo_slide(
     slides[index] = undo["slide"]
     save_outline(db, p, slides)
     return _back(p, index, notice="slide_restored")
+
+
+@router.get("/export")
+def export_outline(
+    proposal_id: int, user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """구성안을 Claude 용 마크다운 파일로 내려받는다 (베타 AM). 사용자가 자기 Claude(데스크톱·claude.ai)에 올려 PPT 스킬로 덱을 만든다."""
+    p = _load(db, proposal_id)
+    from app.knowledge import safe_name
+
+    disposition = f'attachment; filename="proposal-{p.id}-outline.md"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + "_구성안_Claude용.md")
+    return Response(_export_text(p, user), media_type="text/markdown; charset=utf-8", headers={"Content-Disposition": disposition})

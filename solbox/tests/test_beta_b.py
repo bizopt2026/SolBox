@@ -414,7 +414,7 @@ def test_delete_impact_exists_for_every_deletable_core_type(user_client, db):
     assert "지금 연결된 기록" in user_client.get(f"/customers/{cid}/delete").text
     from app import ontology
 
-    assert set(ontology.DELETE_IMPACT) == {"solution", "partner", "customer", "project", "bm", "opportunity", "activity", "proposal"}
+    assert set(ontology.DELETE_IMPACT) == {"solution", "partner", "customer", "project", "bm", "opportunity", "activity", "proposal", "strategy", "initiative"}
     empty = user_client.post("/partners", data={"name": "새 파트너"}, follow_redirects=False)
     pid = empty.headers["location"].split("/partners/")[1].split("?")[0]
     assert "다른 기록에는 영향이 없습니다" in user_client.get(f"/partners/{pid}/delete").text

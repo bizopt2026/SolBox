@@ -69,7 +69,7 @@ def test_bullets_overflow_splits(tmp_path):
          {"kind": "bullets", "title": "목록", "key_message": "핵심", "bullets": [f"항목 {i}" for i in range(15)], "needs_check": ["확인"]}]}
     build_deck(o, tmp_path / "b.pptx"); prs = Presentation(tmp_path / "b.pptx")
     assert len(prs.slides) == 3
-    assert "항목 9" in texts(prs.slides[1]) and "항목 10" in texts(prs.slides[2]) and "목록 (2)" in texts(prs.slides[2])
+    assert "항목 7" in texts(prs.slides[1]) and "항목 8" in texts(prs.slides[2]) and "목록 (2)" in texts(prs.slides[2])  # 베타 AL: 14pt 로 세어 한 장 8개
     assert "핵심" in texts(prs.slides[1]) and "핵심" not in texts(prs.slides[2])
     assert "확인" in notes(prs.slides[1]) and not prs.slides[2].has_notes_slide
 
@@ -91,7 +91,7 @@ def test_table_font_size_by_column_count(tmp_path):
     wide = {"kind": "table", "title": "넓은 표", "columns": [f"c{i}" for i in range(7)], "rows": [[str(i) for i in range(7)]]}
     narrow = {"kind": "table", "title": "좁은 표", "columns": ["a", "b"], "rows": [["1", "2"]]}
     build_deck({"title": "t", "slides": [wide, narrow]}, tmp_path / "w.pptx"); prs = Presentation(tmp_path / "w.pptx")
-    assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 9  # 7열 이상 (베타 AF: 표 글자 12 → 11 → 10 → 9)
+    assert tables(prs.slides[0])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 10  # 7열 이상 (베타 AL: 표 글자는 12 아니면 10)
     assert tables(prs.slides[1])[0].cell(1, 0).text_frame.paragraphs[0].runs[0].font.size.pt == 12  # 4열 이하, 6행 이하
 
 
@@ -100,8 +100,8 @@ def test_two_column_overflow(tmp_path):
          "left_title": "현재", "left": [f"왼{i}" for i in range(12)], "right_title": "제안", "right": ["오1"]}]}
     build_deck(o, tmp_path / "c.pptx"); prs = Presentation(tmp_path / "c.pptx")
     assert len(prs.slides) == 2
-    assert "왼7" in texts(prs.slides[0]) and "왼8" not in texts(prs.slides[0])
-    assert "왼8" in texts(prs.slides[1]) and "왼11" in texts(prs.slides[1]) and "비교 (2)" in texts(prs.slides[1])
+    assert "왼6" in texts(prs.slides[0]) and "왼7" not in texts(prs.slides[0])  # 베타 AL: 14pt 로 세어 나눈다
+    assert "왼7" in texts(prs.slides[1]) and "왼11" in texts(prs.slides[1]) and "비교 (2)" in texts(prs.slides[1])
     assert "오1" in texts(prs.slides[0])
 
 
@@ -119,9 +119,8 @@ def test_bullet_font_sizes(tmp_path):
         o = {"title": "t", "slides": [{"kind": "bullets", "title": "목록", "bullets": [f"b{i}" for i in range(n)]}]}
         build_deck(o, tmp_path / f"s{n}.pptx"); prs = Presentation(tmp_path / f"s{n}.pptx")
         return {r.font.size.pt for tf in _frames(prs.slides[0]) for p in tf.paragraphs for r in p.runs if r.text == "b0"}
-    # 베타 AF: 6개까지는 번호 카드(한 줄 카드 16pt, 두 줄 카드 14pt), 그보다 많으면 목록 카드(14pt 부터 줄여 간다)
-    assert size_for(3) == {16} and size_for(5) == {14} and size_for(7) == {14}
-    assert size_for(10) <= {14, 13, 12, 11} and len(size_for(10)) == 1
+    # 베타 AL: 글머리 본문은 개수와 상관없이 14pt (번호 카드·목록 카드 모두). 넘치면 장을 나눈다
+    assert size_for(3) == {14} and size_for(5) == {14} and size_for(7) == {14} and size_for(10) == {14}
 
 
 def test_font_is_nanum_square_ac(tmp_path):
@@ -202,12 +201,12 @@ def _table_size(tmp_path, columns, rows):
 
 def test_table_font_16_small_14_larger_and_steps_down_when_tall(tmp_path):
     cols4 = ["a", "b", "c", "d"]
-    assert _table_size(tmp_path, cols4, [["1"] * 4] * 6) == {12}  # 베타 AF: 16/14/11 → 12/11/9
-    assert _table_size(tmp_path, cols4, [["1"] * 4] * 7) == {11}
-    assert _table_size(tmp_path, cols4 + ["e"], [["1"] * 5] * 2) == {11}
-    assert _table_size(tmp_path, [f"c{i}" for i in range(7)], [["1"] * 7]) == {9}
-    tall = [["가나다 " * 60, "x"]] * 5  # 긴 칸: 12pt 로는 카드를 넘으므로 글자를 줄인다
-    assert max(_table_size(tmp_path, ["a", "b"], tall)) < 12
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 6) == {12}  # 베타 AL: 표 글자는 12, 많거나 넓으면 10 (둘뿐)
+    assert _table_size(tmp_path, cols4, [["1"] * 4] * 7) == {10}
+    assert _table_size(tmp_path, cols4 + ["e"], [["1"] * 5] * 2) == {10}
+    assert _table_size(tmp_path, [f"c{i}" for i in range(7)], [["1"] * 7]) == {10}
+    tall = [["가나다 " * 60, "x"]] * 5  # 긴 칸: 베타 AL 부터는 글자를 줄이지 않고 쪽을 나눈다 (12 그대로)
+    assert _table_size(tmp_path, ["a", "b"], tall) == {12}
 
 
 def test_long_table_cells_paginate_before_overflowing(tmp_path):

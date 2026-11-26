@@ -104,6 +104,15 @@ EXPECT = {
     "R38": [("ri_hanbit", "R38", ["c_hanbit"]), ("c_hanbit", "R38", ["ri_hanbit"]), ("ri_free", "R38", [])],
     "R39": [("ri_hanbit", "R39", ["o_hanbit"]), ("o_hanbit", "R39", ["ri_hanbit"])],
     "R40": [("ri_hanbit", "R40", ["pr_hanbit"]), ("pr_hanbit", "R40", ["ri_hanbit"])],
+    "R41": [("in_ess", "R41", ["st_public"]), ("st_public", "R41", ["in_ess"])],
+    "R42": [("in_ess", "R42", ["s_hvac"]), ("s_hvac", "R42", ["in_ess"])],
+    "R43": [("in_ess", "R43", ["p_green"]), ("p_green", "R43", ["in_ess"])],
+    "R44": [("in_ess", "R44", ["c_hanbit"]), ("c_hanbit", "R44", ["in_ess"])],
+    "R45": [("in_ess", "R45", ["o_hanbit"]), ("o_hanbit", "R45", ["in_ess"])],
+    "R46": [("in_ess", "R46", ["pr_hanbit"]), ("pr_hanbit", "R46", ["in_ess"])],
+    "R47": [("st_public", "R47", ["wf_st"]), ("wf_st", "R47", ["st_public"])],
+    "R48": [("in_ess", "R48", ["wf_in"]), ("wf_in", "R48", ["in_ess"])],
+    "R49": [("in_ess", "R49", ["kim"]), ("kim", "R49", ["in_ess"])],
 }
 
 
@@ -285,7 +294,7 @@ def test_intake_backed_groups_respect_viewer(db, world, kim):
 # ---- 5. 목록 걸러 보기 ----
 
 def _count_rows(html):
-    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions)/\d+"', html))
+    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions|initiatives)/\d+"', html))
 
 
 def test_list_filters_match_group_totals(admin_client, db, world):
@@ -305,7 +314,8 @@ def test_list_filters_match_group_totals(admin_client, db, world):
 
 
 def _owner(w, owner, key):
-    return {"customer": w.c_hanbit, "solution": w.s_hvac, "partner": w.p_green, "project": w.pr_hanbit, "opportunity": w.o_hanbit, "bm": w.bm_energy}[owner]
+    return {"customer": w.c_hanbit, "solution": w.s_hvac, "partner": w.p_green, "project": w.pr_hanbit, "opportunity": w.o_hanbit, "bm": w.bm_energy,
+            "strategy": w.st_public}[owner]
 
 
 def _group_ids(db, owner_obj, key, list_type):

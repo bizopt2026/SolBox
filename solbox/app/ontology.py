@@ -176,6 +176,8 @@ JOB_KINDS = {
     "solution_draft": "솔루션 소개 초안",
     "proposal_directions": "제안 방향 만들기",
     "proposal_chat": "제안 채팅 답변",
+    "cowork_chat": "AI 동료 대화 답변",
+    "alignment_check": "사업 방향 정렬 점검",
     "proposal_outline": "제안서 구성안 만들기",
     "proposal_slide": "구성안 한 장 AI 다시 쓰기",
     "research_area": "리서치 분야 조사",
@@ -198,6 +200,8 @@ JOB_EXPECTED = {
     "solution_draft": "보통 30초 안에",
     "proposal_directions": "보통 1분 안에",
     "proposal_chat": "보통 1분 안에",
+    "cowork_chat": "보통 1분 안에",
+    "alignment_check": "보통 1분 안에",
     "proposal_outline": "보통 2분 안에",
     "proposal_slide": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
@@ -417,6 +421,51 @@ PLAN_RESULTS = {"done": "완료", "doing": "진행 중", "todo": "미착수", "d
 PLAN_CARRY_RESULTS = ("doing", "todo", "")  # 다음 계획으로 넘어가는 결과 (완료·취소는 넘기지 않는다)
 REPORT_STEPS = (("result", "실적"), ("check", "지난 계획 점검"), ("plan", "다음 계획"), ("files", "확정·파일"))  # 보고 화면의 단계 띠 (순서 강제 없음)
 
+# AI 코워크 ①: 사업 방향·과제 (docs/superpowers/specs/2026-11-26-ai-cowork-design.md)
+STRATEGY_STATUSES = {"draft": "초안", "agreed": "합의", "closed": "종료"}  # 사업 방향 상태
+STRATEGY_STATUS_DEFAULT = "draft"
+STRATEGY_STATUS_AGREED = "agreed"
+STRATEGY_TRACKED_FIELDS = ("status", "consensus")  # 바뀌면 workspace_changes 에 남는 칸
+INITIATIVE_KINDS = {"task": "과제", "issue": "이슈"}  # 과제 종류
+INITIATIVE_KIND_DEFAULT = "task"
+INITIATIVE_KIND_ISSUE = "issue"
+INITIATIVE_STATUSES = {"open": "열림", "doing": "진행 중", "blocked": "막힘", "done": "완료", "dropped": "취소"}  # 과제 상태
+INITIATIVE_STATUS_DEFAULT = "open"
+INITIATIVE_OPEN = ("open", "doing", "blocked")  # 열린 상태 (이슈의 "해결됨"은 완료)
+INITIATIVE_CLOSED = ("done", "dropped")
+INITIATIVE_TRACKED_FIELDS = ("status", "kind", "owner_user_id", "due", "strategy_id")
+WORKSPACE_FIELD_LABELS = {"status": "상태", "consensus": "합의 내용", "kind": "종류", "owner_user_id": "담당", "due": "기한", "strategy_id": "사업 방향"}
+
+
+# AI 코워크 ②: AI 동료 칸이 붙는 대상 (대상 유형 코드). 사업 방향·과제는 공간(지침·자료가 있다)
+COWORK_TARGETS = ("strategy", "initiative", "solution", "partner", "opportunity")
+COWORK_SPACES = ("strategy", "initiative")
+COWORK_CHAT_STARTERS: dict[str, tuple[str, ...]] = {
+    "strategy": ("이 방향에 맞는 과제를 3개 제안해 줘", "합의 내용을 더 분명한 기준으로 다듬어 줘"),
+    "initiative": ("다음 할 일을 정리해 줘", "이 과제가 방향에 맞는지 점검해 줘"),
+    "solution": ("이 솔루션을 팀 방향에 비춰 평가해 줘", "다음에 할 일을 제안해 줘"),
+    "partner": ("이 파트너와 다음에 할 일을 정리해 줘", "팀 방향에 맞는 협력 포인트는?"),
+    "opportunity": ("다음 할 일을 제안해 줘", "이 건이 팀 방향에 맞는지 봐 줘"),
+}
+# AI 코워크 ③: 정렬 점검
+ALIGNMENT_TARGETS = ("initiative", "opportunity", "solution")
+ALIGNMENT_VERDICTS = {"aligned": "방향에 맞음", "misaligned": "방향 밖", "unclear": "판단 어려움"}
+ALIGNMENT_AUTO_PRIORITY = 20  # 저장할 때 자동으로 넣는 점검: 리서치(10)보다도 뒤 (사람이 누른 작업은 0)
+ALIGNMENT_KEPT = 10  # 대상마다 남기는 점검 수
+COWORK_SUGGESTION_STATES = {"pending": "반영 대기", "applied": "반영함", "dismissed": "무시함", "superseded": "새 답으로 바뀜"}
+
+
+def strategy_is_active(strategy, today) -> bool:
+    """잣대로 쓰는 사업 방향: 합의 상태이고, 기간이 비었거나 오늘이 기간 안."""
+    if strategy.status != STRATEGY_STATUS_AGREED:
+        return False
+    if strategy.period_start and today < strategy.period_start:
+        return False
+    if strategy.period_end and today > strategy.period_end:
+        return False
+    return True
+
+
 WEEKDAYS = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
 
 CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
@@ -449,6 +498,10 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("report_unit", "보고 단위", REPORT_UNITS, REPORT_UNIT_DEFAULT),
     CodeList("report_status", "보고 진행 상태", REPORT_STATUSES, REPORT_STATUS_DEFAULT),
     CodeList("plan_result", "계획 점검 결과", PLAN_RESULTS),
+    CodeList("strategy_status", "사업 방향 상태", STRATEGY_STATUSES, STRATEGY_STATUS_DEFAULT),
+    CodeList("initiative_kind", "과제 종류", INITIATIVE_KINDS, INITIATIVE_KIND_DEFAULT),
+    CodeList("initiative_status", "과제 상태", INITIATIVE_STATUSES, INITIATIVE_STATUS_DEFAULT),
+    CodeList("alignment_verdict", "정렬 판단", ALIGNMENT_VERDICTS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -474,6 +527,10 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "business_type": {"build": "brand", "lease": "violet", "invest": "warn"},
     "report_status": {"draft": "slate", "planning": "warn", "confirmed": "ok"},
     "plan_result": {"done": "ok", "doing": "warn", "todo": "bad", "dropped": "slate"},
+    "strategy_status": {"draft": "slate", "agreed": "ok", "closed": "slate"},
+    "initiative_kind": {"task": "brand", "issue": "bad"},
+    "alignment_verdict": {"aligned": "ok", "misaligned": "bad", "unclear": "warn"},
+    "initiative_status": {"open": "violet", "doing": "brand", "blocked": "bad", "done": "ok", "dropped": "slate"},
 }
 
 
@@ -513,6 +570,10 @@ COLUMN_CODES = {
     ("reports", "unit"): "report_unit",
     ("reports", "status"): "report_status",
     ("report_plan_items", "result"): "plan_result",
+    ("strategies", "status"): "strategy_status",
+    ("initiatives", "kind"): "initiative_kind",
+    ("initiatives", "status"): "initiative_status",
+    ("alignment_notes", "verdict"): "alignment_verdict",
 }
 
 # ======================================================================================
@@ -641,6 +702,27 @@ _TYPE_LIST = [
                "section_notes": "보고 문구", "plan_items": "계획 항목", "direction": "계획 방향", "messages": "계획 대화", "files": "보고서 파일"},
         description="팀 전체 기록으로 만드는 일·주·월 실적과 다음 기간 계획",
     ),
+    ObjectType(
+        "strategy", "사업 방향", "핵심", "Strategy", "strategies", "/strategies", "/strategies/{id}", "strategies/{id}.md",
+        mirror_dir_format="strategies/", nav="사업 방향", nav_group="work",
+        props={"title": "제목", "body": "내용", "consensus": "합의 내용", "instructions": "AI 지침", "period": "기간", "status": "상태",
+               "initiatives": "과제", "files": "자료"},
+        description="팀이 합의한 사업개발 방향. 합의 내용이 다른 기록을 재는 잣대가 됩니다",
+    ),
+    ObjectType(
+        "initiative", "과제", "핵심", "Initiative", "initiatives", "/initiatives", "/initiatives/{id}", "initiatives/{id}.md",
+        mirror_dir_format="initiatives/", nav="과제", nav_group="work",
+        props={"title": "제목", "kind": "종류", "status": "상태", "owner": "담당", "due": "기한", "strategy": "사업 방향",
+               "description": "설명", "instructions": "AI 지침", "progress": "진행 메모", "solutions": "솔루션", "partners": "파트너",
+               "customers": "고객", "opportunities": "영업기회", "projects": "프로젝트", "files": "자료"},
+        description="이슈나 개별 과제 한 건. 담당·기한·상태를 두고 솔루션·영업기회 같은 기록과 잇습니다",
+    ),
+    ObjectType(
+        "workspace_file", "공간 자료", "부속", "WorkspaceFile", "workspace_files",
+        mirror_path="workspaces/{owner}/{owner_id}/files/{id}-{name}.md", mirror_dir_format="workspaces/{owner}/{owner_id}/files/",
+        props={"original_name": "파일 이름", "extract_status": "글 추출 상태", "size": "크기"},
+        description="사업 방향·과제 공간에 올린 파일. 글을 뽑아 두어 AI 가 읽을 수 있습니다",
+    ),
     ObjectType("report_item", "보고 계획 항목", "부속", "ReportPlanItem", "report_plan_items", parent=("report", "report_id"),
                props={"task": "할 일", "owner": "담당", "due": "기한", "result": "결과"}),
     ObjectType(
@@ -699,7 +781,7 @@ TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 
 # 메뉴: 묶음(NAV_GROUPS) 안의 항목. 대상 유형의 `nav`·`nav_group` 에서 만들고, 대상이 아닌 항목(홈·올리기 묶음)과 관리 항목만 여기서 적는다.
 # 사이드 메뉴(base.html)는 이 정의만 그린다: 새 항목은 묶음이 없으면 안 된다 (tests/test_shell.py).
-NAV_GROUPS = (("today", "오늘"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
+NAV_GROUPS = (("today", "오늘"), ("work", "과제"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
 NAV_GROUP_LABELS = dict(NAV_GROUPS)  # 묶음 코드 -> 이름 (화면 제목 위 경로가 읽는다)
 # 메뉴 항목이 아닌 화면이 어느 항목에 속하는지: 주소 앞 조각 -> 항목의 path (후속 조치 목록은 "오늘" 의 홈 구역)
 NAV_ALIASES = {"follow-ups": ""}
@@ -732,6 +814,7 @@ NAV_ITEMS = (
     NavItem("", "홈", "today"),
     NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
     _type_nav_item("activity"), _type_nav_item("report"),
+    _type_nav_item("strategy"), _type_nav_item("initiative"),
     _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
 )
@@ -753,6 +836,8 @@ NAV_ICONS = {
     "proposals": '<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M7 14l3-3 3 2 4-5"/><path d="M8 21h8"/>',
     "projects": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     "bms": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    "strategies": '<path d="M12 21V3"/><path d="M12 4h7l-2 3 2 3h-7"/><path d="M8 21h8"/>',
+    "initiatives": '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/>',
     "admin/users": '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
     "admin/jobs": '<path d="M5 6h14M5 12h14M5 18h9"/>',
     "admin/research": '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
@@ -878,7 +963,7 @@ CONTACT_TYPES = ("partner", "customer")
 
 _REL_FIELDS = {
     "id": r"[0-9]{1,18}", "solution_id": r"[0-9]{1,18}", "year": r"[0-9]{4}|undated", "day": r"[0-9]{4}-[0-9]{2}-[0-9]{2}",
-    "tag": r"[^/-]+", "name": r"[^/]+",
+    "tag": r"[^/-]+", "name": r"[^/]+", "owner": r"strategy|initiative", "owner_id": r"[0-9]{1,18}",
 }
 
 
@@ -950,7 +1035,7 @@ def _r(key, label, source, target, cardinality, storage, physical, note=""):
                     (target,) if isinstance(target, str) else tuple(target), cardinality, storage, physical, note)
 
 
-_CORE = ("solution", "partner", "customer", "project", "activity", "proposal", "opportunity", "bm")
+_CORE = ("solution", "partner", "customer", "project", "activity", "proposal", "opportunity", "bm", "strategy", "initiative")
 RELATIONS: tuple[Relation, ...] = (
     _r("R1", "공급한다", "partner", "solution", "1:N", "fk", "solutions.partner_id", "솔루션은 파트너가 없을 수 있다"),
     _r("R2", "가진다", "customer", "project", "1:N", "fk", "businesses.customer_id", "프로젝트는 고객이 반드시 있다"),
@@ -1012,6 +1097,16 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R38", "가리킨다", "report_item", "customer", "N:1", "fk", "report_plan_items.customer_id", "선택. 고객을 지우면 연결만 비워진다 (항목 글은 남는다)"),
     _r("R39", "가리킨다", "report_item", "opportunity", "N:1", "fk", "report_plan_items.opportunity_id", "선택. 영업기회를 지우면 연결만 비워진다"),
     _r("R40", "가리킨다", "report_item", "project", "N:1", "fk", "report_plan_items.business_id", "선택. 프로젝트를 지우면 연결만 비워진다"),
+    # AI 코워크 ① (2026-11-26 설계): 사업 방향·과제 공간
+    _r("R41", "속한다", "initiative", "strategy", "N:1", "fk", "initiatives.strategy_id", "선택. 사업 방향을 지우면 비운다 (과제는 남는다)"),
+    _r("R42", "다룬다", "initiative", "solution", "N:M", "link", "initiative_solutions"),
+    _r("R43", "다룬다", "initiative", "partner", "N:M", "link", "initiative_partners"),
+    _r("R44", "다룬다", "initiative", "customer", "N:M", "link", "initiative_customers"),
+    _r("R45", "다룬다", "initiative", "opportunity", "N:M", "link", "initiative_opportunities"),
+    _r("R46", "다룬다", "initiative", "project", "N:M", "link", "initiative_projects", "물리 열은 business_id"),
+    _r("R47", "붙는다", "strategy", "workspace_file", "1:N", "fk", "workspace_files.strategy_id", "사업 방향을 지우면 함께 지워진다"),
+    _r("R48", "붙는다", "initiative", "workspace_file", "1:N", "fk", "workspace_files.initiative_id", "과제를 지우면 함께 지워진다"),
+    _r("R49", "맡는다", "initiative", "user", "N:1", "fk", "initiatives.owner_user_id", "선택. 만들 때 기본은 만든 사람. 사용자를 지우면 비운다"),
 )
 
 # ======================================================================================
@@ -1087,6 +1182,15 @@ for _key, _pairs in {
     "R38": {("report_item", "customer"): "고객", ("customer", "report_item"): "업무 보고 계획"},
     "R39": {("report_item", "opportunity"): "영업기회", ("opportunity", "report_item"): "업무 보고 계획"},
     "R40": {("report_item", "project"): "프로젝트", ("project", "report_item"): "업무 보고 계획"},
+    "R41": {("initiative", "strategy"): "사업 방향", ("strategy", "initiative"): "이 방향의 과제"},
+    "R42": {("initiative", "solution"): "솔루션", ("solution", "initiative"): "과제"},
+    "R43": {("initiative", "partner"): "파트너", ("partner", "initiative"): "과제"},
+    "R44": {("initiative", "customer"): "고객", ("customer", "initiative"): "과제"},
+    "R45": {("initiative", "opportunity"): "영업기회", ("opportunity", "initiative"): "과제"},
+    "R46": {("initiative", "project"): "프로젝트", ("project", "initiative"): "과제"},
+    "R47": {("strategy", "workspace_file"): "자료", ("workspace_file", "strategy"): "사업 방향"},
+    "R48": {("initiative", "workspace_file"): "자료", ("workspace_file", "initiative"): "과제"},
+    "R49": {("initiative", "user"): "담당 사용자", ("user", "initiative"): "맡은 과제"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -1156,6 +1260,8 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "bm": (),
     "activity": ("R8", "R9", "R21", "R22"),
     "proposal": ("R12", "R13", "R29", "R34", "R35"),
+    "strategy": ("R47",),
+    "initiative": ("R41", "R48", "R49"),
 }
 @dataclass(frozen=True)
 class MainGroup:
@@ -1207,6 +1313,16 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R14:proposal"),
         MainGroup("R4:activity", ("+ 활동 기록 쓰기", "/activities/new?solution_id={id}"), True),
     ),
+    "strategy": (
+        MainGroup("R41:initiative", ("+ 과제 만들기", "/initiatives/new?strategy_id={id}"), True),
+    ),
+    "initiative": (
+        MainGroup("R42:solution"),
+        MainGroup("R45:opportunity"),
+        MainGroup("R44:customer"),
+        MainGroup("R43:partner"),
+        MainGroup("R46:project"),
+    ),
 }
 
 # 연결 목록의 그룹 순서 (앞에 둘 그룹. 나머지는 관계 번호 순)
@@ -1218,6 +1334,7 @@ GROUP_ORDER: dict[str, tuple[str, ...]] = {
     "opportunity": ("R26", "R28", "R29", "R6"),
     "bm": ("R33", "R31", "R32", "R35"),
     "activity": ("R4", "R5", "R6", "R7"),
+    "initiative": ("R42", "R45", "R44", "R43", "R46"),
 }
 
 # 목록 화면의 `?<파라미터>=<번호>` 걸러 보기: (목록 유형, 파라미터) -> (기준 유형, 그룹 키). 연결 목록의 "모두 보기" 도 같은 표에서 만든다.
@@ -1242,6 +1359,12 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
     ("solution", "partner_id"): ("partner", "R1"),
     ("solution", "bm_id"): ("bm", "R33"),
     ("solution", "opportunity_id"): ("opportunity", "R28"),
+    ("initiative", "strategy_id"): ("strategy", "R41"),
+    ("initiative", "solution_id"): ("solution", "R42"),
+    ("initiative", "partner_id"): ("partner", "R43"),
+    ("initiative", "customer_id"): ("customer", "R44"),
+    ("initiative", "opportunity_id"): ("opportunity", "R45"),
+    ("initiative", "project_id"): ("project", "R46"),
 }
 
 # 목록의 `?sort=` 정렬: 유형 -> ((코드, 이름), …). 첫 항목이 지금의 기본 순서이고 (`?sort` 가 없거나 틀리면 이것), 나머지는 고르는 순서다.
@@ -1255,6 +1378,8 @@ LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
     "opportunity": (("recent", "최근 수정순"), ("active", "최근 활동순"), ("amount", "금액순"), ("close", "예상 수주일순"), ("name", "이름순")),
     "proposal": (("recent", "최근 수정순"), ("name", "이름순")),
     "activity": (("date", "일자순"), ("recent", "최근 수정순"), ("name", "제목순")),
+    "strategy": (("recent", "최근 수정순"), ("name", "제목순")),
+    "initiative": (("recent", "최근 수정순"), ("due", "기한순"), ("name", "제목순")),
 }
 
 # 걸러 보기 파라미터가 아닌 "모두 보기" 목적지: (기준 유형, 그룹 키) -> 주소 ({id} 는 기준 기록 번호). 후속 조치 목록은 고객별로 모아 본다.
@@ -1271,6 +1396,8 @@ LIST_LINKS: dict[str, tuple[tuple[str, str, str], ...]] = {
     "project": (("제안", "R13", "proposal"), ("활동", "R6", "activity")),
     "opportunity": (("니즈", "R26", "customer_need"), ("제안", "R29", "proposal"), ("솔루션", "R28", "solution")),
     "activity": (("고객", "R5", "customer"), ("솔루션", "R4", "solution"), ("후속 조치", "R8", "follow_up")),
+    "strategy": (("과제", "R41", "initiative"), ("자료", "R47", "workspace_file")),
+    "initiative": (("솔루션", "R42", "solution"), ("영업기회", "R45", "opportunity"), ("자료", "R48", "workspace_file")),
 }
 # 목록의 "최근 활동" 칸이 보는 관계 (연결된 활동 기록의 가장 늦은 일자). 여기 없는 유형은 "수정일" 을 보인다.
 LIST_LATEST_ACTIVITY: dict[str, str] = {"solution": "R4", "customer": "R5", "partner": "R7", "project": "R6", "opportunity": "R6"}
@@ -1432,6 +1559,10 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "research_topic": ("이 주제는 다음 조사부터 빠집니다. 이미 끝난 조사 결과는 남습니다.",),
     "team": ("이 팀 사람은 \"팀 없음\" 이 됩니다 (계정은 그대로입니다).", "영업기회와 담당은 그대로입니다."),
     "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
+    "strategy": ("이 방향의 과제는 남고 \"사업 방향\" 칸만 비워집니다.", "올린 자료 파일과 대화가 함께 지워집니다."),
+    "initiative": ("올린 자료 파일과 대화가 함께 지워집니다.", "연결된 솔루션·파트너·고객·영업기회·프로젝트는 남습니다."),
+    "cowork_thread": ("이 대화의 메시지와 AI 제안이 함께 지워집니다.", "이미 반영한 제안으로 바뀐 기록 값과 변경 이력은 그대로입니다."),
+    "workspace_file": ("올린 자료 파일이 지워지고 지식 사본에서도 빠집니다.", "사업 방향·과제 기록은 남습니다."),
     "report": ("이 보고의 계획 항목·계획 대화와 만든 보고서 파일이 함께 지워집니다.",
                "이 보고가 점검한 지난 계획 항목은 남고 점검한 보고 표시만 비워집니다.",
                "이 보고의 계획에서 다음 보고로 넘어간 줄은 남고 \"지난 계획\" 표시만 비워집니다.",
@@ -1453,6 +1584,9 @@ DELETE_IMPACT: dict[str, dict] = {
                             ("활동 기록", "R6", "activity"), ("솔루션", "R28", "solution"), ("BM", "R32", "bm"), ("업무 보고 계획 항목", "R39", "report_item"))},
     "activity": {"cut": (("솔루션", "R4", "solution"), ("고객", "R5", "customer"), ("파트너", "R7", "partner"), ("프로젝트", "R6", "project"), ("영업기회", "R6", "opportunity")),
                  "gone": (("후속 조치", "R8", "follow_up"), ("고객 니즈", "R9", "customer_need"))},
+    "strategy": {"cut": (("과제", "R41", "initiative"),), "gone": (("자료", "R47", "workspace_file"),)},
+    "initiative": {"cut": (("솔루션", "R42", "solution"), ("파트너", "R43", "partner"), ("고객", "R44", "customer"), ("영업기회", "R45", "opportunity"),
+                           ("프로젝트", "R46", "project")), "gone": (("자료", "R48", "workspace_file"),)},
     "proposal": {"cut": (("고객", "R12", "customer"), ("붙인 고객", "R34", "customer"), ("프로젝트", "R13", "project"), ("영업기회", "R29", "opportunity"),
                          ("신규 사업(BM)", "R35", "bm"), ("솔루션", "R14", "solution"))},
 }
@@ -1480,7 +1614,7 @@ RELATION_WORDS: tuple[tuple[str, str], ...] = (
 
 
 # 도움말 화면(`/help`)의 용어 풀이: 대상 유형 코드 순서. 이름·뜻은 위 유형 정의(label·description)에서 읽는다 (여기에 다시 적지 않는다).
-HELP_GLOSSARY: tuple[str, ...] = ("solution", "partner", "customer", "opportunity", "project", "bm", "activity", "customer_need",
+HELP_GLOSSARY: tuple[str, ...] = ("strategy", "initiative", "solution", "partner", "customer", "opportunity", "project", "bm", "activity", "customer_need",
                                   "follow_up", "proposal", "intake", "solution_file")
 
 

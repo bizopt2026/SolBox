@@ -95,7 +95,7 @@ def pending_job(db: Session, opp_id: int, statuses=("pending", "running")):
 
 def request_review(db: Session, opp_ids, user_id: int | None, request, priority: int = REVIEW_PRIORITY) -> list:
     """활동 기록 저장 뒤 부른다: 진행 중이고 연결된 활동 기록이 있는 영업기회마다 분석 작업을 하나씩 (이미 대기·진행 중이면 넣지 않는다).
-    AI 처리기가 꺼져 있으면 아무것도 하지 않는다 (저장은 그대로 성공). 이 함수만 자동으로 AI 작업을 만든다 (docs/rules/AI-작업과-오류.md)."""
+    AI 처리기가 꺼져 있으면 아무것도 하지 않는다 (저장은 그대로 성공). 자동으로 AI 작업을 만드는 곳은 이 함수와 정렬 점검 `alignment.request` 둘이다 (docs/rules/AI-작업과-오류.md)."""
     from app.ai import gate
     from app.ai.queue import enqueue
 

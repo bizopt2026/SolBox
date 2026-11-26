@@ -30,9 +30,9 @@ def _form_page(request: Request, db: Session, form: dict, partner: Partner | Non
     )
 
 
-def _detail_page(request: Request, db: Session, user: User, partner: Partner, error: str | None = None):
+def _detail_page(request: Request, db: Session, user: User, partner: Partner, error: str | None = None, status_code: int | None = None, **extra):
     return render(
-        request, "partners/detail.html", status_code=400 if error else 200, partner=partner,
+        request, "partners/detail.html", status_code=status_code or (400 if error else 200), partner=partner, **extra,
         **relations.page_related(db, partner, user),
         can_delete=can_delete(user, partner), error=error, origin=origin.view(db, user, partner), meta=ui.stamp_info(db, partner),
         same_name=same_company.candidate_customer(db, partner),

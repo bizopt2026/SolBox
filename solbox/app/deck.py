@@ -88,25 +88,40 @@ TABLE_H = BODY_H - 2 * TABLE_PAD     # 표가 쓸 수 있는 높이
 STEP_TRACK_H = 0.55                  # 단계 장: 번호 원과 화살표가 놓이는 윗줄
 STEP_DOT = 0.36
 
-# --- 글자 크기 (pt) ---
-HEAD_PT = 26
-HEAD_SIZES = (26, 22, 20, 18, 16)
-SUB_PT = 12
-LABEL_PT = 10                        # 챕터 라벨, 결론 띠 라벨
-BAND_PT = 14
-STRIP_PT = 8
-CARD_HEAD_PT = 14
-LIST_SIZES = (14, 13, 12, 11, 10)    # 카드 안 목록
-COLUMN_SIZES = (18, 16, 14, 13, 12, 11, 10)  # 좌우 비교·도입 전후의 반 폭 카드 (항목이 적으면 크게, 베타 AK)
-GRID_SIZES = (16, 14, 13, 12, 11)    # 번호 카드 안 글
-TABLE_SIZES = (12, 11, 10, 9)
-STEP_NAME_SIZES = (20, 18, 16, 14, 13, 12)    # 베타 AK: 단계가 적으면 크게 (카드가 비어 보였다)
-STEP_DETAIL_SIZES = (15, 14, 13, 12, 11, 10)
-COVER_SIZES = (44, 40, 36, 32, 28, 24)
+# --- 글자 크기 (pt): 역할별 고정 체계 (베타 AL) ---
+# 사용자 결정 2026-11-26: "폰트 크기가 일관성이 없는게 가장 큼". 전에는 장마다 "칸에 들어가는 가장 큰 글자"를 골라 한 덱에 15종(9~56pt)이 섞였다.
+# 이제 글자는 아래 단계에서만 고른다. 역할마다 기본 크기 하나와 (꼭 필요할 때만) 한 단계 아래 하나뿐이고, 넘치는 내용은 글자를 줄이지 않고 장을 나눈다
+# (쪽 나누기는 기본 크기로 센다). 한 항목이 혼자서도 안 들어갈 때만 `_shrink` 로 줄이고 품질 검사가 알린다.
+T_KPI = 56       # 핵심 수치의 큰 숫자
+T_DISPLAY = 44   # 표지 제목, 마무리 큰 제목
+T_H1 = 26        # 장 대제목, 마무리 강조 글
+T_H2 = 18        # 항목 제목: 번호 카드 머리말, 단계 이름, 카드 제목, 2×2 이름, 중심 이름, 표지 부제·정보 값
+T_BODY = 14      # 본문: 글머리·목록, 단계 설명, 도식 이름, 결론 띠
+T_SMALL = 12     # 보조: 설명, 표, 칩, 축 이름, 부제
+T_CAPTION = 10   # 캡션: 라벨, 단위, 주석, 그래프 글자, 축 끝, 기간
+T_STRIP = 8      # 출처·쪽 번호
+TYPE_SCALE = (T_STRIP, T_CAPTION, T_SMALL, T_BODY, T_H2, T_H1, T_DISPLAY, T_KPI)
+
+HEAD_PT = T_H1
+HEAD_SIZES = (T_H1,)                 # 대제목은 26 하나 (길면 두 줄, 그래도 넘치면 줄이고 검사가 30자 경고)
+SUB_PT = T_SMALL
+LABEL_PT = T_CAPTION                 # 챕터 라벨, 결론 띠 라벨
+BAND_PT = T_BODY
+STRIP_PT = T_STRIP
+CARD_HEAD_PT = T_H2
+LIST_SIZES = (T_BODY, T_SMALL)       # 카드 안 목록
+COLUMN_SIZES = LIST_SIZES            # 좌우 비교·도입 전후 (베타 AK 의 "적으면 크게" 를 거뒀다)
+GRID_SIZES = (T_BODY, T_SMALL)       # 번호 카드 안 글
+TABLE_SIZES = (T_SMALL, T_CAPTION)
+STEP_NAME_SIZES = (T_H2, T_BODY)
+STEP_DETAIL_SIZES = (T_BODY, T_SMALL)
+COVER_SIZES = (T_DISPLAY, T_H1)
 MIN_FONT_PT = 8                      # 강의·마케팅 모드의 최소 글자
-KPI_SIZES = (56, 48, 40, 34, 28, 24)  # 핵심 수치의 큰 숫자
-NOTE_PT, NOTE_H = 9, 0.30            # 그림 아래 덧붙이는 말 한 줄
-BLOCK_SIZES = ((14, 11), (13, 11), (12, 10), (11, 10), (10, 9))  # 도식 안 (이름, 설명) 글자 크기
+KPI_SIZES = (T_KPI, T_DISPLAY, T_H1)  # 핵심 수치의 큰 숫자 (길면 한 단계씩)
+NOTE_PT, NOTE_H = T_CAPTION, 0.30    # 그림 아래 덧붙이는 말 한 줄
+BLOCK_SIZES = ((T_BODY, T_SMALL), (T_SMALL, T_CAPTION))  # 도식 안 (이름, 설명) 글자 크기
+DETAIL_SIZES = ((0, T_SMALL), (0, T_CAPTION))            # 도식 안 설명만 쓰는 상자
+AXIS_SIZES = ((T_SMALL, 0), (T_CAPTION, 0))
 
 # --- 넘침 규칙 ---
 MAX_BULLETS_PER_SLIDE = 10
@@ -260,7 +275,7 @@ def _fit_table_font(columns: list, rows: list, avail: float = TABLE_H, weights=N
 
 def _table_chunks(columns: list, rows: list, first_shift: float = 0.0) -> list[list]:
     """표 행을 장별로 나눈다. 장당 MAX_TABLE_ROWS 행 이하이고, 가장 작은 글자(9pt)로도 카드 안에 들어가게 한다."""
-    small = TABLE_SIZES[-1]
+    small = TABLE_SIZES[0]  # 베타 AL: 기본 크기로 센다 (넘치면 글자를 줄이지 않고 쪽을 나눈다)
     weights = _col_weights(columns, rows)
     chunks, current, used = [], [], 0.0
     budget = TABLE_H - first_shift  # 첫 장만 결론 띠가 여러 줄이면 그만큼 좁다
@@ -322,7 +337,7 @@ def _column_area(slide: dict) -> tuple[float, float]:
 
 def _height_chunks(items: list, limit: int, width: float, height: float, first_shift: float = 0.0) -> list[list]:
     """목록을 장별로 나눈다: 장당 `limit` 개 이하이고, 가장 작은 글자로도 카드 높이에 들어가게 한다. 첫 장은 `first_shift` 만큼 낮다."""
-    small = LIST_SIZES[-1]
+    small = LIST_SIZES[0]  # 베타 AL: 기본 크기로 센다
     chunks, current = [], []
     budget = height - first_shift
     for item in items:
@@ -806,7 +821,7 @@ def _draw_cover(slide, data: dict, customer_name: str, today: date):
     title = _headline_text(data.get("title"))
     subtitle = _clean(data.get("subtitle"))
     text_w, text_h = w - 1.2 - COVER_MOTIF_W, h - 1.25
-    sub_pt = 16
+    sub_pt = T_H2
     sub_h = (_est_lines(subtitle, sub_pt, text_w) * _line_h(sub_pt, 1.0) + 0.2) if subtitle else 0.0
     size = next((pt for pt in COVER_SIZES if _est_lines(title, pt, text_w) * _line_h(pt, 1.0) + sub_h <= text_h), COVER_SIZES[-1])
     need = _est_lines(title, size, text_w) * _line_h(size, 1.0) + sub_h
@@ -828,11 +843,11 @@ def _draw_cover(slide, data: dict, customer_name: str, today: date):
         if k:
             _line(slide, cx - 0.25, 5.62, cx - 0.25, 6.38, GRID_GREY, 0.75, name="구분선")
         box = _textbox(slide, cx, 5.55, cw, 0.3, name="표지 라벨")
-        _write(box.text_frame.paragraphs[0], label, 10, bold=True, color=MUTE)
+        _write(box.text_frame.paragraphs[0], label, T_CAPTION, bold=True, color=MUTE)
         box = _textbox(slide, cx, 5.88, cw, 0.5, name=shape_name)
-        _write(box.text_frame.paragraphs[0], value, 18, bold=True, color=INK)
-        if _est_lines(value, 18, cw) > 1:
-            _shrink(box.text_frame, 1 / _est_lines(value, 18, cw))
+        _write(box.text_frame.paragraphs[0], value, T_H2, bold=True, color=INK)
+        if _est_lines(value, T_H2, cw) > 1:
+            _shrink(box.text_frame, 1 / _est_lines(value, T_H2, cw))
         cx += cw + 0.5
 
 
@@ -870,12 +885,10 @@ def _grid_plan(items: list, height: float):
     card_h = (height - GAP_Y * (len(rows) - 1)) / len(rows)
     if card_h < 1.2:
         return None
-    num_pt = 22 if len(rows) == 1 else 16
+    num_pt = T_H2
     num_h = _line_h(num_pt, 1.0) + 0.1
     inner_h = card_h - 2 * CARD_PAD_V
     for pt in GRID_SIZES:
-        if len(rows) > 1 and max(rows) > 2 and pt > 14:  # 16pt 는 한 줄 카드이거나 한 줄에 2장 이하일 때만
-            continue
         index, ok = 0, True
         for count in rows:
             text_w = (CONTENT_W - GAP_X * (count - 1)) / count - 2 * CARD_PAD
@@ -888,8 +901,8 @@ def _grid_plan(items: list, height: float):
 
 
 def _grid_head_pt(pt: float) -> int:
-    """번호 카드의 머리말 크기: 설명보다 4pt 크게, 20pt 까지."""
-    return int(min(20, pt + 4))
+    """번호 카드의 머리말 크기: 본문이 기본(14)이면 18, 한 단계 작으면(12) 14 (글자 체계 안에서 한 단계 위)."""
+    return T_H2 if pt >= T_BODY else T_BODY
 
 
 def _grid_need(item, num_pt: float, pt: float, text_w: float) -> float:
@@ -926,7 +939,7 @@ def _draw_grid(slide, items: list, top: float, bottom: float, plan):
                 _write(p, detail, pt, color=TEXT)
             else:
                 p.space_after = Pt(6)
-                _write(p, f"{index + 1:02d}", num_pt, bold=True, color=BRAND_DEEP if len(rows) == 1 else BRAND)
+                _write(p, f"{index + 1:02d}", num_pt, bold=True, color=BRAND)
                 p = tf.add_paragraph()
                 p.line_spacing = BODY_LS
                 _write(p, items[index], pt, color=INK)
@@ -966,7 +979,7 @@ def _draw_closing(slide, data: dict, number: int, deck_title: str):
     if not items and not message:
         _rect(slide, 0.95, 2.95, 0.46, 0.055, ACCENT, name="강조 막대")
         title = _headline_text(data.get("title"))
-        size = next((pt for pt in (40, 36, 32, 28, 24) if _est_lines(title, pt, 11.4) * _line_h(pt, 1.0) <= 2.4), 24)
+        size = next((pt for pt in (T_DISPLAY, T_H1) if _est_lines(title, pt, 11.4) * _line_h(pt, 1.0) <= 2.4), T_H1)
         box = _textbox(slide, 0.95, 3.2, 11.4, max(0.9, _est_lines(title, size, 11.4) * _line_h(size, 1.0) + 0.1), name="대제목")
         _write(box.text_frame.paragraphs[0], title, size, bold=True, color=INK)
         return
@@ -977,7 +990,7 @@ def _draw_closing(slide, data: dict, number: int, deck_title: str):
         dark_w = _CLOSING_LEFT_W if items else CONTENT_W
         _card(slide, MARGIN, body_y, dark_w, (BODY_BOTTOM - body_y), fill=BRAND, name="강조 카드")
         text_w, text_h = dark_w - 2 * 0.4, (BODY_BOTTOM - body_y) - 2 * 0.4
-        size = next((pt for pt in (22, 20, 18, 16, 14, 12) if _est_lines(message, pt, text_w) * _line_h(pt, 1.15) <= text_h), 12)
+        size = next((pt for pt in (T_H1, T_H2, T_BODY) if _est_lines(message, pt, text_w) * _line_h(pt, 1.15) <= text_h), T_BODY)
         box = _textbox(slide, MARGIN + 0.4, body_y + 0.4, text_w, text_h, name="강조 글")
         p = box.text_frame.paragraphs[0]
         p.line_spacing = 1.15
@@ -1010,7 +1023,7 @@ def _draw_two_column(slide, data: dict, number: int, deck_title: str):
         if head:
             _rect(slide, x + CARD_PAD, body_y + 0.29, 0.14, 0.14, BRAND if i else MUTE, name="머리 표시")
             head_w = text_w - 0.26
-            head_pt = next((pt for pt in (CARD_HEAD_PT, 13, 12, 11) if _est_lines(head, pt, head_w) <= 1), 11)
+            head_pt = next((pt for pt in (CARD_HEAD_PT, T_BODY) if _est_lines(head, pt, head_w) <= 1), T_BODY)
             box = _textbox(slide, x + CARD_PAD + 0.26, body_y + 0.18, head_w, 0.36, name="카드 제목")
             _write(box.text_frame.paragraphs[0], head, head_pt, bold=True, color=INK)
             if _est_lines(head, head_pt, head_w) > 1:
@@ -1115,7 +1128,7 @@ def _draw_steps(slide, data: dict, number: int, deck_title: str):
         tf.word_wrap = False
         p = tf.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
-        _write(p, str(i + 1), 11, bold=True, color=WHITE)
+        _write(p, str(i + 1), T_SMALL, bold=True, color=WHITE)
         if i < n - 1:  # 화살표는 다음 번호 원 바로 앞에서 멈춘다
             _line(slide, x + pad + STEP_DOT + 0.1, dot_y + STEP_DOT / 2, x + width + GAP_X + pad - 0.14, dot_y + STEP_DOT / 2, BRAND_T3, 1.0, arrow=True, name="흐름 화살표")
         _card(slide, x, card_y, width, card_h, radius=RADIUS if n <= 3 else RADIUS_SMALL)
@@ -1201,6 +1214,11 @@ def _text_em(text: str) -> float:
     return sum(_char_em(ch) for ch in text)
 
 
+def _kpi_unit_pt(size: float) -> int:
+    """큰 숫자 옆 단위: 56·44 면 18, 26 이면 14 (글자 체계 안)."""
+    return T_H2 if size >= T_DISPLAY else T_BODY
+
+
 def _draw_kpi(slide, data: dict, number: int, deck_title: str):
     """핵심 수치: 카드 2~4장에 큰 숫자(브랜드 딥) + 단위, 그 아래 이름과 한 줄 설명. 숫자는 구성안에 적힌 글 그대로다."""
     items = _kpis(data)[:MAX_KPIS]
@@ -1222,7 +1240,7 @@ def _draw_kpi(slide, data: dict, number: int, deck_title: str):
         value, unit, label, note = item["value"], item["unit"], item["label"], item["note"]
 
         def need(size, label_pt, note_pt):
-            unit_pt = max(14, round(size * 0.42))
+            unit_pt = _kpi_unit_pt(size)
             lines = max(1, math.ceil((_text_em(value) * size + (_text_em(unit) * unit_pt + 4 if unit else 0)) / 72 / text_w))
             total = lines * _line_h(size, 1.0)
             if label:
@@ -1231,15 +1249,15 @@ def _draw_kpi(slide, data: dict, number: int, deck_title: str):
                 total += 0.07 + _est_lines(note, note_pt, text_w) * _line_h(note_pt)
             return total
 
-        options = [(size, lp, np_) for size in KPI_SIZES for lp, np_ in ((14, 11),)] + [(KPI_SIZES[-1], 12, 10), (KPI_SIZES[-1], 11, 9)]
-        size, label_pt, note_pt = next((o for o in options if need(*o) <= inner_h and (_text_em(value) * o[0] + _text_em(unit) * max(14, round(o[0] * 0.42))) / 72 <= text_w), None) \
+        options = [(size, T_BODY, T_SMALL) for size in KPI_SIZES] + [(KPI_SIZES[-1], T_SMALL, T_CAPTION)]
+        size, label_pt, note_pt = next((o for o in options if need(*o) <= inner_h and (_text_em(value) * o[0] + _text_em(unit) * _kpi_unit_pt(o[0])) / 72 <= text_w), None) \
             or next((o for o in options if need(*o) <= inner_h), options[-1])
         box = _textbox(slide, x + CARD_PAD, body_y + top_pad, text_w, inner_h, name="핵심 수치")
         tf = box.text_frame
         p = tf.paragraphs[0]
         _write(p, value, size, bold=True, color=BRAND_DEEP, spacing=-1 if size >= 40 else 0)
         if unit:
-            _write(p, " " + unit, max(14, round(size * 0.42)), bold=True, color=TEXT)
+            _write(p, " " + unit, _kpi_unit_pt(size), bold=True, color=TEXT)
         if label:
             p = tf.add_paragraph()
             p.space_before = Pt(8)
@@ -1276,7 +1294,7 @@ def _unit_caption(slide, x: float, y: float, w: float, unit: str) -> float:
     if not unit:
         return 0.0
     box = _textbox(slide, x, y, w, UNIT_CAPTION_H, name="단위")
-    _write(box.text_frame.paragraphs[0], f"단위: {unit}", 10, color=MUTE)
+    _write(box.text_frame.paragraphs[0], f"단위: {unit}", T_CAPTION, color=MUTE)
     return UNIT_CAPTION_H
 
 
@@ -1395,7 +1413,7 @@ def _native_chart(slide, ctype: str, categories: list, series: list, unit: str, 
         labels.number_format = fmt
         labels.show_value = True
         labels.position = XL_LABEL_POSITION.ABOVE if ctype == "line" else XL_LABEL_POSITION.OUTSIDE_END
-        _chart_font(labels.font, 9, FONT_B, INK)
+        _chart_font(labels.font, T_CAPTION, FONT_B, INK)
         for i, item in enumerate(plot.series):
             color = colors[i % len(colors)]
             if ctype == "line":
@@ -1429,7 +1447,7 @@ def _native_chart(slide, ctype: str, categories: list, series: list, unit: str, 
         val.format.line.width = Pt(0.75)
         val.tick_labels.number_format = fmt
         val.tick_labels.number_format_is_linked = False
-        _chart_font(val.tick_labels.font, 9, FONT, MUTE)
+        _chart_font(val.tick_labels.font, T_CAPTION, FONT, MUTE)
         if min(v for _, values in series for v in values) >= 0:
             val.minimum_scale = 0
     _chart_clean(chart)
@@ -1442,7 +1460,7 @@ def _value_rows(slide, x, y, w, h, head: str, categories: list, values: list, un
     text_w = w - 2 * CARD_PAD
     top = y + CARD_PAD_V
     if head:
-        head_pt = next((pt for pt in (CARD_HEAD_PT, 13, 12, 11) if _est_lines(head, pt, text_w) <= 1), 11)
+        head_pt = next((pt for pt in (CARD_HEAD_PT, T_BODY) if _est_lines(head, pt, text_w) <= 1), T_BODY)
         box = _textbox(slide, x + CARD_PAD, y + 0.18, text_w, 0.36, name="카드 제목")
         _write(box.text_frame.paragraphs[0], head, head_pt, bold=True, color=INK)
         if _est_lines(head, head_pt, text_w) > 1:
@@ -1461,15 +1479,15 @@ def _value_rows(slide, x, y, w, h, head: str, categories: list, values: list, un
             _line(slide, x + CARD_PAD, ry, x + w - CARD_PAD, ry)
         if colors:
             _line(slide, x + CARD_PAD, ry + row_h / 2, x + CARD_PAD + 0.18, ry + row_h / 2, colors[i % len(colors)], 7, name="범례 표시")
-        _block(slide, x + CARD_PAD + key_w, ry + 0.03, name_w, row_h - 0.06, "", name, sizes=((0, 13), (0, 12), (0, 11), (0, 10)), name="값 이름", detail_color=INK)
+        _block(slide, x + CARD_PAD + key_w, ry + 0.03, name_w, row_h - 0.06, "", name, sizes=DETAIL_SIZES, name="값 이름", detail_color=INK)
         text = _number_text(value)
-        size = next((pt for pt in (20, 18, 16, 14, 12) if (_text_em(text) * pt + (_text_em(unit) * 11 + 4 if unit else 0)) / 72 <= value_w and _line_h(pt, 1.0) <= row_h - 0.06), 12)
+        size = next((pt for pt in (T_H2, T_BODY, T_SMALL) if (_text_em(text) * pt + (_text_em(unit) * T_SMALL + 4 if unit else 0)) / 72 <= value_w and _line_h(pt, 1.0) <= row_h - 0.06), T_SMALL)
         box = _textbox(slide, x + w - CARD_PAD - value_w, ry + 0.03, value_w, row_h - 0.06, name="값")
         p = box.text_frame.paragraphs[0]
         p.alignment = PP_ALIGN.RIGHT
         _write(p, text, size, bold=True, color=BRAND_DEEP)
         if unit:
-            _write(p, " " + unit, 11, color=TEXT)
+            _write(p, " " + unit, T_SMALL, color=TEXT)
         if (_text_em(text) * size + (_text_em(unit) * 11 + 4 if unit else 0)) / 72 > value_w:
             _shrink(box.text_frame, value_w * 72 / (_text_em(text) * size + _text_em(unit) * 11 + 4))
 
@@ -1514,7 +1532,7 @@ _ITEM_SPLIT = re.compile(r"\s*[,，、]\s*")
 
 def _chips(slide, x, y, w, h, parts: list) -> bool:
     """짧은 낱말들을 칩(옅은 블루 알약)으로 한 줄에 놓는다. 한 줄에 안 들어가면 그리지 않고 False."""
-    for pt in (12, 11, 10):
+    for pt in (T_SMALL, T_CAPTION):
         widths = [_text_em(part) * pt / 72 + 0.4 for part in parts]
         if sum(widths) + 0.12 * (len(parts) - 1) <= w:
             break
@@ -1541,13 +1559,13 @@ def _draw_layers(slide, nodes: list, top: float, bottom: float):
         y = top + i * (tier_h + gap)
         _card(slide, MARGIN, y, CONTENT_W, tier_h, radius=RADIUS_SMALL)
         tag = _card(slide, MARGIN + pad, y + pad, label_w, tier_h - 2 * pad, fill=BRAND, radius=0.1, shadow=False, name="층 이름")
-        _shape_text(tag, node["label"], (14, 13, 12, 11, 10), pad=0.12)
+        _shape_text(tag, node["label"], (T_BODY, T_SMALL), pad=0.12)
         x0 = MARGIN + pad + label_w + 0.25
         width, height = RIGHT - 0.25 - x0, tier_h - 2 * pad
         detail = node["detail"]
         parts = [part for part in _ITEM_SPLIT.split(detail) if part]
         if detail and not (len(parts) >= 2 and all(_text_em(part) <= 16 for part in parts) and _chips(slide, x0, y + pad, width, height, parts)):
-            _block(slide, x0, y + pad, width, height, "", detail, sizes=((0, 13), (0, 12), (0, 11), (0, 10)), name="층 내용")
+            _block(slide, x0, y + pad, width, height, "", detail, sizes=DETAIL_SIZES, name="층 내용")
         if i < n - 1:
             cx = MARGIN + pad + label_w / 2
             _line(slide, cx, y + tier_h + 0.03, cx, y + tier_h + gap - 0.03, BRAND_T3, 1.25, arrow=True, name="흐름 화살표")
@@ -1583,7 +1601,7 @@ def _draw_hub(slide, data: dict, nodes: list, top: float, bottom: float):
         _line(slide, cx, cy, x + side_w if i == 0 else x, y + box_h / 2, BRAND_T3, 1.0, name="연결선")
     hub = _rect(slide, cx - diameter / 2, cy - diameter / 2, diameter, diameter, BRAND, shape=MSO_SHAPE.OVAL, name="중심 원")
     if center:
-        _shape_text(hub, center, (20, 18, 16, 14, 12, 11), pad=0.04, inner=0.7)
+        _shape_text(hub, center, (T_H2, T_BODY, T_SMALL), pad=0.04, inner=0.7)
     for x, y, box_h, _i, node in boxes:
         _mini_card(slide, x, y, side_w, box_h, node)
 
@@ -1603,7 +1621,7 @@ def _draw_before_after(slide, data: dict, top: float, bottom: float):
         head = _clean(data.get(f"{side}_title")).strip() or ("도입 후" if i else "도입 전")
         pill_w = min(text_w, _text_em(head) * 12 / 72 + 0.5)
         pill = _card(slide, x + CARD_PAD, top + 0.17, pill_w, 0.34, fill=BRAND if i else MUTE, radius=0.17, shadow=False, name="머리 표시")
-        _shape_text(pill, head, (12, 11, 10), pad=0.12)
+        _shape_text(pill, head, (T_SMALL, T_CAPTION), pad=0.12)
         _line(slide, x + CARD_PAD, top + 0.62, x + _BA_W - CARD_PAD, top + 0.62)
         items = sides[side]
         if items:
@@ -1652,20 +1670,20 @@ def _draw_timeline(slide, nodes: list, top: float, bottom: float):
             box = _textbox(slide, xs, top + 0.18, width, head_h - 0.04, name="기간")
             p = box.text_frame.paragraphs[0]
             p.alignment = PP_ALIGN.CENTER
-            _write(p, node["group"], 11, bold=True, color=BRAND)
+            _write(p, node["group"], T_CAPTION, bold=True, color=BRAND)
             lines = _est_lines(node["group"], 11, width)
             if lines > 1:
                 _shrink(box.text_frame, 1 / lines)
         row_y = rows_top + i * row_h
         bar = _card(slide, xs + 0.04, row_y + (row_h - bar_h) / 2, width - 0.08, bar_h, fill=BRAND, radius=0.08, shadow=False, name="일정 막대")
-        _shape_text(bar, node["label"], (13, 12, 11, 10, 9), pad=0.1)
+        _shape_text(bar, node["label"], (T_SMALL, T_CAPTION), pad=0.1)
         if node["detail"]:
             left_w = xs - x0 - 0.15
             right_w = x0 + inner_w - (xs + width) - 0.15
             if right_w >= left_w:
-                _block(slide, xs + width + 0.12, row_y, max(right_w, 0.6), row_h, "", node["detail"], sizes=((0, 11), (0, 10), (0, 9)), name="일정 설명")
+                _block(slide, xs + width + 0.12, row_y, max(right_w, 0.6), row_h, "", node["detail"], sizes=DETAIL_SIZES, name="일정 설명")
             else:
-                _block(slide, x0, row_y, max(left_w, 0.6), row_h, "", node["detail"], sizes=((0, 11), (0, 10), (0, 9)), name="일정 설명", align=PP_ALIGN.RIGHT)
+                _block(slide, x0, row_y, max(left_w, 0.6), row_h, "", node["detail"], sizes=DETAIL_SIZES, name="일정 설명", align=PP_ALIGN.RIGHT)
 
 
 def _pair_need(items: list, pt: float, width: float) -> float:
@@ -1673,7 +1691,7 @@ def _pair_need(items: list, pt: float, width: float) -> float:
     return sum(_est_lines(n["label"] + ("  " + n["detail"] if n["detail"] else ""), pt, text_w) * _line_h(pt) for n in items) + max(len(items) - 1, 0) * pt * 0.4 / 72
 
 
-MATRIX_SIZES = ((20, 13), (18, 12), (16, 12), (14, 11), (13, 11), (12, 10), (11, 9), (10, 9))  # 2×2 칸 안 (이름, 설명) 글자 크기
+MATRIX_SIZES = ((T_H2, T_SMALL), (T_BODY, T_SMALL), (T_SMALL, T_CAPTION))  # 2×2 칸 안 (이름, 설명) 글자 크기
 
 
 def _matrix_need(items: list, name_pt: float, detail_pt: float, width: float) -> float:
@@ -1737,18 +1755,18 @@ def _draw_matrix(slide, data: dict, nodes: list, top: float, bottom: float):
             _shrink(tf, text_h / need)
     if axis_y:
         _line(slide, gx - 0.12, gy + gh, gx - 0.12, gy, MUTE, 1.0, arrow=True, name="세로축")
-        _block(slide, MARGIN + 0.25, gy + 0.3, left_w - 0.27, gh - 0.6, axis_y, "", sizes=((13, 0), (12, 0), (11, 0), (10, 0)), name="세로축 이름", color=INK, align=PP_ALIGN.CENTER)
+        _block(slide, MARGIN + 0.25, gy + 0.3, left_w - 0.27, gh - 0.6, axis_y, "", sizes=AXIS_SIZES, name="세로축 이름", color=INK, align=PP_ALIGN.CENTER)
         for label, ty in (("높음", gy), ("낮음", gy + gh - 0.26)):
             box = _textbox(slide, MARGIN + 0.25, ty, left_w - 0.32, 0.26, name="축 끝")
             box.text_frame.paragraphs[0].alignment = PP_ALIGN.RIGHT
-            _write(box.text_frame.paragraphs[0], label, 9, color=MUTE)
+            _write(box.text_frame.paragraphs[0], label, T_CAPTION, color=MUTE)
     if axis_x:
         _line(slide, gx, gy + gh + 0.1, gx + gw, gy + gh + 0.1, MUTE, 1.0, arrow=True, name="가로축")
-        _block(slide, gx + 0.8, gy + gh + 0.13, gw - 1.6, foot_h - 0.13, axis_x, "", sizes=((13, 0), (12, 0), (11, 0), (10, 0)), name="가로축 이름", color=INK, align=PP_ALIGN.CENTER)
+        _block(slide, gx + 0.8, gy + gh + 0.13, gw - 1.6, foot_h - 0.13, axis_x, "", sizes=AXIS_SIZES, name="가로축 이름", color=INK, align=PP_ALIGN.CENTER)
         for label, tx, align in (("낮음", gx, PP_ALIGN.LEFT), ("높음", gx + gw - 0.7, PP_ALIGN.RIGHT)):
             box = _textbox(slide, tx, gy + gh + 0.13, 0.7, foot_h - 0.13, name="축 끝")
             box.text_frame.paragraphs[0].alignment = align
-            _write(box.text_frame.paragraphs[0], label, 9, color=MUTE)
+            _write(box.text_frame.paragraphs[0], label, T_CAPTION, color=MUTE)
 
 
 def _clip(cx: float, cy: float, half_w: float, half_h: float, tx: float, ty: float) -> tuple[float, float]:
@@ -1793,11 +1811,11 @@ def _draw_cycle(slide, data: dict, nodes: list, top: float, bottom: float):
         tf.word_wrap = False
         p = tf.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
-        _write(p, str(k + 1), 10, bold=True, color=WHITE)
-        _block(slide, x + 0.6, y + 0.07, box_w - 0.6 - 0.16, box_h - 0.14, node["label"], node["detail"], sizes=((13, 10), (12, 10), (11, 9), (10, 9)))
+        _write(p, str(k + 1), T_CAPTION, bold=True, color=WHITE)
+        _block(slide, x + 0.6, y + 0.07, box_w - 0.6 - 0.16, box_h - 0.14, node["label"], node["detail"], sizes=BLOCK_SIZES)
     center = _clean(data.get("center")).strip()
     if center and n > 1:
-        _block(slide, mx - 1.3, my - 0.32, 2.6, 0.64, center, "", sizes=((14, 0), (13, 0), (12, 0), (11, 0)), name="가운데 이름", color=BRAND_DEEP, align=PP_ALIGN.CENTER)
+        _block(slide, mx - 1.3, my - 0.32, 2.6, 0.64, center, "", sizes=((T_H2, 0), (T_BODY, 0), (T_SMALL, 0)), name="가운데 이름", color=BRAND_DEEP, align=PP_ALIGN.CENTER)
 
 
 def _draw_diagram(slide, data: dict, number: int, deck_title: str):

@@ -1,0 +1,56 @@
+{% from "_macros.html" import ai_attrs, rev_fields, confirm_link, form_token %}{% set aig = ai_gate() %}
+{# 대화 하나 (#cowork-thread): 말풍선 → 맨 끝 진행 조각 → 입력칸. thread 가 없으면 새 대화의 입력칸과 예시 질문만. #}
+{% set busy = thread is not none and thread.active_job is not none and thread.active_job.status in ont.JOB_ACTIVE %}
+<div id="cowork-thread" class="chat-live cowork-thread">
+{% if thread is not none %}
+  <p class="muted small cowork-meta">{% if thread.origin_type %}{{ ont.label(thread.origin_type) }}에서 옮겨 온 대화 · {% endif %}{{ kdatetime(thread.created_at) }} 시작{% if thread.creator %} · {{ thread.creator.name or thread.creator.username }}{% endif %}
+    {% if can_delete_thread(thread) %} · {{ confirm_link("/cowork/threads/" ~ thread.id ~ "/delete", label="대화 지우기", cls="small ghost danger", ask="이 대화를 지울까요?") }}{% endif %}</p>
+  <div class="chat-list chat-scroll" data-chat-scroll>
+  {% for m in thread.messages %}
+    <div class="chat-msg {{ m.role }}"><span class="chat-who">{% if m.role == "user" %}{{ (m.user.name or m.user.username) if m.user else "팀원" }}{% else %}AI{% endif %}{% if m.created_at %} · {{ kdatetime(m.created_at) }}{% endif %}</span>{% if m.role == "user" %}{{ m.content }}{% else %}<div class="md">{{ m.content | md }}</div>{% endif %}
+    {% if m.suggestions %}
+      <ul class="cowork-suggest">
+      {% for s in m.suggestions %}
+        <li data-state="{{ s.state }}"><b>{{ cowork_suggestion_text(s) }}</b>
+          {% if s.evidence %}<small class="muted block">근거: “{{ s.evidence }}”{% if s.from_chat %} · <span class="muted">{{ cowork_from_chat }}</span>{% elif not s.verified %} · <span class="warn">{{ cowork_no_evidence }}</span>{% endif %}</small>{% endif %}
+          {% if s.state == "pending" %}
+          <span class="row">
+            <form method="post" action="/cowork/threads/{{ thread.id }}/messages/{{ m.id }}/suggestions/{{ s.id }}/apply">{{ rev_fields(cw.target) }}<button type="submit" class="small primary">반영</button></form>
+            <form method="post" action="/cowork/threads/{{ thread.id }}/messages/{{ m.id }}/suggestions/{{ s.id }}/dismiss"><button type="submit" class="small ghost">무시</button></form>
+          </span>
+          {% else %}<span class="badge tone-{{ 'ok' if s.state == 'applied' else 'slate' }}">{{ ont.COWORK_SUGGESTION_STATES.get(s.state, s.state) }}</span>{% endif %}
+        </li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+    </div>
+  {% endfor %}
+  {% include "cowork/_tail.html" %}
+  </div>
+{% endif %}
+{% if cowork_error is defined and cowork_error %}<p class="error" role="alert">{{ cowork_error }}</p>{% endif %}
+<form method="post" action="{{ ('/cowork/threads/' ~ thread.id ~ '/messages') if thread is not none else ('/cowork/' ~ cw.code ~ '/' ~ cw.target.id ~ '/threads') }}" class="composer">
+  {% if thread is none %}{{ form_token() }}{% endif %}
+  <label class="sr-only" for="cowork-message">메시지</label>
+  <textarea id="cowork-message" name="message" rows="2" required placeholder="{{ '이어서 물어보세요' if thread is not none else '무엇을 함께 할까요? (새 대화)' }}"{% if busy %} disabled{% endif %}>{% if cowork_text is defined and cowork_text %}{{ cowork_text }}{% endif %}</textarea>
+  <button type="submit" class="primary"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, "cowork-ai-note") }}>보내기</button>
+  {% if busy %}<p class="composer-note muted">답이 끝나면 이어서 물을 수 있습니다.</p>{% endif %}
+</form>
+{% if thread is none and cw.starters %}
+<form method="post" action="/cowork/{{ cw.code }}/{{ cw.target.id }}/threads" class="starters" aria-label="예시 질문">
+  {{ form_token() }}
+  {% for text in cw.starters %}<button type="submit" name="message" value="{{ text }}" class="chip starter"{{ ai_attrs(aig, "cowork-ai-note") }}>{{ text }}</button>{% endfor %}
+</form>
+{% endif %}
+{% set choices = move_choices(cw.target) if thread is not none and cw.code not in ont.COWORK_SPACES else [] %}
+{% if choices %}
+<details class="more cowork-move"><summary>이 대화를 과제로 옮기기</summary>
+  <form method="post" action="/cowork/threads/{{ thread.id }}/move" class="row">
+    <label class="sr-only" for="cowork-move">과제</label>
+    <select id="cowork-move" name="initiative_id">{% for i in choices %}<option value="{{ i.id }}">{{ i.title }}</option>{% endfor %}</select>
+    <button type="submit" class="small">옮기기</button>
+  </form>
+  <p class="muted help">옮기면 이 기록이 그 과제의 연결에 더해지고, 대화는 과제 공간에서 이어집니다. 새 과제가 필요하면 먼저 <a href="/initiatives/new">과제를 만드세요</a>.</p>
+</details>
+{% endif %}
+</div>

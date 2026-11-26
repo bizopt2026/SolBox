@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 from app import ontology, report_periods
 from app.models import (
     AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, User,
+    Initiative, Strategy, WorkspaceChange, activity_opportunities, AlignmentNote,
 )
 
 
@@ -119,7 +120,13 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
         "followups_done": len(done_rows),
         "followups_overdue": len(overdue_rows),
     }
+    workspace = workspace_section(db, lo, hi)
+    act_ids = [a.id for a in acts]
+    linked = set(db.scalars(select(activity_opportunities.c.opportunity_id).where(activity_opportunities.c.activity_id.in_(act_ids)))) if act_ids else set()
+    opp_ids = {o["id"] for o in opportunities} | linked
+    workspace["alignment"] = alignment_summary(db, opp_ids, {r["id"] for r in workspace["initiatives_changed"]})
     return {
+        "workspace": workspace,
         "kpis": kpis,
         "activities": activities,
         "opportunities": opportunities,
@@ -127,6 +134,120 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
         "followups_done": [_followup_row(f) for f in done_rows],
         "followups_overdue": [_followup_row(f) for f in overdue_rows],
         "legacy_undated": legacy_followups + legacy_opps,
+    }
+
+
+# ---- 사업 방향·이슈·과제 (AI 코워크 ①). 기간 판단은 칸 이력(workspace_changes)의 시각, 이력이 없으면(도입 전) 지금 값 ----
+
+def _status_at(obj, hi: datetime, changes: list) -> str | None:
+    """기간 끝(hi 직전) 시점의 상태. 그때 아직 없던 기록은 None."""
+    if obj.created_at >= hi:
+        return None
+    status_rows = [c for c in changes if c.field == "status"]
+    done = [c for c in status_rows if c.changed_at < hi]
+    if done:
+        return done[-1].new_value
+    return (status_rows[0].old_value or obj.status) if status_rows else obj.status
+
+
+def _first_line(text: str | None) -> str:
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    return lines[0] if lines else ""
+
+
+def workspace_section(db: Session, lo: datetime, hi: datetime) -> dict:
+    """보고 기간의 사업 방향·이슈·과제. 숫자는 과제 목록(`/initiatives`)과 같은 규칙으로 센다 (기간 끝이 지금이면 목록 건수와 같다)."""
+    by_init: dict[int, list] = {}
+    by_strat: dict[int, list] = {}
+    for ch in db.scalars(select(WorkspaceChange).order_by(WorkspaceChange.changed_at, WorkspaceChange.id)):
+        if ch.initiative_id is not None:
+            by_init.setdefault(ch.initiative_id, []).append(ch)
+        elif ch.strategy_id is not None:
+            by_strat.setdefault(ch.strategy_id, []).append(ch)
+    items = db.scalars(select(Initiative).options(selectinload(Initiative.owner)).order_by(Initiative.id)).all()
+    status_end = {i.id: _status_at(i, hi, by_init.get(i.id, [])) for i in items}
+
+    strategies = []
+    for s in db.scalars(select(Strategy).order_by(Strategy.id)):
+        st = _status_at(s, hi, by_strat.get(s.id, []))
+        if st is None:
+            continue
+        changed = any(lo <= c.changed_at < hi for c in by_strat.get(s.id, []) if c.field in ontology.STRATEGY_TRACKED_FIELDS) or lo <= s.created_at < hi
+        if st != ontology.STRATEGY_STATUS_AGREED and not changed:
+            continue
+        mine = [i for i in items if i.strategy_id == s.id and status_end[i.id] is not None]
+        strategies.append({"id": s.id, "title": s.title, "status": st, "changed": changed,
+                           "open_tasks": sum(1 for i in mine if status_end[i.id] in ontology.INITIATIVE_OPEN),
+                           "done_tasks": sum(1 for i in mine if status_end[i.id] == "done")})
+
+    issues = [i for i in items if i.kind == ontology.INITIATIVE_KIND_ISSUE]
+    issues_open = [{"id": i.id, "title": i.title, "status": status_end[i.id], "owner": (i.owner.name or i.owner.username) if i.owner else ""}
+                   for i in issues if status_end[i.id] in ontology.INITIATIVE_OPEN]
+    issues_new = sum(1 for i in issues if lo <= i.created_at < hi)
+    issues_closed = sum(1 for i in issues if any(c.field == "status" and lo <= c.changed_at < hi for c in by_init.get(i.id, []))
+                        and status_end[i.id] in ontology.INITIATIVE_CLOSED)
+
+    changed_rows = []
+    for i in items:
+        mine = [c for c in by_init.get(i.id, []) if c.field == "status" and lo <= c.changed_at < hi]
+        new = lo <= i.created_at < hi
+        if not mine and not new:
+            continue
+        frm = "" if new else (mine[0].old_value if mine else "")
+        changed_rows.append({"id": i.id, "title": i.title, "kind": i.kind, "from_status": frm, "to_status": status_end[i.id] or i.status,
+                             "new": new, "progress": _first_line(i.progress)})
+    return {"strategies": strategies, "issues_open": issues_open, "issues_new": issues_new, "issues_closed": issues_closed,
+            "initiatives_changed": changed_rows}
+
+
+def alignment_summary(db: Session, opp_ids: set[int], initiative_ids: set[int]) -> dict:
+    """정렬 요약 (AI 코워크 ③): 기간에 움직인 진행 중 영업기회와 과제 가운데 최신 판단이 "방향 밖"인 것, 점검 전인 것의 수.
+    판단은 지금의 최신 판단이다 (확정하면 스냅숏에 그때 값이 남는다)."""
+    from app import alignment
+
+    out = {"checked": 0, "unchecked": 0, "misaligned": []}
+    from app import workspaces
+
+    if not workspaces.active_strategies(db, date.today()) and not db.scalar(select(func.count()).select_from(AlignmentNote)):
+        return out  # 잣대가 없어 점검할 수 없던 기간: "점검 전" 으로 세지 않는다
+    for code, model, ids in (("opportunity", Opportunity, opp_ids), ("initiative", Initiative, initiative_ids)):
+        objs = [o for o in db.scalars(select(model).where(model.id.in_(sorted(ids))).order_by(model.id)) if alignment.is_target(o)] if ids else []
+        notes = alignment.latest_for(db, code, [o.id for o in objs])
+        for o in objs:
+            n = notes.get(o.id)
+            if n is None:
+                out["unchecked"] += 1
+                continue
+            out["checked"] += 1
+            if n.verdict == "misaligned":
+                out["misaligned"].append({"type": code, "id": o.id, "title": getattr(o, "title", None) or o.name, "reason": n.reason})
+    return out
+
+
+EMPTY_WORKSPACE = {"strategies": [], "issues_open": [], "issues_new": 0, "issues_closed": 0, "initiatives_changed": []}
+
+
+def workspace_rows(data: dict) -> dict:
+    """보고서 파일·화면의 표 행 (글). 옛 확정 스냅숏에는 구역이 없어 빈 것."""
+    w = data.get("workspace") or EMPTY_WORKSPACE
+    st, ini, kinds = ontology.STRATEGY_STATUSES, ontology.INITIATIVE_STATUSES, ontology.INITIATIVE_KINDS
+
+    def change(r: dict) -> str:
+        to = ini.get(r.get("to_status"), r.get("to_status") or "")
+        if r.get("new"):
+            return f"신규 · {to}"
+        frm = ini.get(r.get("from_status"), r.get("from_status") or "")
+        return f"{frm} → {to}" if frm else to
+
+    return {
+        "strategies": [(s.get("title", ""), st.get(s.get("status"), s.get("status") or ""), f"진행 {s.get('open_tasks', 0)} · 완료 {s.get('done_tasks', 0)}",
+                        "이번 기간에 바뀜" if s.get("changed") else "") for s in w.get("strategies") or []],
+        "issues": [(i.get("title", ""), ini.get(i.get("status"), i.get("status") or ""), i.get("owner", "")) for i in w.get("issues_open") or []],
+        "initiatives": [(r.get("title", ""), kinds.get(r.get("kind"), r.get("kind") or ""), change(r), r.get("progress", "")) for r in w.get("initiatives_changed") or []],
+        "issues_new": int(w.get("issues_new") or 0), "issues_closed": int(w.get("issues_closed") or 0),
+        "misaligned": [(m.get("title", ""), ontology.label(m.get("type", "initiative")) if m.get("type") in ontology.TYPES else "", m.get("reason", ""))
+                       for m in (w.get("alignment") or {}).get("misaligned") or []],
+        "align_checked": int((w.get("alignment") or {}).get("checked") or 0), "align_unchecked": int((w.get("alignment") or {}).get("unchecked") or 0),
     }
 
 
@@ -439,6 +560,7 @@ def report_content(db: Session, report: Report) -> dict:
         "issues": _text_lines(report.highlights_md),
         "notes": {key: notes.get(key) or defaults[key] for key in NOTE_KEYS},
         "legacy_undated": int(data.get("legacy_undated") or 0),
+        "workspace": workspace_rows(data),
     }
 
 

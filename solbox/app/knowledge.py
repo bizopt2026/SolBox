@@ -15,7 +15,7 @@ from app import aliases, business_types as bts, checks, labels, ontology, relati
 from app.extract import extract_text
 from app.ontology import mirror_folder, parse_rel, prop as P, rel_path  # noqa: F401  (경로 형식은 ontology 가 정의한다)
 from app.models import (
-    BM, Activity, AppSetting, Customer, CustomerNeed, Opportunity, Partner, Project, ResearchReport, Solution, SolutionFile,
+    BM, Activity, AppSetting, Customer, CustomerNeed, Opportunity, Partner, Project, ResearchReport, Solution, SolutionFile, Strategy, Initiative, WorkspaceFile,
 )
 
 log = logging.getLogger(__name__)
@@ -28,8 +28,15 @@ def safe_name(name: str) -> str:
     return cleaned or "file"
 
 
-def file_markdown(f: SolutionFile, text: str) -> str:
-    """자료 파일에서 뽑은 본문을 사본 형식으로 만든다."""
+def workspace_owner(f) -> tuple[str, int]:
+    """공간 자료가 붙은 공간: ("strategy"|"initiative", 번호)."""
+    return ("strategy", f.strategy_id) if f.strategy_id is not None else ("initiative", f.initiative_id)
+
+
+def file_markdown(f: SolutionFile | WorkspaceFile, text: str) -> str:
+    """자료 파일에서 뽑은 본문을 사본 형식으로 만든다 (공간 자료는 종류가 없어 이름만)."""
+    if isinstance(f, WorkspaceFile):
+        return f"# {f.original_name}\n\n{text}\n"
     return f"# {f.original_name} ({labels.FILE_KINDS.get(f.kind, f.kind)})\n\n{text}\n"
 
 
@@ -67,6 +74,9 @@ class KnowledgeMirror:
             return rel_path("activity", year=obj.date.year if obj.date else "undated", id=obj.id)
         if isinstance(obj, SolutionFile):
             return rel_path("solution_file", solution_id=obj.solution_id, id=obj.id, name=safe_name(obj.original_name))
+        if isinstance(obj, WorkspaceFile):
+            owner, owner_id = workspace_owner(obj)
+            return rel_path("workspace_file", owner=owner, owner_id=owner_id, id=obj.id, name=safe_name(obj.original_name))
         if isinstance(obj, ResearchReport):
             day = (obj.created_at or datetime.now()).date().isoformat()
             return rel_path("research_report", day=day, tag=obj.area if obj.kind == "area" else "suggest", id=obj.id)
@@ -93,6 +103,10 @@ class KnowledgeMirror:
         if isinstance(obj, Activity):
             for old in (self.root / mirror_folder("activity")).glob(f"*/{obj.id}.md"):
                 old.unlink(missing_ok=True)
+        self._write(self.path_for(obj), self.render_text(obj))
+
+    def render_text(self, obj) -> str:
+        """사본 글 (쓰지 않고 돌려준다). AI 동료 대화가 대상의 지금 상태로 읽는다."""
         render = {
             Solution: self._solution,
             Customer: self._customer,
@@ -102,13 +116,15 @@ class KnowledgeMirror:
             Partner: self._partner,
             Activity: self._activity,
             ResearchReport: self._report,
+            Strategy: self._strategy,
+            Initiative: self._initiative,
         }.get(type(obj))
         if render is None:
             raise TypeError(f"지원하지 않는 항목: {type(obj).__name__}")
         lines = render(obj)
         if type(obj) in CONNECTED:
             lines = lines + self._connections(obj)
-        self._write(self.path_for(obj), "\n".join(lines).rstrip() + "\n")
+        return "\n".join(lines).rstrip() + "\n"
 
     def remove(self, obj) -> None:
         if isinstance(obj, Solution):
@@ -118,24 +134,32 @@ class KnowledgeMirror:
                 old.unlink(missing_ok=True)
         else:
             self.path_for(obj).unlink(missing_ok=True)
+            if isinstance(obj, (Strategy, Initiative)):  # 공간 자료 사본 폴더도 함께
+                shutil.rmtree(self.root / "workspaces" / ontology.type_of(obj) / str(obj.id), ignore_errors=True)
 
-    def write_file_text(self, f: SolutionFile, text: str) -> None:
+    def write_file_text(self, f: SolutionFile | WorkspaceFile, text: str) -> None:
         self._write(self.path_for(f), text)
 
-    def remove_file_text(self, f: SolutionFile) -> None:
+    def remove_file_text(self, f: SolutionFile | WorkspaceFile) -> None:
         self.path_for(f).unlink(missing_ok=True)
 
     def rebuild_all(self, db: Session, uploads_dir: Path) -> None:
         """사본 폴더를 비우고 DB 의 모든 항목과 자료 텍스트를 새로 쓴다."""
         shutil.rmtree(self.root, ignore_errors=True)
         self.root.mkdir(parents=True, exist_ok=True)
-        for model in (Solution, Customer, Project, Opportunity, BM, Partner, Activity):
+        for model in (Solution, Customer, Project, Opportunity, BM, Partner, Activity, Strategy, Initiative):
             for obj in db.scalars(select(model).order_by(model.id)):
                 self.sync(obj)
         for report in db.scalars(select(ResearchReport).where(ResearchReport.status == "done").order_by(ResearchReport.id)):
             self.sync(report)
         for f in db.scalars(select(SolutionFile).order_by(SolutionFile.id)):
             result = extract_text(Path(uploads_dir) / "solutions" / str(f.solution_id) / f.stored_name)
+            f.extract_status = result.status
+            if result.status == "ok":
+                self.write_file_text(f, file_markdown(f, result.text))
+        for f in db.scalars(select(WorkspaceFile).order_by(WorkspaceFile.id)):
+            owner, owner_id = workspace_owner(f)
+            result = extract_text(Path(uploads_dir) / "workspaces" / owner / str(owner_id) / f.stored_name)
             f.extract_status = result.status
             if result.status == "ok":
                 self.write_file_text(f, file_markdown(f, result.text))
@@ -335,6 +359,35 @@ class KnowledgeMirror:
             out += [f"- {self._ref(p.name, p)}" for p in sorted(b.projects, key=lambda p: p.id)]
         return out + self._opportunity_lines(b.opportunities, stage=True)
 
+    def _strategy(self, s: Strategy) -> list[str]:
+        period = " ~ ".join(d.isoformat() for d in (s.period_start, s.period_end) if d) if (s.period_start or s.period_end) else ""
+        out = [f"# {s.title}", ""]
+        out += _lines(_item(P("strategy", "status"), ontology.STRATEGY_STATUSES.get(s.status, s.status)), _item(P("strategy", "period"), period))
+        for key, text in (("consensus", s.consensus), ("body", s.body), ("instructions", s.instructions)):
+            if (text or "").strip():
+                out += ["", f"## {P('strategy', key)}", "", text.strip()]
+        if s.files:
+            out += ["", f"## {P('strategy', 'files')}", ""]
+            out += [f"- {self._ref(f.original_name, f)}" for f in s.files if f.extract_status == "ok"] or ["- (글을 뽑은 자료 없음)"]
+        return out
+
+    def _initiative(self, i: Initiative) -> list[str]:
+        out = [f"# {i.title}", ""]
+        out += _lines(
+            _item(P("initiative", "kind"), ontology.INITIATIVE_KINDS.get(i.kind, i.kind)),
+            _item(P("initiative", "status"), ontology.INITIATIVE_STATUSES.get(i.status, i.status)),
+            _item(P("initiative", "owner"), (i.owner.name or i.owner.username) if i.owner else ""),
+            _item(P("initiative", "due"), i.due.isoformat() if i.due else ""),
+            _item(P("initiative", "strategy"), self._ref(i.strategy.title, i.strategy) if i.strategy else ""),
+        )
+        for key, text in (("description", i.description), ("progress", i.progress), ("instructions", i.instructions)):
+            if (text or "").strip():
+                out += ["", f"## {P('initiative', key)}", "", text.strip()]
+        if i.files:
+            out += ["", f"## {P('initiative', 'files')}", ""]
+            out += [f"- {self._ref(f.original_name, f)}" for f in i.files if f.extract_status == "ok"] or ["- (글을 뽑은 자료 없음)"]
+        return out
+
     def _partner(self, p: Partner) -> list[str]:
         out = [f"# {p.name}", ""]
         out += _lines(self._ai_line(p), _item("다른 이름", ", ".join(aliases.of(p))), _item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
@@ -413,11 +466,11 @@ class KnowledgeMirror:
         return out + _section("시사점", "\n".join(f"- {_inline(i)}" for i in r.insights or []))
 
 
-CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM)  # "## 연결" 구역이 있는 사본
+CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM, Strategy, Initiative)  # "## 연결" 구역이 있는 사본
 CONNECTIONS_HEADING = "연결"
 CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
 CARD_EXCLUDE = ("R3", "R19", "R21", "R22", *ontology.UNMIRRORED)  # 사본이 이미 따로 적은 것(자료), 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다), 사본에 넣지 않는 관계(업무 보고)
-KNOWLEDGE_FORMAT = 13  # (13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+KNOWLEDGE_FORMAT = 14  # (14: 사업 방향·과제 사본과 공간 자료, 다른 사본의 "## 연결" 에 과제 (AI 코워크 ①). 13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

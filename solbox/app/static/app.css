@@ -854,6 +854,8 @@ dd .button + .muted { margin-left: var(--s2); }
 .slide-ai { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2); margin: var(--s3) 0 var(--s2); }
 .slide-ai .fld { flex: 1 1 18rem; margin: 0; }
 .slide-undo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: var(--s2) 0; }
+.export-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.export-text { width: 100%; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: var(--fs-small); line-height: 1.5; }
 .slide-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-sm); }
 .slide-mini li { display: flex; align-items: center; gap: var(--s3); padding: 7px 12px; border-top: 1px solid var(--line); min-width: 0; }
 .slide-mini li:first-child { border-top: 0; }
@@ -1640,3 +1642,19 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .insight-card .card-head form.inline { margin: 0; }
 .warn-text { color: var(--warn); }
 .team-table td:first-child, .team-table th:first-child { white-space: nowrap; }
+
+/* AI 동료 칸 (AI 코워크 ②) */
+.cowork > details > summary { list-style: none; cursor: pointer; }
+.cowork > details > summary::-webkit-details-marker { display: none; }
+.cowork > details > summary h2::after { content: " ▾"; color: var(--muted, #6b7280); font-weight: 400; }
+.cowork > details:not([open]) > summary h2::after { content: " ▸"; }
+.cowork-threads { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 .75rem; }
+.cowork-threads .chip { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cowork-meta { margin: 0 0 .5rem; }
+.cowork-suggest { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.cowork-suggest li { border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: .5rem .65rem; background: var(--panel, #fff); }
+.cowork-suggest li[data-state="superseded"], .cowork-suggest li[data-state="dismissed"] { opacity: .65; }
+.cowork-suggest .row { display: flex; gap: .4rem; margin-top: .35rem; }
+.cowork-suggest .block { display: block; }
+.cowork.compact .chat-scroll { max-height: 26rem; }
+.cowork-move { margin-top: .6rem; }
