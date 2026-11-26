@@ -287,6 +287,10 @@ def close_reasons(stage: str) -> dict[str, str]:
 OPPORTUNITY_TRACKED_FIELDS = ("amount", "expected_close", "owner_user_id", "next_step", "next_step_due", "close_reason")
 OPPORTUNITY_QUIET_DAYS = 30  # 진행 중 영업기회가 이 날수 넘게 활동 기록이 없으면 "멈춘 건"
 CUSTOMER_QUIET_DAYS = 90  # 고객 목록 "오래 연락 없음" 기준
+# 멈춘 건 사유 (보이는 순서 그대로). 화면 글은 opportunities.stale_text 가 숫자를 넣어 만든다
+OPPORTUNITY_STALE_REASONS = {"overdue": "다음 할 일 날짜 지남", "close_past": "예상 수주일 지남", "no_next": "다음 할 일 없음", "quiet": "소식 없음"}
+OPPORTUNITY_STALE_TONES = {"overdue": "bad", "close_past": "bad", "no_next": "warn", "quiet": "warn"}
+OPPORTUNITY_WHO = (("team", "우리 팀"), ("mine", "내 건"))  # 영업기회 목록·홈의 담당 걸러 보기 (?who=)
 
 # 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.
 # 화면 이름·한 줄 뜻·AI 에 주는 설명은 모두 이 목록 하나에서 읽는다 (다른 곳에 다시 적지 않는다).
@@ -1225,7 +1229,7 @@ LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
     "partner": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
     "project": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
     "bm": (("name", "이름순"), ("recent", "최근 수정순")),
-    "opportunity": (("recent", "최근 수정순"), ("active", "최근 활동순"), ("name", "이름순")),
+    "opportunity": (("recent", "최근 수정순"), ("active", "최근 활동순"), ("amount", "금액순"), ("close", "예상 수주일순"), ("name", "이름순")),
     "proposal": (("recent", "최근 수정순"), ("name", "이름순")),
     "activity": (("date", "일자순"), ("recent", "최근 수정순"), ("name", "제목순")),
 }

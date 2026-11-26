@@ -225,6 +225,10 @@ def sort_rows(request: Request, list_type: str, rows, name_of=None, db: Session 
         return sorted(rows, key=lambda o: (name(o), o.id))
     if sort == "date":
         return newest_first(rows)
+    if sort == "amount":  # 영업기회 예상 금액 큰 순, 빈 값은 뒤
+        return sorted(rows, key=lambda o: (o.amount is None, -(o.amount or 0), o.id))
+    if sort == "close":  # 영업기회 예상 수주일 빠른 순, 빈 값은 뒤
+        return sorted(rows, key=lambda o: (o.expected_close is None, o.expected_close.toordinal() if o.expected_close else 0, o.id))
     if sort == "active":  # 표의 "최근 활동" 칸(연결된 활동 기록의 가장 늦은 일자) 순. 활동이 없는 줄은 뒤로
         if db is None:
             return rows

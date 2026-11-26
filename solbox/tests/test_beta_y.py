@@ -316,7 +316,7 @@ def test_opportunity_review_types(user_client, db, settings):
     assert "- 검토 사업방식: 구축형, 투자형" in (settings.knowledge_dir / "opportunities" / f"{o.id}.md").read_text(encoding="utf-8")
     detail = user_client.get(f"/opportunities/{o.id}").text
     assert "검토 사업방식" in detail and 'data-code="invest"' in detail
-    assert 'data-code="build"' in user_client.get("/opportunities").text
+    assert "business_type=build" in user_client.get("/opportunities").text  # 목록에는 사업방식 구분 탭만 (영업 A: 사업방식 칸은 상세에서만)
     assert 'value="invest" checked' in user_client.get(f"/opportunities/{o.id}/edit").text
     # 안 오면 그대로, 틀린 값은 400, 비우면 지운다
     base = {"name": "냉동창고", "customer_id": str(c.id)}

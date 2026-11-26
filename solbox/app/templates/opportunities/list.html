@@ -1,32 +1,34 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sort_th, list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, none_dash, opportunity_badge, bt_badges, type_box %}
+{% from "_macros.html" import sort_th, list_head, list_tools, empty_list, pager, links_text, date_text, none_dash, opportunity_badge, type_box, seg %}
 {% block title %}{{ ont.label("opportunity") }}{% endblock %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
-{{ list_head(ont.label("opportunity"), pg, q or stage or flt or type_now, "/opportunities/new", type="opportunity") }}
-{% set bt_extra %}{{ type_box(type_tabs) }}{% endset %}
+{{ list_head(ont.label("opportunity"), pg, q or stage or flt or type_now or who or stale_on, "/opportunities/new", type="opportunity") }}
+{% set bt_extra %}<span class="type-tools"><span class="sort-label">담당</span>{{ seg(who_tabs, "담당") }}</span>{{ type_box(type_tabs) }}<a class="chip stale-chip{{ ' on' if stale_on }}" href="{{ stale_href }}"{% if stale_on %} aria-current="true"{% endif %}>멈춘 건 <b>{{ stale_n }}</b>{% if stale_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
 {{ list_tools(request, tabs, "단계", q, flt, "이름, 고객으로 찾기", extra=bt_extra) }}
 {% if pg.items %}
-<div class="tablewrap"><table class="list-table">
-  <thead><tr>{{ sort_th(ont.label("opportunity"), "name", cur_sort, "") }}<th class="col-sec">{{ ont.prop("opportunity", "stage") }}</th><th class="col-sec">{{ ont.prop("opportunity", "business_types") }}</th><th class="col-sec">{{ ont.prop("opportunity", "bm") }}</th><th class="col-sec">{{ ont.prop("opportunity", "project") }}</th><th class="col-sec">연결</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>
+<div class="tablewrap"><table class="list-table opp-table">
+  <thead><tr>{{ sort_th(ont.label("opportunity"), "name", cur_sort, "") }}<th class="col-sec">{{ ont.prop("opportunity", "stage") }}</th><th class="col-sec num">{{ ont.prop("opportunity", "amount") }}</th><th class="col-sec">{{ ont.prop("opportunity", "expected_close") }}</th><th class="col-sec">{{ ont.prop("opportunity", "owner") }}</th><th class="col-sec">{{ ont.prop("opportunity", "next_step") }}</th>{{ sort_th("최근 활동", "active", cur_sort) }}</tr></thead>
   <tbody>
   {% for o in pg.items %}
     {% set i = info[o.id] %}
+    {% set owner_name = (o.owner.name or o.owner.username) if o.owner else "" %}
     <tr>
       <td class="c-title"><a href="/opportunities/{{ o.id }}" class="row-title">{{ o.name }}</a>
         <small class="row-sub"><a href="/customers/{{ o.customer_id }}">{{ o.customer.name }}</a></small>
-        <div class="row-meta">{{ opportunity_badge(o.stage) }}{{ bt_badges(o.business_type_codes) }}{% if o.bm %}<span>{{ o.bm.name }}</span>{% endif %}<span>{{ links_text(i) }}</span></div>
+        {% if stale[o.id] %}<div class="row-badges">{% for tone, t in stale[o.id] %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}</div>{% endif %}
+        <div class="row-meta">{{ opportunity_badge(o.stage) }}{% if o.amount %}<span class="num">{{ money.format_amount(o.amount) }}</span>{% endif %}{% if owner_name %}<span>{{ owner_name }}</span>{% endif %}</div>
       </td>
-      <td class="col-sec">{{ opportunity_badge(o.stage) }}</td>
-      <td class="col-sec">{% if o.business_type_codes %}{{ bt_badges(o.business_type_codes) }}{% else %}{{ none_dash() }}{% endif %}</td>
-      <td class="col-sec">{% if o.bm %}<a href="/bms/{{ o.bm_id }}">{{ o.bm.name }}</a>{% else %}{{ none_dash() }}{% endif %}</td>
-      <td class="col-sec">{% if o.project %}<a href="/projects/{{ o.project_id }}">{{ o.project.name }}</a>{% else %}{{ none_dash() }}{% endif %}</td>
-      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec"><span{% if o.close_reason %} title="{{ ont.close_reasons(o.stage).get(o.close_reason, '') }}"{% endif %}>{{ opportunity_badge(o.stage) }}</span></td>
+      <td class="col-sec num">{% if o.amount %}{{ money.format_amount(o.amount) }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec num{{ ' overdue' if o.expected_close and o.expected_close < today and o.stage in ont.OPPORTUNITY_OPEN_STAGES }}">{% if o.expected_close %}{{ ui.short_date(o.expected_close, today) }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if o.owner %}<span class="who">{{ owner_name }}{% if not o.owner.is_active %} (사용 중지){% endif %}{% if o.owner.team %}<small>{{ o.owner.team.name }}</small>{% endif %}</span>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if o.next_step %}{% if o.next_step_due %}<span class="num{{ ' overdue' if o.next_step_due < today }}">{{ ui.short_date(o.next_step_due, today) }}</span> {% endif %}{{ o.next_step }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ date_text(i.latest) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or stage or flt or type_now, "아직 등록된 " ~ ont.label("opportunity") ~ "가 없습니다. 활동 기록의 고객 니즈에서 만들거나 직접 등록하세요.", "/opportunities/new", clear_url="/opportunities") }}{% endif %}
+{% else %}{{ empty_list(q or stage or flt or type_now or who or stale_on, "아직 등록된 " ~ ont.label("opportunity") ~ "가 없습니다. 활동 기록의 고객 니즈에서 만들거나 직접 등록하세요.", "/opportunities/new", clear_url="/opportunities") }}{% endif %}
 {% endblock %}

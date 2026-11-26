@@ -393,3 +393,135 @@ def apply_stage(opp: Opportunity, stage: str, reason: str = "", note: str = "") 
 
 def close_reason_label(opp: Opportunity) -> str:
     return ontology.close_reasons(opp.stage).get(opp.close_reason, "")
+
+
+# ---- 영업 A 단계: 멈춘 건 ----
+
+def stale_reasons(opp, today, last_touch) -> list[str]:
+    """진행 중 영업기회가 멈춘 까닭들 (ontology.OPPORTUNITY_STALE_REASONS 의 순서). 진행 중이 아니면 빈 목록.
+    마지막 접촉 = 연결된 활동 기록의 가장 늦은 일자 또는 만든 날 (`last_touches`). 단계 변경은 접촉으로 치지 않는다."""
+    if opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:
+        return []
+    found = []
+    if opp.next_step_due is not None and opp.next_step_due < today:
+        found.append("overdue")
+    if opp.expected_close is not None and opp.expected_close < today:
+        found.append("close_past")
+    if not opp.next_step:
+        found.append("no_next")
+    if last_touch is not None and (today - last_touch).days > ontology.OPPORTUNITY_QUIET_DAYS:
+        found.append("quiet")
+    return found
+
+
+def stale_text(code: str, opp, today, last_touch) -> str:
+    from app.ui import short_date
+
+    if code == "overdue":
+        return f"다음 할 일 {(today - opp.next_step_due).days}일 지남"
+    if code == "close_past":
+        return f"예상 수주일 지남 ({short_date(opp.expected_close, today)})"
+    if code == "quiet":
+        return f"{(today - last_touch).days}일째 소식 없음"
+    return ontology.OPPORTUNITY_STALE_REASONS[code]
+
+
+def last_touches(db: Session, opps: Iterable[Opportunity]) -> dict[int, object]:
+    """영업기회마다 마지막 접촉일: max(연결된 활동 기록 일자, 만든 날). 질의 수는 건수와 무관하다."""
+    from app import relations
+
+    opps = list(opps)
+    latest = relations.latest_activity_dates(db, "opportunity", [o.id for o in opps])
+    out = {}
+    for o in opps:
+        made = o.created_at.date() if o.created_at else None
+        dates = [d for d in (latest.get(o.id), made) if d is not None]
+        out[o.id] = max(dates) if dates else None
+    return out
+
+
+def stale_badges(opp, today, last_touch) -> list[tuple[str, str]]:
+    """[(배지 색, 사유 글)] — 날짜가 지난 것은 위험, 나머지는 주의 (ontology.OPPORTUNITY_STALE_TONES)."""
+    return [(ontology.OPPORTUNITY_STALE_TONES[c], stale_text(c, opp, today, last_touch)) for c in stale_reasons(opp, today, last_touch)]
+
+
+def stale_view(db: Session, opps: Iterable[Opportunity], today) -> dict[int, list[tuple[str, str]]]:
+    """{번호: [(배지 색, 사유 글)]} (멈추지 않은 건은 빈 목록)."""
+    opps = list(opps)
+    touches = last_touches(db, opps)
+    return {o.id: stale_badges(o, today, touches[o.id]) for o in opps}
+
+
+def team_id_of(opp: Opportunity) -> int | None:
+    return opp.owner.team_id if opp.owner is not None else None
+
+
+def who_filter(rows: list[Opportunity], user: User, who: str) -> tuple[list[Opportunity], str]:
+    """담당 걸러 보기: "" 전체 / "team" 우리 팀(담당의 팀이 내 팀) / "mine" 내 건. 팀이 없으면 "team" 은 전체로 본다."""
+    if who == "mine":
+        return [o for o in rows if o.owner_user_id == user.id], who
+    if who == "team" and user.team_id is not None:
+        return [o for o in rows if team_id_of(o) == user.team_id], who
+    return rows, ""
+
+
+def who_counts(rows: list[Opportunity], user: User) -> dict[str, int]:
+    return {"mine": sum(1 for o in rows if o.owner_user_id == user.id),
+            "team": sum(1 for o in rows if user.team_id is not None and team_id_of(o) == user.team_id)}
+
+
+# ---- 영업 A 단계: 변경 이력 (단계 + 진행 칸) ----
+
+HISTORY_SHOWN = 8
+_HISTORY_LABEL = {"stage": "stage", "amount": "amount", "expected_close": "expected_close", "owner_user_id": "owner",
+                  "next_step": "next_step", "next_step_due": "next_step_due", "close_reason": "close_reason"}
+
+
+def history_rows(db: Session, opp: Opportunity, today) -> list[dict]:
+    """상세 화면 "변경 이력": 단계 이력과 진행 칸 이력을 합쳐 최신순. 한 줄 = {at, label, old, new, by}. 값은 화면 글로 (금액·날짜·담당 이름·사유 이름).
+    사유 코드는 같은 저장(같은 시각)의 단계로 이름을 찾는다 (수주·실패의 같은 코드가 이름이 다르다)."""
+    from app import money
+    from app.ui import short_date
+
+    stage_at = {ch.changed_at: ch.to_stage for ch in opp.stage_changes}
+    ids = {ch.changed_by_id for ch in (*opp.stage_changes, *opp.field_changes)}
+    ids |= {int(v) for ch in opp.field_changes if ch.field == "owner_user_id" for v in (ch.old_value, ch.new_value) if v.isdigit()}
+    ids.discard(None)
+    names = {u.id: (u.name or u.username) for u in db.scalars(select(User).where(User.id.in_(ids)))} if ids else {}
+
+    def shown(field: str, raw: str, at) -> str:
+        if not raw:
+            return ""
+        if field == "amount":
+            return money.format_amount(int(raw)) if raw.isdigit() else raw
+        if field in ("expected_close", "next_step_due"):
+            from datetime import date
+
+            try:
+                return short_date(date.fromisoformat(raw), today)
+            except ValueError:
+                return raw
+        if field == "owner_user_id":
+            return names.get(int(raw), "(지운 계정)") if raw.isdigit() else raw
+        if field == "close_reason":
+            stage = stage_at.get(at, opp.stage)
+            return ontology.close_reasons(stage).get(raw) or ontology.OPPORTUNITY_LOST_REASONS.get(raw) or raw
+        if field == "stage":
+            return ontology.OPPORTUNITY_STAGES.get(raw, raw)
+        return raw
+
+    rows = [{"at": ch.changed_at, "field": "stage", "old": shown("stage", ch.from_stage, ch.changed_at), "new": shown("stage", ch.to_stage, ch.changed_at),
+             "by": names.get(ch.changed_by_id, ""), "source": ""} for ch in opp.stage_changes if ch.from_stage]  # 만들 때 줄(옛 단계 없음)은 뺀다
+    rows += [{"at": ch.changed_at, "field": ch.field, "old": shown(ch.field, ch.old_value, ch.changed_at), "new": shown(ch.field, ch.new_value, ch.changed_at),
+              "by": names.get(ch.changed_by_id, ""), "source": ch.source} for ch in opp.field_changes]
+    for r in rows:
+        r["label"] = ontology.prop("opportunity", _HISTORY_LABEL.get(r["field"], r["field"]))
+        r["when"] = short_date(r["at"].date(), today) if r["at"] else ""
+    rows.sort(key=lambda r: (r["at"] or 0), reverse=True)
+    return rows
+
+
+def open_follow_ups(opp: Opportunity) -> list:
+    """연결된 활동 기록의 아직 끝나지 않은 후속 조치 (기한 빠른 순, 기한 없는 것은 뒤)."""
+    rows = [f for a in opp.activities for f in a.follow_ups if not f.done]
+    return sorted(rows, key=lambda f: (f.due is None, f.due.toordinal() if f.due else 0, f.id))

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import business_types as bts, ontology, opportunities as opps, relations, teams, ui
+from app import business_types as bts, money, ontology, opportunities as opps, relations, teams, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -85,25 +85,45 @@ def _submitted(values: dict, need_ids, solution_ids, bt: "bts.BTForm | None" = N
             "solution_ids": [n for i in solution_ids if (n := parse_id(i)) is not None]}
 
 
+def _today():
+    from app.routers.home import today
+
+    return today()
+
+
 def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None):
+    now = _today()
+    touch = opps.last_touches(db, [opp])[opp.id]
     return render(
         request, "opportunities/detail.html", status_code=400 if error else 200,
         opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
-        close_reason=opps.close_reason_label(opp),
+        close_reason=opps.close_reason_label(opp), today=now, money=money,
+        stale=opps.stale_badges(opp, now, touch),
+        history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
+        owner_team=teams.team_name(opp.owner),
     )
 
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
-                           loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.bm), selectinload(Opportunity.project)))
+                           loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.owner).selectinload(User.team)))
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
     found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found, db=db))
     found, type_tabs, type_now = bts.type_tabs(request, found, lambda o: o.business_type_codes)
+    now = _today()
+    stale_all = opps.stale_view(db, found, now)  # 멈춘 사유 (걸러 보기 칩 건수와 줄 배지)
+    stale_on = stale == "1"
+    if stale_on:
+        found = [o for o in found if stale_all[o.id]]
+    who_n, who_total = opps.who_counts(found, user), len(found)
+    found, who = opps.who_filter(found, user, who)
+    who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
+    who_tabs = ui.seg_tabs(request, "who", who_choices, who_n, who, who_total)
     counts = Counter(o.stage for o in found)  # 구분 탭의 건수: 검색어·걸러 보기를 적용한 목록 기준
     counts[ontology.OPPORTUNITY_FILTER_OPEN] = sum(counts[c] for c in ontology.OPPORTUNITY_OPEN_STAGES)
     total = len(found)
@@ -116,7 +136,14 @@ def list_opportunities(
     pg = paginate(found, page)
     choices = [(ontology.OPPORTUNITY_FILTER_OPEN, "진행 중"), *ontology.OPPORTUNITY_STAGES.items()]
     tabs = ui.seg_tabs(request, "stage", choices, counts, stage, total)
-    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now, info=row_info(db, "opportunity", pg.items))
+    stale_n = sum(1 for o in found if stale_all.get(o.id))
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("stale", "page", "notice", "nt")]
+    from urllib.parse import urlencode
+
+    stale_href = "/opportunities?" + urlencode(keep + ([] if stale_on else [("stale", "1")]))
+    return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
+                  info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
+                  stale=stale_all, today=now, money=money)
 
 
 @router.get("/new")

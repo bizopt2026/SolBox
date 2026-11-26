@@ -1493,3 +1493,34 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .reason-chips label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
 .reason-chips label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .reason-pick.has-error .reason-chips label { border-color: var(--bad-line); }
+
+/* ---- 영업 A 단계: 영업기회 목록·상세 ---- */
+.stale-chip { display: inline-flex; align-items: center; gap: 4px; }
+.stale-chip.on { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); font-weight: var(--fw-strong); }
+.row-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.overdue { color: var(--bad); font-weight: var(--fw-strong); }
+.who { display: inline-flex; flex-direction: column; }
+.who small { color: var(--ink-3); font-size: var(--fs-small); }
+.stale-alert { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.stale-alert a { margin-left: auto; font-weight: var(--fw-strong); }
+.sumband { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 0 var(--gap); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.sumband > div { padding: var(--s3) var(--s4); border-right: 1px solid var(--line); min-width: 0; }
+.sumband > div:last-child { border-right: 0; }
+.sumband dt { font-size: var(--fs-small); color: var(--ink-3); }
+.sumband dd { margin: 2px 0 0; font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.sumband dd.big { font-size: 17px; }
+.hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); font-size: var(--fs-note); }
+.hist li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--s2); }
+.hist time { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.hist .by { display: block; color: var(--ink-3); font-size: var(--fs-small); }
+.hist .old { color: var(--ink-3); text-decoration: line-through; }
+.hist .arrow { color: var(--ink-3); margin: 0 3px; }
+.hist-more { margin-top: var(--s3); font-size: var(--fs-note); }
+.hist-more summary { cursor: pointer; color: var(--brand); }
+.hist-more .hist { margin-top: var(--s3); }
+.fu-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-note); }
+@media (max-width: 860px) {
+  .sumband { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sumband > div:nth-child(2) { border-right: 0; }
+  .sumband > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+}

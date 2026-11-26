@@ -570,7 +570,7 @@ def test_opportunity_pages(user_client, db):
                    f'href="/customers/{c.id}"', f'href="/proposals/{prop.id}"', "한빛 제안"):
         assert needle in page, needle
     lst = user_client.get("/opportunities").text
-    assert "전력 절감 사업" in lst and "한빛병원" in lst and "에너지 절감 BM" in lst
+    assert "전력 절감 사업" in lst and "한빛병원" in lst and "에너지 절감 BM" not in lst  # BM 은 상세에서만 (영업 A: 목록에서 BM 칸을 뺌, 사용자 결정)
     assert "전력 절감 사업" in user_client.get("/opportunities?q=전력").text
     assert "전력 절감 사업" not in user_client.get("/opportunities?q=없음").text
     assert "전력 절감 사업" in user_client.get("/opportunities?stage=discovery").text
