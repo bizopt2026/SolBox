@@ -83,6 +83,7 @@ def link_counts(db: Session, kind: str, obj) -> list[tuple[str, str, int]]:
         ("활동 기록", "R5", n(select(func.count()).select_from(activity_customers).where(activity_customers.c.customer_id == i))),
         ("고객 니즈", "R10", cnt(CustomerNeed, CustomerNeed.customer_id == i)),
         ("같은 회사 파트너", "R25", cnt(Partner, Partner.customer_id == i)),
+        ("업무 보고 계획 항목", "R38", cnt(ReportPlanItem, ReportPlanItem.customer_id == i)),
         ("올린 파일의 대상 표시", "R21", files),
     ]
 

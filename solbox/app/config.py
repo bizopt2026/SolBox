@@ -66,6 +66,10 @@ class Settings:
     def decks_dir(self) -> Path:
         return self.data_dir / "decks"
 
+    @property
+    def reports_dir(self) -> Path:
+        return self.data_dir / "reports"
+
 
 def _bad(key: str, why: str) -> SystemExit:
     return SystemExit(f"설정 파일의 '{key}' 값이 올바르지 않습니다: {why}")
@@ -151,7 +155,7 @@ def load_settings(path: Path | None = None) -> Settings:
             backup_dir = path.resolve().parent / backup_dir
         raw["backup_dir"] = backup_dir
         resolved = backup_dir.resolve()
-        for sub in ("uploads", "decks"):
+        for sub in ("uploads", "decks", "reports"):
             if resolved.is_relative_to((data_dir / sub).resolve()):
                 raise SystemExit(
                     f"'backup_dir' 는 data_dir 안의 {sub} 폴더 안에 둘 수 없습니다 (백업이 자기 자신을 복사하게 됩니다): {backup_dir}"

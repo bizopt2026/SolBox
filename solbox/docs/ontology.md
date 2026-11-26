@@ -105,6 +105,8 @@
 | 작업 | **올리기 묶음** | 한 번에 올린 파일들과 그 정리 상태 | `Intake` / `intakes` |
 | 작업 | **올린 파일** | 묶음 안의 파일 하나 | `IntakeFile` / `intake_files` |
 | 작업 | **정리안 항목** | 묶음에 대해 AI가 제안한 저장 단위 | `Intake.plan.items` (JSON) |
+| 작업 | **업무 보고** (구현됨, 2026-11-25) | 팀이 윗선에 올리는 일·주·월 보고 한 건. 기간 실적 집계 + 지난 계획 점검 + 다음 계획. 같은 단위·기간에 하나 | `Report` / `reports` |
+| 부속 | **보고 계획 항목** (유형 코드 `report_item`) | 보고가 세운 다음 계획 한 줄. 다음 보고가 점검한다(완료·진행 중·미착수·취소). 고객·영업기회·프로젝트를 선택해 가리킨다 | `ReportPlanItem` / `report_plan_items` |
 | 작업 | **리서치 주제** | 주간 조사의 조사 항목 | `ResearchTopic` |
 | 작업 | **리서치 실행** | 조사 한 회 | `ResearchRun` |
 | 작업 | **리서치 보고서** | 분야별 동향 보고서 또는 발굴 방향 제안 | `ResearchReport` (+ `trends`, `insights`, `suggestions` JSON) |
@@ -206,7 +208,12 @@
 
 | R36 | 솔루션 분야가 솔루션을 **묶는다** | 솔루션 분야 → 솔루션 | 1:N | 키 `solutions.field_id` | **구현됨 (2026-11-24).** 선택 (비면 분야 미지정). 지울 수 있는 것은 쓰는 솔루션이 없을 때뿐. 상세 화면이 없는 분류 목록이라 연결 목록에는 올리지 않고(`UNTRAVERSED`) 솔루션 화면의 속성 줄과 목록의 묶어 보기로 보인다 |
 
-R1~R36 은 `app/ontology.py` 의 `RELATIONS` 와 같은 키다. 저장 방식이 키(fk·연결 표)인 관계는 물리 위치와 ORM 메타데이터로 자동으로 따라가고, JSON·글인 관계만 `ontology.RESOLVERS` 에 작은 해석기를 둔다.
+| R37 | 업무 보고가 계획 항목을 **세운다** | 업무 보고 → 보고 계획 항목 | 1:N | 키 `report_plan_items.report_id` | **구현됨 (2026-11-25).** 보고를 지우면 함께 지워진다. 지식 사본에는 적지 않는다(`UNMIRRORED`) |
+| R38 | 계획 항목이 고객을 **가리킨다** | 보고 계획 항목 → 고객 | N:1 | 키 `report_plan_items.customer_id` | **구현됨.** 선택. 고객을 지우면 연결만 비워진다(항목 글은 남는다). 고객 합치기는 남는 쪽으로 옮긴다 |
+| R39 | 계획 항목이 영업기회를 **가리킨다** | 보고 계획 항목 → 영업기회 | N:1 | 키 `report_plan_items.opportunity_id` | **구현됨.** 선택. 지우면 연결만 비워진다 |
+| R40 | 계획 항목이 프로젝트를 **가리킨다** | 보고 계획 항목 → 프로젝트 | N:1 | 키 `report_plan_items.business_id` | **구현됨.** 선택. 지우면 연결만 비워진다 |
+
+R1~R40 은 `app/ontology.py` 의 `RELATIONS` 와 같은 키다. 저장 방식이 키(fk·연결 표)인 관계는 물리 위치와 ORM 메타데이터로 자동으로 따라가고, JSON·글인 관계만 `ontology.RESOLVERS` 에 작은 해석기를 둔다.
 
 - **JSON·글 기반(해석기)**: R15 (제안 건의 추가 후보 `extra_solution_ids`), R18 (리서치 제안의 `solution_ids`), R21 (올린 파일의 대상 종류+번호). 연결 목록에서 `storage` 가 `json`/`text` 로 표시된다.
 - **따라가지 않음**: R16 (방향은 JSON 안에만 있어 출발할 기록이 없다), R17 (근거는 사본 경로 글자). 이유는 `ontology.UNTRAVERSED`.
@@ -631,3 +638,17 @@ R1~R36 은 `app/ontology.py` 의 `RELATIONS` 와 같은 키다. 저장 방식이
 
 - **그래프 종류** (코드 목록 `chart_type`): `column` 세로 막대(기본) · `bar` 가로 막대 · `line` 꺾은선 · `doughnut` 도넛 (계열 하나·4조각까지, 그 밖에는 가로 막대로 그린다).
 - **도식 종류** (코드 목록 `diagram_type`): `layers` 구성도(층, 기본. `detail` 을 쉼표로 나누면 칩) · `hub` 중심과 주변(`center` + 항목 3~6) · `before_after` 도입 전후(`left`/`right`) · `timeline` 일정(`group` = 기간) · `matrix` 2×2 위치(`axis_x`·`axis_y`, `group` = 왼쪽 위/오른쪽 위/왼쪽 아래/오른쪽 아래, 첫 항목의 칸을 강조) · `cycle` 순환(`center` 선택). 한 장의 항목 수 한도는 `ontology.DIAGRAM_MAX_NODES` (층 5, 나머지 6, 2×2 는 8).
+
+## 24. 결정된 것 (2026-11-25: 팀 업무 보고)
+
+팀이 윗선에 올리는 일·주·월 업무 보고를 솔박스 안에서 만들자는 요청에서 정했다. 설계 원문은 `docs/superpowers/specs/2026-11-25-team-report-design.md`, 규칙은 `docs/rules/업무-보고.md`.
+
+| 질문 | 결정 |
+|---|---|
+| 새 대상 유형 | **업무 보고**(`report`, 작업 유형, 메뉴 "오늘" 묶음)와 **보고 계획 항목**(`report_item`, 부속 유형). 온톨로지의 `plan_item` 은 이미 "정리안 항목"이라 계획 항목 코드는 `report_item` 으로 했다. 코드 목록은 `report_unit`(일·주·월)·`report_status`(실적 확인·계획 작성 중·확정)·`plan_result`(완료·진행 중·미착수·취소) |
+| 새 관계 | R37(보고 → 계획 항목), R38·R39·R40(계획 항목 → 고객·영업기회·프로젝트, 모두 선택). 고객·영업기회·프로젝트 상세의 "연결된 것" 에 "업무 보고 계획" 이 보인다 |
+| 지식 사본 | **R37~R40 은 사본의 "## 연결" 에 적지 않는다** (`ontology.UNMIRRORED`, 이유: 팀 내부 보고라 AI 가 읽는 지식 폴더에 넣지 않는다). 업무 보고·계획 항목은 사본을 만들지 않는다. `tests/test_report_merge.py` 가 `UNMIRRORED` 의 모든 키가 실제 관계이고 이유가 비어 있지 않은지 본다 |
+| 날짜가 없는 숫자 | 수주·후속 조치 완료는 **지금부터 날짜를 기록**한다: `follow_ups.done_at` 칸과 새 표 `opportunity_stage_changes`. 마지막 수정일(`updated_at`)로 어림하지 않는다 (단계와 무관한 수정이 섞여 보고 숫자로 부적합). 기존 기록은 채우지 않는다 |
+| 합치기·지우기 | 고객 합치기는 계획 항목의 고객 연결을 남는 쪽으로 옮기고 미리보기에 건수를 보인다. 고객·영업기회·프로젝트를 지우면 연결만 비워지고, 지우기 영향 안내에 "업무 보고 계획 항목 n건" 이 나온다 |
+| 새 표·칸 | 표 4개(`opportunity_stage_changes`·`reports`·`report_messages`·`report_plan_items`), 칸 1개(`follow_ups.done_at`). `create_all`·`migrate.add_missing_columns` 가 만든다. 패키지는 더하지 않았다 |
+| 파일 | 보고서 파일은 `data_dir/reports/<번호>/` 에 두고 백업(`uploads`·`decks` 와 같은 방식)에 넣는다 |

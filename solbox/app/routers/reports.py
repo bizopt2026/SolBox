@@ -149,7 +149,7 @@ def _steps(r: Report, current: str) -> list[dict]:
 
 
 def _folder(request: Request, r: Report):
-    return request.app.state.settings.data_dir / "reports" / str(r.id)
+    return request.app.state.settings.reports_dir / str(r.id)
 
 
 def _detail_page(request: Request, db: Session, r: Report, step: str, status_code: int = 200, form: dict | None = None, **extra):
@@ -346,7 +346,7 @@ def delete(report_id: int, request: Request, user: User = Depends(require_user),
     r = get_or_404(db, Report, report_id)
     for item in db.scalars(select(ReportPlanItem).where(ReportPlanItem.checked_in_report_id == r.id)):
         item.checked_in_report_id = None  # SQLite 외래 키 설정과 상관없이 표시를 비운다
-    folder = request.app.state.settings.data_dir / "reports" / str(r.id)
+    folder = request.app.state.settings.reports_dir / str(r.id)
     db.delete(r)
     db.commit()
     shutil.rmtree(folder, ignore_errors=True)

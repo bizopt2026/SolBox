@@ -76,6 +76,7 @@
 | `docs/rules/올리기.md` | 글 붙여넣기·사진 붙여넣기·명함 파일 가져오기 | `intake`·`cardfile`·`cardplan` 을 고칠 때 (기본 구조는 CLAUDE.md "올리기 구조") |
 | `docs/rules/대상과-데이터.md` | 프로젝트 상태·AI 생성 표기·리서치 설정·사업방식·솔루션 분야·다른 이름·합치기·중복 정리 | 대상 유형의 칸·목록·사본 형식을 고칠 때 |
 | `docs/rules/화면.md` | 화면 공통(조사·좁은 화면·충돌 화면·유래 걸러 보기 등) | 템플릿·`app.js`·`app.css` 를 고칠 때 (기본 틀은 CLAUDE.md "화면 틀") |
+| `docs/rules/업무-보고.md` | 팀 업무 보고: 날짜 기록 처리기·기간·넘김·확정 스냅숏·AI 작업·파일 형식 | `reports.py`·`report_files.py`·`ai/report_tasks.py`·`routers/reports.py` 를 고칠 때 |
 | `docs/rules/시스템-업데이트.md` | 관리 › 시스템의 업데이트·다시 시작·화면 파일 스냅숏 | `update.py`·관리 › 시스템·시작 과정을 고칠 때 |
 
 ## 새로 더할 때 확인할 것 (자세한 것은 위 규칙과 영역 파일)

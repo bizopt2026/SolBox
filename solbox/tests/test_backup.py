@@ -39,14 +39,15 @@ def test_backup_contents(app, user_client, db, settings):
     meta = json.loads((path / "backup.json").read_text(encoding="utf-8"))
     assert meta["files"] == 1 and meta["db_bytes"] == (path / "app.db").stat().st_size and meta["created_at"]
     assert not list(settings.backup_dir.glob("*.partial"))
-    assert sorted(p.name for p in path.iterdir()) == ["app.db", "backup.json", "decks", "uploads"]
+    assert sorted(p.name for p in path.iterdir()) == ["app.db", "backup.json", "decks", "reports", "uploads"]
 
 
 def test_backup_with_missing_folders(app, settings):
     shutil.rmtree(settings.uploads_dir)
     shutil.rmtree(settings.decks_dir)
+    shutil.rmtree(settings.reports_dir, ignore_errors=True)
     path = run_backup(settings, now=NOW)
-    assert (path / "uploads").is_dir() and (path / "decks").is_dir()
+    assert (path / "uploads").is_dir() and (path / "decks").is_dir() and (path / "reports").is_dir()
     assert verify(path) == []
 
 
@@ -267,7 +268,7 @@ def test_backup_dir_default_and_relative(tmp_path):
 def test_backup_dir_inside_data_dir_rules(tmp_path):
     ok = load_settings(_config(tmp_path, 'backup_dir = "../d/backups"\n'))
     assert ok.backup_dir.name == "backups"
-    for sub in ("uploads", "decks", "uploads/x"):
+    for sub in ("uploads", "decks", "reports", "uploads/x"):
         with pytest.raises(SystemExit) as e:
             load_settings(_config(tmp_path, f'backup_dir = "../d/{sub}"\n'))
         assert "백업" in str(e.value)
@@ -302,7 +303,7 @@ def test_verify_does_not_modify_the_backup(app, settings):
     before = (path / "app.db").read_bytes()
     assert verify(path) == []
     assert (path / "app.db").read_bytes() == before
-    assert sorted(p.name for p in path.iterdir()) == ["app.db", "backup.json", "decks", "uploads"]
+    assert sorted(p.name for p in path.iterdir()) == ["app.db", "backup.json", "decks", "reports", "uploads"]
 
 
 def test_prune_continues_after_a_failing_folder(tmp_path, monkeypatch, caplog):
