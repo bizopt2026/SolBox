@@ -121,3 +121,12 @@ def test_reconcile_keeps_done_at(db):
     db.commit()
     assert a.follow_ups[0].done_at == first
     assert a.follow_ups[1].done_at is not None
+
+
+def test_stage_change_logged_when_object_was_expired(db):
+    """커밋·expire 뒤 읽지 않은 채 단계를 바꿔도 기록이 남는다 (옛 값을 불러와야 한다)."""
+    o = _opp(db)
+    db.expire_all()
+    o.stage = "won"
+    db.commit()
+    assert [(r.from_stage, r.to_stage) for r in _changes(db, o)] == [("", "discovery"), ("discovery", "won")]

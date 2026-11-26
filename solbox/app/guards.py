@@ -29,7 +29,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, object_session
 
-from app import idmarks, ontology  # noqa: F401  (idmarks: 지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
+from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
+from app import ontology
 from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityStageChange, Partner, Proposal, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user

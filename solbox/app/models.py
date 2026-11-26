@@ -208,7 +208,7 @@ class Opportunity(Stamped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
-    stage: Mapped[str] = mapped_column(String, default=ontology.OPPORTUNITY_STAGE_DEFAULT)  # 순서 강제 없음 (ontology.OPPORTUNITY_STAGES)
+    stage: Mapped[str] = mapped_column(String, default=ontology.OPPORTUNITY_STAGE_DEFAULT, active_history=True)  # 순서 강제 없음 (ontology.OPPORTUNITY_STAGES)
     bm_id: Mapped[int | None] = mapped_column(ForeignKey("bms.id", ondelete="SET NULL"), nullable=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True)  # 이어진 프로젝트
     memo: Mapped[str] = mapped_column(Text, default="")
