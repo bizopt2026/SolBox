@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import guards, notices, ontology, relations, ui, workspaces as ws
+from app import alignment
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.idparse import parse_id
@@ -104,7 +105,7 @@ def _linked(item: Initiative) -> list:
 
 @router.get("")
 def list_initiatives(
-    request: Request, q: str = "", kind: str = "", open: str = "1", who: str = "", page: str = "1",
+    request: Request, q: str = "", kind: str = "", open: str = "1", who: str = "", align: str = "", page: str = "1",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = ws.search(db, Initiative, q, Initiative.description, Initiative.progress,
@@ -118,6 +119,11 @@ def list_initiatives(
     mine_n = sum(1 for i in found if i.owner_user_id == user.id)
     if mine_on:
         found = [i for i in found if i.owner_user_id == user.id]
+    off_ids = alignment.misaligned_ids(db, "initiative")  # 정렬 점검의 최신 판단이 "방향 밖" (AI 코워크 ③)
+    align_on = align == "off"
+    align_n = sum(1 for i in found if i.id in off_ids)
+    if align_on:
+        found = [i for i in found if i.id in off_ids]
     counts = Counter(i.kind for i in found)
     total = len(found)
     if kind in ontology.INITIATIVE_KINDS:
@@ -133,7 +139,8 @@ def list_initiatives(
 
     return render(request, "initiatives/list.html", pg=pg, q=q.strip(), kind=kind, flt=flt, tabs=tabs, info=row_info(db, "initiative", pg.items),
                   open_on=open_on, open_n=open_n, open_href=toggle("open", "0" if open_on else None),
-                  mine_on=mine_on, mine_n=mine_n, mine_href=toggle("who", None if mine_on else "mine"), today=date.today())
+                  mine_on=mine_on, mine_n=mine_n, mine_href=toggle("who", None if mine_on else "mine"), today=date.today(),
+                  align_on=align_on, align_n=align_n, align_href=toggle("align", None if align_on else "off"), off_ids=off_ids)
 
 
 @router.get("/new")
@@ -172,6 +179,7 @@ def create(
     db.refresh(item)
     mirror.sync(item)
     resync_objects(db, mirror, [*_linked(item), item.strategy])
+    alignment.request(db, item, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return once.done(notices.redirect(f"/initiatives/{item.id}", "created"))
 
 
@@ -220,6 +228,7 @@ def update(
     db.refresh(item)
     mirror.sync(item)
     resync_objects(db, mirror, [*before, *_linked(item), item.strategy])
+    alignment.request(db, item, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return notices.redirect(f"/initiatives/{item.id}", "saved")
 
 

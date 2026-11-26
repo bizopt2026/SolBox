@@ -414,6 +414,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["cowork_suggestion_text"] = cowork_rules.suggestion_text
     app.state.templates.env.globals["cowork_no_evidence"] = cowork_rules.NOT_FOUND_EVIDENCE
     app.state.templates.env.globals["cowork_from_chat"] = cowork_rules.FROM_CHAT_EVIDENCE
+    from app import alignment as alignment_rules  # 정렬 점검 카드 (AI 코워크 ③)
+
+    app.state.templates.env.globals["alignment_view"] = lambda obj: alignment_rules.view(object_session(obj), obj)
     app.state.templates.env.globals["move_choices"] = lambda target: cowork_rules.move_choices(object_session(target))
     app.state.templates.env.filters["first_line"] = ui.first_line
     app.state.templates.env.filters["kdate_text"] = lambda t: ui.iso_date_text(t, date.today())  # ISO 날짜 글 -> "11월 17일"
@@ -426,7 +429,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -445,6 +448,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(initiatives.router)
     app.include_router(workspace_files.router)
     app.include_router(cowork.router)
+    app.include_router(alignment_router.router)
     app.include_router(projects.router)
     app.include_router(projects.legacy_router)
     app.include_router(solutions.router)

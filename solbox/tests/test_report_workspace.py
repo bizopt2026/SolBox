@@ -106,7 +106,8 @@ def test_old_snapshot_without_workspace_still_renders(db):
     db.add(r)
     db.commit()
     c = reports.report_content(db, r)
-    assert c["workspace"] == {"strategies": [], "issues": [], "initiatives": [], "issues_new": 0, "issues_closed": 0}
+    assert c["workspace"] == {"strategies": [], "issues": [], "initiatives": [], "issues_new": 0, "issues_closed": 0,
+                              "misaligned": [], "align_checked": 0, "align_unchecked": 0}
 
 
 def test_report_page_shows_workspace_card(user_client, db):

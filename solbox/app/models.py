@@ -896,3 +896,22 @@ class AIMessage(Base):
 
     thread: Mapped[AIThread] = relationship(back_populates="messages")
     user: Mapped[User | None] = relationship(foreign_keys=[user_id])
+
+
+class AlignmentNote(Base):
+    """정렬 점검 한 번 (AI 코워크 ③): 기록 하나가 합의된 사업 방향과 맞는지 AI 가 근거와 함께 판단한 것. 대상마다 최신 줄만 화면에 쓴다."""
+
+    __tablename__ = "alignment_notes"
+    __table_args__ = (Index("ix_alignment_notes_target", "target_type", "target_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_type: Mapped[str] = mapped_column(String)  # initiative / opportunity / solution (ontology.ALIGNMENT_TARGETS)
+    target_id: Mapped[int] = mapped_column(Integer)
+    verdict: Mapped[str] = mapped_column(String, default="")  # ontology.ALIGNMENT_VERDICTS
+    strategy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 가장 가까운 사업 방향 (제약 없는 번호: 방향을 지우면 cowork 처리기가 비운다)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    evidence: Mapped[str] = mapped_column(Text, default="")
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)  # 근거를 기록 글에서 찾았는지
+    basis: Mapped[str] = mapped_column(String, default="")  # 읽은 사업 방향들의 합의 내용 해시 (바뀌면 다시 점검 필요)
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)

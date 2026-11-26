@@ -14,6 +14,7 @@ from app import business_types as bts, labels, ontology, origin, relations, solu
 from app.ai.queue import enqueue, queue_position
 from app.ai.tasks import NO_READABLE_FILES, SolutionDraft
 from app import guards, notices
+from app import alignment
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -164,6 +165,7 @@ def create(
     mirror.sync(solution)
     if solution.partner:
         mirror.sync(solution.partner)
+    alignment.request(db, solution, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return once.done(notices.redirect(f"/solutions/{solution.id}", "created"))
 
 
@@ -290,6 +292,7 @@ def update(
     if old_partner is not None and old_partner.id != solution.partner_id:  # 옛 파트너 사본
         db.refresh(old_partner)
         mirror.sync(old_partner)
+    alignment.request(db, solution, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return notices.redirect(f"/solutions/{solution.id}", "saved")
 
 

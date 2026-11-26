@@ -3,8 +3,8 @@
 {% block title %}{{ ont.label("opportunity") }}{% endblock %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
-{{ list_head(ont.label("opportunity"), pg, q or stage or flt or type_now or who or stale_on or ai_on, "/opportunities/new", type="opportunity") }}
-{% set bt_extra %}<span class="type-tools"><span class="sort-label">담당</span>{{ seg(who_tabs, "담당") }}</span>{{ type_box(type_tabs) }}<a class="chip stale-chip{{ ' on' if stale_on }}" href="{{ stale_href }}"{% if stale_on %} aria-current="true"{% endif %}>멈춘 건 <b>{{ stale_n }}</b>{% if stale_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip ai-chip{{ ' on' if ai_on }}" href="{{ ai_href }}"{% if ai_on %} aria-current="true"{% endif %}>AI 제안 있음 <b>{{ ai_n }}</b>{% if ai_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
+{{ list_head(ont.label("opportunity"), pg, q or stage or flt or type_now or who or stale_on or ai_on or align_on, "/opportunities/new", type="opportunity") }}
+{% set bt_extra %}<span class="type-tools"><span class="sort-label">담당</span>{{ seg(who_tabs, "담당") }}</span>{{ type_box(type_tabs) }}<a class="chip stale-chip{{ ' on' if stale_on }}" href="{{ stale_href }}"{% if stale_on %} aria-current="true"{% endif %}>멈춘 건 <b>{{ stale_n }}</b>{% if stale_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip ai-chip{{ ' on' if ai_on }}" href="{{ ai_href }}"{% if ai_on %} aria-current="true"{% endif %}>AI 제안 있음 <b>{{ ai_n }}</b>{% if ai_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if align_on }}" href="{{ align_href }}"{% if align_on %} aria-current="true"{% endif %}>방향 밖 <b>{{ align_n }}</b>{% if align_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
 {{ list_tools(request, tabs, "단계", q, flt, "이름, 고객으로 찾기", extra=bt_extra) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table opp-table">
@@ -16,7 +16,7 @@
     <tr>
       <td class="c-title"><a href="/opportunities/{{ o.id }}" class="row-title">{{ o.name }}</a>
         <small class="row-sub"><a href="/customers/{{ o.customer_id }}">{{ o.customer.name }}</a></small>
-        {% if stale[o.id] or ai_counts.get(o.id) %}<div class="row-badges">{% if ai_counts.get(o.id) %}<span class="badge tone-brand">AI 제안 {{ ai_counts[o.id] }}</span>{% endif %}{% for tone, t in stale[o.id] %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}</div>{% endif %}
+        {% if stale[o.id] or ai_counts.get(o.id) or o.id in off_ids %}<div class="row-badges">{% if o.id in off_ids %}<span class="badge tone-bad">방향 밖</span>{% endif %}{% if ai_counts.get(o.id) %}<span class="badge tone-brand">AI 제안 {{ ai_counts[o.id] }}</span>{% endif %}{% for tone, t in stale[o.id] %}<span class="badge tone-{{ tone }}">{{ t }}</span>{% endfor %}</div>{% endif %}
         <div class="row-meta">{{ opportunity_badge(o.stage) }}{% if o.amount %}<span class="num">{{ money.format_amount(o.amount) }}</span>{% endif %}{% if owner_name %}<span>{{ owner_name }}</span>{% endif %}</div>
       </td>
       <td class="col-sec"><span{% if o.close_reason %} title="{{ ont.close_reasons(o.stage).get(o.close_reason, '') }}"{% endif %}>{{ opportunity_badge(o.stage) }}</span></td>

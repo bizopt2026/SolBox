@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 from app import ontology, report_periods
 from app.models import (
     AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, User,
-    Initiative, Strategy, WorkspaceChange,
+    Initiative, Strategy, WorkspaceChange, activity_opportunities,
 )
 
 
@@ -120,8 +120,13 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
         "followups_done": len(done_rows),
         "followups_overdue": len(overdue_rows),
     }
+    workspace = workspace_section(db, lo, hi)
+    act_ids = [a.id for a in acts]
+    linked = set(db.scalars(select(activity_opportunities.c.opportunity_id).where(activity_opportunities.c.activity_id.in_(act_ids)))) if act_ids else set()
+    opp_ids = {o["id"] for o in opportunities} | linked
+    workspace["alignment"] = alignment_summary(db, opp_ids, {r["id"] for r in workspace["initiatives_changed"]})
     return {
-        "workspace": workspace_section(db, lo, hi),
+        "workspace": workspace,
         "kpis": kpis,
         "activities": activities,
         "opportunities": opportunities,
@@ -159,7 +164,7 @@ def workspace_section(db: Session, lo: datetime, hi: datetime) -> dict:
             by_init.setdefault(ch.initiative_id, []).append(ch)
         elif ch.strategy_id is not None:
             by_strat.setdefault(ch.strategy_id, []).append(ch)
-    items = db.scalars(select(Initiative).order_by(Initiative.id)).all()
+    items = db.scalars(select(Initiative).options(selectinload(Initiative.owner)).order_by(Initiative.id)).all()
     status_end = {i.id: _status_at(i, hi, by_init.get(i.id, [])) for i in items}
 
     strategies = []
@@ -195,6 +200,26 @@ def workspace_section(db: Session, lo: datetime, hi: datetime) -> dict:
             "initiatives_changed": changed_rows}
 
 
+def alignment_summary(db: Session, opp_ids: set[int], initiative_ids: set[int]) -> dict:
+    """정렬 요약 (AI 코워크 ③): 기간에 움직인 진행 중 영업기회와 과제 가운데 최신 판단이 "방향 밖"인 것, 점검 전인 것의 수.
+    판단은 지금의 최신 판단이다 (확정하면 스냅숏에 그때 값이 남는다)."""
+    from app import alignment
+
+    out = {"checked": 0, "unchecked": 0, "misaligned": []}
+    for code, model, ids in (("opportunity", Opportunity, opp_ids), ("initiative", Initiative, initiative_ids)):
+        objs = [o for o in db.scalars(select(model).where(model.id.in_(sorted(ids))).order_by(model.id)) if alignment.is_target(o)] if ids else []
+        notes = alignment.latest_for(db, code, [o.id for o in objs])
+        for o in objs:
+            n = notes.get(o.id)
+            if n is None:
+                out["unchecked"] += 1
+                continue
+            out["checked"] += 1
+            if n.verdict == "misaligned":
+                out["misaligned"].append({"type": code, "id": o.id, "title": getattr(o, "title", None) or o.name, "reason": n.reason})
+    return out
+
+
 EMPTY_WORKSPACE = {"strategies": [], "issues_open": [], "issues_new": 0, "issues_closed": 0, "initiatives_changed": []}
 
 
@@ -216,6 +241,9 @@ def workspace_rows(data: dict) -> dict:
         "issues": [(i.get("title", ""), ini.get(i.get("status"), i.get("status") or ""), i.get("owner", "")) for i in w.get("issues_open") or []],
         "initiatives": [(r.get("title", ""), kinds.get(r.get("kind"), r.get("kind") or ""), change(r), r.get("progress", "")) for r in w.get("initiatives_changed") or []],
         "issues_new": int(w.get("issues_new") or 0), "issues_closed": int(w.get("issues_closed") or 0),
+        "misaligned": [(m.get("title", ""), ontology.label(m.get("type", "initiative")) if m.get("type") in ontology.TYPES else "", m.get("reason", ""))
+                       for m in (w.get("alignment") or {}).get("misaligned") or []],
+        "align_checked": int((w.get("alignment") or {}).get("checked") or 0), "align_unchecked": int((w.get("alignment") or {}).get("unchecked") or 0),
     }
 
 

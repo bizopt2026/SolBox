@@ -2,8 +2,8 @@
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, pill, none_dash %}
 {% block title %}{{ ont.label("initiative") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("initiative"), pg, q or kind or flt or mine_on or not open_on, "/initiatives/new", type="initiative", alt_url="/initiatives/new?kind=issue", alt_label="+ 이슈") }}
-{% set chips %}<a class="chip{{ ' on' if open_on }}" href="{{ open_href }}"{% if open_on %} aria-current="true"{% endif %}>열린 것만 <b>{{ open_n }}</b>{% if open_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if mine_on }}" href="{{ mine_href }}"{% if mine_on %} aria-current="true"{% endif %}>내 담당 <b>{{ mine_n }}</b>{% if mine_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
+{{ list_head(ont.label("initiative"), pg, q or kind or flt or mine_on or align_on or not open_on, "/initiatives/new", type="initiative", alt_url="/initiatives/new?kind=issue", alt_label="+ 이슈") }}
+{% set chips %}<a class="chip{{ ' on' if open_on }}" href="{{ open_href }}"{% if open_on %} aria-current="true"{% endif %}>열린 것만 <b>{{ open_n }}</b>{% if open_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if mine_on }}" href="{{ mine_href }}"{% if mine_on %} aria-current="true"{% endif %}>내 담당 <b>{{ mine_n }}</b>{% if mine_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if align_on }}" href="{{ align_href }}"{% if align_on %} aria-current="true"{% endif %}>방향 밖 <b>{{ align_n }}</b>{% if align_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
 {{ list_tools(request, tabs, ont.prop("initiative", "kind"), q, flt, "제목, 설명, 진행 메모로 찾기", extra=chips) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
@@ -13,7 +13,7 @@
     {% set i = info[it.id] %}
     {% set owner_name = (it.owner.name or it.owner.username) if it.owner else "" %}
     <tr>
-      {% call title_cell("/initiatives/" ~ it.id, it.title, (it.progress.splitlines()[0] if it.progress else none)) %}{{ pill("initiative_kind", it.kind) }}{{ pill("initiative_status", it.status) }}{% if owner_name %}<span>{{ owner_name }}</span>{% endif %}{% endcall %}
+      {% call title_cell("/initiatives/" ~ it.id, it.title, (it.progress.splitlines()[0] if it.progress else none)) %}{% if it.id in off_ids %}<span class="badge tone-bad">방향 밖</span>{% endif %}{{ pill("initiative_kind", it.kind) }}{{ pill("initiative_status", it.status) }}{% if owner_name %}<span>{{ owner_name }}</span>{% endif %}{% endcall %}
       <td class="col-sec">{{ pill("initiative_kind", it.kind) }} {{ pill("initiative_status", it.status) }}</td>
       <td class="col-sec">{{ owner_name or none_dash() }}</td>
       <td class="col-sec num{{ ' overdue' if it.due and it.due < today and it.status in ont.INITIATIVE_OPEN }}">{% if it.due %}{{ ui.short_date(it.due, today) }}{% else %}{{ none_dash() }}{% endif %}</td>

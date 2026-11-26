@@ -74,7 +74,7 @@
 </section>
 
 {% set wsd = data.workspace or {} %}
-{% if wsd.strategies or wsd.issues_open or wsd.initiatives_changed %}
+{% if wsd.strategies or wsd.issues_open or wsd.initiatives_changed or (wsd.alignment and (wsd.alignment.checked or wsd.alignment.unchecked)) %}
 <section class="card" id="workspace" aria-labelledby="workspace-h">
   <div class="card-head"><h2 id="workspace-h">사업 방향·과제</h2><span class="muted small">새 이슈 {{ wsd.issues_new or 0 }} · 닫은 이슈 {{ wsd.issues_closed or 0 }}</span></div>
   {% if wsd.strategies %}
@@ -94,6 +94,12 @@
       <tr><td><a href="/initiatives/{{ i.id }}">{{ i.title }}</a></td><td>{{ pill("initiative_status", i.status) }}</td><td>{{ i.owner or "–" }}</td></tr>
     {% endfor %}</tbody>
   </table></div>
+  {% endif %}
+  {% set al = wsd.alignment or {} %}
+  {% if al.checked or al.unchecked %}
+  <h3>방향과의 정렬</h3>
+  <p class="muted small">이번 기간에 움직인 진행 중 영업기회·과제 중 AI 점검 {{ al.checked }}건, 점검 전 {{ al.unchecked }}건 (AI 판단이니 참고로만 보세요).</p>
+  {% if al.misaligned %}<ul>{% for m in al.misaligned %}<li><span class="badge tone-bad">방향 밖</span> <a href="{{ ont.TYPES[m.type].url(m.id) }}">{{ m.title }}</a> <span class="muted">{{ m.reason }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">방향 밖으로 본 기록이 없습니다.</p>{% endif %}
   {% endif %}
   {% if wsd.initiatives_changed %}
   <h3>과제 진행</h3>

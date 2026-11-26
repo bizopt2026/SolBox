@@ -140,6 +140,7 @@ POST_NOTICES = {
     "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/apply": "cowork_applied, cowork_stale, cowork_decided, cowork_not_applicable",
     "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/dismiss": "cowork_dismissed, cowork_decided",
     "/cowork/threads/{thread_id}/move": "cowork_moved, cowork_pick_initiative", "/cowork/threads/{thread_id}/delete": "deleted",
+    "/alignment/{code}/{target_id}/check": "align_started, align_waiting, align_no_strategy, align_not_target",
     "/strategies": "created", "/strategies/{strategy_id}": "saved", "/strategies/{strategy_id}/delete": "deleted",
     "/initiatives": "created", "/initiatives/{item_id}": "saved", "/initiatives/{item_id}/status": "saved", "/initiatives/{item_id}/delete": "deleted",
     "/strategies/{strategy_id}/files": "files_uploaded", "/initiatives/{initiative_id}/files": "files_uploaded", "/workspace-files/{file_id}/delete": "file_deleted",

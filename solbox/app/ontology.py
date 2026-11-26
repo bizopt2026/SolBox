@@ -177,6 +177,7 @@ JOB_KINDS = {
     "proposal_directions": "제안 방향 만들기",
     "proposal_chat": "제안 채팅 답변",
     "cowork_chat": "AI 동료 대화 답변",
+    "alignment_check": "사업 방향 정렬 점검",
     "proposal_outline": "제안서 구성안 만들기",
     "proposal_slide": "구성안 한 장 AI 다시 쓰기",
     "research_area": "리서치 분야 조사",
@@ -199,6 +200,7 @@ JOB_EXPECTED = {
     "proposal_directions": "보통 1분 안에",
     "proposal_chat": "보통 1분 안에",
     "cowork_chat": "보통 1분 안에",
+    "alignment_check": "보통 1분 안에",
     "proposal_outline": "보통 2분 안에",
     "proposal_slide": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
@@ -443,6 +445,11 @@ COWORK_CHAT_STARTERS: dict[str, tuple[str, ...]] = {
     "partner": ("이 파트너와 다음에 할 일을 정리해 줘", "팀 방향에 맞는 협력 포인트는?"),
     "opportunity": ("다음 할 일을 제안해 줘", "이 건이 팀 방향에 맞는지 봐 줘"),
 }
+# AI 코워크 ③: 정렬 점검
+ALIGNMENT_TARGETS = ("initiative", "opportunity", "solution")
+ALIGNMENT_VERDICTS = {"aligned": "방향에 맞음", "misaligned": "방향 밖", "unclear": "판단 어려움"}
+ALIGNMENT_AUTO_PRIORITY = 20  # 저장할 때 자동으로 넣는 점검: 리서치(10)보다도 뒤 (사람이 누른 작업은 0)
+ALIGNMENT_KEPT = 10  # 대상마다 남기는 점검 수
 COWORK_SUGGESTION_STATES = {"pending": "반영 대기", "applied": "반영함", "dismissed": "무시함", "superseded": "새 답으로 바뀜"}
 
 
@@ -492,6 +499,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("strategy_status", "사업 방향 상태", STRATEGY_STATUSES, STRATEGY_STATUS_DEFAULT),
     CodeList("initiative_kind", "과제 종류", INITIATIVE_KINDS, INITIATIVE_KIND_DEFAULT),
     CodeList("initiative_status", "과제 상태", INITIATIVE_STATUSES, INITIATIVE_STATUS_DEFAULT),
+    CodeList("alignment_verdict", "정렬 판단", ALIGNMENT_VERDICTS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -519,6 +527,7 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "plan_result": {"done": "ok", "doing": "warn", "todo": "bad", "dropped": "slate"},
     "strategy_status": {"draft": "slate", "agreed": "ok", "closed": "slate"},
     "initiative_kind": {"task": "brand", "issue": "bad"},
+    "alignment_verdict": {"aligned": "ok", "misaligned": "bad", "unclear": "warn"},
     "initiative_status": {"open": "violet", "doing": "brand", "blocked": "bad", "done": "ok", "dropped": "slate"},
 }
 
@@ -562,6 +571,7 @@ COLUMN_CODES = {
     ("strategies", "status"): "strategy_status",
     ("initiatives", "kind"): "initiative_kind",
     ("initiatives", "status"): "initiative_status",
+    ("alignment_notes", "verdict"): "alignment_verdict",
 }
 
 # ======================================================================================

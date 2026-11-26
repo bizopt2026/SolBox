@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.idparse import parse_id
 from app import business_types as bts, money, ontology, opportunities as opps, opportunity_ai as oai, relations, teams, ui
 from app import guards, notices
+from app import alignment
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.knowledge import KnowledgeMirror, get_mirror
@@ -110,7 +111,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
 
 @router.get("")
 def list_opportunities(
-    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "",
+    request: Request, q: str = "", stage: str = "", page: str = "1", who: str = "", stale: str = "", ai: str = "", align: str = "",
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     found = search_by_name(db, Opportunity, q, Customer.name, joins=(Opportunity.customer,),
@@ -127,6 +128,11 @@ def list_opportunities(
     ai_on = ai == "1"
     if ai_on:
         found = [o for o in found if ai_all.get(o.id)]
+    off_ids = alignment.misaligned_ids(db, "opportunity")  # 정렬 점검의 최신 판단이 "방향 밖" (AI 코워크 ③)
+    align_on = align == "off"
+    align_n = sum(1 for o in found if o.id in off_ids)
+    if align_on:
+        found = [o for o in found if o.id in off_ids]
     who_n, who_total = opps.who_counts(found, user), len(found)
     found, who = opps.who_filter(found, user, who)
     who_choices = [c for c in ontology.OPPORTUNITY_WHO if c[0] != "team" or user.team_id is not None]
@@ -151,9 +157,12 @@ def list_opportunities(
     keep_ai = [(k, v) for k, v in request.query_params.multi_items() if k not in ("ai", "page", "notice", "nt")]
     ai_href = ("/opportunities?" + urlencode(keep_ai + ([] if ai_on else [("ai", "1")]))).rstrip("?")
     ai_n = sum(1 for o in found if ai_all.get(o.id))
+    keep_al = [(k, v) for k, v in request.query_params.multi_items() if k not in ("align", "page", "notice", "nt")]
+    align_href = ("/opportunities?" + urlencode(keep_al + ([] if align_on else [("align", "off")]))).rstrip("?")
     return render(request, "opportunities/list.html", pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
-                  stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n)
+                  stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n,
+                  align_on=align_on, align_n=align_n, align_href=align_href, off_ids=off_ids)
 
 
 @router.get("/new")
@@ -198,6 +207,7 @@ def create(
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, opps.dependents(db, opp))
+    alignment.request(db, opp, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return once.done(notices.redirect(f"/opportunities/{opp.id}", "created"))
 
 
@@ -259,12 +269,13 @@ def update(
     db.refresh(opp)
     mirror.sync(opp)
     resync_objects(db, mirror, [*before, *opps.dependents(db, opp)])
+    alignment.request(db, opp, user.id, request)  # 합의된 방향이 있으면 정렬 점검을 뒤에 넣는다 (AI 코워크 ③)
     return notices.redirect(f"/opportunities/{opp.id}", "saved")
 
 
 @router.post("/{opportunity_id}/stage")
 def change_stage(
-    opportunity_id: int, stage: str = Form(""),
+    opportunity_id: int, request: Request, stage: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
@@ -281,6 +292,7 @@ def change_stage(
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
+        alignment.request(db, opp, user.id, request)  # 단계가 바뀌면 정렬 점검 (AI 코워크 ③)
     return notices.redirect(f"/opportunities/{opp.id}", code)
 
 
