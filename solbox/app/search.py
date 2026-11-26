@@ -26,7 +26,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "customer": ("name", "aliases", "industry", "contact", "memo"),  # aliases: 다른 이름 (베타 AE)
     "partner": ("name", "aliases", "contact", "description", "memo"),
     "project": ("name", "description", "memo"),
-    "opportunity": ("name", "memo"),
+    "opportunity": ("name", "next_step", "memo"),  # 다음 할 일 (영업 A)
     "bm": ("name", "summary"),
     "proposal": ("title", "group_name"),  # 다수 고객 제안은 대상 그룹 이름도 본다
     "activity": ("title", "summary_md", "raw_text"),
