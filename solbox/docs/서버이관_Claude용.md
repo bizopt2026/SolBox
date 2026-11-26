@@ -25,8 +25,8 @@ Get-NetTCPConnection -LocalPort 8443 -ErrorAction SilentlyContinue | Select-Obje
 
 질문:
 1. **접속 주소와 포트:** 직원이 접속할 서버 IP(또는 이름)와 포트. 기본은 8443, 443을 쓰려면 위 결과를 보여 주고 사람이 결정하게 합니다. → `$ServerHost`, `$Port`
-2. **저장소 브랜치:** 받을 브랜치 이름. 사람이 말하지 않으면 `main` 이 있는지 `git ls-remote --heads` 로 확인해 보여 주고 고르게 합니다. → `$Branch` (저장소: https://github.com/bizopt2026/bizopt2026)
-3. **설치 폴더:** 저장소를 받을 폴더, 예 `C:\bizopt2026`. → `$Clone`. 이 저장소는 앱마다 폴더를 나눠 관리하며 솔박스는 그 안의 `solbox` 폴더다. → `$Repo` (= `$Clone\solbox`). 이후 모든 명령은 `$Repo` 에서 실행한다.
+2. **저장소 브랜치:** 받을 브랜치 이름. 사람이 말하지 않으면 `main` 이 있는지 `git ls-remote --heads` 로 확인해 보여 주고 고르게 합니다. → `$Branch` (저장소: https://github.com/bizopt2026/SolBox)
+3. **설치 폴더:** 저장소를 받을 폴더, 예 `C:\bizopt2026`. → `$Clone`. 솔박스는 저장소 안의 `solbox` 폴더다. → `$Repo` (= `$Clone\solbox`). 이후 모든 명령은 `$Repo` 에서 실행한다.
 4. **서버 PC 자동 로그온:** 재부팅 뒤 사람이 로그온하지 않아도 서버가 켜지게 자동 로그온을 설정해도 되는지(회사 보안 정책상 가능한지).
 5. **기존 데이터:** 로컬 PC(예: 10.231.0.5)에서 쓰던 `data` 폴더를 옮길지, 옮긴다면 어떻게 전달받을지(공유 폴더, USB 등)와 로컬 서버를 멈춰도 되는 시각.
 6. **백업 위치:** 백업을 둘 폴더(가능하면 다른 드라이브나 공유 폴더). → `$BackupDir`
@@ -90,7 +90,7 @@ Test-Path "$Clone\.git"
 - `False` 면 새로 받는다:
 
 ```powershell
-git clone -b $Branch https://github.com/bizopt2026/bizopt2026 $Clone
+git clone -b $Branch https://github.com/bizopt2026/SolBox $Clone
 ```
 - 성공: `$Clone` 폴더와 그 안의 `solbox` 폴더(`$Repo`)가 생기고 오류 없이 끝난다. 실패 시: 네트워크·권한 오류 문구를 사람에게 보여 준다.
 - `True`(이미 복제본이다) 면 폴더를 지우거나 다시 받지 말고 갱신한다. 작업 중인 변경이 있으면(`git status`) 사람에게 알린다.
