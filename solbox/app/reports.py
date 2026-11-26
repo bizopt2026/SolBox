@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 from app import ontology, report_periods
 from app.models import (
     AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution, User,
-    Initiative, Strategy, WorkspaceChange, activity_opportunities,
+    Initiative, Strategy, WorkspaceChange, activity_opportunities, AlignmentNote,
 )
 
 
@@ -206,6 +206,10 @@ def alignment_summary(db: Session, opp_ids: set[int], initiative_ids: set[int]) 
     from app import alignment
 
     out = {"checked": 0, "unchecked": 0, "misaligned": []}
+    from app import workspaces
+
+    if not workspaces.active_strategies(db, date.today()) and not db.scalar(select(func.count()).select_from(AlignmentNote)):
+        return out  # 잣대가 없어 점검할 수 없던 기간: "점검 전" 으로 세지 않는다
     for code, model, ids in (("opportunity", Opportunity, opp_ids), ("initiative", Initiative, initiative_ids)):
         objs = [o for o in db.scalars(select(model).where(model.id.in_(sorted(ids))).order_by(model.id)) if alignment.is_target(o)] if ids else []
         notes = alignment.latest_for(db, code, [o.id for o in objs])

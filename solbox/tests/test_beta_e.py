@@ -209,6 +209,7 @@ def test_ai_posts_are_exactly_the_gated_routes(app):
 
 
 # 영업 B: 활동 기록 저장(만들기·고치기·원문만 저장)은 저장 뒤 `opportunity_ai.request_review` 를 거쳐 영업기회 분석(`opportunity_review`)만 자동으로 넣는다 (AI 꺼짐이면 넣지 않는다).
+# AI 코워크 ③: 과제·영업기회·솔루션 저장 뒤 `alignment.request` 가 정렬 점검을 자동으로 넣는다 (라우트 본문에는 작업 만들기 낱말이 없다).
 # 그 길은 `review_linked` 한 곳이고 라우트 본문에는 작업 만들기 낱말이 없다: 아래 시험이 그대로 지킨다. 자동 요청 자체의 시험은 tests/test_sales_b_request.py.
 def test_no_other_post_route_makes_ai_jobs(app):
     for r in _post_routes(app):

@@ -908,7 +908,7 @@ class AlignmentNote(Base):
     target_type: Mapped[str] = mapped_column(String)  # initiative / opportunity / solution (ontology.ALIGNMENT_TARGETS)
     target_id: Mapped[int] = mapped_column(Integer)
     verdict: Mapped[str] = mapped_column(String, default="")  # ontology.ALIGNMENT_VERDICTS
-    strategy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 가장 가까운 사업 방향 (제약 없는 번호: 방향을 지우면 cowork 처리기가 비운다)
+    strategy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 가장 가까운 사업 방향 (제약 없는 번호: 방향을 지우면 alignment 의 flush 처리기가 비운다)
     reason: Mapped[str] = mapped_column(Text, default="")
     evidence: Mapped[str] = mapped_column(Text, default="")
     verified: Mapped[bool] = mapped_column(Boolean, default=False)  # 근거를 기록 글에서 찾았는지

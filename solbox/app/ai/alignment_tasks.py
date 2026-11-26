@@ -41,7 +41,7 @@ def _check(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -
     ids, basis = {s.id for s in strategies}, alignment.basis_of(strategies)
     out = run_json(db, runner, prompt, AlignmentOut, settings, allowed_tools=())  # 읽기 트랜잭션은 여기서 끝난다
     obj = db.get(model, tid)
-    if obj is None:
+    if obj is None or not alignment.is_target(obj):  # 도는 동안 지워졌거나 닫혔다
         return json.dumps({"skipped": True}, ensure_ascii=False)
     note = alignment.save(db, code, tid, out.model_dump(), record, ids, basis, input.get("_job_id"))
     db.commit()

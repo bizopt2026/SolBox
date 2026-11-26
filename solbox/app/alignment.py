@@ -4,6 +4,7 @@ AI 는 판단만 하고 기록을 바꾸지 않는다. 잣대는 합의 상태�
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from datetime import date
 
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from app import ontology, workspaces
 from app.models import AIJob, AlignmentNote, Initiative, Opportunity, Solution, Strategy
 
+log = logging.getLogger(__name__)
 KIND = "alignment_check"
 MODELS = {"initiative": Initiative, "opportunity": Opportunity, "solution": Solution}
 MAX_TEXT = 400
@@ -46,6 +48,20 @@ def pending_job(db: Session, code: str, target_id: int, statuses=ontology.JOB_AC
 
 
 def request(db: Session, obj, user_id: int | None, http_request, auto: bool = True) -> AIJob | None:
+    """저장 뒤에 부른다: 점검 요청이 쓰기 잠금에 막혀도 이미 저장한 기록은 그대로 성공으로 둔다 ([다시 점검]으로 다시 할 수 있다)."""
+    from sqlalchemy.exc import OperationalError
+
+    from app import guards
+
+    try:
+        return _request(db, obj, user_id, http_request, auto)
+    except (OperationalError, guards.WriteBusy):
+        db.rollback()
+        log.warning("정렬 점검 요청이 쓰기 잠금에 막혀 건너뜀 (%s %s)", type(obj).__name__, getattr(obj, "id", None))
+        return None
+
+
+def _request(db: Session, obj, user_id: int | None, http_request, auto: bool) -> AIJob | None:
     """점검 작업 하나를 넣는다. 자동(저장할 때)은 합의된 방향이 있을 때만, 가장 낮은 우선순위로, 같은 대상의 대기 작업이 있으면 넣지 않는다.
     AI 처리기가 꺼져 있으면 아무것도 하지 않는다 (저장은 그대로 성공)."""
     from app.ai import gate
@@ -108,15 +124,19 @@ def view(db: Session, obj) -> dict:
     strategies = workspaces.active_strategies(db, date.today())
     strategy = db.get(Strategy, note.strategy_id) if note is not None and note.strategy_id else None
     return {"code": code, "note": note, "strategy": strategy, "has_strategies": bool(strategies), "applies": is_target(obj),
-            "stale": note is not None and note.basis != basis_of(strategies), "job": pending_job(db, code, obj.id)}
+            "stale": note is not None and bool(strategies) and note.basis != basis_of(strategies), "job": pending_job(db, code, obj.id)}
 
 
 def misaligned_ids(db: Session, code: str) -> set[int]:
-    """최신 판단이 "방향 밖"인 대상 번호 (목록의 걸러 보기)."""
+    """최신 판단이 "방향 밖"이고 지금도 점검 대상(진행 중 영업기회 등)인 번호 (목록의 걸러 보기)."""
     latest_rows: dict[int, str] = {}
     for tid, verdict in db.execute(select(AlignmentNote.target_id, AlignmentNote.verdict).where(AlignmentNote.target_type == code).order_by(AlignmentNote.id)):
         latest_rows[tid] = verdict
-    return {tid for tid, v in latest_rows.items() if v == "misaligned"}
+    off = {tid for tid, v in latest_rows.items() if v == "misaligned"}
+    if not off:
+        return off
+    model = MODELS[code]
+    return {o.id for o in db.scalars(select(model).where(model.id.in_(off))) if is_target(o)}
 
 
 # 대상을 지우면 판단도 지우고, 방향을 지우면 "가장 가까운 방향" 번호를 비운다 (cowork 처리기와 같은 자리)

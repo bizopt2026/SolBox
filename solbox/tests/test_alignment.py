@@ -122,3 +122,50 @@ def test_report_alignment_summary(db):
     today = date.today()
     w = reports.aggregate(db, "day", today, today)["workspace"]["alignment"]
     assert w["checked"] == 1 and w["unchecked"] == 1 and [m["title"] for m in w["misaligned"]] == ["방향 밖 건"]
+
+
+# ---- 검토 반영 ----
+
+def test_lock_failure_on_check_request_keeps_save_successful(user_client, db, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    from app.ai import queue
+
+    _agreed(db)
+
+    def boom(*a, **k):
+        raise OperationalError("insert", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(queue, "enqueue", boom)
+    r = user_client.post("/initiatives", data={"title": "실증", "_tok": _tok(user_client, "/initiatives/new")}, follow_redirects=False)
+    assert r.status_code == 303 and "created" in nloc(r)
+    assert db.scalars(select(Initiative)).one().title == "실증"
+
+
+def test_progress_swaps_card_without_page_refresh(user_client, db):
+    s = _agreed(db)
+    item = Initiative(title="x")
+    db.add(item)
+    db.commit()
+    alignment.save(db, "initiative", item.id, {"verdict": "aligned", "strategy_id": s.id}, "", {s.id}, alignment.current_basis(db), None)
+    db.commit()
+    r = user_client.get(f"/alignment/initiative/{item.id}/progress")
+    assert "HX-Refresh" not in r.headers and 'id="alignment"' in r.text and "hx-get" not in r.text
+
+
+def test_closed_records_leave_the_off_chip_and_no_stale_without_strategies(user_client, db):
+    s = _agreed(db)
+    c = Customer(name="한빛")
+    o = Opportunity(name="닫힌 건", customer=c, stage="lost")
+    db.add_all([c, o])
+    db.commit()
+    alignment.save(db, "opportunity", o.id, {"verdict": "misaligned"}, "", {s.id}, "old", None)
+    db.commit()
+    assert alignment.misaligned_ids(db, "opportunity") == set()
+    item = Initiative(title="x")
+    db.add(item)
+    db.commit()
+    alignment.save(db, "initiative", item.id, {"verdict": "aligned"}, "", {s.id}, "old", None)
+    s.status = "closed"
+    db.commit()
+    assert not alignment.view(db, item)["stale"]

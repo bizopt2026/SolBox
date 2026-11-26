@@ -87,7 +87,8 @@ def _md(c: dict) -> str:
         body += ["### 사업 방향", ""] + _md_table(["방향", "상태", "과제", "비고"], ws["strategies"])
         body += ["### 열린 이슈", ""] + _md_table(["이슈", "상태", "담당"], ws["issues"])
         body += ["### 과제 진행", ""] + _md_table(["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"])
-        body += ["### 방향과의 정렬", "", ALIGN_LEAD.format(**ws), ""] + _md_table(["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [])
+        if ws.get("align_checked") or ws.get("align_unchecked"):
+            body += ["### 방향과의 정렬", "", ALIGN_LEAD.format(**ws), ""] + _md_table(["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [])
         section(8, WORKSPACE_TITLE, None, body)
     if c.get("legacy_undated"):
         out.extend([f"> 기능 도입 전 기록 {c['legacy_undated']}건은 완료·단계 변경 날짜를 몰라 숫자에서 빠졌습니다.", ""])
@@ -244,8 +245,9 @@ def _docx(c: dict, path: Path) -> None:
         table(["방향", "상태", "과제", "비고"], ws["strategies"], [6, 2.5, 4, 4.5])
         table(["열린 이슈", "상태", "담당"], ws["issues"], [9, 3, 5])
         table(["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"], [5, 2, 3.5, 6.5])
-        note([ALIGN_LEAD.format(**ws)])
-        table(["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [], [5, 2.5, 9.5])
+        if ws.get("align_checked") or ws.get("align_unchecked"):
+            note([ALIGN_LEAD.format(**ws)])
+            table(["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [], [5, 2.5, 9.5])
     if c.get("legacy_undated"):
         p = doc.add_paragraph()
         _set_font(p.add_run(f"기능 도입 전 기록 {c['legacy_undated']}건은 완료·단계 변경 날짜를 몰라 숫자에서 빠졌습니다."), 9, color=MUTED)
@@ -386,9 +388,10 @@ def _pptx(c: dict, path: Path) -> None:
         ws = c["workspace"]
         paged(f"{WORKSPACE_TITLE} — 사업 방향", ["방향", "상태", "과제", "비고"], ws["strategies"], [5.0, 1.8, 2.8, 2.5], Inches(1.6), none="합의된 사업 방향이 없습니다.")
         paged(f"{WORKSPACE_TITLE} — 열린 이슈", ["이슈", "상태", "담당"], ws["issues"], [7.5, 2.1, 2.5], Inches(1.6), none="열린 이슈가 없습니다.")
-        paged(f"{WORKSPACE_TITLE} — 방향과의 정렬", ["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [], [4.0, 1.6, 6.5], Inches(2.1),
-              lead=lambda sl: text(sl, Inches(0.6), Inches(1.35), Inches(12), Inches(0.6), ALIGN_LEAD.format(**ws), 14, color=muted) or Inches(2.1),
-              none="방향 밖으로 본 기록이 없습니다.")
+        if ws.get("align_checked") or ws.get("align_unchecked"):
+            paged(f"{WORKSPACE_TITLE} — 방향과의 정렬", ["방향 밖으로 본 기록", "종류", "이유"], ws.get("misaligned") or [], [4.0, 1.6, 6.5], Inches(2.1),
+                  lead=lambda sl: text(sl, Inches(0.6), Inches(1.35), Inches(12), Inches(0.6), ALIGN_LEAD.format(**ws), 14, color=muted) or Inches(2.1),
+                  none="방향 밖으로 본 기록이 없습니다.")
         paged(f"{WORKSPACE_TITLE} — 과제 진행", ["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"], [4.0, 1.3, 2.6, 4.2], Inches(1.6), none="이번 기간에 움직인 과제가 없습니다.")
 
     prs.save(str(path))

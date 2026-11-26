@@ -41,6 +41,7 @@ def progress(code: str, target_id: int, request: Request, user: User = Depends(r
     """점검 카드 조각: 작업이 끝나면 쪽을 새로 고친다."""
     model = alignment.MODELS.get(code)
     obj = db.get(model, target_id) if model is not None else None
-    if obj is None or alignment.pending_job(db, code, target_id) is None:
-        return Response("", headers={"HX-Refresh": "true"})
+    if obj is None:
+        return Response("")
+    # 끝나도 쪽 전체를 새로 고치지 않고 카드만 바꾼다 (같은 화면의 AI 동료 입력칸에 쓰던 글을 잃지 않게)
     return render(request, "alignment/_card.html", al=alignment.view(db, obj), al_obj=obj)
