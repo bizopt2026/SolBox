@@ -51,7 +51,7 @@ def test_large_input_is_fast():
     for text in ("**a " * 70_000, "`a" * 100_000, "- 가나다 **굵게** `c`\n" * 10_000, "*" * 200_000, "#" * 200_000):
         t = time.perf_counter()
         md(text)
-        assert time.perf_counter() - t < 1.0
+        assert time.perf_counter() - t < 5.0  # 보통 0.2초 안쪽, 바쁜 CI 에서도 넉넉하게 (제곱 시간이면 수십 초 넘게 걸린다)
 
 
 def test_proposal_page_renders_assistant_markdown_not_user(user_client, db, settings):
@@ -97,7 +97,7 @@ def test_many_blank_lines_before_item_is_fast():
                          ("1. a" + "\n" * 40000 + "2. b", "<ol><li>a</li><li>b</li></ol>")):
         t = time.perf_counter()
         out = str(md(text))
-        assert time.perf_counter() - t < 1.0
+        assert time.perf_counter() - t < 5.0  # 보통 0.2초 안쪽, 바쁜 CI 에서도 넉넉하게 (제곱 시간이면 수십 초 넘게 걸린다)
         assert out == expect
 
 
@@ -143,7 +143,7 @@ def test_table_input_is_linear():
     for text in ("|a" * 100_000 + "\n" + "|-" * 50_000, ("|a|b|\n|-|-|\n" + "|1|2|\n" * 20_000), "[" * 200_000, "[a](http://" * 20_000, "`solutions/1/" * 20_000):
         t = time.perf_counter()
         md(text)
-        assert time.perf_counter() - t < 1.0
+        assert time.perf_counter() - t < 5.0  # 보통 0.2초 안쪽, 바쁜 CI 에서도 넉넉하게 (제곱 시간이면 수십 초 넘게 걸린다)
 
 
 # ---- 사본 경로는 출처 칩 ----

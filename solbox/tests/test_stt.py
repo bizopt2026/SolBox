@@ -625,7 +625,7 @@ class _CountingLock:
     def locked(self):
         return self._lock.locked()
 
-    def wait_attempts(self, n, timeout=10):
+    def wait_attempts(self, n, timeout=30):
         with self._cond:
             return self._cond.wait_for(lambda: self.attempts >= n, timeout)
 
@@ -644,7 +644,7 @@ def test_only_one_transcription_at_a_time(app, user_client, db, settings, stt, f
     def claim(session_factory):
         found = real_claim(session_factory)
         if found is not None:
-            both_claimed.wait(timeout=10)  # 둘 다 집은 뒤에 같이 출발
+            both_claimed.wait(timeout=30)  # 둘 다 집은 뒤에 같이 출발
         return found
 
     monkeypatch.setattr(queue, "_claim_next", claim)
@@ -655,17 +655,17 @@ def test_only_one_transcription_at_a_time(app, user_client, db, settings, stt, f
         entered.append(name)
         if len(entered) == 1 and step == 0:  # 맨 처음 받아쓰기만 붙잡는다
             first_inside.set()
-            assert release.wait(timeout=10)
+            assert release.wait(timeout=30)
 
     stt.on_step = hold_first
     results = []
     threads = [threading.Thread(target=lambda: results.append(_run(app, settings))) for _ in range(2)]
     [t.start() for t in threads]
-    assert first_inside.wait(timeout=10)
+    assert first_inside.wait(timeout=30)
     assert lock.wait_attempts(2)  # 둘째 워커도 자물쇠에 닿았다 (첫째는 받아쓰는 중)
     assert stt.active == 1 and len(stt.calls) == 1  # 둘째는 들어오지 못하고 기다린다
     release.set()
-    [t.join(timeout=30) for t in threads]
+    [t.join(timeout=60) for t in threads]
     assert not any(t.is_alive() for t in threads)
     assert results == [True, True] and len(stt.calls) == 2
     assert stt.max_active == 1

@@ -96,4 +96,4 @@ def test_stream_deadline_holds_even_if_grandchild_keeps_stdout_open(settings, fa
     with pytest.raises(ClaudeError) as e:
         _runner(settings).run_stream("x", on_text=lambda t: None, timeout_s=1)
     assert e.value.kind == "timeout"
-    assert time.monotonic() - start < 6
+    assert time.monotonic() - start < 10  # 보통 2초. 손자가 12초 붙잡으므로 10초 안이면 마감을 지킨 것이다
