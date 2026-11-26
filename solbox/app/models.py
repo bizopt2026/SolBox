@@ -224,6 +224,24 @@ class Opportunity(Stamped, Base):
     solutions: Mapped[list[Solution]] = relationship(secondary=opportunity_solutions, back_populates="opportunities")
     activities: Mapped[list[Activity]] = relationship(secondary=activity_opportunities, back_populates="opportunities")
     proposals: Mapped[list[Proposal]] = relationship(back_populates="opportunity")
+    stage_changes: Mapped[list[OpportunityStageChange]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan", passive_deletes=True, order_by="OpportunityStageChange.changed_at",
+    )
+
+
+class OpportunityStageChange(Base):
+    """영업기회 단계가 바뀐 기록 한 줄 (만들 때는 from_stage 가 빈 글자). guards._stamp_changes 가 남긴다. 팀 업무 보고가 기간별로 센다."""
+
+    __tablename__ = "opportunity_stage_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id", ondelete="CASCADE"), index=True)
+    from_stage: Mapped[str] = mapped_column(String, default="")
+    to_stage: Mapped[str] = mapped_column(String)
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="stage_changes")
 
 
 class Solution(Stamped, Origin, Base):
@@ -355,6 +373,7 @@ class FollowUp(Base):
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     due: Mapped[date | None] = mapped_column(Date, nullable=True)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # 완료로 바뀐 때 (guards._stamp_changes 가 채운다). 팀 업무 보고가 기간별로 센다
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now

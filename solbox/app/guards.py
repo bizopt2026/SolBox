@@ -29,8 +29,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, object_session
 
-from app import idmarks  # noqa: F401  (지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
-from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Partner, Proposal, Solution, SolutionBusinessType, Stamped, User
+from app import idmarks, ontology  # noqa: F401  (idmarks: 지운 번호를 다시 쓰지 않는 번호 처리기를 단다)
+from app.models import Activity, Customer, CustomerNeed, FollowUp, FormToken, Opportunity, OpportunityStageChange, Partner, Proposal, Solution, SolutionBusinessType, Stamped, User
 from app.db import get_db
 from app.security import require_user
 
@@ -270,11 +270,36 @@ def touch(obj, user: User | None = None) -> None:
 
 # ---- flush 처리기: 고친 때·고친 사람 ----
 
-@event.listens_for(Session, "before_flush")
+def _stamp_report_dates(session: Session, uid, now: datetime) -> None:
+    """후속 조치 완료일(done_at)과 영업기회 단계 변경 기록. 새 기록 줄을 더하므로 번호 처리기(idmarks)보다 먼저 돈다."""
+    for obj in [*session.new, *session.dirty]:
+        if isinstance(obj, FollowUp):
+            hist = sa_inspect(obj).attrs.done.history
+            if obj.done:
+                if obj.done_at is None and (obj in session.new or hist.has_changes()):
+                    obj.done_at = now
+            elif obj.done_at is not None and (obj in session.new or hist.has_changes()):
+                obj.done_at = None
+        elif isinstance(obj, Opportunity):
+            if obj in session.new:
+                old = ""
+            else:
+                hist = sa_inspect(obj).attrs.stage.history
+                if not hist.has_changes() or not hist.deleted or hist.deleted[0] == obj.stage:
+                    continue
+                old = hist.deleted[0]
+            if obj.stage is None:  # 기본값은 flush 때 채워진다: 새 줄이면 기본 단계를 쓴다
+                obj.stage = ontology.OPPORTUNITY_STAGE_DEFAULT
+            session.add(OpportunityStageChange(opportunity=obj, from_stage=old, to_stage=obj.stage, changed_at=now, changed_by_id=uid))
+
+
+# insert=True: 번호 처리기(idmarks)보다 먼저 돌아야 여기서 더한 새 줄도 번호를 받는다
+@event.listens_for(Session, "before_flush", insert=True)
 def _stamp_changes(session: Session, flush_context, instances) -> None:
     _verify_checks(session)
     uid = session.info.get("user_id")
     now = datetime.now()
+    _stamp_report_dates(session, uid, now)
     parents: set[int] = set()
     solution_parents: set[int] = set()  # 사업방식 줄이 바뀐 솔루션 (베타 Y)
 
