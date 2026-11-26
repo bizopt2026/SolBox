@@ -120,8 +120,8 @@ def test_home_section_order_and_trimmed_research(user_client, db):
         {"kind": "new", "title": f"제안{i}", "detail": "", "reason": "", "solution_ids": [], "sources": []} for i in range(5)]))
     db.commit()
     page = user_client.get("/").text
-    # 두 열(왼쪽: 후속 조치·최근 활동, 오른쪽: 올리기·영업기회·제안 건) 다음에 가로 전체 폭의 최신 리서치 순서로 읽힌다
-    heads = [page.index(h) for h in ("발굴 흐름", 'id="h-fu"', 'id="h-act"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"', 'id="h-res"')]
+    # UX 개선(2026-11-26): 맨 위 "내 할 일" 띠 → 두 열(왼쪽: 후속 조치·최근 활동, 오른쪽: 올리기·영업기회·제안 건) → 최신 리서치 → 맨 아래 발굴 흐름
+    heads = [page.index(h) for h in ('aria-label="내 할 일"', 'id="h-fu"', 'id="h-act"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"', 'id="h-res"', 'id="h-flow"')]
     assert heads == sorted(heads)
     assert "시사점1" in page and "시사점2" not in page
     assert "제안1" in page and "제안2" not in page
@@ -144,13 +144,12 @@ def _bundle(db, user, status, note=""):
     return it
 
 
-def test_home_has_upload_card_first(user_client):
+def test_home_upload_card_points_to_upload_screen(user_client):
+    """UX 개선(2026-11-26): 홈에 올리기 입구가 셋이던 것을 줄였다. 올리기 카드는 대기·정리 중 목록과 올리기 화면 링크만 둔다."""
     page = user_client.get("/").text
-    form = re.search(r'<form[^>]*action="/intake"[^>]*>.*?</form>', page, re.S).group(0)
-    assert 'method="post"' in form and 'enctype="multipart/form-data"' in form
-    assert 'type="file"' in form and 'name="files"' in form and "multiple" in form and 'name="note"' in form
-    assert form.count("primary") == 1 and ">올리기</button>" in form
-    assert page.index('id="h-up"') < page.index('action="/intake"')  # 올리기 카드 안에 있다
+    assert 'action="/intake"' not in page
+    card = page.split('id="h-up"')[1].split("</section>")[0]
+    assert 'href="/intake/new"' in card
 
 
 def test_intake_summary_counts_only_own_bundles(db):

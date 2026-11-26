@@ -7,17 +7,9 @@
 {{ fu_notice(toggled) }}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 
-<nav class="flow" aria-label="발굴 흐름">
-  {% for c in flow.cells %}
-  <a class="flow-cell{{ ' last' if loop.last }}" href="/solutions?stage={{ c.code }}" data-stage="{{ c.code }}">
-    <small>{{ c.name }}</small>
-    <b>{{ c.count }}</b>
-    <i aria-hidden="true"><u style="width: {{ c.pct }}%"></u></i>
-    <span class="flow-sub">{% if c.week %}이번 주 +{{ c.week }}{% endif %}</span>
-  </a>
-  {% endfor %}
+<nav class="work-strip" aria-label="내 할 일">
+  {% for w in work %}<a class="work-cell{{ ' tone-' ~ w.tone if w.tone and w.n }}" href="{{ w.href }}" data-work="{{ w.key }}"><small>{{ w.label }}</small><b>{{ w.n }}</b>{% if w.sub %}<span class="work-sub">{{ w.sub }}</span>{% endif %}</a>{% endfor %}
 </nav>
-<p class="flow-hold"><a href="/solutions?stage={{ ont.STAGE_HOLD }}" data-stage="{{ ont.STAGE_HOLD }}">{{ ont.STAGES[ont.STAGE_HOLD] }} <b>{{ flow.hold }}</b>건</a></p>
 
 {% if fresh_install %}
 <section class="card guide" aria-labelledby="h-guide">
@@ -82,10 +74,7 @@
   <div class="dash-col dash-side">
   <section class="card o2" aria-labelledby="h-up">
     <header class="card-head"><h2 id="h-up">올리기</h2>{% if intake.ready_count or intake.analyzing_count %}<a href="/intake">올리기 목록</a>{% endif %}</header>
-    <form method="post" action="/intake" enctype="multipart/form-data" class="stack">
-      {% set zone_id = "home" %}{% include "intake/_dropzone.html" %}
-      <div class="row"><button type="submit" class="primary">올리기</button></div>
-    </form>
+    <p class="muted">소개서·녹취록·사진은 왼쪽 위 <a href="/intake/new">+ 올리기</a>로 올리면 AI 가 정리해 둡니다.</p>
     {% if intake.ready_count or intake.analyzing_count %}
     <div class="intake-pending">
       <p class="queue-sum">{% if intake.ready_count %}<a href="/intake"><strong>확인 대기 {{ intake.ready_count }}건</strong></a>{% endif %}{% if intake.ready_count and intake.analyzing_count %} · {% endif %}{% if intake.analyzing_count %}<span class="muted">정리 중 {{ intake.analyzing_count }}건</span>{% endif %}</p>
@@ -142,4 +131,18 @@
     {% else %}<p class="muted">아직 리서치 결과가 없습니다.</p>{% endif %}
   </section>
 </div>
+<section class="card flow-card" aria-labelledby="h-flow">
+  <header class="card-head"><h2 id="h-flow">솔루션 발굴 흐름</h2><a href="/solutions">솔루션 목록</a></header>
+<nav class="flow" aria-label="발굴 흐름">
+  {% for c in flow.cells %}
+  <a class="flow-cell{{ ' last' if loop.last }}" href="/solutions?stage={{ c.code }}" data-stage="{{ c.code }}">
+    <small>{{ c.name }}</small>
+    <b>{{ c.count }}</b>
+    <i aria-hidden="true"><u style="width: {{ c.pct }}%"></u></i>
+    <span class="flow-sub">{% if c.week %}이번 주 +{{ c.week }}{% endif %}</span>
+  </a>
+  {% endfor %}
+</nav>
+<p class="flow-hold"><a href="/solutions?stage={{ ont.STAGE_HOLD }}" data-stage="{{ ont.STAGE_HOLD }}">{{ ont.STAGES[ont.STAGE_HOLD] }} <b>{{ flow.hold }}</b>건</a></p>
+</section>
 {% endblock %}

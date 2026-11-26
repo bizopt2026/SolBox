@@ -17,6 +17,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIMessage, AIThread, Initiative, User
 from app.routers._common import get_or_404, resync_objects
+from app.routers.ai_inbox import back_target
 from app.security import ensure_can_delete, require_user
 
 router = APIRouter(prefix="/cowork")
@@ -171,14 +172,14 @@ def _decide(db: Session, thread_id: int, message_id: int, sid: int):
 
 @router.post("/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/apply")
 def apply_suggestion(
-    thread_id: int, message_id: int, sid: int, request: Request,
+    thread_id: int, message_id: int, sid: int, request: Request, back: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
     rev: Rev = Depends(rev_form),
 ):
     """제안 반영: AI 가 읽은 뒤(`basis_rev`) 또는 화면을 연 뒤(`_rev`) 기록이 바뀌었으면 반영하지 않고 알린다. 이력에 "AI 제안"과 근거를 남긴다."""
     t, obj, m, s = _decide(db, thread_id, message_id, sid)
     code, oid, tid = t.target_type, obj.id, t.id
-    url = _thread_url(code, oid, tid)
+    url = back_target(back, _thread_url(code, oid, tid))  # AI 제안함에서 눌렀으면 제안함으로
     if s.get("state") != "pending":
         db.rollback()
         return notices.redirect(url, "cowork_decided")
@@ -205,14 +206,14 @@ def apply_suggestion(
 
 
 @router.post("/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/dismiss")
-def dismiss_suggestion(thread_id: int, message_id: int, sid: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def dismiss_suggestion(thread_id: int, message_id: int, sid: int, back: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db)):
     t, obj, m, s = _decide(db, thread_id, message_id, sid)
-    code, oid, tid = t.target_type, obj.id, t.id
+    url = back_target(back, _thread_url(t.target_type, obj.id, t.id))
     if cowork.decide(m, sid, "dismissed", user) is None:
         db.rollback()
-        return notices.redirect(_thread_url(code, oid, tid), "cowork_decided")
+        return notices.redirect(url, "cowork_decided")
     db.commit()
-    return notices.redirect(_thread_url(code, oid, tid), "cowork_dismissed")
+    return notices.redirect(url, "cowork_dismissed")
 
 
 @router.post("/threads/{thread_id}/move")

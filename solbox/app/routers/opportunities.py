@@ -314,7 +314,7 @@ def start_review(opportunity_id: int, request: Request, user: User = Depends(req
 
 @router.post("/{opportunity_id}/ai/{insight_id}/{sid}/{what}")
 def decide_suggestion(
-    opportunity_id: int, insight_id: int, sid: int, what: str,
+    opportunity_id: int, insight_id: int, sid: int, what: str, back: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     """AI 제안 하나 [반영] (`apply`) 또는 [무시] (`dismiss`). 반영은 이력에 'AI 제안'과 근거를 남긴다."""
@@ -329,7 +329,9 @@ def decide_suggestion(
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
-    return notices.redirect(f"/opportunities/{opp.id}", code)
+    from app.routers.ai_inbox import back_target
+
+    return notices.redirect(back_target(back, f"/opportunities/{opp.id}"), code)
 
 
 @router.get("/{opportunity_id}/ai/progress")

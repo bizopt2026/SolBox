@@ -192,3 +192,27 @@ def search(db: Session, q: str) -> dict:
             more = f"{MORE_LIST[code]}?{urlencode({'q': q})}"
         groups.append({"code": code, "label": t.label, "total": total, "rows": [_item(code, o, q) for o in rows], "more_url": more})
     return {"q": q, "state": "found" if groups else "none", "groups": groups}
+
+
+# 바로 만들기 (UX 개선 2026-11-26): 검색어가 이 낱말들에 들어 있거나 이름과 맞으면 검색 결과 위에 만들기 동작을 보인다 (Ctrl+K 로 검색칸)
+def quick_actions(q: str) -> list[tuple[str, str]]:
+    from app import ontology
+
+    q = " ".join((q or "").split())
+    if not q:
+        return []
+    acts = [
+        ("activity", "/activities/new", "활동 기록 쓰기", "메모 회의 통화 기록 활동"),
+        ("intake", "/intake/new", "파일 올리기", "올리기 업로드 파일 사진 명함"),
+        ("initiative", "/initiatives/new", "새 " + ontology.label("initiative"), "과제 할일 task"),
+        ("initiative", "/initiatives/new?kind=issue", "새 이슈", "이슈 문제 issue"),
+        ("strategy", "/strategies/new", "새 " + ontology.label("strategy"), "방향 전략 합의"),
+        ("solution", "/solutions/new", "새 " + ontology.label("solution"), "솔루션 제품"),
+        ("customer", "/customers/new", "새 " + ontology.label("customer"), "고객 회사"),
+        ("partner", "/partners/new", "새 " + ontology.label("partner"), "파트너 공급사"),
+        ("opportunity", "/opportunities/new", "새 " + ontology.label("opportunity"), "영업기회 기회 딜"),
+        ("proposal", "/proposals/new", "새 " + ontology.label("proposal"), "제안 제안서 ppt"),
+        ("report", "/reports/new", "새 " + ontology.label("report"), "보고 업무보고 주간"),
+    ]
+    low = q.casefold()
+    return [(label, url) for _code, url, label, words in acts if low in (label + " " + words).casefold()][:4]

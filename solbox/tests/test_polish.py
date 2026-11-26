@@ -311,7 +311,7 @@ def test_detail_main_column_carries_the_relation_cards(user_client, db, path):
     html = user_client.get(f"/{path}/{obj.id}").text
     main = re.search(r'<div class="dmain">.*?<aside', html, re.S).group(0)
     if path in ("customers", "partners", "projects"):
-        assert 'class="card stack main-rel"' in main and "head-actions" in main
+        assert "card stack main-rel" in main and "head-actions" in main
         assert "+ " in main
     assert "아직 입력하지 않은 항목" not in main or "· <a href" in main
 

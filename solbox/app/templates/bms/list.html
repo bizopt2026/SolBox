@@ -4,7 +4,7 @@
 {% block content %}
 {{ list_head(ont.label("bm"), pg, q or type_now, "/bms/new", type="bm") }}
 {% set bt_extra %}{{ type_box(type_tabs) }}{% endset %}
-{{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기", extra=bt_extra) }}
+{{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기", extra=bt_extra, extra_on=1 if type_now else 0) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
   <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>

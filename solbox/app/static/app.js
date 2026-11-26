@@ -52,6 +52,8 @@
   var globalSearch = document.getElementById("global-search");
   if (globalSearch) {
     document.addEventListener("keydown", function (e) {
+      var cmdK = (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K"); // Ctrl+K(⌘K): 입력 중에도 검색칸으로 (UX 개선 2026-11-26)
+      if (cmdK && !e.defaultPrevented) { e.preventDefault(); globalSearch.focus(); globalSearch.select(); return; }
       if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
       if (e.isComposing || e.keyCode === 229) return; // 한글 조합 중에는 가로채지 않는다
       var t = e.target, tag = t && t.tagName;

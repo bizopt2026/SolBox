@@ -782,7 +782,7 @@ TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 NAV_GROUPS = (("today", "오늘"), ("work", "과제"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
 NAV_GROUP_LABELS = dict(NAV_GROUPS)  # 묶음 코드 -> 이름 (화면 제목 위 경로가 읽는다)
 # 메뉴 항목이 아닌 화면이 어느 항목에 속하는지: 주소 앞 조각 -> 항목의 path (후속 조치 목록은 "오늘" 의 홈 구역)
-NAV_ALIASES = {"follow-ups": ""}
+NAV_ALIASES = {"follow-ups": "", "ai": "ai/inbox"}
 
 
 class NavItem(NamedTuple):
@@ -811,6 +811,7 @@ def _type_nav_item(code: str) -> NavItem:
 NAV_ITEMS = (
     NavItem("", "홈", "today"),
     NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
+    NavItem("ai/inbox", "AI 제안함", "today"),
     _type_nav_item("activity"), _type_nav_item("report"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
     _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
@@ -823,6 +824,7 @@ ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name i
 # 메뉴 항목마다 다른 작은 선 그림 (24×24, 외부 파일 없이 SVG 조각 그대로). 키 = NavItem.path. 새 메뉴 항목은 여기에도 더한다 (tests/test_beta_d.py 가 빠짐·겹침을 본다).
 NAV_ICONS = {
     "": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+    "ai/inbox": '<path d="M4 13l3-8h10l3 8v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/>',
     "intake": '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
     "activities": '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
     "reports": '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h3"/>',

@@ -13,12 +13,16 @@
 {% include "opportunities/_ai.html" %}
 {{ stage_stepper("/opportunities/" ~ opp.id ~ "/stage", ont.OPPORTUNITY_FLOW, ont.OPPORTUNITY_STAGES, opp.stage, ont.OPPORTUNITY_SIDE_STAGES, ont.prop("opportunity", "stage"), "opportunity_stage", notes=step_notes) }}
 {% set owner_name = (opp.owner.name or opp.owner.username) if opp.owner else "" %}
+{% if opp.amount or opp.expected_close or opp.owner or opp.next_step %}
 <dl class="sumband" aria-label="진행 요약">
   <div><dt>{{ ont.prop("opportunity", "amount") }}</dt><dd class="num big">{{ money.format_amount(opp.amount) or "–" }}</dd></div>
   <div><dt>{{ ont.prop("opportunity", "expected_close") }}</dt><dd class="num big">{% if opp.expected_close %}{{ ui.short_date(opp.expected_close, today) }} {% set left = (opp.expected_close - today).days %}<small class="muted">{{ (left ~ "일 남음") if left >= 0 else ((-left) ~ "일 지남") }}</small>{% else %}–{% endif %}</dd></div>
   <div><dt>{{ ont.prop("opportunity", "owner") }}</dt><dd>{% if opp.owner %}{{ owner_name }}{% if not opp.owner.is_active %} (사용 중지){% endif %}{% if owner_team %} · {{ owner_team }}{% endif %}{% else %}–{% endif %}</dd></div>
   <div><dt>{{ ont.prop("opportunity", "next_step") }}</dt><dd>{% if opp.next_step %}{% if opp.next_step_due %}<span class="num{{ ' overdue' if opp.next_step_due < today }}">{{ ui.short_date(opp.next_step_due, today) }}</span> {% endif %}{{ opp.next_step }}{% else %}<span class="muted">없음</span>{% endif %}</dd></div>
 </dl>
+{% else %}{# 네 칸이 모두 비면 큰 대시 넷 대신 한 줄 안내 (UX 개선 2026-11-26) #}
+<p class="sumband-empty muted">예상 금액·예상 수주일·담당·다음 할 일이 비어 있어요. <a href="/opportunities/{{ opp.id }}/edit#progress">진행 정보 입력하기</a></p>
+{% endif %}
 <div class="dgrid">
   <div class="dmain">
     {% include "opportunities/_brief.html" %}
@@ -47,8 +51,11 @@
       {% if history | length > history_shown %}<details class="hist-more"><summary>이전 기록 {{ history | length - history_shown }}건 더 보기</summary><ul class="hist">{% for r in history[history_shown:] %}{{ hist_line(r) }}{% endfor %}</ul></details>{% endif %}
     </section>
     {% endif %}
+    <div class="ai-dock" aria-label="AI">{# AI 칸 하나 (UX 개선 2026-11-26): 정렬 판단·AI 동료를 한데 둔다 #}
+      <p class="ai-dock-head"><b>AI</b> <a href="/ai/inbox">AI 제안함</a></p>
     {% set al, al_obj = alignment_view(opp), opp %}{% include "alignment/_card.html" %}
     {% set cw_code, cw_obj, compact = "opportunity", opp, true %}{% include "cowork/_panel.html" %}
+    </div>
     {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>

@@ -4,7 +4,7 @@
 {% block content %}
 {{ list_head(ont.label("initiative"), pg, q or kind or flt or mine_on or align_on or not open_on, "/initiatives/new", type="initiative", alt_url="/initiatives/new?kind=issue", alt_label="+ 이슈") }}
 {% set chips %}<a class="chip{{ ' on' if open_on }}" href="{{ open_href }}"{% if open_on %} aria-current="true"{% endif %}>열린 것만 <b>{{ open_n }}</b>{% if open_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if mine_on }}" href="{{ mine_href }}"{% if mine_on %} aria-current="true"{% endif %}>내 담당 <b>{{ mine_n }}</b>{% if mine_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a><a class="chip{{ ' on' if align_on }}" href="{{ align_href }}"{% if align_on %} aria-current="true"{% endif %}>방향 밖 <b>{{ align_n }}</b>{% if align_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
-{{ list_tools(request, tabs, ont.prop("initiative", "kind"), q, flt, "제목, 설명, 진행 메모로 찾기", extra=chips) }}
+{{ list_tools(request, tabs, ont.prop("initiative", "kind"), q, flt, "제목, 설명, 진행 메모로 찾기", extra=chips, extra_on=[mine_on, align_on, not open_on] | select | list | length) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
   <thead><tr><th>{{ ont.label("initiative") }}</th><th class="col-sec">{{ ont.prop("initiative", "status") }}</th><th class="col-sec">{{ ont.prop("initiative", "owner") }}</th><th class="col-sec">{{ ont.prop("initiative", "due") }}</th><th class="col-sec">{{ ont.prop("initiative", "strategy") }}</th><th class="col-sec">연결</th></tr></thead>
