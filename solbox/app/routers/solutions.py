@@ -44,9 +44,9 @@ def _form_page(
     )
 
 
-def detail_page(request: Request, db: Session, user: User, solution: Solution, notice: str | None = None):
+def detail_page(request: Request, db: Session, user: User, solution: Solution, notice: str | None = None, status_code: int = 200, **extra):
     return render(
-        request, "solutions/detail.html",
+        request, "solutions/detail.html", status_code=status_code, **extra,
         solution=solution, notice=notice,
         can_delete_files={f.id: can_delete(user, f) for f in solution.files},
         **relations.page_related(db, solution, user),

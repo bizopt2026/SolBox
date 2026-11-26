@@ -9,6 +9,7 @@
 {{ detail_head(item.title, "/initiatives", item, can_delete, crumbs=ui.crumbs("initiative", item.title), sub=sub or none, status=status_badges) }}
 <div class="dgrid">
   <div class="dmain">
+    {% set cw_code, cw_obj, compact = "initiative", item, false %}{% include "cowork/_panel.html" %}
     {% if item.description %}
     <section class="card stack" aria-labelledby="h-desc"><h2 id="h-desc">{{ ont.prop("initiative", "description") }}</h2><div class="md">{{ item.description | md }}</div></section>
     {% endif %}

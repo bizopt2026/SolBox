@@ -857,3 +857,40 @@ class WorkspaceChange(Base):
 
     strategy: Mapped[Strategy | None] = relationship(back_populates="changes")
     initiative: Mapped[Initiative | None] = relationship(back_populates="changes")
+
+
+# ======================================================================================
+# AI 코워크 ②: AI 동료 칸의 대화 (팀 전체 공개). 대상은 종류+번호 (ontology.COWORK_TARGETS), 대상을 지우면 cowork 가 함께 지운다
+# ======================================================================================
+
+class AIThread(Stamped, Base):
+    __tablename__ = "ai_threads"
+    __table_args__ = (Index("ix_ai_threads_target", "target_type", "target_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_type: Mapped[str] = mapped_column(String)  # strategy / initiative / solution / partner / opportunity
+    target_id: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String, default="")
+    origin_type: Mapped[str] = mapped_column(String, default="")  # 과제로 옮긴 대화의 처음 대상 (보이기만 한다)
+    origin_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_job_id: Mapped[int | None] = mapped_column(ForeignKey("ai_jobs.id"), nullable=True)
+
+    messages: Mapped[list[AIMessage]] = relationship(
+        back_populates="thread", cascade="all, delete-orphan", passive_deletes=True, order_by="AIMessage.id")
+    active_job: Mapped[AIJob | None] = relationship(foreign_keys=[active_job_id])
+    creator: Mapped[User | None] = relationship(primaryjoin="User.id == AIThread.created_by_id", foreign_keys="AIThread.created_by_id", viewonly=True)
+
+
+class AIMessage(Base):
+    __tablename__ = "ai_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("ai_threads.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String)  # user / assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # 쓴 사람 (AI 답은 물은 사람)
+    suggestions: Mapped[list] = mapped_column(JSON, default=list)  # AI 답의 제안 (cowork.clean_suggestions 모양). 새 list 를 대입한다
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+
+    thread: Mapped[AIThread] = relationship(back_populates="messages")
+    user: Mapped[User | None] = relationship(foreign_keys=[user_id])

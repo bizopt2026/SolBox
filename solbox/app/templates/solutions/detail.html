@@ -41,6 +41,7 @@
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
+    {% set cw_code, cw_obj, compact = "solution", solution, true %}{% include "cowork/_panel.html" %}
     {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta, origin) }}
   </aside>

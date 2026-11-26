@@ -175,6 +175,7 @@ def test_full_proposal_page_shows_stalled_notice_when_off(app, admin_client, db,
 # AI 작업을 새로 만드는 POST 라우트 (require_ai_on 을 다는 곳). 새 것이 생기면 여기와 알림 표를 함께 고친다.
 AI_POSTS = {
     "/opportunities/{opportunity_id}/ai/review", "/solutions/{solution_id}/draft", "/activities/draft", "/activities/draft/{job_id}/retry", "/admin/system/ai-check",
+    "/cowork/{code}/{target_id}/threads", "/cowork/threads/{thread_id}/messages", "/cowork/threads/{thread_id}/retry",
     "/jobs/{job_id}/retry", "/proposals/{proposal_id}/directions", "/proposals/{proposal_id}/chat",
     "/proposals/{proposal_id}/chat/retry", "/proposals/{proposal_id}/outline", "/research/run",
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
@@ -227,8 +228,17 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
 
     rep = Report(unit="week", period_start=date(2026, 11, 23), period_end=date(2026, 11, 29), status="planning")
     db.add(rep)
+    from app.models import AIThread, Initiative
+
+    ini = Initiative(title="과제")
+    db.add(ini)
+    db.flush()
+    th = AIThread(target_type="initiative", target_id=ini.id, title="t")
+    db.add(th)
     db.commit()
     paths = {
+        "/cowork/{code}/{target_id}/threads": f"/cowork/initiative/{ini.id}/threads", "/cowork/threads/{thread_id}/messages": f"/cowork/threads/{th.id}/messages",
+        "/cowork/threads/{thread_id}/retry": f"/cowork/threads/{th.id}/retry",
         "/solutions/{solution_id}/draft": "/solutions/1/draft", "/activities/draft": "/activities/draft",
         "/activities/draft/{job_id}/retry": "/activities/draft/1/retry", "/admin/system/ai-check": "/admin/system/ai-check",
         "/jobs/{job_id}/retry": "/jobs/1/retry", "/proposals/{proposal_id}/directions": f"/proposals/{sol.id}/directions",
@@ -245,7 +255,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
     before = db.query(AIJob).count()
     for route, url in paths.items():
         r = admin_client.post(url, data={"message": "x", "raw_text": "메모"}, headers={"referer": "http://testserver/proposals/1"}, follow_redirects=False)
-        if route in ("/activities/draft", "/proposals/{proposal_id}/chat", "/reports/{report_id}/chat"):  # 베타 F: 쓴 글이 있는 라우트는 글을 채운 같은 폼을 돌려준다 (test_beta_f)
+        if route in ("/activities/draft", "/proposals/{proposal_id}/chat", "/reports/{report_id}/chat", "/cowork/{code}/{target_id}/threads", "/cowork/threads/{thread_id}/messages"):  # 베타 F: 쓴 글이 있는 라우트는 글을 채운 같은 폼을 돌려준다 (test_beta_f)
             assert r.status_code == 409 and "AI 작업 처리기가 꺼져 있어" in r.text, (route, r.status_code)
             continue
         assert r.status_code == 303, (route, r.status_code)

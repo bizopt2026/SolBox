@@ -92,11 +92,11 @@ def _today():
     return today()
 
 
-def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None):
+def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, error: str | None = None, status_code: int | None = None, **extra):
     now = _today()
     touch = opps.last_touches(db, [opp])[opp.id]
     return render(
-        request, "opportunities/detail.html", status_code=400 if error else 200,
+        request, "opportunities/detail.html", status_code=status_code or (400 if error else 200), **extra,
         opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
         close_reason=opps.close_reason_label(opp), today=now, money=money,

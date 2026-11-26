@@ -103,6 +103,10 @@ class KnowledgeMirror:
         if isinstance(obj, Activity):
             for old in (self.root / mirror_folder("activity")).glob(f"*/{obj.id}.md"):
                 old.unlink(missing_ok=True)
+        self._write(self.path_for(obj), self.render_text(obj))
+
+    def render_text(self, obj) -> str:
+        """사본 글 (쓰지 않고 돌려준다). AI 동료 대화가 대상의 지금 상태로 읽는다."""
         render = {
             Solution: self._solution,
             Customer: self._customer,
@@ -120,7 +124,7 @@ class KnowledgeMirror:
         lines = render(obj)
         if type(obj) in CONNECTED:
             lines = lines + self._connections(obj)
-        self._write(self.path_for(obj), "\n".join(lines).rstrip() + "\n")
+        return "\n".join(lines).rstrip() + "\n"
 
     def remove(self, obj) -> None:
         if isinstance(obj, Solution):

@@ -1,0 +1,18 @@
+{# AI 동료 칸 (AI 코워크 ②). 쓰는 곳: 사업 방향·과제 상세의 왼쪽 위(펼침), 솔루션·파트너·영업기회 상세의 오른쪽(접힘, compact=true).
+   cw = cowork_panel(code, obj, chosen): 대화 목록·지금 연 대화. 대화는 팀 전체 공개다. #}
+{% from "_macros.html" import ai_note %}{% set aig = ai_gate() %}
+{% set cw = cowork_panel(cw_code, cw_obj, (cowork_thread if cowork_thread is defined and cowork_thread else request.query_params.get("thread"))) %}
+{% set open = not compact or request.query_params.get("thread") or (cowork_thread is defined and cowork_thread) %}
+<section class="card cowork{{ ' compact' if compact }}" id="cowork" aria-labelledby="h-cowork">
+<details{% if open %} open{% endif %}>
+  <summary class="card-head"><h2 id="h-cowork">AI 동료{% if cw.threads %} <span class="count">대화 {{ cw.threads | length }}</span>{% endif %}</h2></summary>
+  <p class="muted help">이 기록의 지금 상태{% if cw_code in ont.COWORK_SPACES %}·지침·올린 자료{% endif %}와 팀이 합의한 사업 방향을 AI 가 함께 읽고 답합니다. 대화는 팀 모두가 봅니다. AI 가 기록을 바꾸자고 하면 [반영]을 눌러야 바뀝니다.</p>
+  {{ ai_note(aig, id="cowork-ai-note") }}
+  <nav class="cowork-threads" aria-label="대화 목록">
+    <a class="chip{{ ' on' if cw.new }}" href="?thread=new#cowork"{% if cw.new %} aria-current="true"{% endif %}>+ 새 대화</a>
+    {% for t in cw.threads %}<a class="chip{{ ' on' if cw.thread and cw.thread.id == t.id }}" href="?thread={{ t.id }}#cowork"{% if cw.thread and cw.thread.id == t.id %} aria-current="true"{% endif %} title="{{ t.title }}">{{ t.title or "(제목 없음)" }}</a>{% endfor %}
+  </nav>
+  {% set thread = none if cw.new else cw.thread %}
+  {% include "cowork/_thread.html" %}
+</details>
+</section>

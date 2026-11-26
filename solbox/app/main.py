@@ -23,7 +23,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.ai.gate import AIOff
-from app import guards, labels, models, notices, ontology, scheduler, ui  # noqa: F401  (모델을 메타데이터에 등록, guards 는 flush 처리기를 단다)
+from app import guards, labels, models, notices, ontology, scheduler, security, ui  # noqa: F401  (모델을 메타데이터에 등록, guards 는 flush 처리기를 단다)
+from sqlalchemy.orm import object_session
 from app.ai.queue import fail_stale_running, jobs_ahead, start_workers, stop_workers
 from app.ai.runner import ClaudeRunner
 from app.config import Settings
@@ -147,7 +148,8 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
         return ai_cache["v"]
 
     ctx.setdefault("ai_status", cached_ai_status)
-    ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status(), ctx["user"]))  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
+    ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status(), ctx["user"]))
+    ctx.setdefault("can_delete_thread", lambda t: ctx["user"] is not None and security.can_delete(ctx["user"], t))  # AI 동료 대화 지우기  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 
@@ -406,6 +408,12 @@ def create_app(settings: Settings) -> FastAPI:
     versions = ui.asset_versions(static_dir)  # 시작할 때 한 번: 파일이 바뀌면 주소가 바뀐다
     app.state.templates.env.globals["asset"] = lambda name: f"/static/{name}?v={versions.get(name, '0')}"
     app.state.templates.env.globals["error_field"] = ui.error_field
+    from app import cowork as cowork_rules  # AI 동료 칸 (AI 코워크 ②): 상세 화면이 대화 칸을 그릴 때 그 화면의 DB 세션으로 읽는다
+
+    app.state.templates.env.globals["cowork_panel"] = lambda code, obj, chosen=None: cowork_rules.panel(object_session(obj), code, obj, chosen)
+    app.state.templates.env.globals["cowork_suggestion_text"] = cowork_rules.suggestion_text
+    app.state.templates.env.globals["cowork_no_evidence"] = cowork_rules.NOT_FOUND_EVIDENCE
+    app.state.templates.env.globals["move_choices"] = lambda target: cowork_rules.move_choices(object_session(target))
     app.state.templates.env.filters["first_line"] = ui.first_line
     app.state.templates.env.filters["kdate_text"] = lambda t: ui.iso_date_text(t, date.today())  # ISO 날짜 글 -> "11월 17일"
     @pass_context
@@ -417,7 +425,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -435,6 +443,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(strategies.router)
     app.include_router(initiatives.router)
     app.include_router(workspace_files.router)
+    app.include_router(cowork.router)
     app.include_router(projects.router)
     app.include_router(projects.legacy_router)
     app.include_router(solutions.router)

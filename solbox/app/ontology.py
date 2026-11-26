@@ -176,6 +176,7 @@ JOB_KINDS = {
     "solution_draft": "솔루션 소개 초안",
     "proposal_directions": "제안 방향 만들기",
     "proposal_chat": "제안 채팅 답변",
+    "cowork_chat": "AI 동료 대화 답변",
     "proposal_outline": "제안서 구성안 만들기",
     "proposal_slide": "구성안 한 장 AI 다시 쓰기",
     "research_area": "리서치 분야 조사",
@@ -197,6 +198,7 @@ JOB_EXPECTED = {
     "solution_draft": "보통 30초 안에",
     "proposal_directions": "보통 1분 안에",
     "proposal_chat": "보통 1분 안에",
+    "cowork_chat": "보통 1분 안에",
     "proposal_outline": "보통 2분 안에",
     "proposal_slide": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
@@ -429,6 +431,19 @@ INITIATIVE_OPEN = ("open", "doing", "blocked")  # 열린 상태 (이슈의 "해�
 INITIATIVE_CLOSED = ("done", "dropped")
 INITIATIVE_TRACKED_FIELDS = ("status", "kind", "owner_user_id", "due", "strategy_id")
 WORKSPACE_FIELD_LABELS = {"status": "상태", "consensus": "합의 내용", "kind": "종류", "owner_user_id": "담당", "due": "기한", "strategy_id": "사업 방향"}
+
+
+# AI 코워크 ②: AI 동료 칸이 붙는 대상 (대상 유형 코드). 사업 방향·과제는 공간(지침·자료가 있다)
+COWORK_TARGETS = ("strategy", "initiative", "solution", "partner", "opportunity")
+COWORK_SPACES = ("strategy", "initiative")
+COWORK_CHAT_STARTERS: dict[str, tuple[str, ...]] = {
+    "strategy": ("이 방향에 맞는 과제를 3개 제안해 줘", "합의 내용을 더 분명한 기준으로 다듬어 줘"),
+    "initiative": ("다음 할 일을 정리해 줘", "이 과제가 방향에 맞는지 점검해 줘"),
+    "solution": ("이 솔루션을 팀 방향에 비춰 평가해 줘", "다음에 할 일을 제안해 줘"),
+    "partner": ("이 파트너와 다음에 할 일을 정리해 줘", "팀 방향에 맞는 협력 포인트는?"),
+    "opportunity": ("다음 할 일을 제안해 줘", "이 건이 팀 방향에 맞는지 봐 줘"),
+}
+COWORK_SUGGESTION_STATES = {"pending": "반영 대기", "applied": "반영함", "dismissed": "무시함", "superseded": "새 답으로 바뀜"}
 
 
 def strategy_is_active(strategy, today) -> bool:
@@ -1534,6 +1549,7 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "outline_slide": ("이 슬라이드의 내용이 지워집니다.", "이미 만든 제안서 파일은 그대로이고, 다시 만들 때 반영됩니다."),
     "strategy": ("이 방향의 과제는 남고 \"사업 방향\" 칸만 비워집니다.", "올린 자료 파일과 대화가 함께 지워집니다."),
     "initiative": ("올린 자료 파일과 대화가 함께 지워집니다.", "연결된 솔루션·파트너·고객·영업기회·프로젝트는 남습니다."),
+    "cowork_thread": ("이 대화의 메시지와 AI 제안이 함께 지워집니다.", "이미 반영한 제안으로 바뀐 기록 값과 변경 이력은 그대로입니다."),
     "workspace_file": ("올린 자료 파일이 지워지고 지식 사본에서도 빠집니다.", "사업 방향·과제 기록은 남습니다."),
     "report": ("이 보고의 계획 항목·계획 대화와 만든 보고서 파일이 함께 지워집니다.",
                "이 보고가 점검한 지난 계획 항목은 남고 점검한 보고 표시만 비워집니다.",

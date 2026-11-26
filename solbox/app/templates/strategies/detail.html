@@ -7,6 +7,7 @@
 {{ detail_head(s.title, "/strategies", s, can_delete, crumbs=ui.crumbs("strategy", s.title), status=status_badges, primary=("+ 과제 만들기", "/initiatives/new?strategy_id=" ~ s.id)) }}
 <div class="dgrid">
   <div class="dmain">
+    {% set cw_code, cw_obj, compact = "strategy", s, false %}{% include "cowork/_panel.html" %}
     <section class="card stack" aria-labelledby="h-consensus">
       <header class="card-head"><h2 id="h-consensus">{{ ont.prop("strategy", "consensus") }}</h2><a class="button small ghost" href="/strategies/{{ s.id }}/edit">고치기</a></header>
       {% if s.consensus %}<div class="md">{{ s.consensus | md }}</div>{% else %}<p class="muted">아직 합의 내용이 없습니다. AI 가 이 방향을 잣대로 쓰려면 합의 내용을 적고 상태를 "합의"로 바꾸세요.</p>{% endif %}

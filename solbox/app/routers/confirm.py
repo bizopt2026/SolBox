@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import impact as impact_lib, ontology, opportunities as opps, solution_fields as sfields, ui
 from app.db import get_db
 from app.main import render
-from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User, Strategy, Initiative, WorkspaceFile
+from app.models import BM, Activity, Customer, Intake, Opportunity, Partner, Project, Proposal, Report, ResearchRun, ResearchTopic, Solution, SolutionField, SolutionFile, Team, User, Strategy, Initiative, WorkspaceFile, AIThread
 from app.routers._common import get_deletable_or_404, get_or_404
 from app.security import ensure_can_delete, require_admin, require_user
 
@@ -135,6 +135,9 @@ SPECS: tuple[Spec, ...] = (
          _crumb("report"), "업무 보고"),  # 팀원 누구나 지울 수 있다 (설계 §5.4b)
     Spec("/files/{obj_id}/delete", "solution_file", _load_file, lambda o: o.original_name, lambda o: f"/solutions/{o.solution_id}",
          lambda o, name: ui.crumbs("solution", o.solution.name, f"/solutions/{o.solution_id}", "자료 삭제"), "자료"),
+    Spec("/cowork/threads/{obj_id}/delete", "cowork_thread", _owned(AIThread), lambda o: o.title or "대화",
+         lambda o: ontology.TYPES[o.target_type].url(o.target_id) + "#cowork",
+         lambda o, name: [(ontology.nav_group_label(ontology.TYPES[o.target_type].list_url.strip("/")), None), (ontology.label(o.target_type), ontology.TYPES[o.target_type].list_url), (name, None), ("삭제", None)], "AI 동료 대화"),
     Spec("/workspace-files/{obj_id}/delete", "workspace_file", _load_workspace_file, lambda o: o.original_name, _workspace_back, _workspace_crumbs, "자료"),
     Spec("/intake/{obj_id}/discard", "intake_discard", _load_intake, lambda o: f"올리기 묶음 {o.id}번", lambda o: f"/intake/{o.id}",
          lambda o, name: [(ontology.nav_group_label("intake"), None), (ontology.label("intake"), "/intake"), (name, f"/intake/{o.id}"), ("버리기", None)], "올리기 묶음", verb="버리기", blocker=_intake_blocker),
