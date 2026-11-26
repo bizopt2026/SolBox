@@ -1542,8 +1542,8 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 
 /* ---- 영업 B 단계: 확인 항목 ---- */
 .step-note { display: block; font-size: 11px; font-weight: 500; opacity: .85; }
-.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.checks form { display: inline; }
+.opp-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.opp-checks form { display: inline; }
 .check-btn { display: inline-flex; align-items: flex-start; gap: var(--s2); border: 0; background: none; padding: 2px 0; text-align: left; font-size: var(--fs-body); color: var(--ink); cursor: pointer; min-height: 0; }
 .check-btn:hover { background: none; color: var(--brand-deep); }
 .check-btn .cb { width: 16px; height: 16px; border: 1.5px solid var(--line-2); border-radius: 4px; flex: none; margin-top: 3px; display: inline-grid; place-items: center; font-size: 11px; color: #fff; background: var(--surface); }
@@ -1551,7 +1551,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .check-by { display: block; margin-left: 24px; color: var(--ink-3); font-size: var(--fs-small); }
 .check-earlier { margin-top: var(--s3); font-size: var(--fs-note); }
 .check-earlier summary { cursor: pointer; color: var(--ink-2); }
-.check-earlier .checks { margin-top: var(--s2); }
+.check-earlier .opp-checks { margin-top: var(--s2); }
 .ai-tag { font-size: 11px; font-weight: 700; color: var(--violet); background: var(--violet-soft); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
 .brief-card .card-head form.inline { margin: 0; }
 

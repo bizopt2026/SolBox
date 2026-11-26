@@ -1,7 +1,7 @@
 {# 확인 항목 카드 (영업 B): 지금 단계 항목은 누르면 켜고 끄는 단추(스크립트 없이 POST, HTMX 면 이 카드만 바꾼다), 앞 단계의 남은 항목은 접어 둔다. 값: opp, checks = opportunity_ai.check_view #}
 <section class="card check-card" id="checks" aria-labelledby="h-checks">
   <header class="card-head"><h2 id="h-checks">확인 항목 · {{ ont.OPPORTUNITY_STAGES[checks.stage] }}</h2><span class="muted">{{ checks.done }}/{{ checks.total }} 확인</span></header>
-  <ul class="checks">
+  <ul class="opp-checks">
     {% for r in checks.rows %}
     <li>
       <form method="post" action="/opportunities/{{ opp.id }}/checks" hx-post="/opportunities/{{ opp.id }}/checks" hx-target="#checks" hx-swap="outerHTML">
@@ -14,7 +14,7 @@
   </ul>
   {% for e in checks.earlier %}
   <details class="check-earlier"><summary>{{ e.name }} 단계에서 확인하지 않은 항목 {{ e["items"] | length }}개</summary>
-    <ul class="checks">{% for code, label in e["items"] %}<li>
+    <ul class="opp-checks">{% for code, label in e["items"] %}<li>
       <form method="post" action="/opportunities/{{ opp.id }}/checks" hx-post="/opportunities/{{ opp.id }}/checks" hx-target="#checks" hx-swap="outerHTML">
         <input type="hidden" name="item" value="{{ code }}"><input type="hidden" name="checked" value="1">
         <button type="submit" class="check-btn" aria-pressed="false"><span class="cb" aria-hidden="true"></span><span>{{ label }}</span></button>
