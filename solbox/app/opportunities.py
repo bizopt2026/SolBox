@@ -525,3 +525,14 @@ def open_follow_ups(opp: Opportunity) -> list:
     """연결된 활동 기록의 아직 끝나지 않은 후속 조치 (기한 빠른 순, 기한 없는 것은 뒤)."""
     rows = [f for a in opp.activities for f in a.follow_ups if not f.done]
     return sorted(rows, key=lambda f: (f.due is None, f.due.toordinal() if f.due else 0, f.id))
+
+
+def open_by_customer(db: Session, customer_ids: Iterable[int]) -> dict[int, tuple[int, int]]:
+    """고객마다 진행 중 영업기회 (건수, 금액 합). 질의 하나."""
+    ids = list(dict.fromkeys(customer_ids))
+    if not ids:
+        return {}
+    rows = db.execute(select(Opportunity.customer_id, func.count(), func.coalesce(func.sum(Opportunity.amount), 0))
+                      .where(Opportunity.customer_id.in_(ids), Opportunity.stage.in_(ontology.OPPORTUNITY_OPEN_STAGES))
+                      .group_by(Opportunity.customer_id)).all()
+    return {cid: (n, total) for cid, n, total in rows}

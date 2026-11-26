@@ -1533,3 +1533,4 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .opp-t { font-weight: var(--fw-strong); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .opp-amt { font-size: var(--fs-note); white-space: nowrap; }
 .opp-m { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--fs-small); }
+.contact-line { margin: calc(-1 * var(--s2)) 0 var(--gap); font-size: var(--fs-note); }

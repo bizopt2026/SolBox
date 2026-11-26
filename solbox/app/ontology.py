@@ -1225,7 +1225,7 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
 # 코드 뜻: name 이름(제목)순, recent 최근 수정순, date 활동 일자순, active 최근 활동순 (표의 "최근 활동" 칸) (최근 것이 위). 표에 보이는 칸이 있는 정렬은 그 칸 머리에 방향 표시가 붙는다.
 LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
     "solution": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
-    "customer": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
+    "customer": (("name", "이름순"), ("active", "최근 활동순"), ("quiet", "마지막 접촉 오래된 순"), ("recent", "최근 수정순")),
     "partner": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
     "project": (("name", "이름순"), ("active", "최근 활동순"), ("recent", "최근 수정순")),
     "bm": (("name", "이름순"), ("recent", "최근 수정순")),

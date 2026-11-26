@@ -5,6 +5,7 @@
 {% block content %}
 {% call detail_head(customer.name, "/customers", customer, can_delete, crumbs=ui.crumbs("customer", customer.name), sub=customer.industry or none,
                primary=("+ " ~ ont.label("opportunity") ~ " 만들기", "/opportunities/new?customer_id=" ~ customer.id)) %}{% if user.role == "admin" %}<a class="button" href="/customers/{{ customer.id }}/merge">다른 {{ josa("고객", "와/과") }} 합치기</a>{% endif %}{% endcall %}
+<p class="contact-line muted">{{ contact_line }}</p>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if same_name %}{{ same_name_hint("파트너", same_name.name, "/customers/" ~ customer.id ~ "/same-company", "partner_id", same_name.id) }}{% endif %}
 <div class="dgrid">

@@ -35,6 +35,18 @@ def short_date(d: date | None, today: date) -> str:
     return f"{d.month}월 {d.day}일" if d.year == today.year else f"{d.year}년 {d.month}월 {d.day}일"
 
 
+def days_ago(d: date | None, today: date) -> str:
+    """"오늘" / "어제" / "24일 전" (미래 날짜는 "N일 뒤"). 없으면 빈 글."""
+    if d is None:
+        return ""
+    n = (today - d).days
+    if n == 0:
+        return "오늘"
+    if n == 1:
+        return "어제"
+    return f"{n}일 전" if n > 0 else f"{-n}일 뒤"
+
+
 def iso_date_text(text, today: date) -> str:
     """"2026-11-17" 처럼 ISO 날짜인 글이면 화면의 날짜 모양("11월 17일")으로, 아니면 글 그대로 (사용자가 쓴 글·빈 글)."""
     import re
