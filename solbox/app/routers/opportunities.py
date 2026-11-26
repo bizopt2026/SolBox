@@ -90,6 +90,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         request, "opportunities/detail.html", status_code=400 if error else 200,
         opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
+        close_reason=opps.close_reason_label(opp),
     )
 
 
@@ -233,12 +234,49 @@ def change_stage(
     opp = get_or_404(db, Opportunity, opportunity_id)
     if error := opps.stage_problem(stage):
         raise HTTPException(status_code=400, detail=error)
+    if opp.stage != stage and opps.needs_reason(stage):  # 수주·실패는 사유 화면을 거친다 (스크립트 없이도 같은 길)
+        return RedirectResponse(f"/opportunities/{opp.id}/close?to={stage}", status_code=303)
     if opp.stage != stage:  # 어디서 어디로든 바꿀 수 있다
-        opp.stage = stage
+        opps.apply_stage(opp, stage)
         db.commit()
         db.refresh(opp)
         mirror.sync(opp)
         resync_objects(db, mirror, [opp.customer, opp.bm])
+    return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
+
+
+def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None):
+    return render(
+        request, "opportunities/close.html", status_code=400 if error else 200,
+        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX,
+    )
+
+
+@router.get("/{opportunity_id}/close")
+def close_form(opportunity_id: int, request: Request, to: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if not opps.needs_reason(to):
+        return RedirectResponse(f"/opportunities/{opp.id}", status_code=303)
+    same = opp.stage == to
+    return _close_page(request, opp, to, opp.close_reason if same else "", opp.close_note if same else "")
+
+
+@router.post("/{opportunity_id}/close")
+def close(
+    opportunity_id: int, request: Request, stage: str = Form(""), reason: str = Form(""), note: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+):
+    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다."""
+    opp = get_or_404(db, Opportunity, opportunity_id)
+    if error := opps.close_problem(stage, reason):
+        if not opps.needs_reason(stage):
+            raise HTTPException(status_code=400, detail=error)
+        return _close_page(request, opp, stage, reason, note, error)
+    opps.apply_stage(opp, stage, reason, note)
+    db.commit()
+    db.refresh(opp)
+    mirror.sync(opp)
+    resync_objects(db, mirror, [opp.customer, opp.bm])
     return notices.redirect(f"/opportunities/{opp.id}", f"opportunity_stage.{stage}")
 
 

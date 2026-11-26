@@ -101,7 +101,7 @@ def test_stage_change_notices_for_solution_and_opportunity(user_client, db):
     db.commit()
     r = user_client.post(f"/solutions/{s.id}/stage", data={"stage": "tapping"}, follow_redirects=False)
     assert "발굴 단계를 &#39;사전 태핑&#39;으로 바꿨습니다." in _follow(user_client, r)
-    r = user_client.post(f"/opportunities/{o.id}/stage", data={"stage": "won"}, follow_redirects=False)
+    r = user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": "other"}, follow_redirects=False)
     assert "영업기회 단계를 &#39;수주&#39;로 바꿨습니다." in _follow(user_client, r)
 
 
@@ -135,7 +135,7 @@ POST_NOTICES = {
     "/projects": "created", "/projects/{project_id}": "saved", "/projects/{project_id}/delete": "deleted",
     "/businesses": "(옛 주소: 307 로 /projects 에 넘김)", "/businesses/{rest:path}": "(옛 주소: 307 로 /projects 에 넘김)",
     "/bms": "created", "/bms/{bm_id}": "saved", "/bms/{bm_id}/delete": "deleted",
-    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won",
+    "/opportunities": "created", "/opportunities/{opportunity_id}": "saved", "/opportunities/{opportunity_id}/stage": "opportunity_stage.won", "/opportunities/{opportunity_id}/close": "opportunity_stage.won",
     "/opportunities/{opportunity_id}/convert": "converted, linked_project", "/opportunities/{opportunity_id}/delete": "deleted",
     "/activities": "created", "/activities/raw": "created", "/activities/draft": "ai_off, (AI 초안 진행 화면)", "/activities/draft/{job_id}/retry": "ai_off, (AI 초안 진행 화면)",
     "/activities/{activity_id}": "saved", "/activities/{activity_id}/delete": "deleted",

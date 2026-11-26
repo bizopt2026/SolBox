@@ -358,3 +358,38 @@ def progress_form(opp: Opportunity | None, default_owner_id: int | None = None) 
     return {"amount": money.edit_text(opp.amount), "expected_close": opp.expected_close.isoformat() if opp.expected_close else "",
             "owner_user_id": opp.owner_user_id or "", "next_step": opp.next_step or "",
             "next_step_due": opp.next_step_due.isoformat() if opp.next_step_due else ""}
+
+
+# ---- 영업 A 단계: 수주·실패 사유 ----
+
+REASON_REQUIRED = FieldError("사유를 고르세요.", "reason")
+NOT_CLOSING = "수주나 실패로 바꿀 때만 사유를 받습니다."
+NOTE_MAX = 500
+
+
+def needs_reason(stage: str) -> bool:
+    """이 단계로 바꾸려면 사유 화면을 거쳐야 하는지 (수주·실패)."""
+    return stage in ontology.OPPORTUNITY_CLOSED_STAGES
+
+
+def close_problem(stage: str, reason: str) -> str | None:
+    if not needs_reason(stage):
+        return NOT_CLOSING
+    if reason not in ontology.close_reasons(stage):
+        return REASON_REQUIRED
+    return None
+
+
+def apply_stage(opp: Opportunity, stage: str, reason: str = "", note: str = "") -> None:
+    """단계를 바꾼다. 수주·실패면 사유·메모를 함께 두고, 그 밖의 단계로 가면 사유·메모를 비운다 (이력에는 남는다)."""
+    opp.stage = stage
+    if needs_reason(stage):
+        opp.close_reason = reason
+        opp.close_note = (note or "").strip()[:NOTE_MAX]
+    else:
+        opp.close_reason = ""
+        opp.close_note = ""
+
+
+def close_reason_label(opp: Opportunity) -> str:
+    return ontology.close_reasons(opp.stage).get(opp.close_reason, "")
