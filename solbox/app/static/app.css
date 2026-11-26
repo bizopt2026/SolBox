@@ -1605,3 +1605,33 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .board-drop { border: 1px dashed var(--line-2); border-radius: var(--r-sm); padding: var(--s2); text-align: center; color: var(--ink-3); font-size: var(--fs-small); }
 .board-closed-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 860px) { .board { grid-template-columns: repeat(4, 85%); } .board-drop { display: none; } }
+
+/* ---- 영업 C 단계: 분석 화면 ---- */
+.analysis-tools { gap: var(--s3); }
+.stat-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3); margin: 0 0 var(--gap); }
+.stat-tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat-tile small { color: var(--ink-3); font-size: var(--fs-small); }
+.stat-tile strong { font-size: 22px; }
+.stat-tile .muted { font-size: var(--fs-small); overflow-wrap: anywhere; }
+.analysis-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--gap); margin: var(--gap) 0; }
+.chart-card svg { width: 100%; height: auto; display: block; }
+.chart-card .grid { stroke: var(--line); stroke-width: 1; }
+.chart-card .axis { font-size: 11px; fill: var(--ink-3); }
+.chart-card .axis.sub { font-size: 10px; }
+.chart-card .val { font-size: 11px; font-weight: 600; fill: var(--ink-2); }
+.chart-card .bar path { fill: var(--brand); }
+.chart-card .bar .hit { fill: transparent; }
+.chart-card .bar:hover path { fill: var(--brand-deep); }
+.chart-table { margin-top: var(--s2); font-size: var(--fs-note); }
+.chart-table summary { cursor: pointer; color: var(--brand); }
+.hbars { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--s3); }
+.hbar { display: grid; grid-template-columns: 120px minmax(0, 1fr) 28px; gap: var(--s2); align-items: center; font-size: var(--fs-note); }
+.hbar i { height: 10px; background: var(--sunken); border-radius: 4px; display: block; overflow: hidden; }
+.hbar u { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.hbar b { text-align: right; }
+.tone-bar-ok { background: var(--ok); }
+.tone-bar-slate { background: var(--slate); }
+.stat-defs { margin-top: var(--gap); font-size: var(--fs-note); }
+.stat-defs summary { cursor: pointer; font-weight: var(--fw-strong); }
+.stat-defs ul { margin: var(--s2) 0 0; padding-left: 18px; color: var(--ink-2); }
+@media (max-width: 860px) { .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analysis-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -26,7 +26,7 @@
 {# 구분 탭 (시안의 .seg): 코드 목록의 값마다 건수. 링크로만 움직이고 현재 것에 aria-current. tabs 는 ui.seg_tabs 의 결과 #}
 {% macro seg(tabs, label="구분") %}
 <nav class="seg" aria-label="{{ label }}">
-  {% for t in tabs %}<a href="{{ t.href }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label }}<b>{{ t.count }}</b></a>{% endfor %}
+  {% for t in tabs %}<a href="{{ t.href }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count is not none %}<b>{{ t.count }}</b>{% endif %}</a>{% endfor %}
 </nav>
 {% endmacro %}
 

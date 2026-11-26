@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime
 from urllib.parse import urlencode
 from types import SimpleNamespace
 
@@ -165,6 +166,29 @@ def list_opportunities(
     return render(request, "opportunities/list.html", **common, pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
                   stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n)
+
+
+@router.get("/analysis")
+def analysis(request: Request, period: str = "", team: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """영업기회 분석 (영업 C): 기간·팀을 골라 수주율·단계 체류·전환·월별·사유·팀별 비교. 숫자 정의는 `app/pipeline_stats.py` 한 곳."""
+    from app import pipeline_stats as ps
+
+    team_list = teams.ordered(db)
+    team_key = ps.TEAM_NONE if team == ps.TEAM_NONE else next((t.id for t in team_list if str(t.id) == team), None)
+    now = _today()
+    stats = ps.compute(db, period, team_key, now)
+
+    def href(p: str, t) -> str:
+        pairs = ([("period", p)] if p != ps.PERIOD_DEFAULT else []) + ([("team", str(t))] if t is not None else [])
+        return "/opportunities/analysis" + (("?" + urlencode(pairs)) if pairs else "")
+
+    period_tabs = [ui.SegTab(code, label, None, href(code, team_key), code == stats["period"]) for code, label in ps.PERIODS.items()]
+    team_tabs = [ui.SegTab("", "전체", None, href(stats["period"], None), team_key is None)]
+    team_tabs += [ui.SegTab(str(t.id), t.name, None, href(stats["period"], t.id), team_key == t.id) for t in team_list]
+    team_tabs.append(ui.SegTab(ps.TEAM_NONE, ps.NO_TEAM, None, href(stats["period"], ps.TEAM_NONE), team_key == ps.TEAM_NONE))
+    team_name = "전체" if team_key is None else (ps.NO_TEAM if team_key == ps.TEAM_NONE else next(t.name for t in team_list if t.id == team_key))
+    return render(request, "opportunities/analysis.html", stats=stats, chart=ps.month_chart(stats["months"]), period_tabs=period_tabs,
+                  team_tabs=team_tabs, team_key=team_key, team_name=team_name, money=money, generated=datetime.now(), today=now)
 
 
 @router.get("/new")

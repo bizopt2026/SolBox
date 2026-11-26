@@ -233,3 +233,38 @@ def compute(db: Session, period: str, team, today: date) -> dict:
         {k: result[k] for k in ("tiles", "stages", "excluded", "months", "reasons", "teams")}, default=str, ensure_ascii=False, sort_keys=True,
     ).encode("utf-8")).hexdigest()[:16]
     return result
+
+
+def _nice_max(v: float) -> float:
+    """눈금 끝값: 1·2·5 × 10^n 로 올림."""
+    import math
+
+    if v <= 0:
+        return 1.0
+    p = 10 ** math.floor(math.log10(v))
+    for m in (1, 2, 5, 10):
+        if v <= m * p:
+            return m * p
+    return 10 * p
+
+
+def month_chart(months: list[dict], width: int = 560, height: int = 210) -> dict:
+    """월별 수주 금액 막대 (서버가 그리는 SVG 좌표, 억 단위 눈금). 막대 위 금액, 밑에 달·수주·실패 건수."""
+    from app import money
+
+    left, right, top, bottom = 44, 10, 18, 40
+    n = max(len(months), 1)
+    eok = [m["won_amount"] / 100_000_000 for m in months]
+    top_v = _nice_max(max(eok, default=0))
+    plot_h, cell = height - top - bottom, (width - left - right) / n
+    bars = []
+    for i, (m, v) in enumerate(zip(months, eok)):
+        w = cell * 0.56
+        x = left + i * cell + (cell - w) / 2
+        h = plot_h * v / top_v
+        bars.append({"x": round(x, 1), "w": round(w, 1), "y": round(height - bottom - h, 1), "h": round(h, 1), "cx": round(x + w / 2, 1),
+                     "label": m["label"], "value": money.format_amount(m["won_amount"]) if m["won_amount"] else "",
+                     "sub": f"수주 {m['won']} · 실패 {m['lost']}",
+                     "title": f"{m['label']} 수주 {money.format_amount(m['won_amount']) or '0원'} · 수주 {m['won']}건 · 실패 {m['lost']}건"})
+    ticks = [{"y": round(height - bottom - plot_h * t, 1), "label": f"{top_v * t:g}억"} for t in (0, 0.5, 1)]
+    return {"width": width, "height": height, "left": left, "right": width - right, "base": height - bottom, "bars": bars, "ticks": ticks}
