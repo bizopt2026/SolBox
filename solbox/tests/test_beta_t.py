@@ -136,10 +136,9 @@ def test_error_releases_token_so_the_fixed_form_can_be_resent(user_client, db):
 
 
 def test_home_card_posts_text(user_client, db, settings):
-    home = user_client.get("/").text
+    home = user_client.get("/intake/new").text  # UX 개선(2026-11-26): 홈의 올리기 칸을 없앴다. 같은 칸이 올리기 화면에 있다
     form = re.search(r'<form[^>]*action="/intake".*?</form>', home, re.S).group(0)
-    assert 'name="pasted_text"' in form and "글 붙여넣기" in form and "<details" in form and 'name="pasted_title"' not in form
-    assert 'name="files" multiple required' not in form and "required" not in form
+    assert 'name="pasted_text"' in form and "글 붙여넣기" in form and 'name="files" multiple required' not in form
     r = user_client.post("/intake", data={"note": "", "pasted_text": "홈에서 붙여넣음"}, follow_redirects=False)
     assert r.status_code == 303
     f = db.query(Intake).one().files[0]

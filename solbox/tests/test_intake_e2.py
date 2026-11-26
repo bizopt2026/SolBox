@@ -42,10 +42,10 @@ def _bundle(db, user_name="kim", status="ready", note=""):
 # ---- U5 음성 안내 ----
 
 def test_dropzone_audio_note_only_when_transcriber_missing(user_client, monkeypatch):
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         assert DROP_NOTE in user_client.get(url).text
     _ok_transcriber(monkeypatch)
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         assert DROP_NOTE not in user_client.get(url).text
 
 
@@ -77,7 +77,7 @@ def test_dropzone_whole_area_is_label_with_native_input():
 
 
 def test_dropzone_pages_and_styles(user_client):
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         page = user_client.get(url).text
         assert "파일을 여기에 끌어다 놓거나 눌러서 선택" in page and "pptx" in page and "dropzone-types" in page
     css = (STATIC / "app.css").read_text(encoding="utf-8")
@@ -149,18 +149,18 @@ def _failed_job(db, kind="auth"):
 
 
 def test_ai_down_notice_on_new_and_home(user_client, db, worker_on):
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         page = user_client.get(url).text
         assert AI_DOWN not in page and "data-ai-blocked" not in page
     _failed_job(db, "limit")  # 한도·네트워크: 쓸 수는 있지만 안 되는 중 (예전 안내)
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         page = user_client.get(url).text
         assert AI_DOWN in page and "data-ai-blocked" not in page
         assert 'href="/solutions/new"' in page and 'href="/activities/new"' in page
     db.query(AIJob).delete()
     db.commit()
     _failed_job(db)  # 로그인 안 됨: 상단 줄도 "AI 사용 불가" 이고 모든 AI 동작 곁에 같은 안내가 나온다
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         page = user_client.get(url).text
         assert 'data-ai-down="1"' in page and "정리를 바로 시도해요" in page
         assert 'href="/solutions/new"' in page and 'href="/activities/new"' in page

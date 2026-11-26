@@ -51,8 +51,11 @@
       {% if history | length > history_shown %}<details class="hist-more"><summary>이전 기록 {{ history | length - history_shown }}건 더 보기</summary><ul class="hist">{% for r in history[history_shown:] %}{{ hist_line(r) }}{% endfor %}</ul></details>{% endif %}
     </section>
     {% endif %}
+    <div class="ai-dock" aria-label="AI">{# AI 칸 하나 (UX 개선 2026-11-26): 정렬 판단·AI 동료를 한데 둔다 #}
+      <p class="ai-dock-head"><b>AI</b> <a href="/ai/inbox">AI 제안함</a></p>
     {% set al, al_obj = alignment_view(opp), opp %}{% include "alignment/_card.html" %}
     {% set cw_code, cw_obj, compact = "opportunity", opp, true %}{% include "cowork/_panel.html" %}
+    </div>
     {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>

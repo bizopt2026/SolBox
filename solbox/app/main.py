@@ -5,7 +5,7 @@ import functools
 import logging
 import time
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -102,6 +102,52 @@ def _ai_status(session_factory, settings, user) -> dict | None:
         return None
 
 
+TRAY_HOURS, TRAY_LIMIT = 24, 6
+
+
+def job_link(session_factory, job) -> str | None:
+    """작업이 다루는 화면 (위쪽 줄의 "내 AI 작업" 목록에서 누르면 갈 곳). 모르면 None."""
+    inp = job.input or {}
+    for key, url in (("proposal_id", "/proposals/{}"), ("report_id", "/reports/{}"), ("intake_id", "/intake/{}"),
+                     ("opportunity_id", "/opportunities/{}"), ("solution_id", "/solutions/{}")):
+        if isinstance(inp.get(key), int):
+            return url.format(inp[key])
+    if inp.get("target_type") in ontology.TYPES and isinstance(inp.get("target_id"), int):
+        return ontology.TYPES[inp["target_type"]].url(inp["target_id"])
+    if isinstance(inp.get("thread_id"), int):
+        from app.models import AIThread
+
+        with session_factory() as db:
+            t = db.get(AIThread, inp["thread_id"])
+            if t is not None and t.target_type in ontology.TYPES:
+                return f"{ontology.TYPES[t.target_type].url(t.target_id)}?thread={t.id}#cowork"
+    if job.kind == "activity_structure" or job.kind.startswith("activity"):
+        return f"/activities/draft/{job.id}"
+    return None
+
+
+def _my_jobs(session_factory, user) -> list[dict]:
+    """내가 시작한 최근 AI 작업 (24시간, 6개): 진행 중·대기가 먼저, 그다음 방금 끝난 것 (UX 개선 2026-11-26). 읽지 못하면 빈 목록."""
+    if user is None:
+        return []
+    try:
+        since = datetime.now() - timedelta(hours=TRAY_HOURS)
+        with session_factory() as db:
+            rows = db.scalars(select(AIJob).where(AIJob.requester_id == user.id, AIJob.created_at >= since)
+                              .order_by(AIJob.id.desc()).limit(TRAY_LIMIT)).all()
+            jobs = [{"id": j.id, "kind": labels.JOB_KINDS.get(j.kind, "AI 작업"), "status": j.status, "finished_at": j.finished_at, "job": j} for j in rows]
+        for j in jobs:
+            href = job_link(session_factory, j.pop("job"))
+            if href:  # "?from=tray" 를 붙인다: 화면의 링크 수를 세는 곳(목록·연결 카드)과 섞이지 않게 (조각 `#…` 앞에)
+                base, _, frag = href.partition("#")
+                href = base + ("&" if "?" in base else "?") + "from=tray" + (f"#{frag}" if frag else "")
+            j["href"] = href
+        jobs.sort(key=lambda j: (j["status"] not in ontology.JOB_ACTIVE, -j["id"]))
+        return jobs
+    except Exception:  # noqa: BLE001  (위쪽 줄 때문에 화면이 깨지면 안 된다)
+        return []
+
+
 def ai_gate(status: dict | None, user=None) -> dict | None:
     """AI 를 쓰는 동작 곁 안내용: 상단 줄과 같은 상태(`_ai_status`)에 더한 것. 읽지 못했으면 None.
     `blocked`: 처리기가 꺼진 "off" 일 때만 참 (버튼을 막는다). "down"(지난 AI 작업이 설치·로그인 문제로 실패)은 막지 않는다:
@@ -149,6 +195,7 @@ def render(request: Request, template: str, status_code: int = 200, **ctx) -> HT
 
     ctx.setdefault("ai_status", cached_ai_status)
     ctx.setdefault("ai_gate", lambda: ai_gate(cached_ai_status(), ctx["user"]))
+    ctx.setdefault("my_jobs", lambda: _my_jobs(request.app.state.session_factory, ctx["user"]))
     ctx.setdefault("can_delete_thread", lambda t: ctx["user"] is not None and security.can_delete(ctx["user"], t))  # AI 동료 대화 지우기  # 템플릿: {% set aig = ai_gate() %}, 매크로 ai_note(aig)
     return request.app.state.templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
@@ -429,7 +476,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router, ai_inbox as ai_inbox_router,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -449,6 +496,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(workspace_files.router)
     app.include_router(cowork.router)
     app.include_router(alignment_router.router)
+    app.include_router(ai_inbox_router.router)
     app.include_router(projects.router)
     app.include_router(projects.legacy_router)
     app.include_router(solutions.router)

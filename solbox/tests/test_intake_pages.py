@@ -49,8 +49,7 @@ def test_dropzone_limits_are_exposed_to_script(user_client, settings):
     page = user_client.get("/intake/new").text
     zone = re.search(r'<div[^>]*data-dropzone[^>]*>', page).group(0)
     assert 'data-max-files="20"' in zone and f'data-max-mb="{settings.max_upload_mb}"' in zone
-    home = user_client.get("/").text
-    assert 'data-dropzone' in home and 'data-max-files="20"' in home
+    assert 'data-dropzone' not in user_client.get("/").text  # 홈의 올리기 칸은 없앴다 (UX 개선 2026-11-26)
 
 
 def test_script_handles_drop_and_warns():
