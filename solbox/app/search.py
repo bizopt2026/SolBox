@@ -1,8 +1,8 @@
 """전체 검색: 이름·제목은 물론 소개·설명·메모·연락처·정리본·원문·후속 조치·고객 니즈 글까지 대소문자 구분 없이 부분 일치하는 기록을 유형별로 모은다.
 
-찾는 곳은 솔루션·고객·파트너·프로젝트·영업기회·BM·제안 건·활동 기록과 활동 기록에서 나온 후속 조치·고객 니즈 (유형 이름·주소는 온톨로지에서 읽는다).
+찾는 곳은 솔루션·고객·파트너·담당자·프로젝트·영업기회·BM·제안 건·활동 기록과 활동 기록에서 나온 후속 조치·고객 니즈 (유형 이름·주소는 온톨로지에서 읽는다).
 유형마다 찾는 칸은 `FIELDS` 한 곳이고, 결과 줄에는 이름·제목이 아닌 칸에서 맞았을 때 맞은 칸의 이름과 짧은 발췌(맞은 글자는 `<mark>`)가 붙는다.
-올리기 묶음은 만든 사람만 보는 기록이라 찾지 않는다. 질의 수는 모든 유형의 건수 질의(유형 수 10) + 맞은 유형의 줄 질의 1 + 줄이 보여 주는 연결을 미리 읽는 질의(프로젝트·영업기회 1: 고객, 제안 건 2: 고객·프로젝트, 후속 조치·고객 니즈 1: 활동 기록)로 일정하다 (기록 수와 무관).
+올리기 묶음은 만든 사람만 보는 기록이라 찾지 않는다. 질의 수는 모든 유형의 건수 질의(유형 수 11) + 맞은 유형의 줄 질의 1 + 줄이 보여 주는 연결을 미리 읽는 질의(프로젝트·영업기회 1: 고객, 제안 건 2: 고객·프로젝트, 후속 조치·고객 니즈 1: 활동 기록)로 일정하다 (기록 수와 무관).
 """
 from __future__ import annotations
 
@@ -18,13 +18,14 @@ from app import aliases, ontology
 MIN_CHARS = 2  # 영문·숫자 검색어는 이보다 짧으면 찾지 않는다 (한 글자는 너무 많이 걸린다). 한글 같은 한 글자가 한 낱말인 글자는 한 글자도 찾는다
 PER_TYPE = 8  # 유형마다 보여 주는 최대 수. 나머지는 건수로만 알리고 목록으로 보낸다
 EXCERPT_RADIUS = 36  # 맞은 글자 앞뒤로 보여 주는 글자 수
-SEARCH_TYPES = ("solution", "customer", "partner", "project", "opportunity", "bm", "proposal", "activity", "follow_up", "customer_need")
+SEARCH_TYPES = ("solution", "customer", "partner", "contact", "project", "opportunity", "bm", "proposal", "activity", "follow_up", "customer_need")
 
 # 유형 -> 찾는 칸 (모델 속성 이름, 앞의 것이 이름·제목: 맞으면 발췌를 붙이지 않는다). 칸 이름표는 온톨로지의 속성 이름 (없으면 FIELD_LABELS)
 FIELDS: dict[str, tuple[str, ...]] = {
     "solution": ("name", "summary", "description", "tags"),
     "customer": ("name", "aliases", "industry", "contact", "memo"),  # aliases: 다른 이름 (베타 AE)
     "partner": ("name", "aliases", "contact", "description", "memo"),
+    "contact": ("name", "title", "email", "phone", "office_phone", "note"),  # 담당자 (영업 D): 결과 줄에 회사 이름
     "project": ("name", "description", "memo"),
     "opportunity": ("name", "next_step", "memo"),  # 다음 할 일 (영업 A)
     "bm": ("name", "summary"),
@@ -139,6 +140,11 @@ def _item(code: str, obj, q: str = "") -> dict:
         sub = obj.industry
     elif code == "partner":
         sub = ui.first_line(obj.description, 80)
+    elif code == "contact":
+        company = obj.company
+        sub = " · ".join(x for x in (f"{ontology.label(obj.company_type)} {company.name}" if company is not None else "", obj.title) if x)
+        if obj.role in ontology.CONTACT_ROLES:
+            badge = ("contact_role", obj.role)
     elif code == "bm":
         sub = ui.first_line(obj.summary, 80)
     elif code in ("follow_up", "customer_need"):  # 활동 기록에서 나온 줄: 활동 기록으로 이어진다
@@ -184,6 +190,8 @@ def search(db: Session, q: str) -> dict:
             loaders.append(selectinload(model.project))  # display_title 이 제목이 빈 제안 건에서 프로젝트 이름을 읽는다
         if code in ("follow_up", "customer_need"):
             loaders = [selectinload(model.activity)]
+        if code == "contact":
+            loaders = [selectinload(model.customer), selectinload(model.partner)]
         rows = list(db.scalars(select(model).options(*loaders).where(cond).order_by(*order).limit(PER_TYPE)))
         from urllib.parse import urlencode
 

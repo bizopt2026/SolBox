@@ -271,11 +271,22 @@ class KnowledgeMirror:
             out.append(f"- {self._ref(o.name, o)}" + (f" ({ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage)})" if stage else ""))
         return out
 
+    @staticmethod
+    def _contact_lines(company) -> list[str]:
+        """"## 담당자" 구역 (영업 D): 줄마다 이름 · 직함 · 역할 · 휴대폰 · 이메일. 담당자 자체 사본은 없다."""
+        if not company.contacts:
+            return []
+        out = ["", f"## {ontology.label('contact')}", ""]
+        for c in company.contacts:
+            out.append("- " + " · ".join(x for x in (c.name, c.title, ontology.CONTACT_ROLES.get(c.role, ""), c.phone, c.email) if x))
+        return out
+
     def _customer(self, c: Customer) -> list[str]:
         out = [f"# {c.name}", ""]
         out += _lines(self._ai_line(c), _item("다른 이름", ", ".join(aliases.of(c))), _item("업종", c.industry), _item("연락처", c.contact), _item("메모", c.memo))
         if c.partner is not None:  # 같은 회사인 파트너 (AI 가 경로를 따라갈 수 있게)
             out.append(f"- {ontology.term('same_company')}: {ontology.label('partner')} {self._ref(c.partner.name, c.partner)}")
+        out += self._contact_lines(c)
         if c.projects:
             out += ["", f"## {ontology.label('project')}", ""]
             out += [f"- {self._ref(b.name, b)}" for b in sorted(c.projects, key=lambda b: b.id)]
@@ -301,6 +312,7 @@ class KnowledgeMirror:
         out = [f"# {o.name}", ""]
         out += _lines(
             f"- {P('opportunity', 'customer')}: {self._ref(o.customer.name, o.customer)}",
+            _item(P("opportunity", "contacts"), " · ".join(" ".join(x for x in (c.name, c.title, ontology.CONTACT_ROLES.get(c.role, "")) if x) for c in o.contacts)),
             _item(P("opportunity", "stage"), ontology.OPPORTUNITY_STAGES.get(o.stage, o.stage)),
             _item(P("opportunity", "business_types"), ontology.business_types_text(o.business_types)),
             f"- {P('opportunity', 'bm')}: {self._ref(o.bm.name, o.bm)}" if o.bm else None,
@@ -393,6 +405,7 @@ class KnowledgeMirror:
         out += _lines(self._ai_line(p), _item("다른 이름", ", ".join(aliases.of(p))), _item("연락처", p.contact), _item("소개", p.description), _item("메모", p.memo))
         if p.customer is not None:
             out.append(f"- {ontology.term('same_company')}: {ontology.label('customer')} {self._ref(p.customer.name, p.customer)}")
+        out += self._contact_lines(p)
         if p.solutions:
             out += ["", "## 솔루션", ""]
             out += [f"- {self._ref(s.name, s)}" for s in sorted(p.solutions, key=lambda s: s.id)]
@@ -470,7 +483,7 @@ CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM, Strategy, In
 CONNECTIONS_HEADING = "연결"
 CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
 CARD_EXCLUDE = ("R3", "R19", "R21", "R22", *ontology.UNMIRRORED)  # 사본이 이미 따로 적은 것(자료), 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다), 사본에 넣지 않는 관계(업무 보고)
-KNOWLEDGE_FORMAT = 14  # (14: 사업 방향·과제 사본과 공간 자료, 다른 사본의 "## 연결" 에 과제 (AI 코워크 ①). 13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+KNOWLEDGE_FORMAT = 15  # (15: 고객·파트너 사본의 "## 담당자" 구역, 영업기회 사본의 "- 고객 담당자: …" 줄 (영업 D). 14: 사업 방향·과제 사본과 공간 자료, 다른 사본의 "## 연결" 에 과제 (AI 코워크 ①). 13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

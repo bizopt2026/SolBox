@@ -1719,3 +1719,22 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
   .stagebar .steps .step { flex: 0 0 auto; min-width: 88px; }
   .stagebar .step-note { display: none; }
 }
+
+/* 영업 D: 고객·파트너 담당자 카드, 나누기 표 */
+.contact-rows { list-style: none; margin: 0; padding: 0; }
+.contact-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: var(--s2) var(--s3); padding: 8px 0; border-top: 1px solid var(--line); }
+.contact-row:first-child { border-top: 0; }
+.contact-who { min-width: 0; overflow-wrap: anywhere; }
+.contact-reach { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.contact-split { margin: var(--s2) 0 0; font-size: 13px; }
+.split-form .table-wrap { overflow-x: auto; }
+.split-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.split-table th, .split-table td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.split-table input:not([type="checkbox"]), .split-table select { width: 100%; min-width: 80px; }
+.split-table .split-line { max-width: 240px; overflow-wrap: anywhere; }
+.split-existing td { background: var(--sunken); }
+@media (max-width: 720px) {
+  .contact-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .contact-reach { grid-column: 1 / -1; grid-row: 2; }
+}

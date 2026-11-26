@@ -338,8 +338,8 @@ def test_search_query_count_is_flat_for_proposals_with_projects(user_client, db,
     few = count()
     build(30, "b")
     assert count() == few
-    # 참 값: 모든 유형(10)의 건수 질의 + 맞은 유형(여기서는 6)의 줄 질의 + 미리 읽기(프로젝트 1, 제안 건 2, 후속 조치 1, 고객 니즈 1)
-    assert few == 10 + 6 + (1 + 2 + 1 + 1)
+    # 참 값: 모든 유형(11, 담당자 포함)의 건수 질의 + 맞은 유형(여기서는 6)의 줄 질의 + 미리 읽기(프로젝트 1, 제안 건 2, 후속 조치 1, 고객 니즈 1)
+    assert few == 11 + 6 + (1 + 2 + 1 + 1)
 
 
 def test_search_excerpt_drops_markdown_markers_but_keeps_mark_and_escaping():
