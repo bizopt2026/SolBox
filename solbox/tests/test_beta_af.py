@@ -221,13 +221,13 @@ def test_pagination_by_height_keeps_every_item(tmp_path):
     prs, stats, _ = _build(tmp_path, {"title": "t", "slides": cases})
     assert not _layout_gates(stats["quality"])
     # 짧은 글은 개수 한도 그대로: 글머리 10, 2단 한쪽 8, 단계 6, 표 8행
-    assert [len(p["bullets"]) for p in paginate({"kind": "bullets", "bullets": [f"b{i}" for i in range(23)]})] == [10, 10, 3]
+    assert [len(p["bullets"]) for p in paginate({"kind": "bullets", "bullets": [f"b{i}" for i in range(23)]})] == [8, 8, 7]  # 베타 AL: 14pt 로 세어 한 장 8개
     assert [len(p["steps"]) for p in paginate({"kind": "steps", "steps": [{"name": f"s{i}", "detail": "d"} for i in range(8)]})] == [6, 2]
-    assert [len(p["left"]) for p in paginate({"kind": "two_column", "left": [f"l{i}" for i in range(9)], "right": ["r"]})] == [8, 1]
+    assert [len(p["left"]) for p in paginate({"kind": "two_column", "left": [f"l{i}" for i in range(9)], "right": ["r"]})] == [7, 2]  # 베타 AL: 14pt 로 세어 한쪽 7개
 
 
 def test_layout_by_bullet_count(tmp_path):
-    slides = [{"kind": "bullets", "title": f"글머리 {n}개", "key_message": "핵심입니다.", "bullets": [f"항목 {i}" for i in range(n)]} for n in (1, 2, 3, 4, 5, 6, 7, 10)]
+    slides = [{"kind": "bullets", "title": f"글머리 {n}개", "key_message": "핵심입니다.", "bullets": [f"항목 {i}" for i in range(n)]} for n in (1, 2, 3, 4, 5, 6, 7, 8)]  # 베타 AL: 한 장에 드는 것은 8개까지
     prs, _, _ = _build(tmp_path, {"title": "t", "slides": slides})
     cards = [len([sh for sh in s.shapes if sh.name == "카드"]) for s in prs.slides]
     assert cards == [1, 2, 3, 4, 5, 6, 1, 1]  # 6개까지는 번호 카드, 그보다 많으면 목록 카드 하나

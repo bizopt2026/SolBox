@@ -65,12 +65,12 @@ def test_grid_cards_with_heads(tmp_path):
     detail = boxes[0].text_frame.paragraphs[1].runs[0]
     assert num.font.name == head.font.name == deck.FONT_B and str(head.font.color.rgb) == "222222"
     assert detail.font.name == deck.FONT and str(detail.font.color.rgb) == "3A4654" and head.font.size.pt == detail.font.size.pt + 4
-    assert detail.font.size.pt == 16  # 한 줄에 2장인 카드는 16pt 까지 쓴다
+    assert detail.font.size.pt == 14 and head.font.size.pt == 18  # 베타 AL: 본문 14, 머리말 18 (고정)
     assert _layout(stats) == []
 
 
 def test_list_cards_keep_colon_and_bold_head(tmp_path):
-    items = [f"항목 {i}: 설명 글 {i}" for i in range(8)] + ["머리말 없는 줄"]
+    items = [f"항목 {i}: 설명 글 {i}" for i in range(7)] + ["머리말 없는 줄"]  # 한 장에 드는 8개 (베타 AL)
     prs, stats = _build(tmp_path, [
         {"kind": "bullets", "title": "목록", "key_message": KM, "bullets": items},
         {"kind": "two_column", "title": "비교", "key_message": KM, "left_title": "전", "left": ["수집: 손으로 모읍니다"], "right_title": "후", "right": ["수집: 자동으로 모읍니다"]},
