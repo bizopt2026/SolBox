@@ -19,7 +19,7 @@ MAX_ROWS = 10  # PPT 표 한 장의 최대 줄 (넘으면 다음 장으로 "(계
 FIRST_OPPS_ROWS = 4  # 주요 성과 장에서 영업기회 표가 쓸 수 있는 줄 (글 아래라 좁다)
 
 # 단위별 말: (이번, 지난, 다음)
-WORDS = {"day": ("오늘", "지난 일간", "다음 평일"), "week": ("이번 주", "지난 주", "다음 주"), "month": ("이번 달", "지난 달", "다음 달")}
+WORDS = {"day": ("오늘", "지난 보고", "다음 평일"), "week": ("이번 주", "지난 주", "다음 주"), "month": ("이번 달", "지난 달", "다음 달")}
 
 SECTION_NAMES = {"kpi": "요약 숫자", "opps": "영업기회 단계 변화", "proposals": "제안 진행", "check": "지난 계획 점검", "plan": "다음 계획", "issues": "이슈·건의"}
 
@@ -213,9 +213,9 @@ def _docx(c: dict, path: Path) -> None:
         _set_font(p.add_run(c["direction"]), 10)
     table(["할 일", "담당", "기한", "비고"], c["plan"], DOC_WIDTHS["plan"])
     heading("6. 이슈·건의")
+    note(notes["issues"])
     for s in c["issues"]:
         _set_font(doc.add_paragraph().add_run("• " + s), 10)
-    note(notes["issues"])
     if c.get("legacy_undated"):
         p = doc.add_paragraph()
         _set_font(p.add_run(f"기능 도입 전 기록 {c['legacy_undated']}건은 완료·단계 변경 날짜를 몰라 숫자에서 빠졌습니다."), 9, color=MUTED)
@@ -323,12 +323,12 @@ def _pptx(c: dict, path: Path) -> None:
     sl = frame("주요 성과")
     shown = c["summary"][:5]
     bullets = ["■ " + s for s in shown] + ([f"외 {len(c['summary']) - 5}건"] if len(c["summary"]) > 5 else [])
-    text(sl, Inches(0.6), Inches(1.4), Inches(12), Inches(3), bullets or ["작성된 요약 글이 없습니다."], 18, color=ink if bullets else muted)
-    text(sl, Inches(0.6), Inches(4.3), Inches(12), Inches(0.5), "영업기회 단계 변화", 18, True, navy)
+    text(sl, Inches(0.6), Inches(1.4), Inches(12), Inches(2.2), bullets or ["작성된 요약 글이 없습니다."], 18, color=ink if bullets else muted)
+    text(sl, Inches(0.6), Inches(3.7), Inches(12), Inches(0.5), "영업기회 단계 변화", 18, True, navy)
     if first:
-        ptable(sl, ["영업기회", "고객", "변화"], first, Inches(4.85), [5.0, 3.0, 4.1])
+        ptable(sl, ["영업기회", "고객", "변화"], first, Inches(4.2), [5.0, 3.0, 4.1])
     else:
-        text(sl, Inches(0.6), Inches(4.85), Inches(12), Inches(0.6), "단계가 바뀌거나 새로 생긴 영업기회가 없습니다.", 16, color=muted)
+        text(sl, Inches(0.6), Inches(4.2), Inches(12), Inches(0.6), "단계가 바뀌거나 새로 생긴 영업기회가 없습니다.", 16, color=muted)
     for chunk in _chunks(rest) if rest else []:
         sl = frame("영업기회 단계 변화 (계속)")
         ptable(sl, ["영업기회", "고객", "변화"], chunk, Inches(1.6), [5.0, 3.0, 4.1])
