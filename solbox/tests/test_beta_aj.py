@@ -124,3 +124,117 @@ def test_slide_prompt_reuses_outline_rules():
     slide = (ROOT / "app" / "ai" / "prompts" / "proposal_slide.md").read_text(encoding="utf-8")
     for needle in ("{{materials}}", "{{rules}}", "{{titles}}", "{{slide}}", "{{instruction}}", "{{kind_rule}}", "<<<MATERIAL", "다른 장은 바꾸지 않습니다"):
         assert needle in slide, needle
+
+
+# ---------------------------------------------------------------- 제안서 PDF (미리보기·고객 전달)
+
+import shutil  # noqa: E402
+import sys  # noqa: E402
+
+import pytest  # noqa: E402
+
+from app import pdf_export  # noqa: E402
+from app.config import load_settings  # noqa: E402
+
+
+def _built(user_client, db, settings):
+    p = outlined_proposal(db, settings)
+    assert user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False).status_code == 303
+    db.refresh(p)
+    return p, settings.decks_dir / str(p.id) / p.deck_name
+
+
+def _fake_convert(monkeypatch, fail=False):
+    def convert(pptx, settings):
+        if fail:
+            raise pdf_export.PdfError("테스트 실패")
+        out = pdf_export.pdf_path(pptx)
+        out.write_bytes(b"%PDF-1.4 test")
+        return out
+    monkeypatch.setattr(pdf_export, "methods", lambda settings: ["libreoffice"])
+    monkeypatch.setattr(pdf_export, "convert", convert)
+
+
+def test_pdf_button_make_preview_download(app, user_client, db, settings, monkeypatch):
+    p, deck = _built(user_client, db, settings)
+    _fake_convert(monkeypatch)
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert "PDF 만들기 (미리보기)" in page and "PDF 미리보기" not in page
+    r = user_client.post(f"/proposals/{p.id}/deck/pdf", data={"back": "outline"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/proposals/{p.id}/outline?notice=pdf_built")
+    assert pdf_export.pdf_path(deck).is_file()
+    page = user_client.get(f"/proposals/{p.id}").text
+    assert "PDF 미리보기" in page and "고객용 PDF 내려받기" in page and "PDF 만들기 (미리보기)" not in page
+    r = user_client.get(f"/proposals/{p.id}/deck/pdf")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf" and r.headers["content-disposition"].startswith("inline;")
+    assert user_client.get(f"/proposals/{p.id}/deck/pdf?download=1").headers["content-disposition"].startswith("attachment;")
+    # 다시 만들면 새 이름의 PPT 라 옛 PDF 는 지워지고 버튼이 다시 나온다
+    old_pdf = pdf_export.pdf_path(deck)
+    user_client.post(f"/proposals/{p.id}/deck")
+    assert not old_pdf.exists() and user_client.get(f"/proposals/{p.id}/deck/pdf").status_code == 404
+
+
+def test_pdf_failure_and_unavailable(app, user_client, db, settings, monkeypatch):
+    p, deck = _built(user_client, db, settings)
+    _fake_convert(monkeypatch, fail=True)
+    r = user_client.post(f"/proposals/{p.id}/deck/pdf", follow_redirects=False)
+    assert "notice=pdf_failed" in r.headers["location"] and not pdf_export.pdf_path(deck).exists()
+    monkeypatch.setattr(pdf_export, "methods", lambda settings: [])
+    r = user_client.post(f"/proposals/{p.id}/deck/pdf", follow_redirects=False)
+    assert "notice=pdf_unavailable" in r.headers["location"]
+    assert "PDF 만들기" not in user_client.get(f"/proposals/{p.id}").text  # 변환 프로그램이 없으면 버튼이 없다
+
+
+def test_pdf_needs_current_deck(app, user_client, db, settings, monkeypatch):
+    p = outlined_proposal(db, settings)
+    _fake_convert(monkeypatch)
+    assert user_client.post(f"/proposals/{p.id}/deck/pdf").status_code == 400
+    assert user_client.get(f"/proposals/{p.id}/deck/pdf").status_code == 404
+
+
+def test_pdf_methods_follow_setting(settings, monkeypatch, tmp_path):
+    monkeypatch.setattr(pdf_export.shutil, "which", lambda name: None)
+    monkeypatch.setattr(pdf_export, "_WINDOWS_SOFFICE", ())
+    assert pdf_export.methods(settings) == [] and "PDF 버튼이 보이지 않습니다" in pdf_export.describe(settings)
+    soffice = tmp_path / "soffice"
+    soffice.write_text("", encoding="utf-8")
+    settings.soffice_path = str(soffice)
+    assert pdf_export.methods(settings) == ["libreoffice"]
+    settings.pdf_converter = "none"
+    assert pdf_export.methods(settings) == [] and pdf_export.describe(settings) == "사용 안 함"
+    settings.pdf_converter = "powerpoint"
+    assert pdf_export.methods(settings) == []  # Windows 가 아니면 PowerPoint 는 없다
+    with pytest.raises(pdf_export.PdfError):
+        pdf_export.convert(tmp_path / "x.pptx", settings)
+
+
+def test_powerpoint_script_passes_paths_by_env(monkeypatch, tmp_path):
+    seen = {}
+
+    def run(cmd, env=None):
+        seen.update(cmd=cmd, env=env)
+    monkeypatch.setattr(pdf_export, "_run", run)
+    pdf_export._powerpoint(tmp_path / "가 나.pptx", tmp_path / "가 나.pdf")
+    assert seen["cmd"][0] == "powershell" and "가 나" not in " ".join(seen["cmd"])  # 경로는 명령 글이 아니라 환경 변수로
+    assert seen["env"]["SOLBOX_PPTX"].endswith("가 나.pptx") and "SaveAs($env:SOLBOX_PDF, 32)" in seen["cmd"][-1]
+
+
+def test_config_pdf_converter(tmp_path):
+    cfg = tmp_path / "config.toml"
+    base = 'data_dir = "data"\nsecret_key = "' + "k" * 20 + '"\n'
+    cfg.write_text(base, encoding="utf-8")
+    assert load_settings(cfg).pdf_converter == "auto" and load_settings(cfg).soffice_path is None
+    cfg.write_text(base + 'pdf_converter = "word"\n', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        load_settings(cfg)
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32" or not (shutil.which("soffice") or shutil.which("libreoffice")), reason="LibreOffice 가 없다")
+def test_real_libreoffice_conversion(app, user_client, db, settings):
+    p, deck = _built(user_client, db, settings)
+    r = user_client.post(f"/proposals/{p.id}/deck/pdf", follow_redirects=False)
+    assert "notice=pdf_built" in r.headers["location"], r.headers["location"]
+    pdf = pdf_export.pdf_path(deck)
+    assert pdf.read_bytes().startswith(b"%PDF") and pdf.stat().st_size > 10_000
+    assert list((settings.decks_dir / ".pdf-work").iterdir()) == []  # 작업 폴더는 지운다

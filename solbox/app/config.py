@@ -34,6 +34,8 @@ class Settings:
     transcribe_chunk_minutes: int = 10
     deck_background: Path | None = None  # 제안서 PPT 모든 장에 까는 배경 그림 (없으면 옅은 회색 바탕)
     proposal_review: bool = True  # 구성안을 만든 뒤 AI 가 한 번 더 검토해 고친다 (AI 호출이 한 번 늘어 1분쯤 더 걸린다)
+    pdf_converter: str = "auto"  # 제안서 PDF: auto | powerpoint | libreoffice | none (app/pdf_export.py)
+    soffice_path: str | None = None  # LibreOffice soffice 실행 파일 (비우면 PATH·흔한 설치 경로에서 찾는다)
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:
@@ -145,6 +147,8 @@ def load_settings(path: Path | None = None) -> Settings:
         data_dir = path.resolve().parent / data_dir
     raw["data_dir"] = data_dir
     _check_transcribe_settings(raw, path, data_dir / "models")
+    if raw.get("pdf_converter", "auto") not in ("auto", "powerpoint", "libreoffice", "none"):
+        raise _bad("pdf_converter", "auto, powerpoint, libreoffice, none 가운데 하나여야 합니다")
     if raw.get("deck_background"):
         deck_background = Path(str(raw["deck_background"]))
         raw["deck_background"] = deck_background if deck_background.is_absolute() else path.resolve().parent / deck_background

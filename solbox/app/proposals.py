@@ -941,6 +941,7 @@ def reset_for_new_direction(p: Proposal, decks_dir: Path) -> None:
     deck = decks_dir / str(p.id) / p.deck_name if p.deck_name else None
     if deck is not None:
         internal_deck_path(deck).unlink(missing_ok=True)
+        deck.with_suffix(".pdf").unlink(missing_ok=True)  # 제안서 PDF (베타 AJ, `pdf_export.pdf_path`)
     p.outline, p.outline_updated_at = None, None
     p.deck_name, p.deck_built_at = "", None
     p.chat_from_id = p.messages[-1].id if p.messages else None

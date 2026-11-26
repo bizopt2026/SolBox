@@ -159,6 +159,7 @@ POST_NOTICES = {
     "/proposals/{proposal_id}/outline/slides/{index}/check-all": "(칸 하나만 바뀌는 확인 표시: 알림 없음)", "/proposals/{proposal_id}/outline/slides/{index}/delete": "slide_deleted",
     "/proposals/{proposal_id}/outline/slides/{index}/move": "slide_moved", "/proposals/{proposal_id}/outline/slides": "slide_added",
     "/proposals/{proposal_id}/outline/slides/{index}/ai": "busy, ai_off, (작업이 시작되면 진행 상자)", "/proposals/{proposal_id}/outline/slides/{index}/undo": "slide_restored",
+    "/proposals/{proposal_id}/deck/pdf": "pdf_built, pdf_failed, pdf_unavailable",
     "/reports": "report_created, report_exists", "/reports/{report_id}/summary": "saved", "/reports/{report_id}/notes": "saved",
     "/reports/{report_id}/check": "report_checked", "/reports/{report_id}/plan": "report_planned, report_planned_unlinked",
     "/reports/{report_id}/confirm": "report_confirmed", "/reports/{report_id}/unconfirm": "report_unconfirmed, report_unconfirm_blocked",

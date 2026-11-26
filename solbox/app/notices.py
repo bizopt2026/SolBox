@@ -71,6 +71,9 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "slide_moved": ("ok", "슬라이드 순서를 바꿨습니다."),
     "slide_deleted": ("ok", "슬라이드를 삭제했습니다."),
     "slide_restored": ("ok", "AI 가 다시 쓰기 전의 장으로 되돌렸습니다."),
+    "pdf_built": ("ok", "PDF 를 만들었습니다. 'PDF 미리보기'로 열어 보세요."),
+    "pdf_failed": ("error", "PDF 를 만들지 못했습니다. PPT 는 그대로 쓸 수 있습니다 (관리자는 logs\\app.log 에서 원인을 볼 수 있습니다)."),
+    "pdf_unavailable": ("warn", "이 서버 PC 에는 PDF 로 바꿀 프로그램(PowerPoint 또는 LibreOffice)이 없습니다."),
     "fu_mine": ("ok", "내 할 일로 바꿨습니다."),
     "busy": ("warn", "이미 AI 작업이 진행 중입니다."),
     # 업무 보고

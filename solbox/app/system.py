@@ -248,6 +248,13 @@ def _check_transcriber(settings: Settings) -> Check:
     return ("음성 받아쓰기", None, t.label())
 
 
+def _check_pdf(settings: Settings) -> Check:
+    """제안서 PDF 만들기 (베타 AJ): 쓸 변환 프로그램. 없어도 문제는 아니다 (PDF 버튼이 보이지 않을 뿐)."""
+    from app import pdf_export
+
+    return ("PDF 만들기", None, pdf_export.describe(settings))
+
+
 def _check_pptx(settings: Settings) -> Check:
     """PPT 만들기: 빈 서식으로 한 장짜리 파일을 데이터 폴더에 써 보고 다시 읽는다 (베타 AC).
     문서 보안(DRM)·백신이 .pptx 를 바꾸거나 막으면 여기서 드러난다."""
@@ -323,6 +330,8 @@ CHECK_INFO: dict[str, tuple[str, str]] = {
                  "쓰려면 config.toml 의 transcriber 를 켜고 python -m app.cli stt-setup 으로 모델을 받은 뒤 서버를 다시 시작하세요."),
     "PPT 만들기": ("제안서 PPT 를 만들 수 있는지 봅니다 (빈 서식으로 한 장을 데이터 폴더에 써 보고 다시 읽습니다).",
                 "문서 보안(DRM)·백신이 데이터 폴더의 .pptx 파일을 바꾸거나 막지 않도록 데이터 폴더를 예외로 등록해 달라고 전산 담당에게 요청하세요."),
+    "PDF 만들기": ("제안서 PPT 를 PDF(미리보기·고객 전달용)로 바꿀 프로그램을 봅니다. 없어도 다른 기능에는 영향이 없고 PDF 버튼만 보이지 않습니다.",
+                 "쓰려면 서버 PC 에 PowerPoint 또는 LibreOffice 를 설치하세요. 서비스 계정에서 PowerPoint 가 열리지 않으면 config.toml 에 pdf_converter = \"libreoffice\" 를 적으세요."),
     "인증서": ("HTTPS 접속에 쓰는 인증서와 키 파일을 읽을 수 있는지 봅니다.", "python -m app.cli make-cert 로 다시 만들거나 config.toml 의 ssl_certfile·ssl_keyfile 경로를 고치세요."),
     "포트": ("서버가 접속을 받을 주소와 포트를 쓸 수 있는지 봅니다.", "다른 프로그램이 같은 포트를 쓰고 있으면 config.toml 의 port 를 바꾸거나 그 프로그램을 끄세요."),
 }
@@ -363,6 +372,7 @@ def run_checks(load: Callable[[], Settings], skip_port: bool = False, claude_tim
     results.append(_check_claude(settings, claude_timeout))
     results.append(_check_transcriber(settings))
     results.append(_check_pptx(settings))
+    results.append(_check_pdf(settings))
     cert = _check_cert(settings)
     if cert is not None:
         results.append(cert)

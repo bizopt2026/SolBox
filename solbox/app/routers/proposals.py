@@ -22,12 +22,13 @@ from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.deck import build_deck, replace_retry
+from app import pdf_export
 from app.sources import SourceLookup
 from app.knowledge import KnowledgeMirror, get_mirror, safe_name
 from app.main import render
 from app.models import BM, Customer, Opportunity, Project, Proposal, ProposalMessage, Solution, User
 from app.proposals import (
-    candidate_solutions, contact_lines, display_title, internal_deck_path, is_group, normalize_group_name, open_section, reset_for_new_direction,
+    candidate_solutions, contact_lines, deck_is_stale, display_title, internal_deck_path, is_group, normalize_group_name, open_section, reset_for_new_direction,
     section_summaries, start_job, step_states, target_name, target_search_names,
 )
 from app.routers._common import get_deletable_or_404, get_or_404, list_filter, paginate, resync_objects, search_by_name, submitted_fields, sort_rows
@@ -540,7 +541,7 @@ def build(
         return _detail_page(request, db, p, user, status_code=400, deck_error=deck_failure_text(exc))
     if old_name and old_name != name:
         # 옛 파일 지우기는 힘껏만 한다: 새 제안서는 이미 저장됐다. Windows 에서 파워포인트가 연 파일은 PermissionError 가 난다 (남겨 두고 로그만).
-        for old in (folder / old_name, internal_deck_path(folder / old_name)):
+        for old in (folder / old_name, internal_deck_path(folder / old_name), pdf_export.pdf_path(folder / old_name)):
             try:
                 old.unlink(missing_ok=True)
             except OSError:
@@ -584,6 +585,54 @@ def download(
     suffix = f"_{DECK_VERSIONS[version]}.pptx"
     disposition = f'attachment; filename="proposal-{p.id}-{DECK_ASCII[version]}.pptx"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + suffix)
     return FileResponse(path, media_type=PPTX_TYPE, headers={"Content-Disposition": disposition})
+
+
+def _customer_deck(request: Request, p: Proposal):
+    """지금 고객용 제안서 파일. 없거나 두 파일로 나누기 전의 옛 파일이면 None."""
+    if not p.deck_name:
+        return None
+    path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name
+    return path if path.is_file() and internal_deck_path(path).is_file() else None
+
+
+@router.post("/{proposal_id}/deck/pdf")
+def make_pdf(
+    proposal_id: int, request: Request, back: str = Form(""),
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """고객용 제안서를 PDF 로 바꾼다 (베타 AJ, `app/pdf_export.py`). 요청 안에서 끝까지 기다린다 (보통 수십 초, 최대 `PDF_TIMEOUT_S`).
+    PDF 는 고객용 파일에서만 만든다 (내부 검토용 노트가 PDF 에 들어가지 않게)."""
+    p = get_or_404(db, Proposal, proposal_id)
+    settings = request.app.state.settings
+    suffix = "/outline#deck" if back == "outline" else "#deck"
+    deck = _customer_deck(request, p)
+    if deck is None or deck_is_stale(p):
+        raise HTTPException(status_code=400, detail="먼저 PPT 를 (다시) 만드세요.")
+    if not pdf_export.methods(settings):
+        return notices.redirect(f"/proposals/{p.id}{suffix}", "pdf_unavailable")
+    db.rollback()  # 긴 변환 동안 읽기 트랜잭션을 잡고 있지 않는다
+    try:
+        pdf_export.convert(deck, settings)
+    except pdf_export.PdfError as e:
+        log.warning("제안서 %s PDF 를 만들지 못했습니다: %s", proposal_id, e)
+        return notices.redirect(f"/proposals/{proposal_id}{suffix}", "pdf_failed")
+    return notices.redirect(f"/proposals/{proposal_id}{suffix}", "pdf_built")
+
+
+@router.get("/{proposal_id}/deck/pdf")
+def download_pdf(
+    proposal_id: int, request: Request, download: str = "",
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+):
+    """고객용 제안서의 PDF. 기본은 브라우저에서 여는 미리보기(`inline`), `?download=1` 이면 내려받기."""
+    p = get_or_404(db, Proposal, proposal_id)
+    deck = _customer_deck(request, p)
+    pdf = pdf_export.pdf_path(deck) if deck is not None else None
+    if pdf is None or not pdf.is_file():
+        raise HTTPException(status_code=404, detail="만든 PDF 가 없습니다.")
+    mode = "attachment" if download else "inline"
+    disposition = f'{mode}; filename="proposal-{p.id}-customer.pdf"; filename*=UTF-8\'\'' + quote(safe_name(display_title(p)) + "_고객용.pdf")
+    return FileResponse(pdf, media_type="application/pdf", headers={"Content-Disposition": disposition})
 
 
 @router.post("/{proposal_id}/target")

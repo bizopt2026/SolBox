@@ -37,7 +37,11 @@
   </div>
   <div class="file-actions">
     {% if proposal.deck_name and not stale and not old %}<a class="button primary" href="/proposals/{{ proposal.id }}/deck">고객용 PPT 내려받기</a>
-    <a class="button small" href="/proposals/{{ proposal.id }}/deck?version=internal" title="발표자 노트에 출처와 확인할 점이 들어 있습니다. 고객에게 보내지 마세요.">내부 검토용 PPT</a>{% endif %}
+    <a class="button small" href="/proposals/{{ proposal.id }}/deck?version=internal" title="발표자 노트에 출처와 확인할 점이 들어 있습니다. 고객에게 보내지 마세요.">내부 검토용 PPT</a>
+    {% set pdf = deck_pdf(proposal) %}
+    {% if pdf.exists %}<a class="button small" href="/proposals/{{ proposal.id }}/deck/pdf" target="_blank" rel="noopener">PDF 미리보기</a>
+    <a class="button small" href="/proposals/{{ proposal.id }}/deck/pdf?download=1">고객용 PDF 내려받기</a>
+    {% elif pdf.can and not deck_busy %}<form method="post" action="/proposals/{{ proposal.id }}/deck/pdf">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}<button type="submit" class="small" data-busy-label="PDF 만드는 중…" title="고객용 PPT 를 PDF 로 바꿉니다 (30초~1분). 브라우저에서 바로 열어 볼 수 있고, 고객에게는 PDF 로 보내는 것이 안전합니다.">PDF 만들기 (미리보기)</button></form>{% endif %}{% endif %}
     {% if deck_busy %}
     <span class="muted">AI 작업이 끝난 뒤 생성할 수 있습니다.</span>
     {% else %}
