@@ -1,0 +1,22 @@
+{# 계획 카드의 "AI 가 고친 초안이 있어요" 띠 (#plan-draft): AI 계획 초안·대화 답이 낸 초안은 표에 바로 들어가지 않고 여기 머문다.
+   "이 초안 쓰기"를 눌러야 표로 옮긴다 (넘어온 줄은 넘어온 표시 유지). 대화 답이 끝나면 `_chat_live.html` 이 이 띠만 바꾼다 (`oob`). #}
+{% from "_macros.html" import rev_fields %}
+{% set d = report.plan_draft %}
+<div id="plan-draft"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
+{% if d and not confirmed %}
+{% set mine = form.which == "draft" %}
+<div class="draft-band" role="region" aria-label="AI 계획 초안">
+  <form method="post" action="/reports/{{ report.id }}/plan/apply-draft" class="draft-band-row">
+    {{ rev_fields(report, form.conflict if mine else none, "/reports/" ~ report.id ~ "?step=plan") }}
+    <p><b>AI 가 고친 초안이 있어요</b> <span class="muted">{{ "대화 답" if d.source == "chat" else "AI 계획 초안" }} · 항목 {{ draft_changes["items"] }}개{% if draft_changes.added %} · 추가 {{ draft_changes.added }}{% endif %}{% if draft_changes.changed %} · 고침 {{ draft_changes.changed }}{% endif %}{% if draft_changes.removed %} · 빠짐 {{ draft_changes.removed }}{% endif %}</span></p>
+    <button type="submit" class="primary">이 초안 쓰기</button>
+  </form>
+  <details class="more">
+    <summary>초안 보기</summary>
+    {% if d.direction %}<p><b>방향</b> {{ d.direction }}</p>{% endif %}
+    <ol class="draft-items">{% for it in d["items"] %}<li>{% if it.carried_from %}<span class="badge tone-violet">지난 계획</span> {% endif %}{{ it.task }}<span class="muted">{% if it.owner %} · {{ it.owner }}{% endif %}{% if it.due %} · {{ it.due[5:] }}{% endif %}{% if it.customer %} · {{ it.customer }}{% endif %}</span></li>{% endfor %}</ol>
+    <p class="help">"이 초안 쓰기"를 누르면 아래 표가 이 초안으로 바뀝니다. 초안에 없는 "지난 계획" 줄은 그대로 남습니다.</p>
+  </details>
+</div>
+{% endif %}
+</div>

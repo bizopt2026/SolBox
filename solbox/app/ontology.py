@@ -183,6 +183,10 @@ JOB_KINDS = {
     "intake_analyze": "올린 파일 정리",
     "ai_ping": "AI 연결 확인",
     "duplicate_names": "중복 후보 AI 확인",
+    "report_summary": "업무 보고 실적 요약 글",
+    "report_plan": "업무 보고 계획 초안",
+    "report_chat": "업무 보고 계획 대화 답변",
+    "report_notes": "업무 보고 구역별 보고 문구",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -198,6 +202,10 @@ JOB_EXPECTED = {
     "intake_analyze": "보통 1분 안에",
     "ai_ping": "보통 10초 안에",
     "duplicate_names": "보통 30초 안에",
+    "report_summary": "보통 30초 안에",
+    "report_plan": "보통 1분 안에",
+    "report_chat": "보통 1분 안에",
+    "report_notes": "보통 30초 안에",
 }
 
 ERROR_KINDS = {
@@ -1393,6 +1401,9 @@ DELETE_IMPACT: dict[str, dict] = {
                          ("신규 사업(BM)", "R35", "bm"), ("솔루션", "R14", "solution"))},
 }
 
+
+# 업무 보고 계획 대화의 예시 질문 (입력칸 옆 칩, 누르면 그 글을 보낸다)
+REPORT_CHAT_STARTERS: tuple[str, ...] = ("우선순위 3개만 남기면?", "담당자별로 고르게 나눠 줘")
 
 # 제안 대화 입력칸 위의 시작 질문 (아직 이 방향의 대화가 없을 때만 화면에 칩으로 나온다)
 PROPOSAL_CHAT_STARTERS: tuple[str, ...] = (

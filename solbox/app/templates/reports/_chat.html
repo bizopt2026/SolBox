@@ -1,0 +1,31 @@
+{% from "_macros.html" import ai_attrs %}{% set aig = ai_gate() %}
+{# 계획 대화 구역 (#chat-live, 제안 대화 `proposals/_chat.html` 과 같은 틀): 말풍선 목록 → 맨 끝 진행 조각 → 예시 질문 칩 → 입력칸.
+   답마다 AI 가 고친 계획은 위 계획 카드의 "AI 가 고친 초안" 띠에 머문다 (표에는 "이 초안 쓰기"로). 확정한 계획에서는 대화를 막는다. #}
+{% import "reports/_chat_state.html" as cs with context %}
+{% set active = cs.active %}{% set state = cs.state %}
+{% set msgs = report.messages | list %}
+{% set older = msgs[:-6] if msgs | length > 6 else [] %}
+{% set recent = msgs[older | length:] %}
+{% macro msg(m) %}<div class="chat-msg {{ m.role }}"><span class="chat-who">{{ "나" if m.role == "user" else "AI" }}{% if m.created_at %} · {{ kdatetime(m.created_at) }}{% endif %}</span>{% if m.role == "user" %}{{ m.content }}{% else %}<div class="md">{{ m.content | md }}</div>{% endif %}</div>{% endmacro %}
+<div id="chat-live" class="chat-live" data-state="{{ state }}">
+<div class="chat-list chat-scroll" data-chat-scroll>
+  {% if older %}<details class="more"><summary>이전 대화 {{ older | length }}개 보기</summary><div class="chat-list">{% for m in older %}{{ msg(m) }}{% endfor %}</div></details>{% endif %}
+  {% for m in recent %}{{ msg(m) }}{% else %}{% if not older %}<div class="empty chat-empty"><p class="muted">"AI 계획 초안"을 만든 뒤 우선순위·담당·기한을 말로 다듬어 보세요. 고친 계획은 위 표의 초안 띠에 올라옵니다.</p></div>{% endif %}{% endfor %}
+  {% include "reports/_chat_tail.html" %}
+</div>
+{% if chat_error is defined and chat_error %}<p class="error" role="alert">{{ chat_error }}</p>{% endif %}
+{% if confirmed %}
+<p class="muted">확정한 계획이라 대화로 고칠 수 없습니다. 확정을 풀면 다시 대화할 수 있습니다.</p>
+{% else %}
+<form method="post" action="/reports/{{ report.id }}/chat" class="composer" id="chat-form">
+  <label class="sr-only" for="chat-message">메시지</label>
+  <textarea id="chat-message" name="message" rows="2" required placeholder="방향, 우선순위, 담당·기한을 말해 보세요"{% if active %} disabled aria-describedby="chat-wait"{% endif %}>{% if chat_text is defined and chat_text %}{{ chat_text }}{% endif %}</textarea>
+  <button type="submit" class="primary"{% if active %} disabled{% endif %}{{ ai_attrs(aig) }}>보내기</button>
+  <p class="composer-hint muted" id="chat-hint">Enter 는 줄바꿈, Ctrl+Enter(Mac 은 ⌘+Enter)로 보냅니다.</p>
+  {% if active %}<p id="chat-wait" class="composer-note muted">{{ "답변이 끝나면 이어서 물을 수 있습니다" if cs.chat_job else "AI 작업이 끝나면 이어서 물을 수 있습니다" }}</p>{% endif %}
+</form>
+<form method="post" action="/reports/{{ report.id }}/chat" class="starters" aria-label="예시 질문">
+  {% for text in ont.REPORT_CHAT_STARTERS %}<button type="submit" name="message" value="{{ text }}" class="chip starter" data-starter="{{ text }}"{% if active %} disabled{% endif %}{{ ai_attrs(aig) }}>{{ text }}</button>{% endfor %}
+</form>
+{% endif %}
+</div><!--/chat-live-->

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, pill, meta_card, form_token %}
-{% block title %}{{ title }}{% endblock %}
+{% from "_macros.html" import ai_note, detail_head, pill, meta_card, form_token %}
+{% block title %}{{ page_title or title }}{% endblock %}
 {% block content %}
 {% set confirmed = report.status == ont.REPORT_STATUS_CONFIRMED %}
 {% set rid = report.id %}
+{% set aig = ai_gate() %}
+{% set busy = report.active_job is not none and report.active_job.status in ont.JOB_ACTIVE %}
 {% set heads = {"result": ("다음: 지난 계획 점검 →", "?step=check"), "check": ("다음: 다음 계획 →", "?step=plan")} %}
 {% set status_html %}{{ pill("report_unit", report.unit) }} {{ pill("report_status", report.status) }}{% endset %}
 {# 제목 줄: 삭제 → 다음 동작 하나 (실적·점검은 다음 단계로, 계획·확정 단계는 확정 / 확정 풀기). 따로 고치는 화면은 없다 (각 카드의 폼에서 고친다) #}
@@ -15,6 +17,7 @@
   {% endif %}
 {% endcall %}
 {% include "proposals/_stepbar.html" %}
+{{ ai_note(aig, id="ai-note-report") }}
 <div class="dgrid report-grid">
 <div class="dmain">
   {% include "reports/_" ~ step ~ ".html" %}

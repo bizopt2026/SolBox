@@ -1,5 +1,5 @@
 {# 1단계 실적: 숫자 카드 8칸 → 실적 요약 글(+ 이슈·건의) → 영업기회 단계 변화 → 제안 진행 → 주요 활동. 구역마다 아래에 접힌 "보고 문구". #}
-{% from "_macros.html" import pill, rev_fields %}
+{% from "_macros.html" import ai_attrs, pill, rev_fields %}
 {% from "reports/_notes.html" import notes_box with context %}
 {% set k = data.kpis %}
 {% set vs = {"day": "앞 평일 대비", "week": "지난주 대비", "month": "지난달 대비"} %}
@@ -23,14 +23,18 @@
 
 {% set sf = form["values"] if form.which == "summary" else none %}
 <section class="card" id="summary" aria-labelledby="summary-h">
-  <div class="card-head"><h2 id="summary-h">실적 요약 글</h2></div>
-  {# AI 요약 쓰기 버튼은 이 자리에 붙는다 (다음 작업) #}
-  {% if report.summary_md %}<div class="md">{{ report.summary_md | md }}</div>{% else %}<p class="muted">아직 요약 글이 없습니다. 아래 "직접 고치기"에서 이번 기간의 주요 성과·이슈를 적어 주세요.</p>{% endif %}
+  <div class="card-head"><h2 id="summary-h">실적 요약 글</h2>
+    <form method="post" action="/reports/{{ report.id }}/ai/summary"><button type="submit" class="small"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, by="ai-note-report") }} data-busy-label="쓰는 중…">{{ "AI 요약 다시 쓰기" if report.summary_md else "AI 요약 쓰기" }}</button></form>
+  </div>
+  {% with kinds=("report_summary",) %}{% include "reports/_job_here.html" %}{% endwith %}
+  {% if report.summary_md %}<div class="md">{{ report.summary_md | md }}</div>
+  {% if summary_job %}<p class="muted small" data-summary-origin>AI 초안 · {{ kdatetime(summary_job.finished_at) if summary_job.finished_at else "" }}{% if report.summary_md.strip() != (summary_job.result or "").strip() %} · 직접 고침{% endif %}</p>{% endif %}
+  {% else %}<p class="muted">아직 요약 글이 없습니다. "AI 요약 쓰기"로 초안을 받거나 아래 "직접 고치기"에서 이번 기간의 주요 성과·이슈를 적어 주세요.</p>{% endif %}
   {% if report.highlights_md %}<h3>{{ ont.prop("report", "highlights_md") }}</h3><div class="md">{{ report.highlights_md | md }}</div>{% endif %}
   <details class="edit-summary"{% if sf is not none %} open{% endif %}>
     <summary>직접 고치기</summary>
     <form method="post" action="/reports/{{ report.id }}/summary" class="stack">
-      {{ rev_fields(report, form.conflict if sf is not none else none, "/reports/" ~ report.id) }}
+      {{ rev_fields(report, form.conflict if sf is not none else none, "/reports/" ~ report.id ~ "?step=result") }}
       <label for="f-summary_md">{{ ont.prop("report", "summary_md") }}</label>
       <textarea id="f-summary_md" name="summary_md" rows="6" aria-describedby="h-summary_md">{{ sf.summary_md if sf is not none else report.summary_md }}</textarea>
       <p class="help" id="h-summary_md">마크다운으로 적을 수 있습니다 (- 목록, **굵게**). 자료에 없는 실적은 쓰지 않습니다.</p>

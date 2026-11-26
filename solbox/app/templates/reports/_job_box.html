@@ -1,0 +1,15 @@
+{# 구역 안의 AI 진행 상자 (요약 글·계획 초안·보고 문구): 대기·진행 중에 그 구역 맨 위에 그린다. 2초마다 `/reports/{id}/progress` 를 불러 바꾸고,
+   끝나면 서버가 쪽을 새로 고치게(HX-Refresh) 한다. JS 가 없어도 글은 그대로 보인다 (새로 고침하면 갱신). 필요한 값: report, job #}
+{% set what = {"report_summary": "실적 요약 글을", "report_plan": "계획 초안을", "report_notes": "보고 문구를"}.get(job.kind, "결과를") %}
+{% set stalled = ai_off and job.status == "pending" %}
+<div id="report-job" class="job-box" role="status" aria-live="polite"
+  {% if not stalled %}hx-get="/reports/{{ report.id }}/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
+  {% elif job.status == "pending" %}
+  <p><span class="pulse" aria-hidden="true"></span><b>AI 가 {{ what }} 쓸 차례를 기다립니다.</b> {% if job.kind in labels.JOB_EXPECTED %}<span class="muted">(시작하면 {{ labels.JOB_EXPECTED[job.kind] }} 끝납니다)</span>{% endif %}</p>
+  {% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %}<p class="muted">앞: {{ ahead.lines | join(", ") }}</p>{% endif %}
+  {% else %}
+  <p><span class="pulse" aria-hidden="true"></span><b>AI 가 {{ what }} 쓰는 중…</b> <span class="muted">{{ wait_detail(job) }}</span></p>
+  {% endif %}
+  <p class="muted job-box-note">이 쪽을 닫아도 작업은 계속됩니다. 끝나면 이 자리에 나타납니다.</p>
+</div>

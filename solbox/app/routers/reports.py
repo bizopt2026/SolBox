@@ -9,16 +9,20 @@ from datetime import date
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from sqlalchemy import select
+from fastapi.responses import RedirectResponse, Response
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app import activity_rows, guards, notices, ontology, report_periods, reports, ui
+from app.ai import gate
+from app.ai.gate import keeps_text, require_ai_on
+from app.ai.report_tasks import PLAN_OPEN
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
 from app.idparse import parse_id
 from app.main import render
-from app.models import Customer, Report, ReportPlanItem, User
+from app.models import Customer, Report, ReportMessage, ReportPlanItem, User
 from app.records import rows as form_rows
 from app.relations import report_label
 from app.routers._common import get_or_404, paginate
@@ -32,6 +36,12 @@ NOTE_STEP = {"kpi": "result", "opps": "result", "proposals": "result", "issues":
 ACTIVITY_PREVIEW = 5  # 실적 단계의 "주요 활동" 에 보이는 수 (나머지는 활동 기록 목록에서)
 _WD = "월화수목금토일"
 PLAN_LOCKED = "확정한 계획은 고칠 수 없습니다. 확정·파일 단계에서 확정을 먼저 풀어 주세요. 저장하지 않았습니다."
+EMPTY_MESSAGE = "메시지를 입력하세요."
+MAX_MESSAGE = 4000
+TOO_LONG_MESSAGE = f"메시지는 {MAX_MESSAGE}자까지 보낼 수 있습니다."
+CHAT_BUSY = "이미 AI 작업이 진행 중이라 보내지 못했습니다. 쓴 글은 아래에 남겨 두었으니 작업이 끝나면 다시 보내 주세요."
+NO_DRAFT = "옮길 AI 계획 초안이 없습니다."
+JOB_PLACE = {"report_summary": ("result", "summary"), "report_plan": ("plan", "plan"), "report_chat": ("plan", "chat"), "report_notes": ("files", "report-notes")}  # 작업 → (단계, 구역 앵커)
 
 
 # ---- 기간 글 ----
@@ -156,7 +166,7 @@ def _steps(r: Report, current: str) -> list[dict]:
     ]
 
 
-def _detail_page(request: Request, db: Session, r: Report, step: str, status_code: int = 200, form: dict | None = None):
+def _detail_page(request: Request, db: Session, r: Report, step: str, status_code: int = 200, form: dict | None = None, **extra):
     """상세 화면. `form` = 충돌로 다시 그릴 때 {"which": 폼 이름, "conflict": Conflict, "values": 쓴 값} (그 폼만 쓴 값으로 채운다)."""
     step = step if step in STEP_KEYS else DEFAULT_STEP.get(r.status, "result")
     data = reports.data_of(db, r)
@@ -164,19 +174,24 @@ def _detail_page(request: Request, db: Session, r: Report, step: str, status_cod
     check = reports.items_to_check(db, r)
     plan = list(r.plan_items)
     nxt = report_periods.next_period(r.unit, r.period_start, r.period_end)
-    title = report_label(r)
+    label = report_label(r)
+    title = f"{ontology.REPORT_UNITS.get(r.unit, '')} 업무 보고"
+    notes = reports.notes_of(r)
     author = db.get(User, r.created_by_id) if r.created_by_id else None
     sub = f"{period_text(r.unit, r.period_start, r.period_end)} · 다음 기간 {short_period(r.unit, *nxt)}"
     if author is not None:
         sub += f" · 만든 사람 {author.name or author.username}"
     return render(
         request, "reports/detail.html", status_code=status_code,
-        report=r, title=title, crumbs=ui.crumbs("report", title), sub=sub, step=step, steps=_steps(r, step), stepbar_label="업무 보고 단계",
+        report=r, title=title, page_title=label, crumbs=ui.crumbs("report", label), sub=sub, step=step, steps=_steps(r, step), stepbar_label="업무 보고 단계",
         data=data, prev=prev, check=check, plan=plan, next_text=short_period(r.unit, *nxt), period=period_text(r.unit, r.period_start, r.period_end),
-        notes=reports.notes_of(r), default_notes=reports.default_notes(data, check, plan),
+        notes=notes, default_notes=reports.default_notes(data, check, plan), note_flags=reports.note_line_warnings(notes, data, check, plan),
+        summary_job=reports.last_summary_job(db, r) if step == "result" else None, draft_changes=reports.draft_changes(r) if r.plan_draft else None,
+        plan_open=PLAN_OPEN,
         unconfirm_problem=reports.unconfirm_problem(db, r) if r.status == ontology.REPORT_STATUS_CONFIRMED else None,
         activity_preview=ACTIVITY_PREVIEW, form=form or {}, meta=ui.stamp_info(db, r),
         customer_names=list(db.scalars(select(Customer.name).order_by(Customer.name))) if step == "plan" else [],  # 계획 표의 고객 칸 고르기 목록
+        **extra,
     )
 
 
@@ -274,12 +289,18 @@ def save_plan(
 
 
 @router.post("/{report_id}/confirm")
-def confirm(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once)):
-    """계획 확정: 지금 숫자를 스냅숏으로 고정하고 비어 있는 구역 문구를 기본 문장으로 채운다. 이미 확정이면 그대로 둔다."""
+def confirm(request: Request, report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db), once: Once = Depends(form_once)):
+    """계획 확정: 지금 숫자를 스냅숏으로 고정하고 비어 있는 구역 문구를 기본 문장으로 채운다. 이미 확정이면 그대로 둔다.
+    AI 처리기가 켜져 있으면 기본 문장으로 채운 구역을 AI 보고 문구(`report_notes`)로 한 번 다듬는다 (그 사이 사람이 고친 구역은 덮지 않는다).
+    꺼져 있으면 작업을 넣지 않고 기본 문장 그대로 둔다 (확정은 AI 없이 된다)."""
     r = get_or_404(db, Report, report_id)
     if r.status != ontology.REPORT_STATUS_CONFIRMED:
+        before = reports.notes_of(r)
         reports.confirm(db, r, user)
         db.commit()
+        filled = {k: v for k, v in reports.notes_of(r).items() if not before.get(k)}
+        if filled and not gate.ai_is_off(request):
+            reports.start_job(db, r, "report_notes", user, {"replace": filled})  # 다른 AI 작업 중이면 넣지 않는다 (기본 문장 그대로)
     return once.done(_back(r, "files", "report_confirmed"))
 
 
@@ -305,3 +326,125 @@ def delete(report_id: int, request: Request, user: User = Depends(require_user),
     db.commit()
     shutil.rmtree(folder, ignore_errors=True)
     return notices.redirect("/reports", "deleted")
+
+
+# ---- AI 작업 (설계 §5.5): 요약 글·계획 초안·계획 대화·보고 문구. 결과는 초안이고 화면에서 고친다 ----
+
+def _busy(r: Report) -> bool:
+    return r.active_job is not None and r.active_job.status in ontology.JOB_ACTIVE
+
+
+def _start(db: Session, r: Report, kind: str, user: User, extra: dict | None = None):
+    step, anchor = JOB_PLACE[kind]
+    if reports.start_job(db, r, kind, user, extra) is None:
+        return _back(r, step, "busy", anchor)
+    return RedirectResponse(f"/reports/{r.id}?step={step}#{anchor}", status_code=303)  # 작업이 시작됨: 진행 상자가 알림을 대신한다
+
+
+def _unlocked(r: Report) -> None:
+    if r.status == ontology.REPORT_STATUS_CONFIRMED:
+        raise HTTPException(status_code=409, detail=PLAN_LOCKED)
+
+
+@router.post("/{report_id}/ai/summary", dependencies=[Depends(require_ai_on)])
+def ai_summary(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """AI 요약 쓰기: 집계를 보고 실적 요약 글(마크다운 5~10줄)을 쓴다. 쓴 글은 "직접 고치기"로 고친다."""
+    return _start(db, get_or_404(db, Report, report_id), "report_summary", user)
+
+
+@router.post("/{report_id}/ai/plan", dependencies=[Depends(require_ai_on)])
+def ai_plan(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """AI 계획 초안: 결과는 표가 아니라 초안(`plan_draft`)에 둔다 ("이 초안 쓰기"로 옮긴다). 확정한 계획에는 만들지 않는다."""
+    r = get_or_404(db, Report, report_id)
+    _unlocked(r)
+    return _start(db, r, "report_plan", user)
+
+
+@router.post("/{report_id}/ai/notes", dependencies=[Depends(require_ai_on)])
+def ai_notes(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """보고 문구 다시 쓰기: 모든 구역의 문구를 AI 가 다시 쓴다 (숫자는 화면이 "숫자 확인"으로 검사한다)."""
+    return _start(db, get_or_404(db, Report, report_id), "report_notes", user)
+
+
+def _chat_ai_off(request: Request, exc):
+    """AI 꺼짐: 쓴 글을 입력칸에 채운 계획 단계를 409 로 다시 그린다 (안내는 화면의 AI 꺼짐 줄 하나). 글이 없거나 보고가 없으면 보통의 돌려보내기."""
+    if not exc.first("message").strip():
+        return None
+    with request.app.state.session_factory() as db:
+        r = db.get(Report, request.path_params.get("report_id"))
+        if r is None:
+            return None
+        return _detail_page(request, db, r, "plan", 409, chat_text=exc.first("message"))
+
+
+@router.post("/{report_id}/chat", dependencies=[Depends(require_ai_on)])
+@keeps_text(_chat_ai_off)
+def chat(report_id: int, request: Request, message: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """계획 대화: 내 글은 작업과 한 트랜잭션에 저장하고, AI 답과 고친 계획(초안)은 작업이 쓴다."""
+    r = get_or_404(db, Report, report_id)
+    _unlocked(r)
+    text = message.strip()
+    if not text:
+        return _detail_page(request, db, r, "plan", 400, chat_error=EMPTY_MESSAGE)
+    if len(text) > MAX_MESSAGE:
+        return _detail_page(request, db, r, "plan", 400, chat_error=TOO_LONG_MESSAGE, chat_text=text)
+    if _busy(r):
+        return _detail_page(request, db, r, "plan", 409, chat_error=CHAT_BUSY, chat_text=text)
+    rid = r.id
+    if reports.start_job(db, r, "report_chat", user, rows=[ReportMessage(report_id=rid, role="user", content=text)]) is None:
+        if not db.scalar(select(func.count()).select_from(Report).where(Report.id == rid)):
+            return RedirectResponse("/reports", status_code=303)
+        return _detail_page(request, db, r, "plan", 409, chat_error=CHAT_BUSY, chat_text=text)
+    return RedirectResponse(f"/reports/{rid}?step=plan#chat", status_code=303)
+
+
+@router.post("/{report_id}/chat/retry", dependencies=[Depends(require_ai_on)])
+def chat_retry(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = get_or_404(db, Report, report_id)
+    job = r.active_job
+    last = r.messages[-1] if r.messages else None
+    if job is None or job.kind != "report_chat" or job.status != ontology.JOB_FAILED or last is None or last.role != "user":
+        raise HTTPException(status_code=400, detail="다시 시도할 수 있는 대화 작업이 없습니다.")
+    return _start(db, r, "report_chat", user)
+
+
+@router.get("/{report_id}/chat/live")
+def chat_live(report_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """대화 구역 조각 (제안 대화와 같은 방식): 대기·진행 중에는 맨 끝 말풍선만 스스로 다시 부르고, 끝나면 대화 구역 전체로 바꾼다."""
+    r = db.get(Report, report_id)
+    if r is None:
+        return Response("", headers={"HX-Redirect": "/reports"})
+    ctx = dict(report=r, confirmed=r.status == ontology.REPORT_STATUS_CONFIRMED, plan_open=PLAN_OPEN)
+    if _busy(r):
+        return render(request, "reports/_chat_tail.html", **ctx)
+    # 끝났다: 대화 구역 전체(입력칸 켜짐·최종 말풍선)로 바꾸고, 위 계획 카드의 "AI 가 고친 초안" 띠도 같은 응답으로 바꾼다 (hx-swap-oob)
+    response = render(request, "reports/_chat_live.html", form={}, draft_changes=reports.draft_changes(r) if r.plan_draft else None, **ctx)
+    response.headers["HX-Retarget"] = "#chat-live"
+    response.headers["HX-Reswap"] = "outerHTML"
+    return response
+
+
+@router.get("/{report_id}/progress")
+def progress(report_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """구역 안 진행 상자 조각: 작업이 끝나면 쪽을 새로 고쳐(HX-Refresh) 결과를 보인다."""
+    r = db.get(Report, report_id)
+    if r is None:
+        return Response("", headers={"HX-Redirect": "/reports"})
+    if _busy(r):
+        return render(request, "reports/_job_box.html", report=r, job=r.active_job)
+    return Response("작업이 끝났습니다.", headers={"HX-Refresh": "true"})
+
+
+@router.post("/{report_id}/plan/apply-draft")
+def apply_draft(report_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db), rev: Rev = Depends(rev_form)):
+    """"이 초안 쓰기": AI 초안을 계획 항목 표로 옮긴다 (AI 문 아님). 넘어온 줄은 넘어온 표시를 지킨다. 표가 그 사이 바뀌었으면 409."""
+    r = get_or_404(db, Report, report_id)
+    _unlocked(r)
+    if not r.plan_draft:
+        raise HTTPException(status_code=400, detail=NO_DRAFT)
+    if conflict := guards.check_rev(r, rev):
+        return _detail_page(request, db, r, "plan", 409, {"which": "draft", "conflict": conflict, "values": {}})
+    unlinked = reports.apply_plan_draft(db, r, activity_rows.load_index(db))
+    reports.start_planning(r)
+    db.commit()
+    return _back(r, "plan", "report_planned_unlinked" if unlinked else "report_draft_applied", "plan")

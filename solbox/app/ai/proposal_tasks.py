@@ -332,9 +332,11 @@ def _recent_messages(db: Session, p: Proposal) -> list[ProposalMessage]:
 STREAM_FALLBACK_KINDS = ("bad_output", "unknown")  # 인증·한도·네트워크·시간 초과는 다시 실행해도 같으니 대체 실행하지 않는다
 
 
-def _chat_answer(runner: ClaudeRunner, prompt: str, bind, job_id: int | None, timeout_s: int) -> str:
+def _chat_answer(runner: ClaudeRunner, prompt: str, bind, job_id: int | None, timeout_s: int, allowed_tools: tuple[str, ...] | None = None) -> str:
     """실시간(스트리밍)으로 답을 받는다. 글이 한 글자도 오기 전에 스트리밍이 깨졌으면(CLI 버전·환경 문제 등) 한 번만
-    스트리밍 없는 실행으로 다시 받는다. 사용자는 실시간 타이핑만 못 볼 뿐 답을 받는다."""
+    스트리밍 없는 실행으로 다시 받는다. 사용자는 실시간 타이핑만 못 볼 뿐 답을 받는다.
+    `allowed_tools` 를 주면 그 도구로만 돈다 (업무 보고 대화는 `()`: 도구 없이). 주지 않으면 실행기 기본(파일 도구)."""
+    tools = {} if allowed_tools is None else {"allowed_tools": allowed_tools}
     writer = _partial_writer(bind, job_id)
     got_text = [False]
 
@@ -343,12 +345,12 @@ def _chat_answer(runner: ClaudeRunner, prompt: str, bind, job_id: int | None, ti
         writer(text)
 
     try:
-        return runner.run_stream(prompt, on_text=on_text, timeout_s=timeout_s)
+        return runner.run_stream(prompt, on_text=on_text, timeout_s=timeout_s, **tools)
     except ClaudeError as e:
         if got_text[0] or e.kind not in STREAM_FALLBACK_KINDS:
             raise
         log.warning("제안 채팅 스트리밍 실패, 스트리밍 없는 실행으로 대체합니다 (작업 %s, %s): %s", job_id, e.kind, e.message)
-    return runner.run(prompt, timeout_s=timeout_s)
+    return runner.run(prompt, timeout_s=timeout_s, **tools)
 
 
 def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) -> str:

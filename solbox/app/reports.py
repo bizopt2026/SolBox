@@ -2,14 +2,15 @@
 질의 수는 기록 수와 무관하다 (목록은 selectinload / joinedload 로 한꺼번에 읽는다)."""
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app import ontology, report_periods
 from app.models import (
-    Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution,
+    AIJob, Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution,
 )
 
 
@@ -239,7 +240,7 @@ def confirm(db: Session, report: Report, user) -> None:
     db.flush()
 
 
-NOT_CONFIRMED = "확정된 보고가 아니라서 풀 것이 없어요."
+NOT_CONFIRMED = "확정된 보고가 아니라서 풀 것이 없습니다."
 
 
 def unconfirm_problem(db: Session, report: Report) -> str | None:
@@ -255,7 +256,7 @@ def unconfirm_problem(db: Session, report: Report) -> str | None:
     ).first()
     if nxt is not None:
         when = report_periods.label(nxt.unit, nxt.period_start, nxt.period_end)
-        return f"다음 보고({when})가 이 계획을 이미 점검해서 확정을 풀 수 없어요. 그 보고의 점검을 먼저 되돌려 주세요."
+        return f"다음 보고({when})가 이 계획을 이미 점검해서 확정을 풀 수 없습니다. 그 보고의 점검을 먼저 되돌려 주세요."
     return None
 
 
@@ -336,6 +337,17 @@ def _day(text: str) -> date | None:
         return None
 
 
+def _customer_for(item: ReportPlanItem, name: str, index) -> int | None:
+    """계획 줄의 고객 번호: 이미 이어진 고객과 이름이 같으면 그 연결을 그대로 두고 (이름이 겹치는 고객이 생겨도 끊기지 않게),
+    아니면 `index`(activity_rows.LinkIndex)로 정확히 하나 맞을 때만 잇는다."""
+    name = name.strip()
+    if not name:
+        return None
+    if item.customer_id is not None and item.customer is not None and item.customer.name == name:
+        return item.customer_id
+    return index.customer_id(name)
+
+
 def save_plan(report: Report, ids: list[int | None], rows: list[tuple[str, str, str, str, str]], index) -> int:
     """계획 항목 표 저장: `rows` = 줄마다 (할 일, 담당, 기한 글자, 메모, 고객 이름), `ids` = 같은 순서의 줄 번호(새 줄은 None).
     활동 기록의 후속 조치 저장처럼 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 할 일이 빈 줄은 건너뛴다 (그 번호는 지워진다).
@@ -350,7 +362,7 @@ def save_plan(report: Report, ids: list[int | None], rows: list[tuple[str, str, 
         item = by_id.pop(row_id, None) if row_id is not None else None
         if item is None:
             item = ReportPlanItem(report_id=report.id)
-        customer_id = index.customer_id(customer) if customer.strip() else None
+        customer_id = _customer_for(item, customer, index)
         if customer.strip() and customer_id is None:
             unlinked += 1
         item.task, item.owner, item.due, item.note, item.customer_id = task.strip(), owner.strip(), _day(due.strip()), note.strip(), customer_id
@@ -358,3 +370,179 @@ def save_plan(report: Report, ids: list[int | None], rows: list[tuple[str, str, 
         kept.append(item)
     report.plan_items = kept  # 빠진 줄은 delete-orphan 으로 지워진다
     return unlinked
+
+
+def apply_plan_draft(db: Session, report: Report, index) -> int:
+    """AI 계획 초안(`plan_draft`)을 계획 항목 표로 옮긴다 ("이 초안 쓰기"). 초안의 `carried_from` 이 이 보고에 넘어온 줄을 가리키면 그 줄을 고치고
+    (넘어온 표시 유지), 넘길 대상인데 아직 줄이 없으면 넘어온 줄로 만든다. 초안이 빠뜨린 넘어온 줄은 남긴다 (아직 끝나지 않은 지난 항목이다).
+    그 밖의 기존 줄은 초안으로 바뀐다. 넘어온 줄이 맨 앞. 방향은 초안의 것으로. 잇지 못한 고객 이름 수를 돌려준다. 커밋은 부르는 쪽이 한다."""
+    draft = report.plan_draft or {}
+    by_carry = {l.carried_from_id: l for l in report.plan_items if l.carried_from_id is not None}
+    targets = set()
+    if report.status != ontology.REPORT_STATUS_CONFIRMED:
+        targets = {i.id for i in items_to_check(db, report) if i.result in ontology.PLAN_CARRY_RESULTS}
+    taken = set(db.scalars(select(ReportPlanItem.carried_from_id).where(ReportPlanItem.carried_from_id.in_(targets), ReportPlanItem.report_id != report.id))) if targets else set()
+    carried, fresh, used = [], [], set()
+    unlinked = 0
+    for d in draft.get("items") or []:
+        task = str(d.get("task") or "").strip()
+        if not task:
+            continue
+        cf = d.get("carried_from")
+        if isinstance(cf, int) and cf not in used and (cf in by_carry or (cf in targets and cf not in taken)):
+            item = by_carry.get(cf) or ReportPlanItem(report_id=report.id, carried_from_id=cf)
+            used.add(cf)
+            carried.append(item)
+        else:
+            item = ReportPlanItem(report_id=report.id)
+            fresh.append(item)
+        customer = str(d.get("customer") or "")
+        item.customer_id = _customer_for(item, customer, index)
+        if customer.strip() and item.customer_id is None:
+            unlinked += 1
+        item.task, item.owner, item.note = task, str(d.get("owner") or "").strip(), str(d.get("note") or "").strip()
+        item.due = _day(str(d.get("due") or "").strip())
+    left = [l for cf, l in by_carry.items() if cf not in used]
+    ordered = left + carried + fresh
+    for pos, item in enumerate(ordered):
+        item.position = pos
+    report.plan_items = ordered  # 빠진 줄은 delete-orphan 으로 지워진다
+    report.direction = str(draft.get("direction") or "").strip()
+    report.plan_draft = None
+    return unlinked
+
+
+def draft_changes(report: Report) -> dict[str, int]:
+    """초안이 지금 표와 얼마나 다른지 (띠의 한 줄 요약): 같은 할 일 글이 있으면 그대로, 넘어온 번호나 위치로 짝지은 줄의 글이 바뀌면 고침."""
+    draft = (report.plan_draft or {}).get("items") or []
+    have = {i.task.strip() for i in report.plan_items}
+    by_carry = {i.carried_from_id for i in report.plan_items if i.carried_from_id is not None}
+    new_tasks = {str(d.get("task") or "").strip() for d in draft}
+    added = changed = 0
+    for d in draft:
+        task = str(d.get("task") or "").strip()
+        if task in have:
+            continue
+        if d.get("carried_from") in by_carry:
+            changed += 1
+        else:
+            added += 1
+    removed = sum(1 for i in report.plan_items if i.task.strip() not in new_tasks and i.carried_from_id is None)
+    return {"items": len(draft), "added": added, "changed": changed, "removed": removed}
+
+
+# ---- AI 작업 자리 (제안 건과 같은 한 자리: `active_job_id`) ----
+
+def start_job(db: Session, report: Report, kind: str, user, extra: dict | None = None, rows: list | None = None) -> AIJob | None:
+    """보고 건의 AI 작업을 시작한다. 이미 진행 중이면 None. 동시에 와도 하나만 들어간다 (조건부 UPDATE 로 자리를 잡는다).
+    `rows`(대화 메시지)는 작업과 같은 트랜잭션에 넣는다."""
+    db.refresh(report)
+    if report.active_job is not None and report.active_job.status in ontology.JOB_ACTIVE:
+        return None
+    rid, previous = report.id, report.active_job_id
+    db.rollback()
+    job = AIJob(kind=kind, input={"report_id": rid, **(extra or {})}, requester_id=getattr(user, "id", None), priority=0, status="pending")
+    db.add(job)
+    db.flush()
+    same = Report.active_job_id.is_(None) if previous is None else Report.active_job_id == previous
+    claimed = db.execute(update(Report).where(Report.id == rid, same).values(active_job_id=job.id))
+    if claimed.rowcount != 1:
+        db.rollback()
+        return None
+    for row in rows or []:
+        db.add(row)
+    db.commit()
+    db.refresh(report)
+    return job
+
+
+def last_summary_job(db: Session, report: Report) -> AIJob | None:
+    """이 보고의 실적 요약 글을 마지막으로 쓴 AI 작업 (화면의 "AI 초안" 표시)."""
+    return db.scalars(
+        select(AIJob).where(AIJob.kind == "report_summary", AIJob.status == ontology.JOB_DONE, AIJob.input["report_id"].as_integer() == report.id)
+        .order_by(AIJob.finished_at.desc(), AIJob.id.desc()).limit(1)
+    ).first()
+
+
+# ---- 보고 문구 숫자 확인 (설계 §5.6a) ----
+
+_DATEISH = re.compile(r"\d{1,4}\s*[-/.]\s*\d{1,2}(?:\s*[-/.]\s*\d{1,2})?|\d+\s*(?:년|월|일|주|시|분|차|분기)")
+_NUMBER = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(\s*%)?")
+
+
+def _pct(part: int, whole: int) -> int | None:
+    return round(part * 100 / whole) if whole else None
+
+
+def _note_numbers(data: dict, check, plan) -> dict[str, tuple[set[int], set[int]]]:
+    """구역마다 문구에 나와도 되는 (건수, 백분율) 집합. 집계 값·그 구역 표의 건수·그것으로 만든 백분율이다."""
+    k = data.get("kpis") or {}
+    kpi_vals = {int(v) for v in k.values() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    kpi_vals |= {int(v) for v in (k.get("activities_by_kind") or {}).values()}
+    diff = int(k.get("activities") or 0) - int(k.get("activities_prev") or 0)
+    kpi_vals.add(abs(diff))
+    kpi_pct = {p for p in (_pct(abs(diff), int(k.get("activities_prev") or 0)),) if p is not None}
+
+    opps = data.get("opportunities") or []
+    opp_vals = {len(opps), sum(1 for o in opps if o.get("new")), sum(1 for o in opps if o.get("from_stage")),
+                int(k.get("won") or 0), int(k.get("opportunities_new") or 0)}
+    for field in ("to_stage", "from_stage"):
+        for stage in {o.get(field) for o in opps}:
+            opp_vals.add(sum(1 for o in opps if o.get(field) == stage))
+
+    props = data.get("proposals") or []
+    prop_vals = {len(props), int(k.get("proposals_new") or 0), int(k.get("proposals_active") or 0), int(k.get("decks_built") or 0)}
+    for status in {p.get("status") for p in props}:
+        prop_vals.add(sum(1 for p in props if p.get("status") == status))
+
+    check = list(check)
+    groups = [sum(1 for i in check if i.result == code) for code in (*ontology.PLAN_RESULTS, "")]
+    groups.append(sum(1 for i in check if i.result in ontology.PLAN_CARRY_RESULTS))
+    check_vals = {len(check), *groups}
+    check_pct = {p for g in groups if (p := _pct(g, len(check))) is not None}
+
+    plan = list(plan)
+    carried = sum(1 for i in plan if i.carried_from_id is not None)
+    owners = {}
+    for i in plan:
+        owners[i.owner] = owners.get(i.owner, 0) + 1
+    plan_vals = {len(plan), carried, len(plan) - carried, sum(1 for i in plan if i.due), len([o for o in owners if o]), *owners.values()}
+    plan_pct = {p for p in (_pct(carried, len(plan)),) if p is not None}
+
+    issue_vals = kpi_vals | {int(data.get("legacy_undated") or 0)}
+    return {
+        "kpi": (kpi_vals, kpi_pct), "opps": (opp_vals, set()), "proposals": (prop_vals, set()),
+        "check": (check_vals, check_pct), "plan": (plan_vals, plan_pct), "issues": (issue_vals, set()),
+    }
+
+
+def _bad_numbers(text: str, allowed: tuple[set[int], set[int]]) -> list[str]:
+    counts, percents = allowed
+    out = []
+    for m in _NUMBER.finditer(_DATEISH.sub(" ", text)):
+        raw = m.group(1).replace(",", "")
+        is_pct = bool(m.group(2))
+        ok = raw.isdigit() and int(raw) in (percents if is_pct else counts)
+        if not ok:
+            shown = raw + ("%" if is_pct else "")
+            if shown not in out:
+                out.append(shown)
+    return out
+
+
+def note_line_warnings(notes: dict, data: dict, check=(), plan=()) -> dict[str, list[list[str]]]:
+    """구역 문구 줄마다 그 구역 숫자 집합에 없는 숫자 (날짜·시각 꼴은 보지 않는다). 화면이 문장 옆에 "숫자 확인" 을 단다."""
+    allowed = _note_numbers(data, check, plan)
+    return {key: [_bad_numbers(line, allowed[key]) for line in note_lines(notes.get(key))] for key in NOTE_KEYS if key in notes}
+
+
+def note_warnings(notes: dict, data: dict, check=(), plan=()) -> dict[str, list[str]]:
+    """문구 속 숫자(정수·퍼센트)가 그 구역 숫자 집합(집계 값·건수·백분율)에 없으면 그 숫자들 (경고가 없는 구역은 빠진다). 지우지는 않는다."""
+    out = {}
+    for key, lines in note_line_warnings(notes, data, check, plan).items():
+        bad = []
+        for nums in lines:
+            bad += [n for n in nums if n not in bad]
+        if bad:
+            out[key] = bad
+    return out

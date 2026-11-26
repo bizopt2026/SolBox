@@ -1,13 +1,17 @@
 {# 3단계 다음 계획: 계획 항목 표 (직접 추가·수정·삭제). 지난 계획에서 넘어온 줄은 "지난 계획" 표시와 함께 맨 앞.
    줄 번호(pi_id)로 맞춘다: 같은 번호는 고치고, 빠진 번호는 지우고, 새 줄은 만든다. 고객은 등록된 고객 하나와 이름이 정확히 맞을 때만 연결된다. #}
-{% from "_macros.html" import rev_fields %}
+{% from "_macros.html" import ai_attrs, rev_fields %}
 {% from "reports/_notes.html" import notes_box with context %}
 {% set typed = form["values"] if form.which == "plan" else none %}
 {% set rows = typed if typed is not none else plan %}
 {% set carried_ids = plan | selectattr("carried_from_id") | map(attribute="id") | list %}
 <section class="card" id="plan" aria-labelledby="plan-h">
-  <div class="card-head"><h2 id="plan-h">다음 계획 <span class="count muted">{{ plan | length }}</span></h2><span class="muted small">다음 기간 {{ next_text }}</span></div>
-  {# AI 계획 초안 버튼과 "AI 가 고친 초안" 띠는 이 자리에 붙는다 (다음 작업) #}
+  <div class="card-head"><h2 id="plan-h">다음 계획 <span class="count muted">{{ plan | length }}</span></h2><span class="muted small">다음 기간 {{ next_text }}</span>
+    {% if not confirmed %}<form method="post" action="/reports/{{ report.id }}/ai/plan"><button type="submit" class="small"{% if busy %} disabled{% endif %}{{ ai_attrs(aig, by="ai-note-report") }} data-busy-label="만드는 중…">{{ "AI 계획 초안 다시" if report.plan_draft or plan or report.messages else "AI 계획 초안" }}</button></form>{% endif %}
+  </div>
+  {% with kinds=("report_plan",) %}{% include "reports/_job_here.html" %}{% endwith %}
+  {% include "reports/_draft.html" %}
+  {% if report.direction %}<p class="plan-direction"><b>방향</b> {{ report.direction }}</p>{% endif %}
   {% if carried_ids %}<p class="muted">"지난 계획" 표시 줄은 지난 보고에서 끝내지 못해 넘어온 항목입니다. 점검 결과를 바꾸면 이 줄은 다시 맞춰집니다 (고친 내용도 빠질 수 있어요).</p>{% endif %}
   {% if confirmed %}<p class="notice" role="note">확정한 계획입니다. 고치려면 확정·파일 단계에서 먼저 확정을 풀어 주세요.</p>{% endif %}
   <form method="post" action="/reports/{{ report.id }}/plan">
@@ -45,4 +49,7 @@
   </form>
   {{ notes_box("plan", "다음 계획") }}
 </section>
-<div id="plan-ai">{# AI 계획 대화(방향 대화)는 이 자리에 붙는다 (다음 작업) #}</div>
+<section class="card" id="chat" aria-labelledby="chat-h">
+  <div class="card-head"><h2 id="chat-h">방향 대화</h2><span class="muted small">계획을 말로 다듬으면 AI 가 고친 초안을 위에 올립니다</span></div>
+  {% include "reports/_chat.html" %}
+</section>

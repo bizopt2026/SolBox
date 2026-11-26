@@ -224,6 +224,24 @@ def test_plan_customer_link_exact_only(user_client, db):
     assert db.get(Report, rep.id).status == "planning"
 
 
+def test_plan_keeps_customer_link_when_name_unchanged(user_client, db):
+    """이어진 고객과 이름이 같으면 다시 찾지 않고 그 연결을 둔다 (정규화한 이름이 겹치는 고객이 생겨도 다른 칸을 고친 저장에서 끊기지 않게)."""
+    first = Customer(name="동명상사")
+    db.add(first)
+    db.commit()
+    rep = _report(db, W2, status="planning")
+    item = ReportPlanItem(report_id=rep.id, task="견적", customer_id=first.id)
+    db.add(item)
+    db.add(Customer(name="동명 상사"))  # 정규화하면 같은 이름: 이제 이름만으로는 하나로 정해지지 않는다
+    db.commit()
+    rev = _form_rev(user_client.get(f"/reports/{rep.id}?step=plan").text, f"/reports/{rep.id}/plan")
+    data = {"_rev": rev, "pi_id": [str(item.id)], "pi_task": ["견적 (고침)"], "pi_owner": [""], "pi_due": [""], "pi_note": [""], "pi_customer": ["동명상사"]}
+    r = user_client.post(f"/reports/{rep.id}/plan", data=data, follow_redirects=False)
+    assert "notice=report_planned&" in r.headers["location"]
+    db.expire_all()
+    assert [(i.task, i.customer_id) for i in db.get(Report, rep.id).plan_items] == [("견적 (고침)", first.id)]
+
+
 def test_plan_item_change_bumps_report_rev(db):
     rep = _report(db, W2)
     item = ReportPlanItem(report_id=rep.id, task="가")
@@ -324,3 +342,25 @@ def test_confirmed_plan_is_locked(user_client, db):
     assert r.status_code == 409
     db.expire_all()
     assert [i.task for i in db.get(Report, rep.id).plan_items] == ["확정한 일"]
+
+
+def test_detail_heading_and_reload_links_keep_step(user_client, db):
+    """제목은 "<단위> 업무 보고", 기간은 부제목에. 구역 문구·요약 글 폼의 "현재 내용" 주소는 지금 단계를 지킨다. 화면 문구는 합니다체."""
+    rep = _report(db, W2, section_notes={"kpi": ["활동 0건입니다."]})
+    html = user_client.get(f"/reports/{rep.id}?step=result").text
+    assert re.search(r"<h1[^>]*>\s*주간 업무 보고", html) and "2026-11-23(월) ~ 11-29(일)" in html
+    assert "<title>주간 2026-11-23 ~ 11-29" in html  # 탭 이름은 보고마다 다르다
+    rev = REV.search(html).group(1)
+    rep.summary_md = "다른 사람"
+    db.commit()
+    page = user_client.post(f"/reports/{rep.id}/summary", data={"_rev": rev, "summary_md": "내 글", "highlights_md": ""}).text
+    assert f'href="/reports/{rep.id}?step=result"' in page
+    page = user_client.post(f"/reports/{rep.id}/notes", data={"_rev": rev, "step": "check", "sn_check": "x"}).text
+    assert f'href="/reports/{rep.id}?step=check"' in page
+    from app import reports
+    assert reports.NOT_CONFIRMED.endswith("습니다.")
+
+
+def test_overdue_kpi_card_has_style(user_client, db):
+    css = (__import__("pathlib").Path(__file__).resolve().parent.parent / "app" / "static" / "app.css").read_text(encoding="utf-8")
+    assert ".kpi.kpi-bad" in css
