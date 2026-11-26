@@ -23,12 +23,18 @@
   {% if not locked %}<a class="cta" href="/intake/new">+ 올리기</a>
   <div class="side-nav">
     {% for g in ont.nav_groups(user.role == "admin") %}
-    <nav class="navg" aria-label="{{ g.label }}">
-      <span class="navg-title" aria-hidden="true">{{ g.label }}</span>
-      {% for item in g.items %}
+    {% set links %}{% for item in g.items %}
       <a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}>{{ ont.nav_icon(item.path) }}{{ item.label }}{% if item.badge == "ready" and ready_n %} <span class="nav-badge" role="img" aria-label="확인 대기 {{ ready_n }}건">{{ ready_n }}</span>{% endif %}</a>
-      {% endfor %}
+      {% endfor %}{% endset %}
+    {% if g.code == "admin" %}{# 관리 묶음은 접어 둔다 (관리 화면에 있을 때만 펼친다): 매일 쓰는 메뉴가 한눈에 들어오게 #}
+    <nav class="navg navg-fold" aria-label="{{ g.label }}"><details{% if g.items | selectattr("path", "equalto", cur) | list %} open{% endif %}>
+      <summary class="navg-title">{{ g.label }}</summary>{{ links }}
+    </details></nav>
+    {% else %}
+    <nav class="navg" aria-label="{{ g.label }}">
+      <span class="navg-title" aria-hidden="true">{{ g.label }}</span>{{ links }}
     </nav>
+    {% endif %}
     {% endfor %}
     <a class="side-help in-nav" href="/help"{% if path == '/help' %} aria-current="page"{% endif %}>도움말</a>{# 좁은 화면에서만 (위쪽 줄이 비좁아 메뉴 줄 끝으로 옮긴다) #}
   </div>
@@ -49,9 +55,15 @@
   <div class="top">
     {% if not locked %}<form class="search" role="search" method="get" action="/search">
       <label class="sr-only" for="global-search">전체 검색</label>
-      <input id="global-search" type="search" name="q" value="{{ request.query_params.get('q', '') if path == '/search' else '' }}" placeholder="솔루션, 고객, 기록 찾기" autocomplete="off" aria-keyshortcuts="/">
+      <input id="global-search" type="search" name="q" value="{{ request.query_params.get('q', '') if path == '/search' else '' }}" placeholder="솔루션, 고객, 기록 찾기" autocomplete="off" aria-keyshortcuts="/ Control+K Meta+K" title="찾기·바로 만들기 (/ 또는 Ctrl+K)">
       <kbd aria-hidden="true">/</kbd>
     </form>{% endif %}
+    {% set mj = my_jobs() if my_jobs is defined and not locked else [] %}
+    {% if mj %}{% set active_n = mj | selectattr("status", "in", ont.JOB_ACTIVE) | list | length %}
+    <details class="jobtray"><summary>내 AI 작업{% if active_n %} <span class="more-dot" role="img" aria-label="진행 중 {{ active_n }}개">{{ active_n }}</span>{% endif %}</summary>
+      <ul>{% for j in mj %}<li>{% if j.href %}<a href="{{ j.href }}" data-tray>{{ j.kind }}</a>{% else %}{{ j.kind }}{% endif %}<span class="badge {{ ont.tone_class('job_status', j.status) }}">{{ ont.JOB_STATUSES.get(j.status, j.status) }}</span>{% if j.finished_at %} <small class="muted">{{ kdatetime(j.finished_at) }}</small>{% endif %}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
     {% if ai %}
     {% if user.role == "admin" %}<a class="aistat {{ ai.state }}" href="/admin/jobs" title="{{ ai.text }} · AI 작업 보기"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></a>
     {% else %}<span class="aistat {{ ai.state }}" title="{{ ai.text }}"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></span>{% endif %}
@@ -59,6 +71,15 @@
   </div>
   {% else %}
   <div class="auth-brand">{{ brand() }}</div>
+  {% endif %}
+  {% if user and not locked %}{# 휴대폰 아래 고정 탭 (UX 개선 2026-11-26): 가장 많이 쓰는 곳과 활동 기록 쓰기. 넓은 화면에서는 숨긴다 #}
+  <nav class="tabbar" aria-label="빠른 이동">
+    <a href="/"{% if cur == '' %} aria-current="page"{% endif %}>{{ ont.nav_icon("") }}<span>홈</span></a>
+    <a href="/activities"{% if cur == 'activities' %} aria-current="page"{% endif %}>{{ ont.nav_icon("activities") }}<span>활동</span></a>
+    <a class="tab-add" href="/activities/new" aria-label="활동 기록 쓰기"><span aria-hidden="true">＋</span></a>
+    <a href="/opportunities"{% if cur == 'opportunities' %} aria-current="page"{% endif %}>{{ ont.nav_icon("opportunities") }}<span>영업기회</span></a>
+    <a href="/initiatives"{% if cur == 'initiatives' %} aria-current="page"{% endif %}>{{ ont.nav_icon("initiatives") }}<span>과제</span></a>
+  </nav>
   {% endif %}
   <main id="main" class="page" tabindex="-1">
 {% if user and user.role == "admin" %}{% set cc = code_changed_on_disk() %}{% if cc %}<div class="flash error" role="alert"><span class="flash-text">서버 폴더의 코드가 바뀌었지만 서버는 아직 옛 코드({{ cc.running }})로 돌고 있어요 (폴더: {{ cc.disk }}). 서버를 다시 시작해야 새 기능이 적용되고 화면 오류가 나지 않아요. <a href="/admin/system">시스템 화면</a></span></div>{% endif %}{% endif %}

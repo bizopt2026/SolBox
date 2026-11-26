@@ -463,7 +463,7 @@ def test_pages_and_links_and_paste_hint(user_client):
     assert page.status_code == 200 and "명함 파일 가져오기" in page.text and 'accept=".vcf,.csv,.xlsx"' in page.text and "AI 를 쓰지 않아요" in page.text
     assert "/intake/cards" in user_client.get("/intake/new").text and "/intake/cards" in user_client.get("/intake").text
     assert "사진을 복사(Ctrl+C)한 뒤 여기에서 붙여넣기(Ctrl+V)해도 돼요." in user_client.get("/intake/new").text
-    assert "사진을 복사(Ctrl+C)한 뒤 여기에서 붙여넣기(Ctrl+V)해도 돼요." in user_client.get("/").text  # 홈 카드
+    assert "사진을 복사(Ctrl+C)한 뒤 여기에서 붙여넣기(Ctrl+V)해도 돼요." in user_client.get("/intake/new").text  # 홈 카드는 없앴다 (UX 개선 2026-11-26)
     assert user_client.get("/intake/cards", follow_redirects=False).status_code == 200
 
 

@@ -153,6 +153,26 @@ def recent_activities(db: Session) -> list[dict]:
     return [{"a": a, "needs": needs.get(a.id, 0), "follow_ups": fus.get(a.id, 0)} for a in rows]
 
 
+def my_work(db: Session, user: User, follow_ups: list[dict], stale: dict, ready_count: int, now: date) -> list[dict]:
+    """홈 맨 위 "내 할 일" 띠 (UX 개선 2026-11-26): 지금 챙길 것의 건수와 바로 가기. 0 인 칸도 보인다 (할 일이 없다는 것도 정보다).
+    질의 수는 기록 수와 무관하다 (과제 한 번, AI 제안함, 정렬 판단 두 번)."""
+    from app import ai_inbox, alignment
+    from app.models import Initiative
+
+    mine = [i for i in db.scalars(select(Initiative).where(Initiative.owner_user_id == user.id, Initiative.status.in_(ontology.INITIATIVE_OPEN)))]
+    late = sum(1 for i in mine if i.due and i.due < now)
+    off = len(alignment.misaligned_ids(db, "initiative")) + len(alignment.misaligned_ids(db, "opportunity"))
+    overdue = sum(1 for f in follow_ups if f["overdue"])
+    return [
+        {"key": "fu", "label": "기한 지난 후속 조치", "n": overdue, "href": "/follow-ups", "tone": "bad" if overdue else ""},
+        {"key": "initiative", "label": "내 열린 과제", "n": len(mine), "sub": f"기한 지남 {late}" if late else "", "href": "/initiatives?who=mine", "tone": "bad" if late else ""},
+        {"key": "stale", "label": "멈춘 내 영업기회", "n": stale["counts"]["mine"], "href": "/opportunities?stale=1&who=mine", "tone": "warn" if stale["counts"]["mine"] else ""},
+        {"key": "ai", "label": "반영 대기 AI 제안", "n": ai_inbox.pending_count(db), "href": "/ai/inbox", "tone": "brand"},
+        {"key": "align", "label": "방향 밖 기록", "n": off, "href": "/initiatives?align=off", "tone": "warn" if off else ""},
+        {"key": "intake", "label": "올리기 정리 확인", "n": ready_count, "href": "/intake", "tone": "brand" if ready_count else ""},
+    ]
+
+
 def is_fresh_install(db: Session) -> bool:
     """솔루션·활동 기록·고객이 하나도 없으면 막 설치한 상태다 (홈에 "처음 시작하기" 안내를 보인다)."""
     return not any(db.scalar(select(func.count()).select_from(m)) for m in (Solution, Activity, Customer))
@@ -209,4 +229,6 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", opp: str = "", us
         transcriber_ready=transcribe.get(request.app.state.settings).available(),
         flow=flow, opp=opp, stale=stale, stale_tabs=stale_tabs, stale_list=stale_list, research=latest_research(db), proposals=open_proposals(db), ai_problem=ai_problem(db),
         toggled=fu_lib.toggled_notice(db, fu_toggled) if fu_toggled else None,
+        work=my_work(db, user, upcoming_follow_ups(db, now) if mine_only else follow_ups, stale_opportunities(db, user, now, "mine") if view != "mine" else stale,
+                     intake["ready_count"], now),
     )

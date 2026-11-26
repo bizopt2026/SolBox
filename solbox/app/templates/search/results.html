@@ -3,6 +3,7 @@
 {% block title %}검색{% endblock %}
 {% block content %}
 {{ page_header("검색", sub=("‘" ~ result.q ~ "’ 이름·제목과 소개·설명·메모·정리본·후속 조치에서 찾았습니다." if result.state in ("found", "none") else "솔루션, 고객, 파트너, 프로젝트, 영업기회, BM, 제안 건, 활동 기록의 이름·제목과 소개·설명·메모·연락처·정리본·원문, 후속 조치·고객 니즈의 글을 찾습니다.")) }}
+{% if quick %}<nav class="quick-acts" aria-label="바로 만들기"><span class="muted small">바로 만들기</span>{% for label, url in quick %}<a class="button small" href="{{ url }}">{{ label }}</a>{% endfor %}</nav>{% endif %}
 {% if result.state == "empty" %}
 <div class="empty"><p class="muted">찾을 이름이나 제목을 위쪽 검색칸에 입력하세요. (단축키 /)</p></div>
 {% elif result.state == "short" %}

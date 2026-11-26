@@ -25,7 +25,7 @@
 {% set searching = q or stage or flt or origin_now or type_now %}
 {{ list_head("솔루션", pg, searching, "/intake/new", "올리기", "/solutions/new", type="solution") }}
 {% set bt_extra %}{{ type_box(type_tabs) }}{{ group_box(group_choices) }}{% endset %}
-{{ list_tools(request, tabs, "발굴 단계", q, flt, "이름, 태그로 찾기", origin_tabs=origin_tabs, extra=bt_extra) }}
+{{ list_tools(request, tabs, "발굴 단계", q, flt, "이름, 태그로 찾기", origin_tabs=origin_tabs, extra=bt_extra, extra_on=1 if type_now else 0) }}
 {% if groups is not none %}
 {% if groups %}
 <p class="muted group-note" data-group-note>

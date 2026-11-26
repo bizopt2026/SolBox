@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header %}
+{% block title %}AI 제안함{% endblock %}
+{% block content %}
+{{ page_header("AI 제안함", crumbs=[("오늘", none), ("AI 제안함", none)], sub="영업기회 분석과 AI 동료 대화에서 나온, 반영을 기다리는 제안입니다. [반영]을 눌러야 기록이 바뀌고 변경 이력에 \"AI 제안\"으로 남습니다.") }}
+{% if rows %}
+<section class="card">
+  <ul class="inbox">
+  {% for r in rows %}
+    <li class="inbox-row">
+      <div class="inbox-main">
+        <small class="muted">{{ ont.label(r.target_type) }} · <a href="{{ r.url }}">{{ r.title }}</a>{% if r.thread %} · 대화 "{{ r.thread }}"{% endif %} · {{ kdatetime(r.when) }}</small>
+        <b>{{ r.text }}</b>
+        {% if r.evidence %}<small class="muted">근거: “{{ r.evidence }}”{% if not r.verified %} · <span class="warn">원문에서 근거를 찾지 못했어요</span>{% endif %}</small>{% endif %}
+      </div>
+      <div class="inbox-act">
+        {% if r.source == "opportunity" %}
+        <form method="post" action="{{ r.apply }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small primary">반영</button></form>
+        <form method="post" action="{{ r.dismiss }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small ghost">무시</button></form>
+        {% else %}
+        <form method="post" action="{{ r.apply }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small primary">반영</button></form>
+        <form method="post" action="{{ r.dismiss }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small ghost">무시</button></form>
+        {% endif %}
+        <a class="button small" href="{{ r.url }}">보러 가기</a>
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% else %}
+<div class="empty"><p class="muted">반영을 기다리는 AI 제안이 없습니다. 영업기회의 활동 기록을 저장하거나 AI 동료와 대화하면 제안이 여기에 모입니다.</p></div>
+{% endif %}
+{% endblock %}

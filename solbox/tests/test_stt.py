@@ -788,11 +788,11 @@ def test_system_page_shows_problem_label(admin_client, settings, monkeypatch):
 
 
 def test_dropzone_note_depends_on_engine(user_client, settings, stt):
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         page = user_client.get(url).text
         assert "음성 파일은 받아써서 정리합니다 (길면 오래 걸려요)" in page and "보관만 됩니다" not in page
     settings.transcriber = "none"
-    for url in ("/intake/new", "/"):
+    for url in ("/intake/new",):
         assert "음성 파일은 보관만 됩니다" in user_client.get(url).text
 
 

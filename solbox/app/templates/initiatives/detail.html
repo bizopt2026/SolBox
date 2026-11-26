@@ -41,7 +41,9 @@
         <dt>{{ ont.prop("initiative", "instructions") }}</dt><dd>{{ item.instructions or "–" }}</dd>
       </dl>
     </section>
+    <div class="ai-dock" aria-label="AI"><p class="ai-dock-head"><b>AI</b> <a href="#cowork">AI 동료</a> · <a href="/ai/inbox">AI 제안함</a></p>
     {% set al, al_obj = alignment_view(item), item %}{% include "alignment/_card.html" %}
+    </div>
     {% set owner_url = "/initiatives/" ~ item.id %}{% include "_workspace_files.html" %}
     {% include "_workspace_changes.html" %}
     {{ related_card(related, hide_empty=true) }}

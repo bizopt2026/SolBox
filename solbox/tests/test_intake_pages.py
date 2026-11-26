@@ -11,7 +11,7 @@ APP_JS = Path(__file__).resolve().parent.parent / "app" / "static" / "app.js"
 def test_list_primary_is_upload_and_manual_stays(user_client, url, manual):
     head = re.search(r'<header class="page-header">.*?</header>', user_client.get(url).text, re.S).group(0)
     assert 'class="button primary to-intake" href="/intake/new">올리기</a>' in head
-    assert f'href="{manual}">+ 등록</a>' in head and head.count("primary") == 1
+    assert f'href="{manual}">+ 새 ' in head and head.count("primary") == 1
     assert user_client.get(manual).status_code == 200
 
 
@@ -49,8 +49,7 @@ def test_dropzone_limits_are_exposed_to_script(user_client, settings):
     page = user_client.get("/intake/new").text
     zone = re.search(r'<div[^>]*data-dropzone[^>]*>', page).group(0)
     assert 'data-max-files="20"' in zone and f'data-max-mb="{settings.max_upload_mb}"' in zone
-    home = user_client.get("/").text
-    assert 'data-dropzone' in home and 'data-max-files="20"' in home
+    assert 'data-dropzone' not in user_client.get("/").text  # 홈의 올리기 칸은 없앴다 (UX 개선 2026-11-26)
 
 
 def test_script_handles_drop_and_warns():
