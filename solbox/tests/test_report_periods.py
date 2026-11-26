@@ -49,3 +49,15 @@ def test_labels_and_file_stem():
     assert rp.file_stem("week", date(2026, 11, 30), date(2026, 12, 6)) == "업무보고_주간_2026-11-30~12-06"
     assert rp.label("week", date(2026, 12, 28), date(2027, 1, 3)) == "주간 2026-12-28 ~ 2027-01-03"
     assert rp.file_stem("week", date(2026, 12, 28), date(2027, 1, 3)) == "업무보고_주간_2026-12-28~2027-01-03"
+
+
+def test_prev_period():
+    assert rp.prev_period("day", date(2026, 11, 30), date(2026, 11, 30)) == (date(2026, 11, 27), date(2026, 11, 27))  # 월 -> 금
+    assert rp.prev_period("day", date(2026, 11, 26), date(2026, 11, 26)) == (date(2026, 11, 25), date(2026, 11, 25))
+    assert rp.prev_period("week", date(2026, 11, 23), date(2026, 11, 29)) == (date(2026, 11, 16), date(2026, 11, 22))
+    assert rp.prev_period("month", date(2026, 3, 1), date(2026, 3, 31)) == (date(2026, 2, 1), date(2026, 2, 28))
+    assert rp.prev_period("month", date(2028, 3, 1), date(2028, 3, 31)) == (date(2028, 2, 1), date(2028, 2, 29))
+    assert rp.prev_period("month", date(2027, 1, 1), date(2027, 1, 31)) == (date(2026, 12, 1), date(2026, 12, 31))
+    # next_period 와 서로 거꾸로
+    for unit, s, e in (("day", date(2026, 11, 27), date(2026, 11, 27)), ("week", date(2026, 11, 23), date(2026, 11, 29)), ("month", date(2026, 2, 1), date(2026, 2, 28))):
+        assert rp.prev_period(unit, *rp.next_period(unit, s, e)) == (s, e)

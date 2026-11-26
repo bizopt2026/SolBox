@@ -1,7 +1,7 @@
 """팀 업무 보고 실적 집계 (app/reports.py): 기록을 만들고 같은 조건으로 따로 센 질의와 맞춰 본다."""
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import and_, delete, event, func, select, update
+from sqlalchemy import and_, delete, event, func, or_, select, update
 
 from app import ontology, reports
 from app.models import (
@@ -93,9 +93,16 @@ def test_counts_match_independent_queries(db):
     def count(model, col):
         return db.scalar(select(func.count()).select_from(model).where(and_(col >= datetime(2026, 11, 23), col < datetime(2026, 11, 30))))
 
-    assert k["activities"] == 3 == len(out["activities"])
-    assert k["activities_by_kind"] == {"meeting": 2, "call": 1}
-    assert k["activities_prev"] == 2
+    lo_d, hi_d = datetime(2026, 11, 23), datetime(2026, 11, 30)
+
+    def act_where(d0, d1):  # 따로 쓴 조건: 날짜가 있으면 날짜, 없으면 만든 날
+        return or_(and_(Activity.date >= d0, Activity.date <= d1), and_(Activity.date.is_(None), Activity.created_at >= datetime.combine(d0, datetime.min.time()), Activity.created_at < datetime.combine(d1 + timedelta(days=1), datetime.min.time())))
+
+    expected = db.execute(select(Activity.kind, func.count()).where(act_where(START, END)).group_by(Activity.kind)).all()
+    assert k["activities"] == sum(n for _, n in expected) == len(out["activities"])
+    assert k["activities_by_kind"] == dict(expected)
+    assert k["activities_prev"] == db.scalar(select(func.count()).select_from(Activity).where(act_where(date(2026, 11, 16), date(2026, 11, 22))))
+    assert k["proposals_new"] == db.scalar(select(func.count()).select_from(Proposal).where(Proposal.created_at >= lo_d, Proposal.created_at < hi_d)) == 1
     assert k["needs"] == count(CustomerNeed, CustomerNeed.created_at) == 1
     assert k["opportunities_new"] == count(Opportunity, Opportunity.created_at) == 1
     assert k["won"] == db.scalar(
@@ -175,7 +182,9 @@ def test_legacy_done_without_date_excluded_and_counted(db):
     db.execute(update(Opportunity).where(Opportunity.id == o_untouched.id).values(updated_at=PREV))
     out = _agg(db)
     assert out["kpis"]["followups_done"] == 0 and out["followups_done"] == []  # 날짜를 몰라 숫자에 넣지 않는다
-    assert o_ok.id not in {o["id"] for o in out["opportunities"] if o["name"] == "이력 없는 영업기회"}
+    # 이력이 없는 옛 영업기회는 단계가 바뀐 것으로 올라오지 않는다 (기간 밖에 만든 것은 목록에 아예 없다)
+    assert {o["name"]: o["new"] for o in out["opportunities"]} == {"이력 없는 영업기회": True, "이력 있음": True}
+    assert o_untouched.name not in {o["name"] for o in out["opportunities"]}
     assert out["legacy_undated"] == 2  # 옛 완료 1 + 이력 없는 영업기회 1
 
 
@@ -247,3 +256,23 @@ def test_query_count_constant(db):
     big = _count_queries(db, lambda: out.update(reports.aggregate(db, "week", START, END)))
     assert out["kpis"]["activities"] == 50 and len(out["followups_done"]) == 50
     assert big == small
+
+
+def test_same_timestamp_changes_ordered_by_id(db):
+    c = _customer(db)
+    o = _opp(db, c, "동시", stage="won")
+    _set_changes(db, o, ("", "discovery", IN), ("discovery", "proposing", IN), ("proposing", "won", IN))
+    # 처리기를 거치지 않고 번호 순서를 뒤집어 읽혀도 같은 시각이면 번호순
+    out = _agg(db)
+    (row,) = out["opportunities"]
+    assert (row["from_stage"], row["to_stage"]) == ("", "won")
+
+
+def test_activities_prev_is_previous_period_of_same_unit(db):
+    _activity(db, "월간 이번", day=date(2026, 3, 10))
+    _activity(db, "2월 말", day=date(2026, 2, 27))
+    _activity(db, "2월 초", day=date(2026, 2, 1))
+    _activity(db, "1월", day=date(2026, 1, 31))
+    assert _agg(db, "month", date(2026, 3, 1), date(2026, 3, 31))["kpis"]["activities_prev"] == 2
+    _activity(db, "금요일", day=date(2026, 11, 27))
+    assert _agg(db, "day", date(2026, 11, 30), date(2026, 11, 30))["kpis"]["activities_prev"] == 1

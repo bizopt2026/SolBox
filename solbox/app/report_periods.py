@@ -31,6 +31,16 @@ def next_period(unit: str, start: date, end: date) -> tuple[date, date]:
     return period_of(unit, end + timedelta(days=1))
 
 
+def prev_period(unit: str, start: date, end: date) -> tuple[date, date]:
+    """같은 단위의 바로 앞 기간. 일간은 앞 평일 (월 -> 금), 주간은 앞 월~일, 월간은 앞 달력 월."""
+    if unit == "day":
+        prv = start - timedelta(days=1)
+        while prv.weekday() >= 5:
+            prv -= timedelta(days=1)
+        return prv, prv
+    return period_of(unit, start - timedelta(days=1))
+
+
 def _end_text(start: date, end: date, *, same_month_short: bool) -> str:
     if end.year != start.year:
         return end.isoformat()

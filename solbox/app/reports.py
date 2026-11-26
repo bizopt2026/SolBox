@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app import ontology
+from app import ontology, report_periods
 from app.models import (
     Activity, Customer, CustomerNeed, FollowUp, Opportunity, OpportunityStageChange, Partner, Proposal, Report, ReportPlanItem, Solution,
 )
@@ -43,9 +43,7 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
     """[start, end] 기간의 실적. 날짜 기준: 활동은 `Activity.date`(없으면 만든 날), 니즈·영업기회·제안·솔루션·고객·파트너는 `created_at`,
     수주는 단계 변경 기록, 완료는 `done_at`, 기한 지남은 기간 마지막 날 기준 (다시 열어도 같은 값)."""
     lo, hi = _bounds(start, end)
-    days = (end - start).days + 1
-    prev_end = start - timedelta(days=1)
-    prev_start = prev_end - timedelta(days=days - 1)
+    prev_start, prev_end = report_periods.prev_period(unit, start, end)
 
     # 활동
     acts = db.scalars(
@@ -71,7 +69,7 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
     ).all()
     opportunities = []
     for o in opps:
-        mine = [c for c in o.stage_changes if lo <= c.changed_at < hi]  # 시각순 (관계 정렬)
+        mine = sorted((c for c in o.stage_changes if lo <= c.changed_at < hi), key=lambda c: (c.changed_at, c.id))  # 같은 시각이면 번호순
         new = lo <= o.created_at < hi
         opportunities.append({
             "id": o.id, "name": o.name, "customer": o.customer.name if o.customer else "",
@@ -111,6 +109,7 @@ def aggregate(db: Session, unit: str, start: date, end: date) -> dict:
         "needs": _count(db, CustomerNeed, _in(CustomerNeed.created_at, lo, hi)),
         "opportunities_new": _count(db, Opportunity, _in(Opportunity.created_at, lo, hi)),
         "won": won,
+        "proposals_new": _count(db, Proposal, _in(Proposal.created_at, lo, hi)),
         "proposals_active": len(proposals),
         "decks_built": decks_built,
         "solutions_new": _count(db, Solution, _in(Solution.created_at, lo, hi)),
@@ -139,7 +138,7 @@ def previous_report(db: Session, report: Report) -> Report | None:
     taken = exists().where(ReportPlanItem.report_id == Report.id, other_checked)
     return db.scalars(
         select(Report)
-        .where(Report.unit == report.unit, Report.status == "confirmed", Report.period_start < report.period_start, ~taken)
+        .where(Report.unit == report.unit, Report.status == ontology.REPORT_STATUS_CONFIRMED, Report.period_start < report.period_start, ~taken)
         .order_by(Report.period_start.desc(), Report.id.desc())
         .limit(1)
     ).first()
