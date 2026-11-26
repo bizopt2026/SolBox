@@ -5,9 +5,9 @@
 {% call detail_head(person.name, "/contacts", person, can_delete, crumbs=crumbs, sub=(person.title or none)) %}{% endcall %}
 <div class="dgrid">
   <div class="dmain">
-    {% call props_card("기본 정보", [(ont.prop("contact", "title"), person.title), (ont.prop("contact", "role"), role_label), (ont.prop("contact", "phone"), person.phone),
+    {{ props_card("기본 정보", [(ont.prop("contact", "title"), person.title), (ont.prop("contact", "role"), role_label), (ont.prop("contact", "phone"), person.phone),
                     (ont.prop("contact", "office_phone"), person.office_phone), (ont.prop("contact", "email"), person.email), (ont.prop("contact", "note"), person.note)],
-                    "/contacts/" ~ person.id ~ "/edit") %}{% if person.role %}<p class="contact-role">{{ pill("contact_role", person.role) }}</p>{% endif %}{% endcall %}
+                    "/contacts/" ~ person.id ~ "/edit") }}
     <section class="card stack" id="contact-opportunities">
       <div class="card-head"><h2>{{ ont.label("opportunity") }} {{ person.opportunities | length }}</h2></div>
       {% if person.opportunities %}<ul class="plain-list">{% for o in person.opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }}</li>{% endfor %}</ul>

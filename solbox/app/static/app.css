@@ -1728,11 +1728,13 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .contact-reach { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .contact-split { margin: var(--s2) 0 0; font-size: 13px; }
+.form-page.split-form { max-width: none; }
 .split-form .table-wrap { overflow-x: auto; }
-.split-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.split-table { width: 100%; min-width: 1120px; border-collapse: collapse; font-size: 13px; }
 .split-table th, .split-table td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-.split-table input:not([type="checkbox"]), .split-table select { width: 100%; min-width: 80px; }
-.split-table .split-line { max-width: 240px; overflow-wrap: anywhere; }
+.split-table input:not([type="checkbox"]), .split-table select { width: 100%; min-width: 96px; }
+.split-table select { min-width: 112px; }
+.split-table .split-line { min-width: 200px; max-width: 280px; overflow-wrap: anywhere; }
 .split-existing td { background: var(--sunken); }
 @media (max-width: 720px) {
   .contact-row { grid-template-columns: minmax(0, 1fr) auto; }
