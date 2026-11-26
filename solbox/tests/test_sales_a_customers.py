@@ -63,3 +63,8 @@ def test_open_opportunity_column_and_detail_line(user_client, db):
     assert "2건 · 4억" in _row(page, "한빛물류")
     detail = user_client.get(f"/customers/{c.id}").text
     assert "마지막 접촉 24일 전" in detail and "진행 중 영업기회 2건 (합계 4억)" in detail
+
+
+def test_detail_line_is_quiet_without_contact_or_open_opportunities(user_client, db):
+    c = _customer(db, "새고객")
+    assert 'class="contact-line' not in user_client.get(f"/customers/{c.id}").text

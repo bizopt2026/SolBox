@@ -37,11 +37,11 @@ def _form_page(request: Request, db: Session, form: dict, customer: Customer | N
 
 
 def _contact_line(db: Session, customer: Customer, today) -> str:
-    """상세 제목 밑 한 줄: "마지막 접촉 24일 전 · 진행 중 영업기회 2건 (합계 4억)" (영업 A 단계)."""
+    """상세 제목 밑 한 줄: "마지막 접촉 24일 전 · 진행 중 영업기회 2건 (합계 4억)" (영업 A 단계). 둘 다 없으면 빈 글 (줄을 그리지 않는다)."""
     from app import money
 
     last = relations.latest_activity_dates(db, "customer", [customer.id]).get(customer.id)
-    parts = [f"마지막 접촉 {ui.days_ago(last, today)}" if last else "마지막 접촉 기록 없음"]
+    parts = [f"마지막 접촉 {ui.days_ago(last, today)}"] if last else []  # 활동 기록이 아직 없으면 접촉 부분은 빼고 (빈 항목은 조용히: 화면 규칙)
     n, total = opps.open_by_customer(db, [customer.id]).get(customer.id, (0, 0))
     if n:
         parts.append(f"진행 중 {ontology.label('opportunity')} {n}건" + (f" (합계 {money.format_amount(total)})" if total else ""))
