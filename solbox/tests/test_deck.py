@@ -224,7 +224,7 @@ def _body_top(slide, needle):
 
 
 def test_body_bottom_higher_when_key_message_wraps(tmp_path):
-    """베타 AF: 세로 띠는 고정이다. 본문은 늘 2.20 에서 시작하고, 핵심 메시지(결론 띠)가 여러 줄이면 띠가 위로 자라 본문 아래 끝이 올라간다."""
+    """베타 AF: 세로 띠는 고정이다. 본문은 2.20(부제가 없고 제목이 한 줄이면 1.75)에서 시작하고, 핵심 메시지(결론 띠)가 여러 줄이면 띠가 위로 자라 본문 아래 끝이 올라간다."""
     short = "짧은 핵심 메시지입니다"
     long = "이미 본관과 별관 설비를 24시간 상주 운영하고 있어 새 솔루션을 기존 운영 범위 안에서 바로 확장할 수 있습니다 " * 2
     slides = []
@@ -241,13 +241,13 @@ def test_body_bottom_higher_when_key_message_wraps(tmp_path):
         return next(sh for sh in slide.shapes if sh.name == "결론 띠")
     for i in range(0, 8, 2):
         a, b = prs.slides[i], prs.slides[i + 1]
-        assert abs(band(a).top - Inches(6.2)) <= 10 and abs(band(a).height - Inches(0.4)) <= 10
+        assert abs(band(a).top - Inches(6.2)) <= 10 and abs(band(a).height - Inches(0.5)) <= 10
         assert band(b).top < band(a).top and abs(band(b).top + band(b).height - band(a).top - band(a).height) <= 10, slides[i]["kind"]
         assert abs(max(c.top + c.height for c in cards(a)) - Inches(6.05)) <= 10
         assert max(c.top + c.height for c in cards(b)) <= band(b).top - Inches(0.15) + 10
         for slide in (a, b):
             tops = [c.top for c in cards(slide)]
-            assert min(tops) >= Inches(2.2) - 10 and (abs(min(tops) - Inches(2.2)) <= 10 or slides[i]["kind"] == "steps")
+            assert min(tops) >= Inches(1.75) - 10 and (abs(min(tops) - Inches(1.75)) <= 10 or slides[i]["kind"] == "steps")  # 부제 없는 한 줄 제목: 본문이 1.75 로 올라온다
 
 
 def test_two_column_boxes_have_equal_height(tmp_path):

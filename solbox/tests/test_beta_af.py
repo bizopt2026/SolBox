@@ -90,7 +90,8 @@ def test_tokens_match_design_system():
     assert [str(c) for c in (deck.BRAND, deck.BRAND_DEEP, deck.ACCENT, deck.INK, deck.TEXT, deck.MUTE, deck.CAPTION, deck.SOURCE, deck.SURFACE2)] == [
         "002FA7", "001C64", "FF7A00", "222222", "3A4654", "5A6678", "8A94A2", "5F6B78", "EFF2F6"]
     assert (deck.SLIDE_W, deck.SLIDE_H, deck.MARGIN, deck.CONTENT_W) == (13.333, 7.5, 0.422, 12.49)
-    assert (deck.CHAPTER_Y, deck.HEAD_Y, deck.SUB_Y, deck.BODY_Y, deck.BODY_BOTTOM, deck.BAND_Y, deck.BAND_H, deck.STRIP_Y) == (0.306, 0.851, 1.472, 2.20, 6.05, 6.20, 0.40, 6.85)
+    assert (deck.CHAPTER_Y, deck.HEAD_Y, deck.SUB_Y, deck.BODY_Y, deck.BODY_BOTTOM, deck.BAND_Y, deck.BAND_H, deck.STRIP_Y) == (0.306, 0.851, 1.472, 2.20, 6.05, 6.20, 0.50, 6.85)
+    assert deck.BODY_Y_TIGHT == 1.75  # 부제가 없고 대제목이 한 줄인 장의 본문 위 끝 (2026-11-26)
     assert {str(deck.PAGE_BG)} <= deck_gates.PALETTE and {str(c) for c in (deck.GRID_GREY, deck.HAIRLINE, deck.BRAND_T3, deck.BRAND_PALE)} <= deck_gates.PALETTE
 
 
@@ -107,7 +108,7 @@ def test_header_band_and_page_number(tmp_path):
     assert by["챕터"].text_frame.text == "02 · 전력비 절감 제안"
     assert by["대제목"].text_frame.text == "전력비를 연 12% 줄입니다"  # 제목은 마침표로 끝내지 않는다 (베타 AG, 사용자 결정 2026-11-24)
     assert next(sh for sh in s3.shapes if sh.name == "대제목").text_frame.text == "끝이 물음표인가?"
-    for name, (x, y, w, h) in {"챕터": (0.422, 0.306, 8.0, 0.3), "대제목": (0.422, 0.851, 12.262, 0.55), "결론 띠": (0.422, 6.20, 12.49, 0.40),
+    for name, (x, y, w, h) in {"챕터": (0.422, 0.306, 8.0, 0.3), "대제목": (0.422, 0.851, 12.262, 0.55), "결론 띠": (0.422, 6.20, 12.49, 0.50),
                                "쪽 번호": (12.45, 6.85, 0.5, 0.3)}.items():
         sh = by[name]
         got = (sh.left / EMU, sh.top / EMU, sh.width / EMU, sh.height / EMU)
@@ -141,7 +142,7 @@ def test_long_headline_and_key_message_stay_in_their_bands(tmp_path):
     by = {sh.name: sh for sh in prs.slides[0].shapes}
     head, band = by["대제목"], by["결론 띠"]
     assert (head.top + head.height) / EMU <= 2.20 - 0.2
-    assert abs((band.top + band.height) / EMU - 6.60) < 0.001 and band.height / EMU > 0.40  # 띠는 위로 자란다
+    assert abs((band.top + band.height) / EMU - 6.70) < 0.001 and band.height / EMU > 0.50  # 띠는 위로 자란다
     assert all(_box(sh)[3] <= band.top / EMU - 0.15 + TOL for sh in prs.slides[0].shapes if sh.name == "카드")
     gates = {f["gate"] for f in stats["quality"]}
     assert "헤드라인 30자" in gates and not _layout_gates(stats["quality"])
@@ -196,7 +197,7 @@ def test_random_outlines_stay_inside_slide_and_body(tmp_path):
                 x1, y1, x2, y2 = _box(sh)
                 assert -TOL <= x1 and -TOL <= y1 and x2 <= 13.333 + TOL and y2 <= 7.5 + TOL, (i, page["kind"], sh.name)
                 if page["kind"] != "cover" and sh.name not in ("결론 띠", "배경", "챕터", "대제목", "부제", "쪽 번호", "출처"):
-                    assert y1 >= 2.20 - TOL and y2 <= limit + TOL, (i, page["kind"], sh.name, y1, y2, limit)
+                    assert y1 >= deck._body_top(page) - TOL and y2 <= limit + TOL, (i, page["kind"], sh.name, y1, y2, limit)
             if page["kind"] != "cover":
                 assert len(slide._element.findall(f".//{A}fld")) == 1
         bad = _layout_gates(stats["quality"])
@@ -411,7 +412,7 @@ def test_customer_deck_has_no_notes_or_internal_paths_and_internal_keeps_notes(t
     note = _notes(internal.slides[1])
     assert "[출처]\nAI 공조 최적제어\nactivities/2026/1.md" in note and "[확인 항목]\n절감률 수치" in note and "[확인함]\n확인한 것" in note
     body = _texts(internal.slides[1])
-    assert "근거: solutions/1/card.md 참고" in body and "절감률 수치" not in body
+    assert "02  근거\nsolutions/1/card.md 참고" in body and "절감률 수치" not in body  # 번호 카드: 번호·굵은 머리말 한 줄, 설명 아래 줄 (2026-11-26)
     source = next(sh for sh in internal.slides[1].shapes if sh.name == "출처")
     assert source.text_frame.text == "Source: AI 공조 최적제어"  # 이름을 아는 출처만 슬라이드에, 경로는 노트에만
     assert abs(source.left / EMU - 0.535) < 0.001 and abs(source.top / EMU - 6.85) < 0.001

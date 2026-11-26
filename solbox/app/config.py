@@ -33,6 +33,7 @@ class Settings:
     transcribe_max_minutes: int = 120
     transcribe_chunk_minutes: int = 10
     deck_background: Path | None = None  # 제안서 PPT 모든 장에 까는 배경 그림 (없으면 옅은 회색 바탕)
+    proposal_review: bool = True  # 구성안을 만든 뒤 AI 가 한 번 더 검토해 고친다 (AI 호출이 한 번 늘어 1분쯤 더 걸린다)
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:

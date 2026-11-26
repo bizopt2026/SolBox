@@ -849,6 +849,8 @@ dd .button + .muted { margin-left: var(--s2); }
 .deck-box > .notice, .deck-box > .error { margin: 0; }
 .outline-lead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); }
 .outline-lead p { margin: 0; }
+.outline-review { margin: var(--s2) 0 0; font-size: var(--fs-small); }
+.outline-review ul { margin: var(--s1) 0 0; padding-left: 1.2em; }
 .slide-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-sm); }
 .slide-mini li { display: flex; align-items: center; gap: var(--s3); padding: 7px 12px; border-top: 1px solid var(--line); min-width: 0; }
 .slide-mini li:first-child { border-top: 0; }

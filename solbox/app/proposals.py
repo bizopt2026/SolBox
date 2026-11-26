@@ -1071,3 +1071,81 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
         outline = "아직 만들지 않음"
     deck = f"마지막 생성 {ui.short_datetime(p.deck_built_at, date.today())}" if p.deck_name and p.deck_built_at else "아직 만들지 않음"
     return {"target": target, "directions": direction, "chat": chat, "outline": outline, "deck": deck}
+
+
+# ---------------------------------------------------------------- 구성안 AI 검토 (베타 AI)
+
+REVIEW_CHANGES_MAX = 8
+_REVIEW_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+_COUNT_WORD = re.compile(r"([1-9])\s*(?:단계|가지)")  # "4단계", "3가지": 초안의 항목 수를 센 말이라 새 수치로 보지 않는다
+
+
+def _visible_texts(slide: dict) -> list[str]:
+    """고객에게 보이는 글 (출처·확인 항목은 뺀다)."""
+    out = [str(slide.get(k) or "") for k in ("title", "key_message", "subtitle", "left_title", "right_title", "unit", "note", "center", "axis_x", "axis_y")]
+    for key in ("bullets", "left", "right", "columns", "categories"):
+        out += [str(v) for v in slide.get(key) or []]
+    out += [str(c) for row in slide.get("rows") or [] for c in row]
+    out += [str(st.get(k) or "") for st in slide.get("steps") or [] if isinstance(st, dict) for k in ("name", "detail")]
+    out += [str(i.get(k) or "") for i in slide.get("kpis") or [] if isinstance(i, dict) for k in ("value", "unit", "label", "note")]
+    out += [str(n.get(k) or "") for n in slide.get("nodes") or [] if isinstance(n, dict) for k in ("label", "detail", "group")]
+    for s in slide.get("series") or []:
+        if isinstance(s, dict):
+            out.append(str(s.get("name") or ""))
+            out += [str(v) for v in s.get("values") or []]
+    return out
+
+
+def _numbers(texts: list[str]) -> set[str]:
+    """글 속 숫자들을 같은 모양으로 (쉼표 떼기, 소수 끝 0 떼기)."""
+    found = set()
+    for text in texts:
+        text = _COUNT_WORD.sub("", text)
+        for m in _REVIEW_NUMBER.findall(text):
+            n = m.replace(",", "")
+            if "." in n:
+                n = n.rstrip("0").rstrip(".")
+            found.add(n)
+    return found
+
+
+def review_changes(raw) -> list[str]:
+    """AI 검토가 적은 고친 점: 빈 줄을 빼고 8개까지, 한 줄 200자까지."""
+    items = [str(c).strip()[:200] for c in (raw or []) if str(c).strip()]
+    return _unique(items)[:REVIEW_CHANGES_MAX]
+
+
+def accept_review(draft: dict, reviewed: dict) -> tuple[dict | None, str]:
+    """AI 검토가 고친 구성안을 받아들일지 정한다. 받으면 (구성안, ""), 버리면 (None, 이유).
+
+    검토자는 자료 파일을 읽지 않으므로 새 사실을 더할 수 없다: 초안에 없는 숫자가 고객에게 보이는 글에 있으면 통째로 버린다.
+    출처는 초안에 있던 경로만 남긴다. 초안의 확인 항목 중 검토본에서 빠진 것은 같은 제목의 장(없으면 같은 자리의 본문 장)에 되돌려 붙인다:
+    확인 항목은 근거 문제를 알리는 장치라 검토가 지울 수 없다. 확인한 표시(`checked`)는 새 구성안이라 비어 있다."""
+    slides = [dict(s) for s in reviewed.get("slides") or []]
+    if not slides:
+        return None, "검토본에 슬라이드가 없습니다"
+    draft_slides = draft.get("slides") or []
+    allowed = _numbers([t for s in draft_slides for t in _visible_texts(s)])
+    new = sorted(_numbers([t for s in slides for t in _visible_texts(s)]) - allowed)
+    if new:
+        return None, "초안에 없는 숫자가 들어갔습니다: " + ", ".join(new[:5])
+    draft_sources = {src for s in draft_slides for src in s.get("sources") or []}
+    for s in slides:
+        s["sources"] = [src for src in s.get("sources") or [] if src in draft_sources]
+    present = {c for s in slides for c in s.get("needs_check") or []}
+    body = [i for i, s in enumerate(slides) if s.get("kind") not in ("cover", "closing")] or list(range(len(slides)))
+    by_title = {s.get("title"): i for i, s in enumerate(slides) if s.get("title")}
+    for pos, s in enumerate(draft_slides):
+        missing = [c for c in s.get("needs_check") or [] if c not in present]
+        if not missing:
+            continue
+        target = by_title.get(s.get("title"))
+        if target is None:
+            target = min(body, key=lambda i: abs(i - pos))
+        slides[target]["needs_check"] = _unique(list(slides[target].get("needs_check") or []) + missing)
+        present.update(missing)
+    for s in slides:
+        s["checked"] = []
+        if s.get("kind") not in ("cover", "closing") and not s.get("sources") and not s.get("needs_check"):
+            s["needs_check"] = [NO_SOURCE_NOTE]
+    return {**reviewed, "slides": slides}, ""

@@ -226,10 +226,14 @@ def _check_layout(slide_no: int, shapes: list[_Shape], is_cover: bool, out: list
     if not is_cover:
         # 본문 콘텐츠 최대 y 6.05 (DESIGN-SYSTEM §4 RESERVED Y BANDS, §6 콘텐츠 max y). 결론 띠가 위로 자랐으면 띠 위 0.15 까지
         limit = min(deck.BODY_BOTTOM, band.y - deck.BAND_GAP) if band is not None else deck.BODY_BOTTOM
-        low = [s for s in shapes if s is not band and s.name != "배경" and s.y < deck.BAND_Y and s.bottom > limit + tol and s.y >= deck.BODY_Y - tol]
+        # 본문 위 끝: 부제가 없고 대제목이 한 줄(높이 그대로)이면 빈 부제 자리까지 본문이 올라온다 (`deck._body_top`)
+        title = next((s for s in shapes if s.name == "대제목"), None)
+        tight = not any(s.name == "부제" for s in shapes) and (title is None or title.bottom <= deck.HEAD_Y + deck.HEAD_H + tol)
+        top = deck.BODY_Y_TIGHT if tight else deck.BODY_Y
+        low = [s for s in shapes if s is not band and s.name != "배경" and s.y < deck.BAND_Y and s.bottom > limit + tol and s.y >= top - tol]
         if low:
             out.append(_finding("error", "본문 최대 y 6.05", slide_no, f"본문이 아래 한계({limit:.2f}in)를 넘습니다: {low[0].name} 아래 끝 {max(s.bottom for s in low):.2f}in"))
-        high = [s for s in shapes if s.name not in ("배경", "챕터", "대제목", "부제") and s.y < deck.BODY_Y - tol and s.bottom > deck.CHAPTER_Y]
+        high = [s for s in shapes if s.name not in ("배경", "챕터", "대제목", "부제") and s.y < top - tol and s.bottom > deck.CHAPTER_Y]
         if high and any(s.name == "대제목" for s in shapes if s.y < 1.0):
             out.append(_finding("error", "헤더 띠 침범", slide_no, f"본문 도형이 헤더 자리로 올라왔습니다: {high[0].name}"))
         if band is not None and (abs(band.x - deck.MARGIN) > 0.01 or abs(band.w - deck.CONTENT_W) > 0.01 or abs(band.bottom - (deck.BAND_Y + deck.BAND_H)) > 0.01):

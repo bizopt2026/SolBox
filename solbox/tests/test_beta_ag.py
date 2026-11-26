@@ -323,7 +323,7 @@ def test_native_chart_with_data_labels(tmp_path, ctype, cats, series):
         assert root.find(f".//{C}holeSize").get("val") == "56"
     assert root.find(f"{C}roundedCorners").get("val") == "0"
     x0, y0, x1, y1 = frame.left / EMU, frame.top / EMU, (frame.left + frame.width) / EMU, (frame.top + frame.height) / EMU
-    assert x0 >= deck.MARGIN - 0.01 and x1 <= deck.RIGHT + 0.01 and y0 >= deck.BODY_Y - 0.01 and y1 <= deck.BODY_BOTTOM + 0.01
+    assert x0 >= deck.MARGIN - 0.01 and x1 <= deck.RIGHT + 0.01 and y0 >= deck.BODY_Y_TIGHT - 0.01 and y1 <= deck.BODY_BOTTOM + 0.01
     assert "기준: 시험 값" in _texts(slide)
     if series == 1 and cats <= 6:  # 값 요약 카드: 그래프에 든 값 그대로
         shown = [sh.text_frame.text for sh in slide.shapes if sh.name == "값"]
@@ -451,7 +451,7 @@ def test_random_sizes_stay_inside_the_slide(tmp_path):
             x0, y0, x1, y1 = sh.left / EMU, sh.top / EMU, (sh.left + sh.width) / EMU, (sh.top + sh.height) / EMU
             assert -0.011 <= x0 and x1 <= deck.SLIDE_W + 0.011 and -0.011 <= y0 and y1 <= deck.SLIDE_H + 0.011, (sh.name, x0, y0, x1, y1)
             if sh.name not in ("챕터", "대제목", "부제", "결론 띠", "쪽 번호", "출처"):
-                assert y0 >= deck.BODY_Y - 0.011 and y1 <= limit + 0.011, (sh.name, y0, y1, limit)
+                assert y0 >= deck.BODY_Y_TIGHT - 0.011 and y1 <= limit + 0.011, (sh.name, y0, y1, limit)
                 assert x0 >= deck.MARGIN - 0.011 and x1 <= deck.RIGHT + 0.011, (sh.name, x0, x1)
 
 
@@ -552,8 +552,8 @@ def test_prompt_plans_the_deck_visually():
 
 def test_docs_describe_beta_ag():
     rules = (ROOT / "docs" / "rules" / "제안서와-PPT.md").read_text(encoding="utf-8")  # 묶음 규칙은 CLAUDE.md 에서 영역 파일로 옮겼다
-    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):]  # 이 파일의 마지막 구역
-    assert "\n## " not in section[3:], "베타 AG 뒤에 다른 구역이 생기면 끝을 다시 정한다"
+    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):rules.index("## 베타 AH 묶음이 바꾼 규칙")]  # 베타 AH 가 뒤에 이어진다
+    assert "\n## " not in section[3:], "베타 AG 와 AH 사이에 다른 구역이 생기면 끝을 다시 정한다"
     for needle in ("마침표", "로고", "deck_background", "kpi", "chart", "diagram", "시각 자료 비율", "값 | 단위 | 이름 | 설명", "이름 | 설명 | 묶음", "test_beta_ag.py"):
         assert needle in section, needle
     onto = (ROOT / "docs" / "ontology.md").read_text(encoding="utf-8")
