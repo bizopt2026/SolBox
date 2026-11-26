@@ -805,3 +805,53 @@
     if (cur && seg.scrollWidth > seg.clientWidth) seg.scrollLeft = Math.max(0, cur.offsetLeft - 16);
   });
 })();
+
+// 영업기회 보드 끌어 놓기 (영업 C): 카드를 다른 열(또는 수주·실패 칸)에 놓으면 그 단계로 바꾸는 폼을 보낸다.
+// 서버가 보드로 돌려보내거나(알림), 수주·실패면 사유 화면으로 보낸다. 스크립트가 없어도 카드의 "단계 바꾸기" 단추로 같은 일을 한다.
+(function () {
+  var board = document.querySelector("[data-board]");
+  if (!board) return;
+  var qs = board.getAttribute("data-qs") || "";
+  var dragId = null, fromStage = null;
+  function clearMarks() { board.querySelectorAll(".drop-on").forEach(function (x) { x.classList.remove("drop-on"); }); }
+  function targetOf(e) { return e.target.closest ? e.target.closest(".board-col, .board-drop") : null; }
+  board.addEventListener("dragstart", function (e) {
+    var card = e.target.closest ? e.target.closest(".kcard") : null;
+    if (!card) return;
+    dragId = card.getAttribute("data-id");
+    fromStage = card.getAttribute("data-stage");
+    card.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", dragId);
+  });
+  board.addEventListener("dragend", function (e) {
+    var card = e.target.closest ? e.target.closest(".kcard") : null;
+    if (card) card.classList.remove("dragging");
+    clearMarks();
+    dragId = null;
+  });
+  board.addEventListener("dragover", function (e) {
+    var t = targetOf(e);
+    if (!t || !dragId) return;
+    e.preventDefault();
+    if (!t.classList.contains("drop-on")) { clearMarks(); t.classList.add("drop-on"); }
+  });
+  board.addEventListener("drop", function (e) {
+    var t = targetOf(e);
+    if (!t || !dragId) return;
+    e.preventDefault();
+    var stage = t.getAttribute("data-stage");
+    clearMarks();
+    if (!stage || stage === fromStage) return;
+    var form = document.createElement("form");
+    form.method = "post";
+    form.action = "/opportunities/" + encodeURIComponent(dragId) + "/stage";
+    [["stage", stage], ["back", "board"], ["qs", qs]].forEach(function (kv) {
+      var input = document.createElement("input");
+      input.type = "hidden"; input.name = kv[0]; input.value = kv[1];
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  });
+})();

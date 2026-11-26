@@ -85,3 +85,11 @@ def test_bad_back_or_qs_values_are_ignored(user_client, db):
 def test_board_url_helper():
     assert opps.board_url("who=mine&stale=1&page=3&evil=x") == "/opportunities?view=board&who=mine&stale=1"
     assert opps.board_url("") == "/opportunities?view=board"
+
+
+def test_board_has_drag_hooks_and_script(user_client, db):
+    _world(db)
+    page = user_client.get("/opportunities?view=board").text
+    assert "data-board" in page and 'draggable="true"' in page and 'class="board-drop" data-stage="won"' in page
+    js = user_client.get("/static/app.js").text
+    assert "[data-board]" in js and '"back", "board"' in js
