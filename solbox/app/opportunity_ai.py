@@ -108,3 +108,172 @@ def request_review(db: Session, opp_ids, user_id: int | None, request, priority:
             continue
         made.append(enqueue(db, REVIEW_KIND, {"opportunity_id": oid}, user_id, priority))
     return made
+
+
+# ---- AI 분석: 프롬프트 · 다듬기 · 저장 ----
+
+ACT_OPEN, ACT_CLOSE = "<<<ACTIVITY", "ACTIVITY>>>"
+MAX_ACTIVITIES, MAX_ACTIVITY_CHARS, MAX_TOTAL_CHARS = 10, 4000, 30000
+MAX_EVIDENCE, MAX_BRIEF_TEXT, MAX_BRIEF_ITEMS = 300, 300, 5
+MAX_NEXT_STEP = 200
+INSIGHTS_KEPT = 20  # 영업기회마다 남기는 분석 수
+
+
+def today():
+    from app.routers.home import today as _today
+
+    return _today()
+
+
+def _safe(text) -> str:
+    """사용자 글이 구역 표시를 닫거나 열지 못하게 한다."""
+    return str(text or "").replace(ACT_CLOSE, "ACTIVITY> >>").replace(ACT_OPEN, "<<< ACTIVITY")
+
+
+def _norm(text: str) -> str:
+    return "".join(str(text or "").split()).strip("\"'“”‘’")
+
+
+def _activities(opp: Opportunity) -> list:
+    return sorted(opp.activities, key=lambda a: (a.date is not None, a.date.toordinal() if a.date else 0, a.id), reverse=True)[:MAX_ACTIVITIES]
+
+
+def build_prompt(db: Session, opp: Opportunity, today_) -> tuple[str, dict[int, str]]:
+    """프롬프트와 {활동 번호: AI 에게 보인 글} (근거 확인에 쓴다). 활동 글은 최근 10건, 한 건 4,000자, 합계 30,000자."""
+    from app import money
+    from app.ai.tasks import load_prompt
+    from app.opportunities import needs_of, open_follow_ups
+
+    P = lambda k: ontology.prop("opportunity", k)  # noqa: E731
+    lines = [f"- {P('name')}: {_safe(opp.name)}", f"- {P('customer')}: {_safe(opp.customer.name)}",
+             f"- {P('stage')}: {ontology.OPPORTUNITY_STAGES[opp.stage]} ({opp.stage})",
+             f"- {P('amount')}: {money.format_amount(opp.amount) or '없음'}" + (f" ({opp.amount}원)" if opp.amount else ""),
+             f"- {P('expected_close')}: {opp.expected_close.isoformat() if opp.expected_close else '없음'}",
+             f"- {P('next_step')}: {_safe(opp.next_step) or '없음'}" + (f" ({opp.next_step_due.isoformat()})" if opp.next_step_due else "")]
+    if opp.bm:
+        lines.append(f"- {P('bm')}: {_safe(opp.bm.name)}")
+    if opp.business_types:
+        lines.append(f"- {P('business_types')}: {ontology.business_types_text(opp.business_types)}")
+    if opp.memo:
+        lines.append(f"- {P('memo')} (사용자 글, 자료): {_safe(opp.memo)[:1000]}")
+    done = checked_items(opp)
+    checklist = "\n".join(f"{code} | {name} | {'확인함' if code in done else '아직'}"
+                          for stage in ontology.OPPORTUNITY_OPEN_STAGES for code, name in items_of(stage))
+    needs = "\n".join(f"- {_safe(' '.join(n.content.split()))[:300]}" for n in needs_of(db, opp)) or "(없음)"
+    fus = "\n".join(f"- {_safe(f.task)[:200]}" + (f" (기한 {f.due.isoformat()})" if f.due else "") for f in open_follow_ups(opp)[:20]) or "(없음)"
+    texts: dict[int, str] = {}
+    blocks, total = [], 0
+    for a in _activities(opp):
+        body = (a.summary_md or "").strip() or (a.raw_text or "")
+        body = body[:MAX_ACTIVITY_CHARS]
+        if total + len(body) > MAX_TOTAL_CHARS:
+            body = body[:max(0, MAX_TOTAL_CHARS - total)]
+        if not body:
+            break
+        total += len(body)
+        texts[a.id] = body
+        head = f"{ACT_OPEN} id={a.id} 일자={a.date.isoformat() if a.date else '모름'} 제목={_safe(a.title)[:100]}"
+        blocks.append(f"{head}\n{_safe(body)}\n{ACT_CLOSE}")
+    prompt = load_prompt("opportunity_review", today=today_.isoformat(), opportunity="\n".join(lines), checklist=checklist, needs=needs,
+                         follow_ups=fus, activities="\n\n".join(blocks),
+                         stage_codes=", ".join(f"`{c}`({ontology.OPPORTUNITY_STAGES[c]})" for c in ontology.OPPORTUNITY_OPEN_STAGES))
+    return prompt, texts
+
+
+def basis_of(opp: Opportunity, texts: dict[int, str]) -> dict:
+    """분석할 때의 값 사본 (반영할 때 그 칸이 그 사이 바뀌었는지 본다)."""
+    return {"activity_ids": list(texts), "amount": opp.amount, "expected_close": opp.expected_close.isoformat() if opp.expected_close else None,
+            "next_step": opp.next_step or "", "next_step_due": opp.next_step_due.isoformat() if opp.next_step_due else None, "stage": opp.stage}
+
+
+def _iso(value) -> str | None:
+    from datetime import date
+
+    try:
+        return date.fromisoformat(str(value).strip()).isoformat() if value else None
+    except ValueError:
+        return None
+
+
+def _amount(value) -> int | None:
+    from app import money
+
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value) if value > 0 and float(value).is_integer() else None
+    try:
+        return money.parse_amount(str(value))
+    except ValueError:
+        return None
+
+
+def clean_suggestions(out, opp: Opportunity, texts: dict[int, str], today_) -> list[dict]:
+    """AI 결과를 제안 목록으로: 지금 값과 같은 것·모르는 항목·이미 확인한 항목·진행 중이 아닌 단계·읽지 않은 활동 번호는 버린다.
+    근거는 300자, 그 활동 글(공백 무시)에 들어 있으면 verified."""
+    found: list[dict] = []
+
+    def add(kind: str, sug, **values) -> None:
+        aid = sug.activity_id
+        if aid is not None and aid not in texts:
+            return
+        evidence = " ".join(str(sug.evidence or "").split())[:MAX_EVIDENCE]
+        verified = bool(evidence) and aid is not None and _norm(evidence) in _norm(texts[aid])
+        found.append({"id": len(found) + 1, "kind": kind, "field": None, "item": None, "value": None, "due": None, **values,
+                      "evidence": evidence, "activity_id": aid, "verified": verified, "state": "pending", "decided_by": None, "decided_at": None})
+
+    f = out.fields or {}
+    if (s := f.get("amount")) is not None and (v := _amount(s.value)) is not None and v != opp.amount:
+        add("field", s, field="amount", value=v)
+    if (s := f.get("expected_close")) is not None and (v := _iso(s.value)) and v != (opp.expected_close.isoformat() if opp.expected_close else None):
+        add("field", s, field="expected_close", value=v)
+    if (s := f.get("next_step")) is not None:
+        text = " ".join(str(s.value or "").split())[:MAX_NEXT_STEP]
+        due = _iso(s.due)
+        current_due = opp.next_step_due.isoformat() if opp.next_step_due else None
+        if text and not (text == (opp.next_step or "") and (due is None or due == current_due)):
+            add("field", s, field="next_step", value=text, due=due)
+    if out.stage is not None and out.stage.value in ontology.OPPORTUNITY_OPEN_STAGES and out.stage.value != opp.stage:
+        add("stage", out.stage, value=out.stage.value)
+    done, seen = checked_items(opp), set()
+    for c in out.checks or []:
+        if c.item in ontology.OPPORTUNITY_CHECK_ITEMS and c.item not in done and c.item not in seen:
+            seen.add(c.item)
+            add("check", c, item=c.item)
+    return found
+
+
+def clean_briefing(out) -> dict:
+    b = out.briefing
+
+    def one(t) -> str:
+        return " ".join(str(t or "").split())[:MAX_BRIEF_TEXT]
+
+    return {"situation": one(b.situation), "risks": [one(x) for x in b.risks if one(x)][:MAX_BRIEF_ITEMS],
+            "next_actions": [one(x) for x in b.next_actions if one(x)][:MAX_BRIEF_ITEMS], "outlook": one(b.outlook)}
+
+
+def latest_insight(db: Session, opp_id: int):
+    from sqlalchemy import select
+
+    from app.models import OpportunityInsight
+
+    return db.scalars(select(OpportunityInsight).where(OpportunityInsight.opportunity_id == opp_id).order_by(OpportunityInsight.id.desc())).first()
+
+
+def save_insight(db: Session, opp: Opportunity, job_id, briefing: dict, suggestions: list, basis: dict):
+    """새 분석을 저장한다: 옛 분석의 반영 대기 제안은 "새 분석으로 바뀜" 으로 닫고, 영업기회마다 20개만 남긴다."""
+    from sqlalchemy import select
+
+    from app.models import OpportunityInsight
+
+    old = list(db.scalars(select(OpportunityInsight).where(OpportunityInsight.opportunity_id == opp.id).order_by(OpportunityInsight.id)))
+    for ins in old:
+        if any(s.get("state") == "pending" for s in ins.suggestions or []):
+            ins.suggestions = [{**s, "state": "superseded"} if s.get("state") == "pending" else s for s in ins.suggestions]
+    new = OpportunityInsight(opportunity_id=opp.id, job_id=job_id, briefing=briefing, suggestions=suggestions, basis=basis)
+    db.add(new)
+    for ins in old[:max(0, len(old) + 1 - INSIGHTS_KEPT)]:
+        db.delete(ins)
+    db.flush()
+    return new
