@@ -27,6 +27,15 @@ WORDS = {"day": ("오늘", "지난 보고", "다음 평일"), "week": ("이번 �
 SECTION_NAMES = {"kpi": "요약 숫자", "opps": "영업기회 단계 변화", "proposals": "제안 진행", "check": "지난 계획 점검", "plan": "다음 계획", "issues": "이슈·건의"}
 
 
+WORKSPACE_TITLE = "사업 방향·과제"
+WORKSPACE_LEAD = "이번 기간 새 이슈 {issues_new}건, 닫은 이슈 {issues_closed}건."
+
+
+def _has_workspace(c: dict) -> bool:
+    ws = c.get("workspace") or {}
+    return any(ws.get(k) for k in ("strategies", "issues", "initiatives"))
+
+
 def _words(content: dict) -> tuple[str, str, str]:
     return WORDS.get(content.get("unit"), WORDS["week"])
 
@@ -71,6 +80,13 @@ def _md(c: dict) -> str:
     plan_body = ([f"**방향**: {c['direction']}", ""] if c["direction"] else []) + _md_table(["할 일", "담당", "기한", "비고"], c["plan"])
     section(6, f"{words[2]} 계획 ({c['next_period']})", "plan", plan_body)
     section(7, "이슈·건의", "issues", [f"- {s}" for s in c["issues"]] + [""] if c["issues"] else [])
+    ws = c.get("workspace") or {}
+    if any(ws.get(k) for k in ("strategies", "issues", "initiatives")):
+        body = [WORKSPACE_LEAD.format(**ws), ""]
+        body += ["### 사업 방향", ""] + _md_table(["방향", "상태", "과제", "비고"], ws["strategies"])
+        body += ["### 열린 이슈", ""] + _md_table(["이슈", "상태", "담당"], ws["issues"])
+        body += ["### 과제 진행", ""] + _md_table(["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"])
+        section(8, WORKSPACE_TITLE, None, body)
     if c.get("legacy_undated"):
         out.extend([f"> 기능 도입 전 기록 {c['legacy_undated']}건은 완료·단계 변경 날짜를 몰라 숫자에서 빠졌습니다.", ""])
     return "\n".join(out).rstrip("\n") + "\n"
@@ -219,6 +235,13 @@ def _docx(c: dict, path: Path) -> None:
     note(notes["issues"])
     for s in c["issues"]:
         _set_font(doc.add_paragraph().add_run("• " + s), 10)
+    if _has_workspace(c):
+        ws = c["workspace"]
+        heading(f"7. {WORKSPACE_TITLE}")
+        note([WORKSPACE_LEAD.format(**ws)])
+        table(["방향", "상태", "과제", "비고"], ws["strategies"], [6, 2.5, 4, 4.5])
+        table(["열린 이슈", "상태", "담당"], ws["issues"], [9, 3, 5])
+        table(["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"], [5, 2, 3.5, 6.5])
     if c.get("legacy_undated"):
         p = doc.add_paragraph()
         _set_font(p.add_run(f"기능 도입 전 기록 {c['legacy_undated']}건은 완료·단계 변경 날짜를 몰라 숫자에서 빠졌습니다."), 9, color=MUTED)
@@ -353,6 +376,13 @@ def _pptx(c: dict, path: Path) -> None:
     for page, chunk in enumerate(pages):
         sl = frame("이슈·건의" if page == 0 else "이슈·건의 (계속)")
         text(sl, Inches(0.6), Inches(1.6), Inches(12), Inches(4), ["■ " + s for s in chunk] or ["적어 둔 이슈·건의가 없습니다."], 20, color=ink if chunk else muted)
+
+    # 7 사업 방향·과제 (AI 코워크 ①)
+    if _has_workspace(c):
+        ws = c["workspace"]
+        paged(f"{WORKSPACE_TITLE} — 사업 방향", ["방향", "상태", "과제", "비고"], ws["strategies"], [5.0, 1.8, 2.8, 2.5], Inches(1.6), none="합의된 사업 방향이 없습니다.")
+        paged(f"{WORKSPACE_TITLE} — 열린 이슈", ["이슈", "상태", "담당"], ws["issues"], [7.5, 2.1, 2.5], Inches(1.6), none="열린 이슈가 없습니다.")
+        paged(f"{WORKSPACE_TITLE} — 과제 진행", ["과제", "종류", "상태 변화", "진행 메모"], ws["initiatives"], [4.0, 1.3, 2.6, 4.2], Inches(1.6), none="이번 기간에 움직인 과제가 없습니다.")
 
     prs.save(str(path))
 

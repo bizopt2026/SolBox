@@ -73,6 +73,41 @@
   {{ notes_box("proposals", "제안 진행") }}
 </section>
 
+{% set wsd = data.workspace or {} %}
+{% if wsd.strategies or wsd.issues_open or wsd.initiatives_changed %}
+<section class="card" id="workspace" aria-labelledby="workspace-h">
+  <div class="card-head"><h2 id="workspace-h">사업 방향·과제</h2><span class="muted small">새 이슈 {{ wsd.issues_new or 0 }} · 닫은 이슈 {{ wsd.issues_closed or 0 }}</span></div>
+  {% if wsd.strategies %}
+  <h3>{{ ont.label("strategy") }}</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>{{ ont.label("strategy") }}</th><th>상태</th><th>과제</th></tr></thead>
+    <tbody>{% for s in wsd.strategies %}
+      <tr><td><a href="/strategies/{{ s.id }}">{{ s.title }}</a>{% if s.changed %} <span class="badge tone-warn">이번 기간에 바뀜</span>{% endif %}</td><td>{{ pill("strategy_status", s.status) }}</td><td class="num">진행 {{ s.open_tasks }} · 완료 {{ s.done_tasks }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if wsd.issues_open %}
+  <h3>열린 이슈</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>이슈</th><th>상태</th><th>담당</th></tr></thead>
+    <tbody>{% for i in wsd.issues_open %}
+      <tr><td><a href="/initiatives/{{ i.id }}">{{ i.title }}</a></td><td>{{ pill("initiative_status", i.status) }}</td><td>{{ i.owner or "–" }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if wsd.initiatives_changed %}
+  <h3>과제 진행</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>과제</th><th>종류</th><th>상태 변화</th><th>진행 메모</th></tr></thead>
+    <tbody>{% for r in wsd.initiatives_changed %}
+      <tr><td><a href="/initiatives/{{ r.id }}">{{ r.title }}</a></td><td>{{ pill("initiative_kind", r.kind) }}</td>
+        <td>{% if r.new %}<span class="badge tone-violet" data-code="new">새로 생김</span> {% elif r.from_status %}{{ pill("initiative_status", r.from_status) }} → {% endif %}{{ pill("initiative_status", r.to_status) }}</td><td>{{ r.progress }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="card" id="activities" aria-labelledby="activities-h">
   <div class="card-head"><h2 id="activities-h">주요 활동</h2><span class="muted small">{% if data.activities | length > activity_preview %}{{ data.activities | length }}건 중 {{ activity_preview }}{% else %}{{ data.activities | length }}{% endif %}</span></div>
   {% if data.activities %}
