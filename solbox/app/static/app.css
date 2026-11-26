@@ -701,7 +701,7 @@ details.card-add > .add-panel { display: flex; flex-direction: column; gap: var(
 .dash-side { grid-column: span 5; }
 .dash .card { margin: 0; }
 .dash-wide { grid-column: 1 / -1; }
-.o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; } .o5 { order: 5; } .o6 { order: 6; }
+.o1 { order: 1; } .o7 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; } .o5 { order: 5; } .o6 { order: 6; }
 .guide { margin: 0 0 var(--gap); }
 .guide h2 { margin-bottom: var(--s3); }
 .guide-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
@@ -750,7 +750,7 @@ button.check::after { content: ""; position: absolute; inset: -8px; }
 .queue-row .badge { flex: none; }
 /* 영업기회 단계 막대 */
 .stagebars { display: flex; flex-direction: column; gap: 4px; }
-.sb-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 28px; align-items: center; gap: 10px; min-height: 32px; color: var(--ink-2); font-size: var(--fs-note); }
+.sb-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto 28px; align-items: center; gap: 10px; min-height: 32px; color: var(--ink-2); font-size: var(--fs-note); }
 .sb-row:hover { text-decoration: none; color: var(--brand); }
 .sb-row i { display: block; height: 8px; border-radius: 4px; background: var(--sunken); }
 .sb-row u { display: block; height: 100%; border-radius: 4px; background: var(--brand); }
@@ -1524,3 +1524,12 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
   .sumband > div:nth-child(2) { border-right: 0; }
   .sumband > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
 }
+
+/* ---- 영업 A 단계: 홈 챙길 영업기회 ---- */
+.sb-amt { color: var(--ink-3); font-size: var(--fs-small); text-align: right; min-width: 44px; }
+.opp-rows { list-style: none; margin: var(--s3) 0 0; padding: 0; display: flex; flex-direction: column; }
+.opp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.opp-row:first-child { border-top: 0; }
+.opp-t { font-weight: var(--fw-strong); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.opp-amt { font-size: var(--fs-note); white-space: nowrap; }
+.opp-m { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--fs-small); }
