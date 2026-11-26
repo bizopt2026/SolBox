@@ -1511,8 +1511,9 @@ nav.tabs button[aria-selected="true"] svg{background:var(--accent-soft)}
 "use strict";
 // ===== 앱 버전 · 원본 관리자만 바꿔요. 복제한 앱에서는 이 값과 VLOG를 바꾸지 마세요(업데이트 확인으로 원본 버전을 받으면 함께 바뀌어요) =====
 // 규칙: MAJOR(데이터·구조가 바뀌어 백업 호환이 깨지거나 앱 구성이 크게 바뀜) . MINOR(새 기능·화면 추가) . PATCH(버그 수정·문구·UI 다듬기)
-var APP_VERSION="1.8.4",APP_RELEASED="2026-11-25";
+var APP_VERSION="1.8.5",APP_RELEASED="2026-11-26";
 var VLOG=[
+ ["1.8.5","2026-11-26","식단 사진이 가끔 무시되던 문제","식단 기록에서 사진을 골랐는데 아무 반응이 없던 문제를 고쳤어요. 사진 앱에서 돌아오는 순간 화면이 새로 그려지면서 고른 사진을 놓치던 것이 원인이었어요. 같은 사진을 다시 골라도 분석돼요."],
  ["1.8.4","2026-11-25","앱을 열 때마다 새 버전 확인","새 버전 확인을 하루 한 번에서 앱을 열 때마다로 바꿨어요. 원본이 바뀌고 몇 분 뒤 앱을 다시 열면 머리글에 업데이트 버튼이 떠요. 새 버전 알림은 버전마다 한 번만 보여요."],
  ["1.8.3","2026-11-25","메인 색을 딥 틸로","버튼·강조에 쓰던 붉은 계열(레이스 오렌지)을 차분한 딥 틸(청록)로 바꿨어요. 어두운 화면에서는 밝은 청록으로 보여요. 인스타 스토리·레이스 인포그래픽 이미지의 강조색도 같이 바꿨고, 겹치지 않게 훈련표 테이퍼 주간 색은 연보라로 바꿨어요. 점수 색(파랑·초록·노랑·주황·빨강)은 그대로예요."],
  ["1.8.2","2026-11-25","업데이트 버튼을 위로","새 버전이 있으면 상단 머리글에 'v버전 업데이트' 버튼이 보이고, 누르면 버전 관리 카드가 펼쳐져요. 버전 관리 카드에서는 업데이트 칸을 맨 위로 올리고, '새 버전이 있어요' 바로 옆에 업데이트 버튼을 두었어요."],
@@ -3072,7 +3073,7 @@ function mealCard(ds,d,t){
     h+='<div class="cin" style="margin-top:8px"><input id="md-fix" class="inp" maxlength="200" placeholder="양이 다르면 적어 주세요 (예: 밥은 반 공기)" value="'+esc(ML.fix)+'"><button class="btn ghost" id="md-redo"'+(ML.busy?' disabled':'')+'>다시 계산</button></div>';
     h+='<div class="row" style="margin-top:8px"><button class="btn" id="md-save" style="background:var(--accent);color:var(--on-accent)"'+(ML.busy?' disabled':'')+'>저장</button><button class="btn ghost" id="md-cancel">취소</button></div></div>';
   } else {
-    h+='<div class="madd"><label class="btn'+(ML.photo===false||!can?' ghost':'')+'" for="m-photo" style="text-align:center;cursor:pointer'+(ML.photo===false||!can?';opacity:.5;pointer-events:none':'')+'">사진으로 추가</label><input type="file" id="m-photo" accept="'+(ML.mt||"image/*")+'" style="position:absolute;width:1px;height:1px;opacity:0"'+(ML.photo===false||!can||ML.busy?' disabled':'')+'><button class="btn ghost" id="m-text-open">글로 추가</button></div>';
+    h+='<div class="madd"><label class="btn'+(ML.photo===false||!can?' ghost':'')+'" for="m-photo" style="text-align:center;cursor:pointer'+(ML.photo===false||!can?';opacity:.5;pointer-events:none':'')+'">사진으로 추가</label><button class="btn ghost" id="m-text-open">글로 추가</button></div>';
     if(ML.textOpen)h+='<div class="cin" style="margin-top:8px"><input id="m-text" class="inp" maxlength="300" placeholder="예: 점심 김밥 1줄, 초코우유 300ml" value="'+esc(ML.text)+'"><button class="btn" id="m-text-go"'+(ML.busy?' disabled':'')+'>계산</button></div>';
     if(ML.photo===false)h+='<div class="small muted" style="margin-top:6px">이 화면에서는 사진 분석을 쓸 수 없어요. 글로 적어 주세요.</div>';
   }
@@ -3104,10 +3105,16 @@ async function mealAnalyze(ds,opt){
   }catch(e){var c=e&&e.code;ML.err=c==="not_granted"?"이 앱의 클로드 사용을 허용해야 식단 분석을 쓸 수 있어요.":c==="images_unavailable"?(ML.photo=false,"이 화면에서는 사진 분석을 쓸 수 없어요. 글로 적어 주세요."):c==="image_rejected"?"이 사진은 읽을 수 없어요. JPG·PNG 사진으로 다시 올려 주세요.":c==="rate_limited"?"요청이 많아요. 잠시 후 다시 시도해 주세요.":c==="invalid_json"?"분석 결과를 읽지 못했어요. 다시 시도하거나 글로 적어 주세요.":"분석하지 못했어요"+(e&&e.message?": "+e.message:".")}
   finally{ML.busy=false;keepIf()}
 }
+// the photo input lives outside #view: a re-render while the picker is open (returning from the photo app fires
+// visibilitychange -> weight/weather reload -> render) used to swap the input and drop the picked photo
+function mealPhotoInput(ds){ML.ds=ds;var ph=document.getElementById("m-photo");
+  if(!ph){ph=document.createElement("input");ph.type="file";ph.id="m-photo";ph.style.cssText="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";document.body.appendChild(ph);
+    ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;var d2=ML.ds;try{ph.value=""}catch(e){}if(ML.busy||!d2)return;if(ML.url)try{URL.revokeObjectURL(ML.url)}catch(e){}ML.file=f;ML.url=URL.createObjectURL(f);mealAnalyze(d2,{file:f,hint:""})}}
+  ph.accept=ML.mt||"image/*";ph.disabled=!!(ML.photo===false||AUTH.st==="anon"||ML.busy)}
 function bindMeals(ds){
   view.querySelectorAll("[data-carb]").forEach(function(b){b.onclick=function(){var c=carbRace(ds);if(!c)return;S.carbOff=S.carbOff||{};if(b.dataset.carb==="off")S.carbOff[c.race]=1;else delete S.carbOff[c.race];save();var y=window.scrollY;render();window.scrollTo(0,y);toast(b.dataset.carb==="off"?"카보로딩을 껐어요 · 평소 식단 목표로 계산해요":"카보로딩을 켰어요")}});
   if(ML.photo==null&&window.claude&&window.claude.use){ML.photo=undefined;window.claude.use("sample").then(function(sm){if(!sm)return;return sm.limits().then(function(l){ML.photo=!!(l&&l.images);if(l&&l.images)ML.mt=l.images.mediaTypes.join(",");keepIf()})}).catch(function(){})}
-  var ph=document.getElementById("m-photo");if(ph)ph.onchange=function(){var f=ph.files&&ph.files[0];if(!f)return;if(ML.url)try{URL.revokeObjectURL(ML.url)}catch(e){}ML.file=f;ML.url=URL.createObjectURL(f);mealAnalyze(ds,{file:f,hint:""})};
+  mealPhotoInput(ds);
   var to=document.getElementById("m-text-open");if(to)to.onclick=function(){ML.textOpen=!ML.textOpen;keepIf();var i=document.getElementById("m-text");if(i)i.focus()};
   var ti=document.getElementById("m-text");if(ti)ti.oninput=function(){ML.text=ti.value};
   var tg=document.getElementById("m-text-go");if(tg)tg.onclick=function(){var v=(ML.text||"").trim();if(!v)return;ML.file=null;ML.url="";mealAnalyze(ds,{hint:v})};
