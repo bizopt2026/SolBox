@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, save_bar, rev_fields, form_token %}
+{% block title %}{{ ont.label("strategy") }} {{ "수정" if strategy else "등록" }}{% endblock %}
+{% block content %}
+{% set label = ont.label("strategy") %}
+{{ page_header(label ~ " " ~ ("수정" if strategy else "등록"), crumbs=ui.crumbs("strategy", strategy.title if strategy else none, ("/strategies/" ~ strategy.id) if strategy else none, "수정" if strategy else "등록"), sub=(strategy.title if strategy else ont.TYPES["strategy"].description)) }}
+{{ form_error(error) }}
+<form method="post" action="{{ "/strategies/" ~ strategy.id if strategy else "/strategies" }}" class="form-page">
+  {% if strategy %}{{ rev_fields(strategy, conflict, "/strategies/" ~ strategy.id) }}{% else %}{{ form_token() }}{% endif %}
+  <section class="card">
+    <h2>기본 정보</h2>
+    <div class="fgrid">
+      {{ text_field(ont.prop("strategy", "title"), "title", form.title, required=true, error=error, wide=true) }}
+      {{ select_field(ont.prop("strategy", "status"), "status", ont.STRATEGY_STATUSES.items() | list, form.status, error=error, help="\"합의\" 상태이고 기간 안인 방향만 AI 가 잣대로 씁니다.") }}
+      {{ text_field("기간 시작", "period_start", form.period_start, type="date", error=error) }}
+      {{ text_field("기간 끝", "period_end", form.period_end, type="date", error=error, help="비우면 기간 없이 계속 씁니다.") }}
+      {{ text_field(ont.prop("strategy", "consensus"), "consensus", form.consensus, rows=5, help="AI 가 다른 기록을 잴 때 읽는 몇 줄입니다. 예: 공공 에너지·지자체 우선, 민간 제조는 기존 고객만.") }}
+      {{ text_field(ont.prop("strategy", "body"), "body", form.body, rows=6, help="배경·목표·근거를 자유롭게 적습니다.") }}
+      {{ text_field(ont.prop("strategy", "instructions"), "instructions", form.instructions, rows=3, help="이 방향 공간의 대화에서 AI 가 지킬 것 (예: 숫자를 먼저, 짧게).") }}
+    </div>
+  </section>
+  {{ save_bar("/strategies/" ~ strategy.id if strategy else "/strategies") }}
+</form>
+{% endblock %}

@@ -1,0 +1,25 @@
+{# "방향과의 정렬" 카드 (AI 코워크 ③). al = alignment_view(obj). 판단만 보이고 기록은 바꾸지 않는다. #}
+{% from "_macros.html" import ai_attrs, pill %}
+{% set note = al.note %}
+<section class="card stack align-card" id="alignment" aria-labelledby="h-align"
+  {% if al.job and not ai_off %}hx-get="/alignment/{{ al.code }}/{{ al_obj.id }}/progress" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  <h2 id="h-align">방향과의 정렬</h2>
+  {% if note %}
+  <p>{{ pill("alignment_verdict", note.verdict) }}{% if al.strategy %} <span class="muted">가장 가까운 방향</span> <a href="/strategies/{{ al.strategy.id }}">{{ al.strategy.title }}</a>{% endif %}</p>
+  {% if note.reason %}<p>{{ note.reason }}</p>{% endif %}
+  {% if note.evidence %}<p class="muted small">근거: “{{ note.evidence }}”{% if not note.verified %} · <span class="warn">원문에서 근거를 찾지 못했어요</span>{% endif %}</p>{% endif %}
+  <p class="muted small">{{ kdatetime(note.created_at) }} 점검 · AI 판단이니 참고로만 보세요</p>
+  {% if al.stale %}<p class="notice" role="status">사업 방향이 바뀌어 다시 점검이 필요해요.</p>{% endif %}
+  {% elif not al.has_strategies %}
+  <p class="muted">합의된 사업 방향이 없어 점검하지 않습니다. <a href="/strategies">사업 방향</a>을 "합의"로 두면 저장할 때마다 AI 가 점검합니다.</p>
+  {% elif not al.applies %}
+  <p class="muted">지금 상태(보류·수주·실패 등)에서는 점검하지 않습니다.</p>
+  {% else %}
+  <p class="muted">아직 점검하지 않았습니다.</p>
+  {% endif %}
+  {% if al.job %}
+  <p class="muted" role="status"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> 점검 {{ "중" if al.job.status == "running" else "대기 중" }}…</p>
+  {% elif al.has_strategies and al.applies %}
+  <form method="post" action="/alignment/{{ al.code }}/{{ al_obj.id }}/check"><button type="submit" class="small"{{ ai_attrs(ai_gate()) }}>{{ "다시 점검" if note else "지금 점검" }}</button></form>
+  {% endif %}
+</section>

@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session
 
 from app import aliases, backup, same_company
 from app.models import (
-    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User,
-    activity_customers, activity_partners, proposal_customers,
+    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User, AIThread,
+    activity_customers, activity_partners, proposal_customers, initiative_customers, initiative_partners, Initiative,
 )
 
 log = logging.getLogger("app.merge")
@@ -73,6 +73,7 @@ def link_counts(db: Session, kind: str, obj) -> list[tuple[str, str, int]]:
             ("솔루션 (파트너 칸)", "R1", cnt(Solution, Solution.partner_id == i)),
             ("활동 기록", "R7", n(select(func.count()).select_from(activity_partners).where(activity_partners.c.partner_id == i))),
             ("같은 회사 고객", "R25", 1 if obj.customer_id is not None else 0),
+            ("과제", "R43", n(select(func.count()).select_from(initiative_partners).where(initiative_partners.c.partner_id == i))),
             ("올린 파일의 대상 표시", "R21", files),
         ]
     return [
@@ -84,6 +85,7 @@ def link_counts(db: Session, kind: str, obj) -> list[tuple[str, str, int]]:
         ("고객 니즈", "R10", cnt(CustomerNeed, CustomerNeed.customer_id == i)),
         ("같은 회사 파트너", "R25", cnt(Partner, Partner.customer_id == i)),
         ("업무 보고 계획 항목", "R38", cnt(ReportPlanItem, ReportPlanItem.customer_id == i)),
+        ("과제", "R44", n(select(func.count()).select_from(initiative_customers).where(initiative_customers.c.customer_id == i))),
         ("올린 파일의 대상 표시", "R21", files),
     ]
 
@@ -104,12 +106,14 @@ def _overlap(db: Session, kind: str, keep, absorb) -> dict[str, int]:
     """겹쳐서 하나로 합쳐질 연결 건수."""
     out = {}
     if kind == "partner":
-        t, col = activity_partners, activity_partners.c.partner_id
-        out["R7"] = db.scalar(select(func.count()).select_from(t).where(
-            col == absorb.id, t.c.activity_id.in_(select(t.c.activity_id).where(col == keep.id)))) or 0
+        for rel, t, col, key in (("R7", activity_partners, activity_partners.c.partner_id, "activity_id"),
+                                 ("R43", initiative_partners, initiative_partners.c.partner_id, "initiative_id")):
+            out[rel] = db.scalar(select(func.count()).select_from(t).where(
+                col == absorb.id, t.c[key].in_(select(t.c[key]).where(col == keep.id)))) or 0
     else:
         for rel, t, col, key in (("R5", activity_customers, activity_customers.c.customer_id, "activity_id"),
-                                 ("R34", proposal_customers, proposal_customers.c.customer_id, "proposal_id")):
+                                 ("R34", proposal_customers, proposal_customers.c.customer_id, "proposal_id"),
+                                 ("R44", initiative_customers, initiative_customers.c.customer_id, "initiative_id")):
             out[rel] = db.scalar(select(func.count()).select_from(t).where(
                 col == absorb.id, t.c[key].in_(select(t.c[key]).where(col == keep.id)))) or 0
     return out
@@ -280,6 +284,9 @@ def _move(db: Session, kind: str, keep, absorb) -> None:
         for a in list(db.scalars(select(Activity).where(Activity.partners.any(id=absorb.id)))):
             rest = [p for p in a.partners if p.id != absorb.id]
             a.partners = rest if keep in rest else [*rest, keep]
+        for it in list(db.scalars(select(Initiative).where(Initiative.partners.any(id=absorb.id)))):
+            rest = [p for p in it.partners if p.id != absorb.id]
+            it.partners = rest if keep in rest else [*rest, keep]
         if absorb.customer_id is not None and keep.customer_id is None:
             moved = absorb.customer_id
             absorb.customer_id = None
@@ -304,8 +311,12 @@ def _move(db: Session, kind: str, keep, absorb) -> None:
             need.customer = keep  # 쓴 이름(`customer_name`)은 그대로, 묶인 영업기회도 그대로 (영업기회도 같이 옮겨 같은 고객이다)
         for item in list(db.scalars(select(ReportPlanItem).where(ReportPlanItem.customer_id == absorb.id))):
             item.customer = keep  # 업무 보고 계획 항목의 고객 연결 (항목 글은 그대로)
+        for it in list(db.scalars(select(Initiative).where(Initiative.customers.any(id=absorb.id)))):
+            rest = [c for c in it.customers if c.id != absorb.id]
+            it.customers = rest if keep in rest else [*rest, keep]
         partner = same_company.partner_of(db, absorb)
         if partner is not None:
             partner.customer = keep
     db.execute(update(IntakeFile).where(IntakeFile.target_type == kind, IntakeFile.target_id == absorb.id).values(target_id=keep.id))
+    db.execute(update(AIThread).where(AIThread.target_type == kind, AIThread.target_id == absorb.id).values(target_id=keep.id))  # AI 동료 대화도 남는 쪽으로
     db.flush()

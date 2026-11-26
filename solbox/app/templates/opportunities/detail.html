@@ -47,6 +47,8 @@
       {% if history | length > history_shown %}<details class="hist-more"><summary>이전 기록 {{ history | length - history_shown }}건 더 보기</summary><ul class="hist">{% for r in history[history_shown:] %}{{ hist_line(r) }}{% endfor %}</ul></details>{% endif %}
     </section>
     {% endif %}
+    {% set al, al_obj = alignment_view(opp), opp %}{% include "alignment/_card.html" %}
+    {% set cw_code, cw_obj, compact = "opportunity", opp, true %}{% include "cowork/_panel.html" %}
     {{ related_card(related, hide_empty=true) }}
     {{ meta_card(meta) }}
   </aside>

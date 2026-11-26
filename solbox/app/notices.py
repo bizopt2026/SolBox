@@ -76,6 +76,19 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "pdf_unavailable": ("warn", "이 서버 PC 에는 PDF 로 바꿀 프로그램(PowerPoint 또는 LibreOffice)이 없습니다."),
     "fu_mine": ("ok", "내 할 일로 바꿨습니다."),
     "busy": ("warn", "이미 AI 작업이 진행 중입니다."),
+    # AI 동료 칸 (AI 코워크 ②)
+    "cowork_applied": ("ok", "AI 제안을 반영했습니다."),
+    "cowork_not_applicable": ("warn", "이 기록에는 반영할 수 없는 제안입니다 (대화를 옮기기 전의 제안일 수 있습니다)."),
+    "cowork_dismissed": ("ok", "AI 제안을 무시했습니다."),
+    "cowork_decided": ("warn", "이미 반영했거나 무시한 제안입니다."),
+    "cowork_stale": ("warn", "그 사이 이 기록이 바뀌어 반영하지 않았습니다. 지금 값을 확인한 뒤 다시 반영하세요."),
+    "cowork_pick_initiative": ("warn", "옮길 과제를 고르세요."),
+    "cowork_moved": ("ok", "대화를 과제로 옮겼습니다. 처음 기록은 과제의 연결에 더했습니다."),
+    # 정렬 점검 (AI 코워크 ③)
+    "align_started": ("ok", "정렬 점검을 시작했습니다. 끝나면 이 카드가 바뀝니다."),
+    "align_waiting": ("warn", "이미 이 기록의 정렬 점검이 대기·진행 중입니다."),
+    "align_no_strategy": ("warn", "합의된 사업 방향이 없어 점검할 수 없습니다. 사업 방향을 \"합의\"로 두세요."),
+    "align_not_target": ("warn", "지금 상태에서는 정렬 점검을 하지 않습니다 (보류 솔루션, 닫힌 영업기회)."),
     # 업무 보고
     "report_created": ("ok", "보고를 만들었습니다. 숫자는 지금 기록에서 바로 센 값입니다."),
     "report_exists": ("warn", "같은 기간의 보고가 이미 있어 그 보고로 왔습니다."),

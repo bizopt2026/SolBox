@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 from app.models import (
     BM, Activity, Customer, CustomerNeed, FollowUp, Intake, IntakeFile, Opportunity, Partner, Project, Proposal, Report, ReportPlanItem, ResearchReport,
-    ResearchRun, Solution, SolutionFile, User,
+    ResearchRun, Solution, SolutionFile, User, Strategy, Initiative, WorkspaceFile,
 )
 
 
@@ -124,5 +124,13 @@ def build(db, owner: User | None = None) -> SimpleNamespace:
     w.ri_free = ReportPlanItem(position=1, task="주간 회의 자료 정리")
     w.wr.plan_items = [w.ri_hanbit, w.ri_free]
     db.add(w.wr)
+    # AI 코워크 ①: 사업 방향 하나와 그 방향의 과제 하나 (한빛·공조 제어와 이어짐), 공간마다 자료 하나
+    w.st_public = Strategy(title="공공 에너지 우선", consensus="지자체·공공기관 우선", status="agreed")
+    w.in_ess = Initiative(title="한빛 실증 추진", strategy=w.st_public, owner_user_id=owner.id if owner else None)
+    w.in_ess.solutions, w.in_ess.partners, w.in_ess.customers = [w.s_hvac], [w.p_green], [w.c_hanbit]
+    w.in_ess.opportunities, w.in_ess.projects = [w.o_hanbit], [w.pr_hanbit]
+    w.wf_st = WorkspaceFile(strategy=w.st_public, original_name="방향.pdf", stored_name="1.pdf")
+    w.wf_in = WorkspaceFile(initiative=w.in_ess, original_name="실증.pdf", stored_name="2.pdf")
+    db.add_all([w.st_public, w.in_ess, w.wf_st, w.wf_in])
     db.commit()
     return w

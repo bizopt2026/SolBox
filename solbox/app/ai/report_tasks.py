@@ -89,6 +89,18 @@ def material(db: Session, r: Report) -> dict:
         "계획 방향": r.direction or "",
         "실적 요약 글": r.summary_md or "",
         "이슈·건의": r.highlights_md or "",
+        "사업 방향·과제": _workspace_material(data),
+    }
+
+
+def _workspace_material(data: dict) -> dict:
+    """AI 코워크 ①: 합의된 사업 방향, 열린 이슈, 이번 기간 움직인 과제 (보고서 구역과 같은 행)."""
+    rows = reports.workspace_rows(data)
+    return {
+        "사업 방향": [{"방향": a, "상태": b, "과제": c, "비고": d} for a, b, c, d in rows["strategies"]],
+        "열린 이슈": [{"이슈": a, "상태": b, "담당": c} for a, b, c in rows["issues"][:FOLLOWUP_CAP]],
+        "과제 진행": [{"과제": a, "종류": b, "상태 변화": c, "진행 메모": d} for a, b, c, d in rows["initiatives"][:FOLLOWUP_CAP]],
+        "새 이슈 수": rows["issues_new"], "닫은 이슈 수": rows["issues_closed"],
     }
 
 

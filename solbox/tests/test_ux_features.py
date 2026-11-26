@@ -388,7 +388,7 @@ def test_help_glossary_is_generated_from_the_ontology(user_client):
         assert t.label in gl and t.description, code
         assert re.sub(r"<[^>]+>", "", t.description).strip() in page.replace("&#39;", "'") or t.description.split(".")[0] in gl, code
     assert [ontology.TYPES[c].label for c in ontology.HELP_GLOSSARY] == [
-        "솔루션", "파트너", "고객", "영업기회", "프로젝트", "BM", "활동 기록", "고객 니즈", "후속 조치", "제안 건", "올리기 묶음", "자료"]
+        "사업 방향", "과제", "솔루션", "파트너", "고객", "영업기회", "프로젝트", "BM", "활동 기록", "고객 니즈", "후속 조치", "제안 건", "올리기 묶음", "자료"]
 
 
 def test_help_flow_howtos_and_shortcuts(user_client, admin_client):

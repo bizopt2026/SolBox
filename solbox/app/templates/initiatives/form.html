@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token %}
+{% block title %}{{ ont.label("initiative") }} {{ "수정" if item else "등록" }}{% endblock %}
+{% block content %}
+{% set label = ont.label("initiative") %}
+{{ page_header(label ~ " " ~ ("수정" if item else "등록"), crumbs=ui.crumbs("initiative", item.title if item else none, ("/initiatives/" ~ item.id) if item else none, "수정" if item else "등록"), sub=(item.title if item else ont.TYPES["initiative"].description)) }}
+{{ form_error(error) }}
+<form method="post" action="{{ "/initiatives/" ~ item.id if item else "/initiatives" }}" class="form-page">
+  {% if item %}{{ rev_fields(item, conflict, "/initiatives/" ~ item.id) }}{% else %}{{ form_token() }}{% endif %}
+  <section class="card">
+    <h2>기본 정보</h2>
+    <div class="fgrid">
+      {{ text_field(ont.prop("initiative", "title"), "title", form.title, required=true, error=error, wide=true) }}
+      {{ select_field(ont.prop("initiative", "kind"), "kind", ont.INITIATIVE_KINDS.items() | list, form.kind, error=error) }}
+      {{ select_field(ont.prop("initiative", "status"), "status", ont.INITIATIVE_STATUSES.items() | list, form.status, error=error) }}
+      {{ select_field(ont.prop("initiative", "owner"), "owner_user_id", [("", "없음")] + users, form.owner_user_id, error=error) }}
+      {{ text_field(ont.prop("initiative", "due"), "due", form.due, type="date", error=error) }}
+      {{ select_field(ont.prop("initiative", "strategy"), "strategy_id", [("", "없음")] + strategies, form.strategy_id, error=error, wide=true, help="이 과제가 따르는 사업 방향 (선택). AI 가 대화와 정렬 점검에서 이 방향을 먼저 봅니다.") }}
+      {{ text_field(ont.prop("initiative", "description"), "description", form.description, rows=4) }}
+      {{ text_field(ont.prop("initiative", "progress"), "progress", form.progress, rows=4, help="최근 진행을 위에서부터 적습니다. 첫 줄이 업무 보고에 실립니다.") }}
+      {{ text_field(ont.prop("initiative", "instructions"), "instructions", form.instructions, rows=3, help="이 과제 공간의 대화에서 AI 가 지킬 것 (예: 보고는 숫자 먼저).") }}
+    </div>
+  </section>
+  <section class="card">
+    <h2>연결</h2>
+    {{ check_picker("solution_ids", ont.prop("initiative", "solutions"), solutions, form.solution_ids) }}
+    {{ check_picker("opportunity_ids", ont.prop("initiative", "opportunities"), opportunities, form.opportunity_ids) }}
+    {{ check_picker("customer_ids", ont.prop("initiative", "customers"), customers, form.customer_ids) }}
+    {{ check_picker("partner_ids", ont.prop("initiative", "partners"), partners, form.partner_ids) }}
+    {{ check_picker("project_ids", ont.prop("initiative", "projects"), projects, form.project_ids) }}
+  </section>
+  {{ save_bar("/initiatives/" ~ item.id if item else "/initiatives") }}
+</form>
+{% endblock %}
