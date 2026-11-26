@@ -299,3 +299,52 @@ def test_each_report_prompt_gets_its_own_answer(app, user_client, db, settings, 
     db.expire_all()
     rep = db.get(Report, rep.id)
     assert rep.summary_md == "- 요약 한 줄" and [i["task"] for i in rep.plan_draft["items"]] == ["할 일"]
+
+
+def test_note_warning_decimals_and_dates():
+    """소수는 날짜로 보지 않고 검사한다 (66.7% ≠ 67%, 70.5%, 14.5건). 날짜(12-04, 12/04, 2026.12.04.)는 보지 않는다."""
+    done, doing, todo = ReportPlanItem(task="a", result="done"), ReportPlanItem(task="b", result="done"), ReportPlanItem(task="c", result="doing")
+    data = {"kpis": {"activities": 14, "activities_prev": 14}, "opportunities": [], "proposals": []}
+    notes = {"check": ["지난 계획 3건 중 2건을 완료했습니다(66.7%).", "완료율은 70.5%입니다.", "다음 점검은 12-04, 12/04, 2026.12.04. 입니다."],
+             "kpi": ["활동 기록 14.5건입니다."]}
+    assert reports.note_warnings(notes, data, check=[done, doing, todo]) == {"check": ["66.7%", "70.5%"], "kpi": ["14.5"]}
+    assert reports.note_warnings({"check": ["3건 중 2건 완료(67%)."]}, data, check=[done, doing, todo]) == {}
+
+
+def test_note_warning_allows_numbers_from_users_issue_text():
+    data = {"kpis": {"followups_overdue": 1}, "opportunities": [], "proposals": []}
+    notes = {"issues": ["고객 예산 심의가 3주 늦어져 견적 2건이 밀렸습니다.", "후속 조치 9건이 밀렸습니다."]}
+    assert reports.note_warnings(notes, data, issues_text="예산 심의 지연: 견적 2건 보류") == {"issues": ["9"]}
+    assert reports.note_warnings(notes, data) == {"issues": ["2", "9"]}
+
+
+def test_chat_retry_refused_on_confirmed_report(user_client, db):
+    rep = _report(db, status="confirmed")
+    job = AIJob(kind="report_chat", status="failed", input={"report_id": rep.id})
+    db.add(job)
+    db.flush()
+    rep.active_job_id = job.id
+    db.add(ReportMessage(report_id=rep.id, role="user", content="질문"))
+    db.commit()
+    assert user_client.post(f"/reports/{rep.id}/chat/retry", follow_redirects=False).status_code == 409
+    assert db.query(AIJob).count() == 1
+
+
+def test_summary_job_keeps_text_a_person_saved_meanwhile(app, user_client, db, settings, fake_claude, monkeypatch):
+    rep = _report(db, summary_md="처음 글")
+    user_client.post(f"/reports/{rep.id}/ai/summary")
+    from app.ai.runner import ClaudeRunner
+
+    def run(self, prompt, **kw):
+        with app.state.session_factory() as other:  # AI 가 쓰는 동안 사람이 저장했다
+            other.get(Report, rep.id).summary_md = "사람이 고친 글"
+            other.commit()
+        return "- AI 요약"
+
+    monkeypatch.setattr(ClaudeRunner, "run", run)
+    _run(app, settings)
+    db.expire_all()
+    rep = db.get(Report, rep.id)
+    assert rep.summary_md == "사람이 고친 글" and rep.active_job_id is None
+    assert db.query(AIJob).one().status == "done"
+    assert "AI 초안" not in user_client.get(f"/reports/{rep.id}").text  # 버린 AI 결과로 "AI 초안" 을 달지 않는다

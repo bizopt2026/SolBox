@@ -117,7 +117,7 @@ def _summary(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     if r is None:
         return "deleted"
     prompt = load_prompt("report_summary", material=_material_text(db, r))
-    rid, job_id = r.id, input.get("_job_id")
+    rid, job_id, before = r.id, input.get("_job_id"), r.summary_md or ""
     db.rollback()  # 긴 실행 동안 읽기 트랜잭션을 잡고 있지 않는다
     text = runner.run(prompt, allowed_tools=NO_TOOLS, timeout_s=settings.ai_timeout_s).strip()
     lines = [line.rstrip() for line in text.splitlines() if not line.strip().startswith("```")]
@@ -128,8 +128,11 @@ def _summary(db: Session, input: dict, runner: ClaudeRunner, settings: Settings)
     r = _finish(db, rid, job_id)
     if isinstance(r, str):
         return r
-    r.summary_md = text
     r.active_job_id = None
+    if (r.summary_md or "") != before:  # AI 가 쓰는 동안 사람이 요약 글을 저장했다: 사람의 글을 두고 AI 결과는 버린다
+        db.commit()
+        return ""
+    r.summary_md = text
     db.commit()
     return text
 

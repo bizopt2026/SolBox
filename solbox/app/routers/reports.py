@@ -185,7 +185,7 @@ def _detail_page(request: Request, db: Session, r: Report, step: str, status_cod
         request, "reports/detail.html", status_code=status_code,
         report=r, title=title, page_title=label, crumbs=ui.crumbs("report", label), sub=sub, step=step, steps=_steps(r, step), stepbar_label="업무 보고 단계",
         data=data, prev=prev, check=check, plan=plan, next_text=short_period(r.unit, *nxt), period=period_text(r.unit, r.period_start, r.period_end),
-        notes=notes, default_notes=reports.default_notes(data, check, plan), note_flags=reports.note_line_warnings(notes, data, check, plan),
+        notes=notes, default_notes=reports.default_notes(data, check, plan), note_flags=reports.note_line_warnings(notes, data, check, plan, r.highlights_md or ""),
         summary_job=reports.last_summary_job(db, r) if step == "result" else None, draft_changes=reports.draft_changes(r) if r.plan_draft else None,
         plan_open=PLAN_OPEN,
         unconfirm_problem=reports.unconfirm_problem(db, r) if r.status == ontology.REPORT_STATUS_CONFIRMED else None,
@@ -401,6 +401,7 @@ def chat(report_id: int, request: Request, message: str = Form(""), user: User =
 @router.post("/{report_id}/chat/retry", dependencies=[Depends(require_ai_on)])
 def chat_retry(report_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = get_or_404(db, Report, report_id)
+    _unlocked(r)  # 확정한 계획은 대화로 고치지 않는다 (/chat·/ai/plan 과 같다)
     job = r.active_job
     last = r.messages[-1] if r.messages else None
     if job is None or job.kind != "report_chat" or job.status != ontology.JOB_FAILED or last is None or last.role != "user":

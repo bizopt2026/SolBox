@@ -459,14 +459,19 @@ def start_job(db: Session, report: Report, kind: str, user, extra: dict | None =
 def last_summary_job(db: Session, report: Report) -> AIJob | None:
     """이 보고의 실적 요약 글을 마지막으로 쓴 AI 작업 (화면의 "AI 초안" 표시)."""
     return db.scalars(
-        select(AIJob).where(AIJob.kind == "report_summary", AIJob.status == ontology.JOB_DONE, AIJob.input["report_id"].as_integer() == report.id)
+        select(AIJob).where(AIJob.kind == "report_summary", AIJob.status == ontology.JOB_DONE, AIJob.result != "",  # 빈 결과 = 사람 글을 두고 버린 작업
+                            AIJob.input["report_id"].as_integer() == report.id)
         .order_by(AIJob.finished_at.desc(), AIJob.id.desc()).limit(1)
     ).first()
 
 
 # ---- 보고 문구 숫자 확인 (설계 §5.6a) ----
 
-_DATEISH = re.compile(r"\d{1,4}\s*[-/.]\s*\d{1,2}(?:\s*[-/.]\s*\d{1,2})?|\d+\s*(?:년|월|일|주|시|분|차|분기)")
+# 날짜·시각 꼴 (숫자 검사에서 뺀다): `12-04`·`12/04`·`2026-12-04`, 점은 끝에도 점이 있을 때만(`12.04.`·`2026.12.04.`; `66.7%`·`14.5건` 같은 소수는 숫자로 검사한다),
+# 그리고 `12월`·`3일`·`2주` 처럼 단위가 붙은 것
+_DATEISH = re.compile(
+    r"\d{1,4}\s*[-/]\s*\d{1,2}(?:\s*[-/]\s*\d{1,2})?|\d{1,4}\.\s?\d{1,2}\.(?:\s?\d{1,2}\.)?|\d+\s*(?:년|월|일|주|시|분|차|분기)"
+)
 _NUMBER = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(\s*%)?")
 
 
@@ -474,7 +479,7 @@ def _pct(part: int, whole: int) -> int | None:
     return round(part * 100 / whole) if whole else None
 
 
-def _note_numbers(data: dict, check, plan) -> dict[str, tuple[set[int], set[int]]]:
+def _note_numbers(data: dict, check, plan, issues_text: str = "") -> dict[str, tuple[set[int], set[int]]]:
     """구역마다 문구에 나와도 되는 (건수, 백분율) 집합. 집계 값·그 구역 표의 건수·그것으로 만든 백분율이다."""
     k = data.get("kpis") or {}
     kpi_vals = {int(v) for v in k.values() if isinstance(v, (int, float)) and not isinstance(v, bool)}
@@ -510,36 +515,43 @@ def _note_numbers(data: dict, check, plan) -> dict[str, tuple[set[int], set[int]
     plan_pct = {p for p in (_pct(carried, len(plan)),) if p is not None}
 
     issue_vals = kpi_vals | {int(data.get("legacy_undated") or 0)}
+    issue_pct: set = set()
+    for token, is_pct in _numbers_in(issues_text):  # 사용자가 이슈·건의 글에 직접 적은 숫자는 이슈 문구에 나와도 된다
+        (issue_pct if is_pct else issue_vals).add(token)
     return {
         "kpi": (kpi_vals, kpi_pct), "opps": (opp_vals, set()), "proposals": (prop_vals, set()),
-        "check": (check_vals, check_pct), "plan": (plan_vals, plan_pct), "issues": (issue_vals, set()),
+        "check": (check_vals, check_pct), "plan": (plan_vals, plan_pct), "issues": (issue_vals, issue_pct),
     }
 
 
+def _numbers_in(text: str) -> list[tuple[str, bool]]:
+    """글 속 숫자 (날짜·시각 꼴을 뺀): (쉼표를 뺀 숫자 글, 퍼센트인가)."""
+    return [(m.group(1).replace(",", ""), bool(m.group(2))) for m in _NUMBER.finditer(_DATEISH.sub(" ", text or ""))]
+
+
 def _bad_numbers(text: str, allowed: tuple[set[int], set[int]]) -> list[str]:
-    counts, percents = allowed
+    counts, percents = ({str(v) for v in group} for group in allowed)  # 숫자 글로 견준다 (정수는 "14", 사용자 글의 소수는 "1.5" 그대로)
     out = []
-    for m in _NUMBER.finditer(_DATEISH.sub(" ", text)):
-        raw = m.group(1).replace(",", "")
-        is_pct = bool(m.group(2))
-        ok = raw.isdigit() and int(raw) in (percents if is_pct else counts)
-        if not ok:
+    for raw, is_pct in _numbers_in(text):
+        if raw not in (percents if is_pct else counts):
             shown = raw + ("%" if is_pct else "")
             if shown not in out:
                 out.append(shown)
     return out
 
 
-def note_line_warnings(notes: dict, data: dict, check=(), plan=()) -> dict[str, list[list[str]]]:
-    """구역 문구 줄마다 그 구역 숫자 집합에 없는 숫자 (날짜·시각 꼴은 보지 않는다). 화면이 문장 옆에 "숫자 확인" 을 단다."""
-    allowed = _note_numbers(data, check, plan)
+def note_line_warnings(notes: dict, data: dict, check=(), plan=(), issues_text: str = "") -> dict[str, list[list[str]]]:
+    """구역 문구 줄마다 그 구역 숫자 집합에 없는 숫자 (날짜·시각 꼴은 보지 않는다). 화면이 문장 옆에 "숫자 확인" 을 단다.
+    `issues_text` 는 보고 건의 이슈·건의 글(`highlights_md`): 거기 적힌 숫자는 이슈 구역 문구에 나와도 된다."""
+    allowed = _note_numbers(data, check, plan, issues_text)
     return {key: [_bad_numbers(line, allowed[key]) for line in note_lines(notes.get(key))] for key in NOTE_KEYS if key in notes}
 
 
-def note_warnings(notes: dict, data: dict, check=(), plan=()) -> dict[str, list[str]]:
-    """문구 속 숫자(정수·퍼센트)가 그 구역 숫자 집합(집계 값·건수·백분율)에 없으면 그 숫자들 (경고가 없는 구역은 빠진다). 지우지는 않는다."""
+def note_warnings(notes: dict, data: dict, check=(), plan=(), issues_text: str = "") -> dict[str, list[str]]:
+    """문구 속 숫자(정수·소수·퍼센트)가 그 구역 숫자 집합(집계 값·건수·백분율, 이슈는 이슈·건의 글의 숫자도)에 없으면 그 숫자들
+    (경고가 없는 구역은 빠진다). 지우지는 않는다."""
     out = {}
-    for key, lines in note_line_warnings(notes, data, check, plan).items():
+    for key, lines in note_line_warnings(notes, data, check, plan, issues_text).items():
         bad = []
         for nums in lines:
             bad += [n for n in nums if n not in bad]
