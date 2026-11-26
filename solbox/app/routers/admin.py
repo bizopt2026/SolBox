@@ -11,14 +11,14 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import backup, ontology, scheduler, transcribe, ui, update
+from app import backup, ontology, scheduler, teams, transcribe, ui, update
 from app.ai.gate import require_ai_on
 from app.ai.queue import enqueue
 from app import notices
 from app.db import get_db
 from app.main import render
 from app.labels import ERROR_KINDS, RESEARCH_AREAS, WEEKDAYS
-from app.models import AIJob, ResearchRun, ResearchTopic, User
+from app.models import AIJob, ResearchRun, ResearchTopic, Team, User
 from app.research import KEYWORDS_JOB_KIND, Schedule, get_schedule, set_schedule
 from app import guards
 from app.guards import Once, Rev, form_once, rev_form
@@ -31,7 +31,7 @@ ROLES = ontology.USER_ROLES  # 정의는 ontology
 USER_CHANGED = "이 사용자 정보가 다른 곳에서 바뀌었거나 다른 계정으로 바뀌었습니다. 저장하지 않았습니다. 아래 목록에서 현재 내용을 확인한 뒤 다시 고쳐 주세요."
 
 
-def _page(request: Request, db: Session, error: str | None = None, status_code: int = 200):
+def _page(request: Request, db: Session, error: str | None = None, status_code: int = 200, team_error_id: int | None = None, typed: str = ""):
     role = request.query_params.get("role", "")
     counts = dict(db.execute(select(User.role, func.count()).group_by(User.role)).all())
     stmt = db.query(User).order_by(User.id)
@@ -41,7 +41,8 @@ def _page(request: Request, db: Session, error: str | None = None, status_code: 
         role = ""
     tabs = ui.seg_tabs(request, "role", list(ROLES.items()), counts, role, total=sum(counts.values()))
     return render(request, "admin/users.html", status_code=status_code, users=stmt.all(), roles=ROLES, error=error, tabs=tabs, role=role,
-                  password_rule=PASSWORD_RULE)
+                  password_rule=PASSWORD_RULE, teams=teams.ordered(db), team_counts=teams.member_counts(db), team_error_id=team_error_id, typed=typed,
+                  team_name_max=teams.NAME_MAX)
 
 
 @router.get("/users")
@@ -83,6 +84,8 @@ def update_user(
     role: str = Form("user"),
     is_active: str | None = Form(None),
     password: str = Form(""),
+    team_id: str = Form(""),
+    team_field: str = Form(""),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
     rev: Rev = Depends(rev_form),
@@ -97,6 +100,11 @@ def update_user(
     active = is_active is not None
     if target.id == admin.id and (not active or role != "admin"):
         return _page(request, db, "자기 자신을 비활성화하거나 관리자 권한을 내릴 수 없습니다.", 400)
+    if team_field:  # 팀 칸이 있는 화면만 (숨은 칸 team_field). 팀 칸이 없는 옛 화면은 팀을 그대로 둔다. 빈 값은 "팀 없음"
+        tid, problem = teams.parse_team_id(db, team_id)
+        if problem:
+            return _page(request, db, f"{target.username}: {problem}", 400)
+        target.team_id = tid
     target.name = name.strip()
     target.role = role
     target.is_active = active
@@ -111,6 +119,54 @@ def update_user(
             target.must_change_password = True
     db.commit()
     return notices.redirect("/admin/users", "saved")
+
+
+# ---- 팀 (영업 A 단계) ----
+
+TEAM_CHANGED = "이 팀 이름이 다른 곳에서 바뀌었습니다. 저장하지 않았습니다. 아래에서 지금 이름을 확인한 뒤 다시 고쳐 주세요."
+
+
+def _team_or_404(db: Session, team_id: int) -> Team:
+    team = db.get(Team, team_id)
+    if team is None:
+        raise HTTPException(status_code=404, detail="팀을 찾을 수 없습니다.")
+    return team
+
+
+@router.post("/teams")
+def create_team(
+    request: Request, name: str = Form(""),
+    admin: User = Depends(require_admin), db: Session = Depends(get_db), once: Once = Depends(form_once),
+):
+    if problem := teams.name_problem(db, name):
+        return _page(request, db, problem, 400, typed=name)
+    teams.add(db, name)
+    db.commit()
+    return once.done(notices.redirect("/admin/users", "team_created"))
+
+
+@router.post("/teams/{team_id}")
+def rename_team(
+    team_id: int, request: Request, name: str = Form(""),
+    admin: User = Depends(require_admin), db: Session = Depends(get_db), rev: Rev = Depends(rev_form),
+):
+    team = _team_or_404(db, team_id)
+    if guards.check_rev(team, rev) is not None:  # 사용자 줄처럼 "그래도 저장" 없이 새로 보고 다시 고치게 한다
+        return _page(request, db, TEAM_CHANGED, 409)
+    if problem := teams.name_problem(db, name, exclude=team):
+        return _page(request, db, problem, 400, team_error_id=team.id, typed=name)
+    new = teams.clean_name(name)
+    if new != team.name:
+        team.name = new
+        db.commit()
+    return notices.redirect("/admin/users", "team_saved")
+
+
+@router.post("/teams/{team_id}/delete")
+def delete_team(team_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    teams.remove(db, _team_or_404(db, team_id))
+    db.commit()
+    return notices.redirect("/admin/users", "team_deleted")
 
 
 def _duration(seconds: float | None) -> str:
