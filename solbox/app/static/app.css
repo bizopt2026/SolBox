@@ -1652,7 +1652,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
   .tabbar a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; font-size: 11px; color: var(--ink-3); }
   .tabbar a:hover { text-decoration: none; }
   .tabbar a[aria-current="page"] { color: var(--brand-deep); font-weight: var(--fw-strong); }
-  .tabbar .ni { width: 20px; height: 20px; }
+  .tabbar .ni { display: block; width: 20px; height: 20px; }
   .tabbar .tab-add span { display: grid; place-items: center; width: 44px; height: 44px; margin-top: -2px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 24px; line-height: 1; }
   body.shell { padding-bottom: 64px; }
   .stagebar .steps { overflow-x: auto; scrollbar-width: none; }
