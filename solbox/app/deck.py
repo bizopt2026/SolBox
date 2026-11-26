@@ -5,6 +5,7 @@
 디자인(베타 AF)은 paperlogy-ppt 디자인 시스템의 강의·마케팅 모드를 python-pptx 로 옮긴 것이다 (제안 덱은 결재란에 사인받는 문서가 아니다):
 - 색은 승인 팔레트만(클라인 블루 + 강조 오렌지 1색 + 그레이), 글꼴은 `나눔스퀘어_ac` 하나. 굵게는 굵게 속성이 아니라 `나눔스퀘어_ac Bold` 페이스로 준다.
 - 세로 띠(밴드)는 장마다 같은 자리다: 챕터 라벨 0.306 → 대제목 0.851 → 본문 카드 2.20~6.05 → 결론 띠 6.20 → 출처·쪽 번호 6.85.
+  (베타 AH: 부제가 없고 대제목이 한 줄이면 본문은 1.75 부터. 결론 띠는 브랜드 블루 면·흰 14pt 글자, 높이 0.50)
 - 카드는 선 없이 옅은 그림자만, 모든 글은 세로 가운데 정렬, 모든 글자에 1pt·투명도 100% 윤곽선.
 만든 뒤 `app.deck_gates` 가 같은 규칙으로 검사한다 (막지는 않고 결과만 돌려준다).
 
@@ -70,9 +71,10 @@ CHAPTER_Y, CHAPTER_W, CHAPTER_H = 0.306, 8.0, 0.3
 HEAD_Y, HEAD_W, HEAD_H = 0.851, 12.262, 0.55
 SUB_Y, SUB_H = 1.472, 0.303
 BODY_Y = 2.20
+BODY_Y_TIGHT = 1.75                  # 부제가 없고 대제목이 한 줄인 장의 본문 위 끝 (대제목 아래 0.35)
 BODY_BOTTOM = 6.05                   # 본문 콘텐츠 최대 y
 BODY_H = BODY_BOTTOM - BODY_Y
-BAND_Y, BAND_H = 6.20, 0.40          # 결론(SO WHAT) 띠. 위 카드와 0.15 띄운다
+BAND_Y, BAND_H = 6.20, 0.50          # 결론(SO WHAT) 띠. 위 카드와 0.15 띄운다. 브랜드 블루 면에 흰 글자 (장의 결론이 가장 먼저 읽히게)
 BAND_GAP = 0.15
 STRIP_Y, STRIP_H = 6.85, 0.3         # 출처 · 쪽 번호
 SOURCE_X, SOURCE_W = 0.535, 11.0
@@ -91,7 +93,7 @@ HEAD_PT = 26
 HEAD_SIZES = (26, 22, 20, 18, 16)
 SUB_PT = 12
 LABEL_PT = 10                        # 챕터 라벨, 결론 띠 라벨
-BAND_PT = 11
+BAND_PT = 14
 STRIP_PT = 8
 CARD_HEAD_PT = 14
 LIST_SIZES = (14, 13, 12, 11, 10)    # 카드 안 목록
@@ -185,6 +187,16 @@ def _band_height(message: str) -> float:
     """결론 띠의 높이. 한 줄이면 0.40 이고, 글이 길어 줄이 늘면 위로 자란다 (아래 끝 6.60 은 그대로)."""
     lines = _est_lines("SO WHAT      " + message, BAND_PT, CONTENT_W - 2 * CARD_PAD)
     return BAND_H if lines <= 1 else 0.16 + lines * _line_h(BAND_PT, 1.0) + 0.04
+
+
+def _body_top(slide: dict) -> float:
+    """본문 카드의 위 끝. 부제가 없고 대제목이 26pt 한 줄이면 빈 부제 자리를 쓰지 않고 본문을 올린다 (`BODY_Y_TIGHT`).
+    부제가 있거나 대제목이 두 줄이면 고정 띠 그대로 `BODY_Y`. 쪽 나누기(`paginate`)는 늘 `BODY_Y` 기준으로 넉넉히 센다."""
+    if slide.get("kind") == "cover" or _clean(slide.get("subtitle")).strip():
+        return BODY_Y
+    if _est_lines(_headline_text(_clean(slide.get("title"))), HEAD_PT, HEAD_W) > 1:
+        return BODY_Y
+    return BODY_Y_TIGHT
 
 
 def _has_band(slide: dict) -> bool:
@@ -569,13 +581,36 @@ def _shrink(tf, ratio: float):
         fit.set("fontScale", str(int(max(0.25, min(1.0, ratio)) * 100000)))
 
 
+_HEAD_SPLIT = re.compile(r"([^:：\n]{2,16}?)\s*[:：]\s+(\S.*)", re.S)
+HEAD_GAP = "  "  # 번호 카드에서 번호와 굵은 머리말 사이
+
+
+def _split_head(item) -> tuple[str, str]:
+    """글머리 한 줄을 (머리말, 설명)으로 나눈다. `머리말: 설명` 꼴(머리말 2~16자, 쌍점 뒤 빈칸)일 때만 나누고, 아니면 ("", 글 전체).
+    시각(`10:30`)처럼 쌍점 뒤에 빈칸이 없거나 머리말이 숫자로 끝나면 나누지 않는다."""
+    text = _clean(item).strip()
+    m = _HEAD_SPLIT.fullmatch(text)
+    if not m:
+        return "", text
+    head = m.group(1).strip()
+    if not head or head[-1].isdigit():
+        return "", text
+    return head, m.group(2).strip()
+
+
 def _fill_list(tf, items, size, gap, *, color=INK):
+    """글머리 목록. `머리말: 설명` 꼴의 줄은 `머리말:` 을 굵은 페이스로 쓰고 설명을 이어 쓴다."""
     last = len(items) - 1
     for i, item in enumerate(items):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.line_spacing = BODY_LS
         p.space_after = Pt(gap if i < last else 0)
-        _write(p, item, size, color=color)
+        head, detail = _split_head(item)
+        if head:  # 쌍점까지 굵게 쓰고 설명을 잇는다 (쓴 글은 그대로 남는다: 연락처 "담당: 이름" 같은 줄도)
+            _write(p, head + ":", size, bold=True, color=INK)
+            _write(p, " " + detail, size, color=color)
+        else:
+            _write(p, item, size, color=color)
         _bullet(p, size)
 
 
@@ -656,16 +691,17 @@ def _header(slide, data: dict, number: int, deck_title: str = "") -> None:
 
 
 def _so_what(slide, message: str) -> float:
-    """결론 띠: 풀폭, 가로·세로 가운데. 띠의 위 끝 y 를 돌려준다."""
+    """결론 띠: 풀폭, 브랜드 블루 면에 흰 글자(14pt Bold 페이스), 가로·세로 가운데. 장에서 가장 먼저 읽혀야 할 문장이라 본문보다 약해 보이지 않게 한다.
+    띠의 위 끝 y 를 돌려준다."""
     height = _band_height(message)
     y = BAND_Y + BAND_H - height
-    band = _card(slide, MARGIN, y, CONTENT_W, height, fill=SURFACE2, radius=RADIUS_BAND, shadow=False, name="결론 띠")
+    band = _card(slide, MARGIN, y, CONTENT_W, height, fill=BRAND, radius=RADIUS_BAND, shadow=False, name="결론 띠")
     tf = _frame(band.text_frame, pad_x=CARD_PAD, pad_y=0.0)
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
-    _write(p, "SO WHAT", LABEL_PT, bold=True, color=BRAND, spacing=2)
-    _write(p, "     ", BAND_PT, color=INK)
-    _write(p, message, BAND_PT, color=INK)
+    _write(p, "SO WHAT", LABEL_PT, bold=True, color=WHITE, spacing=2)
+    _write(p, "     ", BAND_PT, color=WHITE)
+    _write(p, message, BAND_PT, bold=True, color=WHITE)
     return y
 
 
@@ -815,17 +851,31 @@ def _grid_plan(items: list, height: float):
     num_h = _line_h(num_pt, 1.0) + 0.1
     inner_h = card_h - 2 * CARD_PAD_V
     for pt in GRID_SIZES:
-        if len(rows) > 1 and pt > 14:
+        if len(rows) > 1 and max(rows) > 2 and pt > 14:  # 16pt 는 한 줄 카드이거나 한 줄에 2장 이하일 때만
             continue
         index, ok = 0, True
         for count in rows:
             text_w = (CONTENT_W - GAP_X * (count - 1)) / count - 2 * CARD_PAD
             for item in items[index:index + count]:
-                ok = ok and num_h + _est_lines(item, pt, text_w) * _line_h(pt) <= inner_h
+                ok = ok and _grid_need(item, num_pt, pt, text_w) <= inner_h
             index += count
         if ok:
             return rows, num_pt, pt
     return None
+
+
+def _grid_head_pt(pt: float) -> int:
+    """번호 카드의 머리말 크기: 설명보다 4pt 크게, 20pt 까지."""
+    return int(min(20, pt + 4))
+
+
+def _grid_need(item, num_pt: float, pt: float, text_w: float) -> float:
+    """번호 카드 한 장의 글 높이. 머리말이 있으면 `번호 + 머리말` 한 덩어리 + 설명, 없으면 번호 + 글."""
+    head, detail = _split_head(item)
+    if head:
+        head_pt = _grid_head_pt(pt)
+        return _est_lines(f"00{HEAD_GAP}{head}", head_pt, text_w) * _line_h(head_pt, 1.0) + 0.12 + _est_lines(detail, pt, text_w) * _line_h(pt)
+    return _line_h(num_pt, 1.0) + 0.1 + _est_lines(item, pt, text_w) * _line_h(pt)
 
 
 def _draw_grid(slide, items: list, top: float, bottom: float, plan):
@@ -842,11 +892,21 @@ def _draw_grid(slide, items: list, top: float, bottom: float, plan):
             box = _textbox(slide, x + CARD_PAD, y + CARD_PAD_V, card_w - 2 * CARD_PAD, card_h - 2 * CARD_PAD_V, name="번호 카드 글")
             tf = box.text_frame
             p = tf.paragraphs[0]
-            p.space_after = Pt(6)
-            _write(p, f"{index + 1:02d}", num_pt, bold=True, color=BRAND_DEEP if len(rows) == 1 else BRAND)
-            p = tf.add_paragraph()
-            p.line_spacing = BODY_LS
-            _write(p, items[index], pt, color=INK)
+            head, detail = _split_head(items[index])
+            if head:  # 번호와 굵은 머리말을 한 줄에, 그 아래 설명 (카드가 "번호 + 문장 한 줄" 로 비어 보이지 않게)
+                head_pt = _grid_head_pt(pt)
+                p.space_after = Pt(8)
+                _write(p, f"{index + 1:02d}", head_pt, bold=True, color=BRAND)
+                _write(p, HEAD_GAP + head, head_pt, bold=True, color=INK)
+                p = tf.add_paragraph()
+                p.line_spacing = BODY_LS
+                _write(p, detail, pt, color=TEXT)
+            else:
+                p.space_after = Pt(6)
+                _write(p, f"{index + 1:02d}", num_pt, bold=True, color=BRAND_DEEP if len(rows) == 1 else BRAND)
+                p = tf.add_paragraph()
+                p.line_spacing = BODY_LS
+                _write(p, items[index], pt, color=INK)
             index += 1
 
 
@@ -870,9 +930,10 @@ def _draw_list_body(slide, items: list, top: float, bottom: float, *, numbered: 
 def _draw_bullets(slide, data: dict, number: int, deck_title: str):
     items = _list(data, "bullets")
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _body_bottom(slide, data)
     if items:
-        _draw_list_body(slide, items, BODY_Y, bottom)
+        _draw_list_body(slide, items, body_y, bottom)
 
 
 def _draw_closing(slide, data: dict, number: int, deck_title: str):
@@ -887,13 +948,14 @@ def _draw_closing(slide, data: dict, number: int, deck_title: str):
         _write(box.text_frame.paragraphs[0], title, size, bold=True, color=INK)
         return
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     x, w = MARGIN, CONTENT_W
     if message:
         dark_w = _CLOSING_LEFT_W if items else CONTENT_W
-        _card(slide, MARGIN, BODY_Y, dark_w, BODY_H, fill=BRAND, name="강조 카드")
-        text_w, text_h = dark_w - 2 * 0.4, BODY_H - 2 * 0.4
+        _card(slide, MARGIN, body_y, dark_w, (BODY_BOTTOM - body_y), fill=BRAND, name="강조 카드")
+        text_w, text_h = dark_w - 2 * 0.4, (BODY_BOTTOM - body_y) - 2 * 0.4
         size = next((pt for pt in (22, 20, 18, 16, 14, 12) if _est_lines(message, pt, text_w) * _line_h(pt, 1.15) <= text_h), 12)
-        box = _textbox(slide, MARGIN + 0.4, BODY_Y + 0.4, text_w, text_h, name="강조 글")
+        box = _textbox(slide, MARGIN + 0.4, body_y + 0.4, text_w, text_h, name="강조 글")
         p = box.text_frame.paragraphs[0]
         p.line_spacing = 1.15
         _write(p, message, size, bold=True, color=WHITE)
@@ -902,14 +964,15 @@ def _draw_closing(slide, data: dict, number: int, deck_title: str):
             _shrink(box.text_frame, text_h / need)
         x, w = MARGIN + dark_w + GAP_X, _CLOSING_RIGHT_W
     if items:
-        _draw_list_body(slide, items, BODY_Y, BODY_BOTTOM, numbered=False, x=x, w=w)
+        _draw_list_body(slide, items, body_y, BODY_BOTTOM, numbered=False, x=x, w=w)
 
 
 def _draw_two_column(slide, data: dict, number: int, deck_title: str):
     """좌우 비교: 같은 폭 카드 둘. 제목 앞 작은 네모로 가른다 (왼쪽은 비교군 회색, 오른쪽은 브랜드 블루). 두 카드는 높이와 글자 크기를 같이 쓴다."""
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _body_bottom(slide, data)
-    height = bottom - BODY_Y
+    height = bottom - body_y
     sides = {side: _list(data, side) for side in ("left", "right")}
     text_w = _COLUMN_W - 2 * CARD_PAD
     inner_h = height - _COLUMN_HEAD_H - CARD_PAD_V
@@ -919,19 +982,19 @@ def _draw_two_column(slide, data: dict, number: int, deck_title: str):
     for i, side in enumerate(("left", "right")):
         x = MARGIN + i * (_COLUMN_W + GAP_X)
         items = sides[side]
-        _card(slide, x, BODY_Y, _COLUMN_W, height)
+        _card(slide, x, body_y, _COLUMN_W, height)
         head = _clean(data.get(f"{side}_title")).strip()
         if head:
-            _rect(slide, x + CARD_PAD, BODY_Y + 0.29, 0.14, 0.14, BRAND if i else MUTE, name="머리 표시")
+            _rect(slide, x + CARD_PAD, body_y + 0.29, 0.14, 0.14, BRAND if i else MUTE, name="머리 표시")
             head_w = text_w - 0.26
             head_pt = next((pt for pt in (CARD_HEAD_PT, 13, 12, 11) if _est_lines(head, pt, head_w) <= 1), 11)
-            box = _textbox(slide, x + CARD_PAD + 0.26, BODY_Y + 0.18, head_w, 0.36, name="카드 제목")
+            box = _textbox(slide, x + CARD_PAD + 0.26, body_y + 0.18, head_w, 0.36, name="카드 제목")
             _write(box.text_frame.paragraphs[0], head, head_pt, bold=True, color=INK)
             if _est_lines(head, head_pt, head_w) > 1:
                 _shrink(box.text_frame, 1 / _est_lines(head, head_pt, head_w))
-            _line(slide, x + CARD_PAD, BODY_Y + 0.62, x + _COLUMN_W - CARD_PAD, BODY_Y + 0.62)
+            _line(slide, x + CARD_PAD, body_y + 0.62, x + _COLUMN_W - CARD_PAD, body_y + 0.62)
         if items:
-            box = _textbox(slide, x + CARD_PAD, BODY_Y + _COLUMN_HEAD_H, text_w, inner_h, name="목록")
+            box = _textbox(slide, x + CARD_PAD, body_y + _COLUMN_HEAD_H, text_w, inner_h, name="목록")
             _fill_list(box.text_frame, items, size, gap)
             if not fits[side][2]:
                 _shrink(box.text_frame, inner_h / _list_need(items, size, text_w)[1])
@@ -964,8 +1027,9 @@ def _draw_table(slide, data: dict, number: int, deck_title: str):
     """표: 흰 카드 위에 선이 거의 없는 표. 머리글만 옅은 회색 면이고, 행이 적으면 행 높이를 늘려 카드 가운데에 놓는다."""
     columns, rows = _list(data, "columns"), _list(data, "rows")
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _body_bottom(slide, data)
-    card_h = bottom - BODY_Y
+    card_h = bottom - body_y
     avail = card_h - 2 * TABLE_PAD
     count = len(columns)
     weights = _weights_for(columns, rows, data.get("_col_weights"))
@@ -975,9 +1039,9 @@ def _draw_table(slide, data: dict, number: int, deck_title: str):
         scale = min(avail / total, max(1.0, 0.62 / min(heights)))
         heights = [h * scale for h in heights]
         total = sum(heights)
-    _card(slide, MARGIN, BODY_Y, CONTENT_W, card_h)
+    _card(slide, MARGIN, body_y, CONTENT_W, card_h)
     table_w = CONTENT_W - 2 * TABLE_PAD
-    top = BODY_Y + TABLE_PAD + max(0.0, (avail - total) / 2)
+    top = body_y + TABLE_PAD + max(0.0, (avail - total) / 2)
     frame = slide.shapes.add_table(len(rows) + 1, count, Inches(MARGIN + TABLE_PAD), Inches(top), Inches(table_w), Inches(total))
     frame.name = "표"
     table = frame.table
@@ -1011,14 +1075,15 @@ def _draw_steps(slide, data: dict, number: int, deck_title: str):
     """단계: 윗줄에 번호 원과 화살표(흐름), 아랫줄에 단계 카드. 면을 채운 카드는 아랫줄 한 층뿐이다."""
     steps = [s for s in _list(data, "steps") if isinstance(s, dict)]
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _body_bottom(slide, data)
     n = len(steps)
     width = _step_width(n)
-    card_y = BODY_Y + STEP_TRACK_H
+    card_y = body_y + STEP_TRACK_H
     card_h = bottom - card_y
     inner_h = card_h - 2 * CARD_PAD_V
     name_pt, detail_pt, ok = _steps_fit(steps, inner_h)
-    dot_y = BODY_Y + 0.04
+    dot_y = body_y + 0.04
     pad = 0.22
     for i, step in enumerate(steps):
         x = MARGIN + i * (width + GAP_X)
@@ -1117,19 +1182,20 @@ def _draw_kpi(slide, data: dict, number: int, deck_title: str):
     """핵심 수치: 카드 2~4장에 큰 숫자(브랜드 딥) + 단위, 그 아래 이름과 한 줄 설명. 숫자는 구성안에 적힌 글 그대로다."""
     items = _kpis(data)[:MAX_KPIS]
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _note_line(slide, data, _body_bottom(slide, data))
     if not items:
         return
     n = len(items)
     card_w = (CONTENT_W - GAP_X * (n - 1)) / n
-    card_h = bottom - BODY_Y
+    card_h = bottom - body_y
     text_w = card_w - 2 * CARD_PAD
     top_pad = 0.55
     inner_h = card_h - top_pad - CARD_PAD_V
     for i, item in enumerate(items):
         x = MARGIN + i * (card_w + GAP_X)
-        _card(slide, x, BODY_Y, card_w, card_h, radius=RADIUS if n <= 3 else RADIUS_SMALL)
-        _rect(slide, x + CARD_PAD, BODY_Y + 0.32, 0.46, 0.055, ACCENT, name="강조 막대")
+        _card(slide, x, body_y, card_w, card_h, radius=RADIUS if n <= 3 else RADIUS_SMALL)
+        _rect(slide, x + CARD_PAD, body_y + 0.32, 0.46, 0.055, ACCENT, name="강조 막대")
         value, unit, label, note = item["value"], item["unit"], item["label"], item["note"]
 
         def need(size, label_pt, note_pt):
@@ -1145,7 +1211,7 @@ def _draw_kpi(slide, data: dict, number: int, deck_title: str):
         options = [(size, lp, np_) for size in KPI_SIZES for lp, np_ in ((14, 11),)] + [(KPI_SIZES[-1], 12, 10), (KPI_SIZES[-1], 11, 9)]
         size, label_pt, note_pt = next((o for o in options if need(*o) <= inner_h and (_text_em(value) * o[0] + _text_em(unit) * max(14, round(o[0] * 0.42))) / 72 <= text_w), None) \
             or next((o for o in options if need(*o) <= inner_h), options[-1])
-        box = _textbox(slide, x + CARD_PAD, BODY_Y + top_pad, text_w, inner_h, name="핵심 수치")
+        box = _textbox(slide, x + CARD_PAD, body_y + top_pad, text_w, inner_h, name="핵심 수치")
         tf = box.text_frame
         p = tf.paragraphs[0]
         _write(p, value, size, bold=True, color=BRAND_DEEP, spacing=-1 if size >= 40 else 0)
@@ -1375,6 +1441,7 @@ def _value_rows(slide, x, y, w, h, head: str, categories: list, values: list, un
 def _draw_chart(slide, data: dict, number: int, deck_title: str):
     """그래프: 흰 카드 위의 진짜 차트. 계열이 하나이고 항목이 6개 이하면 왼쪽 그래프(7) + 오른쪽 값 요약(5), 그 밖에는 풀폭 그래프."""
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _note_line(slide, data, _body_bottom(slide, data))
     plan = _chart_plan(data)
     if plan is None:
@@ -1383,13 +1450,13 @@ def _draw_chart(slide, data: dict, number: int, deck_title: str):
     limit = CHART_POINTS[ctype]
     categories, series = categories[:limit], [(n, v[:limit]) for n, v in series]  # 쪽 나누기를 거치지 않고 온 큰 자료도 넘치지 않게
     unit = _clean(data.get("unit")).strip()
-    height = bottom - BODY_Y
+    height = bottom - body_y
     side = len(series) == 1 and len(categories) <= 6
     chart_w = _CLOSING_RIGHT_W if side else CONTENT_W
-    _card(slide, MARGIN, BODY_Y, chart_w, height)
+    _card(slide, MARGIN, body_y, chart_w, height)
     if ctype == "doughnut":
         size = min(chart_w - 0.5, height - 0.3)
-        cx, cy = MARGIN + chart_w / 2, BODY_Y + height / 2
+        cx, cy = MARGIN + chart_w / 2, body_y + height / 2
         _native_chart(slide, ctype, categories, series, unit, cx - size / 2, cy - size / 2, size, size)
         name = series[0][0]
         hole_w = size * 0.56 * 0.72
@@ -1399,10 +1466,10 @@ def _draw_chart(slide, data: dict, number: int, deck_title: str):
             p.alignment = PP_ALIGN.CENTER
             _write(p, name, 14, bold=True, color=BRAND_DEEP)
     else:
-        _native_chart(slide, ctype, categories, series, unit, MARGIN + 0.2, BODY_Y + 0.15, chart_w - 0.4, height - 0.3)
+        _native_chart(slide, ctype, categories, series, unit, MARGIN + 0.2, body_y + 0.15, chart_w - 0.4, height - 0.3)
     if side:
         colors = _doughnut_colors(len(categories)) if ctype == "doughnut" else None
-        _value_rows(slide, MARGIN + chart_w + GAP_X, BODY_Y, _CLOSING_LEFT_W, height, series[0][0], categories, series[0][1], unit, colors)
+        _value_rows(slide, MARGIN + chart_w + GAP_X, body_y, _CLOSING_LEFT_W, height, series[0][0], categories, series[0][1], unit, colors)
 
 
 _ITEM_SPLIT = re.compile(r"\s*[,，、]\s*")
@@ -1663,25 +1730,26 @@ def _draw_cycle(slide, data: dict, nodes: list, top: float, bottom: float):
 def _draw_diagram(slide, data: dict, number: int, deck_title: str):
     """도식: `diagram_type` 에 따라 구성도(층)·중심과 주변·도입 전후·일정·2×2·순환을 그린다. 모르는 종류는 구성도로 그린다."""
     _header(slide, data, number, deck_title)
+    body_y = _body_top(data)
     bottom = _note_line(slide, data, _body_bottom(slide, data))
     dtype = data.get("diagram_type")
     if dtype == "before_after":
         if _list(data, "left") or _list(data, "right"):
-            _draw_before_after(slide, data, BODY_Y, bottom)
+            _draw_before_after(slide, data, body_y, bottom)
         return
     nodes = _nodes(data)[:DIAGRAM_MAX.get(dtype, DIAGRAM_MAX["layers"])]
     if not nodes:
         return
     if dtype == "hub":
-        _draw_hub(slide, data, nodes, BODY_Y, bottom)
+        _draw_hub(slide, data, nodes, body_y, bottom)
     elif dtype == "timeline":
-        _draw_timeline(slide, nodes, BODY_Y, bottom)
+        _draw_timeline(slide, nodes, body_y, bottom)
     elif dtype == "matrix":
-        _draw_matrix(slide, data, nodes, BODY_Y, bottom)
+        _draw_matrix(slide, data, nodes, body_y, bottom)
     elif dtype == "cycle":
-        _draw_cycle(slide, data, nodes, BODY_Y, bottom)
+        _draw_cycle(slide, data, nodes, body_y, bottom)
     else:
-        _draw_layers(slide, nodes, BODY_Y, bottom)
+        _draw_layers(slide, nodes, body_y, bottom)
 
 
 def mirror_folders() -> tuple[str, ...]:
