@@ -208,6 +208,8 @@ def retry_report(report_id: int, admin: User = Depends(require_admin), db: Sessi
     report = db.get(ResearchReport, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    if report.status == ontology.JOB_PENDING:  # 다른 요청이 먼저 다시 시도했다 (늦게 누른 쪽도 오류 없이 돌아간다).
+        return RedirectResponse(ADMIN_PAGE, status_code=303)
     if report.status != "failed":
         raise HTTPException(status_code=400, detail="실패한 보고서만 다시 시도할 수 있습니다.")
     run = report.run

@@ -195,6 +195,11 @@ def test_retry_refuses_non_failed(admin_client, db):
     make_topics(db)
     admin_client.post("/research/run")
     rep = db.query(ResearchReport).first()
+    # 대기 중(다른 요청이 먼저 다시 시도함)이면 오류 없이 관리 화면으로 돌려보낸다.
+    r = admin_client.post(f"/research/reports/{rep.id}/retry", follow_redirects=False)
+    assert (r.status_code, nloc(r)) == (303, "/admin/research")
+    rep.status = "done"
+    db.commit()
     assert admin_client.post(f"/research/reports/{rep.id}/retry").status_code == 400
     assert admin_client.post("/research/reports/999/retry").status_code == 404
 
