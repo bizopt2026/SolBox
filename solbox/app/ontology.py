@@ -80,7 +80,7 @@ PROPOSAL_STEPS = {  # 제안 화면의 단계 표시줄 (진행 단계에서 매
     "target": "대상", "directions": "방향", "chat": "구체화", "outline": "구성안", "deck": "제안서",
 }
 PROPOSAL_STATUS_STEP = {"new": "directions", "directions": "directions", "refining": "chat", "outlined": "outline", "deck": "deck"}
-JOB_KIND_STEP = {"proposal_directions": "directions", "proposal_chat": "chat", "proposal_outline": "outline"}
+JOB_KIND_STEP = {"proposal_directions": "directions", "proposal_chat": "chat", "proposal_outline": "outline", "proposal_slide": "outline"}
 
 INTAKE_STATUSES = {  # 올리기 상태
     "uploaded": "올림",
@@ -177,6 +177,7 @@ JOB_KINDS = {
     "proposal_directions": "제안 방향 만들기",
     "proposal_chat": "제안 채팅 답변",
     "proposal_outline": "제안서 구성안 만들기",
+    "proposal_slide": "구성안 한 장 AI 다시 쓰기",
     "research_area": "리서치 분야 조사",
     "research_suggest": "리서치 발굴 방향 제안",
     "research_keywords": "리서치 주제·키워드 추천",
@@ -196,6 +197,7 @@ JOB_EXPECTED = {
     "proposal_directions": "보통 1분 안에",
     "proposal_chat": "보통 1분 안에",
     "proposal_outline": "보통 2분 안에",
+    "proposal_slide": "보통 1분 안에",
     "research_area": "분야마다 1~2분",
     "research_suggest": "보통 1분 안에",
     "research_keywords": "보통 1~2분 안에",
