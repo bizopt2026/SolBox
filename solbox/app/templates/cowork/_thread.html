@@ -12,7 +12,7 @@
       <ul class="cowork-suggest">
       {% for s in m.suggestions %}
         <li data-state="{{ s.state }}"><b>{{ cowork_suggestion_text(s) }}</b>
-          {% if s.evidence %}<small class="muted block">근거: “{{ s.evidence }}”{% if not s.verified %} · <span class="warn">{{ cowork_no_evidence }}</span>{% endif %}</small>{% endif %}
+          {% if s.evidence %}<small class="muted block">근거: “{{ s.evidence }}”{% if s.from_chat %} · <span class="muted">{{ cowork_from_chat }}</span>{% elif not s.verified %} · <span class="warn">{{ cowork_no_evidence }}</span>{% endif %}</small>{% endif %}
           {% if s.state == "pending" %}
           <span class="row">
             <form method="post" action="/cowork/threads/{{ thread.id }}/messages/{{ m.id }}/suggestions/{{ s.id }}/apply">{{ rev_fields(cw.target) }}<button type="submit" class="small primary">반영</button></form>
@@ -42,11 +42,12 @@
   {% for text in cw.starters %}<button type="submit" name="message" value="{{ text }}" class="chip starter"{{ ai_attrs(aig, "cowork-ai-note") }}>{{ text }}</button>{% endfor %}
 </form>
 {% endif %}
-{% if thread is not none and cw.code not in ont.COWORK_SPACES and move_choices(cw.target) %}
+{% set choices = move_choices(cw.target) if thread is not none and cw.code not in ont.COWORK_SPACES else [] %}
+{% if choices %}
 <details class="more cowork-move"><summary>이 대화를 과제로 옮기기</summary>
   <form method="post" action="/cowork/threads/{{ thread.id }}/move" class="row">
     <label class="sr-only" for="cowork-move">과제</label>
-    <select id="cowork-move" name="initiative_id">{% for i in move_choices(cw.target) %}<option value="{{ i.id }}">{{ i.title }}</option>{% endfor %}</select>
+    <select id="cowork-move" name="initiative_id">{% for i in choices %}<option value="{{ i.id }}">{{ i.title }}</option>{% endfor %}</select>
     <button type="submit" class="small">옮기기</button>
   </form>
   <p class="muted help">옮기면 이 기록이 그 과제의 연결에 더해지고, 대화는 과제 공간에서 이어집니다. 새 과제가 필요하면 먼저 <a href="/initiatives/new">과제를 만드세요</a>.</p>

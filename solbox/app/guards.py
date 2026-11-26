@@ -360,7 +360,9 @@ def _stamp_workspace_changes(session: Session, obj, uid, now: datetime) -> None:
                 old = history_text(hist.deleted[0]) if hist.deleted else ""
                 new = history_text(hist.added[0]) if hist.added else ""
         if old != new:
-            change = WorkspaceChange(field=field_name, old_value=old, new_value=new, changed_at=now, changed_by_id=uid)
+            source = session.info.get("change_source", "")
+            change = WorkspaceChange(field=field_name, old_value=old, new_value=new, changed_at=now, changed_by_id=uid,
+                                     source=source, evidence=session.info.get("change_evidence", "") if source else "")
             if is_strategy:
                 change.strategy = obj
             else:

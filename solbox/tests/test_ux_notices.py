@@ -137,7 +137,7 @@ POST_NOTICES = {
     "/bms": "created", "/bms/{bm_id}": "saved", "/bms/{bm_id}/delete": "deleted",
     "/cowork/{code}/{target_id}/threads": "(새 대화로: 진행 표시가 알림을 대신한다)", "/cowork/threads/{thread_id}/messages": "(대화로: 진행 표시가 알림을 대신한다)",
     "/cowork/threads/{thread_id}/retry": "busy, (대화로: 진행 표시가 알림을 대신한다)",
-    "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/apply": "cowork_applied, cowork_stale, cowork_decided",
+    "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/apply": "cowork_applied, cowork_stale, cowork_decided, cowork_not_applicable",
     "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/dismiss": "cowork_dismissed, cowork_decided",
     "/cowork/threads/{thread_id}/move": "cowork_moved, cowork_pick_initiative", "/cowork/threads/{thread_id}/delete": "deleted",
     "/strategies": "created", "/strategies/{strategy_id}": "saved", "/strategies/{strategy_id}/delete": "deleted",

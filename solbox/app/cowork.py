@@ -22,6 +22,7 @@ EMPTY_MESSAGE = "메시지를 입력하세요."
 TOO_LONG = f"메시지는 {MAX_MESSAGE:,}자까지 보낼 수 있습니다."
 BUSY = "AI 가 이 대화에 답하는 중입니다. 답이 끝나면 이어서 물어보세요."
 NOT_FOUND_EVIDENCE = "원문에서 근거를 찾지 못했어요"
+FROM_CHAT_EVIDENCE = "대화에서 나온 말"
 
 # 대상마다 받을 수 있는 제안 종류 (사업 방향은 제안 없음: 합의 내용은 사람만 고친다. 솔루션은 메모 칸이 없어 제안 없음)
 SUGGESTION_KINDS: dict[str, tuple[str, ...]] = {
@@ -168,11 +169,16 @@ def _day(value) -> str | None:
         return None
 
 
-def clean_suggestions(raw, code: str, source: str) -> list[dict]:
-    """AI 가 낸 제안 목록을 대상에 맞게 거른다: 받을 수 없는 종류·빈 값·틀린 값은 버린다. 근거를 원문에서 찾았는지 `verified`."""
+MIN_EVIDENCE = 4  # 이보다 짧은 근거는 원문에서 찾았다고 보지 않는다 (공백 뺀 글자 수)
+
+
+def clean_suggestions(raw, code: str, source: str, chat: str = "", basis_rev: str = "", current=None) -> list[dict]:
+    """AI 가 낸 제안 목록을 대상에 맞게 거른다: 받을 수 없는 종류·빈 값·틀린 값·지금 값과 같은 것은 버린다.
+    근거를 기록 사본·자료 글에서 찾았으면 `verified`, 대화에서 사용자가 한 말에서만 찾았으면 `from_chat` (원문 근거로 치지 않는다).
+    `basis_rev` 는 AI 가 읽은 때의 기록 고침 표시: 그 뒤 기록이 바뀌었으면 반영하지 않는다."""
     allowed = SUGGESTION_KINDS.get(code, ())
     out = []
-    src = _norm(source)
+    src, said = _norm(source), _norm(chat)
     for item in raw if isinstance(raw, list) else []:
         if not isinstance(item, dict):
             continue
@@ -187,11 +193,29 @@ def clean_suggestions(raw, code: str, source: str) -> list[dict]:
             value = _day(value) or ""
             if not value:
                 continue
+        if current is not None and _same_as_now(current, kind, value, due):
+            continue
         evidence = " ".join(str(item.get("evidence") or "").split())[:300]
+        ev = _norm(evidence)
+        long_enough = len(ev) >= MIN_EVIDENCE
+        verified = long_enough and ev in src
         out.append({"id": len(out) + 1, "kind": kind, "value": value, "due": due if kind == "next_step" else None,
-                    "evidence": evidence, "verified": bool(evidence) and _norm(evidence) in src, "state": "pending",
-                    "decided_by": None, "decided_at": None})
+                    "evidence": evidence, "verified": verified, "from_chat": not verified and long_enough and ev in said,
+                    "basis_rev": basis_rev, "state": "pending", "decided_by": None, "decided_at": None})
     return out[:5]
+
+
+def _same_as_now(target, kind: str, value: str, due: str | None) -> bool:
+    if kind == "status":
+        return getattr(target, "status", None) == value
+    if kind == "due":
+        return bool(getattr(target, "due", None)) and target.due.isoformat() == value
+    if kind == "next_step":
+        now_due = target.next_step_due.isoformat() if getattr(target, "next_step_due", None) else None
+        return (target.next_step or "") == value and now_due == due
+    if kind == "memo":
+        return value in (getattr(target, "memo", "") or "")
+    return False
 
 
 def supersede(db: Session, thread: AIThread) -> None:

@@ -48,7 +48,7 @@ def change_rows(db: Session, obj, limit: int = RECENT_CHANGES) -> list[dict]:
     for ch in rows:
         out.append({"when": ch.changed_at, "field": ontology.WORKSPACE_FIELD_LABELS.get(ch.field, ch.field),
                     "old": value_text(db, ch.field, ch.old_value, users), "new": value_text(db, ch.field, ch.new_value, users),
-                    "by": users.get(ch.changed_by_id, "")})
+                    "by": users.get(ch.changed_by_id, ""), "source": ch.source or "", "evidence": ch.evidence or ""})
     return out
 
 

@@ -413,6 +413,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["cowork_panel"] = lambda code, obj, chosen=None: cowork_rules.panel(object_session(obj), code, obj, chosen)
     app.state.templates.env.globals["cowork_suggestion_text"] = cowork_rules.suggestion_text
     app.state.templates.env.globals["cowork_no_evidence"] = cowork_rules.NOT_FOUND_EVIDENCE
+    app.state.templates.env.globals["cowork_from_chat"] = cowork_rules.FROM_CHAT_EVIDENCE
     app.state.templates.env.globals["move_choices"] = lambda target: cowork_rules.move_choices(object_session(target))
     app.state.templates.env.filters["first_line"] = ui.first_line
     app.state.templates.env.filters["kdate_text"] = lambda t: ui.iso_date_text(t, date.today())  # ISO 날짜 글 -> "11월 17일"

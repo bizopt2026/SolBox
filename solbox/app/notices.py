@@ -77,7 +77,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "fu_mine": ("ok", "내 할 일로 바꿨습니다."),
     "busy": ("warn", "이미 AI 작업이 진행 중입니다."),
     # AI 동료 칸 (AI 코워크 ②)
-    "cowork_applied": ("ok", "AI 제안을 반영했습니다. 변경 이력에 남았습니다."),
+    "cowork_applied": ("ok", "AI 제안을 반영했습니다."),
+    "cowork_not_applicable": ("warn", "이 기록에는 반영할 수 없는 제안입니다 (대화를 옮기기 전의 제안일 수 있습니다)."),
     "cowork_dismissed": ("ok", "AI 제안을 무시했습니다."),
     "cowork_decided": ("warn", "이미 반영했거나 무시한 제안입니다."),
     "cowork_stale": ("warn", "그 사이 이 기록이 바뀌어 반영하지 않았습니다. 지금 값을 확인한 뒤 다시 반영하세요."),

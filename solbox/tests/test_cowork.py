@@ -194,3 +194,100 @@ def test_composer_starts_empty(user_client, db):
     html = user_client.get(f"/initiatives/{item.id}").text
     box = html.split('id="cowork-message"')[1].split("</textarea>")[0]
     assert box.endswith(">")  # 쓴 글이 없으면 빈 입력칸
+
+
+# ---- 검토 반영 ----
+
+def _thread_with(db, code, target, sugs, source=""):
+    from app import guards
+
+    t = AIThread(target_type=code, target_id=target.id, title="t")
+    db.add(t)
+    db.flush()
+    m = AIMessage(thread_id=t.id, role="assistant", content="a",
+                  suggestions=cowork.clean_suggestions(sugs, code, source, "", guards.rev_of(target), target))
+    db.add(m)
+    db.commit()
+    return t, m
+
+
+def test_verified_needs_record_text_and_chat_words_are_marked():
+    sugs = cowork.clean_suggestions([{"kind": "status", "value": "done", "evidence": "상태는 완료야"},
+                                     {"kind": "due", "value": "2026-12-01", "evidence": "3곳"}], "initiative", "부지 후보 3곳", "상태는 완료야")
+    assert [(s["verified"], s["from_chat"]) for s in sugs] == [(False, True), (False, False)]
+
+
+def test_same_value_suggestion_is_dropped(db):
+    item = Initiative(title="x", status="doing")
+    db.add(item)
+    db.commit()
+    assert cowork.clean_suggestions([{"kind": "status", "value": "doing"}], "initiative", "", current=item) == []
+
+
+def test_apply_records_ai_source_and_blocks_after_ai_read(user_client, db):
+    s, item = _space(db)
+    t, m = _thread_with(db, "initiative", item, [{"kind": "status", "value": "doing", "evidence": "부지 후보 3곳"},
+                                                  {"kind": "due", "value": "2026-12-15", "evidence": ""}], "부지 후보 3곳")
+    user_client.post(f"/cowork/threads/{t.id}/messages/{m.id}/suggestions/1/apply", follow_redirects=False)
+    db.expire_all()
+    row = db.scalars(select(WorkspaceChange).where(WorkspaceChange.initiative_id == item.id, WorkspaceChange.new_value == "doing")).one()
+    assert row.source == "ai" and row.evidence == "부지 후보 3곳"
+    assert "AI 제안" in user_client.get(f"/initiatives/{item.id}").text
+    # 첫 반영으로 기록이 바뀌었으니 같은 답의 두 번째 제안은 AI 가 읽은 뒤 바뀐 기록이라 막는다
+    r = user_client.post(f"/cowork/threads/{t.id}/messages/{m.id}/suggestions/2/apply", follow_redirects=False)
+    assert "cowork_stale" in nloc(r)
+    # 두 번 눌러도 409 화면이 아니라 알림
+    r = user_client.post(f"/cowork/threads/{t.id}/messages/{m.id}/suggestions/1/apply", follow_redirects=False)
+    assert r.status_code == 303 and "cowork_decided" in nloc(r)
+
+
+def test_move_supersedes_old_suggestions(user_client, db):
+    c = Customer(name="한빛병원")
+    o = Opportunity(name="한빛 ESS", customer=c)
+    item = Initiative(title="실증 추진")
+    db.add_all([c, o, item])
+    db.commit()
+    t, m = _thread_with(db, "opportunity", o, [{"kind": "next_step", "value": "견적 보내기", "evidence": ""}])
+    user_client.post(f"/cowork/threads/{t.id}/move", data={"initiative_id": str(item.id)})
+    db.expire_all()
+    assert [x["state"] for x in db.get(AIMessage, m.id).suggestions] == ["superseded"]
+
+
+def test_job_finishing_after_move_attaches_no_suggestions(app, user_client, db, settings, fake_claude):
+    c = Customer(name="한빛병원")
+    o = Opportunity(name="한빛 ESS", customer=c)
+    item = Initiative(title="실증 추진")
+    db.add_all([c, o, item])
+    db.commit()
+    fake_claude.set(mode="stream", chunks=["답", "\n<<<SUGGEST\n", json.dumps([{"kind": "next_step", "value": "견적"}]), "\nSUGGEST>>>"])
+    user_client.post(f"/cowork/opportunity/{o.id}/threads", data={"message": "q", "_tok": _tok(user_client, f"/opportunities/{o.id}")})
+    t = db.scalars(select(AIThread)).one()
+    user_client.post(f"/cowork/threads/{t.id}/move", data={"initiative_id": str(item.id)})
+    _run(app, settings)
+    db.expire_all()
+    last = db.get(AIThread, t.id).messages[-1]
+    assert last.role == "assistant" and last.suggestions == []
+
+
+def test_partner_merge_keeps_threads(admin_client, db):
+    from app.models import Partner
+    from app import merge
+
+    a, b = Partner(name="그린에너지"), Partner(name="그린 에너지")
+    db.add_all([a, b])
+    db.commit()
+    t = AIThread(target_type="partner", target_id=b.id, title="t")
+    db.add(t)
+    db.commit()
+    merge._move(db, "partner", a, b)  # 합치기의 연결 옮기기 (그 뒤 흡수한 쪽을 지운다)
+    db.delete(b)
+    db.commit()
+    db.expire_all()
+    t = db.get(AIThread, t.id)
+    assert t is not None and t.target_id == a.id
+
+
+def test_thread_chips_use_absolute_links(user_client, db):
+    s, item = _space(db)
+    html = user_client.get(f"/initiatives/{item.id}").text
+    assert f'href="/initiatives/{item.id}?thread=new#cowork"' in html

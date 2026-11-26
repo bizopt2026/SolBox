@@ -8,7 +8,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import cowork, ontology
+from app import cowork, guards, ontology
 from app.ai.proposal_tasks import ROLE_LABELS, _chat_answer
 from app.ai.runner import ClaudeError, ClaudeRunner
 from app.ai.tasks import HANDLERS, load_prompt
@@ -66,9 +66,10 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
         record=_safe(ctx.record), files=_safe(ctx.files), conversation=conversation or "(없음)",
         suggest_kinds=_kinds_text(thread.target_type), status_codes=", ".join(f"`{c}`({n})" for c, n in ontology.INITIATIVE_STATUSES.items()),
     )
-    tid, code, job_id, bind = thread.id, thread.target_type, input.get("_job_id"), db.get_bind()
+    tid, code, target_id, job_id, bind = thread.id, thread.target_type, thread.target_id, input.get("_job_id"), db.get_bind()
     asker = next((m.user_id for m in reversed(recent) if m.role == "user"), None)
-    source = ctx.source + "\n" + "\n".join(m.content or "" for m in recent if m.role == "user")
+    source, said = ctx.source, "\n".join(m.content or "" for m in recent if m.role == "user")
+    basis_rev = guards.rev_of(target)  # AI 가 읽은 때의 기록: 반영할 때 그 뒤 바뀌었으면 막는다
     db.rollback()  # 긴 실행 동안 읽기 트랜잭션을 잡지 않는다
     text = _chat_answer(runner, prompt, bind, job_id, settings.ai_timeout_s, allowed_tools=NO_TOOLS).strip()
     answer, raw = split_answer(text)
@@ -80,8 +81,10 @@ def _chat(db: Session, input: dict, runner: ClaudeRunner, settings: Settings) ->
     if thread.active_job_id != job_id:
         return "superseded"
     cowork.supersede(db, thread)
+    moved = (thread.target_type, thread.target_id) != (code, target_id)  # 답을 쓰는 동안 과제로 옮겨졌다: 옛 대상의 제안은 붙이지 않는다
+    target = None if moved else cowork.get_target(db, code, target_id)
     db.add(AIMessage(thread_id=tid, role="assistant", content=answer, user_id=asker,
-                     suggestions=cowork.clean_suggestions(raw, code, source)))
+                     suggestions=[] if target is None else cowork.clean_suggestions(raw, code, source, said, basis_rev, target)))
     thread.active_job_id = None
     db.commit()
     return answer

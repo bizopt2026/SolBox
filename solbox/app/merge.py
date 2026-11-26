@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app import aliases, backup, same_company
 from app.models import (
-    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User,
+    Activity, Customer, CustomerNeed, DuplicateDismissal, IntakeFile, Opportunity, Partner, Project, Proposal, ReportPlanItem, Solution, User, AIThread,
     activity_customers, activity_partners, proposal_customers, initiative_customers, initiative_partners, Initiative,
 )
 
@@ -318,4 +318,5 @@ def _move(db: Session, kind: str, keep, absorb) -> None:
         if partner is not None:
             partner.customer = keep
     db.execute(update(IntakeFile).where(IntakeFile.target_type == kind, IntakeFile.target_id == absorb.id).values(target_id=keep.id))
+    db.execute(update(AIThread).where(AIThread.target_type == kind, AIThread.target_id == absorb.id).values(target_id=keep.id))  # AI 동료 대화도 남는 쪽으로
     db.flush()

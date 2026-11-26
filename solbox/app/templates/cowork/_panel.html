@@ -9,8 +9,8 @@
   <p class="muted help">이 기록의 지금 상태{% if cw_code in ont.COWORK_SPACES %}·지침·올린 자료{% endif %}와 팀이 합의한 사업 방향을 AI 가 함께 읽고 답합니다. 대화는 팀 모두가 봅니다. AI 가 기록을 바꾸자고 하면 [반영]을 눌러야 바뀝니다.</p>
   {{ ai_note(aig, id="cowork-ai-note") }}
   <nav class="cowork-threads" aria-label="대화 목록">
-    <a class="chip{{ ' on' if cw.new }}" href="?thread=new#cowork"{% if cw.new %} aria-current="true"{% endif %}>+ 새 대화</a>
-    {% for t in cw.threads %}<a class="chip{{ ' on' if cw.thread and cw.thread.id == t.id }}" href="?thread={{ t.id }}#cowork"{% if cw.thread and cw.thread.id == t.id %} aria-current="true"{% endif %} title="{{ t.title }}">{{ t.title or "(제목 없음)" }}</a>{% endfor %}
+    {% set base = ont.TYPES[cw.code].url(cw.target.id) %}<a class="chip{{ ' on' if cw.new }}" href="{{ base }}?thread=new#cowork"{% if cw.new %} aria-current="true"{% endif %}>+ 새 대화</a>
+    {% for t in cw.threads %}<a class="chip{{ ' on' if cw.thread and cw.thread.id == t.id }}" href="{{ base }}?thread={{ t.id }}#cowork"{% if cw.thread and cw.thread.id == t.id %} aria-current="true"{% endif %} title="{{ t.title }}">{{ t.title or "(제목 없음)" }}</a>{% endfor %}
   </nav>
   {% set thread = none if cw.new else cw.thread %}
   {% include "cowork/_thread.html" %}

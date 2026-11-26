@@ -854,6 +854,8 @@ class WorkspaceChange(Base):
     new_value: Mapped[str] = mapped_column(Text, default="")
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
     changed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String, default="", server_default="")  # 빈 글 = 사람, "ai" = AI 동료 제안을 반영 (AI 코워크 ②)
+    evidence: Mapped[str] = mapped_column(Text, default="", server_default="")  # AI 제안을 반영한 줄의 근거 문장
 
     strategy: Mapped[Strategy | None] = relationship(back_populates="changes")
     initiative: Mapped[Initiative | None] = relationship(back_populates="changes")

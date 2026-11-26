@@ -5,6 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app import cowork, guards, notices, ontology
@@ -15,7 +16,7 @@ from app.idparse import parse_id
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIMessage, AIThread, Initiative, User
-from app.routers._common import get_or_404
+from app.routers._common import get_or_404, resync_objects
 from app.security import ensure_can_delete, require_user
 
 router = APIRouter(prefix="/cowork")
@@ -155,10 +156,13 @@ def live(thread_id: int, request: Request, user: User = Depends(require_user), d
 
 
 def _decide(db: Session, thread_id: int, message_id: int, sid: int):
+    """대화·대상·메시지·제안. 메시지 줄에 먼저 쓰기 잠금을 잡고 다시 읽는다 (두 사람이 같은 답의 제안을 동시에 반영·무시해도 덮어쓰지 않게)."""
     t, obj = _thread_and_target(db, thread_id)
+    db.execute(update(AIMessage).where(AIMessage.id == message_id).values(role=AIMessage.role))  # 쓰기 잠금
     m = db.get(AIMessage, message_id)
     if m is None or m.thread_id != t.id:
         raise HTTPException(status_code=404, detail="제안을 찾을 수 없습니다.")
+    db.refresh(m)
     s = next((x for x in m.suggestions or [] if x.get("id") == sid), None)
     if s is None:
         raise HTTPException(status_code=404, detail="제안을 찾을 수 없습니다.")
@@ -171,22 +175,33 @@ def apply_suggestion(
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
     rev: Rev = Depends(rev_form),
 ):
-    """제안 반영: 그 사이 기록이 바뀌었으면(고침 표시) 반영하지 않고 알린다."""
+    """제안 반영: AI 가 읽은 뒤(`basis_rev`) 또는 화면을 연 뒤(`_rev`) 기록이 바뀌었으면 반영하지 않고 알린다. 이력에 "AI 제안"과 근거를 남긴다."""
     t, obj, m, s = _decide(db, thread_id, message_id, sid)
     code, oid, tid = t.target_type, obj.id, t.id
+    url = _thread_url(code, oid, tid)
     if s.get("state") != "pending":
-        return notices.redirect(_thread_url(code, oid, tid), "cowork_decided")
-    if guards.check_rev(obj, rev):
-        return notices.redirect(_thread_url(code, oid, tid), "cowork_stale")
+        db.rollback()
+        return notices.redirect(url, "cowork_decided")
+    if s.get("basis_rev") and s["basis_rev"] != guards.rev_of(obj) or guards.check_rev(obj, rev):
+        db.rollback()
+        return notices.redirect(url, "cowork_stale")
+    db.info["change_source"], db.info["change_evidence"] = "ai", s.get("evidence", "")
     try:
         cowork.apply(db, obj, s)
     except cowork.SuggestionError:
-        raise HTTPException(status_code=400, detail="이 기록에 반영할 수 없는 제안입니다.") from None
+        db.rollback()
+        return notices.redirect(url, "cowork_not_applicable")
     cowork.decide(m, sid, "applied", user)
-    db.commit()
+    try:
+        db.commit()
+    finally:
+        db.info.pop("change_source", None)
+        db.info.pop("change_evidence", None)
     db.refresh(obj)
     mirror.sync(obj)
-    return notices.redirect(_thread_url(code, oid, tid), "cowork_applied")
+    if code == "opportunity":
+        resync_objects(db, mirror, [obj.customer, obj.bm])
+    return notices.redirect(url, "cowork_applied")
 
 
 @router.post("/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/dismiss")
@@ -194,6 +209,7 @@ def dismiss_suggestion(thread_id: int, message_id: int, sid: int, user: User = D
     t, obj, m, s = _decide(db, thread_id, message_id, sid)
     code, oid, tid = t.target_type, obj.id, t.id
     if cowork.decide(m, sid, "dismissed", user) is None:
+        db.rollback()
         return notices.redirect(_thread_url(code, oid, tid), "cowork_decided")
     db.commit()
     return notices.redirect(_thread_url(code, oid, tid), "cowork_dismissed")
@@ -214,6 +230,7 @@ def move(thread_id: int, initiative_id: str = Form(""), user: User = Depends(req
     linked = getattr(item, rel)
     if obj not in linked:
         setattr(item, rel, [*linked, obj])
+    cowork.supersede(db, t)  # 옛 대상에 맞춘 제안은 과제에 반영할 수 없다
     t.origin_type, t.origin_id = t.target_type, t.target_id
     t.target_type, t.target_id = "initiative", item.id
     t.updated_at = datetime.now()
