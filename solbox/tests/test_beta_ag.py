@@ -552,8 +552,8 @@ def test_prompt_plans_the_deck_visually():
 
 def test_docs_describe_beta_ag():
     rules = (ROOT / "docs" / "rules" / "제안서와-PPT.md").read_text(encoding="utf-8")  # 묶음 규칙은 CLAUDE.md 에서 영역 파일로 옮겼다
-    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):]  # 이 파일의 마지막 구역
-    assert "\n## " not in section[3:], "베타 AG 뒤에 다른 구역이 생기면 끝을 다시 정한다"
+    section = rules[rules.index("## 베타 AG 묶음이 바꾼 규칙"):rules.index("## 베타 AH 묶음이 바꾼 규칙")]  # 베타 AH 가 뒤에 이어진다
+    assert "\n## " not in section[3:], "베타 AG 와 AH 사이에 다른 구역이 생기면 끝을 다시 정한다"
     for needle in ("마침표", "로고", "deck_background", "kpi", "chart", "diagram", "시각 자료 비율", "값 | 단위 | 이름 | 설명", "이름 | 설명 | 묶음", "test_beta_ag.py"):
         assert needle in section, needle
     onto = (ROOT / "docs" / "ontology.md").read_text(encoding="utf-8")
