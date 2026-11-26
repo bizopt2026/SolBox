@@ -301,3 +301,60 @@ def backfill_owners_once(engine) -> int:
         db.add(AppSetting(key=OWNER_BACKFILL_KEY, value={"filled": n}))
         db.commit()
         return n
+
+
+# ---- 영업 A 단계: 진행 칸 (금액·예상 수주일·담당·다음 할 일) ----
+
+BAD_DATE = "날짜는 2026-12-20 처럼 적어 주세요."
+BAD_OWNER = FieldError("담당은 사용 중인 계정 중에서 고르세요.", "owner_user_id")
+PROGRESS_FIELDS = ("amount", "expected_close", "owner_user_id", "next_step", "next_step_due")
+
+
+def _parse_date(raw: str, field_name: str):
+    from datetime import date
+
+    raw = (raw or "").strip()
+    if not raw:
+        return None, None
+    try:
+        return date.fromisoformat(raw), None
+    except ValueError:
+        return None, FieldError(BAD_DATE, field_name)
+
+
+def parse_progress(db: Session, amount: str, expected_close: str, owner_user_id: str, next_step: str, next_step_due: str,
+                   current_owner_id: int | None = None) -> tuple[dict, str | None]:
+    """폼의 진행 칸을 모델 값으로. 오류면 (지금까지 읽은 값, 오류 글). 담당은 사용 중인 계정만 새로 고를 수 있고,
+    지금 담당(`current_owner_id`)은 사용 중지여도 그대로 둘 수 있다 (저장 때 조용히 바뀌어 이력이 생기지 않게)."""
+    from app import money
+
+    values: dict = {"next_step": " ".join((next_step or "").split())}
+    try:
+        values["amount"] = money.parse_amount(amount)
+    except ValueError as e:
+        return values, FieldError(str(e), "amount")
+    for name, raw in (("expected_close", expected_close), ("next_step_due", next_step_due)):
+        values[name], problem = _parse_date(raw, name)
+        if problem:
+            return values, problem
+    raw = (owner_user_id or "").strip()
+    if not raw:
+        values["owner_user_id"] = None
+    else:
+        uid = parse_id(raw)
+        owner = db.get(User, uid) if uid is not None else None
+        if owner is None or (not owner.is_active and owner.id != current_owner_id):
+            return values, BAD_OWNER
+        values["owner_user_id"] = owner.id
+    return values, None
+
+
+def progress_form(opp: Opportunity | None, default_owner_id: int | None = None) -> dict:
+    """폼에 채울 진행 칸 글 (새로 만들 때는 담당만 기본값)."""
+    from app import money
+
+    if opp is None:
+        return {"amount": "", "expected_close": "", "owner_user_id": default_owner_id or "", "next_step": "", "next_step_due": ""}
+    return {"amount": money.edit_text(opp.amount), "expected_close": opp.expected_close.isoformat() if opp.expected_close else "",
+            "owner_user_id": opp.owner_user_id or "", "next_step": opp.next_step or "",
+            "next_step_due": opp.next_step_due.isoformat() if opp.next_step_due else ""}

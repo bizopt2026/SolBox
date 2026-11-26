@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.idparse import parse_id
-from app import business_types as bts, ontology, opportunities as opps, relations, ui
+from app import business_types as bts, ontology, opportunities as opps, relations, teams, ui
 from app import guards, notices
 from app.db import get_db
 from app.guards import Once, Rev, form_once, rev_form
@@ -36,11 +36,27 @@ def _form_page(request: Request, db: Session, form: dict, opp: Opportunity | Non
         form=form, opp=opp, error=error, conflict=conflict, duplicate=duplicate, customer=customer, customers=search_by_name(db, Customer),
         bms=search_by_name(db, BM), solutions=search_by_name(db, Solution), needs=needs,
         unlinked_needs=opps.unlinked_same_name_needs(db, customer),
+        owners=teams.grouped_users(db, keep=opp.owner if opp is not None else None),
     )
 
 
-def _blank_form(customer_id: str = "") -> dict:
-    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": []}
+def _blank_form(customer_id: str = "", owner_id: int | None = None) -> dict:
+    return {"name": "", "customer_id": customer_id, "bm_id": "", "memo": "", "need_ids": [], "solution_ids": [], "business_types": [],
+            **opps.progress_form(None, owner_id)}
+
+
+class ProgressForm:
+    """폼의 진행 칸 (영업 A). `present` 는 숨은 칸 progress=1 이 왔는지: 없는 옛 화면·API 는 진행 칸을 건드리지 않는다."""
+
+    def __init__(self, progress: str = Form(""), amount: str = Form(""), expected_close: str = Form(""), owner_user_id: str = Form(""),
+                 next_step: str = Form(""), next_step_due: str = Form("")):
+        self.present = bool(progress)
+        self.typed = {"amount": amount.strip(), "expected_close": expected_close.strip(), "owner_user_id": owner_user_id.strip(),
+                      "next_step": next_step.strip(), "next_step_due": next_step_due.strip()}
+
+    def parse(self, db: Session, current_owner_id: int | None = None) -> tuple[dict, str | None]:
+        t = self.typed
+        return opps.parse_progress(db, t["amount"], t["expected_close"], t["owner_user_id"], t["next_step"], t["next_step_due"], current_owner_id)
 
 
 def _parse(db: Session, name: str, customer_id: str, bm_id: str, memo: str) -> tuple[dict, str | None]:
@@ -108,7 +124,7 @@ def new_form(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ):
     cid = opps.parse_id(customer_id)
-    form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "")  # 없는 고객 번호는 무시한다
+    form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "", user.id)  # 없는 고객 번호는 무시한다
     nid = opps.parse_id(need_id)
     if nid is not None and any(n.id == nid for n in opps.bundlable_needs(db, opps.parse_id(customer_id))):
         form["need_ids"] = [nid]  # 고객 니즈에서 만들기: 그 니즈를 체크해 둔다 (그 고객의, 아직 묶이지 않은 니즈일 때만)
@@ -122,15 +138,18 @@ def create(
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once), bt: bts.BTForm = Depends(bts.bt_form),
+    pf: ProgressForm = Depends(),
 ):
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids, bt)
+    form = {**_submitted(values, need_ids, solution_ids, bt), **(pf.typed if pf.present else opps.progress_form(None, user.id))}
     error = error or (bts.codes_problem(bt.codes) if bt.present else None)
+    progress, problem = pf.parse(db) if pf.present else ({"owner_user_id": user.id}, None)
+    error = error or problem
     if error:
         return _form_page(request, db, form, error=error)
     if dup := duplicate_warning(db, Opportunity, name, confirm_dup):
         return _form_page(request, db, form, duplicate=dup)
-    opp = Opportunity(**values, business_types=",".join(ontology.clean_business_types(bt.codes)) if bt.present else "", created_by_id=user.id)
+    opp = Opportunity(**values, **progress, business_types=",".join(ontology.clean_business_types(bt.codes)) if bt.present else "", created_by_id=user.id)
     db.add(opp)
     db.flush()
     if error := opps.apply_needs(db, opp, need_ids):
@@ -153,7 +172,7 @@ def detail(opportunity_id: int, request: Request, user: User = Depends(require_u
 def edit_form(opportunity_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     opp = get_or_404(db, Opportunity, opportunity_id)
     form = {"name": opp.name, "customer_id": opp.customer_id, "bm_id": opp.bm_id or "", "memo": opp.memo, "business_types": opp.business_type_codes,
-            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions]}
+            "need_ids": [n.id for n in opps.needs_of(db, opp)], "solution_ids": [s.id for s in opp.solutions], **opps.progress_form(opp)}
     return _form_page(request, db, form, opp)
 
 
@@ -164,14 +183,21 @@ def update(
     need_ids: list[str] = Form([]), solution_ids: list[str] = Form([]), confirm_dup: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror), rev: Rev = Depends(rev_form), bt: bts.BTForm = Depends(bts.bt_form),
+    pf: ProgressForm = Depends(),
 ):
     opp = get_or_404(db, Opportunity, opportunity_id)
     values, error = _parse(db, name, customer_id, bm_id, memo)
-    form = _submitted(values, need_ids, solution_ids, bt, opp)
-    typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else values
-    if conflict := guards.check_rev(opp, rev, values=typed, stored={**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}):
+    form = {**_submitted(values, need_ids, solution_ids, bt, opp), **(pf.typed if pf.present else opps.progress_form(opp))}
+    typed = {**values, "business_types": ontology.business_types_text(bt.codes)} if bt.present else dict(values)
+    stored = {**{f: getattr(opp, f) for f in values}, "business_types": ontology.business_types_text(opp.business_types)}
+    if pf.present:  # 진행 칸도 견준다 (담당은 이름표가 없는 번호 칸이라 diff_fields 가 건너뛴다)
+        typed.update(pf.typed)
+        stored.update(opps.progress_form(opp))
+    if conflict := guards.check_rev(opp, rev, values=typed, stored=stored):
         return _form_page(request, db, form, opp, conflict=conflict)
     error = error or (bts.codes_problem(bt.codes) if bt.present else None)
+    progress, problem = pf.parse(db, opp.owner_user_id) if pf.present else ({}, None)
+    error = error or problem
     if error is None:
         error = opps.customer_change_problem(db, opp, values["customer_id"])
     if error:
@@ -180,7 +206,7 @@ def update(
         return _form_page(request, db, form, opp, duplicate=dup)
     before = opps.dependents(db, opp)
     needs_before = {n.id for n in opps.needs_of(db, opp)}
-    for field, value in values.items():
+    for field, value in {**values, **progress}.items():
         setattr(opp, field, value)
     if bt.present:
         opp.business_types = ",".join(ontology.clean_business_types(bt.codes))
