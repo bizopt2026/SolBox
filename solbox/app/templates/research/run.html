@@ -22,6 +22,13 @@
 </section>
 {% endif %}
 
+{% if failed and run.status != "running" %}
+<section class="card stack error" role="alert" aria-labelledby="h-failed"><h2 id="h-failed">조사하지 못한 항목 {{ failed | length }}개</h2>
+  <ul class="sub-list">{% for f in failed %}<li class="li-row"><span class="grow"><b>{{ f.name }}</b> <span class="muted">— AI 가 이 항목을 끝내지 못했습니다. 나머지 결과는 아래에 그대로 있어요.</span></span>
+    {% if user.role == "admin" %}<form method="post" action="/research/reports/{{ f.report.id }}/retry"><button type="submit" class="small"{{ ai_attrs(ai_gate()) }}>다시 시도</button></form>{% endif %}</li>{% endfor %}</ul>
+  {% if user.role != "admin" %}<p class="help">다시 시도는 관리자가 할 수 있어요.</p>{% endif %}
+</section>
+{% endif %}
 {% macro toggle_all(target) %}<span class="toggle-all" data-target="{{ target }}" hidden><button type="button" class="small" data-open="1">모두 펼치기</button> <button type="button" class="small" data-open="0">모두 접기</button></span>{% endmacro %}
 {% if suggest %}
 <section class="card stack" id="suggestions">

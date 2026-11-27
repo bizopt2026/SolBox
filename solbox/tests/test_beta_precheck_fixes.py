@@ -102,3 +102,54 @@ def test_huge_amount_is_a_form_error_not_a_server_error(user_client, db):
     r = user_client.post("/opportunities", data={"name": "큰 건", "customer_id": str(c.id), "progress": "1", "amount": "9999999999999억"})
     assert r.status_code == 400 and "금액이 너무 큽니다" in r.text
     assert money.parse_amount("3억") == 300_000_000
+
+
+# ---- QA 2차 (AI·파일) ----
+
+def test_research_job_links_to_the_research_run(app, db, settings):
+    from app.main import job_link
+    from app.models import AIJob
+    from tests.conftest import finished_run
+
+    run = finished_run(db, settings)
+    rep = next(r for r in run.reports if r.kind == "suggest")
+    job = AIJob(kind="research_suggest", input={"report_id": rep.id}, status="done")
+    assert job_link(app.state.session_factory, job) == f"/research/runs/{run.id}", "업무 보고(/reports/…)가 아니라 리서치 실행"
+    assert job_link(app.state.session_factory, AIJob(kind="research_area", input={"report_id": 99999}, status="done")) == "/research"
+
+
+def test_partly_failed_research_run_names_the_failed_part(admin_client, user_client, db, settings):
+    from tests.conftest import finished_run
+
+    run = finished_run(db, settings)
+    page = admin_client.get(f"/research/runs/{run.id}").text
+    box = page.split('id="h-failed"')[1].split("</section>")[0]
+    assert "조사하지 못한 항목 1개" in box and "정책" in box and "/retry" in box
+    staff = user_client.get(f"/research/runs/{run.id}").text.split('id="h-failed"')[1].split("</section>")[0]
+    assert "/retry" not in staff and "관리자가 할 수 있어요" in staff
+
+
+def test_too_long_field_message_is_korean():
+    from app.main import TOO_LONG_FIELD
+
+    assert "30만 자" in TOO_LONG_FIELD and "Part exceeded" not in TOO_LONG_FIELD
+    js = (Path(__file__).resolve().parents[1] / "app" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "FIELD_MAX_BYTES = 1000 * 1024" in js
+
+
+def test_failed_opportunity_review_is_shown_on_the_briefing(user_client, db):
+    from datetime import datetime
+
+    from app import opportunity_ai as oai
+    from app.models import AIJob, Opportunity
+
+    c = Customer(name="한빛")
+    db.add(c)
+    db.flush()
+    o = Opportunity(name="한빛 관제", customer_id=c.id)
+    db.add(o)
+    db.flush()
+    db.add(AIJob(kind=oai.REVIEW_KIND, input={"opportunity_id": o.id}, status="failed", error_kind="auth", error="Invalid API key", finished_at=datetime.now()))
+    db.commit()
+    page = user_client.get(f"/opportunities/{o.id}").text
+    assert "AI 분석을 하지 못했습니다." in page and "Invalid API key" not in page

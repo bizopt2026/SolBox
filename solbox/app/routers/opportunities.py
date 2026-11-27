@@ -106,7 +106,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         close_reason=opps.close_reason_label(opp), today=now, money=money,
         stale=opps.stale_badges(opp, now, touch), decision_gaps=opps.decision_gaps(db, opp, now),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
-        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)),
+        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)), ai_failed=oai.failed_review(db, opp.id, insight),
         ai_rows=oai.suggestion_rows(db, opp, insight, now),
         step_notes={s: f"확인 {d}/{t}" for s, (d, t) in oai.stage_counts(opp).items()},
     )

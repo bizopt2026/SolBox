@@ -1760,6 +1760,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .attendees { margin: 0; line-height: 1.8; }  /* 활동 기록 상세의 참석 담당자 한 줄 */
 .draft-pending { align-self: center; padding: 2px 10px; border-radius: var(--r-pill); background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: var(--fs-note); font-weight: var(--fw-strong); }  /* 업무 보고: 표에 옮기지 않은 AI 초안이 있을 때 확정 버튼 옆 */
 .draft-band .draft-warn { margin: var(--s2) 0 0; color: var(--warn); }
+.redo-box .redo-warn { flex-basis: 100%; margin: 0; color: var(--warn); }
 .list-sum { margin: 0 0 var(--s3); color: var(--ink-2); font-size: var(--fs-note); }  /* 목록 표 위 합계 한 줄 (영업기회) */
 .work-cell.is-zero b { color: var(--ink-3); font-weight: 500; }
 @media (max-width: 1099px) { .work-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

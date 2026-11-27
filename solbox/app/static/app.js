@@ -8,6 +8,28 @@
     return h;
   }
 
+  // 글 칸 한도: 서버는 한 칸에 1MB(한글 약 30만 자)까지 받는다. 넘으면 보내지 않고 그 칸 옆에 알린다 (보내면 쓴 글을 잃는다, 베타 점검 2026-11-27)
+  var FIELD_MAX_BYTES = 1000 * 1024;
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form.querySelectorAll || (form.method || "").toLowerCase() !== "post") return;
+    var big = Array.prototype.filter.call(form.querySelectorAll("textarea"), function (ta) {
+      return ta.name && new Blob([ta.value]).size > FIELD_MAX_BYTES;
+    })[0];
+    if (!big) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    var note = big.parentNode.querySelector(".field-err.too-long");
+    if (!note) {
+      note = document.createElement("p");
+      note.className = "field-err too-long";
+      note.setAttribute("role", "alert");
+      big.insertAdjacentElement("afterend", note);
+    }
+    note.textContent = "글이 너무 깁니다 (한 칸에 한글 약 30만 자까지). 나누어 저장하거나 .txt 파일로 올려 주세요. 쓴 글은 그대로 있어요.";
+    big.focus();
+  }, true);
+
   // 휴대폰 "메뉴" 펼침·위쪽 줄 "관리" 펼침: 바깥을 누르거나 Esc 를 누르면 닫는다 (스크립트 없으면 단추를 다시 눌러 닫는다)
   document.querySelectorAll("details.m-menu, details.top-admin").forEach(function (box) {
     document.addEventListener("click", function (e) { if (box.open && !box.contains(e.target)) box.open = false; });

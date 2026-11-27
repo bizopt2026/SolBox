@@ -200,6 +200,7 @@
       </label>
       <button type="submit"{{ ai_attrs(aig) }}>다시 정리</button>
     </form>{% endif %}
+    {% if not is_cards and intake.plan %}<p class="help redo-warn">다시 정리하면 지금 정리안(고친 내용 포함)은 지워지고 새로 만듭니다. 다시 정리가 실패하면 정리안 없이 "다시 정리"부터 해야 해요.</p>{% endif %}{# 베타 점검 2026-11-27: 경고 없이 정리안이 사라졌다 #}
     {{ confirm_link("/intake/" ~ intake.id ~ "/discard", label="이 묶음 버리기", ask="이 묶음을 버릴까요? 올린 원본 파일은 남습니다.", ok="버리기", cls="danger") }}
   </div>
 </details>

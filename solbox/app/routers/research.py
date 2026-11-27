@@ -115,7 +115,9 @@ def run_page(run_id: int, request: Request, user: User = Depends(require_user), 
     all_trends = [t for a in areas if a["report"].status == "done" for t in a["trends"]]
     # 모든 동향이 같은 "본문 미확인" 이유뿐이면 줄마다 배지를 달지 않고 조사 전체에 안내 한 번 (서버가 웹 페이지를 열 수 없을 때는 늘 이렇다)
     unopened_all = bool(all_trends) and all(t.get("needs_check") and all(is_unopened(n) for n in t["needs_check"]) for t in all_trends)
-    return render(request, "research/run.html", unopened_all=unopened_all, run=run, suggest=suggest, suggestions=suggestions, areas=areas,
+    # 일부만 실패한 조사: 무엇이 실패했는지와 (관리자에게) 다시 시도 (베타 점검 2026-11-27: 배지만 "일부 실패"였다)
+    failed = [{"report": r, "name": RESEARCH_AREAS.get(r.area, r.area) if r.kind == "area" else "발굴 방향 제안"} for r in run.reports if r.status == "failed"]
+    return render(request, "research/run.html", failed=failed, unopened_all=unopened_all, run=run, suggest=suggest, suggestions=suggestions, areas=areas,
                   suggest_insights=suggest_insights, src=SourceLookup(db, ui=True), registered=registered)
 
 

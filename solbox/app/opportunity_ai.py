@@ -93,6 +93,24 @@ def pending_job(db: Session, opp_id: int, statuses=("pending", "running")):
     return None
 
 
+def failed_review(db: Session, opp_id: int, insight):
+    """이 영업기회의 가장 최근 분석 작업이 실패했고 최신 분석보다 늦으면 그 작업 (브리핑 카드가 실패와 이유를 보인다, 베타 점검 2026-11-27). 아니면 None."""
+    from sqlalchemy import select
+
+    from app.models import AIJob
+
+    last = None
+    for job in db.scalars(select(AIJob).where(AIJob.kind == REVIEW_KIND).order_by(AIJob.id.desc()).limit(200)):
+        if (job.input or {}).get("opportunity_id") == opp_id:
+            last = job
+            break
+    if last is None or last.status != "failed":
+        return None
+    if insight is not None and last.finished_at is not None and insight.created_at is not None and insight.created_at >= last.finished_at:
+        return None
+    return last
+
+
 def request_review(db: Session, opp_ids, user_id: int | None, request, priority: int = REVIEW_PRIORITY) -> list:
     """활동 기록 저장 뒤 부른다: 진행 중이고 연결된 활동 기록이 있는 영업기회마다 분석 작업을 하나씩 (이미 대기·진행 중이면 넣지 않는다).
     AI 처리기가 꺼져 있으면 아무것도 하지 않는다 (저장은 그대로 성공). 자동으로 AI 작업을 만드는 곳은 이 함수와 정렬 점검 `alignment.request` 둘이다 (docs/rules/AI-작업과-오류.md)."""
