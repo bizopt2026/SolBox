@@ -317,6 +317,7 @@ def check_label(code: str) -> str:
     return OPPORTUNITY_CHECK_ITEMS.get(code, code)
 
 
+CONTACT_SUGGESTION_FIELDS = {"title": "직함", "phone": "휴대폰", "email": "이메일", "person": "같은 이름의 새 명함"}  # 담당자 변경 제안 칸 (④)
 CONTACT_ROLES = {"decision": "의사결정자", "user": "실무자", "influencer": "영향자", "other": "기타"}  # 담당자 역할 (영업 D, 담당자마다 하나)
 
 OPPORTUNITY_WHO = (("team", "우리 팀"), ("mine", "내 건"))  # 영업기회 목록·홈의 담당 걸러 보기 (?who=)
@@ -690,7 +691,7 @@ _TYPE_LIST = [
         "activities/{year}/{id}.md", nav="활동 기록", nav_group="today",
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
-               "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회"},
+               "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회", "contacts": "참석한 담당자"},
         description="회의, 통화, 태핑, 수요조사 등 한 번의 활동",
     ),
     ObjectType(
@@ -724,7 +725,7 @@ _TYPE_LIST = [
     ObjectType(
         "contact", "담당자", "부속", "Contact", "contacts", None, "/contacts/{id}",
         props={"name": "이름", "title": "직함", "role": "역할", "phone": "휴대폰", "office_phone": "사무실 전화", "email": "이메일", "note": "메모",
-               "customer": "고객", "partner": "파트너", "opportunities": "영업기회", "origin": "유래"},
+               "customer": "고객", "partner": "파트너", "opportunities": "영업기회", "origin": "유래", "activities": "참석한 활동 기록"},
         description="고객·파트너의 담당자 한 사람. 역할(의사결정자·실무자·영향자)을 두고 영업기회에 잇습니다",
     ),
     ObjectType(
@@ -1122,6 +1123,7 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R50", "의 사람이다", "contact", "customer", "N:1", "fk", "contacts.customer_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R51", "의 사람이다", "contact", "partner", "N:1", "fk", "contacts.partner_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R52", "관여한다", "contact", "opportunity", "N:M", "link", "opportunity_contacts", "같은 고객의 담당자만"),
+    _r("R53", "참석했다", "contact", "activity", "N:M", "link", "activity_contacts", "그 활동 기록의 고객·파트너 담당자만"),
 )
 
 # ======================================================================================
@@ -1209,6 +1211,7 @@ for _key, _pairs in {
     "R50": {("contact", "customer"): "고객", ("customer", "contact"): "담당자"},
     "R51": {("contact", "partner"): "파트너", ("partner", "contact"): "담당자"},
     "R52": {("contact", "opportunity"): "영업기회", ("opportunity", "contact"): "담당자"},
+    "R53": {("contact", "activity"): "참석한 활동 기록", ("activity", "contact"): "참석한 담당자"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -1277,7 +1280,7 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "opportunity": ("R27", "R30", "R32", "R52"),
     "contact": ("R50", "R51"),
     "bm": (),
-    "activity": ("R8", "R9", "R21", "R22"),
+    "activity": ("R8", "R9", "R21", "R22", "R53"),
     "proposal": ("R12", "R13", "R29", "R34", "R35"),
     "strategy": ("R47",),
     "initiative": ("R41", "R48", "R49"),

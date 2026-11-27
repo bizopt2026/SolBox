@@ -116,6 +116,7 @@ EXPECT = {
     "R50": [("ct_choi", "R50", ["c_hanbit"]), ("c_hanbit", "R50", ["ct_choi"])],
     "R51": [("ct_park", "R51", ["p_green"]), ("p_green", "R51", ["ct_park"])],
     "R52": [("ct_choi", "R52", ["o_hanbit"]), ("o_hanbit", "R52", ["ct_choi"])],
+    "R53": [("ct_choi", "R53", ["a_kick"]), ("a_kick", "R53", ["ct_choi"])],
 }
 
 
