@@ -205,10 +205,6 @@ body.auth .page { padding: 0; max-width: 400px; margin: 0; }
   .page { padding: var(--s4) var(--s4) 40px; }
   :root { --card-pad: 16px; --top-h: 0px; }
 }
-/* 활동 기록 쓰기: 다른 길(올리기·칸 직접 채우기) 안내 한 줄. 저장 막대는 주 버튼·보조 버튼·취소 세 개라 휴대폰에서도 한 줄이다 */
-.memo-alt { margin: var(--s4) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); color: var(--ink-3); }
-@media (max-width: 600px) { .form-page > .savebar:has(> :nth-child(3):last-child) { flex-wrap: nowrap; } .form-page > .savebar > .ghost:last-child { flex: 0 0 auto; } }
-
 /* 휴대폰 위쪽 줄 하나 (UX 1순위 2026-11-27): 759px 이하에서는 사이드 메뉴(브랜드·올리기·가로로 미는 메뉴 줄·사용자, 세 줄)를 숨기고
    위쪽 줄에 작은 표지 + 검색 + AI 상태 + "메뉴" 펼침(올리기·전체 메뉴·내 정보·도움말·로그아웃)만 둔다. 아래 고정 탭(.tabbar)과 같은 폭 기준.
    비밀번호를 먼저 바꿔야 하는 때(data-locked)는 메뉴가 없으므로 사이드 줄(브랜드·로그아웃)을 그대로 보인다 */
@@ -1376,6 +1372,9 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 
 .card.stack > .savebar.static { position: static; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); }
 @media (max-width: 600px) { .form-page > .savebar { flex-wrap: wrap; } .form-page > .savebar > * { flex: 1 1 40%; } }
+/* 활동 기록 쓰기: 다른 길(올리기·칸 직접 채우기) 안내 한 줄. 저장 막대는 주 버튼·보조 버튼·취소 세 개라 휴대폰에서도 한 줄이다 */
+.memo-alt { margin: var(--s4) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); color: var(--ink-3); }
+@media (max-width: 600px) { .form-page > .savebar:has(> :nth-child(3):last-child) { flex-wrap: nowrap; } .form-page > .savebar > .ghost:last-child { flex: 0 0 auto; } }
 
 /* 구역 안 진행 상자 (제안 화면: 방향·구성안 만드는 중) */
 .job-box { padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: var(--r-sm); background: var(--sunken); color: var(--ink-2); margin-bottom: var(--s3); }
