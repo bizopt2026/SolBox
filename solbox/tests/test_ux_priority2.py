@@ -98,3 +98,34 @@ def test_related_card_comes_before_ai_dock(user_client, db):
         assert 'class="ai-dock"' in aside, url
         rel = aside.find('class="card rel-card') if 'class="card rel-card' in aside else aside.find("연결된 것")
         assert 0 <= rel < aside.index('class="ai-dock"'), url
+
+
+# ⑤ 활동 기록 상세 (UX 다듬기 2026-11-27): 제목 밑 한 줄과 겹치는 "기본 정보" 카드 없음, 다음 동작 하나
+def test_activity_detail_drops_duplicate_card_and_offers_next_step(user_client, db):
+    from app.models import Contact, CustomerNeed
+
+    c = Customer(name="한빛")
+    o = Opportunity(name="한빛 관제", customer=c)
+    db.add_all([c, o])
+    db.flush()
+    a = Activity(kind="meeting", date=date.today(), title="한빛 미팅", raw_text="x", customers=[c])
+    db.add(a)
+    db.commit()
+    page = user_client.get(f"/activities/{a.id}").text
+    head = page.split('<header class="page-header')[1].split("</header>")[0]
+    assert "한빛" in head and "primary" not in head, "니즈가 없으면 주 버튼 없음"
+    assert "기본 정보" not in page and 'id="h-attendees"' not in page
+
+    linked = CustomerNeed(activity_id=a.id, position=0, customer_name="한빛", customer_id=c.id, content="이미 묶인 니즈", opportunity_id=o.id)
+    nameless = CustomerNeed(activity_id=a.id, position=1, customer_name="모름", content="고객 없는 니즈")
+    open_need = CustomerNeed(activity_id=a.id, position=2, customer_name="한빛", customer_id=c.id, content="새 니즈")
+    hong = Contact(name="홍길동", title="부장", customer_id=c.id)
+    db.add_all([hong, linked, nameless, open_need])
+    db.flush()
+    a.contacts = [hong]
+    db.commit()
+    page = user_client.get(f"/activities/{a.id}").text
+    head = page.split('<header class="page-header')[1].split("</header>")[0]
+    assert f'class="button primary" href="/opportunities/new?customer_id={c.id}&amp;need_id={open_need.id}">영업기회 만들기</a>' in head
+    card = page.split('id="h-attendees"')[1].split("</section>")[0]
+    assert "홍길동" in card and "부장" in card and "1명" in card
