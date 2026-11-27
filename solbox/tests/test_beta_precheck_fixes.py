@@ -82,3 +82,23 @@ def test_proposal_title_and_subtitle_do_not_repeat_the_customer(user_client, db)
     head = user_client.get(f"/proposals/{p.id}").text.split('<header class="page-header')[1].split("</header>")[0]
     sub = head.split('class="ph-sub"')[1].split("</p>")[0]
     assert sub.count("냉방 전력비 절감") == 1 and ">영업기회</a>·<a" in sub
+
+
+def test_unknown_address_keeps_the_menu_for_a_logged_in_user(user_client, client):
+    """없는 주소: 로그인한 사람에게는 메뉴가 있는 한국어 404 화면 (베타 점검 2026-11-27: 메뉴가 사라지고 영어 "Not Found"가 떴다)."""
+    r = user_client.get("/no-such-page")
+    assert r.status_code == 404 and "Not Found" not in r.text and "항목을 찾을 수 없습니다" in r.text
+    assert 'class="top-tabs"' in r.text and 'action="/logout"' in r.text
+    anon = client.get("/no-such-page")
+    assert anon.status_code == 404 and 'class="top-tabs"' not in anon.text and "Not Found" not in anon.text
+
+
+def test_huge_amount_is_a_form_error_not_a_server_error(user_client, db):
+    from app import money
+
+    c = Customer(name="한빛")
+    db.add(c)
+    db.commit()
+    r = user_client.post("/opportunities", data={"name": "큰 건", "customer_id": str(c.id), "progress": "1", "amount": "9999999999999억"})
+    assert r.status_code == 400 and "금액이 너무 큽니다" in r.text
+    assert money.parse_amount("3억") == 300_000_000

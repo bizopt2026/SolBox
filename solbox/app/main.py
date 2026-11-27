@@ -5,6 +5,7 @@ import functools
 import logging
 import time
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from datetime import date, datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -309,9 +310,35 @@ def _operational_error_handler(request: Request, exc: OperationalError) -> Respo
     return _server_error_handler(request, exc)
 
 
+def _load_viewer(request: Request) -> None:
+    """오류 화면용: 세션의 로그인이 유효하면 `request.state.user` 를 채운다 (`security.current_user` 와 같은 조건, 실패해도 조용히 지나간다)."""
+    from app.models import User
+    from app.security import password_version
+
+    try:
+        user_id = request.session.get("user_id") if "session" in request.scope else None
+        if not user_id:
+            return
+        with request.app.state.session_factory() as db:
+            user = db.get(User, user_id)
+            if user is not None and user.is_active and request.session.get("pv") == password_version(user):
+                db.expunge(user)
+                request.state.user = user
+    except Exception:  # noqa: BLE001 - 오류 화면을 그리다 또 실패하지 않게
+        logging.getLogger("app").debug("오류 화면의 로그인 확인 실패", exc_info=True)
+
+
 def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """HTTPException 을 브라우저에는 한국어 오류 화면으로, HTMX 요청에는 짧은 글로 돌려준다."""
     message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
+    try:
+        default_phrase = HTTPStatus(exc.status_code).phrase
+    except ValueError:
+        default_phrase = None
+    if message == default_phrase:
+        message = error_title(exc.status_code)  # 프레임워크 기본 영어 문구("Not Found" …)는 한국어 제목으로 (베타 점검 2026-11-27)
+    if getattr(request.state, "user", None) is None:
+        _load_viewer(request)  # 없는 주소(라우트가 없어 로그인 확인을 거치지 않음)에서도 로그인한 사람에게는 메뉴가 있는 화면을
     if exc.status_code == 405 and request.method in ("GET", "HEAD") and not request.headers.get("HX-Request"):
         return RedirectResponse(_get_fallback(request) or "/", status_code=303)
     if request.headers.get("HX-Request"):

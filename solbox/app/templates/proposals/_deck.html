@@ -36,7 +36,7 @@
     {% endif %}
   </div>
   <div class="file-actions">
-    {% if proposal.deck_name and not stale and not old %}<a class="button primary" href="/proposals/{{ proposal.id }}/deck">고객용 PPT 내려받기</a>
+    {% if proposal.deck_name and not stale and not old %}<a class="button{{ ' primary' if back == 'outline' }}" href="/proposals/{{ proposal.id }}/deck">고객용 PPT 내려받기</a>{# 상세 화면은 같은 내려받기가 제목 줄의 주 버튼이라 여기서는 보조 버튼, 구성안 화면은 제목 줄에 없어 주 버튼 (화면에 주 버튼 하나, 베타 점검 2026-11-27) #}
     <a class="button small" href="/proposals/{{ proposal.id }}/deck?version=internal" title="발표자 노트에 출처와 확인할 점이 들어 있습니다. 고객에게 보내지 마세요.">내부 검토용 PPT</a>
     {% set pdf = deck_pdf(proposal) %}
     {% if pdf.exists %}<a class="button small" href="/proposals/{{ proposal.id }}/deck/pdf" target="_blank" rel="noopener">PDF 미리보기</a>

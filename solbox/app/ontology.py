@@ -1705,4 +1705,5 @@ SLIDE_FORM_LABELS = {
     "diagram_type": "도식 종류", "nodes": "도식 항목", "center": "가운데 이름", "axis_x": "가로축", "axis_y": "세로축",
 }
 # 충돌 비교에서 값을 코드 이름으로 바꿀 칸: (대상 유형, 칸) -> 코드 목록
-CONFLICT_CODE_FIELDS = {("solution", "stage"): "stage", ("opportunity", "stage"): "opportunity_stage", ("activity", "kind"): "activity_kind"}
+CONFLICT_CODE_FIELDS = {("solution", "stage"): "stage", ("opportunity", "stage"): "opportunity_stage", ("activity", "kind"): "activity_kind",
+                        ("customer_need", "status"): "need_status"}  # 니즈 상태: 충돌 화면에 코드("reviewing") 대신 이름 (베타 점검 2026-11-27)

@@ -475,11 +475,11 @@ def toggle_check(
     return RedirectResponse(f"/opportunities/{opp.id}#checks", status_code=303)
 
 
-def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None, back: str = "", qs: str = ""):
+def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None, back: str = "", qs: str = "", conflict=None):
     back = "board" if back == "board" else ""
     return render(
-        request, "opportunities/close.html", status_code=400 if error else 200,
-        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX,
+        request, "opportunities/close.html", status_code=409 if conflict else (400 if error else 200),
+        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX, conflict=conflict,
         back=back, qs=qs if back else "", cancel_url=opps.back_url(back, qs, opp.id),
     )
 
@@ -498,9 +498,13 @@ def close(
     opportunity_id: int, request: Request, stage: str = Form(""), reason: str = Form(""), note: str = Form(""),
     back: str = Form(""), qs: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+    rev: Rev = Depends(rev_form),
 ):
-    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다."""
+    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다. 사유 화면을 연 뒤 다른 곳에서 바뀌었으면 충돌 화면 (베타 점검 2026-11-27:
+    두 탭에서 수주·실패를 따로 열면 늦은 쪽이 알림 없이 덮어썼다)."""
     opp = get_or_404(db, Opportunity, opportunity_id)
+    if conflict := guards.check_rev(opp, rev):
+        return _close_page(request, opp, stage, reason, note, back=back, qs=qs, conflict=conflict)
     if error := opps.close_problem(stage, reason):
         if not opps.needs_reason(stage):
             raise HTTPException(status_code=400, detail=error)

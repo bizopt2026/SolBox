@@ -190,7 +190,8 @@ def update(
 ):
     need = get_or_404(db, CustomerNeed, need_id)
     form = {"customer_id": customer_id, "content": content, "field_id": field_id, "status": status, "memo": memo}
-    if conflict := guards.check_rev(need, rev, values=form):
+    # 영업기회에 묶인 니즈는 상태 칸이 폼에 없다(빈 글): 비교에서 빼야 바꾸지 않은 "상태"가 충돌 칸으로 나오지 않는다 (베타 점검 2026-11-27)
+    if conflict := guards.check_rev(need, rev, values={k: v for k, v in form.items() if k != "status" or v}):
         return _form(request, db, form, need, conflict=conflict)
     if not content.strip():
         return _form(request, db, form, need, error=CONTENT_REQUIRED)
