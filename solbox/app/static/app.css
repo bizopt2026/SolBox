@@ -164,6 +164,39 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
 .breadcrumb a:hover { color: var(--brand); }
 .breadcrumb [aria-current="page"] { color: var(--ink-2); }
 
+/* 넓은 화면(1100px 이상) 위쪽 줄 메뉴 (2026-11-27 메뉴 개편): "오늘" 묶음은 탭(.top-tabs), 그 옆 "+ 올리기"(옅은 남색: 꽉 찬 주 버튼은 화면 제목 줄의 것 하나),
+   오른쪽 끝에 관리 펼침(관리자만)·도움말. 사이드는 기록 종류 묶음만 보인다 (같은 항목을 사이드에도 그리고, 좁은 화면에서는 그쪽을 쓴다) */
+.top-tabs, .top-upload, .top-admin, .top-help { display: none; }
+@media (min-width: 1100px) {
+  .side > .cta, .side > .side-help, .side-nav .navg[data-group="today"], .side-nav .navg[data-group="admin"] { display: none; }
+  .top { gap: var(--s2); padding-left: var(--s4); }
+  .top-tabs { display: flex; align-items: center; gap: 2px; flex: none; }
+  .top-tabs a { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 10px; border-radius: var(--r-sm); color: var(--ink-2); font-weight: 500; white-space: nowrap; }
+  .top-tabs a:hover { background: var(--sunken); text-decoration: none; }
+  .top-tabs a[aria-current="page"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-display); }
+  .top-tabs .nav-badge { margin-left: 0; }
+  .top-upload { display: inline-flex; flex: none; align-items: center; min-height: 34px; padding: 0 12px; margin-right: var(--s2); border-radius: var(--r-sm); background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); white-space: nowrap; }
+  .top-upload:hover { background: var(--brand); color: var(--brand-ink); text-decoration: none; }
+  .top .search { flex: 1 1 160px; min-width: 120px; max-width: 360px; }
+  .top-admin { display: block; position: relative; flex: none; }
+  .top-admin > summary { list-style: none; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: var(--r-sm); color: var(--ink-2); font-size: var(--fs-note); font-weight: 500; cursor: pointer; }
+  .top-admin > summary::-webkit-details-marker { display: none; }
+  .top-admin > summary::after { content: "▾"; font-size: 10px; color: var(--ink-3); }
+  .top-admin > summary:hover, .top-admin[open] > summary { background: var(--sunken); }
+  .top-admin > summary.current { color: var(--brand-deep); font-weight: var(--fw-strong); }
+  .top-admin nav { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 168px; display: flex; flex-direction: column; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+  .top-admin nav a { padding: 7px 10px; border-radius: var(--r-sm); color: var(--ink-2); }
+  .top-admin nav a:hover { background: var(--sunken); text-decoration: none; }
+  .top-admin nav a[aria-current="page"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: var(--fw-strong); }
+  .top-help { display: inline-flex; flex: none; align-items: center; min-height: 32px; padding: 0 8px; border-radius: var(--r-sm); color: var(--ink-2); font-size: var(--fs-note); font-weight: 500; }
+  .top-help:hover { background: var(--sunken); text-decoration: none; }
+  .top-help[aria-current="page"] { color: var(--brand-deep); font-weight: var(--fw-strong); }
+}
+@media (min-width: 1100px) and (max-width: 1319px) {
+  .top-tabs a { padding: 0 7px; font-size: var(--fs-note); }  /* 1100~1319px: 탭·검색칸이 한 줄에 들도록 조금 줄인다 */
+  .top .search kbd { display: none; }
+}
+
 /* 로그인·오류: 사이드 메뉴 없는 가운데 카드 */
 body.auth .main { align-items: center; justify-content: center; min-height: 100vh; padding: var(--s5) var(--s4); gap: var(--s4); }
 body.auth .page { padding: 0; max-width: 400px; margin: 0; }

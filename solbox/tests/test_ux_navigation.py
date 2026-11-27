@@ -49,7 +49,7 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객관리 › 등록"
     assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 기존 BM › 등록"
     assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 BM › 등록"
-    assert _crumbs(user_client.get("/activities/new").text) == "오늘 › 활동 기록 › 등록"
+    assert _crumbs(user_client.get("/activities/new").text) == "활동 기록 › 등록"  # 위쪽 줄 탭 묶음은 묶음 이름 없이
 
 
 def test_breadcrumb_escapes_names(user_client, db):
@@ -117,7 +117,7 @@ def test_sidebar_group_titles_are_not_headings(user_client):
 def test_breadcrumb_group_comes_from_the_nav_definition(user_client, db):
     from app import ontology
 
-    group = ontology.nav_group_label("intake")
-    assert group == "오늘"
-    assert _crumbs(user_client.get("/intake/new").text).startswith(group + " ›")
-    assert _crumbs(user_client.get("/follow-ups").text).startswith(group + " ›")
+    # "오늘" 묶음은 넓은 화면에서 위쪽 줄 탭이라 경로에 묶음 이름을 쓰지 않는다 (2026-11-27 메뉴 개편). 다른 묶음은 정의의 이름
+    assert ontology.nav_group_label("intake") == "" and ontology.nav_group_label("solutions") == "소스"
+    assert _crumbs(user_client.get("/intake/new").text).startswith("올리기 묶음 ›")
+    assert _crumbs(user_client.get("/follow-ups").text) == "후속 조치"

@@ -3,7 +3,7 @@
 {% from "_followups.html" import fu_item, fu_notice %}
 {% block title %}홈{% endblock %}
 {% block content %}
-{% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button to-intake" href="/intake/new">+ 올리기</a><a class="button primary" href="/activities/new">활동 기록 쓰기</a>{% endcall %}{# 주 동작은 가장 자주 하는 기록 쓰기 하나, 올리기는 보조 (사이드 메뉴에도 있다. UX 2순위 2026-11-27) #}
+{% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button primary" href="/activities/new">활동 기록 쓰기</a>{% endcall %}{# 주 동작은 가장 자주 하는 기록 쓰기 하나. 올리기는 위쪽 줄(넓은 화면)·사이드 줄(태블릿)·메뉴 펼침(휴대폰)에 있어 여기 두지 않는다 (2026-11-27 메뉴 개편) #}
 {{ fu_notice(toggled) }}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 

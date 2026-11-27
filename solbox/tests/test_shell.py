@@ -31,9 +31,9 @@ def test_every_nav_item_has_a_known_group():
 def test_nav_groups_order_and_labels():
     out = ontology.nav_groups(is_admin=False)
     assert [(g.label, [i.label for i in g.items]) for g in out] == [
-        ("오늘", ["홈", "올리기 묶음", "AI 제안함", "활동 기록", "업무 보고"]),
+        ("오늘", ["홈", "활동 기록", "업무 보고", "AI 제안함", "올리기 묶음"]),  # 넓은 화면 위쪽 줄 탭 (2026-11-27 메뉴 개편)
         ("과제", ["사업 방향", "과제"]),
-        ("소스", ["솔루션", "파트너", "리서치", "고객니즈"]),
+        ("소스", ["고객니즈", "솔루션", "파트너", "리서치"]),
         ("사업기획", ["기존 BM", "신규 BM"]),
         ("영업", ["고객관리", "영업기회", "제안", "프로젝트"]),
     ]

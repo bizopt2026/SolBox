@@ -826,6 +826,9 @@ TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 # 메뉴 재편 (2026-11-27): 발굴 → 소스, BM 은 새 묶음 사업기획으로, 영업의 고객은 메뉴 이름만 "고객관리" (대상 이름은 "고객")
 NAV_GROUPS = (("today", "오늘"), ("work", "과제"), ("source", "소스"), ("planning", "사업기획"), ("sales", "영업"), ("admin", "관리"))
 NAV_GROUP_LABELS = dict(NAV_GROUPS)  # 묶음 코드 -> 이름 (화면 제목 위 경로가 읽는다)
+# 넓은 화면(1100px 이상)에서 사이드가 아닌 위쪽 줄 탭으로 그리는 묶음 (2026-11-27 메뉴 개편: 사이드는 기록 종류만).
+# 이 묶음은 경로 첫 마디에 이름을 쓰지 않는다 ("활동 기록 › 등록"). 관리 묶음은 위쪽 줄 오른쪽 "관리" 펼침이 된다
+TOP_NAV_GROUP = "today"
 # 메뉴 항목이 아닌 화면이 어느 항목에 속하는지: 주소 앞 조각 -> 항목의 path (후속 조치 목록은 "오늘" 의 홈 구역)
 NAV_ALIASES = {"follow-ups": "", "ai": "ai/inbox"}
 
@@ -854,12 +857,12 @@ def _type_nav_item(code: str) -> NavItem:
 
 # 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록·업무 보고, 소스 = 솔루션·파트너·리서치, 사업기획 = BM, 영업 = 고객관리·영업기회·제안·프로젝트
 NAV_ITEMS = (
-    NavItem("", "홈", "today"),
-    NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
-    NavItem("ai/inbox", "AI 제안함", "today"),
+    NavItem("", "홈", "today"),  # 오늘 묶음 = 넓은 화면 위쪽 줄 탭. 자주 쓰는 차례 (2026-11-27 메뉴 개편)
     _type_nav_item("activity"), _type_nav_item("report"),
+    NavItem("ai/inbox", "AI 제안함", "today"),
+    NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
-    _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"), _type_nav_item("customer_need"),
+    _type_nav_item("customer_need"), _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),  # 소스 순서 (2026-11-27 사용자 요청)
     _type_nav_item("bm"), NavItem("bm-lab", "신규 BM", "planning"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
@@ -915,10 +918,10 @@ def nav_groups(is_admin: bool = False) -> list[NavGroup]:
 
 
 def nav_group_label(first: str) -> str:
-    """주소 앞 조각("intake", "follow-ups" …)이 속한 메뉴 묶음의 이름 (경로의 첫 마디)."""
+    """주소 앞 조각("intake", "follow-ups" …)이 속한 메뉴 묶음의 이름 (경로의 첫 마디). 위쪽 줄 탭 묶음(TOP_NAV_GROUP)은 빈 글이다 (경로에 묶음 이름을 쓰지 않는다)."""
     first = NAV_ALIASES.get(first, first)
     item = next(i for i in (*NAV_ITEMS, *ADMIN_NAV_ITEMS) if i.path == first)
-    return NAV_GROUP_LABELS[item.group]
+    return "" if item.group == TOP_NAV_GROUP else NAV_GROUP_LABELS[item.group]
 
 
 def nav_current(path: str) -> str | None:

@@ -39,4 +39,4 @@ def test_crumbs_start_with_the_nav_group():
     assert ui.crumbs("solution", "냉동창고", "/solutions/3", "수정") == [
         ("소스", None), ("솔루션", "/solutions"), ("냉동창고", "/solutions/3"), ("수정", None)]
     assert ui.crumbs("customer", last="등록") == [("영업", None), ("고객관리", "/customers"), ("등록", None)]
-    assert ui.crumbs("activity", "회의")[0] == ("오늘", None)
+    assert ui.crumbs("activity", "회의") == [("활동 기록", "/activities"), ("회의", None)]  # 위쪽 줄 탭 묶음은 묶음 이름 없이 (2026-11-27 메뉴 개편)

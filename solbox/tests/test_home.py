@@ -155,7 +155,7 @@ def test_home_upload_card_only_when_bundles_wait(user_client, db):
     page = user_client.get("/").text
     assert 'action="/intake"' not in page and 'id="h-up"' not in page
     head = page.split('<header class="page-header">')[1].split("</header>")[0]
-    assert 'class="button to-intake" href="/intake/new">+ 올리기</a>' in head
+    assert "/intake/new" not in head, "올리기는 위쪽 줄·사이드 줄·메뉴 펼침에 있다 (2026-11-27 메뉴 개편)"
     assert 'class="button primary" href="/activities/new">활동 기록 쓰기</a>' in head and head.count("primary") == 1
     kim = db.scalars(select(User).where(User.username == "kim")).one()
     _bundle(db, kim, "ready", note="한빛 자료")
