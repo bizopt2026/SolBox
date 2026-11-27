@@ -100,8 +100,11 @@ def test_need_row_delete_leaves_nothing_dangling(user_client, db):
     data = {"kind": a.kind, "date": a.date.isoformat(), "title": a.title, "raw_text": a.raw_text, "summary_md": a.summary_md}
     assert user_client.post(f"/activities/{a.id}", data=data, follow_redirects=False).status_code == 303
     db.expire_all()
-    assert db.query(CustomerNeed).count() == 0
-    assert user_client.get(f"/opportunities/{o.id}").status_code == 200
+    # 고객니즈 관리 (2026-11-27): 영업기회에 묶인 니즈는 손댄 니즈라 활동 기록에서 빠져도 남는다 (나온 곳만 비워진다)
+    kept = db.query(CustomerNeed).one()
+    assert kept.activity_id is None and kept.opportunity_id == o.id
+    page = user_client.get(f"/opportunities/{o.id}")
+    assert page.status_code == 200 and "직접 입력" in page.text
 
 
 # ---- I3 ----

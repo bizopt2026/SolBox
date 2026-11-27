@@ -319,6 +319,11 @@ def check_label(code: str) -> str:
 
 CONTACT_ROLES = {"decision": "의사결정자", "user": "실무자", "influencer": "영향자", "other": "기타"}  # 담당자 역할 (영업 D, 담당자마다 하나)
 
+# 고객니즈 상태 (2026-11-27 사용자 확정, 이 순서). "영업기회로" 는 저장하지 않고 영업기회에 묶인 니즈의 보이는 상태다 (app/needs.py)
+NEED_STATUSES = {"new": "새 니즈", "reviewing": "검토 중", "opportunity": "영업기회로", "hold": "보류", "resolved": "해결됨"}
+NEED_STATUS_DEFAULT = "new"
+NEED_SOURCE_DIRECT = "직접 입력"  # 활동 기록 없이 추가한(또는 나온 활동 기록이 지워진) 니즈의 "나온 곳"
+
 OPPORTUNITY_WHO = (("team", "우리 팀"), ("mine", "내 건"))  # 영업기회 목록·홈의 담당 걸러 보기 (?who=)
 
 # 사업방식 (사용자 결정 2026-11-23, 베타 Y): 정확히 세 값이고 이 순서다. 하위 유형은 두지 않는다. 솔루션=가능한 방식, BM=대표 방식(하나), 영업기회·제안 건=검토하는 방식.

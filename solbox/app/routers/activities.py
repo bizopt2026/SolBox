@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.gate import keeps_text, require_ai_on
 from app.idparse import parse_id
+from app import needs as needs_lib
 from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
@@ -433,6 +434,7 @@ def delete(
     related = linked(a)
     mirror.remove(a)
     clear_file_targets(db, "activity", a.id)  # 번호를 다시 쓰는 새 기록이 올린 원본을 물려받지 않게
+    needs_lib.before_activity_delete(db, a)  # 손댄 고객 니즈는 남긴다 (나온 곳만 비운다)
     db.delete(a)
     db.commit()
     for obj in related:

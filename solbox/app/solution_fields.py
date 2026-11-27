@@ -139,10 +139,21 @@ def move(db: Session, field: SolutionField, direction: int) -> bool:
     return True
 
 
+def need_usage_counts(db: Session) -> dict[int, int]:
+    """분야 번호 -> 그 분야의 고객 니즈 수 (고객니즈 관리 2026-11-27: 니즈도 솔루션 분야를 같이 쓴다)."""
+    from app.models import CustomerNeed
+
+    return dict(db.execute(select(CustomerNeed.field_id, func.count()).where(CustomerNeed.field_id.is_not(None)).group_by(CustomerNeed.field_id)).all())
+
+
 def delete_problem(db: Session, field: SolutionField) -> str | None:
-    """지울 수 없는 이유 (쓰는 솔루션이 있을 때): 몇 건인지와 대신 할 일. 없으면 None."""
+    """지울 수 없는 이유 (쓰는 솔루션·고객 니즈가 있을 때): 몇 건인지와 대신 할 일. 없으면 None."""
     n = usage_counts(db).get(field.id, 0)
-    return f"이 분야를 쓰는 솔루션이 {n}건 있어 지울 수 없습니다. 사용을 끄면 새로 고를 수 없고 이미 붙은 솔루션은 그대로 둘 수 있습니다." if n else None
+    m = need_usage_counts(db).get(field.id, 0)
+    if not (n or m):
+        return None
+    used = " · ".join(x for x in (f"솔루션 {n}건" if n else "", f"고객 니즈 {m}건" if m else "") if x)
+    return f"이 분야를 쓰는 {used}이 있어 지울 수 없습니다. 사용을 끄면 새로 고를 수 없고 이미 붙은 기록은 그대로 둘 수 있습니다."
 
 
 def solutions_of(db: Session, field: SolutionField) -> list[Solution]:

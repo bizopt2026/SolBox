@@ -412,12 +412,11 @@ def _describe(db: Session, code: str, objs: list, start: str, fmt=_iso) -> dict[
             it.note = _date_text(o.date)
         elif code == "customer_need":
             it.label = " ".join(o.content.split())
-            it.url = f"/activities/{o.activity_id}"
-            it.note = f"{o.activity.title or '(제목 없음)'} ({_date_text(o.activity.date)})"
+            it.url = f"/needs/{o.id}"  # 고객니즈 상세 (2026-11-27)
+            it.note = f"{o.activity.title or '(제목 없음)'} ({_date_text(o.activity.date)})" if o.activity is not None else ontology.NEED_SOURCE_DIRECT
             opp = opps.get(o.opportunity_id)
             if opp is not None:
                 it.badge = (ontology.OPPORTUNITY_STAGE_CLASS.get(opp.stage, ""), f"{ontology.label('opportunity')} · {opp.name} · {ontology.OPPORTUNITY_STAGES.get(opp.stage, opp.stage)}")
-                it.url = f"/activities/{o.activity_id}"
         elif code == "follow_up":
             it.label = o.task
             it.url = f"/activities/{o.activity_id}"

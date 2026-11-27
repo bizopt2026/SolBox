@@ -128,4 +128,8 @@ def reconcile_needs(
         need.customer_name, need.content = customer, content
         need.position = len(result)
         result.append(need)
+    from app import needs as needs_lib  # 빠진 줄: 손대지 않은 것만 지우고 나머지는 나온 곳만 비워 남긴다 (2026-11-27)
+
+    for gone in by_id.values():
+        needs_lib.drop_from_activity(gone)
     a.needs = result

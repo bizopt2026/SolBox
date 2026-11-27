@@ -14,7 +14,7 @@ from sqlalchemy import func, select, true, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import ontology
+from app import needs as needs_lib, ontology
 from app.ai.tasks import aliases_of, normalize_name
 from app.korean import josa
 from app.models import BM, Activity, Customer, CustomerNeed, Opportunity, Project, Proposal, User
@@ -60,6 +60,10 @@ def parse_ids(raw: Iterable) -> list[int] | None:
 
 # ---- 니즈 묶기 ----
 
+# 니즈 차례: 나온 활동 기록의 날짜(없으면 니즈를 만든 날) → 활동 기록 → 활동 안의 순서
+_NEED_ORDER = (func.coalesce(Activity.date, func.date(CustomerNeed.created_at)), Activity.id, CustomerNeed.position, CustomerNeed.id)
+
+
 def bundlable_needs(db: Session, customer_id: int | None, opp: Opportunity | None = None) -> list[CustomerNeed]:
     """`customer_id` 고객에 연결된 니즈 중 어느 영업기회에도 묶이지 않은 것 (`opp` 가 있으면 그 영업기회에 이미 묶인 것도). 오래된 활동 기록부터."""
     if customer_id is None:
@@ -67,14 +71,14 @@ def bundlable_needs(db: Session, customer_id: int | None, opp: Opportunity | Non
     free = CustomerNeed.opportunity_id.is_(None)
     if opp is not None and opp.id is not None:
         free = free | (CustomerNeed.opportunity_id == opp.id)
-    stmt = (select(CustomerNeed).join(Activity, CustomerNeed.activity_id == Activity.id)
-            .where(CustomerNeed.customer_id == customer_id, free).order_by(Activity.date, Activity.id, CustomerNeed.position, CustomerNeed.id))
+    stmt = (select(CustomerNeed).outerjoin(Activity, CustomerNeed.activity_id == Activity.id)  # 직접 추가한 니즈(활동 기록 없음)도 (2026-11-27)
+            .where(CustomerNeed.customer_id == customer_id, free).order_by(*_NEED_ORDER))
     return list(db.scalars(stmt))
 
 
 def needs_of(db: Session, opp: Opportunity) -> list[CustomerNeed]:
-    stmt = (select(CustomerNeed).join(Activity, CustomerNeed.activity_id == Activity.id).where(CustomerNeed.opportunity_id == opp.id)
-            .order_by(Activity.date, Activity.id, CustomerNeed.position, CustomerNeed.id))
+    stmt = (select(CustomerNeed).outerjoin(Activity, CustomerNeed.activity_id == Activity.id).where(CustomerNeed.opportunity_id == opp.id)
+            .order_by(*_NEED_ORDER))
     return list(db.scalars(stmt))
 
 
@@ -82,6 +86,8 @@ def need_label(need: CustomerNeed, limit: int = 60) -> str:
     """체크 상자에 보일 니즈 한 줄: 내용과 출처 활동 기록."""
     content = " ".join(need.content.split())
     a = need.activity
+    if a is None:
+        return f"{content[:limit]}{'…' if len(content) > limit else ''} ({ontology.NEED_SOURCE_DIRECT})"
     when = f"{a.date.isoformat()} " if a.date else ""
     return f"{content[:limit]}{'…' if len(content) > limit else ''} ({when}{a.title or '제목 없음'})"
 
@@ -95,6 +101,8 @@ def apply_needs(db: Session, opp: Opportunity, raw_ids: Iterable) -> str | None:
     if wanted is None or any(i not in allowed for i in wanted):
         return NEED_NOT_BUNDLABLE
     for need in allowed.values():
+        if need.id in wanted and need.opportunity_id != opp.id:
+            needs_lib.mark_bound(need)  # 새 니즈 → 검토 중 (2026-11-27)
         need.opportunity_id = opp.id if need.id in wanted else None
     # 불변식: 영업기회에 묶인 니즈는 모두 영업기회와 같은 고객이다. 고객이 어긋나 남은 니즈(이 영업기회를 가리키지만 고른 집합에 없는 것)도 푼다.
     db.execute(update(CustomerNeed).where(CustomerNeed.opportunity_id == opp.id, CustomerNeed.id.not_in(wanted) if wanted else true())

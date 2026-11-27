@@ -147,10 +147,13 @@ def _item(code: str, obj, q: str = "") -> dict:
             badge = ("contact_role", obj.role)
     elif code == "bm":
         sub = ui.first_line(obj.summary, 80)
-    elif code in ("follow_up", "customer_need"):  # 활동 기록에서 나온 줄: 활동 기록으로 이어진다
+    elif code == "follow_up":  # 활동 기록에서 나온 줄: 활동 기록으로 이어진다
         url = ontology.TYPES["activity"].url(obj.activity_id)
         sub = f"활동 기록 · {obj.activity.title or '(제목 없음)'}"
-        note = "완료" if code == "follow_up" and obj.done else ""
+        note = "완료" if obj.done else ""
+    elif code == "customer_need":  # 고객니즈 상세로 (2026-11-27)
+        url = f"/needs/{obj.id}"
+        sub = f"활동 기록 · {obj.activity.title or '(제목 없음)'}" if obj.activity is not None else ontology.NEED_SOURCE_DIRECT
     if code == "proposal":
         from app.proposals import display_title
 

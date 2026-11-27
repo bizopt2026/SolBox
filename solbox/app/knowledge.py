@@ -173,6 +173,8 @@ class KnowledgeMirror:
             if item.type in relations.MIRRORED_TYPES or item.type in ("research_report", "suggestion"):
                 return f"{_inline(item.label)} ({self._rel(o)})"
             if item.type in ("customer_need", "follow_up"):
+                if o.activity is None:  # 직접 추가한 고객 니즈 (2026-11-27)
+                    return f"{_inline(item.label)} ({ontology.NEED_SOURCE_DIRECT})"
                 return f"{_inline(item.label)} ({self._rel(o.activity)})"
         except TypeError:
             pass
@@ -326,7 +328,7 @@ class KnowledgeMirror:
         if needs:
             out += ["", f"## {P('opportunity', 'needs')}", ""]
             for n in needs:
-                out.append(f"- {' '.join(n.content.split())} ({self._rel(n.activity)})")
+                out.append(f"- {' '.join(n.content.split())} ({self._rel(n.activity) if n.activity is not None else ontology.NEED_SOURCE_DIRECT})")
         if o.solutions:
             out += ["", f"## {P('opportunity', 'solutions')}", ""]
             out += [f"- {self._ref(s.name, s)}" for s in sorted(o.solutions, key=lambda s: s.id)]
