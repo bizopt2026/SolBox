@@ -340,7 +340,7 @@ def _draft_contacts(db: Session, d: ActivityDraft, values: dict) -> dict:
     if len(companies) == 1:
         new = [{"value": f"{r['name']}|{r['title']}", "label": r["name"] + (f" · {r['title']}" if r["title"] else ""), "company": companies[0].name}
                for r in rows if r["status"] == "new"]
-    return contact_choices(scope, checked, new, [r["name"] for r in rows if r["status"] == "ambiguous"])
+    return {**contact_choices(scope, checked, new, [r["name"] for r in rows if r["status"] == "ambiguous"]), "draft": True}
 
 
 def merge_prefill(values: dict, prefill: dict | None) -> None:
