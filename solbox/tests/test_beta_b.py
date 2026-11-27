@@ -768,7 +768,8 @@ def test_search_follow_ups_and_needs_link_to_their_activity(user_client, db):
     page = user_client.get("/search", params={"q": "견적서"}).text
     assert "후속 조치" in page and f'href="/activities/{a.id}"' in page and "활동 기록 · 킥오프" in page
     page = user_client.get("/search", params={"q": "야간 전력"}).text
-    assert f'href="/activities/{a.id}"' in page and "고객 니즈" in page
+    need = a.needs[0]  # 고객니즈 관리 (2026-11-27): 니즈 결과는 고객니즈 상세로 간다 (나온 활동 기록은 줄 아래 글)
+    assert f'href="/needs/{need.id}"' in page and "고객 니즈" in page and "활동 기록 · 킥오프" in page
 
 
 def test_search_excerpts_are_escaped_and_wildcards_stay_literal(user_client, db):

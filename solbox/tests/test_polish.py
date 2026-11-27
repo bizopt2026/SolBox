@@ -299,7 +299,7 @@ def test_page_related_splits_main_cards_from_the_aside(db):
     by = {m.label: m for m in page["main"]}
     assert by["영업기회"].group.total == 1 and by["프로젝트"].group is None
     assert by["프로젝트"].action == ("+ 프로젝트 등록", f"/projects/new?customer_id={c.id}")
-    assert "활동 기록" in labels and "고객 니즈" not in labels  # 비었고 동작도 없으면 카드를 만들지 않는다
+    assert "활동 기록" in labels and "고객 니즈" in labels  # 고객니즈 관리 (2026-11-27): 비어 있어도 "+ 니즈 추가" 동작이 있어 카드가 남는다
     assert not any(g.key in {m.key for m in page["main"]} for g in page["related"])
 
 

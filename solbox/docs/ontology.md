@@ -98,7 +98,7 @@
 | 부속 | **자료** | 솔루션에 붙은 문서 파일 | `SolutionFile` / `solution_files` |
 | 부속 | **솔루션 분야** (구현됨, 2026-11-24 베타 AD) | 솔루션을 묶어 보는 분야 하나(에너지 효율 …). 값 목록은 관리자가 고치는 데이터다 | `SolutionField` / `solution_fields` (표). 화면 `/admin/solution-fields` (관리 메뉴) |
 | 부속 | **후속 조치** | 활동에서 나온 할 일 | `FollowUp` / `follow_ups` (표). 옛 JSON 열 `activities.follow_ups` 는 복사만 하고 읽지 않는다 |
-| 부속 | **고객 니즈** (옛 이름 "수요 단서", JSON 키는 `demand_signals` 그대로) | 활동에서 드러난 고객의 필요 | `CustomerNeed` / `customer_needs` (표). 옛 JSON 열 `activities.demand_signals` 는 복사만 하고 읽지 않는다. 영업기회에 묶이면 `opportunity_id` 가 채워진다 (단위 4) |
+| 부속 | **고객 니즈** (옛 이름 "수요 단서", JSON 키는 `demand_signals` 그대로. 메뉴 소스 › 고객니즈 `/needs`, 2026-11-27) | 고객이 보인 필요 한 줄. 활동 기록에서 나오거나 직접 추가한다 | `CustomerNeed` / `customer_needs` (표). 옛 JSON 열 `activities.demand_signals` 는 복사만 하고 읽지 않는다. 영업기회에 묶이면 `opportunity_id` 가 채워진다 (단위 4) |
 | 부속 | **제안 방향** | 제안 건에 대해 AI가 낸 솔루션 조합안 (최대 3개). 방향마다 전제하는 사업방식 코드(`business_type`, 없을 수 있다) | `Proposal.directions` (JSON) |
 | 부속 | **구성안 장** | 제안서의 한 장 | `Proposal.outline.slides` (JSON) |
 | 부속 | **확인 항목** | 방향·장·동향에 붙은 "확인할 것". 근거 문제 / 정할 값 두 종류 | `needs_check`, `checked` (JSON), `checks.py` |
@@ -148,7 +148,7 @@
 
 **후속 조치**: 할 일 ●(`task`), 담당 ○(`owner`, 글 + `owner_user_id`, 사용자 연결은 활성 사용자 이름과 정확히 같을 때만), 기한 ○(`due`, 날짜), 완료 ●(`done`). 활동 기록 안의 순서는 `position`
 
-**고객 니즈** (옛 "수요 단서"): 고객 ○(`customer_name` 쓴 그대로 + `customer_id`, 등록된 고객과 정규화한 이름이 정확히 하나로 같을 때만 연결), 내용 ●(`content`), 영업기회 ○(`opportunity_id`, 단위 4에서 쓴다. 외래 키 제약 없는 번호 열)
+**고객 니즈** (옛 "수요 단서"): 고객 ○(`customer_name` 쓴 그대로 + `customer_id`, 등록된 고객과 정규화한 이름이 정확히 하나로 같을 때만 연결), 내용 ●(`content`), 영업기회 ○(`opportunity_id`, 단위 4에서 쓴다. 외래 키 제약 없는 번호 열), 나온 활동 기록 ○(`activity_id`, 2026-11-27 부터 선택·ON DELETE SET NULL), 상태 ●(`status`: 새 니즈 / 검토 중 / 보류 / 해결됨, 기본 새 니즈. 영업기회에 묶이면 "영업기회로"로 보인다), 분야 ○(`field_id`, 솔루션 분야), 메모 ○(`memo`), 작성자·수정자
 
 **영업기회** (단위 4): 이름 ●(`name`), 고객 ●(`customer_id`), 단계 ●(`stage`: 발굴 / 제안 중 / 협상 / 수주 / 실패 / 보류, 기본 발굴, 순서 강제 없음), BM ○(`bm_id`), 프로젝트 ○(`project_id`, 수주 뒤 전환·연결로만 채워짐), 검토 사업방식 ○(`business_types`, 0..3개를 정의된 순서로 쉼표로 이은 코드, 베타 Y), 메모 ○(`memo`). 예상 금액·시기 같은 속성은 두지 않는다 (범위 밖)
 
@@ -176,7 +176,8 @@
 | R6 | 활동 기록이 프로젝트와 **관련된다** | 활동 ↔ 프로젝트 | N:M | 키 `activity_businesses` | 단위 4 의 R6': 영업기회도 `activity_opportunities` 로 연결한다 (활동 기록 화면에서 직접 고른다. AI 가 언급해 만들지 않는다) |
 | R7 | 활동 기록이 파트너와 **관련된다** | 활동 ↔ 파트너 | N:M | 키 `activity_partners` | |
 | R8 | 활동 기록에서 후속 조치가 **나온다** | 활동 → 후속 조치 | 1:N | 외래 키 (`follow_ups.activity_id`) | 번호로 가리킨다. 활동 기록을 지우면 함께 지워진다 |
-| R9 | 활동 기록에서 고객 니즈가 **나온다** | 활동 → 고객 니즈 | 1:N | 외래 키 (`customer_needs.activity_id`) | 활동 기록을 지우면 함께 지워진다 |
+| R9 | 활동 기록에서 고객 니즈가 **나온다** | 활동 → 고객 니즈 | 1:N | 외래 키 (`customer_needs.activity_id`, 선택) | 2026-11-27: 활동 기록을 지우거나 폼에서 줄을 빼면 손대지 않은 니즈(새 니즈·메모 없음·영업기회 없음)만 지워지고 나머지는 나온 곳만 비워 남는다 (`app/needs.py`) |
+| R53 | 분야가 고객 니즈를 **묶는다** | 솔루션 분야 → 고객 니즈 | 1:N | 외래 키 (`customer_needs.field_id`) | 2026-11-27. 선택. 니즈가 쓰는 분야는 지울 수 없다 |
 | R10 | 고객 니즈가 고객의 **것이다** | 고객 니즈 → 고객 | N:1 | 외래 키 (선택, `customer_needs.customer_id`) + 글 (이름) | 이름이 맞을 때만 연결. 고객을 지우면 연결만 풀리고 줄과 이름은 남는다. 고객 연결이 바뀌면(다른 고객이거나 없어지면) 묶여 있던 영업기회에서 풀린다 |
 | R11 | 후속 조치를 사용자가 **맡는다** | 후속 조치 → 사용자 | N:1 | 외래 키 (선택, `follow_ups.owner_user_id`) + 글 (이름) | 활성 사용자 이름과 정확히 같을 때만 연결 |
 | R12 | 제안 건이 고객을 **대상으로 한다** | 제안 건 → 고객 | N:1 | 키 `proposals.customer_id` | 특정 고객 제안은 필수, 다수 고객 제안은 비어 있다 (`target_kind`, 2026-11-23: 표 다시 만들기로 NOT NULL 을 풀었다) |
