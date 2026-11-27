@@ -12,7 +12,7 @@
   {% for a in pg.items %}
     {% set i = info[a.id] %}
     <tr>
-      {% call title_cell("/activities/" ~ a.id, a.title or "(제목 없음)", a.summary_md | first_line(90)) %}
+      {% call title_cell("/activities/" ~ a.id, a.title or "(제목 없음)", a.summary_md | summary_line(90)) %}
         {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ links_text(i) }}</span>{{ origin_note(a) }}
       {% endcall %}
       <td class="col-sec">{{ pill("activity_kind", a.kind) }}</td>

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import ontology, report_periods, reports
+from app import ontology, report_periods, reports, ui
 from app.ai.parsing import parse_json_output
 from app.ai.proposal_tasks import CHAT_HISTORY_LIMIT, ROLE_LABELS, _chat_answer
 from app.ai.runner import ClaudeError, ClaudeRunner
@@ -42,7 +42,8 @@ def _safe(text: str) -> str:
 
 
 def _first_line(text: str) -> str:
-    return next((line.strip().lstrip("#-* ").strip() for line in (text or "").splitlines() if line.strip()), "")[:200]
+    """정리본의 첫 본문 줄 (제목 줄·참석자 목록은 건너뛴다: ui.summary_line)."""
+    return ui.summary_line(text, 200)
 
 
 def _item_row(i) -> dict:

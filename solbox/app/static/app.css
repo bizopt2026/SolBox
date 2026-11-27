@@ -47,6 +47,7 @@
   --card-pad: 20px;
   /* 틀 */
   --side-w: 232px; --top-h: 56px; --page-w: 1240px;
+  --tab-h: 0px; /* 휴대폰 아래 고정 탭(.tabbar)의 높이. 탭이 보이는 폭에서만 값이 있고, 아래에 붙는 저장 막대가 탭 위로 올라선다 */
 }
 
 /* ============================================================ 2. 기본 요소 */
@@ -204,6 +205,41 @@ body.auth .page { padding: 0; max-width: 400px; margin: 0; }
   .page { padding: var(--s4) var(--s4) 40px; }
   :root { --card-pad: 16px; --top-h: 0px; }
 }
+/* 활동 기록 쓰기: 다른 길(올리기·칸 직접 채우기) 안내 한 줄. 저장 막대는 주 버튼·보조 버튼·취소 세 개라 휴대폰에서도 한 줄이다 */
+.memo-alt { margin: var(--s4) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); color: var(--ink-3); }
+@media (max-width: 600px) { .form-page > .savebar:has(> :nth-child(3):last-child) { flex-wrap: nowrap; } .form-page > .savebar > .ghost:last-child { flex: 0 0 auto; } }
+
+/* 휴대폰 위쪽 줄 하나 (UX 1순위 2026-11-27): 759px 이하에서는 사이드 메뉴(브랜드·올리기·가로로 미는 메뉴 줄·사용자, 세 줄)를 숨기고
+   위쪽 줄에 작은 표지 + 검색 + AI 상태 + "메뉴" 펼침(올리기·전체 메뉴·내 정보·도움말·로그아웃)만 둔다. 아래 고정 탭(.tabbar)과 같은 폭 기준.
+   비밀번호를 먼저 바꿔야 하는 때(data-locked)는 메뉴가 없으므로 사이드 줄(브랜드·로그아웃)을 그대로 보인다 */
+.m-menu, .m-mark { display: none; }
+@media (max-width: 759px) {
+  .side:not([data-locked]) { display: none; }
+  .top { position: sticky; top: 0; gap: var(--s2); padding: 8px var(--s3); }
+  .m-mark { display: flex; flex: none; }
+  .m-mark:hover { text-decoration: none; }
+  .jobtray { margin-right: 0; }
+  .m-menu { display: block; flex: none; }
+  .m-menu > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font-size: var(--fs-note); font-weight: var(--fw-strong); white-space: nowrap; cursor: pointer; }
+  .m-menu > summary::-webkit-details-marker { display: none; }
+  .m-menu[open] > summary { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-deep); }
+  .m-menu-icon { display: block; position: relative; width: 14px; height: 10px; border-top: 2px solid currentColor; border-bottom: 2px solid currentColor; }
+  .m-menu-icon::after { content: ""; position: absolute; left: 0; right: 0; top: 2px; border-top: 2px solid currentColor; }
+  .m-menu-panel { position: absolute; left: 0; right: 0; top: 100%; z-index: 45; max-height: calc(100vh - 56px - var(--tab-h)); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4) var(--s4); background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-pop); }
+  .m-menu-panel > .cta { order: 0; margin: 0; min-height: 44px; }  /* 1099px 밑의 사이드 줄 올리기 버튼 자리(order·margin-left)를 되돌린다 */
+  .m-menu-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
+  .m-menu-groups .navg { flex-direction: column; align-items: stretch; gap: 1px; padding: 0; border: 0; }
+  .m-menu-groups .navg-fold { grid-column: 1 / -1; }
+  .m-menu-groups .navg-title { padding: 0 10px 2px; }
+  .m-menu-groups .navg a { min-height: 40px; padding: 0 10px; white-space: normal; }
+  .m-menu-groups .ni { display: block; }
+  .m-menu-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+  .m-menu-foot .who-link { flex: 1 1 auto; min-height: 40px; font-weight: var(--fw-strong); }
+  .m-menu-foot .side-help { display: flex; min-height: 40px; }
+  .m-menu-foot .logout { margin: 0; }
+  .m-menu-foot .logout button { min-height: 40px; }
+}
+
 @media (max-width: 600px) {
   /* 위쪽 줄은 한 줄: 검색칸 + AI 상태 점 (글은 title·화면 읽기용으로 남는다) */
   .aistat { margin-left: 0; flex: none; justify-content: center; min-width: 36px; min-height: 36px; }
@@ -427,7 +463,7 @@ details.more[open] > summary, details.dir-more[open] > summary { margin-bottom: 
 .stepbar .busy-label { font-size: var(--fs-small); font-weight: 400; }
 
 /* --- 끈끈한 저장 막대 --- */
-.card.stack > .savebar, .plan-savebar { position: sticky; bottom: 0; z-index: 5; align-items: center; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); padding: var(--s3) var(--card-pad); background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 var(--r) var(--r); }
+.card.stack > .savebar, .plan-savebar { position: sticky; bottom: var(--tab-h); z-index: 5; align-items: center; margin: var(--s2) calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); padding: var(--s3) var(--card-pad); background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 var(--r) var(--r); }
 
 /* --- 체크 상자 목록 --- */
 .picker { border: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -666,7 +702,7 @@ details.card-add > .add-panel { display: flex; flex-direction: column; gap: var(
 .req { color: var(--bad); }
 .field-err { margin: 0; color: var(--bad); font-size: var(--fs-note); font-weight: var(--fw-strong); }
 .fld.has-error input, .fld.has-error select, .fld.has-error textarea { border-color: var(--bad); }
-.form-page > .savebar { flex-direction: row; position: sticky; bottom: var(--s2); z-index: 5; flex-wrap: nowrap; align-items: center; padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+.form-page > .savebar { flex-direction: row; position: sticky; bottom: calc(var(--s2) + var(--tab-h)); z-index: 5; flex-wrap: nowrap; align-items: center; padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
 .form-page > .savebar .button { margin-left: 0; }
 .form-lead { margin: 0 0 var(--s3); color: var(--ink-2); }
 .picker-hint { margin: 4px 0 0; }
@@ -1071,6 +1107,7 @@ details.paste-compact > summary { cursor: pointer; font-size: var(--fs-note); fo
 details.paste-compact[open] > summary { margin-bottom: var(--s2); }
 details.paste-compact textarea { min-height: 7em; }
 .ai-down { margin: 0; }
+.page > .ai-down { margin-bottom: var(--s4); }  /* 쪽 맨 위에 혼자 오는 AI 상태 줄은 아래 폼과 붙지 않게 (활동 기록 쓰기는 안내가 이 줄 하나다) */
 .file-note { font-size: var(--fs-note); color: var(--warn); }
 .name-status { display: none; }
 @media (max-width: 480px) {
@@ -1103,9 +1140,9 @@ details.paste-compact textarea { min-height: 7em; }
 .plan-newnames > summary { color: var(--ink-3); }
 .plan-newnames[open] { display: flex; flex-direction: column; gap: var(--s3); }
 .redo-row { justify-content: space-between; }
-.plan-savebar { flex-wrap: nowrap; justify-content: flex-start; bottom: var(--s2); margin: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
+.plan-savebar { flex-wrap: nowrap; justify-content: flex-start; bottom: calc(var(--s2) + var(--tab-h)); margin: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-pop); }
 .plan-savebar [data-save-count] { min-width: 0; font-weight: var(--fw-strong); }
-html:has(.plan-savebar) { scroll-padding-bottom: 88px; }
+html:has(.plan-savebar) { scroll-padding-bottom: calc(88px + var(--tab-h)); }
 /* 올리기 확인 화면: 떠 있는 저장 막대가 마지막 카드와 입력칸을 가리지 않게 아래 여백과 스크롤 여백을 둔다 */
 .plan-form { padding-bottom: 0; } /* 저장 막대는 흐름 안의 마지막 칸이라 따로 아래 여백을 두지 않는다 (큰 빈틈이 생기던 자리) */
 .plan-item, .plan-item :is(input, select, textarea, summary) { scroll-margin-bottom: 110px; }
@@ -1714,7 +1751,9 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
   .tabbar a[aria-current="page"] { color: var(--brand-deep); font-weight: var(--fw-strong); }
   .tabbar .ni { display: block; width: 20px; height: 20px; }
   .tabbar .tab-add span { display: grid; place-items: center; width: 44px; height: 44px; margin-top: -2px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 24px; line-height: 1; }
-  body.shell { padding-bottom: 64px; }
+  /* 탭 높이 = 안쪽 여백 4+4 + 링크(여백 4+4·그림 20·사이 2·글 ~17) ≈ 59px 에 여유를 더한 64px + 홈 버튼 자리. 아래에 붙는 저장 막대가 이만큼 올라선다 (UX 1순위 2026-11-27: 휴대폰에서 저장 버튼이 탭에 가려졌다) */
+  :root:has(.tabbar) { --tab-h: calc(64px + env(safe-area-inset-bottom)); }  /* 탭이 없는 화면(비밀번호를 먼저 바꿔야 하는 때)은 0 */
+  body.shell { padding-bottom: var(--tab-h); }
   .stagebar .steps { overflow-x: auto; scrollbar-width: none; }
   .stagebar .steps .step { flex: 0 0 auto; min-width: 88px; }
   .stagebar .step-note { display: none; }

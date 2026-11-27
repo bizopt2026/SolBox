@@ -8,6 +8,15 @@
     return h;
   }
 
+  // 휴대폰 "메뉴" 펼침: 바깥을 누르거나 Esc 를 누르면 닫는다 (스크립트 없으면 메뉴 단추를 다시 눌러 닫는다)
+  var mMenu = document.querySelector("details.m-menu");
+  if (mMenu) {
+    document.addEventListener("click", function (e) { if (mMenu.open && !mMenu.contains(e.target)) mMenu.open = false; });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && mMenu.open) { mMenu.open = false; mMenu.querySelector("summary").focus(); }
+    });
+  }
+
   // 좁은 화면 위쪽 메뉴: 현재 항목이 보이게 메뉴 안에서만 가로로 옮기고, 끝에 닿으면 끝 표시를 감춘다
   var topNav = document.querySelector(".side-nav");
   if (topNav) {

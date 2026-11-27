@@ -466,6 +466,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.templates.env.globals["alignment_view"] = lambda obj: alignment_rules.view(object_session(obj), obj)
     app.state.templates.env.globals["move_choices"] = lambda target: cowork_rules.move_choices(object_session(target))
     app.state.templates.env.filters["first_line"] = ui.first_line
+    app.state.templates.env.filters["summary_line"] = ui.summary_line  # 정리본 한 줄 요약 (제목 줄·참석자 건너뜀)
     app.state.templates.env.filters["kdate_text"] = lambda t: ui.iso_date_text(t, date.today())  # ISO 날짜 글 -> "11월 17일"
     @pass_context
     def md_filter(ctx, text):
