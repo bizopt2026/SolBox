@@ -3,11 +3,14 @@
 # 주의: Linux에서 작성되어 실행 검증이 되지 않았습니다. 처음 실행할 때 내용을 확인하세요.
 param(
     [switch]$Remove,                  # 등록한 작업을 삭제한다
-    [string]$PythonExe = "python"     # run_server.ps1 에 넘길 파이썬 실행 파일
+    [string]$PythonExe = "python",    # run_server.ps1 에 넘길 파이썬 실행 파일
+    # 작업 이름. 한 PC 에 운영·베타 솔박스를 함께 둘 때 베타 폴더에서는 다른 이름을 준다 (예: -TaskName SolutionBoxBeta).
+    # 같은 이름으로 등록하면 운영 서버의 자동 시작 작업을 덮어쓴다 (운영가이드 14장).
+    [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$TaskName = "SolutionBox"
 )
 $ErrorActionPreference = "Stop"
 
-$taskName = "SolutionBox"
+$taskName = $TaskName
 
 if ($Remove) {
     # 작업이 없어도 오류로 끝내지 않는다

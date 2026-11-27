@@ -6,8 +6,8 @@
 {% set job = proposal.active_job %}
 {% if busy and job.kind == "proposal_slide" %}{% with section="outline" %}{% include "proposals/_job_box.html" %}{% endwith %}
 {% elif busy %}<p class="error" role="alert">AI 작업이 진행 중입니다. 끝난 뒤에 수정하세요.</p>
-{% elif job is not none and job.status == "failed" and job.kind == "proposal_slide" %}
-<div class="error job-failed" role="alert"><p><b>AI가 {{ (job.input or {}).get("index", 0) + 1 }}번 장을 다시 쓰지 못했어요.</b> {{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }} 장은 그대로입니다.</p></div>
+{% elif job is not none and job.status == "failed" and job.kind == "proposal_slide" %}{% set failed_slide = job %}
+<div class="error job-failed" role="alert"><p><b>AI가 {{ (job.input or {}).get("index", 0) + 1 }}번 장을 다시 쓰지 못했어요.</b> {{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }} 장은 그대로입니다.</p><form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ (job.input or {}).get("index", 0) }}/ai"><input type="hidden" name="instruction" value="{{ (job.input or {}).get("instruction", "") }}"><button type="submit"{{ ai_attrs(ai_gate()) }} data-busy-label="보내는 중…">다시 시도</button></form></div>
 {% endif %}
 {% set aig = ai_gate() %}{% if not busy %}{{ ai_note(aig, id="slide-ai-note") }}{% endif %}
 {% set undo = proposal.outline.get("slide_undo") or {} %}
@@ -139,7 +139,7 @@
   </form>
   {% endif %}
   <form method="post" action="/proposals/{{ proposal.id }}/outline/slides/{{ card.index }}/ai" class="slide-ai">
-    <label class="fld"><span>AI로 이 장 다시 쓰기 (요청은 선택)</span><input type="text" name="instruction" maxlength="300" placeholder="예: 표로 바꿔 줘, 더 짧게, 효과를 앞에"></label>
+    <label class="fld"><span>AI로 이 장 다시 쓰기 (요청은 선택)</span><input type="text" name="instruction" maxlength="300" placeholder="예: 표로 바꿔 줘, 더 짧게, 효과를 앞에"{% if failed_slide and (failed_slide.input or {}).get("index") == card.index and (failed_slide.input or {}).get("instruction") %} value="{{ failed_slide.input.instruction }}"{% endif %}></label>
     <button type="submit"{{ ai_attrs(aig, by="slide-ai-note") }} data-busy-label="보내는 중…">AI로 다시 쓰기</button>
   </form>
   {% endif %}

@@ -284,8 +284,9 @@ def test_unconfirm_blocked_when_next_report_checked(user_client, db):
 
 
 def test_delete_has_confirm_page(user_client, db):
+    kim = db.scalars(select(User).where(User.username == "kim")).one()
     prev, (a, *_) = _prev_with_items(db, 1)
-    rep = _report(db, W2)
+    rep = _report(db, W2, created_by_id=kim.id)  # 지우기는 만든 사람과 관리자만 (2026-11-27 사용자 결정)
     a.checked_in_report_id = rep.id
     db.commit()
     rid, aid = rep.id, a.id
@@ -423,3 +424,19 @@ def test_confirmed_check_page_keeps_its_source_after_backfill(user_client, db):
     db.commit()
     html = user_client.get(f"/reports/{w2.id}?step=check").text
     assert "A0 에서 세운 일" in html and "W1 에서 세운 일" not in html
+
+
+def test_only_the_creator_or_an_admin_can_delete_a_report(user_client, admin_client, db):
+    """2026-11-27 사용자 결정: 업무 보고 지우기는 만든 사람과 관리자만 (확정된 보고도). 다른 팀원에게는 삭제 링크가 없고 확인 화면·POST 는 403."""
+    from tests.conftest import make_user
+
+    lee = make_user(db, "lee")
+    rep = _report(db, W2, status="confirmed", created_by_id=lee.id)
+    page = user_client.get(f"/reports/{rep.id}").text
+    assert f'data-confirm-post="/reports/{rep.id}/delete"' not in page
+    assert user_client.get(f"/reports/{rep.id}/delete").status_code == 403
+    assert user_client.post(f"/reports/{rep.id}/delete", follow_redirects=False).status_code == 403
+    assert db.get(Report, rep.id) is not None
+    r = admin_client.post(f"/reports/{rep.id}/delete", follow_redirects=False)
+    assert r.status_code == 303
+

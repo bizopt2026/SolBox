@@ -106,7 +106,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         close_reason=opps.close_reason_label(opp), today=now, money=money,
         stale=opps.stale_badges(opp, now, touch), decision_gaps=opps.decision_gaps(db, opp, now),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
-        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)),
+        owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)), ai_failed=oai.failed_review(db, opp.id, insight),
         ai_rows=oai.suggestion_rows(db, opp, insight, now),
         step_notes={s: f"확인 {d}/{t}" for s, (d, t) in oai.stage_counts(opp).items()},
     )
@@ -261,8 +261,11 @@ def new_form(
     cid = opps.parse_id(customer_id)
     form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "", user.id)  # 없는 고객 번호는 무시한다
     nid = opps.parse_id(need_id)
-    if nid is not None and any(n.id == nid for n in opps.bundlable_needs(db, opps.parse_id(customer_id))):
+    need = next((n for n in opps.bundlable_needs(db, opps.parse_id(customer_id)) if n.id == nid), None) if nid is not None else None
+    if need is not None:
         form["need_ids"] = [nid]  # 고객 니즈에서 만들기: 그 니즈를 체크해 둔다 (그 고객의, 아직 묶이지 않은 니즈일 때만)
+        # 이름 칸도 비워 두지 않는다: 니즈 첫 줄을 고쳐 쓰면 된다. 고객 이름은 화면마다 따로 붙으므로 넣지 않는다 (베타 점검 1·4차 2026-11-27)
+        form["name"] = ui.first_line(need.content, 40)
     return _form_page(request, db, form)
 
 
@@ -471,11 +474,11 @@ def toggle_check(
     return RedirectResponse(f"/opportunities/{opp.id}#checks", status_code=303)
 
 
-def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None, back: str = "", qs: str = ""):
+def _close_page(request: Request, opp: Opportunity, stage: str, reason: str = "", note: str = "", error: str | None = None, back: str = "", qs: str = "", conflict=None):
     back = "board" if back == "board" else ""
     return render(
-        request, "opportunities/close.html", status_code=400 if error else 200,
-        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX,
+        request, "opportunities/close.html", status_code=409 if conflict else (400 if error else 200),
+        opp=opp, stage=stage, reasons=ontology.close_reasons(stage), reason=reason, note=note, error=error, note_max=opps.NOTE_MAX, conflict=conflict,
         back=back, qs=qs if back else "", cancel_url=opps.back_url(back, qs, opp.id),
     )
 
@@ -494,9 +497,13 @@ def close(
     opportunity_id: int, request: Request, stage: str = Form(""), reason: str = Form(""), note: str = Form(""),
     back: str = Form(""), qs: str = Form(""),
     user: User = Depends(require_user), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror),
+    rev: Rev = Depends(rev_form),
 ):
-    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다."""
+    """수주·실패로 바꾸면서 사유(필수)와 메모를 한 번에 저장한다. 사유 화면을 연 뒤 다른 곳에서 바뀌었으면 충돌 화면 (베타 점검 2026-11-27:
+    두 탭에서 수주·실패를 따로 열면 늦은 쪽이 알림 없이 덮어썼다)."""
     opp = get_or_404(db, Opportunity, opportunity_id)
+    if conflict := guards.check_rev(opp, rev):
+        return _close_page(request, opp, stage, reason, note, back=back, qs=qs, conflict=conflict)
     if error := opps.close_problem(stage, reason):
         if not opps.needs_reason(stage):
             raise HTTPException(status_code=400, detail=error)

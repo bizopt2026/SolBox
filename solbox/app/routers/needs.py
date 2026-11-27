@@ -14,7 +14,7 @@ from app.guards import Once, Rev, form_once, rev_form
 from app.idparse import parse_id
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import Customer, CustomerNeed, Opportunity, User
+from app.models import Customer, CustomerNeed, Opportunity, SolutionField, User
 from app.routers._common import PER_PAGE, get_or_404, paginate, resync_objects, search_by_name
 from app.security import require_user
 
@@ -182,6 +182,15 @@ def edit_form(need_id: int, request: Request, user: User = Depends(require_user)
                                "status": need.status or needs_lib.STATUS_NEW, "memo": need.memo or ""}, need)
 
 
+def _name_of(db: Session, model, raw: str) -> str:
+    """폼의 번호 칸 → 그 기록 이름 (충돌 비교용). 비었거나 없는 번호면 빈 글."""
+    try:
+        obj = db.get(model, int(raw)) if str(raw).strip() else None
+    except ValueError:
+        obj = None
+    return getattr(obj, "name", "") if obj is not None else ""
+
+
 @router.post("/{need_id}")
 def update(
     need_id: int, request: Request, customer_id: str = Form(""), content: str = Form(""), field_id: str = Form(""), status: str = Form(""),
@@ -190,7 +199,16 @@ def update(
 ):
     need = get_or_404(db, CustomerNeed, need_id)
     form = {"customer_id": customer_id, "content": content, "field_id": field_id, "status": status, "memo": memo}
-    if conflict := guards.check_rev(need, rev, values=form):
+    # 영업기회에 묶인 니즈는 상태 칸이 폼에 없다(빈 글): 비교에서 빼야 바꾸지 않은 "상태"가 충돌 칸으로 나오지 않는다 (베타 점검 2026-11-27)
+    # 고객·분야는 번호라 그대로는 비교되지 않는다: 이름으로 바꿔 비교한다 (베타 점검 3차 2026-11-27: 다른 탭이 고객을 바꿔도 충돌 표에 안 나와
+    # "그래도 내 내용으로 저장" 이 고객을 몰래 되돌렸다)
+    typed = {k: v for k, v in form.items() if k not in ("customer_id", "field_id") and (k != "status" or v)}
+    typed["customer"] = _name_of(db, Customer, customer_id)
+    typed["field"] = _name_of(db, SolutionField, field_id)
+    stored = {k: getattr(need, k) for k in ("content", "status", "memo")}
+    stored["customer"] = need.customer.name if need.customer is not None else ""
+    stored["field"] = need.field.name if need.field is not None else ""
+    if conflict := guards.check_rev(need, rev, values=typed, stored=stored):
         return _form(request, db, form, need, conflict=conflict)
     if not content.strip():
         return _form(request, db, form, need, error=CONTENT_REQUIRED)

@@ -257,9 +257,11 @@ NAME_MAX = 100
 KEYWORDS_MAX = 500
 
 
-def _next_run(schedule) -> datetime | None:
-    """다음 자동 조사 시각 (자동 실행이 꺼져 있으면 None)."""
-    return scheduler.latest_slot(schedule, datetime.now()) + timedelta(days=7) if schedule.enabled else None
+def _next_run(schedule, settings=None) -> datetime | None:
+    """다음 자동 조사 시각 (자동 실행이 꺼져 있거나, 서버 설정 `scheduler_enabled = false`(베타 서버 등)라 예약 작업이 돌지 않으면 None)."""
+    if not schedule.enabled or (settings is not None and not settings.scheduler_enabled):
+        return None
+    return scheduler.latest_slot(schedule, datetime.now()) + timedelta(days=7)
 
 
 def _keywords_view(db: Session, topics: list[ResearchTopic]) -> dict:
@@ -299,7 +301,7 @@ def _research_page(request: Request, db: Session, error: str | None = None, stat
         areas=RESEARCH_AREAS,
         weekdays=WEEKDAYS,
         schedule=get_schedule(db),
-        next_run=_next_run(get_schedule(db)),
+        next_run=_next_run(get_schedule(db), request.app.state.settings), scheduler_off=not request.app.state.settings.scheduler_enabled,
         runs=runs,
         error=error,
         form=form or {},
@@ -498,9 +500,7 @@ def _system_page(request: Request, db: Session, error: str | None = None, status
     s = request.app.state.settings
     now = datetime.now()
     schedule = get_schedule(db)
-    next_run = None
-    if schedule.enabled:
-        next_run = scheduler.latest_slot(schedule, now) + timedelta(days=7)
+    next_run = _next_run(schedule, s)  # 서버 설정으로 예약 작업이 꺼져 있으면 예정 없음 (베타 점검 4차)
     last_failed = (
         db.query(AIJob).filter(AIJob.status == "failed", AIJob.kind != PING_KIND).order_by(AIJob.id.desc()).first()
     )
@@ -516,7 +516,7 @@ def _system_page(request: Request, db: Session, error: str | None = None, status
         pending=db.query(AIJob).filter_by(status="pending").count(),
         running=db.query(AIJob).filter_by(status="running").count(),
         schedule=schedule,
-        next_run=next_run,
+        next_run=next_run, scheduler_off=not s.scheduler_enabled,
         last_failed=last_failed,
         failed_text=ERROR_KINDS.get(last_failed.shown_error_kind, ERROR_KINDS["unknown"]) if last_failed else None,
         ping=_ping_state(db),

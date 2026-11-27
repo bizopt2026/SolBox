@@ -83,7 +83,7 @@ def detail_page(request: Request, user: User, intake: Intake, db: Session, notic
     if cardplan.is_cards(intake):
         ctx["cards_info"] = _cards_info(settings, db, user, intake)
     if ready:
-        ctx = dict(
+        ctx.update(  # 위의 cards_info(같은 명함 파일을 가져온 적 있음 …)를 덮어쓰지 않는다 (베타 점검 2026-11-27)
             cards=intake_lib.review_cards(db, intake, form, request.app.state.settings, user),
             choices={
                 "solution": list(db.scalars(select(Solution).order_by(Solution.name))),

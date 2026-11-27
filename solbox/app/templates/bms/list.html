@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill, type_box, none_dash %}
-{% block title %}{{ ont.label("bm") }}{% endblock %}
+{% block title %}{{ ont.TYPES["bm"].nav }}{% endblock %}
 {% block content %}
 {% if show_all %}<p class="notice" role="status">운영 사업과 신규 사업을 함께 보여 드려요. <a href="/bms">운영 사업만 보기</a> · <a href="/bm-lab">신규 사업만 보기</a></p>{% endif %}
 {{ list_head(ont.TYPES["bm"].nav, pg, q or type_now, "/bms/new", new_label="+ 운영 사업 등록", type="bm", sub="사업부서가 지금 운영 중인 사업 모델입니다. 새로 개발하는 BM 은 사업기획 › 신규 사업에 있어요.") }}
@@ -8,7 +8,7 @@
 {{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기", extra=bt_extra, extra_on=1 if type_now else 0) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">{{ ont.prop("bm", "dept") }}</th><th class="col-sec">{{ ont.prop("bm", "op_status") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
+  <thead><tr><th>{{ ont.TYPES["bm"].nav }}</th><th class="col-sec">{{ ont.prop("bm", "dept") }}</th><th class="col-sec">{{ ont.prop("bm", "op_status") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for b in pg.items %}
     {% set i = info[b.id] %}

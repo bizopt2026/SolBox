@@ -148,9 +148,15 @@ def new_solution_file(
 # ---- 활동 기록 ----
 
 def first_line(text: str, limit: int = 40) -> str:
+    """원문의 첫 줄 (제목 자동 채우기). 길면 낱말 중간에서 끊지 않고 마지막 띄어쓰기에서 끊어 "…" 를 붙인다 (베타 사전 점검 2026-11-27)."""
     for line in text.splitlines():
-        if line.strip():
-            return line.strip()[:limit]
+        line = line.strip()
+        if line:
+            if len(line) <= limit:
+                return line
+            cut = line[:limit - 1]
+            space = cut.rfind(" ")
+            return (cut[:space] if space >= limit // 2 else cut).rstrip() + "…"
     return ""
 
 

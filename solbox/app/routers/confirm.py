@@ -146,8 +146,8 @@ SPECS: tuple[Spec, ...] = (
     Spec("/opportunities/{obj_id}/delete", "opportunity", _owned(Opportunity), lambda o: o.name, lambda o: f"/opportunities/{o.id}", _crumb("opportunity"), "영업기회"),
     Spec("/activities/{obj_id}/delete", "activity", _owned(Activity), lambda o: o.title or "(제목 없음)", lambda o: f"/activities/{o.id}", _crumb("activity"), "활동 기록"),
     Spec("/proposals/{obj_id}/delete", "proposal", _owned(Proposal), lambda o: _proposal_name(o), lambda o: f"/proposals/{o.id}", _crumb("proposal"), "제안 건"),
-    Spec("/reports/{obj_id}/delete", "report", lambda db, user, p: get_or_404(db, Report, _num(p["obj_id"])), lambda o: _report_name(o), lambda o: f"/reports/{o.id}",
-         _crumb("report"), "업무 보고"),  # 팀원 누구나 지울 수 있다 (설계 §5.4b)
+    Spec("/reports/{obj_id}/delete", "report", _owned(Report), lambda o: _report_name(o), lambda o: f"/reports/{o.id}",
+         _crumb("report"), "업무 보고"),  # 만든 사람과 관리자만 (2026-11-27 사용자 결정, 설계 §5.4b 를 바꿈)
     Spec("/files/{obj_id}/delete", "solution_file", _load_file, lambda o: o.original_name, lambda o: f"/solutions/{o.solution_id}",
          lambda o, name: ui.crumbs("solution", o.solution.name, f"/solutions/{o.solution_id}", "자료 삭제"), "자료"),
     Spec("/cowork/threads/{obj_id}/delete", "cowork_thread", _owned(AIThread), lambda o: o.title or "대화",

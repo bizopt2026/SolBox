@@ -5,6 +5,7 @@ import functools
 import logging
 import time
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from datetime import date, datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -108,6 +109,15 @@ TRAY_HOURS, TRAY_LIMIT = 24, 6
 def job_link(session_factory, job) -> str | None:
     """작업이 다루는 화면 (위쪽 줄의 "내 AI 작업" 목록에서 누르면 갈 곳). 모르면 None."""
     inp = job.input or {}
+    if job.kind.startswith("research_"):  # 리서치 작업의 report_id 는 리서치 보고서 번호다 (업무 보고가 아니다, 베타 점검 2026-11-27)
+        from app.models import ResearchReport
+
+        if isinstance(inp.get("report_id"), int):
+            with session_factory() as db:
+                rr = db.get(ResearchReport, inp["report_id"])
+                if rr is not None:
+                    return f"/research/runs/{rr.run_id}"
+        return "/research"
     for key, url in (("proposal_id", "/proposals/{}"), ("report_id", "/reports/{}"), ("intake_id", "/intake/{}"),
                      ("opportunity_id", "/opportunities/{}"), ("solution_id", "/solutions/{}")):
         if isinstance(inp.get(key), int):
@@ -281,6 +291,7 @@ def _get_fallback(request: Request) -> str | None:
     return "/"
 
 
+TOO_LONG_FIELD = "붙여넣은 글이 너무 깁니다 (한 칸에 한글 약 30만 자까지). 글을 나누어 저장하거나 .txt 파일로 올려 주세요. 뒤로 가면 쓴 글이 남아 있을 수 있어요."
 ERROR_TITLES = {404: "항목을 찾을 수 없습니다", 403: "권한이 없습니다", 400: "요청을 확인해 주세요", 500: "문제가 생겼어요", 409: "저장하지 않았습니다", 503: "잠시 후 다시 시도해 주세요"}
 
 
@@ -309,9 +320,37 @@ def _operational_error_handler(request: Request, exc: OperationalError) -> Respo
     return _server_error_handler(request, exc)
 
 
+def _load_viewer(request: Request) -> None:
+    """오류 화면용: 세션의 로그인이 유효하면 `request.state.user` 를 채운다 (`security.current_user` 와 같은 조건, 실패해도 조용히 지나간다)."""
+    from app.models import User
+    from app.security import password_version
+
+    try:
+        user_id = request.session.get("user_id") if "session" in request.scope else None
+        if not user_id:
+            return
+        with request.app.state.session_factory() as db:
+            user = db.get(User, user_id)
+            if user is not None and user.is_active and request.session.get("pv") == password_version(user):
+                db.expunge(user)
+                request.state.user = user
+    except Exception:  # noqa: BLE001 - 오류 화면을 그리다 또 실패하지 않게
+        logging.getLogger("app").debug("오류 화면의 로그인 확인 실패", exc_info=True)
+
+
 def _http_error_handler(request: Request, exc: StarletteHTTPException) -> Response:
     """HTTPException 을 브라우저에는 한국어 오류 화면으로, HTMX 요청에는 짧은 글로 돌려준다."""
     message = exc.detail if isinstance(exc.detail, str) and exc.detail else "요청을 처리하지 못했습니다."
+    try:
+        default_phrase = HTTPStatus(exc.status_code).phrase
+    except ValueError:
+        default_phrase = None
+    if message == default_phrase:
+        message = error_title(exc.status_code)
+    elif message.startswith("Part exceeded maximum size"):  # 폼 한 칸이 1MB(한글 약 30만 자)를 넘음: Starlette 기본 한도의 영어 문구 대신 (베타 점검 2026-11-27)
+        message = TOO_LONG_FIELD  # 프레임워크 기본 영어 문구("Not Found" …)는 한국어 제목으로 (베타 점검 2026-11-27)
+    if getattr(request.state, "user", None) is None:
+        _load_viewer(request)  # 없는 주소(라우트가 없어 로그인 확인을 거치지 않음)에서도 로그인한 사람에게는 메뉴가 있는 화면을
     if exc.status_code == 405 and request.method in ("GET", "HEAD") and not request.headers.get("HX-Request"):
         return RedirectResponse(_get_fallback(request) or "/", status_code=303)
     if request.headers.get("HX-Request"):
@@ -375,6 +414,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
+        session_cookie=settings.session_cookie,  # 운영·베타를 한 PC 에 띄울 때 쿠키가 겹치지 않게 (config.toml)
         same_site="lax",
         https_only=bool(settings.ssl_certfile),
     )
@@ -403,6 +443,7 @@ def create_app(settings: Settings) -> FastAPI:
     from app.markdown_lite import render_markdown
     from app.proposals import check_items, check_summary_text, number_sources, deck_is_old, deck_is_stale, display_title, is_group, outline_check_summary, target_name, unresolved_check_count
 
+    app.state.templates.env.globals["instance_label"] = settings.instance_label  # 운영·베타 구분 표시 (config.toml, 비면 없음)
     app.state.templates.env.globals["display_title"] = display_title
     app.state.templates.env.globals["target_name"] = target_name  # 제안 건의 대상 이름 (특정 고객은 고객 이름, 다수 고객은 대상 그룹 이름)
     app.state.templates.env.globals["is_group"] = is_group

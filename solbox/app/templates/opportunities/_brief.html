@@ -9,6 +9,7 @@
       <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-brief") }}{% if ai_job %} disabled{% endif %}>{{ "다시 분석" if insight else "AI 분석" }}</button>
     </form>{% endif %}</span></header>
   {{ ai_note(aig, id="ai-note-brief") }}
+  {% if ai_failed and not ai_job %}<p class="error" role="alert"><b>AI 분석을 하지 못했습니다.</b> {{ labels.ERROR_KINDS.get(ai_failed.shown_error_kind, labels.ERROR_KINDS["unknown"]) }} 위의 "{{ "다시 분석" if insight else "AI 분석" }}"으로 다시 시도하세요.{% if insight %} 아래는 전에 한 분석입니다.{% endif %}</p>{% endif %}
   {% for c, days in (decision_gaps or []) %}<p class="brief-gap warn" data-gap="{{ c.id }}"><a href="/contacts/{{ c.id }}">{{ c.name }}</a>(의사결정자) 마지막 접촉 {{ days }}일 전</p>{% endfor %}
   {% if b.get("situation") %}<h3>현재 상황</h3><p>{{ b.situation }}</p>{% endif %}
   {% if b.get("risks") %}<h3>위험</h3><ul>{% for x in b.risks %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}

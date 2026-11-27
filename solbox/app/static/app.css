@@ -76,7 +76,7 @@ a.row-title, td:first-child > a:first-child, .result-list a.row-title { color: v
 a.row-title:hover, td:first-child > a:first-child:hover { color: var(--brand); }
 
 .muted { color: var(--ink-3); }
-.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.sr-only { position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .skip { position: absolute; left: var(--s3); top: -48px; z-index: 100; padding: var(--s2) var(--s3); background: var(--ink); color: var(--surface); border-radius: var(--r-sm); }
 .skip:focus { top: var(--s3); }
 .count { margin-left: 6px; font-size: var(--fs-body); font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
@@ -146,6 +146,7 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
 .aistat.warn { color: var(--warn); }
 .aistat.warn .pulse { background: var(--warn); }
 .aistat.off .pulse { background: var(--ink-3); }
+.aistat-text { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }  /* "마지막 AI 작업 실패 …" 같은 긴 상태 글이 위쪽 줄을 밀지 않게 (전체 글은 title, 베타 점검 4차) */
 @keyframes pulse { 50% { opacity: .35; } }
 
 /* 화면 제목 줄 (모든 화면이 page_header 하나로): 경로 → 제목 → 부제, 오른쪽 끝에 동작 */
@@ -155,7 +156,7 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
 .page-header h1 { grid-area: title; margin: 0; word-break: keep-all; overflow-wrap: anywhere; }
 .page-header > .confirm-inline { grid-column: 1 / -1; justify-self: end; margin-top: var(--s3); }
 .page-header h1 .badge { vertical-align: 4px; margin-left: 6px; }
-.ph-sub { grid-area: sub; margin: 4px 0 0; color: var(--ink-2); }
+.ph-sub { grid-area: sub; margin: 4px 0 0; color: var(--ink-2); overflow-wrap: anywhere; }
 /* 동작은 제목과 같은 줄에 선다 (부제가 있어도 제목 줄 높이에 맞춘다) */
 .page-header .actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s2); }
 .page-header .actions form { margin: 0; }
@@ -163,6 +164,9 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
 .breadcrumb a { color: var(--ink-3); }
 .breadcrumb a:hover { color: var(--brand); }
 .breadcrumb [aria-current="page"] { color: var(--ink-2); }
+/* 긴 이름(띄어쓰기 없는 수천 자 포함)이 경로를 가로로 늘이거나 여러 줄로 가르지 않게: 마디마다 한 줄 말줄임 (베타 점검 2026-11-27) */
+.breadcrumb > a, .breadcrumb > span:not(.sep) { min-width: 0; max-width: min(36ch, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-title, .list-table td { overflow-wrap: anywhere; }
 
 /* 넓은 화면(1100px 이상) 위쪽 줄 메뉴 (2026-11-27 메뉴 개편): "오늘" 묶음은 탭(.top-tabs), 그 옆 "+ 올리기"(옅은 남색: 꽉 찬 주 버튼은 화면 제목 줄의 것 하나),
    오른쪽 끝에 관리 펼침(관리자만)·도움말. 사이드는 기록 종류 묶음만 보인다 (같은 항목을 사이드에도 그리고, 좁은 화면에서는 그쪽을 쓴다) */
@@ -195,7 +199,14 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
 @media (min-width: 1100px) and (max-width: 1319px) {
   .top-tabs a { padding: 0 7px; font-size: var(--fs-note); }  /* 1100~1319px: 탭·검색칸이 한 줄에 들도록 조금 줄인다 */
   .top .search kbd { display: none; }
+  .top .search { min-width: 96px; }
+  .aistat .aistat-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }  /* 1100~1319px 는 어떤 상태든 점 하나 (색이 상태: 초록·주황·빨강·회색, 글은 title·화면 읽기용). 위쪽 줄이 넘치지 않게 (베타 점검 3·4차) */
 }
+
+/* 운영·베타 구분 (config.toml instance_label, 2026-11-27): 로고 옆 주의 색 표지 + 화면 맨 위 주의 색 띠. 운영(비어 있음)에는 아무것도 없다 */
+.instance-tag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: var(--r-pill); background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 11px; font-weight: var(--fw-strong); line-height: 18px; vertical-align: 2px; }
+.m-mark .instance-tag { align-self: center; }
+body[data-instance]::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 60; height: 3px; background: var(--warn); pointer-events: none; }
 
 /* 로그인·오류: 사이드 메뉴 없는 가운데 카드 */
 body.auth .main { align-items: center; justify-content: center; min-height: 100vh; padding: var(--s5) var(--s4); gap: var(--s4); }
@@ -274,8 +285,12 @@ body.auth .page { padding: 0; max-width: 400px; margin: 0; }
   .aistat { margin-left: 0; flex: none; justify-content: center; min-width: 36px; min-height: 36px; }
   .aistat-text { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   /* 정상이 아닐 때(꺼짐·사용 불가·작업 중·실패)는 점 옆에 짧은 글을 보인다. 정상일 때는 점 하나 (글은 화면 읽기용) */
-  .aistat:not(.ok) { min-width: 0; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); }
-  .aistat:not(.ok) .aistat-text { position: static; width: auto; height: auto; margin: 0; clip: auto; max-width: 104px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .aistat:not(.ok) { min-width: 36px; padding: 0; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); }
+  /* 휴대폰은 상태 글을 숨기고 점 색과 테두리 색으로만 알린다 (글은 title·화면 읽기용). 글이 메뉴 단추·검색칸을 밀어냈다 (베타 점검 4차) */
+  .aistat.warn, .aistat.busy { border-color: var(--warn-line); background: var(--warn-soft); }
+  .aistat.down { border-color: var(--bad-line); background: var(--bad-soft); }
+  .jobtray-long { display: none; }  /* 휴대폰: "내 AI 작업" → "작업" */
+  .top .jobtray > summary { padding: 0 8px; }
   .pulse { width: 12px; height: 12px; }
   /* 작은 글 링크(모두 보기·수정·바꾸기)도 누르기 쉽게 */
   .card-head > a, .head-actions a, .card-foot a, .props-blank a, .rel-more a, .related-actions a, .flow-hold a, .page-header .actions a:not(.button), .section-head a { display: inline-flex; align-items: center; min-height: 32px; }
@@ -1299,7 +1314,7 @@ html:has(.plan-savebar) { scroll-padding-bottom: calc(88px + var(--tab-h)); }
 .slide-card[open] .slide-msg { display: none; }
 .list-table.wide-table td { white-space: nowrap; }
 @media (max-width: 600px) { .tablewrap > table.list-table.wide-table { min-width: max-content; width: auto; } }
-@media (max-width: 1099px) { .compact-form > label { flex: none; min-width: 0; max-width: none; } }
+@media (max-width: 1099px) { .compact-form { align-items: stretch; } .compact-form > label { flex: none; min-width: 0; max-width: none; } }  /* 좁은 화면: 칸이 오른쪽 끝에 붙지 않게 (관리 › 사용자 등, 베타 점검 2026-11-27) */
 .search input:focus-visible { outline: none; }
 select { -webkit-appearance: none; appearance: none; padding-right: 32px; background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%); background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 select:disabled { background-color: var(--sunken); }
@@ -1429,6 +1444,9 @@ code { font-family: var(--mono); font-size: .92em; padding: 0 4px; background: v
 
 /* 제안 만들기: 대상 종류(특정 고객 / 다수 고객). 라디오에 따라 맞는 칸만 보인다 (:has 를 못 쓰는 브라우저는 두 칸 모두 보인다) */
 .kind-pick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.kind-opts { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0 0 var(--s3); }  /* 업무 보고 파일 형식 고르기: 칸 사이·버튼과 간격 (베타 사전 점검 2026-11-27) */
+.kind-opts .kind-opt { flex: 1 1 200px; margin: 0; gap: 10px; padding: 10px 12px; align-items: flex-start; }  /* label.check 의 padding: 3px 0 을 이긴다 (라디오가 테두리에 걸쳤다) */
+.kind-opts .kind-opt input { flex: none; margin: 3px 0 0; }
 .kind-opt { flex: 1 1 260px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; }
 .kind-opt input { margin-top: 4px; }
 .kind-opt span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-small); color: var(--ink-3); }
@@ -1583,6 +1601,8 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .sumband dt { font-size: var(--fs-small); color: var(--ink-3); }
 .sumband dd { margin: 2px 0 0; font-weight: var(--fw-strong); overflow-wrap: anywhere; }
 .sumband dd.big { font-size: 17px; }
+.sumband dd.num { white-space: normal; }  /* "12월 1일 93일 남음": 좁은 칸에서는 남은 날이 다음 줄로 (베타 사전 점검 2026-11-27: 휴대폰에서 칸 밖으로 넘쳤다) */
+.sumband dd.num small { white-space: nowrap; }
 .hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); font-size: var(--fs-note); }
 .hist li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--s2); }
 .hist time { color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -1745,6 +1765,9 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .work-cell.tone-brand { border-color: #c9d4fb; background: #f5f7ff; }
 .work-cell.is-zero { background: transparent; border-style: dashed; }  /* 0 인 칸은 흐리게: 챙길 것이 있는 칸이 먼저 눈에 들어오게 (칸은 그대로 둔다: 0 도 정보다. UX 2순위 2026-11-27) */
 .attendees { margin: 0; line-height: 1.8; }  /* 활동 기록 상세의 참석 담당자 한 줄 */
+.draft-pending { align-self: center; padding: 2px 10px; border-radius: var(--r-pill); background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: var(--fs-note); font-weight: var(--fw-strong); }  /* 업무 보고: 표에 옮기지 않은 AI 초안이 있을 때 확정 버튼 옆 */
+.draft-band .draft-warn { margin: var(--s2) 0 0; color: var(--warn); }
+.redo-box .redo-warn { flex-basis: 100%; margin: 0; color: var(--warn); }
 .list-sum { margin: 0 0 var(--s3); color: var(--ink-2); font-size: var(--fs-note); }  /* 목록 표 위 합계 한 줄 (영업기회) */
 .work-cell.is-zero b { color: var(--ink-3); font-weight: 500; }
 @media (max-width: 1099px) { .work-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -1760,8 +1783,9 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .ai-dock-head { margin: 0 4px; display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-note, 13px); color: var(--ink-3); }
 .ai-dock-head b { color: var(--brand-deep, #1d3bb8); letter-spacing: .04em; }
 .top { position: relative; }
+.top-status { display: contents; }
 .jobtray { position: relative; margin-left: auto; margin-right: 12px; font-size: var(--fs-note, 13px); }
-.jobtray > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); color: var(--ink-2); }
+.jobtray > summary { white-space: nowrap; cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); color: var(--ink-2); }
 .jobtray > summary::-webkit-details-marker { display: none; }
 .jobtray ul { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 280px; margin: 0; padding: 8px 0; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md, 10px); box-shadow: 0 8px 24px rgba(15, 23, 42, .12); }
 .jobtray li { display: flex; gap: 8px; align-items: center; padding: 6px 12px; }

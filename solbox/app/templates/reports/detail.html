@@ -9,8 +9,10 @@
 {% set heads = {"result": ("다음: 지난 계획 점검 →", "?step=check"), "check": ("다음: 다음 계획 →", "?step=plan")} %}
 {% set status_html %}{{ pill("report_unit", report.unit) }} {{ pill("report_status", report.status) }}{% endset %}
 {# 제목 줄: 삭제 → 다음 동작 하나 (실적·점검은 다음 단계로, 계획·확정 단계는 확정 / 확정 풀기). 따로 고치는 화면은 없다 (각 카드의 폼에서 고친다) #}
-{% call detail_head(title, "/reports", report, true, crumbs=crumbs, sub=sub, status=status_html, primary=heads.get(step), edit=false) %}
+{# 지우기는 만든 사람과 관리자만 (2026-11-27 사용자 결정, 다른 기록과 같은 규칙). 만들기·고치기·확정은 그대로 팀원 누구나 #}
+{% call detail_head(title, "/reports", report, user.role == "admin" or report.created_by_id == user.id, crumbs=crumbs, sub=sub, status=status_html, primary=heads.get(step), edit=false) %}
   {% if step in ("plan", "files") and not confirmed %}
+  {% if report.plan_draft %}<span class="draft-pending" role="note">표에 옮기지 않은 AI 초안이 있어요</span>{% endif %}{# 확정은 표대로만 한다 (베타 사전 점검 2026-11-27: 초안 띠를 두고 확정하면 알림 없이 0개로 확정됐다) #}
   <form method="post" action="/reports/{{ rid }}/confirm">{{ form_token() }}<button type="submit" class="button primary">계획 확정 →</button></form>
   {% elif step == "files" and confirmed and not unconfirm_problem %}
   <form method="post" action="/reports/{{ rid }}/unconfirm"><button type="submit" class="button">확정 풀기</button></form>

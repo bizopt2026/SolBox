@@ -78,7 +78,7 @@ REVIEW_PRIORITY = 5  # 사람이 누른 작업(0)보다 뒤, 리서치(10)보다
 
 
 def has_activities(db: Session, opp: Opportunity) -> bool:
-    return bool(opp.activities)
+    return bool(_activities(opp, db))
 
 
 def pending_job(db: Session, opp_id: int, statuses=("pending", "running")):
@@ -91,6 +91,24 @@ def pending_job(db: Session, opp_id: int, statuses=("pending", "running")):
         if (job.input or {}).get("opportunity_id") == opp_id:
             return job
     return None
+
+
+def failed_review(db: Session, opp_id: int, insight):
+    """이 영업기회의 가장 최근 분석 작업이 실패했고 최신 분석보다 늦으면 그 작업 (브리핑 카드가 실패와 이유를 보인다, 베타 점검 2026-11-27). 아니면 None."""
+    from sqlalchemy import select
+
+    from app.models import AIJob
+
+    last = None
+    for job in db.scalars(select(AIJob).where(AIJob.kind == REVIEW_KIND).order_by(AIJob.id.desc()).limit(200)):
+        if (job.input or {}).get("opportunity_id") == opp_id:
+            last = job
+            break
+    if last is None or last.status != "failed":
+        return None
+    if insight is not None and last.finished_at is not None and insight.created_at is not None and insight.created_at >= last.finished_at:
+        return None
+    return last
 
 
 def request_review(db: Session, opp_ids, user_id: int | None, request, priority: int = REVIEW_PRIORITY) -> list:
@@ -135,8 +153,17 @@ def _norm(text: str) -> str:
     return "".join(str(text or "").split()).strip("\"'“”‘’")
 
 
-def _activities(opp: Opportunity) -> list:
-    return sorted(opp.activities, key=lambda a: (a.date is not None, a.date.toordinal() if a.date else 0, a.id), reverse=True)[:MAX_ACTIVITIES]
+def _activities(opp: Opportunity, db: Session | None = None) -> list:
+    """분석이 읽는 활동 기록: 이 영업기회에 연결한 기록 + 묶인 고객 니즈가 나온 기록 (니즈로 만든 영업기회도 분석할 수 있게, 베타 점검 3차 2026-11-27:
+    화면의 "연결된 것"에는 니즈가 나온 기록이 보이는데 분석은 "연결된 활동 기록이 없다"고 했다). 최신순 MAX_ACTIVITIES 개."""
+    found = {a.id: a for a in opp.activities}
+    if db is not None:
+        from app.opportunities import needs_of
+
+        for n in needs_of(db, opp):
+            if n.activity is not None:
+                found.setdefault(n.activity.id, n.activity)
+    return sorted(found.values(), key=lambda a: (a.date is not None, a.date.toordinal() if a.date else 0, a.id), reverse=True)[:MAX_ACTIVITIES]
 
 
 def build_prompt(db: Session, opp: Opportunity, today_) -> tuple[str, dict[int, str]]:
@@ -173,7 +200,7 @@ def build_prompt(db: Session, opp: Opportunity, today_) -> tuple[str, dict[int, 
     fus = "\n".join(f"- {_safe(f.task)[:200]}" + (f" (기한 {f.due.isoformat()})" if f.due else "") for f in open_follow_ups(opp)[:20]) or "(없음)"
     texts: dict[int, str] = {}
     blocks, total = [], 0
-    for a in _activities(opp):
+    for a in _activities(opp, db):
         if total >= MAX_TOTAL_CHARS:
             break
         body = ((a.summary_md or "").strip() or (a.raw_text or "").strip())[:MAX_ACTIVITY_CHARS]

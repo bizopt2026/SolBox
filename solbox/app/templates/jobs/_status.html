@@ -3,7 +3,7 @@
 <div id="job-{{ job.id }}" class="job-status job-{{ job.status }}" role="status"
   {% if active and not stalled %}hx-get="/jobs/{{ job.id }}/status{% if next %}?next={{ next | urlencode }}{% endif %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
-  {% elif job.status == "pending" %}AI 대기 {{ position }}번째 (앞 작업이 끝나면 시작합니다){% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}
+  {% elif job.status == "pending" %}AI 대기 {{ position }}번째 {{ "(앞 작업이 끝나면 시작합니다)" if queue_ahead(job).count else "(곧 시작합니다)" }}{% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %} <span class="muted">· 앞: {{ ahead.lines | join(", ") }}</span>{% endif %}
   {% elif job.status == "running" %}<span class="typing" aria-hidden="true"><i></i><i></i><i></i></span> AI가 작성 중입니다… {{ wait_detail(job) }}
   {% elif job.status == "done" %}완료
   {% else %}

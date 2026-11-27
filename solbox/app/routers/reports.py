@@ -28,7 +28,7 @@ from app.main import render
 from app.models import Customer, Report, ReportMessage, ReportPlanItem, User
 from app.records import rows as form_rows
 from app.relations import report_label
-from app.routers._common import get_or_404, paginate
+from app.routers._common import get_deletable_or_404, get_or_404, paginate
 from app.security import require_user
 
 router = APIRouter(prefix="/reports")
@@ -345,9 +345,9 @@ def download_file(report_id: int, fmt: str, request: Request, user: User = Depen
 
 @router.post("/{report_id}/delete")
 def delete(report_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
-    """보고 건 지우기 (팀원 누구나): 계획 항목·대화는 함께, 이 보고가 점검한 지난 항목은 남고 점검 표시만 비워진다 (FK SET NULL).
+    """보고 건 지우기 (만든 사람과 관리자만, 2026-11-27 사용자 결정): 계획 항목·대화는 함께, 이 보고가 점검한 지난 항목은 남고 점검 표시만 비워진다 (FK SET NULL).
     만든 보고서 파일 폴더도 지운다."""
-    r = get_or_404(db, Report, report_id)
+    r = get_deletable_or_404(db, Report, report_id, user)
     for item in db.scalars(select(ReportPlanItem).where(ReportPlanItem.checked_in_report_id == r.id)):
         item.checked_in_report_id = None  # SQLite 외래 키 설정과 상관없이 표시를 비운다
     folder = request.app.state.settings.reports_dir / str(r.id)

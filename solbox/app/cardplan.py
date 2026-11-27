@@ -134,7 +134,7 @@ def build_plan(db: Session, intake: Intake, parsed: cardfile.Parsed, default_kin
         card, values = entry["card"], contact_values(entry["card"])
         where = _where(parsed, entry["rows"])
         dup = _dup_note(target, values, card)
-        item = {"kind": "add_contact", "reason": f"명함 파일 {where}" + (" · 등록된 " + ("파트너" if target_type == "partner" else "고객") + "와 회사 이름이 같음"),
+        item = {"kind": "add_contact", "reason": f"명함 파일 {where}" + (" · 등록된 " + ("파트너와" if target_type == "partner" else "고객과") + " 회사 이름이 같음"),
                 **base, "target_type": target_type, "target_id": target.id, "target_name": target.name, **values}
         note = dup + (" — 제외로 해 두었어요. 그래도 넣으려면 \"이 항목 제외\"를 풀어 주세요." if dup else "")
         if extra_skip:

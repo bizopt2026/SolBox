@@ -81,3 +81,21 @@ def test_switching_between_won_and_lost_goes_through_reason_page(user_client, db
     f = _fresh(db, o)
     assert (f.stage, f.close_reason) == ("won", "trust")
     assert "수주 사유" in user_client.get(f"/opportunities/{o.id}").text
+
+
+def test_close_from_a_stale_tab_shows_the_conflict_screen(user_client, db):
+    """두 탭에서 수주·실패 사유 화면을 따로 열고 차례로 저장하면 늦은 쪽은 충돌 화면 (베타 점검 2026-11-27)."""
+    import re
+
+    o = _opp(db)
+    won_page = user_client.get(f"/opportunities/{o.id}/close?to=won").text
+    lost_page = user_client.get(f"/opportunities/{o.id}/close?to=lost").text
+    rev = lambda page: re.search(r'name="_rev" value="([^"]+)"', page).group(1)  # noqa: E731
+    won_reason = re.search(r'name="reason" value="([^"]+)"', won_page).group(1)
+    lost_reason = re.search(r'name="reason" value="([^"]+)"', lost_page).group(1)
+    r = user_client.post(f"/opportunities/{o.id}/close", data={"stage": "won", "reason": won_reason, "_rev": rev(won_page)}, follow_redirects=False)
+    assert r.status_code == 303
+    r = user_client.post(f"/opportunities/{o.id}/close", data={"stage": "lost", "reason": lost_reason, "_rev": rev(lost_page)}, follow_redirects=False)
+    assert r.status_code == 409
+    db.expire_all()
+    assert db.get(type(o), o.id).stage == "won"

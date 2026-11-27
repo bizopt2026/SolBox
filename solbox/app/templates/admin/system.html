@@ -19,8 +19,8 @@
       <small>백업 폴더: <code class="path">{{ backup_dir }}</code></small>
     {% endcall %}
     {% call row("AI 작업", "warn" if (pending + running) else "ok", "대기 있음" if (pending + running) else "한가함") %}대기 {{ pending }}건, 진행 {{ running }}건{% endcall %}
-    {% call row("다음 조사 예정", "ok" if next_run else "slate", "예약됨" if next_run else "꺼짐", none if next_run else "자동 조사를 켜려면 '리서치 설정'에서 실행 주기를 켜세요.") %}
-      {% if next_run %}{{ kdatetime(next_run) }}{% else %}주간 조사가 꺼져 있습니다{% endif %}
+    {% call row("다음 조사 예정", "ok" if next_run else "slate", "예약됨" if next_run else "꺼짐", none if next_run else ("이 서버는 설정 파일에서 예약 작업(주간 조사·매일 자동 백업)을 꺼 두었습니다 (scheduler_enabled = false)." if scheduler_off else "자동 조사를 켜려면 '리서치 설정'에서 실행 주기를 켜세요.")) %}
+      {% if next_run %}{{ kdatetime(next_run) }}{% elif scheduler_off %}이 서버에서는 자동 조사가 돌지 않습니다{% else %}주간 조사가 꺼져 있습니다{% endif %}
     {% endcall %}
     {% call row("최근 AI 오류", "bad" if last_failed else "ok", "오류 있음" if last_failed else "없음", "아래 'AI 연결 확인'으로 지금 연결이 되는지 확인해 보세요." if last_failed else none) %}
       {% if last_failed %}{{ kdatetime(last_failed.finished_at) if last_failed.finished_at else "" }} {{ labels.JOB_KINDS.get(last_failed.kind, last_failed.kind) }}: {{ failed_text }}
@@ -57,7 +57,7 @@
 
 <section class="card stack">
 <h2>백업</h2>
-<p class="muted help">데이터 폴더를 백업 폴더에 복사해 둡니다. 매일 자동으로도 만들어집니다.</p>
+<p class="muted help">데이터 폴더를 백업 폴더에 복사해 둡니다. {% if scheduler_off %}이 서버는 예약 작업을 꺼 두어 매일 자동 백업이 만들어지지 않으니, 필요할 때 "지금 백업"을 누르세요.{% else %}매일 자동으로도 만들어집니다.{% endif %}</p>
 <form method="post" action="/admin/system/backup"><button type="submit">지금 백업</button></form>
 </section>
 </div>

@@ -11,6 +11,10 @@ _PART = re.compile(r"(\d+(?:\.\d+)?)(억|천만|백만|만|천)?")
 _EOK, _MAN = 100_000_000, 10_000
 
 
+AMOUNT_MAX = Decimal(10) ** 16  # 1경 원. 이보다 큰 예상 금액은 입력 실수로 본다 (SQLite 정수 한도 약 922경 안)
+AMOUNT_TOO_BIG = "금액이 너무 큽니다. 1경 원보다 작게 적어 주세요 (예: 3억, 5000만)."
+
+
 def parse_amount(text: str | None) -> int | None:
     """빈 글이면 None. 읽을 수 없거나 0 이하이거나 원 밑 자리가 남으면 ValueError(AMOUNT_HELP)."""
     raw = re.sub(r"[\s,]", "", text or "")
@@ -26,6 +30,8 @@ def parse_amount(text: str | None) -> int | None:
         pos = m.end()
     if pos != len(raw) or total <= 0 or total != total.to_integral_value():
         raise ValueError(AMOUNT_HELP)
+    if total > AMOUNT_MAX:
+        raise ValueError(AMOUNT_TOO_BIG)  # DB 정수 칸(64비트)에 들어가지 않으면 저장할 때 500 이 났다 (베타 점검 2026-11-27)
     return int(total)
 
 

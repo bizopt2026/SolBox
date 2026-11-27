@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import page_header, form_error %}
+{% from "_macros.html" import page_header, form_error, rev_fields %}
 {% set stage_name = ont.OPPORTUNITY_STAGES[stage] %}
 {% set action_name = josa(stage_name, "으로/로") ~ " 바꾸기" %}
 {% block title %}{{ action_name }}{% endblock %}
@@ -7,6 +7,7 @@
 {{ page_header(action_name, crumbs=ui.crumbs("opportunity", opp.name, "/opportunities/" ~ opp.id, action_name), sub=opp.name ~ " · " ~ opp.customer.name) }}
 {{ form_error(error) }}
 <form method="post" action="/opportunities/{{ opp.id }}/close" class="form-page">
+  {{ rev_fields(opp, conflict, "/opportunities/" ~ opp.id) }}
   <input type="hidden" name="stage" value="{{ stage }}">
   {% if back %}<input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="qs" value="{{ qs }}">{% endif %}
   <section class="card stack close-card">

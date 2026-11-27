@@ -9,6 +9,8 @@ from app.research import get_schedule
 
 
 def test_system_page(admin_client, user_client, db, settings):
+    assert "이 서버에서는 자동 조사가 돌지 않습니다" in admin_client.get("/admin/system").text, "시험 서버는 scheduler_enabled = false (베타 서버처럼)"
+    settings.scheduler_enabled = True  # 예약 작업이 도는 서버: 다음 조사 시각 (스레드는 시작할 때만 띄우므로 여기서 켜도 돌지 않는다)
     r = admin_client.get("/admin/system")
     assert r.status_code == 200
     assert str(settings.data_dir) in r.text

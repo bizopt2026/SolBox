@@ -12,7 +12,7 @@
   {% if chips %}<p class="prefill-chips">이 기록은 {% for c in chips %}<span class="chip">{{ c.label }} {{ c.name }}</span> {% endfor %}에 연결해 저장합니다.</p>{% endif %}
   <section class="card">
     <div class="fgrid">
-      {{ text_field("메모", "raw_text", raw_text, rows=16, help="미팅·통화 메모를 붙여 넣으세요. 글자 수 제한은 없습니다.", error=error) }}
+      {{ text_field("메모", "raw_text", raw_text, rows=16, help="미팅·통화 메모를 붙여 넣으세요. 한글 약 30만 자까지 쓸 수 있고, 더 긴 녹취록은 .txt 파일로 올려 주세요.", error=error) }}
       <div class="fld wide"><label for="f-memo_file">텍스트 파일</label>{{ filepick("memo_file", id="f-memo_file", accept=".txt,.md", describedby="h-memo_file") }}<p class="help" id="h-memo_file">.txt, .md 파일만 올릴 수 있습니다. 메모 칸의 글과 파일 내용이 이어 붙습니다.</p></div>
     </div>
     {# 다른 길 안내는 노란 알림 대신 카드 밑 한 줄 (휴대폰에서 메모 칸이 첫 화면에 보이게, UX 1순위 2026-11-27) #}

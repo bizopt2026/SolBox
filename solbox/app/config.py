@@ -36,6 +36,10 @@ class Settings:
     proposal_review: bool = True  # 구성안을 만든 뒤 AI 가 한 번 더 검토해 고친다 (AI 호출이 한 번 늘어 1분쯤 더 걸린다)
     pdf_converter: str = "auto"  # 제안서 PDF: auto | powerpoint | libreoffice | none (app/pdf_export.py)
     soffice_path: str | None = None  # LibreOffice soffice 실행 파일 (비우면 PATH·흔한 설치 경로에서 찾는다)
+    # 한 PC 에 솔박스를 둘(운영·베타) 띄울 때 (2026-11-27). 브라우저 쿠키는 포트를 가리지 않으므로 로그인 쿠키 이름을 달리해야
+    # 한쪽에 로그인해도 다른 쪽 로그인이 풀리지 않는다. instance_label 은 모든 화면 로고 옆·창 제목에 보이는 표시 (예: "베타")
+    session_cookie: str = "session"
+    instance_label: str = ""
 
     def __post_init__(self) -> None:
         if self.backup_dir is None:
@@ -147,6 +151,13 @@ def load_settings(path: Path | None = None) -> Settings:
         data_dir = path.resolve().parent / data_dir
     raw["data_dir"] = data_dir
     _check_transcribe_settings(raw, path, data_dir / "models")
+    cookie = raw.get("session_cookie", "session")
+    if not isinstance(cookie, str) or not cookie or not all(c.isascii() and (c.isalnum() or c in "_-") for c in cookie) or len(cookie) > 40:
+        raise _bad("session_cookie", f"{cookie!r} (영문·숫자·_·- 로 40자까지. 예: \"solbox_beta\")")
+    label = raw.get("instance_label", "")
+    if not isinstance(label, str) or len(label.strip()) > 12:
+        raise _bad("instance_label", f"{label!r} (12자까지의 짧은 글. 예: \"베타\")")
+    raw["instance_label"] = label.strip() if isinstance(label, str) else ""
     if raw.get("pdf_converter", "auto") not in ("auto", "powerpoint", "libreoffice", "none"):
         raise _bad("pdf_converter", "auto, powerpoint, libreoffice, none 가운데 하나여야 합니다")
     if raw.get("deck_background"):
