@@ -153,3 +153,24 @@ def test_failed_opportunity_review_is_shown_on_the_briefing(user_client, db):
     db.commit()
     page = user_client.get(f"/opportunities/{o.id}").text
     assert "AI 분석을 하지 못했습니다." in page and "Invalid API key" not in page
+
+
+def test_delete_confirm_counts_contacts_and_does_not_repeat(admin_client, db):
+    import re
+
+    from app.models import Activity, Contact, FollowUp, Partner
+
+    p = Partner(name="딥비전")
+    db.add(p)
+    db.flush()
+    db.add(Contact(name="홍길동", partner_id=p.id))
+    a = Activity(kind="meeting", date=date.today(), title="미팅", raw_text="x")
+    db.add(a)
+    db.flush()
+    db.add(FollowUp(activity_id=a.id, task="견적", position=0))
+    db.commit()
+    page = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", admin_client.get(f"/partners/{p.id}/delete").text))
+    assert "담당자 1" in page and "영향이 없습니다" not in page, page[page.find("삭제"):][:400]
+    act = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", admin_client.get(f"/activities/{a.id}/delete").text))
+    assert act.count("후속 조치") == 1, "후속 조치 지움 문장이 두 번 나오지 않는다"
+

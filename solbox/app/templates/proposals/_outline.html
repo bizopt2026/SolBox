@@ -27,7 +27,7 @@
 </ol>
 {% if not busy %}
 <form method="post" action="/proposals/{{ proposal.id }}/outline" class="regen">
-  <label class="fld"><span>추가 지시 (선택)</span><input type="text" name="instruction" maxlength="500" placeholder="예: 가격 슬라이드를 앞으로"{% if instruction_text is defined and instruction_text %} value="{{ instruction_text }}"{% endif %}></label>
+  <label class="fld"><span>추가 지시 (선택)</span><input type="text" name="instruction" maxlength="500" placeholder="예: 가격 슬라이드를 앞으로"{% set aj = proposal.active_job %}{% set failed_instr = (aj.input or {}).get("instruction", "") if aj is not none and aj.status == "failed" and aj.kind == "proposal_outline" else "" %}{% if instruction_text is defined and instruction_text %} value="{{ instruction_text }}"{% elif failed_instr %} value="{{ failed_instr }}"{% endif %}></label>
   <button type="submit"{{ ai_attrs(ai_gate()) }} data-busy-label="만드는 중…">다시 만들기</button>
 </form>
 {% endif %}

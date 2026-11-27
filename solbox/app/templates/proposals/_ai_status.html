@@ -10,7 +10,7 @@
     <div class="error" role="alert">
       <p>{{ job.error if job.error_kind == "bad_output" and job.error else labels.ERROR_KINDS.get(job.shown_error_kind, labels.ERROR_KINDS["unknown"]) }}</p>
       {% if job.kind in retry_paths %}
-      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}"><button type="submit"{{ ai_attrs(aig) }}>다시 시도</button></form>
+      <form method="post" action="/proposals/{{ proposal.id }}/{{ retry_paths[job.kind] }}">{% if job.kind == "proposal_outline" and (job.input or {}).get("instruction") %}<input type="hidden" name="instruction" value="{{ job.input.instruction }}">{% endif %}<button type="submit"{{ ai_attrs(aig) }}>다시 시도</button></form>
       {% endif %}
     </div>
   {% endif %}
