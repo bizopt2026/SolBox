@@ -121,6 +121,9 @@ def list_opportunities(
                            loaders=(selectinload(Opportunity.customer), selectinload(Opportunity.owner).selectinload(User.team)))
     found.sort(key=lambda o: (o.updated_at, o.id), reverse=True)  # 기본(최근 수정순)
     found, flt = list_filter(db, request, "opportunity", sort_rows(request, "opportunity", found, db=db))
+    if ui.current_sort(request) == ontology.LIST_SORTS["opportunity"][0][0]:
+        # 기본 순서는 진행 중(발굴·제안·협상)이 위, 그 안에서 최근 수정순 (닫힌 수주·실패·보류가 맨 위에 오지 않게. UX 2순위 2026-11-27)
+        found.sort(key=lambda o: o.stage not in ontology.OPPORTUNITY_OPEN_STAGES)
     found, type_tabs, type_now = bts.type_tabs(request, found, lambda o: o.business_type_codes)
     now = _today()
     stale_all = opps.stale_view(db, found, now)  # 멈춘 사유 (걸러 보기 칩 건수와 줄 배지)
@@ -150,6 +153,8 @@ def list_opportunities(
         found = [o for o in found if o.stage == stage]
     else:
         stage = ""
+    open_rows = [o for o in found if o.stage in ontology.OPPORTUNITY_OPEN_STAGES]
+    open_sum = {"n": len(open_rows), "amount": sum(o.amount or 0 for o in open_rows), "unpriced": sum(1 for o in open_rows if not o.amount)}  # 보이는 목록 중 진행 중 건의 합계 (표 위 한 줄)
     pg = paginate(found, page)
     choices = [(ontology.OPPORTUNITY_FILTER_OPEN, "진행 중"), *ontology.OPPORTUNITY_STAGES.items()]
     tabs = ui.seg_tabs(request, "stage", choices, counts, stage, total)
@@ -175,7 +180,7 @@ def list_opportunities(
     return render(request, "opportunities/list.html", **common, pg=pg, q=q.strip(), stage=stage, flt=flt, tabs=tabs, type_tabs=type_tabs, type_now=type_now,
                   info=row_info(db, "opportunity", pg.items), who_tabs=who_tabs, who=who, stale_on=stale_on, stale_n=stale_n, stale_href=stale_href.rstrip("?"),
                   stale=stale_all, today=now, money=money, ai_counts=ai_all, ai_on=ai_on, ai_href=ai_href, ai_n=ai_n,
-                  align_on=align_on, align_n=align_n, align_href=align_href, off_ids=off_ids)
+                  align_on=align_on, align_n=align_n, align_href=align_href, off_ids=off_ids, open_sum=open_sum)
 
 
 @router.get("/analysis")

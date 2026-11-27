@@ -121,7 +121,8 @@ def test_home_section_order_and_trimmed_research(user_client, db):
     db.commit()
     page = user_client.get("/").text
     # UX 개선(2026-11-26): 맨 위 "내 할 일" 띠 → 두 열(왼쪽: 후속 조치·최근 활동, 오른쪽: 올리기·영업기회·제안 건) → 최신 리서치 → 맨 아래 발굴 흐름
-    heads = [page.index(h) for h in ('aria-label="내 할 일"', 'id="h-fu"', 'id="h-act"', 'id="h-up"', 'id="h-opp"', 'id="h-prop"', 'id="h-res"', 'id="h-flow"')]
+    # 올리기 카드(h-up)는 확인 대기·정리 중 묶음이 있을 때만 (UX 2순위 2026-11-27): test_home_upload_card_only_when_bundles_wait
+    heads = [page.index(h) for h in ('aria-label="내 할 일"', 'id="h-fu"', 'id="h-act"', 'id="h-opp"', 'id="h-prop"', 'id="h-res"', 'id="h-flow"')]
     assert heads == sorted(heads)
     assert "시사점1" in page and "시사점2" not in page
     assert "제안1" in page and "제안2" not in page
@@ -144,12 +145,22 @@ def _bundle(db, user, status, note=""):
     return it
 
 
-def test_home_upload_card_points_to_upload_screen(user_client):
-    """UX 개선(2026-11-26): 홈에 올리기 입구가 셋이던 것을 줄였다. 올리기 카드는 대기·정리 중 목록과 올리기 화면 링크만 둔다."""
+def test_home_upload_card_only_when_bundles_wait(user_client, db):
+    """UX 2순위(2026-11-27): 홈 제목 줄의 주 버튼은 "활동 기록 쓰기", 올리기는 보조 버튼 하나.
+    올리기 카드는 확인 대기·정리 중 묶음이 있을 때만 그 목록을 보인다 (비어 있을 때 안내 글만 있던 카드는 없앴다)."""
+    from sqlalchemy import select
+
+    from app.models import User
+
     page = user_client.get("/").text
-    assert 'action="/intake"' not in page
-    card = page.split('id="h-up"')[1].split("</section>")[0]
-    assert 'href="/intake/new"' in card
+    assert 'action="/intake"' not in page and 'id="h-up"' not in page
+    head = page.split('<header class="page-header">')[1].split("</header>")[0]
+    assert 'class="button to-intake" href="/intake/new">+ 올리기</a>' in head
+    assert 'class="button primary" href="/activities/new">활동 기록 쓰기</a>' in head and head.count("primary") == 1
+    kim = db.scalars(select(User).where(User.username == "kim")).one()
+    _bundle(db, kim, "ready", note="한빛 자료")
+    card = user_client.get("/").text.split('id="h-up"')[1].split("</section>")[0]
+    assert "확인 대기 1건" in card and "한빛 자료" in card and 'href="/intake"' in card
 
 
 def test_intake_summary_counts_only_own_bundles(db):

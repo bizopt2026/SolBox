@@ -16,11 +16,11 @@
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">
-    <div class="ai-dock" aria-label="AI">{# AI 칸 하나 (UX 개선 2026-11-26): 정렬 판단·AI 동료를 한데 둔다 #}
+    {{ related_card(related, [("올리기로 " ~ ont.label("solution") ~ " 등록", "/intake/new"), ("명함·연락처 올리기", "/intake/new")], hide_empty=true) }}
+    <div class="ai-dock" aria-label="AI">{# AI 칸 하나 (UX 개선 2026-11-26): 정렬 판단·AI 동료를 한데 둔다. 연결된 것 밑 (UX 2순위 2026-11-27: 옆 칸 맨 위는 이 기록과 이어진 것) #}
       <p class="ai-dock-head"><b>AI</b> <a href="/ai/inbox">AI 제안함</a></p>
     {% set cw_code, cw_obj, compact = "partner", partner, true %}{% include "cowork/_panel.html" %}
     </div>
-    {{ related_card(related, [("올리기로 " ~ ont.label("solution") ~ " 등록", "/intake/new"), ("명함·연락처 올리기", "/intake/new")], hide_empty=true) }}
     {% call meta_card(meta, origin) %}{% if partner.customer %}<dt>같은 회사</dt><dd>고객 <a href="/customers/{{ partner.customer.id }}">{{ partner.customer.name }}</a></dd>{% endif %}{% endcall %}
   </aside>
 </div>

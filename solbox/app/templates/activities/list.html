@@ -1,9 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, title_cell, links_text, date_text, pill %}
+{% from "_macros.html" import sort_th, list_head, list_tools, origin_cell, origin_note, empty_list, pager, title_cell, links_text, date_text, pill, none_dash %}
 {% block title %}활동 기록{% endblock %}
+{# "연결" 칸: 고객은 건수 대신 이름(둘까지와 "외 n"), 그 밖(솔루션·후속 조치)은 건수. 휴대폰 보조 줄은 이름만 글자로 (줄 전체 누르기와 겹치지 않게) #}
+{% macro act_links(names, info, plain=false) %}{% set rest = info.links | rejectattr(0, "equalto", "고객") | list if info else [] %}{% if names or rest %}{% for cid, name in names[:2] %}{% if plain %}{{ name }}{% else %}<a href="/customers/{{ cid }}">{{ name }}</a>{% endif %}{{ ", " if not loop.last }}{% endfor %}{% if names | length > 2 %} 외 {{ names | length - 2 }}{% endif %}{% for text, n in rest %}{{ " · " if names or not loop.first }}<span class="num">{{ text }} {{ n }}</span>{% endfor %}{% else %}{{ none_dash() }}{% endif %}{% endmacro %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
-{{ list_head("활동 기록", pg, q or kind or flt or origin_now, "/intake/new", "올리기", "/activities/new", type="activity") }}
+{# 이 목록의 주 동작은 기록 쓰기, 올리기는 보조 (UX 2순위 2026-11-27) #}
+{{ list_head("활동 기록", pg, q or kind or flt or origin_now, "/activities/new", none, "/intake/new", "올리기", type="activity") }}
 {{ list_tools(request, tabs, "종류", q, flt, "제목, 내용으로 찾기", origin_tabs=origin_tabs) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
@@ -13,11 +16,11 @@
     {% set i = info[a.id] %}
     <tr>
       {% call title_cell("/activities/" ~ a.id, a.title or "(제목 없음)", a.summary_md | summary_line(90)) %}
-        {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ links_text(i) }}</span>{{ origin_note(a) }}
+        {{ pill("activity_kind", a.kind) }}<span class="num">{{ kdate(a.date) if a.date else "일자 없음" }}</span><span>{{ act_links(customers[a.id], i, plain=true) }}</span>{{ origin_note(a) }}
       {% endcall %}
       <td class="col-sec">{{ pill("activity_kind", a.kind) }}</td>
       <td class="col-sec">{{ origin_cell(a) }}</td>
-      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec">{{ act_links(customers[a.id], i) }}</td>
       <td class="col-sec num">{{ date_text(a.date) }}</td>
     </tr>
   {% endfor %}

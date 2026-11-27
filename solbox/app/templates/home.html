@@ -3,12 +3,12 @@
 {% from "_followups.html" import fu_item, fu_notice %}
 {% block title %}홈{% endblock %}
 {% block content %}
-{% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button" href="/activities/new">활동 기록 쓰기</a><a class="button primary" href="/intake/new">+ 올리기</a>{% endcall %}
+{% call page_header("오늘 할 일", sub=date_line ~ " · " ~ summary ~ ("" if not fresh_install else ". 소개서·녹취록·사진을 올리면 AI가 정리해 드려요")) %}<a class="button to-intake" href="/intake/new">+ 올리기</a><a class="button primary" href="/activities/new">활동 기록 쓰기</a>{% endcall %}{# 주 동작은 가장 자주 하는 기록 쓰기 하나, 올리기는 보조 (사이드 메뉴에도 있다. UX 2순위 2026-11-27) #}
 {{ fu_notice(toggled) }}
 {% if ai_problem %}<p class="error">AI 상태: {{ ai_problem }}</p>{% endif %}
 
 <nav class="work-strip" aria-label="내 할 일">
-  {% for w in work %}<a class="work-cell{{ ' tone-' ~ w.tone if w.tone and w.n }}" href="{{ w.href }}" data-work="{{ w.key }}"><small>{{ w.label }}</small><b>{{ w.n }}</b>{% if w.sub %}<span class="work-sub">{{ w.sub }}</span>{% endif %}</a>{% endfor %}
+  {% for w in work %}<a class="work-cell{{ ' tone-' ~ w.tone if w.tone and w.n }}{{ ' is-zero' if not w.n }}" href="{{ w.href }}" data-work="{{ w.key }}"><small>{{ w.label }}</small><b>{{ w.n }}</b>{% if w.sub %}<span class="work-sub">{{ w.sub }}</span>{% endif %}</a>{% endfor %}
 </nav>
 
 {% if fresh_install %}
@@ -72,10 +72,9 @@
 
   </div>
   <div class="dash-col dash-side">
+  {% if intake.ready_count or intake.analyzing_count %}{# 올리기 카드는 확인 대기·정리 중인 묶음이 있을 때만 (올리기 버튼은 제목 줄·사이드 메뉴에 있다. UX 2순위 2026-11-27) #}
   <section class="card o2" aria-labelledby="h-up">
-    <header class="card-head"><h2 id="h-up">올리기</h2>{% if intake.ready_count or intake.analyzing_count %}<a href="/intake">올리기 목록</a>{% endif %}</header>
-    <p class="muted">소개서·녹취록·사진은 왼쪽 위 <a href="/intake/new">+ 올리기</a>로 올리면 AI 가 정리해 둡니다.</p>
-    {% if intake.ready_count or intake.analyzing_count %}
+    <header class="card-head"><h2 id="h-up">올리기</h2><a href="/intake">올리기 목록</a></header>
     <div class="intake-pending">
       <p class="queue-sum">{% if intake.ready_count %}<a href="/intake"><strong>확인 대기 {{ intake.ready_count }}건</strong></a>{% endif %}{% if intake.ready_count and intake.analyzing_count %} · {% endif %}{% if intake.analyzing_count %}<span class="muted">정리 중 {{ intake.analyzing_count }}건</span>{% endif %}</p>
       <div class="queue">
@@ -87,8 +86,8 @@
         {% endfor %}
       </div>
     </div>
-    {% endif %}
   </section>
+  {% endif %}
 
   <section class="card o3" aria-labelledby="h-opp">
     <header class="card-head"><h2 id="h-opp">{{ ont.label("opportunity") }}</h2><a href="/opportunities">전체 {{ opp.total }}건</a></header>
