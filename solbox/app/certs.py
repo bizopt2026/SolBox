@@ -1,4 +1,4 @@
-"""자체 서명 HTTPS 인증서 만들기."""
+"""HTTPS 인증서 만들기: 자체 발급자(ca.crt) 하나와 그것이 서명한 서버 인증서(server.crt)."""
 from __future__ import annotations
 
 import ipaddress
@@ -41,15 +41,48 @@ def _write_private(path: Path, data: bytes) -> None:
         f.write(data)
 
 
+SERVER_DAYS = 825  # 애플 기기(아이폰·맥)는 유효기간이 825일을 넘는 HTTPS 서버 인증서를 믿지 않는다
+CA_DAYS = 3650  # 발급자(CA) 인증서는 10년. 기기에 한 번 "신뢰"로 설치하면 서버 인증서를 다시 만들어도 그대로 쓴다
+CA_NAME = "SolBox Local CA"
+
+
+def _ca(out_dir: Path, new_ca: bool):
+    """`ca.crt`·`ca.key` (자체 발급자). 있으면 다시 쓰고(기기에 설치한 신뢰가 이어진다), 없거나 `new_ca` 면 새로 만든다."""
+    ca_crt, ca_key = out_dir / "ca.crt", out_dir / "ca.key"
+    if not new_ca and ca_crt.is_file() and ca_key.is_file():
+        cert = x509.load_pem_x509_certificate(ca_crt.read_bytes())
+        key = serialization.load_pem_private_key(ca_key.read_bytes(), password=None)
+        return cert, key, False
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, CA_NAME), x509.NameAttribute(NameOID.ORGANIZATION_NAME, "SolBox")])
+    now = datetime.now(timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name).issuer_name(name).public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5)).not_valid_after(now + timedelta(days=CA_DAYS))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+        .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False, key_encipherment=False, data_encipherment=False,
+                                     key_agreement=False, key_cert_sign=True, crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    return cert, key, True
+
+
 def make_self_signed(
-    out_dir: Path, hosts: list[str], days: int = 3650, overwrite: bool = False
+    out_dir: Path, hosts: list[str], days: int = SERVER_DAYS, overwrite: bool = False, new_ca: bool = False
 ) -> tuple[Path, Path]:
-    """`server.crt`, `server.key` (PEM, RSA 2048) 를 만든다. IP 는 IP SAN, 이름은 DNS SAN, 첫 항목이 CN 이다."""
+    """`server.crt`(서버 인증서 + 발급자, PEM), `server.key` 를 만든다. IP 는 IP SAN, 이름은 DNS SAN, 첫 항목이 CN 이다.
+    서버 인증서는 같은 폴더의 자체 발급자 `ca.crt`·`ca.key` 로 서명한다 (없으면 만들고, 있으면 다시 쓴다): 휴대폰·PC 에는 `ca.crt` 를 한 번
+    "신뢰"로 설치하면 된다. 아이폰은 발급자 인증서만 신뢰를 켤 수 있고, 825일을 넘거나 서버 용도(serverAuth)가 없는 서버 인증서는 믿지 않는다
+    (2026-11-27 휴대폰 접속 준비: 전에는 10년짜리 자체 서명 인증서 하나였다)."""
     hosts = [h.strip() for h in hosts if h and h.strip()]
     if not hosts:
         raise ValueError("접속 주소(IP 또는 이름)가 하나 이상 필요합니다.")
     for h in hosts:
         _check_host(h)
+    days = min(days, SERVER_DAYS)
     out_dir = Path(out_dir)
     crt_path, key_path = out_dir / "server.crt", out_dir / "server.key"
     if not overwrite:
@@ -57,23 +90,29 @@ def make_self_signed(
             if p.exists():
                 raise FileExistsError(str(p))
 
+    ca_cert, ca_key, ca_is_new = _ca(out_dir, new_ca)
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, hosts[0])])
     now = datetime.now(timezone.utc)
     cert = (
         x509.CertificateBuilder()
         .subject_name(name)
-        .issuer_name(name)
+        .issuer_name(ca_cert.subject)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=5))
-        .not_valid_after(now + timedelta(days=days))
+        .not_valid_after(min(now + timedelta(days=days), ca_cert.not_valid_after_utc))
         .add_extension(x509.SubjectAlternativeName([_san_entry(h) for h in hosts]), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .sign(key, hashes.SHA256())
+        .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=True, data_encipherment=False,
+                                     key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
+        .sign(ca_key, hashes.SHA256())
     )
     out_dir.mkdir(parents=True, exist_ok=True)
-    crt_pem = cert.public_bytes(serialization.Encoding.PEM)
+    crt_pem = cert.public_bytes(serialization.Encoding.PEM) + ca_cert.public_bytes(serialization.Encoding.PEM)  # 서버가 발급자까지 함께 보낸다
     key_pem = key.private_bytes(
         serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()
     )
@@ -106,4 +145,13 @@ def make_self_signed(
     finally:
         for tmp in (tmp_crt, tmp_key):
             tmp.unlink(missing_ok=True)
+    if ca_is_new:  # 새 발급자는 서버 인증서·키를 다 쓴 뒤에 저장한다 (중간에 실패하면 아무것도 남지 않게). ca.key 는 소유자만 읽는다
+        for path, data, private in ((out_dir / "ca.key", ca_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
+                                                                              serialization.NoEncryption()), True),
+                                    (out_dir / "ca.crt", ca_cert.public_bytes(serialization.Encoding.PEM), False)):
+            path.unlink(missing_ok=True)
+            if private:
+                _write_private(path, data)
+            else:
+                path.write_bytes(data)
     return crt_path, key_path

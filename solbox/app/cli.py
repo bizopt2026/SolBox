@@ -45,9 +45,10 @@ def _backup_command(verify_folder: str | None) -> None:
     print(f"백업했습니다: {path} ({human_size(folder_size(path))})")
 
 
-def _make_cert_command(hosts: list[str], out: str, overwrite: bool) -> None:
+def _make_cert_command(hosts: list[str], out: str, overwrite: bool, new_ca: bool = False) -> None:
+    had_ca = (Path(out) / "ca.crt").is_file()
     try:
-        crt, key = certs.make_self_signed(Path(out), hosts, overwrite=overwrite)
+        crt, key = certs.make_self_signed(Path(out), hosts, overwrite=overwrite, new_ca=new_ca)
     except FileExistsError as e:
         raise SystemExit(f"이미 있는 파일입니다: {e}\n덮어쓰려면 --overwrite 를 붙이세요.") from None
     except ValueError as e:
@@ -56,6 +57,14 @@ def _make_cert_command(hosts: list[str], out: str, overwrite: bool) -> None:
     print("config.toml 에 아래 두 줄을 넣으세요.")
     print(f'ssl_certfile = "{crt.resolve().as_posix()}"')
     print(f'ssl_keyfile = "{key.resolve().as_posix()}"')
+    ca = (Path(out) / "ca.crt").resolve()
+    if had_ca and not new_ca:
+        print(f"발급자 인증서는 전에 만든 것을 그대로 썼습니다: {ca}")
+        print("이미 이 발급자를 신뢰로 설치한 PC·휴대폰은 다시 설치하지 않아도 됩니다.")
+    else:
+        print(f"직원 PC·휴대폰에는 이 발급자 인증서를 한 번 신뢰로 설치하세요: {ca}")
+        print("(서버가 켜져 있으면 https://<접속 주소>:<포트>/ca.crt 에서도 받을 수 있습니다. 운영가이드 4장)")
+    print(f"서버 인증서 유효기간은 {certs.SERVER_DAYS}일입니다. 만료 전에 --overwrite 로 다시 만드세요 (점검 명령이 60일 전부터 알려 줍니다).")
 
 
 def _check_command() -> None:
@@ -145,10 +154,11 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("rebuild-knowledge", help="knowledge 폴더를 DB 기준으로 다시 만들기")
     p = sub.add_parser("backup", help="app.db, uploads, decks, reports 를 백업 폴더에 복사하기")
     p.add_argument("--verify", metavar="폴더", help="백업을 만들지 않고 이 백업 폴더를 점검한다")
-    p = sub.add_parser("make-cert", help="자체 서명 HTTPS 인증서 만들기")
+    p = sub.add_parser("make-cert", help="HTTPS 인증서 만들기 (자체 발급자 ca.crt + 서버 인증서)")
     p.add_argument("--host", action="append", required=True, help="접속 주소(IP 또는 이름). 여러 번 쓸 수 있고 첫 항목이 대표 이름이 된다")
     p.add_argument("--out", default="certs", help="저장할 폴더 (기본 certs)")
-    p.add_argument("--overwrite", action="store_true", help="이미 있는 인증서를 덮어쓴다")
+    p.add_argument("--overwrite", action="store_true", help="이미 있는 서버 인증서를 덮어쓴다 (발급자 ca.crt 는 그대로 다시 쓴다)")
+    p.add_argument("--new-ca", action="store_true", help="발급자 인증서(ca.crt)도 새로 만든다 (모든 PC·휴대폰에 다시 설치해야 한다)")
     sub.add_parser("stt-setup", help="음성 받아쓰기 모델을 data_dir/models 에 받고 점검하기 (인터넷 필요, 처음 한 번)")
     p = sub.add_parser("stt-test", help="음성 파일 하나를 받아써서 글·걸린 시간·속도 보기")
     p.add_argument("audio", metavar="음성파일")
@@ -156,7 +166,7 @@ def main(argv: list[str] | None = None) -> None:
     _configure_console()
     args = parser.parse_args(argv)
     if args.cmd == "make-cert":
-        _make_cert_command(args.host, args.out, args.overwrite)
+        _make_cert_command(args.host, args.out, args.overwrite, args.new_ca)
         return
     if args.cmd == "stt-setup":
         _stt_setup_command()
