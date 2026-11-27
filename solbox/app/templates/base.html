@@ -66,16 +66,7 @@
       <input id="global-search" type="search" name="q" value="{{ request.query_params.get('q', '') if path == '/search' else '' }}" placeholder="솔루션, 고객, 기록 찾기" autocomplete="off" aria-keyshortcuts="/ Control+K Meta+K" title="찾기·바로 만들기 (/ 또는 Ctrl+K)">
       <kbd aria-hidden="true">/</kbd>
     </form>{% endif %}
-    {% set mj = my_jobs() if my_jobs is defined and not locked else [] %}
-    {% if mj %}{% set active_n = mj | selectattr("status", "in", ont.JOB_ACTIVE) | list | length %}
-    <details class="jobtray"><summary>내 AI 작업{% if active_n %} <span class="more-dot" role="img" aria-label="진행 중 {{ active_n }}개">{{ active_n }}</span>{% endif %}</summary>
-      <ul>{% for j in mj %}<li>{% if j.href %}<a href="{{ j.href }}" data-tray>{{ j.kind }}</a>{% else %}{{ j.kind }}{% endif %}<span class="badge {{ ont.tone_class('job_status', j.status) }}">{{ ont.JOB_STATUSES.get(j.status, j.status) }}</span>{% if j.finished_at %} <small class="muted">{{ kdatetime(j.finished_at) }}</small>{% endif %}</li>{% endfor %}</ul>
-    </details>
-    {% endif %}
-    {% if ai %}
-    {% if user.role == "admin" %}<a class="aistat {{ ai.state }}" href="/admin/jobs" title="{{ ai.text }} · AI 작업 보기"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></a>
-    {% else %}<span class="aistat {{ ai.state }}" title="{{ ai.text }}"><i class="pulse" aria-hidden="true"></i><span class="aistat-text">{{ ai.text }}</span></span>{% endif %}
-    {% endif %}
+    {% include "_top_status.html" %}
     {% if not locked %}{% if user.role == "admin" %}{% set admin_group = ont.nav_groups(true) | selectattr("code", "equalto", "admin") | first %}{% set in_admin = admin_group.items | selectattr("path", "equalto", cur) | list %}
     <details class="top-admin"><summary{% if in_admin %} class="current"{% endif %}>{{ admin_group.label }}</summary>{# 관리 메뉴: 넓은 화면 위쪽 줄 오른쪽 펼침 (관리자만, 2026-11-27 메뉴 개편) #}
       <nav aria-label="{{ admin_group.label }}">{% for item in admin_group.items %}<a href="{{ item.href }}"{% if cur == item.path %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}</nav>

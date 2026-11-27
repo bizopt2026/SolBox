@@ -1053,7 +1053,15 @@ def section_summaries(p: Proposal, candidates: list[Solution]) -> dict[str, str]
     if is_group(p):
         who = target_name(p) + (f" · 고객 {len(p.group_customers)}곳 붙임" if p.group_customers else "") + (f" · {p.bm.name}" if p.bm is not None else "")
     else:
-        who = target_name(p) + (f" · {p.project.name}" if p.project is not None else "") + (f" · {p.opportunity.name}" if p.opportunity is not None else "")
+        # 같은 이름(고객 이름이 든 프로젝트, 수주로 이어진 같은 이름의 영업기회)은 한 번만 (베타 점검 3차 2026-11-27)
+        names = [target_name(p)]
+        for extra in ((p.project.name if p.project is not None else ""), (p.opportunity.name if p.opportunity is not None else "")):
+            if extra and extra not in names:
+                if names[0] and names[0] in extra and len(names) == 1:
+                    names[0] = extra  # "한빛병원" 다음 "한빛병원 냉방 …" 이면 긴 쪽 하나로
+                else:
+                    names.append(extra)
+        who = " · ".join(n for n in names if n)
     # 세 숫자는 따로 부른다: "후보 솔루션 n개"(AI 에 주는 후보), "선택한 방향의 솔루션 n개"(조합). 방향을 고르기 전에는 조합 이야기를 하지 않는다
     target = f"{who} — 후보 솔루션 {len(candidates)}개" if candidates else who
     directions = p.directions or []

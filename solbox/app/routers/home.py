@@ -232,3 +232,10 @@ def home(request: Request, fu_toggled: str = "", fu: str = "", opp: str = "", us
         work=my_work(db, user, upcoming_follow_ups(db, now) if mine_only else follow_ups, stale_opportunities(db, user, now, "mine") if view != "mine" else stale,
                      intake["ready_count"], now),
     )
+
+
+@router.get("/ui/top-status")
+def top_status(request: Request, user: User = Depends(require_user)):
+    """위쪽 줄의 "내 AI 작업"·AI 상태 조각 (`_top_status.html`): 작업이 진행 중일 때 화면이 15초마다 다시 받는다."""
+    return render(request, "_top_status.html", user=user)
+

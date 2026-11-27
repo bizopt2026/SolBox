@@ -174,3 +174,55 @@ def test_delete_confirm_counts_contacts_and_does_not_repeat(admin_client, db):
     act = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", admin_client.get(f"/activities/{a.id}/delete").text))
     assert act.count("후속 조치") == 1, "후속 조치 지움 문장이 두 번 나오지 않는다"
 
+
+
+def test_need_conflict_lists_a_changed_customer(user_client, db):
+    """다른 탭이 니즈의 고객을 바꿨으면 충돌 표에 "고객"이 나온다 (강제 저장이 몰래 되돌리지 않게, 베타 점검 3차)."""
+    import re
+
+    a, b = Customer(name="한빛병원"), Customer(name="대한물산")
+    db.add_all([a, b])
+    db.flush()
+    n = CustomerNeed(customer_id=a.id, customer_name=a.name, content="냉방")
+    db.add(n)
+    db.commit()
+    page = user_client.get(f"/needs/{n.id}/edit").text
+    rev = re.search(r'name="_rev" value="([^"]+)"', page).group(1)
+    assert user_client.post(f"/needs/{n.id}", data={"customer_id": str(b.id), "content": "냉방", "status": "new", "_rev": rev}, follow_redirects=False).status_code == 303
+    r = user_client.post(f"/needs/{n.id}", data={"customer_id": str(a.id), "content": "냉방 고침", "status": "new", "_rev": rev})
+    assert r.status_code == 409
+    diff = r.text.split('class="conflict-diff"')[1].split("</ul>")[0]
+    assert "고객" in diff and "대한물산" in diff
+
+
+def test_opportunity_made_from_a_need_counts_the_need_activity(db):
+    from app import opportunity_ai as oai
+    from app.models import Activity, Opportunity
+
+    c = Customer(name="한빛")
+    db.add(c)
+    db.flush()
+    o = Opportunity(name="한빛 관제", customer_id=c.id)
+    a = Activity(kind="meeting", date=date.today(), title="미팅", raw_text="x")
+    db.add_all([o, a])
+    db.flush()
+    assert not oai.has_activities(db, o)
+    db.add(CustomerNeed(customer_id=c.id, customer_name="한빛", content="관제", activity_id=a.id, opportunity_id=o.id))
+    db.commit()
+    assert oai.has_activities(db, o), "니즈가 나온 활동 기록도 분석 재료"
+
+
+def test_top_status_refreshes_only_while_a_job_runs(user_client, db):
+    from sqlalchemy import select
+
+    from app.ai import queue as ai_queue
+    from app.models import User
+
+    home = user_client.get("/").text
+    assert 'id="top-status"' in home and 'hx-get="/ui/top-status"' not in home, "할 일 없을 때는 다시 부르지 않는다"
+    kim = db.scalars(select(User).where(User.username == "kim")).one()
+    ai_queue.enqueue(db, "solution_draft", {}, kim.id)
+    home = user_client.get("/").text
+    assert 'hx-get="/ui/top-status"' in home and "내 AI 작업" in home
+    part = user_client.get("/ui/top-status")
+    assert part.status_code == 200 and part.text.lstrip().startswith("{#") is False and 'id="top-status"' in part.text and "<html" not in part.text
