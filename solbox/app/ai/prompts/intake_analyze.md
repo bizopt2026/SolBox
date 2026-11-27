@@ -69,7 +69,7 @@ MEMO>>>
   "activities": [
     {
       "draft": {
-        "kind": "meeting", "date": "YYYY-MM-DD", "title": "", "attendees": [], "discussion": [], "decisions": [],
+        "kind": "meeting", "date": "YYYY-MM-DD", "title": "", "attendees": [{"name": "", "title": "", "company": "", "internal": false}], "discussion": [], "decisions": [],
         "follow_ups": [{"task": "", "owner": "", "due": "YYYY-MM-DD"}],
         "demand_signals": [{"customer": "", "content": ""}],
         "mentions": {"solutions": [], "customers": [], "projects": [], "partners": []}
@@ -96,5 +96,5 @@ MEMO>>>
 
 - `additions`: `solution_id` 는 위 목록의 `id` 숫자이고, `note` 는 더할 자료에 대한 짧은 메모입니다.
 - `contacts`: `target_type` 은 `partner` 또는 `customer`, `target_id` 는 위 목록의 `id` 숫자입니다. `person` 담당자 이름, `role` 직책·부서, `phone` 전화, `email` 이메일, `address` 주소이고, 자료에 적힌 대로만 쓰세요. 연락처 한 줄에는 사람 이름, 직책, 부서, 전화, 이메일(필요하면 주소)만 담고, 그 밖의 글은 어느 칸에도 쓰지 않습니다. 명함에 인쇄된 슬로건·캐치프레이즈·영문 모토, 회사·제품·서비스 소개, 홍보 문구, 홈페이지 광고 문구는 연락처가 아니므로 `person`·`role`·`address`·`note` 어디에도 넣지 마세요(명함의 나머지 글은 버리고, 필요하면 `reason` 에만 한 줄로 적습니다). `note` 는 기본적으로 빈 문자열이고, 그 연락처가 누구의 것인지 알아보게 하는 짧은 말(예: "대표번호", "구매 담당")이 꼭 필요할 때만 씁니다. 이 항목은 저장할 때 대상의 연락처 칸에 한 줄로 덧붙여질 뿐 기존 내용은 그대로 남습니다.
-- `activities`: `draft.kind` 는 {{activity_kind_inline}} 중 하나입니다. `date` 는 `YYYY-MM-DD` 이고 자료에 없으면 오늘 날짜입니다. `follow_ups[].due` 는 모르면 빈 문자열입니다. `mentions` 에는 자료에 나온 솔루션·고객·프로젝트·파트너 이름을 씁니다.
+- `activities`: `draft.kind` 는 {{activity_kind_inline}} 중 하나입니다. `date` 는 `YYYY-MM-DD` 이고 자료에 없으면 오늘 날짜입니다. `follow_ups[].due` 는 모르면 빈 문자열입니다. `mentions` 에는 자료에 나온 솔루션·고객·프로젝트·파트너 이름을 씁니다. `attendees` 는 참석자마다 `name`·`title`(직함·부서)·`company`(고객·파트너 이름)·`internal`(우리 회사 사람이면 `true`)이고, 자료에 나온 사람만 씁니다.
 - 해당하는 것이 없는 목록은 빈 배열 `[]` 로 두세요.

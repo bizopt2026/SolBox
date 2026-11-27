@@ -194,3 +194,73 @@ def split_for_new_company(text: str) -> tuple[list[dict], str]:
         else:
             rest.append(row["line"])
     return people, "\n".join(rest)
+
+
+# ---- 회의 참석자 맞추기 (담당자 관리 부담 줄이기 ①, 2026-11-27) ----
+
+def attendee_list(raw) -> list[dict]:
+    """AI 의 `attendees` (글 또는 {name, title, company, internal}) → [{"name", "title", "company", "internal"}]. 이름이 없는 것은 버린다."""
+    out = []
+    for x in raw or []:
+        if isinstance(x, str):
+            row = {"name": x.strip(), "title": "", "company": "", "internal": False}
+        elif isinstance(x, dict):
+            row = {"name": str(x.get("name") or "").strip(), "title": str(x.get("title") or "").strip(),
+                   "company": str(x.get("company") or "").strip(), "internal": x.get("internal") is True}
+        else:
+            continue
+        if row["name"]:
+            out.append(row)
+    return out
+
+
+def _keyed(contacts) -> dict[str, list]:
+    by: dict[str, list] = {}
+    for c in contacts:
+        k = _name_key(c.name)
+        if len(k) >= 2:
+            by.setdefault(k, []).append(c)
+    return by
+
+
+def match_attendees(contacts, attendees: list[dict], staff_names: set[str]) -> list[dict]:
+    """참석자마다 {"name", "title", "status": matched|ambiguous|new, "contact_id", "candidates"}. 우리 회사 사람(internal·사용자 이름)·2자 미만 이름은 뺀다.
+    이름 전체가 맞지 않으면 첫 낱말로 한 번 더 본다 ("최현수 상무")."""
+    by, out, seen = _keyed(contacts), [], set()
+    for a in attendees:
+        if a.get("internal"):
+            continue
+        full, first = _name_key(a["name"]), _name_key(a["name"].split()[0])
+        if len(full) < 2 or full in staff_names or first in staff_names:
+            continue
+        found = by.get(full) or by.get(first) or []
+        name = a["name"] if by.get(full) or not by.get(first) else a["name"].split()[0]
+        key = tuple(c.id for c in found) or (full,)
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(found) == 1:
+            out.append({"name": found[0].name, "title": a["title"], "status": "matched", "contact_id": found[0].id, "candidates": [found[0].id]})
+        elif found:
+            out.append({"name": name, "title": a["title"], "status": "ambiguous", "contact_id": None, "candidates": [c.id for c in found]})
+        else:
+            out.append({"name": a["name"], "title": a["title"], "status": "new", "contact_id": None, "candidates": []})
+    return out
+
+
+def found_in_text(contacts, text: str) -> list:
+    """글(공백 무시)에 이름이 나오는 담당자. 같은 이름이 범위에 둘 이상이면 뺀다 (어느 사람인지 모른다)."""
+    flat = _name_key(text)
+    return [group[0] for k, group in _keyed(contacts).items() if len(group) == 1 and k in flat]
+
+
+def staff_names(db) -> set[str]:
+    """사용자 계정의 이름·아이디 (공백 무시): 우리 직원은 담당자로 잇지 않는다."""
+    from sqlalchemy import select
+
+    from app.models import User
+
+    out = set()
+    for name, username in db.execute(select(User.name, User.username)):
+        out |= {k for k in (_name_key(name), _name_key(username)) if len(k) >= 2}
+    return out
