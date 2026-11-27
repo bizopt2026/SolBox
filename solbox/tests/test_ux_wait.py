@@ -61,8 +61,9 @@ def test_job_status_fragment_shows_expected_and_elapsed(user_client, db, monkeyp
 
 
 def test_pending_job_explains_the_queue(user_client, db):
+    """앞에 아무 작업이 없으면 "곧 시작합니다" (베타 사전 점검 2026-11-27: 앞이 비었는데 "앞 작업이 끝나면"이라고 했다). 앞이 있으면 test_generic_wait_text…"""
     j = _job(db)
-    assert "AI 대기 1번째 (앞 작업이 끝나면 시작합니다)" in user_client.get(f"/jobs/{j.id}/status").text
+    assert "AI 대기 1번째 (곧 시작합니다)" in user_client.get(f"/jobs/{j.id}/status").text
 
 
 def test_research_status_keeps_going_note_and_queue_hint(admin_client, user_client, db):

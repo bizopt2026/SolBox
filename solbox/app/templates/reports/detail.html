@@ -11,6 +11,7 @@
 {# 제목 줄: 삭제 → 다음 동작 하나 (실적·점검은 다음 단계로, 계획·확정 단계는 확정 / 확정 풀기). 따로 고치는 화면은 없다 (각 카드의 폼에서 고친다) #}
 {% call detail_head(title, "/reports", report, true, crumbs=crumbs, sub=sub, status=status_html, primary=heads.get(step), edit=false) %}
   {% if step in ("plan", "files") and not confirmed %}
+  {% if report.plan_draft %}<span class="draft-pending" role="note">표에 옮기지 않은 AI 초안이 있어요</span>{% endif %}{# 확정은 표대로만 한다 (베타 사전 점검 2026-11-27: 초안 띠를 두고 확정하면 알림 없이 0개로 확정됐다) #}
   <form method="post" action="/reports/{{ rid }}/confirm">{{ form_token() }}<button type="submit" class="button primary">계획 확정 →</button></form>
   {% elif step == "files" and confirmed and not unconfirm_problem %}
   <form method="post" action="/reports/{{ rid }}/unconfirm"><button type="submit" class="button">확정 풀기</button></form>

@@ -261,8 +261,12 @@ def new_form(
     cid = opps.parse_id(customer_id)
     form = _blank_form(str(cid) if cid is not None and db.get(Customer, cid) is not None else "", user.id)  # 없는 고객 번호는 무시한다
     nid = opps.parse_id(need_id)
-    if nid is not None and any(n.id == nid for n in opps.bundlable_needs(db, opps.parse_id(customer_id))):
+    need = next((n for n in opps.bundlable_needs(db, opps.parse_id(customer_id)) if n.id == nid), None) if nid is not None else None
+    if need is not None:
         form["need_ids"] = [nid]  # 고객 니즈에서 만들기: 그 니즈를 체크해 둔다 (그 고객의, 아직 묶이지 않은 니즈일 때만)
+        # 이름 칸도 비워 두지 않는다: "<고객> · <니즈 첫 줄>" 을 고쳐 쓰면 된다 (베타 사전 점검 2026-11-27)
+        customer = db.get(Customer, cid)
+        form["name"] = " · ".join(x for x in ((customer.name if customer else ""), ui.first_line(need.content, 40)) if x)
     return _form_page(request, db, form)
 
 

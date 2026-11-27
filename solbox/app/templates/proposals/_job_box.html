@@ -8,7 +8,7 @@
   {% if not stalled %}hx-get="/proposals/{{ proposal.id }}/progress?section={{ section }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   {% if stalled %}<span class="error">{{ labels.AI_OFF_NOTICE }}</span>
   {% elif job.status == "pending" %}
-  <p><span class="pulse" aria-hidden="true"></span><b>AI 대기 {{ position }}번째</b> · 앞 작업이 끝나면 {{ what }}을 만들기 시작합니다. {% if job.kind in labels.JOB_EXPECTED %}<span class="muted">({{ labels.JOB_EXPECTED[job.kind] }} 끝납니다)</span>{% endif %}</p>
+  <p><span class="pulse" aria-hidden="true"></span><b>AI 대기 {{ position }}번째</b> · {{ "앞 작업이 끝나면" if queue_ahead(job).count else "곧" }} {{ what }}을 만들기 시작합니다. {% if job.kind in labels.JOB_EXPECTED %}<span class="muted">({{ labels.JOB_EXPECTED[job.kind] }} 끝납니다)</span>{% endif %}</p>
   {% set ahead = queue_ahead(job, 5) %}{% if ahead.lines %}<p class="muted">앞: {{ ahead.lines | join(", ") }}</p>{% endif %}
   {% else %}
   <p><span class="pulse" aria-hidden="true"></span><b>AI가 {{ what }}을 {{ "다시 쓰는" if job.kind == "proposal_slide" else "만드는" }} 중…</b> <span class="muted">{{ wait_detail(job) }}</span></p>
