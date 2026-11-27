@@ -510,6 +510,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("initiative_kind", "과제 종류", INITIATIVE_KINDS, INITIATIVE_KIND_DEFAULT),
     CodeList("initiative_status", "과제 상태", INITIATIVE_STATUSES, INITIATIVE_STATUS_DEFAULT),
     CodeList("alignment_verdict", "정렬 판단", ALIGNMENT_VERDICTS),
+    CodeList("need_status", "고객니즈 상태", NEED_STATUSES, NEED_STATUS_DEFAULT),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -540,6 +541,7 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "initiative_kind": {"task": "brand", "issue": "bad"},
     "alignment_verdict": {"aligned": "ok", "misaligned": "bad", "unclear": "warn"},
     "initiative_status": {"open": "violet", "doing": "brand", "blocked": "bad", "done": "ok", "dropped": "slate"},
+    "need_status": {"new": "violet", "reviewing": "warn", "opportunity": "brand", "hold": "slate", "resolved": "ok"},
 }
 
 
@@ -753,9 +755,10 @@ _TYPE_LIST = [
     ObjectType("follow_up", "후속 조치", "부속", "FollowUp", "follow_ups", "/follow-ups",
                description="활동 기록에서 나온 할 일",
                props={"task": "할 일", "owner": "담당", "due": "기한", "done": "완료"}),
-    ObjectType("customer_need", TERMS["customer_need"], "부속", "CustomerNeed", "customer_needs",
-               props={"customer": "고객", "content": "내용", "opportunity": "영업기회"},
-               description="활동 기록에서 드러난 고객의 필요. 같은 고객의 니즈를 묶어 영업기회로 만듭니다"),
+    ObjectType("customer_need", TERMS["customer_need"], "부속", "CustomerNeed", "customer_needs", "/needs", "/needs/{id}",
+               nav="고객니즈", nav_group="source",
+               props={"customer": "고객", "content": "내용", "opportunity": "영업기회", "status": "상태", "field": "분야", "memo": "메모", "activity": "나온 곳"},
+               description="고객이 보인 필요 한 줄. 활동 기록에서 나오거나 직접 추가하고, 상태와 분야로 챙기며 영업기회로 묶습니다"),
     ObjectType("direction", "제안 방향", "부속", embedded_in="proposals.directions",
                props={"title": "제목", "summary": "한 줄 소개", "solutions": "솔루션", "rationale": "근거", "effects": "기대 효과", "business_type": "사업방식"}),
     ObjectType("slide", "구성안 장", "부속", embedded_in="proposals.outline",
@@ -832,7 +835,7 @@ NAV_ITEMS = (
     NavItem("ai/inbox", "AI 제안함", "today"),
     _type_nav_item("activity"), _type_nav_item("report"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
-    _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
+    _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"), _type_nav_item("customer_need"),
     _type_nav_item("bm"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
@@ -850,6 +853,7 @@ NAV_ICONS = {
     "solutions": '<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
     "partners": '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c3 .2 5 2.3 5 5.8"/>',
     "research": '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+    "needs": '<path d="M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3z"/><path d="M9 19h6M10 22h4"/>',
     "customers": '<path d="M5 21V5l8-2v18"/><path d="M13 9h6v12"/><path d="M8 8h2M8 12h2M8 16h2M3 21h18"/>',
     "opportunities": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>',
     "proposals": '<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M7 14l3-3 3 2 4-5"/><path d="M8 21h8"/>',
@@ -1065,7 +1069,8 @@ RELATIONS: tuple[Relation, ...] = (
        "R6': 프로젝트는 activity_businesses, 영업기회는 activity_opportunities. 영업기회는 활동 기록 화면에서 직접 고른다 (이름 언급으로 만들지 않는다)"),
     _r("R7", "관련된다", "activity", "partner", "N:M", "link", "activity_partners"),
     _r("R8", "나온다", "activity", "follow_up", "1:N", "fk", "follow_ups.activity_id", "활동 기록을 지우면 함께 지워진다. 옛 JSON 열은 읽지 않는다"),
-    _r("R9", "나온다", "activity", "customer_need", "1:N", "fk", "customer_needs.activity_id", "활동 기록을 지우면 함께 지워진다. 옛 JSON 열은 읽지 않는다"),
+    _r("R9", "나온다", "activity", "customer_need", "1:N", "fk", "customer_needs.activity_id",
+       "선택 (직접 추가한 니즈는 비어 있다). 활동 기록을 지우거나 폼에서 줄을 빼면 손대지 않은 니즈만 지워지고 나머지는 비워진다 (app/needs.py). 옛 JSON 열은 읽지 않는다"),
     _r("R10", "의 것이다", "customer_need", "customer", "N:1", "fk", "customer_needs.customer_id customer_needs.customer_name",
        "선택. 쓴 이름 글자도 남기고, 고객을 지우면 연결만 풀린다. 이름이 등록된 고객과 정확히 하나로 맞을 때만 연결한다"),
     _r("R11", "맡는다", "follow_up", "user", "N:1", "fk", "follow_ups.owner_user_id follow_ups.owner",
@@ -1129,6 +1134,9 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R50", "의 사람이다", "contact", "customer", "N:1", "fk", "contacts.customer_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R51", "의 사람이다", "contact", "partner", "N:1", "fk", "contacts.partner_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R52", "관여한다", "contact", "opportunity", "N:M", "link", "opportunity_contacts", "같은 고객의 담당자만"),
+    # 고객니즈 관리 (2026-11-27): 니즈도 솔루션 분야를 같이 쓴다
+    _r("R53", "묶는다", "solution_field", "customer_need", "1:N", "fk", "customer_needs.field_id",
+       "선택 (비면 분야 미지정). 사용 중인 분야만 새로 고른다. 니즈가 쓰는 분야는 지울 수 없다"),
 )
 
 # ======================================================================================
@@ -1145,6 +1153,7 @@ UNTRAVERSED = {
     "R16": "방향은 제안 건의 JSON 안에만 있어 따라갈 대상 기록이 없다 (선택한 방향의 솔루션은 R14 로 따라간다)",
     "R17": "근거는 방향·장·제안 안의 지식 사본 경로 글자라 대상 기록이 없다. 해석은 parse_rel / sources.py",
     "R36": "분야는 관리자가 고치는 분류 목록이라 상세 화면이 없다. 솔루션 화면의 속성 줄·목록의 묶어 보기로 보이고 연결 목록에는 올리지 않는다",
+    "R53": "R36 과 같다: 분야는 상세 화면이 없다. 고객니즈 화면의 속성 줄·목록의 묶어 보기로 보인다",
 }
 # 화면의 "연결된 것" 에는 보이지만 지식 사본의 "## 연결" 에는 적지 않는 관계와 그 이유 (knowledge.CARD_EXCLUDE 가 읽는다)
 UNMIRRORED = {key: "업무 보고는 사본을 만들지 않는다 (팀 내부 보고라 AI 가 읽는 지식 폴더에 넣지 않는다)" for key in ("R37", "R38", "R39", "R40")}
@@ -1283,6 +1292,7 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "project": ("R2", "R31"),
     "opportunity": ("R27", "R30", "R32", "R52"),
     "contact": ("R50", "R51"),
+    "customer_need": ("R9", "R10", "R26"),  # 고객니즈 상세의 기본 정보 줄(고객·나온 곳·영업기회)로 보인다
     "bm": (),
     "activity": ("R8", "R9", "R21", "R22"),
     "proposal": ("R12", "R13", "R29", "R34", "R35"),
@@ -1309,7 +1319,7 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R34:proposal"),
         MainGroup("D14", None, False, ("제안 만들기", "/proposals/new?customer_id={id}&solution_id={item}")),
         MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new?customer_id={id}"), True),
-        MainGroup("R10:customer_need"),
+        MainGroup("R10:customer_need", ("+ 니즈 추가", "/needs/new?customer_id={id}"), True),
         MainGroup("D6"),
     ),
     "partner": (
@@ -1391,6 +1401,7 @@ LIST_FILTERS: dict[tuple[str, str], tuple[str, str]] = {
     ("initiative", "customer_id"): ("customer", "R44"),
     ("initiative", "opportunity_id"): ("opportunity", "R45"),
     ("initiative", "project_id"): ("project", "R46"),
+    ("customer_need", "customer_id"): ("customer", "R10"),
 }
 
 # 목록의 `?sort=` 정렬: 유형 -> ((코드, 이름), …). 첫 항목이 지금의 기본 순서이고 (`?sort` 가 없거나 틀리면 이것), 나머지는 고르는 순서다.
@@ -1406,6 +1417,7 @@ LIST_SORTS: dict[str, tuple[tuple[str, str], ...]] = {
     "activity": (("date", "일자순"), ("recent", "최근 수정순"), ("name", "제목순")),
     "strategy": (("recent", "최근 수정순"), ("name", "제목순")),
     "initiative": (("recent", "최근 수정순"), ("due", "기한순"), ("name", "제목순")),
+    "customer_need": (("created", "최신순"), ("customer", "고객 이름순"), ("recent", "최근 수정순")),
 }
 
 # 걸러 보기 파라미터가 아닌 "모두 보기" 목적지: (기준 유형, 그룹 키) -> 주소 ({id} 는 기준 기록 번호). 후속 조치 목록은 고객별로 모아 본다.
@@ -1576,7 +1588,8 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
     "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다).", REPORT_PLAN_LINK_EFFECT),
     "bm": ("솔루션과의 연결이 풀립니다 (솔루션은 남습니다).",),
     "opportunity": (OPPORTUNITY_RULES["delete"] + ".", REPORT_PLAN_LINK_EFFECT),
-    "activity": ("후속 조치와 고객 니즈 줄이 함께 지워집니다.",
+    "activity": ("후속 조치가 함께 지워집니다.",
+                 "고객 니즈는 손대지 않은 줄(새 니즈·메모 없음·영업기회 없음)만 지워지고, 나머지는 나온 곳만 비워져 고객니즈 목록에 남습니다.",
                  "연결된 솔루션·고객·파트너·프로젝트는 남습니다.",
                  "이 기록을 만든 올린 원본 파일은 남습니다."),
     "proposal": ("대화·방향·구성안과 만든 제안서 파일이 함께 지워집니다.", "대상 고객(붙인 고객)·신규 사업(BM)·솔루션 기록은 남습니다."),
@@ -1611,8 +1624,9 @@ DELETE_IMPACT: dict[str, dict] = {
     "bm": {"cut": (("솔루션", "R33", "solution"), ("프로젝트", "R31", "project"), ("영업기회", "R32", "opportunity"))},
     "opportunity": {"cut": (("고객 니즈", "R26", "customer_need"), ("제안 건", "R29", "proposal"), ("프로젝트", "R30", "project"),
                             ("활동 기록", "R6", "activity"), ("솔루션", "R28", "solution"), ("BM", "R32", "bm"), ("업무 보고 계획 항목", "R39", "report_item"))},
-    "activity": {"cut": (("솔루션", "R4", "solution"), ("고객", "R5", "customer"), ("파트너", "R7", "partner"), ("프로젝트", "R6", "project"), ("영업기회", "R6", "opportunity")),
-                 "gone": (("후속 조치", "R8", "follow_up"), ("고객 니즈", "R9", "customer_need"))},
+    "activity": {"cut": (("솔루션", "R4", "solution"), ("고객", "R5", "customer"), ("파트너", "R7", "partner"), ("프로젝트", "R6", "project"), ("영업기회", "R6", "opportunity"),
+                         ("고객 니즈 (손댄 줄은 남음)", "R9", "customer_need")),
+                 "gone": (("후속 조치", "R8", "follow_up"),)},
     "strategy": {"cut": (("과제", "R41", "initiative"),), "gone": (("자료", "R47", "workspace_file"),)},
     "initiative": {"cut": (("솔루션", "R42", "solution"), ("파트너", "R43", "partner"), ("고객", "R44", "customer"), ("영업기회", "R45", "opportunity"),
                            ("프로젝트", "R46", "project")), "gone": (("자료", "R48", "workspace_file"),)},
