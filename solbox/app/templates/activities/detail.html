@@ -1,16 +1,22 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail_head, props_card, meta_card, pill, time_tag %}
+{% from "_macros.html" import detail_head, meta_card %}
 {% from "_related.html" import related_card %}
 {% block title %}{{ activity.title or "활동 기록" }}{% endblock %}
 {% block content %}
 {% set title = activity.title or "(제목 없음)" %}
 {% set sub = [kdate(activity.date) if activity.date else none, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind), (activity.customers | map(attribute="name") | join(", ")) or none] | select | join(" · ") %}
-{{ detail_head(title, "/activities", activity, can_delete, crumbs=ui.crumbs("activity", title), sub=sub or none) }}
+{# 다음 동작 하나: 아직 영업기회로 묶이지 않은 (고객이 이어진) 니즈가 있으면 첫 니즈로 "영업기회 만들기" (UX 다듬기 2026-11-27). 없으면 주 버튼 없음 #}
+{% set open_need = activity.needs | selectattr("customer_id") | rejectattr("opportunity_id") | first %}
+{% set next_step = (ont.label("opportunity") ~ " 만들기", "/opportunities/new?customer_id=" ~ open_need.customer_id ~ "&need_id=" ~ open_need.id) if open_need else none %}
+{{ detail_head(title, "/activities", activity, can_delete, crumbs=ui.crumbs("activity", title), sub=sub or none, primary=next_step) }}
 <div class="dgrid">
   <div class="dmain">
-    {% set date_tag %}{% if activity.date %}{{ time_tag(activity.date) }}{% endif %}{% endset %}
-    {% set attendees_cell %}{% for p in activity.contacts %}<a href="/contacts/{{ p.id }}">{{ p.name }}</a>{% if p.title %} {{ p.title }}{% endif %}{{ " · " if not loop.last }}{% endfor %}{% endset %}
-    {{ props_card("기본 정보", [(ont.prop("activity", "kind"), pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind))), (ont.prop("activity", "date"), date_tag)] + ([(ont.prop("activity", "contacts"), attendees_cell | trim)] if activity.contacts else []), "/activities/" ~ activity.id ~ "/edit") }}
+    {# 일자·종류·고객은 제목 밑 한 줄에 있으므로 따로 "기본 정보" 카드를 두지 않는다. 참석 담당자가 있을 때만 그 카드 (UX 다듬기 2026-11-27) #}
+    {% if activity.contacts %}
+    <section class="card stack" aria-labelledby="h-attendees"><div class="card-head"><h2 id="h-attendees">{{ ont.prop("activity", "contacts") }}<span class="count">{{ activity.contacts | length }}명</span></h2><a href="/activities/{{ activity.id }}/edit">수정</a></div>
+      <p class="attendees">{% for p in activity.contacts %}<a href="/contacts/{{ p.id }}">{{ p.name }}</a>{% if p.title %} <span class="muted">{{ p.title }}</span>{% endif %}{{ " · " if not loop.last }}{% endfor %}</p>
+    </section>
+    {% endif %}
     {% if activity.summary_md %}
     <section class="card stack"><div class="card-head"><h2>{{ ont.prop("activity", "summary_md") }}</h2></div><div class="md">{{ activity.summary_md | md }}</div></section>
     {% endif %}

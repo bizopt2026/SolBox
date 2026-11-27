@@ -1711,6 +1711,7 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .work-cell.tone-warn { border-color: #f5dca6; background: #fffaf0; }
 .work-cell.tone-brand { border-color: #c9d4fb; background: #f5f7ff; }
 .work-cell.is-zero { background: transparent; border-style: dashed; }  /* 0 인 칸은 흐리게: 챙길 것이 있는 칸이 먼저 눈에 들어오게 (칸은 그대로 둔다: 0 도 정보다. UX 2순위 2026-11-27) */
+.attendees { margin: 0; line-height: 1.8; }  /* 활동 기록 상세의 참석 담당자 한 줄 */
 .list-sum { margin: 0 0 var(--s3); color: var(--ink-2); font-size: var(--fs-note); }  /* 목록 표 위 합계 한 줄 (영업기회) */
 .work-cell.is-zero b { color: var(--ink-3); font-weight: 500; }
 @media (max-width: 1099px) { .work-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
