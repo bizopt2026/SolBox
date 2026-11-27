@@ -123,7 +123,7 @@ class ActivityDraft(BaseModel):
     kind: str = ontology.ACTIVITY_KIND_DEFAULT
     date: str | None = None
     title: str = ""
-    attendees: list[str] = []
+    attendees: list[Any] = []  # 글 또는 {name, title, company, internal} (담당자 연결 ①: app.contacts.attendee_list)
     discussion: list[str] = []
     decisions: list[str] = []
     follow_ups: list[FollowUpDraft] = []
@@ -214,8 +214,11 @@ def match_mentions(db: Session, mentions: Mentions) -> dict:
 
 def draft_summary_md(d: ActivityDraft) -> str:
     sections = []
-    for title, items in (("참석자", d.attendees), ("논의 내용", d.discussion), ("결정 사항", d.decisions)):
-        items = [i.strip() for i in items if i.strip()]
+    from app.contacts import attendee_list
+
+    people = [a["name"] + (f" ({a['title']})" if a["title"] else "") for a in attendee_list(d.attendees)]
+    for title, items in (("참석자", people), ("논의 내용", d.discussion), ("결정 사항", d.decisions)):
+        items = [i.strip() for i in items if isinstance(i, str) and i.strip()]
         if items:
             sections.append(f"## {title}\n" + "\n".join(f"- {i}" for i in items))
     return "\n\n".join(sections)

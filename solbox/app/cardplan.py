@@ -82,7 +82,7 @@ def _dup_note(target, v: dict, card: cardfile.Card) -> str:
 
     if (v.get("person") or "").strip():
         same = ct.same_person(target.contacts, v["person"], v["phone"], v["email"])
-        return f"같은 담당자({same.name})가 이미 있어요" if same is not None else ""
+        return f"같은 담당자({same.name})가 이미 있어요 — 바뀐 정보는 저장할 때 제안으로 올려요" if same is not None else ""
     existing = target.contact
     if not (existing or "").strip():
         return ""
@@ -141,6 +141,8 @@ def build_plan(db: Session, intake: Intake, parsed: cardfile.Parsed, default_kin
             note = skip_note
         if dup or extra_skip:
             item["skip_default"], item["skip_note"] = True, note
+        if dup and not extra_skip and values.get("person"):
+            item["dup_person"] = True  # 저장 때 제외돼도 바뀐 정보를 제안으로 올린다 (intake._propose_skipped_cards)
         return item
 
     for key, group in groups.items():

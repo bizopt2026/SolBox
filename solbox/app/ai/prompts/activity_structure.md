@@ -37,7 +37,7 @@
   "kind": "meeting",
   "date": "YYYY-MM-DD",
   "title": "",
-  "attendees": [],
+  "attendees": [{"name": "", "title": "", "company": "", "internal": false}],
   "discussion": [],
   "decisions": [],
   "follow_ups": [{"task": "", "owner": "", "due": "YYYY-MM-DD"}],
@@ -50,7 +50,7 @@
 {{activity_kind_bullets}}
 - `date`: 활동이 있었던 날짜. 원문에 날짜가 없으면 오늘 날짜를 쓰세요. 반드시 `YYYY-MM-DD` 형식입니다.
 - `title`: 한 줄 제목.
-- `attendees`: 참석자 이름 목록.
+- `attendees`: 참석자 목록. `name` 이름, `title` 직함·부서(모르면 빈 문자열), `company` 그 사람이 속한 고객·파트너 이름(위 목록의 이름, 모르면 빈 문자열), `internal` 은 작성자를 포함한 우리 회사 사람이면 `true`, 고객·파트너 쪽 사람이면 `false`. 원문에 나온 사람만 쓰고 지어내지 마세요.
 - `discussion`: 논의 내용을 항목별로 짧게 정리한 목록.
 - `decisions`: 결정된 사항 목록.
 - `follow_ups`: 후속 조치. `task` 는 할 일, `owner` 는 담당자, `due` 는 기한(`YYYY-MM-DD`, 모르면 빈 문자열).

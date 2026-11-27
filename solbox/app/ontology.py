@@ -317,6 +317,7 @@ def check_label(code: str) -> str:
     return OPPORTUNITY_CHECK_ITEMS.get(code, code)
 
 
+CONTACT_SUGGESTION_FIELDS = {"title": "직함", "phone": "휴대폰", "email": "이메일", "person": "같은 이름의 새 명함"}  # 담당자 변경 제안 칸 (④)
 CONTACT_ROLES = {"decision": "의사결정자", "user": "실무자", "influencer": "영향자", "other": "기타"}  # 담당자 역할 (영업 D, 담당자마다 하나)
 
 # 고객니즈 상태 (2026-11-27 사용자 확정, 이 순서). "영업기회로" 는 저장하지 않고 영업기회에 묶인 니즈의 보이는 상태다 (app/needs.py)
@@ -697,7 +698,7 @@ _TYPE_LIST = [
         "activities/{year}/{id}.md", nav="활동 기록", nav_group="today",
         props={"kind": "종류", "date": "일자", "title": "제목", "raw_text": "원문", "summary_md": "정리본",
                "follow_ups": "후속 조치", "demand_signals": "고객 니즈", "solutions": "솔루션", "customers": "고객",
-               "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회"},
+               "projects": "프로젝트", "partners": "파트너", "origin": "유래", "opportunities": "영업기회", "contacts": "참석한 담당자"},
         description="회의, 통화, 태핑, 수요조사 등 한 번의 활동",
     ),
     ObjectType(
@@ -731,7 +732,7 @@ _TYPE_LIST = [
     ObjectType(
         "contact", "담당자", "부속", "Contact", "contacts", None, "/contacts/{id}",
         props={"name": "이름", "title": "직함", "role": "역할", "phone": "휴대폰", "office_phone": "사무실 전화", "email": "이메일", "note": "메모",
-               "customer": "고객", "partner": "파트너", "opportunities": "영업기회", "origin": "유래"},
+               "customer": "고객", "partner": "파트너", "opportunities": "영업기회", "origin": "유래", "activities": "참석한 활동 기록"},
         description="고객·파트너의 담당자 한 사람. 역할(의사결정자·실무자·영향자)을 두고 영업기회에 잇습니다",
     ),
     ObjectType(
@@ -1134,8 +1135,9 @@ RELATIONS: tuple[Relation, ...] = (
     _r("R50", "의 사람이다", "contact", "customer", "N:1", "fk", "contacts.customer_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R51", "의 사람이다", "contact", "partner", "N:1", "fk", "contacts.partner_id", "고객·파트너 중 정확히 하나. 회사를 지우면 함께 지워진다"),
     _r("R52", "관여한다", "contact", "opportunity", "N:M", "link", "opportunity_contacts", "같은 고객의 담당자만"),
+    _r("R53", "참석했다", "contact", "activity", "N:M", "link", "activity_contacts", "그 활동 기록의 고객·파트너 담당자만"),
     # 고객니즈 관리 (2026-11-27): 니즈도 솔루션 분야를 같이 쓴다
-    _r("R53", "묶는다", "solution_field", "customer_need", "1:N", "fk", "customer_needs.field_id",
+    _r("R54", "묶는다", "solution_field", "customer_need", "1:N", "fk", "customer_needs.field_id",
        "선택 (비면 분야 미지정). 사용 중인 분야만 새로 고른다. 니즈가 쓰는 분야는 지울 수 없다"),
 )
 
@@ -1153,7 +1155,7 @@ UNTRAVERSED = {
     "R16": "방향은 제안 건의 JSON 안에만 있어 따라갈 대상 기록이 없다 (선택한 방향의 솔루션은 R14 로 따라간다)",
     "R17": "근거는 방향·장·제안 안의 지식 사본 경로 글자라 대상 기록이 없다. 해석은 parse_rel / sources.py",
     "R36": "분야는 관리자가 고치는 분류 목록이라 상세 화면이 없다. 솔루션 화면의 속성 줄·목록의 묶어 보기로 보이고 연결 목록에는 올리지 않는다",
-    "R53": "R36 과 같다: 분야는 상세 화면이 없다. 고객니즈 화면의 속성 줄·목록의 묶어 보기로 보인다",
+    "R54": "R36 과 같다: 분야는 상세 화면이 없다. 고객니즈 화면의 속성 줄·목록의 묶어 보기로 보인다",
 }
 # 화면의 "연결된 것" 에는 보이지만 지식 사본의 "## 연결" 에는 적지 않는 관계와 그 이유 (knowledge.CARD_EXCLUDE 가 읽는다)
 UNMIRRORED = {key: "업무 보고는 사본을 만들지 않는다 (팀 내부 보고라 AI 가 읽는 지식 폴더에 넣지 않는다)" for key in ("R37", "R38", "R39", "R40")}
@@ -1225,6 +1227,7 @@ for _key, _pairs in {
     "R50": {("contact", "customer"): "고객", ("customer", "contact"): "담당자"},
     "R51": {("contact", "partner"): "파트너", ("partner", "contact"): "담당자"},
     "R52": {("contact", "opportunity"): "영업기회", ("opportunity", "contact"): "담당자"},
+    "R53": {("contact", "activity"): "참석한 활동 기록", ("activity", "contact"): "참석한 담당자"},
 }.items():
     VIEW_LABELS.update(_vl(_key, _pairs))
 
@@ -1294,7 +1297,7 @@ RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "contact": ("R50", "R51"),
     "customer_need": ("R9", "R10", "R26"),  # 고객니즈 상세의 기본 정보 줄(고객·나온 곳·영업기회)로 보인다
     "bm": (),
-    "activity": ("R8", "R9", "R21", "R22"),
+    "activity": ("R8", "R9", "R21", "R22", "R53"),
     "proposal": ("R12", "R13", "R29", "R34", "R35"),
     "strategy": ("R47",),
     "initiative": ("R41", "R48", "R49"),

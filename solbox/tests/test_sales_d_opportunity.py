@@ -76,7 +76,7 @@ def test_ai_prompt_has_names_titles_roles_but_no_phone_or_email(db):
     db.add(opp)
     db.commit()
     prompt, _ = opportunity_ai.build_prompt(db, opp, date.today())
-    assert "고객 담당자: 김부장 구매팀 부장 의사결정자 · 이대리 실무자" in prompt
+    assert "고객 담당자: 김부장 구매팀 부장 의사결정자 (참석 기록 없음) · 이대리 실무자 (참석 기록 없음)" in prompt
     assert "010-1111-2222" not in prompt and "kim@hanbit.kr" not in prompt
 
 

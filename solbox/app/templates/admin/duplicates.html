@@ -2,7 +2,7 @@
 {% from "_macros.html" import page_header, seg %}
 {% block title %}중복 정리{% endblock %}
 {% block content %}
-{% call page_header("중복 정리", crumbs=[("관리", none), ("중복 정리", none)], sub="같은 회사가 이름만 다르게 두 번 등록됐을 수 있는 쌍을 보여 줘요. 아무것도 저절로 합치지 않아요.") %}{% endcall %}
+{% call page_header("중복 정리", crumbs=[("관리", none), ("중복 정리", none)], sub="같은 회사가 이름만 다르게 두 번 등록됐을 수 있는 쌍을 보여 줘요. 아무것도 저절로 합치지 않아요.") %}<a class="button" href="/admin/contacts-cleanup">연락처 메모 정리</a>{% endcall %}
 <div class="tools">{{ seg(tabs, "종류") }}</div>
 
 {% include "admin/_dup_ai.html" %}

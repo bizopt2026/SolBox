@@ -8,6 +8,16 @@
     {{ props_card("기본 정보", [(ont.prop("contact", "title"), person.title), (ont.prop("contact", "role"), role_label), (ont.prop("contact", "phone"), person.phone),
                     (ont.prop("contact", "office_phone"), person.office_phone), (ont.prop("contact", "email"), person.email), (ont.prop("contact", "note"), person.note)],
                     "/contacts/" ~ person.id ~ "/edit") }}
+    {% set open_sugs = person.suggestions | selectattr("state", "equalto", "pending") | list %}
+    {% if open_sugs %}<section class="card stack" id="contact-suggestions">
+      <div class="card-head"><h2>바뀐 정보 제안 {{ open_sugs | length }}</h2></div>
+      <ul class="inbox">{% for s in open_sugs %}<li class="inbox-row"><div class="inbox-main"><b>{{ sug_text(s) }}</b><small class="muted">{{ kdatetime(s.created_at) }}{% if s.source_type == "intake" and s.source_id %} · <a href="/intake/{{ s.source_id }}">올리기 묶음 {{ s.source_id }}</a>{% endif %}</small></div>
+        <div class="inbox-act">
+          <form method="post" action="/contacts/suggestions/{{ s.id }}/apply"><button type="submit" class="small primary">{{ "같은 사람: 정보 반영" if s.field == "person" else "반영" }}</button></form>
+          {% if s.field == "person" %}<form method="post" action="/contacts/suggestions/{{ s.id }}/new"><button type="submit" class="small">다른 사람: 새 담당자로 추가</button></form>{% endif %}
+          <form method="post" action="/contacts/suggestions/{{ s.id }}/dismiss"><button type="submit" class="small ghost">무시</button></form>
+        </div></li>{% endfor %}</ul>
+    </section>{% endif %}
     <section class="card stack" id="contact-opportunities">
       <div class="card-head"><h2>{{ ont.label("opportunity") }} {{ person.opportunities | length }}</h2></div>
       {% if person.opportunities %}<ul class="plain-list">{% for o in person.opportunities %}<li><a href="/opportunities/{{ o.id }}">{{ o.name }}</a> {{ opportunity_badge(o.stage) }}</li>{% endfor %}</ul>

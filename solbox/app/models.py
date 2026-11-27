@@ -71,6 +71,14 @@ opportunity_contacts = Table(
     Column("contact_id", ForeignKey("contacts.id", ondelete="CASCADE"), primary_key=True),
 )
 
+# 활동 기록에 참석한 담당자 (담당자 관리 부담 줄이기 2026-11-27, R53)
+activity_contacts = Table(
+    "activity_contacts",
+    Base.metadata,
+    Column("activity_id", ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True),
+    Column("contact_id", ForeignKey("contacts.id", ondelete="CASCADE"), primary_key=True),
+)
+
 proposal_solutions = Table(
     "proposal_solutions",
     Base.metadata,
@@ -209,6 +217,9 @@ class Contact(Stamped, Origin, Base):
     customer: Mapped[Customer | None] = relationship(back_populates="contacts")
     partner: Mapped[Partner | None] = relationship(back_populates="contacts")
     opportunities: Mapped[list[Opportunity]] = relationship(secondary=opportunity_contacts, back_populates="contacts")
+    activities: Mapped[list[Activity]] = relationship(secondary=activity_contacts, back_populates="contacts")
+    suggestions: Mapped[list[ContactSuggestion]] = relationship(
+        back_populates="contact", cascade="all, delete-orphan", passive_deletes=True, order_by="ContactSuggestion.id")
 
     @property
     def company(self):
@@ -217,6 +228,28 @@ class Contact(Stamped, Origin, Base):
     @property
     def company_type(self) -> str:
         return "customer" if self.customer_id is not None else "partner"
+
+
+class ContactSuggestion(Base):
+    """명함·올리기에서 같은 사람의 바뀐 정보 제안 (④). 열린(`pending`) 제안은 (담당자, 칸, 새 값)마다 하나 (응용 규칙: app/contact_suggestions.py).
+    field `person` 은 이름만 같고 번호·이메일이 모두 다른 새 명함: `payload` 에 들어온 값 전체."""
+
+    __tablename__ = "contact_suggestions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("contacts.id", ondelete="CASCADE"), index=True)
+    field: Mapped[str] = mapped_column(String)  # ontology.CONTACT_SUGGESTION_FIELDS
+    old_value: Mapped[str] = mapped_column(Text, default="", server_default="")
+    new_value: Mapped[str] = mapped_column(Text, default="", server_default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    source_type: Mapped[str] = mapped_column(String, default="", server_default="")
+    source_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    state: Mapped[str] = mapped_column(String, default="pending", server_default="pending", index=True)  # pending / applied / dismissed / changed
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    decided_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    contact: Mapped[Contact] = relationship(back_populates="suggestions")
 
 
 class Project(Stamped, Base):
@@ -490,6 +523,7 @@ class Activity(Stamped, Origin, Base):
     projects: Mapped[list[Project]] = relationship(secondary=activity_projects)
     partners: Mapped[list[Partner]] = relationship(secondary=activity_partners)
     opportunities: Mapped[list[Opportunity]] = relationship(secondary=activity_opportunities, back_populates="activities")
+    contacts: Mapped[list[Contact]] = relationship(secondary=activity_contacts, back_populates="activities", order_by="Contact.id")
 
 
 class FollowUp(Base):

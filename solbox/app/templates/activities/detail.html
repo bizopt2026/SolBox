@@ -9,7 +9,8 @@
 <div class="dgrid">
   <div class="dmain">
     {% set date_tag %}{% if activity.date %}{{ time_tag(activity.date) }}{% endif %}{% endset %}
-    {{ props_card("기본 정보", [(ont.prop("activity", "kind"), pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind))), (ont.prop("activity", "date"), date_tag)], "/activities/" ~ activity.id ~ "/edit") }}
+    {% set attendees_cell %}{% for p in activity.contacts %}<a href="/contacts/{{ p.id }}">{{ p.name }}</a>{% if p.title %} {{ p.title }}{% endif %}{{ " · " if not loop.last }}{% endfor %}{% endset %}
+    {{ props_card("기본 정보", [(ont.prop("activity", "kind"), pill("activity_kind", activity.kind, labels.ACTIVITY_KINDS.get(activity.kind, activity.kind))), (ont.prop("activity", "date"), date_tag)] + ([(ont.prop("activity", "contacts"), attendees_cell | trim)] if activity.contacts else []), "/activities/" ~ activity.id ~ "/edit") }}
     {% if activity.summary_md %}
     <section class="card stack"><div class="card-head"><h2>{{ ont.prop("activity", "summary_md") }}</h2></div><div class="md">{{ activity.summary_md | md }}</div></section>
     {% endif %}

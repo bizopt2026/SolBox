@@ -80,7 +80,7 @@ def _draft(v) -> ActivityDraft | None:
     mentions = v.get("mentions") if isinstance(v.get("mentions"), dict) else {}
     clean = {
         "kind": _text(v.get("kind")) or ontology.ACTIVITY_KIND_DEFAULT, "date": _text(v.get("date")) or None, "title": _text(v.get("title")),
-        "attendees": _str_list(v.get("attendees")), "discussion": _str_list(v.get("discussion")),
+        "attendees": [a for a in (v.get("attendees") or []) if isinstance(a, (str, dict))] if isinstance(v.get("attendees"), list) else [], "discussion": _str_list(v.get("discussion")),
         "decisions": _str_list(v.get("decisions")),
         "follow_ups": [{"task": _text(f.get("task")), "owner": _text(f.get("owner")), "due": _text(f.get("due"))} for f in _dicts(v.get("follow_ups"))],
         "demand_signals": [{"customer": _text(d.get("customer")), "content": _text(d.get("content")), "field": _text(d.get("field"))} for d in _dicts(v.get("demand_signals"))],

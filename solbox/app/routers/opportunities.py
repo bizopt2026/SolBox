@@ -104,7 +104,7 @@ def _detail_page(request: Request, db: Session, user: User, opp: Opportunity, er
         opp=opp, error=error, **relations.page_related(db, opp, user),
         can_delete=can_delete(user, opp), can_convert=opps.can_convert(opp), meta=ui.stamp_info(db, opp),
         close_reason=opps.close_reason_label(opp), today=now, money=money,
-        stale=opps.stale_badges(opp, now, touch),
+        stale=opps.stale_badges(opp, now, touch), decision_gaps=opps.decision_gaps(db, opp, now),
         history=opps.history_rows(db, opp, now), history_shown=opps.HISTORY_SHOWN, open_fus=opps.open_follow_ups(opp),
         owner_team=teams.team_name(opp.owner), checks=oai.check_view(opp), ai_job=oai.pending_job(db, opp.id), insight=(insight := oai.latest_insight(db, opp.id)),
         ai_rows=oai.suggestion_rows(db, opp, insight, now),

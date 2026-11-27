@@ -139,5 +139,6 @@ def build(db, owner: User | None = None) -> SimpleNamespace:
     w.ct_park = Contact(name="박기사", partner=w.p_green)
     db.add_all([w.ct_choi, w.ct_park])
     w.o_hanbit.contacts = [w.ct_choi]
+    w.a_kick.contacts = [w.ct_choi]  # R53: 한빛 킥오프에 참석
     db.commit()
     return w

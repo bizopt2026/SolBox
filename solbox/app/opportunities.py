@@ -638,3 +638,38 @@ def recent_closes(rows, today, db: Session | None = None) -> list[dict]:
         if last is not None and last.changed_at >= since:
             out.append({"opp": o, "stage": o.stage, "at": last.changed_at, "reason": ontology.close_reasons(o.stage).get(o.close_reason, "")})
     return sorted(out, key=lambda r: r["at"], reverse=True)
+
+
+# ---- 의사결정자 접촉 공백 (담당자 부담 줄이기 ⑤, 2026-11-27) ----
+
+def contact_last_touches(db: Session, contact_ids) -> dict[int, date]:
+    """담당자마다 참석한(R53) 활동 기록의 가장 늦은 날 (활동 날짜, 없으면 만든 날). 참석 기록이 없으면 빠진다. 질의 한 번."""
+    from app.models import Activity, activity_contacts
+
+    ids = list(contact_ids)
+    if not ids:
+        return {}
+    out: dict[int, date] = {}
+    rows = db.execute(select(activity_contacts.c.contact_id, Activity.date, Activity.created_at)
+                      .join(Activity, Activity.id == activity_contacts.c.activity_id).where(activity_contacts.c.contact_id.in_(ids)))
+    for cid, d, created in rows:
+        day = d or created.date()
+        if cid not in out or day > out[cid]:
+            out[cid] = day
+    return out
+
+
+def decision_gaps(db: Session, opp: Opportunity, today: date) -> list[tuple]:
+    """진행 중 영업기회의 의사결정자 중 마지막 접촉이 `OPPORTUNITY_QUIET_DAYS` 넘게 지난 사람 [(담당자, 날수)].
+    참석 기록이 없으면 담당자를 만든 날부터 센다."""
+    if opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES:
+        return []
+    people = [c for c in opp.contacts if c.role == "decision"]
+    touches = contact_last_touches(db, [c.id for c in people])
+    out = []
+    for c in people:
+        last = touches.get(c.id) or c.created_at.date()
+        days = (today - last).days
+        if days > ontology.OPPORTUNITY_QUIET_DAYS:
+            out.append((c, days))
+    return out

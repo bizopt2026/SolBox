@@ -194,3 +194,139 @@ def split_for_new_company(text: str) -> tuple[list[dict], str]:
         else:
             rest.append(row["line"])
     return people, "\n".join(rest)
+
+
+# ---- 회의 참석자 맞추기 (담당자 관리 부담 줄이기 ①, 2026-11-27) ----
+
+def attendee_list(raw) -> list[dict]:
+    """AI 의 `attendees` (글 또는 {name, title, company, internal}) → [{"name", "title", "company", "internal"}]. 이름이 없는 것은 버린다."""
+    out = []
+    for x in raw or []:
+        if isinstance(x, str):
+            row = {"name": x.strip(), "title": "", "company": "", "internal": False}
+        elif isinstance(x, dict):
+            row = {"name": str(x.get("name") or "").strip(), "title": str(x.get("title") or "").strip(),
+                   "company": str(x.get("company") or "").strip(), "internal": x.get("internal") is True}
+        else:
+            continue
+        if row["name"]:
+            out.append(row)
+    return out
+
+
+def _keyed(contacts) -> dict[str, list]:
+    by: dict[str, list] = {}
+    for c in contacts:
+        k = _name_key(c.name)
+        if len(k) >= 2:
+            by.setdefault(k, []).append(c)
+    return by
+
+
+def match_attendees(contacts, attendees: list[dict], staff_names: set[str]) -> list[dict]:
+    """참석자마다 {"name", "title", "status": matched|ambiguous|new, "contact_id", "candidates"}. 우리 회사 사람(internal·사용자 이름)·2자 미만 이름은 뺀다.
+    이름 전체가 맞지 않으면 첫 낱말로 한 번 더 본다 ("최현수 상무")."""
+    by, out, seen = _keyed(contacts), [], set()
+    for a in attendees:
+        if a.get("internal"):
+            continue
+        full, first = _name_key(a["name"]), _name_key(a["name"].split()[0])
+        if len(full) < 2 or full in staff_names or first in staff_names:
+            continue
+        found = by.get(full) or by.get(first) or []
+        name = a["name"] if by.get(full) or not by.get(first) else a["name"].split()[0]
+        key = tuple(c.id for c in found) or (full,)
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(found) == 1:
+            out.append({"name": found[0].name, "title": a["title"], "status": "matched", "contact_id": found[0].id, "candidates": [found[0].id]})
+        elif found:
+            out.append({"name": name, "title": a["title"], "status": "ambiguous", "contact_id": None, "candidates": [c.id for c in found]})
+        else:
+            out.append({"name": a["name"], "title": a["title"], "status": "new", "contact_id": None, "candidates": []})
+    return out
+
+
+_PARTICLE_RE = re.compile(r"^[가-힣]{0,3}$")  # 이름 뒤에 붙는 말 (님·씨·과·와·께서·상무 …)
+
+
+def found_in_text(contacts, text: str, staff: set[str] = frozenset()) -> list:
+    """글에 이름이 낱말로 나오는 담당자: 한글 이름은 낱말이 그 이름으로 시작하고 뒤에 한글 3자 이하(님과·께서 …)만 붙을 때, 영문 이름은 낱말 전체가 같을 때.
+    같은 이름이 범위에 둘 이상이거나 우리 직원 이름(`staff`)이면 뺀다 (어느 사람인지 모른다)."""
+    words = [w.lower() for w in re.findall(r"[0-9A-Za-z가-힣]+", text or "")]
+    out = []
+    for k, group in _keyed(contacts).items():
+        if len(group) != 1 or k in staff:
+            continue
+        if HANGUL_NAME_RE.match(k):
+            hit = any(w.startswith(k) and _PARTICLE_RE.match(w[len(k):]) for w in words)
+        else:
+            hit = k in words or k in {"".join(words[i:i + 2]) for i in range(len(words))}  # 영문 두 낱말 이름 (johnsmith)
+        if hit:
+            out.append(group[0])
+    return sorted(out, key=lambda c: c.id)
+
+
+def staff_names(db) -> set[str]:
+    """사용자 계정의 이름·아이디 (공백 무시): 우리 직원은 담당자로 잇지 않는다."""
+    from sqlalchemy import select
+
+    from app.models import User
+
+    out = set()
+    for name, username in db.execute(select(User.name, User.username)):
+        out |= {k for k in (_name_key(name), _name_key(username)) if len(k) >= 2}
+    return out
+
+
+# ---- 연락처 메모 일괄 정리·접기 (③, 2026-11-27) ----
+
+def bulk_rows(db) -> list[tuple[object, str, list[dict]]]:
+    """모든 고객·파트너에서 옮길 줄: [(회사, 종류 코드, [split_rows 의 checked 줄])]. 줄이 없는 회사는 뺀다.
+    이름이 같은 담당자가 이미 있거나 같은 메모에 같은 이름의 앞 줄이 있으면 뺀다 (번호를 바꾼 사람·동명이인: 회사 화면의 나누기에서 사람이 본다)."""
+    from sqlalchemy import select
+
+    from app.models import Customer, Partner
+
+    out = []
+    for kind, model in (("customer", Customer), ("partner", Partner)):
+        for company in db.scalars(select(model).where(model.contact != "").order_by(model.name, model.id)):
+            names = {_name_key(c.name) for c in company.contacts}
+            rows = []
+            for r in split_rows(company):
+                key = _name_key(r["name"])
+                if r["checked"] and key not in names:  # 이름이 같은 담당자·같은 메모의 앞 줄이 있으면 빼고 회사 화면에서 확인한다
+                    rows.append(r)
+                    names.add(key)
+            if rows:
+                out.append((company, kind, rows))
+    return out
+
+
+def bulk_apply(db, user) -> int:
+    """옮길 줄을 모두 담당자로 만든다 (연락처 메모 글은 바꾸지 않는다). 같은 글 안의 같은 사람은 한 번만. 만든 수. 커밋하지 않는다."""
+    from app import ontology
+    from app.models import Contact
+
+    made = 0
+    for company, kind, rows in bulk_rows(db):
+        for r in rows:
+            person = Contact(**{f: r[f] for f in FIELDS}, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
+            setattr(person, kind, company)
+            db.add(person)
+            db.flush()
+            made += 1
+    return made
+
+
+def memo_view(company) -> tuple[str, list[str]]:
+    """회사 상세의 연락처 메모: (보일 글, 담당자로 옮긴 줄들). 이름이 잡히고 같은 사람 담당자가 있는 줄을 접는다 (글은 그대로)."""
+    shown, moved = [], []
+    for raw in (company.contact or "").replace("\r\n", "\n").split("\n"):
+        r = parse_line(raw) if raw.strip() else None
+        if r and r["name"] and same_person(company.contacts, r["name"], " ".join((r["phone"], r["office_phone"])), r["email"]) is not None:
+            moved.append(raw.strip())
+        else:
+            shown.append(raw)
+    return "\n".join(shown).strip(), moved

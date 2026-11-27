@@ -10,7 +10,8 @@
 {% if same_name %}{{ same_name_hint("고객", same_name.name, "/partners/" ~ partner.id ~ "/same-company", "customer_id", same_name.id) }}{% endif %}
 <div class="dgrid">
   <div class="dmain">
-    {{ props_card("기본 정보", (([("다른 이름", partner.aliases | replace("\n", ", "))] if partner.aliases else []) + [("소개", partner.description), (ont.prop("partner", "contact"), partner.contact), ("메모", partner.memo)]), "/partners/" ~ partner.id ~ "/edit") }}
+    {% set memo_cell %}{% if contact_memo[0] %}<span class="memo-text">{{ contact_memo[0] }}</span>{% endif %}{% if contact_memo[1] %}<details class="memo-moved"><summary class="muted">담당자로 옮긴 {{ contact_memo[1] | length }}줄 보기</summary><span class="memo-text muted">{{ contact_memo[1] | join("\n") }}</span></details>{% endif %}{% endset %}
+    {{ props_card("기본 정보", (([("다른 이름", partner.aliases | replace("\n", ", "))] if partner.aliases else []) + [("소개", partner.description), (ont.prop("partner", "contact"), memo_cell | trim), ("메모", partner.memo)]), "/partners/" ~ partner.id ~ "/edit") }}
     {% set company_code, company = "partner", partner %}{% include "contacts/_card.html" %}
     {{ main_cards(main) }}
   </div>

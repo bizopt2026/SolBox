@@ -16,7 +16,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Contact, Customer, Partner, User
 from app.routers._common import NOT_FOUND, get_deletable_or_404, get_or_404
-from app.security import can_delete, require_user
+from app.security import can_delete, require_admin, require_user
 
 router = APIRouter()
 
@@ -35,6 +35,12 @@ def _company(db: Session, customer_id: str = "", partner_id: str = ""):
     if obj is None:
         raise HTTPException(status_code=404, detail=NOT_FOUND)
     return obj
+
+
+def _sug_text(s) -> str:
+    from app import contact_suggestions as cs
+
+    return cs.text(s)
 
 
 def _code(company) -> str:
@@ -59,6 +65,13 @@ def _form_page(request, company, form: dict, person: Contact | None = None, erro
         company=company, company_code=_code(company), company_url=_url(company), form=form, person=person, error=error, conflict=conflict, same=same,
         roles=_role_options(), crumbs=_crumbs(company, "담당자 " + ("수정" if person else "추가")),
     )
+
+
+def _sync_opportunities(db: Session, mirror: KnowledgeMirror, people) -> None:
+    """담당자 이름·직함이 적힌 영업기회 사본을 다시 쓴다."""
+    for o in dict.fromkeys(o for p in people for o in p.opportunities):
+        db.refresh(o)
+        mirror.sync(o)
 
 
 def _sync_company(db: Session, mirror: KnowledgeMirror, company) -> None:
@@ -100,7 +113,7 @@ def detail(contact_id: int, request: Request, user: User = Depends(require_user)
     company = person.company
     return render(
         request, "contacts/detail.html", person=person, company=company, company_code=_code(company), company_url=_url(company),
-        role_label=ct.role_label(person.role), can_delete=can_delete(user, person), origin=origin.view(db, user, person), meta=ui.stamp_info(db, person),
+        role_label=ct.role_label(person.role), can_delete=can_delete(user, person), sug_text=_sug_text, origin=origin.view(db, user, person), meta=ui.stamp_info(db, person),
         crumbs=_crumbs(company, person.name),
     )
 
@@ -202,3 +215,83 @@ def _split_post(kind: str):
 for _kind, _prefix in (("customer", "/customers"), ("partner", "/partners")):
     router.add_api_route(f"{_prefix}/{{company_id}}/contacts/split", _split_get(_kind), methods=["GET"])
     router.add_api_route(f"{_prefix}/{{company_id}}/contacts/split", _split_post(_kind), methods=["POST"])
+
+
+# ---- 관리 › 연락처 메모 정리 (③): 모든 회사의 확실한 줄을 한 번에 담당자로 ----
+
+@router.get("/admin/contacts-cleanup")
+def cleanup_page(request: Request, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    groups = ct.bulk_rows(db)
+    return render(request, "contacts/cleanup.html", groups=groups, total=sum(len(r) for _, _, r in groups))
+
+
+@router.post("/admin/contacts-cleanup")
+def cleanup_apply(
+    user: User = Depends(require_admin), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
+):
+    companies = [c for c, _, _ in ct.bulk_rows(db)]
+    made = ct.bulk_apply(db, user)
+    db.commit()
+    for c in companies:
+        _sync_company(db, mirror, c)
+    return once.done(notices.redirect("/admin/contacts-cleanup", "contacts_cleanup" if made else "contacts_cleanup_none"))
+
+
+# ---- 담당자 변경 제안 (④): 반영·다른 사람·무시·모두 반영 ----
+
+def _suggestion(db: Session, sid: int):
+    from app.models import ContactSuggestion
+
+    return get_or_404(db, ContactSuggestion, sid)
+
+
+def _after(back: str, contact_id: int | None) -> str:
+    from app.routers.ai_inbox import back_target
+
+    return back_target(back, f"/contacts/{contact_id}" if contact_id else "/ai/inbox")
+
+
+def _suggestion_post(action: str):
+    def post(sid: int, back: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db),
+             mirror: KnowledgeMirror = Depends(get_mirror)):
+        from app import contact_suggestions as cs
+
+        s = _suggestion(db, sid)
+        contact = s.contact
+        if action == "apply":
+            state = cs.apply(db, s, user)
+            code = {"applied": "contact_suggestion_applied", "changed": "contact_suggestion_changed"}.get(state, "contact_suggestion_done")
+        elif action == "new":
+            code = "contact_suggestion_new" if cs.apply_as_new(db, s, user) is not None else "contact_suggestion_done"
+        else:
+            code = "contact_suggestion_dismissed" if cs.dismiss(db, s, user) == "dismissed" else "contact_suggestion_done"
+        db.commit()
+        _sync_company(db, mirror, contact.company)
+        _sync_opportunities(db, mirror, [contact])
+        return notices.redirect(_after(back, contact.id), code)
+    post.__name__ = f"suggestion_{action}"
+    return post
+
+
+for _action in ("apply", "new", "dismiss"):
+    router.add_api_route(f"/contacts/suggestions/{{sid}}/{_action}", _suggestion_post(_action), methods=["POST"])
+
+
+@router.post("/contacts/suggestions/apply-all")
+def suggestions_apply_all(back: str = Form(""), user: User = Depends(require_user), db: Session = Depends(get_db),
+                          mirror: KnowledgeMirror = Depends(get_mirror)):
+    """같은 이름의 새 명함(person)을 뺀 열린 제안을 모두 반영한다 (그사이 바뀐 것은 반영하지 않고 닫는다)."""
+    from app import contact_suggestions as cs
+
+    companies, people = [], []
+    for s in cs.pending(db):
+        if s.field == "person":
+            continue
+        cs.apply(db, s, user)
+        companies.append(s.contact.company)
+        people.append(s.contact)
+    db.commit()
+    for c in dict.fromkeys(x for x in companies if x is not None):
+        _sync_company(db, mirror, c)
+    _sync_opportunities(db, mirror, list(dict.fromkeys(people)))
+    return notices.redirect(_after(back, None) if back else "/ai/inbox", "contact_suggestion_applied")

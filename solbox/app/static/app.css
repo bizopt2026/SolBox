@@ -1740,3 +1740,6 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
   .contact-row { grid-template-columns: minmax(0, 1fr) auto; }
   .contact-reach { grid-column: 1 / -1; grid-row: 2; }
 }
+.memo-text { white-space: pre-line; }
+.memo-moved summary { cursor: pointer; font-size: 13px; }
+.brief-gap { margin: 0 0 var(--s2); padding: 6px 10px; border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn); font-size: 13px; }

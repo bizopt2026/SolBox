@@ -289,3 +289,68 @@ def sync_all(mirror: KnowledgeMirror, a: Activity, extra: list = ()) -> None:
         if (type(obj), obj.id) not in seen:
             seen.add((type(obj), obj.id))
             mirror.sync(obj)
+
+
+# ---- 참석한 담당자 (담당자 관리 부담 줄이기 ①, 2026-11-27). 규칙: app/contacts.py ----
+
+def contact_scope(a: Activity) -> list:
+    """이 활동 기록에 이을 수 있는 담당자: 연결된 고객·파트너의 담당자 (번호순)."""
+    out = [p for c in a.customers for p in c.contacts] + [p for c in a.partners for p in c.contacts]
+    return sorted(dict.fromkeys(out), key=lambda p: p.id)
+
+
+def link_contacts(db: Session, user: User, a: Activity, contact_ids, new_people, origin: tuple[str, int | None] = origins.MANUAL) -> int:
+    """폼에서 고른 담당자를 잇는다 (범위 밖 번호는 버린다). `new_people`("이름|직함")은 연결된 회사가 정확히 하나일 때 그 회사에 만든다
+    (같은 사람이 이미 있으면 그 사람을 잇는다). 만든 수를 돌려준다. 커밋하지 않는다."""
+    from app import contacts as ct
+    from app.models import Contact
+
+    db.flush()
+    scope = {p.id: p for p in contact_scope(a)}
+    ids = {n for i in contact_ids if (n := parse_id(i)) is not None}
+    picked = [scope[i] for i in sorted(ids) if i in scope]
+    made = 0
+    companies = [("customer", c) for c in a.customers] + [("partner", p) for p in a.partners]
+    if len(companies) == 1:
+        kind, company = companies[0]
+        for raw in new_people:
+            name, _, title = str(raw).partition("|")
+            if not name.strip():
+                continue
+            same = ct.same_person(company.contacts, name.strip())
+            if same is None:
+                same = Contact(name=name.strip(), title=title.strip(), created_by_id=user.id, origin_type=origin[0], origin_id=origin[1])
+                setattr(same, kind, company)
+                db.add(same)
+                db.flush()
+                made += 1
+            if same not in picked:
+                picked.append(same)
+    a.contacts = picked
+    return made
+
+
+def auto_link_contacts(db: Session, a: Activity, attendees=()) -> int:
+    """피커가 없는 저장(메모 "저장"·직접 입력 새 폼·올리기)의 자동 연결: AI 참석자 중 정확히 맞은 사람 + 글에 이름이 나온 사람 (같은 이름이 둘이면 잇지 않는다).
+    이미 이어진 사람은 그대로. 더한 수를 돌려준다."""
+    from app import contacts as ct
+
+    db.flush()
+    scope = contact_scope(a)
+    by_id = {p.id: p for p in scope}
+    found = [by_id[m["contact_id"]] for m in ct.match_attendees(scope, ct.attendee_list(attendees), ct.staff_names(db)) if m["status"] == "matched"]
+    found += ct.found_in_text(scope, f"{a.raw_text or ''}\n{a.summary_md or ''}", ct.staff_names(db))
+    added = [p for p in dict.fromkeys(found) if p not in a.contacts]
+    a.contacts = list(a.contacts) + added
+    return len(added)
+
+
+def spread_contacts(a: Activity) -> int:
+    """참석한 담당자를 이 활동 기록에 이어진 영업기회(직접·니즈로)에 더한다: 그 영업기회 고객의 담당자만, 빼지는 않는다."""
+    n = 0
+    for o in (x for x in linked(a) if isinstance(x, Opportunity)):
+        add = [p for p in a.contacts if p.customer_id is not None and p.customer_id == o.customer_id and p not in o.contacts]
+        if add:
+            o.contacts = list(o.contacts) + add
+            n += len(add)
+    return n

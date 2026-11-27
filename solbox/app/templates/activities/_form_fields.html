@@ -80,6 +80,22 @@
   </div>
   {% endfor %}
   </div>
+  {% if f.contacts is not none %}
+  <div class="attendee-picker" id="attendees">
+    <input type="hidden" name="contact_field" value="1">
+    <fieldset class="picker" data-field="contact_ids">
+      <legend>{{ ont.prop("activity", "contacts") }}</legend>
+      <div class="picker-list">
+      {% for o in f.contacts.options %}<label class="check"><input type="checkbox" name="contact_ids" value="{{ o.id }}"{% if o.checked %} checked{% endif %}> <span class="pname">{{ o.label }}</span></label>
+      {% else %}<p class="muted">고른 고객·파트너에 담당자가 없어요.</p>{% endfor %}
+      </div>
+    </fieldset>
+    {% for name in f.contacts.ambiguous %}<p class="muted ambiguous-hint">“{{ name }}”: 같은 이름의 담당자가 여럿이라 미리 고르지 않았어요. 맞는 사람을 직접 고르세요.</p>{% endfor %}
+    {% if f.contacts.new_people %}<div class="new-people"><p class="muted">회의에 나왔지만 아직 담당자가 아닌 사람이에요. 체크하면 담당자로 더하고 이어요.</p>
+      {% for p in f.contacts.new_people %}<label class="check"><input type="checkbox" name="new_people" value="{{ p.value }}"{% if p.checked %} checked{% endif %}> + {{ p.label }} <span class="muted">(새 담당자: {{ p.company }})</span></label>{% endfor %}</div>{% endif %}
+    <p class="muted help">{% if f.contacts.draft %}AI 가 회의 메모에서 찾은 참석자 중 이 회사 담당자와 이름이 정확히 맞는 사람은 미리 골라 두었어요. {% endif %}저장하면 이 활동 기록에 이어진 {{ ont.label("opportunity") }}에도 담당자로 이어져요. 고객을 바꿨다면 저장할 때 그 고객의 담당자만 남아요.</p>
+  </div>
+  {% endif %}
   <input type="hidden" name="opportunity_ids" value=""><!-- 영업기회를 모두 풀어도 이 칸은 온다: 칸이 아예 안 오면 (이 칸이 없던 옛 화면) 연결을 그대로 둔다 -->
   <div class="newnames">
     <h3>새로 등록</h3>
