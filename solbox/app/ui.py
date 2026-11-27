@@ -236,7 +236,8 @@ def crumbs(code: str, title: str | None = None, obj_url: str | None = None, last
 
     t = ontology.TYPES[code]
     groups = dict(ontology.NAV_GROUPS)
-    out: list[tuple[str, str | None]] = [(groups[t.nav_group], None), (t.nav or t.label, t.list_url)]
+    out: list[tuple[str, str | None]] = [] if t.nav_group == ontology.TOP_NAV_GROUP else [(groups[t.nav_group], None)]  # 위쪽 줄 탭 묶음은 묶음 이름 없이
+    out.append((t.nav or t.label, t.list_url))
     if title and last:
         out += [(title, obj_url), (last, None)]
     elif title:

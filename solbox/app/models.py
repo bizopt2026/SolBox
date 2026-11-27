@@ -283,18 +283,18 @@ class BM(Stamped, Base):
     revenue_model: Mapped[str] = mapped_column(Text, default="")  # 수익 구조
     memo: Mapped[str] = mapped_column(Text, default="")
     business_type: Mapped[str | None] = mapped_column(String, nullable=True)  # 대표 사업방식 (선택, 코드 하나: ontology.BUSINESS_TYPES). 베타 Y
-    # 사업기획 (2026-11-27): 기존 BM(사업부서가 운영 중) / 신규 BM(개발 중). 옛 BM 은 기존. 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md
+    # 사업기획 (2026-11-27): 운영 사업(사업부서가 운영 중) / 신규 사업(개발 중). 옛 BM 은 기존. 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md
     kind: Mapped[str] = mapped_column(String, default="existing", server_default="existing")
-    dept: Mapped[str] = mapped_column(String, default="", server_default="")  # 담당 부서 (기존 BM)
-    op_status: Mapped[str | None] = mapped_column(String, nullable=True)  # 운영 상태 (기존 BM, ontology.BM_OP_STATUSES)
-    dev_stage: Mapped[str | None] = mapped_column(String, nullable=True)  # 개발 단계 (신규 BM, ontology.BM_DEV_STAGES)
+    dept: Mapped[str] = mapped_column(String, default="", server_default="")  # 담당 부서 (운영 사업)
+    op_status: Mapped[str | None] = mapped_column(String, nullable=True)  # 운영 상태 (운영 사업, ontology.BM_OP_STATUSES)
+    dev_stage: Mapped[str | None] = mapped_column(String, nullable=True)  # 개발 단계 (신규 사업, ontology.BM_DEV_STAGES)
     plan_input: Mapped[dict] = mapped_column(JSON, default=dict)  # AI 기획 입력 (분야·니즈·솔루션·사업방식·요청 메모)
     ideas: Mapped[list] = mapped_column(JSON, default=list)  # AI 안 목록 (app/bm_plan.py 가 다듬어 넣는다)
     active_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 진행 중인 AI 안 만들기 작업 (끝나면 비운다)
 
     @property
     def pick_label(self) -> str:
-        """BM 고르기 목록의 이름: 신규 BM 은 구분과 개발 단계를 붙인다 (운영 BM 과 헷갈리지 않게)."""
+        """BM 고르기 목록의 이름: 신규 사업은 구분과 개발 단계를 붙인다 (운영 BM 과 헷갈리지 않게)."""
         if self.kind == ontology.BM_KIND_NEW:
             stage = ontology.BM_DEV_STAGES.get(self.dev_stage or "", "")
             return f"{self.name} ({ontology.BM_KINDS['new']}{' · ' + stage if stage else ''})"

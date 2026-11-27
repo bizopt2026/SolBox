@@ -82,7 +82,7 @@
 {% call section("outline", "슬라이드 구성안") %}
   {% include "proposals/_outline.html" ignore missing %}
 {% endcall %}
-{% call section("deck", "제안서") %}
+{% call section("deck", ont.term("proposal_deck")) %}
   {% with back="" %}{% include "proposals/_deck.html" %}{% endwith %}
 {% endcall %}
 </div>

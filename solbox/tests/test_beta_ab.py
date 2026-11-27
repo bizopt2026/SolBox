@@ -1,4 +1,4 @@
-"""베타 AB: 로컬 PC 에서 "제안서 파일을 만들지 못했습니다." 만 뜨고 원인이 남지 않던 것.
+"""베타 AB: 로컬 PC 에서 "PPT 파일을 만들지 못했습니다." 만 뜨고 원인이 남지 않던 것.
 
 - 실패 원인을 app.log 에 남긴다 (`log.exception`). 예전에는 로그에 아무것도 남지 않았다.
 - 화면 문구가 원인에 따라 할 일을 알려 준다: 파일이 잡혀 있음(PermissionError) / 쓸 수 없음(OSError) / 그 밖(종류 이름).
@@ -93,7 +93,7 @@ def test_ab_failure_message_and_log(user_client, db, settings, monkeypatch, capl
     with caplog.at_level(logging.ERROR):
         r = user_client.post(f"/proposals/{p.id}/deck")
     assert r.status_code == 400
-    assert "제안서 파일을 만들지 못했습니다." in r.text and expected in r.text
+    assert "PPT 파일을 만들지 못했습니다." in r.text and expected in r.text
     assert any("파일을 만들지 못했습니다" in rec.getMessage() and rec.exc_info for rec in caplog.records)
     db.refresh(p)
     assert not p.deck_name and _deck_files(settings, p) == []

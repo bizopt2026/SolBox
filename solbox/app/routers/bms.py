@@ -51,7 +51,7 @@ def _detail_page(request: Request, db: Session, user: User, bm: BM, error: str |
 
 def _values(name, summary, target_customers, revenue_model, memo, business_type=None, dept=None, op_status=None, dev_stage=None) -> dict:
     """폼 값 다듬기. `business_type` 은 대표 사업방식 코드 (비면 비움, 칸이 오지 않았으면 None: 고칠 때 그대로 둔다).
-    담당 부서·운영 상태(기존 BM)와 개발 단계(신규 BM)도 칸이 왔을 때만 바꾼다 (사업기획 2026-11-27)."""
+    담당 부서·운영 상태(운영 사업)와 개발 단계(신규 사업)도 칸이 왔을 때만 바꾼다 (사업기획 2026-11-27)."""
     values = {"name": name.strip(), "summary": summary.strip(), "target_customers": target_customers.strip(),
               "revenue_model": revenue_model.strip(), "memo": memo.strip()}
     for key, raw in (("business_type", business_type), ("dept", dept), ("op_status", op_status), ("dev_stage", dev_stage)):
@@ -86,7 +86,7 @@ def _form_values(request_fields: frozenset, business_type, dept, op_status, dev_
 
 @router.get("")
 def list_bms(request: Request, q: str = "", page: str = "1", kind: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    show_all = kind == "all"  # 전체 검색의 "모두 보기": 기존·신규를 함께 (평소에는 기존 BM 만, 신규 BM 은 /bm-lab)
+    show_all = kind == "all"  # 전체 검색의 "모두 보기": 기존·신규를 함께 (평소에는 운영 사업만, 신규 사업은 /bm-lab)
     rows = [b for b in search_by_name(db, BM, q, BM.summary, BM.dept) if show_all or not bm_plan.is_new(b)]
     found, type_tabs, type_now = bts.type_tabs(request, sort_rows(request, "bm", rows), lambda b: [b.business_type] if b.business_type else [])
     pg = paginate(found, page)
@@ -183,7 +183,7 @@ def delete(
     return notices.redirect(bm_plan.list_url(bm), "deleted")
 
 
-# ---- 신규 BM: AI 안·개발 단계·기존 BM 으로 옮기기 (사업기획 2026-11-27) ----
+# ---- 신규 사업: AI 안·개발 단계·운영 사업으로 옮기기 (사업기획 2026-11-27) ----
 
 @router.post("/{bm_id}/ideas", dependencies=[Depends(require_ai_on)])
 def regenerate_ideas(bm_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):

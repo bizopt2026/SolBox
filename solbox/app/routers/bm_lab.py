@@ -1,4 +1,4 @@
-"""사업기획 › 신규 BM (2026-11-27, 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md).
+"""사업기획 › 신규 사업 (2026-11-27, 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md).
 목록과 "AI로 BM 기획" 화면. 상세·수정·AI 안 쓰기는 BM 화면(`/bms/{id}`, routers/bms.py)이 같이 한다. 규칙은 `app/bm_plan.py`."""
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""사업기획 › 기존 BM · 신규 BM (2026-11-27, 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md)."""
+"""사업기획 › 운영 사업 · 신규 사업 (2026-11-27, 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md)."""
 import json
 import re
 
@@ -143,7 +143,7 @@ def test_dev_stage_and_launch_to_existing(user_client, db):
     assert user_client.post(f"/bms/{b.id}/launch").status_code == 400  # 사업화 단계가 아니면 못 옮긴다
     r = user_client.post(f"/bms/{b.id}/stage", data={"stage": "launch"}, follow_redirects=False)
     assert "notice=bm_dev_stage.launch" in nloc(r)
-    assert "기존 BM으로 옮기기" in user_client.get(f"/bms/{b.id}").text
+    assert "운영 사업으로 옮기기" in user_client.get(f"/bms/{b.id}").text
     r = user_client.post(f"/bms/{b.id}/launch", follow_redirects=False)
     assert "notice=bm_launched" in nloc(r)
     db.expire_all()
@@ -212,8 +212,8 @@ def test_bm_copy_tells_kind_and_stage(db, settings):
     m.sync(b); m.sync(e)
     tb = (settings.knowledge_dir / f"bms/{b.id}.md").read_text(encoding="utf-8")
     te = (settings.knowledge_dir / f"bms/{e.id}.md").read_text(encoding="utf-8")
-    assert "- 구분: 신규 BM" in tb and "- 개발 단계: 파일럿" in tb
-    assert "- 구분: 기존 BM" in te and "- 담당 부서: ESS팀" in te and "- 운영 상태: 운영 중" in te
+    assert "- 구분: 신규 사업" in tb and "- 개발 단계: 파일럿" in tb
+    assert "- 구분: 운영 사업" in te and "- 담당 부서: ESS팀" in te and "- 운영 상태: 운영 중" in te
 
 
 def test_new_bm_delete_confirm_breadcrumb(user_client, db):
@@ -223,7 +223,7 @@ def test_new_bm_delete_confirm_breadcrumb(user_client, db):
     db.add(b); db.commit()
     page = user_client.get(f"/bms/{b.id}/delete").text
     crumbs = re.search(r'<nav class="breadcrumb" aria-label="경로">(.*?)</nav>', page, re.S).group(1)
-    assert "신규 BM" in crumbs and "기존 BM" not in crumbs
+    assert "신규 사업" in crumbs and "운영 사업" not in crumbs
 
 
 # ---- 남은 작은 문제 (2026-11-27) ----
@@ -233,7 +233,7 @@ def test_bm_pickers_mark_new_bms(user_client, db):
     db.add_all([BM(name="운영 BM"), BM(name="개발 BM", kind="new", dev_stage="pilot"), c]); db.commit()
     for url in (f"/opportunities/new?customer_id={c.id}", "/projects/new"):
         page = user_client.get(url).text
-        assert ">운영 BM</option>" in page and ">개발 BM (신규 BM · 파일럿)</option>" in page, url
+        assert ">운영 BM</option>" in page and ">개발 BM (신규 사업 · 파일럿)</option>" in page, url
 
 
 def test_search_more_link_for_bms_shows_both_kinds(user_client, db):
@@ -244,9 +244,9 @@ def test_search_more_link_for_bms_shows_both_kinds(user_client, db):
     m = re.search(r'href="(/bms\?kind=all&amp;q=[^"]+)"', page)
     assert m, "BM 모두 보기 링크"
     listing = user_client.get(m.group(1).replace("&amp;", "&")).text
-    assert "태양광 모델 1" in listing and "태양광 모델 2" in listing and "신규 BM" in listing
+    assert "태양광 모델 1" in listing and "태양광 모델 2" in listing and "신규 사업" in listing
     plain = user_client.get("/bms", params={"q": "태양광 모델 1"}).text
-    assert 'href="/bms/' in plain and "태양광 모델 11" not in plain  # 11 은 신규 BM
+    assert 'href="/bms/' in plain and "태양광 모델 11" not in plain  # 11 은 신규 사업
 
 
 def test_field_filter_keeps_what_was_typed(user_client, db):

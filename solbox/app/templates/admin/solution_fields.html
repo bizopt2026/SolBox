@@ -2,7 +2,7 @@
 {% from "_macros.html" import page_header, confirm_link %}
 {% block title %}솔루션 분야{% endblock %}
 {% block content %}
-{{ page_header("솔루션 분야", crumbs=[("관리", none), ("솔루션 분야", none)], sub=ont.TYPES["solution_field"].description, count=(fields | length) ~ "개") }}
+{{ page_header("솔루션 분야", crumbs=[("소스", none), ("솔루션", "/solutions"), ("분야 관리", none)], sub=ont.TYPES["solution_field"].description, count=(fields | length) ~ "개") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 <section class="card stack">

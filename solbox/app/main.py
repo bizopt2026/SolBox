@@ -493,7 +493,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(contacts_router.router)  # 담당자 (영업 D): /contacts/…, /customers|partners/{id}/contacts/split
     app.include_router(opportunities.router)
     app.include_router(bms.router)
-    app.include_router(bm_lab.router)  # 사업기획 › 신규 BM (2026-11-27)
+    app.include_router(bm_lab.router)  # 사업기획 › 신규 사업 (2026-11-27)
     app.include_router(needs_router.router)  # 소스 › 고객니즈 (2026-11-27)
     app.include_router(strategies.router)
     app.include_router(initiatives.router)

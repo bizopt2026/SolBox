@@ -53,7 +53,7 @@ def _load_need(db, user, p):
 
 
 def _bm_crumb(obj, name):
-    from app import bm_plan  # 기존 BM · 신규 BM 경로 (사업기획 2026-11-27)
+    from app import bm_plan  # 운영 사업 · 신규 사업 경로 (사업기획 2026-11-27)
 
     return bm_plan.crumbs(obj, obj.kind, (name, f"/bms/{obj.id}"), ("삭제", None))
 
@@ -160,11 +160,11 @@ SPECS: tuple[Spec, ...] = (
          lambda o: f"{ui.short_date(o.started_at, date.today())} 조사 결과", lambda o: f"/research/runs/{o.id}",
          lambda o, name: ui.crumbs("research_run", name, f"/research/runs/{o.id}", "삭제"), "조사 결과", blocker=_run_blocker),
     Spec("/admin/research/topics/{obj_id}/delete", "research_topic", _load_admin(ResearchTopic, "주제를 찾을 수 없습니다."),
-         lambda o: o.name, lambda o: "/admin/research", lambda o, name: [("관리", None), ("리서치 설정", "/admin/research"), (name, None), ("삭제", None)], "리서치 주제"),
+         lambda o: o.name, lambda o: "/admin/research", lambda o, name: [("소스", None), ("리서치", "/research"), ("설정", "/admin/research"), (name, None), ("삭제", None)], "리서치 주제"),
     Spec("/admin/teams/{obj_id}/delete", "team", _load_admin(Team, "팀을 찾을 수 없습니다."),
          lambda o: o.name, lambda o: "/admin/users", lambda o, name: [("관리", None), ("사용자", "/admin/users"), (name, None), ("삭제", None)], "팀"),
     Spec("/admin/solution-fields/{obj_id}/delete", "solution_field", _load_admin(SolutionField, "분야를 찾을 수 없습니다."),
-         lambda o: o.name, lambda o: "/admin/solution-fields", lambda o, name: [("관리", None), ("솔루션 분야", "/admin/solution-fields"), (name, None), ("삭제", None)],
+         lambda o: o.name, lambda o: "/admin/solution-fields", lambda o, name: [("소스", None), ("솔루션", "/solutions"), ("분야 관리", "/admin/solution-fields"), (name, None), ("삭제", None)],
          "솔루션 분야", blocker=lambda db, o: sfields.delete_problem(db, o)),
     Spec("/proposals/{obj_id}/outline/slides/{index}/delete", "outline_slide", _load_slide,
          lambda o: (o[2].get("title") or f"{o[1] + 1}번째 슬라이드"), lambda o: f"/proposals/{o[0].id}/outline#slide-{o[1]}",

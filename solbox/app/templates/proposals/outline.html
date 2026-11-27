@@ -27,7 +27,7 @@
   </div>
 </div>
 <section class="card stack" id="deck">
-  <div class="card-head"><h2>제안서</h2></div>
+  <div class="card-head"><h2>{{ ont.term("proposal_deck") }}</h2></div>
   {% with back="outline" %}{% include "proposals/_deck.html" %}{% endwith %}
 </section>
 {% if export_text %}

@@ -40,7 +40,7 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "bm_ideas_started": ("ok", "BM 안을 만들기 시작했습니다. 보통 1분 안에 끝나요."),
     "bm_ideas_ai_off": ("warn", "등록했습니다. AI 작업 처리기가 꺼져 있어 BM 안 만들기는 시작하지 않았습니다. 처리기가 켜진 뒤 \"AI 안 다시 만들기\"를 눌러 주세요."),
     "bm_idea_applied": ("ok", "AI 안을 이 BM 에 썼습니다. 내용을 확인하고 필요하면 고쳐 주세요."),
-    "bm_launched": ("ok", "기존 BM 으로 옮겼습니다. 이제 사업기획 › 기존 BM 에서 운영 현황을 볼 수 있어요."),
+    "bm_launched": ("ok", "운영 사업으로 옮겼습니다. 이제 사업기획 › 운영 사업에서 운영 현황을 볼 수 있어요."),
     "saved": ("ok", "저장했습니다."),
     "deleted": ("ok", "삭제했습니다."),
     # 연결·자료
@@ -77,8 +77,8 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     "not_ready": ("error", "이 묶음은 지금 저장할 수 없는 상태입니다. 화면을 새로 고쳐 상태를 확인해 주세요."),
     # 제안
     "direction_selected": ("ok", "방향을 골랐습니다."),
-    "deck_built": ("ok", "제안서 파일을 만들었습니다."),
-    "deck_old": ("warn", "이 제안서 파일은 고객용·내부 검토용으로 나누기 전에 만든 것이라 내려받을 수 없습니다. 아래에서 '다시 만들기'를 눌러 주세요."),
+    "deck_built": ("ok", "PPT 파일을 만들었습니다."),
+    "deck_old": ("warn", "이 PPT 파일은 고객용·내부 검토용으로 나누기 전에 만든 것이라 내려받을 수 없습니다. 아래에서 '다시 만들기'를 눌러 주세요."),
     "target_saved": ("ok", "제안 대상을 저장했습니다."),
     "slide_saved": ("ok", "슬라이드를 저장했습니다."),
     "slide_added": ("ok", "슬라이드를 추가했습니다."),

@@ -44,7 +44,7 @@ def test_header_primary_refining_makes_outline(user_client, db, settings):
 def test_header_primary_outlined_builds_deck(user_client, db, settings):
     p = outlined_proposal(db, settings)
     block = _primary(user_client.get(f"/proposals/{p.id}").text)
-    assert f'action="/proposals/{p.id}/deck"' in block and "제안서 만들기" in block
+    assert f'action="/proposals/{p.id}/deck"' in block and "PPT 만들기" in block
     assert user_client.post(f"/proposals/{p.id}/deck").status_code in (200, 303)
 
 
@@ -59,7 +59,7 @@ def test_header_primary_deck_downloads_then_rebuilds_when_stale(user_client, db,
     p.outline_updated_at = datetime(2099, 1, 1)
     db.commit()
     html = user_client.get(f"/proposals/{p.id}").text
-    assert "PPT 내려받기" not in html and "제안서 다시 만들기" in _primary(html)
+    assert "PPT 내려받기" not in html and "PPT 다시 만들기" in _primary(html)
 
 
 def test_header_primary_disabled_while_ai_works(user_client, db, settings):

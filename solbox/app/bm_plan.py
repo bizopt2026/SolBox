@@ -1,7 +1,7 @@
 """사업기획의 행위 규칙 (2026-11-27, 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md).
 
-- 기존 BM: 사업부서가 운영 중인 BM. 운영 현황은 이미 있는 프로젝트·영업기회로만 센다 (`op_summary`).
-- 신규 BM: AI 안 만들기(`start_ideas` → 작업 `bm_ideas` → `clean_ideas`)와 "이 안 쓰기"(`apply_idea`), 사업화되면 기존 BM 으로 옮긴다(`launch`).
+- 운영 사업: 사업부서가 운영 중인 BM. 운영 현황은 이미 있는 프로젝트·영업기회로만 센다 (`op_summary`).
+- 신규 사업: AI 안 만들기(`start_ideas` → 작업 `bm_ideas` → `clean_ideas`)와 "이 안 쓰기"(`apply_idea`), 사업화되면 운영 사업으로 옮긴다(`launch`).
 AI 결과는 초안이다: 안은 `BM.ideas` 에만 두고, BM 칸은 사람이 "이 안 쓰기"를 눌러야 바뀐다."""
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ MEMO_MAX = 2000
 NO_CANDIDATES = "안에 쓸 솔루션이 없습니다. 보류가 아닌 솔루션이 있어야 합니다."
 TOO_FEW_IDEAS = "BM 안을 만들지 못했습니다. 다시 만들어 보세요."
 BAD_IDEA = "없는 안입니다. 화면을 새로 고친 뒤 다시 골라 주세요."
-NOT_NEW = "신규 BM 에서만 할 수 있습니다."
-NOT_LAUNCH = "개발 단계가 사업화일 때만 기존 BM 으로 옮길 수 있습니다."
+NOT_NEW = "신규 사업에서만 할 수 있습니다."
+NOT_LAUNCH = "개발 단계가 사업화일 때만 운영 사업으로 옮길 수 있습니다."
 
 
 def is_new(bm: BM) -> bool:
@@ -31,13 +31,13 @@ def list_url(bm: BM) -> str:
 
 
 def crumbs(bm: BM | None, kind: str, *tail) -> list[tuple[str, str | None]]:
-    """경로 줄: 사업기획 › 기존 BM|신규 BM › …"""
+    """경로 줄: 사업기획 › 운영 사업|신규 사업 › …"""
     new = (bm is not None and is_new(bm)) or (bm is None and kind == ontology.BM_KIND_NEW)
     out = [(ontology.NAV_GROUP_LABELS["planning"], None), ((ontology.BM_KINDS["new"], "/bm-lab") if new else (ontology.BM_KINDS["existing"], "/bms"))]
     return out + [x for x in tail if x[0]]
 
 
-# ---- 기존 BM: 운영 현황 ----
+# ---- 운영 사업: 운영 현황 ----
 
 def op_summary(db: Session, bm: BM) -> dict:
     """따르는 프로젝트 수, 진행 중 영업기회 수·예상 금액 합, 수주한 영업기회 수."""
@@ -49,7 +49,7 @@ def op_summary(db: Session, bm: BM) -> dict:
     return {"projects": projects, "open": open_n, "open_amount": int(open_amount or 0), "won": won}
 
 
-# ---- 신규 BM: AI 기획 재료 ----
+# ---- 신규 사업: AI 기획 재료 ----
 
 def _ids(raw) -> list[int]:
     out = []
@@ -210,7 +210,7 @@ def apply_idea(db: Session, bm: BM, index: int, sig: str | None = None) -> str |
 
 
 def launch(bm: BM) -> str | None:
-    """사업화된 신규 BM 을 기존 BM 으로 옮긴다 (운영 상태: 운영 중)."""
+    """사업화된 신규 사업을 운영 사업으로 옮긴다 (운영 상태: 운영 중)."""
     if not is_new(bm):
         return NOT_NEW
     if bm.dev_stage != "launch":

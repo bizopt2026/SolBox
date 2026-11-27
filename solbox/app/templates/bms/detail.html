@@ -8,7 +8,7 @@
 {% if is_new %}
 {{ stage_stepper("/bms/" ~ bm.id ~ "/stage", ont.BM_DEV_FLOW, ont.BM_DEV_STAGES, bm.dev_stage, ("dropped",), ont.prop("bm", "dev_stage"), "bm_dev_stage") }}
 {% if bm.dev_stage == "launch" %}
-<form method="post" action="/bms/{{ bm.id }}/launch" class="card row launch-bar"><p class="grow">사업화한 BM 입니다. 기존 BM 으로 옮기면 사업부서의 운영 BM 으로 관리하고 운영 현황을 봅니다.</p><button type="submit" class="primary">기존 BM으로 옮기기</button></form>
+<form method="post" action="/bms/{{ bm.id }}/launch" class="card row launch-bar"><p class="grow">사업화한 BM 입니다. 운영 사업으로 옮기면 사업부서의 운영 BM 으로 관리하고 운영 현황을 봅니다.</p><button type="submit" class="primary">운영 사업으로 옮기기</button></form>
 {% endif %}
 {% else %}
 <section class="sumband" aria-label="운영 현황">

@@ -25,9 +25,9 @@ def test_detail_page_belongs_to_its_section(user_client, db):
 
 
 def test_admin_menu_is_current_under_admin(admin_client):
-    html = admin_client.get("/admin/research").text
+    html = admin_client.get("/admin/system").text
     assert 'aria-label="관리"' in html
-    assert 'href="/admin/research" aria-current="page"' in html
+    assert 'href="/admin/system" aria-current="page"' in html
 
 
 def _crumbs(html):
@@ -47,9 +47,9 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "소스 › 솔루션 › (예시) AI 공조 › 수정"
     assert _crumbs(user_client.get("/solutions/new").text) == "소스 › 솔루션 › 등록"
     assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객관리 › 등록"
-    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 기존 BM › 등록"
-    assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 BM › 등록"
-    assert _crumbs(user_client.get("/activities/new").text) == "오늘 › 활동 기록 › 등록"
+    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 운영 사업 › 등록"
+    assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 사업 › 등록"
+    assert _crumbs(user_client.get("/activities/new").text) == "활동 기록 › 등록"  # 위쪽 줄 탭 묶음은 묶음 이름 없이
 
 
 def test_breadcrumb_escapes_names(user_client, db):
@@ -65,7 +65,8 @@ def test_list_pages_have_no_breadcrumb(user_client):
 
 
 def test_proposal_outline_research_and_admin_breadcrumbs(admin_client, db):
-    assert _crumbs(admin_client.get("/admin/research").text) == "관리 › 리서치 설정"
+    assert _crumbs(admin_client.get("/admin/research").text) == "소스 › 리서치 › 설정"  # 기능 설정은 그 기능 아래 (2026-11-27)
+    assert _crumbs(admin_client.get("/admin/solution-fields").text) == "소스 › 솔루션 › 분야 관리"
     assert _crumbs(admin_client.get("/admin/users").text) == "관리 › 사용자"
     run = ResearchRun(status="done", trigger="manual")
     db.add(run)
@@ -79,14 +80,14 @@ def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings
     p.outline = {"title": "t", "slides": [{"kind": "cover", "title": "표지"}]}
     db.commit()
     html = user_client.get(f"/proposals/{p.id}/outline").text
-    assert _crumbs(html).startswith("영업 › 제안 › ") and _crumbs(html).endswith("› 구성안")
+    assert _crumbs(html).startswith("영업 › 제안서 › ") and _crumbs(html).endswith("› 구성안")
     assert f'<a href="/proposals/{p.id}">' in html
 
 
 # ---- 현재 위치 표시를 구역마다 확인 (관리 화면·제안·후속 조치·검색) ----
 
 def test_every_admin_page_marks_its_own_item(admin_client):
-    for path in ("/admin/users", "/admin/jobs", "/admin/research", "/admin/system"):
+    for path in ("/admin/users", "/admin/jobs", "/admin/system", "/admin/duplicates"):
         nav = _nav(admin_client.get(path).text)
         assert f'href="{path}" aria-current="page"' in nav, path
         assert nav.count('aria-current="page"') == 1, path
@@ -117,7 +118,7 @@ def test_sidebar_group_titles_are_not_headings(user_client):
 def test_breadcrumb_group_comes_from_the_nav_definition(user_client, db):
     from app import ontology
 
-    group = ontology.nav_group_label("intake")
-    assert group == "오늘"
-    assert _crumbs(user_client.get("/intake/new").text).startswith(group + " ›")
-    assert _crumbs(user_client.get("/follow-ups").text).startswith(group + " ›")
+    # "오늘" 묶음은 넓은 화면에서 위쪽 줄 탭이라 경로에 묶음 이름을 쓰지 않는다 (2026-11-27 메뉴 개편). 다른 묶음은 정의의 이름
+    assert ontology.nav_group_label("intake") == "" and ontology.nav_group_label("solutions") == "소스"
+    assert _crumbs(user_client.get("/intake/new").text).startswith("올리기 묶음 ›")
+    assert _crumbs(user_client.get("/follow-ups").text) == "후속 조치"

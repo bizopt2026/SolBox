@@ -18,7 +18,7 @@
   {% endfor %}
 {% endmacro %}
 {% block content %}
-{{ list_head(ont.TYPES["customer_need"].nav, pg, searching, "/needs/new", new_label="+ 니즈 추가", type="customer_need") }}
+{{ list_head(ont.TYPES["customer_need"].nav, pg, searching, "/needs/new", new_label="+ 니즈 추가", type="customer_need", setting=(("분야 관리", "/admin/solution-fields") if user.role == "admin" else none)) }}
 {% set g_extra %}{{ group_box(group_choices) }}{% endset %}
 {{ list_tools(request, tabs, "상태", q, none, "내용, 고객 이름, 메모로 찾기", extra=g_extra, extra_on=1 if group_now else 0) }}
 {% if groups is not none %}

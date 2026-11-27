@@ -15,10 +15,12 @@
 {# 목록 제목 줄: 제목 + 건수, 한 줄 설명(온톨로지의 뜻), 오른쪽 끝에 주 버튼. searching 이 참이면 "검색 결과 N건".
    type 은 대상 유형 코드(없으면 sub 를 직접). 주 버튼은 new_url, 보조는 alt_url (기본 "+ 등록": 손으로 만들기. 주 버튼이 "올리기"인 목록에서도 모든 목록이 같은 말). #}
 {# 만들기 버튼 이름은 "+ 새 <대상>" 하나로 (UX 개선 2026-11-26). 대상 유형(type)이 없으면 "+ 새로 만들기" #}
-{% macro list_head(title, pg, searching, new_url=None, new_label=none, alt_url=None, alt_label=none, crumbs=none, sub=none, type=none) %}
+{# setting=(글, 주소): 그 기능의 설정 입구 (부르는 쪽이 관리자일 때만 넘긴다) (조용한 버튼, 맨 앞. 리서치 설정·분야 관리, 2026-11-27) #}
+{% macro list_head(title, pg, searching, new_url=None, new_label=none, alt_url=None, alt_label=none, crumbs=none, sub=none, type=none, setting=none) %}
 {% set new_label = new_label or ("+ 새 " ~ ont.label(type) if type else "+ 새로 만들기") %}
 {% set alt_label = alt_label or ("+ 새 " ~ ont.label(type) if type else "+ 새로 만들기") %}
 {% call page_header(title, crumbs=crumbs, sub=(sub or (ont.TYPES[type].description if type else none)), count=("검색 결과 " if searching else "") ~ pg.total ~ "건") %}
+{% if setting %}<a class="button ghost setting-link" href="{{ setting[1] }}">{{ setting[0] }}</a>{% endif %}
 {% if new_url %}{% if alt_url %}<a class="button" href="{{ alt_url }}">{{ alt_label }}</a>{% endif %}<a class="button primary{{ ' to-intake' if new_url == '/intake/new' }}" href="{{ new_url }}">{{ new_label }}</a>{% endif %}
 {% endcall %}
 {% endmacro %}
@@ -113,7 +115,7 @@
 {# 화면 제목 위 경로. 앞 마디는 (이름, 주소), 마지막 마디는 (이름, None). 예: breadcrumb(("솔루션", "/solutions"), (solution.name, None)) #}
 {% macro breadcrumb() %}
 <nav class="breadcrumb" aria-label="경로">
-  {% for label, url in varargs %}
+  {% for label, url in varargs | selectattr(0) %}{# 빈 이름 마디(위쪽 줄 탭 묶음의 묶음 이름)는 건너뛴다 #}
   {% if not loop.first %}<span class="sep" aria-hidden="true">›</span>{% endif %}
   {% if url %}<a href="{{ url }}">{{ label }}</a>{% else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ label }}</span>{% endif %}
   {% endfor %}
