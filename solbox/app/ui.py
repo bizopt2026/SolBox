@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date
 from pathlib import Path
 from typing import NamedTuple
@@ -97,6 +98,41 @@ def first_line(text: str | None, limit: int = 100) -> str:
         if line:
             return line if len(line) <= limit else line[:limit].rstrip() + "…"
     return ""
+
+
+_PLAIN_MD = [(re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"), (re.compile(r"(\*\*|__|`|~~)"), ""),
+             (re.compile(r"^\s*(#{1,6}|[-*+>]|\d+[.)])\s+"), "")]
+
+
+def plain_lines(md: str, count: int = 3) -> list[str]:
+    """마크다운 정리본의 앞 몇 줄을 기호 없는 글자로 (요약용). 제목 줄과 참석자 목록은 건너뛴다."""
+    lines: list[str] = []
+    skipping = False
+    for raw in str(md or "").splitlines():
+        if re.match(r"\s*#{1,6}\s", raw):
+            skipping = raw.lstrip("# \t").startswith("참석자")
+            continue
+        if skipping:
+            continue
+        line = raw
+        for pattern, repl in _PLAIN_MD:
+            line = pattern.sub(repl, line)
+        line = line.strip()
+        if line:
+            lines.append(line)
+        if len(lines) >= count:
+            break
+    return lines
+
+
+def summary_line(md: str | None, limit: int = 100) -> str:
+    """정리본(마크다운)의 한 줄 요약: 제목 줄(`## 참석자` 같은 구역 이름)과 참석자 목록을 건너뛴 첫 본문 줄.
+    AI 정리본은 `## 참석자` 로 시작해 `first_line` 으로는 모든 기록이 "참석자" 로 보였다 (UX 1순위 2026-11-27). 본문이 없으면 `first_line`."""
+    lines = plain_lines(md or "", 1)
+    if not lines:
+        return first_line(md, limit)
+    line = lines[0]
+    return line if len(line) <= limit else line[:limit].rstrip() + "…"
 
 
 class SegTab(NamedTuple):

@@ -15,7 +15,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import aliases, business_types as bts, labels, ontology, origin, solution_fields as sfields, transcribe
+from app import aliases, business_types as bts, labels, ontology, origin, solution_fields as sfields, transcribe, ui
 from app.ai.tasks import ActivityDraft, draft_summary_md, match_mentions, normalize_draft, normalize_name
 from app.config import Settings
 from app.extract import ExtractResult, extract_text
@@ -1048,29 +1048,7 @@ def _file_names(intake: Intake) -> dict[int, str]:
     return {file_number(intake, f): f.original_name for f in intake.files}
 
 
-_PLAIN_MD = [(re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"), (re.compile(r"(\*\*|__|`|~~)"), ""),
-             (re.compile(r"^\s*(#{1,6}|[-*+>]|\d+[.)])\s+"), "")]
-
-
-def plain_lines(md: str, count: int = 3) -> list[str]:
-    """마크다운 정리본의 앞 몇 줄을 기호 없는 글자로 (요약용). 제목 줄과 참석자 목록은 건너뛴다."""
-    lines: list[str] = []
-    skipping = False
-    for raw in str(md or "").splitlines():
-        if re.match(r"\s*#{1,6}\s", raw):
-            skipping = raw.lstrip("# \t").startswith("참석자")
-            continue
-        if skipping:
-            continue
-        line = raw
-        for pattern, repl in _PLAIN_MD:
-            line = pattern.sub(repl, line)
-        line = line.strip()
-        if line:
-            lines.append(line)
-        if len(lines) >= count:
-            break
-    return lines
+plain_lines = ui.plain_lines  # 정리본 앞 몇 줄 (규칙은 ui.plain_lines 한 곳: 활동 기록 목록·검색의 한 줄 요약과 같다)
 
 
 _SIG_SKIP = {"skip", "fu_drop", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "ds_field", "selected", "new_names"}

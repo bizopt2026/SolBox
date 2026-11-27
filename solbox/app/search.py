@@ -126,7 +126,7 @@ def _item(code: str, obj, q: str = "") -> dict:
     if code == "solution":
         note, badge, sub = ontology.STAGES.get(obj.stage, ""), ("stage", obj.stage), ui.first_line(obj.summary, 80)
     elif code == "activity":
-        note, badge, sub = (ui.short_date(obj.date, date.today()) if obj.date else ""), ("activity_kind", obj.kind), ui.first_line(obj.summary_md, 80)
+        note, badge, sub = (ui.short_date(obj.date, date.today()) if obj.date else ""), ("activity_kind", obj.kind), ui.summary_line(obj.summary_md, 80)
     elif code == "opportunity":
         note, badge, sub = ontology.OPPORTUNITY_STAGES.get(obj.stage, ""), ("opportunity_stage", obj.stage), obj.customer.name
     elif code == "proposal":
