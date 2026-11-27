@@ -224,6 +224,7 @@
     {% if view_url %}<a class="button" href="{{ view_url }}" target="_blank" rel="noopener">현재 내용 새 탭에서 열기</a>{% endif %}
     {% if conflict.can_force %}<button type="submit" name="_force" value="1" class="danger">그래도 내 내용으로 저장</button>{% endif %}
   </p>
+  {% if conflict.can_force and conflict.diff %}<p class="help">"그래도 내 내용으로 저장"은 이 화면의 <b>모든 칸</b>을 지금 보이는 값으로 저장합니다. 위 표의 칸은 다른 사람이 바꾼 값이 지워지니, 남길 내용은 먼저 아래 칸에 옮겨 적으세요.</p>{% endif %}{# 베타 점검 2026-11-27: 바꾸지 않은 칸도 덮어쓴다는 안내가 없었다 #}
 </div>
 {% endif %}
 {% endmacro %}
