@@ -283,6 +283,14 @@ class BM(Stamped, Base):
     revenue_model: Mapped[str] = mapped_column(Text, default="")  # 수익 구조
     memo: Mapped[str] = mapped_column(Text, default="")
     business_type: Mapped[str | None] = mapped_column(String, nullable=True)  # 대표 사업방식 (선택, 코드 하나: ontology.BUSINESS_TYPES). 베타 Y
+    # 사업기획 (2026-11-27): 기존 BM(사업부서가 운영 중) / 신규 BM(개발 중). 옛 BM 은 기존. 설계 docs/superpowers/specs/2026-11-27-planning-bm-design.md
+    kind: Mapped[str] = mapped_column(String, default="existing", server_default="existing")
+    dept: Mapped[str] = mapped_column(String, default="", server_default="")  # 담당 부서 (기존 BM)
+    op_status: Mapped[str | None] = mapped_column(String, nullable=True)  # 운영 상태 (기존 BM, ontology.BM_OP_STATUSES)
+    dev_stage: Mapped[str | None] = mapped_column(String, nullable=True)  # 개발 단계 (신규 BM, ontology.BM_DEV_STAGES)
+    plan_input: Mapped[dict] = mapped_column(JSON, default=dict)  # AI 기획 입력 (분야·니즈·솔루션·사업방식·요청 메모)
+    ideas: Mapped[list] = mapped_column(JSON, default=list)  # AI 안 목록 (app/bm_plan.py 가 다듬어 넣는다)
+    active_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 진행 중인 AI 안 만들기 작업 (끝나면 비운다)
 
     solutions: Mapped[list[Solution]] = relationship(secondary=bm_solutions, back_populates="bms")
     projects: Mapped[list[Project]] = relationship(back_populates="bm")

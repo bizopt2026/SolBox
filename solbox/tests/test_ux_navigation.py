@@ -47,7 +47,8 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "소스 › 솔루션 › (예시) AI 공조 › 수정"
     assert _crumbs(user_client.get("/solutions/new").text) == "소스 › 솔루션 › 등록"
     assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객관리 › 등록"
-    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › BM › 등록"
+    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 기존 BM › 등록"
+    assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 BM › 등록"
     assert _crumbs(user_client.get("/activities/new").text) == "오늘 › 활동 기록 › 등록"
 
 

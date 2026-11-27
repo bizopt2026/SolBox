@@ -316,7 +316,7 @@ def test_f2_release_failure_does_not_leave_a_stuck_token(app, user_client, db):
 from tests.test_beta_e import AI_POSTS
 
 F8_URLS = {
-    "/opportunities/analysis/ai": "/opportunities/analysis/ai",
+    "/opportunities/analysis/ai": "/opportunities/analysis/ai", "/bms/{bm_id}/ideas": "/bms/1/ideas",
     "/cowork/{code}/{target_id}/threads": "/cowork/initiative/1/threads", "/cowork/threads/{thread_id}/messages": "/cowork/threads/1/messages",
     "/cowork/threads/{thread_id}/retry": "/cowork/threads/1/retry", "/alignment/{code}/{target_id}/check": "/alignment/initiative/1/check",
     "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review",

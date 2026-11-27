@@ -2,17 +2,25 @@
 {% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, rev_fields, form_token, dup_warning %}
 {% block title %}{{ ont.label("bm") }} {{ "수정" if bm else "등록" }}{% endblock %}
 {% block content %}
-{% set label = ont.label("bm") %}
-{{ page_header(label ~ " " ~ ("수정" if bm else "등록"), crumbs=ui.crumbs("bm", bm.name if bm else none, ("/bms/" ~ bm.id) if bm else none, "수정" if bm else "등록"), sub=(bm.name if bm else ont.TYPES["bm"].description)) }}
+{% set new_kind = kind == "new" %}
+{{ page_header(ont.BM_KINDS[kind] ~ " " ~ ("수정" if bm else "등록"), crumbs=crumbs, sub=(bm.name if bm else ont.TYPES["bm"].description)) }}
 {{ form_error(error) }}
 <form method="post" action="{{ "/bms/" ~ bm.id if bm else "/bms" }}" class="form-page">
-  {% if bm %}{{ rev_fields(bm, conflict, "/bms/" ~ bm.id) }}{% else %}{{ form_token() }}{% endif %}
+  {% if bm %}{{ rev_fields(bm, conflict, "/bms/" ~ bm.id) }}{% else %}{{ form_token() }}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
   {{ dup_warning(duplicate, "그래도 이 이름으로 저장" if bm else "그래도 새로 등록") }}
   <section class="card">
     <h2>기본 정보</h2>
     <div class="fgrid">
       {{ text_field(ont.prop("bm", "name"), "name", form.name, required=true, error=error) }}
       {{ text_field(ont.prop("bm", "summary"), "summary", form.summary) }}
+      {% if new_kind %}
+      {% set dopts = [] %}{% for code, name in ont.BM_DEV_STAGES.items() %}{% set _ = dopts.append((code, name)) %}{% endfor %}
+      {{ select_field(ont.prop("bm", "dev_stage"), "dev_stage", dopts, form.dev_stage, error=error) }}
+      {% else %}
+      {{ text_field(ont.prop("bm", "dept"), "dept", form.dept, help="이 BM 을 운영하는 사업부서입니다.") }}
+      {% set oopts = [("", "선택 안 함")] %}{% for code, name in ont.BM_OP_STATUSES.items() %}{% set _ = oopts.append((code, name)) %}{% endfor %}
+      {{ select_field(ont.prop("bm", "op_status"), "op_status", oopts, form.op_status, error=error) }}
+      {% endif %}
       {% set topts = [("", "선택 안 함")] %}{% for code, name in ont.BUSINESS_TYPES.items() %}{% set _ = topts.append((code, name ~ " – " ~ ont.BUSINESS_TYPE_DESCRIPTIONS[code])) %}{% endfor %}
       {{ select_field(ont.prop("bm", "business_type"), "business_type", topts, form.business_type, wide=true, error=error, help="이 사업 모델이 주로 쓰는 사업방식 하나입니다 (선택 사항). 제안 건을 만들 때 기본값으로 쓰입니다.") }}
       {{ text_field(ont.prop("bm", "target_customers"), "target_customers", form.target_customers, rows=3) }}

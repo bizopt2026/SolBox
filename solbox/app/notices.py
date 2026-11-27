@@ -36,6 +36,11 @@ def _ro(word: str) -> str:
 NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     # 만들기·고치기·지우기
     "created": ("ok", "등록했습니다."),
+    # 사업기획 (2026-11-27)
+    "bm_ideas_started": ("ok", "BM 안을 만들기 시작했습니다. 보통 1분 안에 끝나요."),
+    "bm_ideas_ai_off": ("warn", "등록했습니다. AI 작업 처리기가 꺼져 있어 BM 안 만들기는 시작하지 않았습니다. 처리기가 켜진 뒤 \"AI 안 다시 만들기\"를 눌러 주세요."),
+    "bm_idea_applied": ("ok", "AI 안을 이 BM 에 썼습니다. 내용을 확인하고 필요하면 고쳐 주세요."),
+    "bm_launched": ("ok", "기존 BM 으로 옮겼습니다. 이제 사업기획 › 기존 BM 에서 운영 현황을 볼 수 있어요."),
     "saved": ("ok", "저장했습니다."),
     "deleted": ("ok", "삭제했습니다."),
     # 연결·자료
@@ -180,6 +185,7 @@ PARAM_NOTICES: dict[str, Callable[[str], Notice | None]] = {
     "opportunity_stage_open": _stage_open_notice,
     "stage": _stage_notice("stage", "발굴 단계를"),
     "opportunity_stage": _stage_notice("opportunity_stage", "영업기회 단계를"),
+    "bm_dev_stage": _stage_notice("bm_dev_stage", "개발 단계를"),
 }
 
 

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, form_error, text_field, select_field, check_picker, save_bar, form_token, bt_picker, ai_note %}
+{% block title %}AI로 BM 기획{% endblock %}
+{% block content %}
+{{ page_header("AI로 BM 기획", crumbs=crumbs, sub="고른 재료로 AI 가 솔루션 패키지 + 사업방식 조합 안을 2~3개 만듭니다. 안은 초안이고, 고른 안만 이 BM 에 옮겨집니다.") }}
+{{ form_error(error) }}
+<form method="get" action="/bm-lab/new" class="card row field-filter">
+  {{ select_field(ont.prop("customer_need", "field"), "field_id", field_opts, form.field_id, help="분야를 고르면 아래 니즈·솔루션이 그 분야로 좁혀집니다.") }}
+  <button type="submit">분야로 좁혀 보기</button>
+</form>
+<form method="post" action="/bm-lab" class="form-page">
+  {{ form_token() }}
+  <input type="hidden" name="field_id" value="{{ form.field_id }}">
+  <section class="card">
+    <h2>기획</h2>
+    <div class="fgrid">
+      {{ text_field("기획 제목", "name", form.name, required=true, wide=true, error=error, placeholder="예: 산업단지 지붕 태양광 패키지") }}
+      {{ text_field("요청 메모", "memo", form.memo, rows=3, help="노리는 고객층, 피하고 싶은 조건 같은 생각을 적어 주세요. AI 가 참고합니다.") }}
+      <div class="wide">{{ bt_picker(form.business_types or [], "검토할 사업방식", none, error, help="고르지 않으면 AI 가 세 방식을 모두 따져 봅니다.") }}</div>
+    </div>
+  </section>
+  <section class="card">
+    <h2>재료</h2>
+    <p class="muted">고르지 않으면 니즈는 {{ "이 분야의" if form.field_id else "" }} 해결되지 않은 니즈 최근 40개, 솔루션은 보류가 아닌 솔루션을 씁니다.</p>
+    {{ check_picker("need_ids", ont.label("customer_need"), needs, form.need_ids) }}
+    {{ check_picker("solution_ids", "솔루션", solutions, form.solution_ids, show_stage=True) }}
+  </section>
+  {% call ai_note(ai_gate(), id="bm-plan-note") %}AI 작업 처리기가 꺼져 있으면 기획만 등록하고, 나중에 "AI 안 만들기"를 누를 수 있어요.{% endcall %}
+  {{ save_bar("/bm-lab", "기획 등록하고 AI 안 만들기") }}
+</form>
+{% endblock %}

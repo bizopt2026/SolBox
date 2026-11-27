@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, pill, none_dash %}
+{% block title %}신규 BM{% endblock %}
+{% block content %}
+{{ list_head("신규 BM", pg, q or stage_now, "/bm-lab/new", new_label="+ AI로 BM 기획", alt_url="/bms/new?kind=new", alt_label="+ 직접 등록", type="bm", sub="솔루션 패키지와 사업방식 조합으로 새로 개발하는 사업 모델입니다. 사업화하면 기존 BM 으로 옮깁니다.") }}
+{{ list_tools(request, tabs, "개발 단계", q, none, "이름, 설명으로 찾기") }}
+{% if pg.items %}
+<div class="tablewrap"><table class="list-table">
+  <thead><tr><th>신규 BM</th><th class="col-sec">{{ ont.prop("bm", "dev_stage") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">AI 안</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
+  <tbody>
+  {% for b in pg.items %}{% set i = info[b.id] %}
+    <tr>
+      {% call title_cell("/bms/" ~ b.id, b.name, b.summary) %}{% if b.dev_stage %}{{ pill("bm_dev_stage", b.dev_stage) }}{% endif %}<span>{{ links_text(i) }}</span>{% endcall %}
+      <td class="col-sec">{% if b.dev_stage in ont.BM_DEV_STAGES %}{{ pill("bm_dev_stage", b.dev_stage) }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if b.business_type in ont.BUSINESS_TYPES %}{{ pill("business_type", b.business_type) }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec num">{{ (b.ideas or []) | length }}개</td>
+      <td class="col-sec num">{{ links_text(i) }}</td>
+      <td class="col-sec num">{{ kdate(b.updated_at.date()) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{{ pager(pg, request) }}
+{% else %}{{ empty_list(q or stage_now, "아직 신규 BM 이 없습니다. 분야·고객 니즈·솔루션을 고르면 AI 가 솔루션 패키지와 사업방식 조합 안을 만들어 드려요.", "/bm-lab/new", "+ AI로 BM 기획", clear_url="/bm-lab") }}{% endif %}
+{% endblock %}

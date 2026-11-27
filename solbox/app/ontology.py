@@ -192,6 +192,7 @@ JOB_KINDS = {
     "report_notes": "업무 보고 구역별 보고 문구",
     "opportunity_review": "영업기회 AI 분석 (제안·브리핑)",
     "pipeline_insight": "영업기회 분석 AI 해석",
+    "bm_ideas": "신규 BM 안 만들기",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -216,6 +217,7 @@ JOB_EXPECTED = {
     "report_notes": "보통 30초 안에",
     "opportunity_review": "보통 30초~1분",
     "pipeline_insight": "보통 30초 안에",
+    "bm_ideas": "보통 1분 안에",
 }
 
 ERROR_KINDS = {
@@ -336,6 +338,21 @@ BUSINESS_TYPE_DESCRIPTIONS = {
     "lease": "고객이 소유하지 않고 이용료(렌탈·구독)를 내고 쓰는 방식",
     "invest": "당사(또는 투자자)가 투자·소유하고 절감액·전력 판매 등 수익으로 회수하는 방식 (IPP 등)",
 }
+# 사업기획 (2026-11-27): BM 의 구분·운영 상태·개발 단계
+BM_KINDS = {"existing": "기존 BM", "new": "신규 BM"}
+BM_KIND_EXISTING, BM_KIND_NEW = "existing", "new"
+BM_OP_STATUSES = {"running": "운영 중", "expanding": "확대", "shrinking": "축소", "stopped": "중단"}
+BM_DEV_STAGES = {"idea": "아이디어", "review": "검토", "pilot": "파일럿", "launch": "사업화", "dropped": "중단"}
+BM_DEV_STAGE_DEFAULT = "idea"
+BM_DEV_STAGE_DESCRIPTIONS = {
+    "idea": "AI 안이나 직접 쓴 생각을 모으는 단계입니다.",
+    "review": "솔루션 조합·사업방식·대상 고객을 따져 보는 단계입니다.",
+    "pilot": "고객 한두 곳과 시범으로 해 보는 단계입니다.",
+    "launch": "사업으로 굳힌 상태입니다. 기존 BM으로 옮겨 운영할 수 있습니다.",
+    "dropped": "더 진행하지 않기로 한 상태입니다.",
+}
+BM_DEV_FLOW = ("idea", "review", "pilot", "launch")
+
 BUSINESS_TYPE_INVEST = "invest"  # 투자형: 제안서 구성안에 투자·회수 구조 장을 넣게 하는 값
 BUSINESS_TYPE_MEMO_MAX = 300  # 솔루션의 사업방식별 메모 길이 (예: "투자형은 100kW 이상만")
 BUSINESS_TYPE_FILTER_PARAM = "business_type"  # 목록 `?business_type=build|lease|invest` (화이트리스트, 그 사업방식을 가진 것만)
@@ -512,6 +529,9 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("initiative_status", "과제 상태", INITIATIVE_STATUSES, INITIATIVE_STATUS_DEFAULT),
     CodeList("alignment_verdict", "정렬 판단", ALIGNMENT_VERDICTS),
     CodeList("need_status", "고객니즈 상태", NEED_STATUSES, NEED_STATUS_DEFAULT),
+    CodeList("bm_kind", "BM 구분", BM_KINDS, BM_KIND_EXISTING),
+    CodeList("bm_op_status", "BM 운영 상태", BM_OP_STATUSES),
+    CodeList("bm_dev_stage", "신규 BM 개발 단계", BM_DEV_STAGES, BM_DEV_STAGE_DEFAULT, BM_DEV_STAGE_DESCRIPTIONS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -543,6 +563,9 @@ CODE_TONES: dict[str, dict[str, str]] = {
     "alignment_verdict": {"aligned": "ok", "misaligned": "bad", "unclear": "warn"},
     "initiative_status": {"open": "violet", "doing": "brand", "blocked": "bad", "done": "ok", "dropped": "slate"},
     "need_status": {"new": "violet", "reviewing": "warn", "opportunity": "brand", "hold": "slate", "resolved": "ok"},
+    "bm_kind": {"existing": "brand", "new": "violet"},
+    "bm_op_status": {"running": "ok", "expanding": "brand", "shrinking": "warn", "stopped": "slate"},
+    "bm_dev_stage": {"idea": "violet", "review": "warn", "pilot": "brand", "launch": "ok", "dropped": "slate"},
 }
 
 
@@ -688,10 +711,10 @@ _TYPE_LIST = [
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
-        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="planning",
+        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="기존 BM", nav_group="planning",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조", "business_type": "대표 사업방식",
-               "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건"},
-        description="사업 모델. 고객에 묶이지 않고, 특정 고객별로 나뉘는 것은 프로젝트입니다",
+               "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건", "kind": "구분", "dept": "담당 부서", "op_status": "운영 상태", "dev_stage": "개발 단계", "ideas": "AI 안"},
+        description="사업 모델. 고객에 묶이지 않는 사업의 틀입니다. 기존 BM은 사업부서가 운영 중인 것, 신규 BM은 새로 개발하는 것입니다",
     ),
     ObjectType(
         "activity", "활동 기록", "핵심", "Activity", "activities", "/activities", "/activities/{id}",
@@ -837,7 +860,7 @@ NAV_ITEMS = (
     _type_nav_item("activity"), _type_nav_item("report"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
     _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"), _type_nav_item("customer_need"),
-    _type_nav_item("bm"),
+    _type_nav_item("bm"), NavItem("bm-lab", "신규 BM", "planning"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
@@ -860,6 +883,7 @@ NAV_ICONS = {
     "proposals": '<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M7 14l3-3 3 2 4-5"/><path d="M8 21h8"/>',
     "projects": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     "bms": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    "bm-lab": '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/>',
     "strategies": '<path d="M12 21V3"/><path d="M12 4h7l-2 3 2 3h-7"/><path d="M8 21h8"/>',
     "initiatives": '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/>',
     "admin/users": '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',

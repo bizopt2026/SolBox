@@ -181,9 +181,10 @@ AI_POSTS = {
     "/research/reports/{report_id}/retry", "/intake/{intake_id}/analyze", "/admin/research/keywords", "/admin/duplicates/ai/{kind}",
     "/reports/{report_id}/ai/summary", "/reports/{report_id}/ai/plan", "/reports/{report_id}/chat", "/reports/{report_id}/chat/retry",
     "/reports/{report_id}/ai/notes", "/proposals/{proposal_id}/outline/slides/{index}/ai",
+    "/bms/{bm_id}/ideas",  # 사업기획 (2026-11-27): 신규 BM AI 안 다시 만들기
 }
 # 처리기가 꺼져 있으면 일은 하되 작업을 넣지 않는 라우트 (알림으로 알린다)
-AI_KEEPS = {"/intake", "/proposals", "/reports/{report_id}/confirm"}  # 업무 보고 확정: 꺼져 있으면 AI 보고 문구를 넣지 않고 기본 문장 그대로
+AI_KEEPS = {"/intake", "/proposals", "/reports/{report_id}/confirm", "/bm-lab"}  # /bm-lab: 꺼져 있으면 신규 BM 만 등록  # 업무 보고 확정: 꺼져 있으면 AI 보고 문구를 넣지 않고 기본 문장 그대로
 JOB_MAKERS = ("enqueue(", "start_job(", "start_analysis(", "start_run(", "AIJob(", "_start(")
 
 
@@ -251,6 +252,7 @@ def test_every_ai_post_refuses_when_off(app, admin_client, db, settings):
         "/reports/{report_id}/chat": f"/reports/{rep.id}/chat", "/reports/{report_id}/chat/retry": f"/reports/{rep.id}/chat/retry",
         "/reports/{report_id}/ai/notes": f"/reports/{rep.id}/ai/notes", "/opportunities/{opportunity_id}/ai/review": "/opportunities/1/ai/review", "/opportunities/analysis/ai": "/opportunities/analysis/ai",
         "/proposals/{proposal_id}/outline/slides/{index}/ai": f"/proposals/{sol.id}/outline/slides/1/ai",
+        "/bms/{bm_id}/ideas": "/bms/1/ideas",
     }
     assert set(paths) == AI_POSTS
     before = db.query(AIJob).count()

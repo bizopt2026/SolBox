@@ -2,17 +2,19 @@
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill, type_box, none_dash %}
 {% block title %}{{ ont.label("bm") }}{% endblock %}
 {% block content %}
-{{ list_head(ont.label("bm"), pg, q or type_now, "/bms/new", type="bm") }}
+{{ list_head(ont.TYPES["bm"].nav, pg, q or type_now, "/bms/new", new_label="+ 기존 BM 등록", type="bm", sub="사업부서가 지금 운영 중인 사업 모델입니다. 새로 개발하는 BM 은 사업기획 › 신규 BM 에 있어요.") }}
 {% set bt_extra %}{{ type_box(type_tabs) }}{% endset %}
 {{ list_tools(request, none, "", q, none, "이름, 설명으로 찾기", extra=bt_extra, extra_on=1 if type_now else 0) }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">
-  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
+  <thead><tr><th>{{ ont.label("bm") }}</th><th class="col-sec">{{ ont.prop("bm", "dept") }}</th><th class="col-sec">{{ ont.prop("bm", "op_status") }}</th><th class="col-sec">{{ ont.prop("bm", "business_type") }}</th><th class="col-sec">연결</th><th class="col-sec">수정일</th></tr></thead>
   <tbody>
   {% for b in pg.items %}
     {% set i = info[b.id] %}
     <tr>
       {% call title_cell("/bms/" ~ b.id, b.name, b.summary) %}{% if b.business_type in ont.BUSINESS_TYPES %}{{ pill("business_type", b.business_type) }}{% endif %}<span>{{ links_text(i) }}</span>{% endcall %}
+      <td class="col-sec">{% if b.dept %}{{ b.dept }}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if b.op_status in ont.BM_OP_STATUSES %}{{ pill("bm_op_status", b.op_status) }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec">{% if b.business_type in ont.BUSINESS_TYPES %}{{ pill("business_type", b.business_type) }}{% else %}{{ none_dash() }}{% endif %}</td>
       <td class="col-sec num">{{ links_text(i) }}</td>
       <td class="col-sec num">{{ kdate(b.updated_at.date()) }}</td>
@@ -21,5 +23,5 @@
   </tbody>
 </table></div>
 {{ pager(pg, request) }}
-{% else %}{{ empty_list(q or type_now, "아직 등록된 " ~ ont.label("bm") ~ "이 없습니다. BM은 사업 모델이고, 특정 고객별로 나뉘는 것은 프로젝트입니다.", "/bms/new", clear_url="/bms") }}{% endif %}
+{% else %}{{ empty_list(q or type_now, "아직 등록된 기존 BM 이 없습니다. 사업부서가 운영 중인 사업 모델을 등록해 두면 따르는 프로젝트·영업기회가 함께 모입니다.", "/bms/new", clear_url="/bms") }}{% endif %}
 {% endblock %}
