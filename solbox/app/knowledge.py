@@ -422,6 +422,7 @@ class KnowledgeMirror:
             _item(P("activity", "projects"), ", ".join(self._ref(b.name, b) for b in a.projects)),
             _item(ontology.label("partner"), ", ".join(self._ref(p.name, p) for p in a.partners)),
             _item(ontology.label("opportunity"), ", ".join(self._ref(o.name, o) for o in a.opportunities)),
+            _item(P("activity", "contacts"), ", ".join(" ".join(x for x in (p.name, p.title) if x) for p in a.contacts)),
         )
         out += _section(P("activity", "summary_md"), a.summary_md)
         follow = []
@@ -483,7 +484,7 @@ CONNECTED = (Solution, Customer, Partner, Project, Opportunity, BM, Strategy, In
 CONNECTIONS_HEADING = "연결"
 CARD_LIMIT = 8  # 그룹마다 적는 항목 수 (나머지는 "외 N건")
 CARD_EXCLUDE = ("R3", "R19", "R21", "R22", *ontology.UNMIRRORED)  # 사본이 이미 따로 적은 것(자료), 올리기 묶음에 닿는 것(열 수 있는 사람만 보인다), 사본에 넣지 않는 관계(업무 보고)
-KNOWLEDGE_FORMAT = 15  # (15: 고객·파트너 사본의 "## 담당자" 구역, 영업기회 사본의 "- 고객 담당자: …" 줄 (영업 D). 14: 사업 방향·과제 사본과 공간 자료, 다른 사본의 "## 연결" 에 과제 (AI 코워크 ①). 13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
+KNOWLEDGE_FORMAT = 16  # (16: 활동 기록 사본의 "- 참석한 담당자: …" 줄 (담당자 부담 줄이기). 15: 고객·파트너 사본의 "## 담당자" 구역, 영업기회 사본의 "- 고객 담당자: …" 줄 (영업 D). 14: 사업 방향·과제 사본과 공간 자료, 다른 사본의 "## 연결" 에 과제 (AI 코워크 ①). 13: 영업기회 사본의 "- 확인 항목: …" 줄 (영업 B). 12: 영업기회 사본의 예상 금액·예상 수주일·담당·다음 할 일·수주·실패 사유 줄 (영업 A). 11: 솔루션 분야 줄(베타 AD)과 고객·파트너의 다른 이름 줄(베타 AE)을 함께 넣은 형식. 10: 솔루션 사본의 "- 분야: …" 줄 (베타 AD). 9: 솔루션 사본의 "- 가능한 사업방식: …" 줄, 영업기회의 "- 검토 사업방식: …" 줄, BM 의 "- 대표 사업방식: …" 줄 (베타 Y). 8: AI 가 만든 기록의 "- AI 생성: 예 (…)" 줄. 7: "## 연결" 구역의 관계 이름과 따라가서 얻는 묶음이 바뀜. 6: 솔루션·고객·파트너·프로젝트·영업기회·BM 사본의 "## 연결" 구역) # 사본의 폴더·제목 형식이 바뀌면 올린다 (2: 프로젝트 폴더 projects/, 통일한 용어. 3: 고객 니즈 줄에 연결된 고객 기록 경로. 4: 파트너·고객의 "같은 회사" 줄. 5: BM·영업기회 사본과 고객·프로젝트·솔루션·활동 기록의 연결 줄)
 FORMAT_KEY = "knowledge_format"
 
 

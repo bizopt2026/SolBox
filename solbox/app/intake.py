@@ -1673,11 +1673,13 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
             new_partners=v["new_names"]["new_partners"], origin=run.origin,
         )
         db.flush()
+        attended = records.auto_link_contacts(db, a, ((item.get("draft") or {}).get("attendees") or []))  # 참석한 담당자 (확인 화면 칩 없음: 정확히 맞는 사람만)
+        records.spread_contacts(a)
         for number in item.get("files", []):
             f = run.by_number.get(number)
             if f is not None:  # 활동 기록이 우선: 솔루션에는 자기 사본이 이미 있다
                 f.target_type, f.target_id = "activity", a.id
-        run.result.append({"type": "activity", "id": a.id, "label": a.title or "(제목 없음)"})
+        run.result.append({"type": "activity", "id": a.id, "label": (a.title or "(제목 없음)") + (f" (참석 담당자 {attended}명 연결)" if attended else "")})
         run.sync.append(a)
     run.result.extend(run.skipped)
     run.result.extend(run.unsaved)

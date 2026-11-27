@@ -29,7 +29,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Opportunity, Partner, Solution, User
 from app.records import (
-    LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, first_line, linked, rows, sync_all,
+    LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, auto_link_contacts, first_line, link_contacts, linked, rows, spread_contacts, sync_all,
 )
 from app.routers._common import (
     clear_file_targets, get_deletable_or_404, get_or_404, list_filter, newest_first, origin_filter, paginate, row_info, submitted_fields, sort_rows,
@@ -102,6 +102,18 @@ def blank_values() -> dict:
         "selected": {t: [] for t in (*LINK_TYPES, *ontology.ACTIVITY_MANUAL_LINKS)},
         "new_names": {t: [] for t in NEW_TYPES},        # 체크된 채로 보이는 새 이름
         "new_candidates": {t: [] for t in NEW_TYPES},   # 체크 해제로 보이는 새 이름 후보 (AI 초안)
+        "contacts": None,  # 참석한 담당자 칸 (None 이면 칸이 없다: 직접 입력 새 폼은 저장할 때 자동 연결)
+    }
+
+
+def contact_choices(scope, checked_ids, new_people=(), ambiguous=()) -> dict:
+    """참석한 담당자 칸 값: options [{id, label, checked}], new_people [{value, label}], ambiguous [이름]."""
+    from app import contacts as ct
+
+    return {
+        "options": [{"id": p.id, "label": " · ".join(x for x in (p.name, p.title, ct.role_label(p.role), p.company.name if p.company else "") if x),
+                     "checked": p.id in checked_ids} for p in scope],
+        "new_people": list(new_people), "ambiguous": list(ambiguous),
     }
 
 
@@ -117,6 +129,10 @@ def form_values(a: Activity) -> dict:
         selected={**{t: [o.id for o in getattr(a, rel)] for t, (_, rel) in LINK_TYPES.items()},
                   **{t: [o.id for o in getattr(a, rel)] for t, rel in ontology.ACTIVITY_MANUAL_LINKS.items()}},
     )
+    from app.records import contact_scope
+
+    scope = sorted(dict.fromkeys([*contact_scope(a), *a.contacts]), key=lambda p: p.id)
+    values["contacts"] = contact_choices(scope, {p.id for p in a.contacts})
     return values
 
 
@@ -155,6 +171,7 @@ def _submitted_values(
             for rel, names in (("solutions", new_solutions), ("customers", new_customers), ("partners", new_partners))
         },
         "new_candidates": {t: [] for t in NEW_TYPES},
+        "contacts": None,  # 오류로 다시 그린 폼에는 참석 칸을 두지 않는다 (다시 저장하면 새 기록은 자동 연결, 고치기는 그대로)
     }
 
 
@@ -175,7 +192,7 @@ def review_linked(db: Session, activity: Activity, user: User, request: Request)
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
           partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=(),
-          rev: Rev | None = None, once: Once | None = None):
+          contact_ids=None, new_people=(), rev: Rev | None = None, once: Once | None = None):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
@@ -201,6 +218,11 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
         fu_id=fu_id, ds_id=ds_id, opportunity_ids=opportunity_ids,
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
+    if contact_ids is not None:  # 참석한 담당자 칸이 있는 폼: 체크가 정본 (푼 사람은 다시 붙지 않는다)
+        link_contacts(db, user, activity, contact_ids, new_people)
+    elif is_new:  # 칸이 없는 새 폼: 글에 이름이 나온 담당자를 잇는다
+        auto_link_contacts(db, activity)
+    spread_contacts(activity)
     db.commit()
     sync_all(mirror, activity, old)
     review_linked(db, activity, user, request)
@@ -263,6 +285,8 @@ def save_raw(
         rel = LINK_TYPES[code][1] if code in LINK_TYPES else ontology.ACTIVITY_MANUAL_LINKS[code]
         getattr(activity, rel).append(db.get(ontology.TYPES[code].model, ids[0]))
     db.add(activity)
+    auto_link_contacts(db, activity)  # 메모 "저장": 확인 화면이 없으니 글에 이름이 정확히 나온 담당자만 잇는다
+    spread_contacts(activity)
     db.commit()
     sync_all(mirror, activity)
     review_linked(db, activity, user, request)
@@ -296,7 +320,27 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str, prefill: dict | N
         ambiguous={t: ambiguous_view(db, model, found[rel]["ambiguous"]) for t, (model, rel) in LINK_TYPES.items()},
     )
     merge_prefill(values, prefill)
+    values["contacts"] = _draft_contacts(db, d, values)
     return values
+
+
+def _draft_contacts(db: Session, d: ActivityDraft, values: dict) -> dict:
+    """AI 초안의 참석자를 고른 고객·파트너의 담당자와 맞춘다: 정확히 맞은 사람·글에 이름이 나온 사람은 미리 체크,
+    여럿이면 이름만 알리고, 새 사람은 고른 회사가 하나뿐일 때 체크 안 된 칩으로."""
+    from app import contacts as ct
+    from app.models import Customer, Partner
+
+    companies = [db.get(Customer, i) for i in values["selected"]["customer"]] + [db.get(Partner, i) for i in values["selected"]["partner"]]
+    companies = [c for c in companies if c is not None]
+    scope = sorted(dict.fromkeys(p for c in companies for p in c.contacts), key=lambda p: p.id)
+    rows = ct.match_attendees(scope, ct.attendee_list(d.attendees), ct.staff_names(db))
+    checked = {r["contact_id"] for r in rows if r["status"] == "matched"}
+    checked |= {p.id for p in ct.found_in_text(scope, f"{values['raw_text']}\n{values['summary_md']}")}
+    new = []
+    if len(companies) == 1:
+        new = [{"value": f"{r['name']}|{r['title']}", "label": r["name"] + (f" · {r['title']}" if r["title"] else ""), "company": companies[0].name}
+               for r in rows if r["status"] == "new"]
+    return contact_choices(scope, checked, new, [r["name"] for r in rows if r["status"] == "ambiguous"])
 
 
 def merge_prefill(values: dict, prefill: dict | None) -> None:
@@ -375,6 +419,7 @@ def _form_params(
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
     project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]), opportunity_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
+    contact_ids: list[str] = Form([]), new_people: list[str] = Form([]),
     fields: frozenset = Depends(submitted_fields),
 ) -> dict:
     if "opportunity_ids" not in fields:  # 영업기회 칸이 없던 옛 화면에서 온 저장: 영업기회 연결은 그대로 둔다 (칸이 와서 비어 있으면 비운다)
@@ -385,6 +430,7 @@ def _form_params(
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
         project_ids=project_ids, partner_ids=partner_ids, opportunity_ids=opportunity_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
+        contact_ids=contact_ids if "contact_field" in fields else None, new_people=new_people,
     )
 
 

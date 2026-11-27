@@ -40,4 +40,4 @@ def test_company_and_opportunity_copies_list_contacts(app, db):
     assert "## 담당자\n\n- 김민수 · 구매팀 부장 · 의사결정자 · 010-1234-5678 · minsu@hanbit.kr" in text and "골프" not in text
     assert "## 담당자\n\n- 박기사" in mirror.path_for(p).read_text(encoding="utf-8")
     assert "- 고객 담당자: 김민수 구매팀 부장 의사결정자" in mirror.path_for(o).read_text(encoding="utf-8")
-    assert knowledge.KNOWLEDGE_FORMAT == 15
+    assert knowledge.KNOWLEDGE_FORMAT >= 15
