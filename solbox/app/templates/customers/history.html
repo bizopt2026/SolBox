@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, pill %}
+{% block title %}{{ customer.name }} 접촉 이력{% endblock %}
+{% block content %}
+{{ page_header("접촉 이력", crumbs=ui.crumbs("customer", customer.name, "/customers/" ~ customer.id, "접촉 이력"), sub=customer.name ~ " 과의 회의·통화·방문 (고객에 연결됐거나, 그 고객 담당자가 참석했거나, 그 고객의 니즈가 나온 활동 기록)") }}
+{% set hrows, htotal = history %}{% set full = true %}{% include "customers/_history.html" %}
+{% endblock %}

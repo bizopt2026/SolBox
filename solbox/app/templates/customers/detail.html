@@ -13,22 +13,7 @@
     {% set memo_cell %}{% if contact_memo[0] %}<span class="memo-text">{{ contact_memo[0] }}</span>{% endif %}{% if contact_memo[1] %}<details class="memo-moved"><summary class="muted">담당자로 옮긴 {{ contact_memo[1] | length }}줄 보기</summary><span class="memo-text muted">{{ contact_memo[1] | join("\n") }}</span></details>{% endif %}{% endset %}
     {{ props_card("기본 정보", (([("다른 이름", customer.aliases | replace("\n", ", "))] if customer.aliases else []) + [("업종", customer.industry), (ont.prop("customer", "contact"), memo_cell | trim), ("메모", customer.memo)]), "/customers/" ~ customer.id ~ "/edit") }}
     {% set company_code, company = "customer", customer %}{% include "contacts/_card.html" %}
-    {% set hrows, htotal = history %}
-    <section class="card stack" id="contact-history" aria-label="접촉 이력">
-      <div class="card-head"><h2>접촉 이력<span class="count">{{ htotal }}건</span></h2>
-        <span class="head-actions">{% if htotal > hrows | length %}<a href="/activities?customer_id={{ customer.id }}">모두 보기</a>{% endif %}<a href="/activities/new?customer_id={{ customer.id }}">+ 활동 기록 쓰기</a></span></div>
-      {% if hrows %}
-      <ul class="sub-list history">
-        {% for r in hrows %}{% set a = r.activity %}
-        <li>
-          <div class="li-row"><span class="num">{{ kdate(a.date) if a.date else "날짜 없음" }}</span> {{ pill("activity_kind", a.kind) }} <span class="grow"><a href="/activities/{{ a.id }}">{{ a.title or "(제목 없음)" }}</a></span></div>
-          {% if r.attendees or r.opportunities %}<small class="li-meta">{% if r.attendees %}참석 {% for p in r.attendees %}<a href="/contacts/{{ p.id }}">{{ p.name }}</a>{{ ", " if not loop.last }}{% endfor %}{% endif %}{% if r.attendees and r.opportunities %} · {% endif %}{% if r.opportunities %}{{ ont.label("opportunity") }} {% for o in r.opportunities %}<a href="/opportunities/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last }}{% endfor %}{% endif %}</small>{% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% if htotal > hrows | length %}<p class="muted rel-more">외 {{ htotal - hrows | length }}건 · <a href="/activities?customer_id={{ customer.id }}">모두 보기</a></p>{% endif %}
-      {% else %}<p class="muted">아직 접촉 기록이 없습니다. 회의·통화·방문을 활동 기록으로 남기면 여기에 모입니다.</p>{% endif %}
-    </section>
+    {% set hrows, htotal = history %}{% set full = false %}{% include "customers/_history.html" %}
     {{ main_cards(main) }}
   </div>
   <aside class="daside" aria-label="연결과 기록 정보">

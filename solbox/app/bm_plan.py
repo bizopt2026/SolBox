@@ -96,8 +96,13 @@ def candidate_solutions(db: Session, plan: dict) -> list[Solution]:
     return rows[:MAX_SOLUTIONS]
 
 
+def safe(text: str) -> str:
+    """프롬프트의 자료 울타리(<<<…>>>)를 글 안에서 닫거나 열지 못하게 한다 (다른 AI 작업의 `_safe` 와 같다)."""
+    return (text or "").replace("<<<", "< < <").replace(">>>", "> > >")
+
+
 def _one_line(text: str, limit: int = 200) -> str:
-    return " ".join((text or "").split())[:limit]
+    return safe(" ".join((text or "").split())[:limit])
 
 
 def prompt_values(db: Session, bm: BM) -> dict:
@@ -115,7 +120,7 @@ def prompt_values(db: Session, bm: BM) -> dict:
         hint = "사용자가 검토하려는 사업방식: " + ", ".join(f"`{c}`({ontology.BUSINESS_TYPES[c]})" for c in plan["business_types"]) + ". 이 방식들을 먼저 따져 보세요."
     others = [b.name for b in db.scalars(select(BM).where(BM.id != bm.id).order_by(BM.name))]
     return {
-        "title": bm.name, "request_memo": plan.get("memo") or "(없음)",
+        "title": _one_line(bm.name, 120), "request_memo": safe(plan.get("memo") or "") or "(없음)",
         "field_line": f"이 기획의 분야: {field.name}" if field else "분야를 정하지 않았습니다.",
         "needs": need_lines, "solutions": sol_lines, "business_type_hint": hint,
         "existing_bms": "\n".join(f"- {_one_line(n, 80)}" for n in others) or "(없음)",
@@ -151,21 +156,44 @@ def clean_ideas(db: Session, bm: BM, raw_ideas: list) -> list[dict]:
 
 def start_ideas(db: Session, bm: BM, user: User):
     """AI 안 만들기 작업을 넣는다 (이전 작업의 결과는 쓰지 않게 `active_job_id` 를 바꾼다)."""
-    from app.ai.queue import enqueue
+    from app.models import AIJob
 
-    job = enqueue(db, "bm_ideas", {"bm_id": bm.id}, user.id)
-    bm.active_job_id = job.id
+    job = AIJob(kind="bm_ideas", input={"bm_id": bm.id}, requester_id=user.id, priority=0, status="pending")
+    db.add(job)
+    db.flush()
+    bm.active_job_id = job.id  # 작업과 같은 커밋에서 정한다 (아주 빨리 끝난 작업이 "지난 작업"으로 버려지지 않게)
     db.commit()
     return job
 
 
-def apply_idea(db: Session, bm: BM, index: int) -> str | None:
-    """"이 안 쓰기": 한 줄 설명·대상 고객·수익 구조·대표 사업방식·솔루션을 그 안으로, 이름이 비었으면 이름도, 이유는 메모 끝에. 오류면 글."""
+IDEA_CHANGED = "그 사이 AI 안이 바뀌었습니다. 화면을 새로 고친 뒤 다시 골라 주세요."
+IDEAS_RUNNING = "새 AI 안을 만드는 중입니다. 끝난 뒤 다시 골라 주세요."
+
+
+def idea_sig(idea: dict) -> str:
+    """화면에 보인 안의 지문 (쓸 때 같은 안인지 확인한다). "쓴 안" 표시는 빼고 센다."""
+    import hashlib
+    import json
+
+    body = {k: v for k, v in (idea or {}).items() if k != "used"}
+    return hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def apply_idea(db: Session, bm: BM, index: int, sig: str | None = None) -> str | None:
+    """"이 안 쓰기": 한 줄 설명·대상 고객·수익 구조·대표 사업방식·솔루션을 그 안으로, 이름이 비었으면 이름도, 이유는 메모 끝에. 오류면 글.
+    `sig` 는 화면에 보인 안의 지문: 그 사이 안이 바뀌었으면 쓰지 않는다. 새 안을 만드는 중이어도 쓰지 않는다."""
+    from app.models import AIJob
+
     ideas = list(bm.ideas or [])
     if not is_new(bm):
         return NOT_NEW
     if not 0 <= index < len(ideas):
         return BAD_IDEA
+    job = db.get(AIJob, bm.active_job_id) if bm.active_job_id else None
+    if job is not None and job.status in ontology.JOB_ACTIVE:
+        return IDEAS_RUNNING
+    if sig is not None and sig != idea_sig(ideas[index]):
+        return IDEA_CHANGED
     idea = ideas[index]
     bm.name = bm.name.strip() or idea["name"]
     bm.summary = idea.get("summary") or bm.summary

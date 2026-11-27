@@ -26,8 +26,9 @@
         <form method="post" action="/bms/{{ bm.id }}/ideas" class="head-actions"><button type="submit" class="small"{{ ai_attrs(ai_gate(), "bm-ai-note") }}>AI 안 {{ "다시 " if bm.ideas else "" }}만들기</button></form></div>
       {% call ai_note(ai_gate(), id="bm-ai-note") %}칸은 아래 "수정"에서 직접 쓸 수 있어요.{% endcall %}
       {% if job and job.status in ont.JOB_ACTIVE %}{% include "jobs/_status.html" %}
-      {% elif job and job.status == "failed" %}<p class="error" role="alert">AI 안을 만들지 못했습니다: {{ job.error or "알 수 없는 오류" }}. "AI 안 다시 만들기"를 눌러 주세요.</p>
-      {% elif bm.ideas %}
+      {% else %}
+      {% if job and job.status == "failed" %}<p class="error" role="alert">AI 안을 만들지 못했습니다: {{ job.error or "알 수 없는 오류" }}. "AI 안 다시 만들기"를 눌러 주세요.{% if bm.ideas %} 아래는 전에 만든 안입니다.{% endif %}</p>{% endif %}
+      {% if bm.ideas %}
       <p class="muted">AI 초안입니다. 마음에 드는 안을 "이 안 쓰기"로 이 BM 에 옮긴 뒤 수정 화면에서 다듬으세요.</p>
       <div class="idea-list">
       {% for x in bm.ideas %}
@@ -42,11 +43,12 @@
             {% if x.need_ids %}<dt>근거 니즈</dt><dd>{% for nid in x.need_ids %}{% set n = idea_needs.get(nid) %}{% if n %}<a href="/needs/{{ n.id }}">{{ ui.first_line(n.content, 40) }}</a>{{ ", " if not loop.last }}{% endif %}{% endfor %}</dd>{% endif %}
           </dl>
           {% if x.rationale %}<p class="muted">{{ x.rationale }}</p>{% endif %}
-          <form method="post" action="/bms/{{ bm.id }}/ideas/{{ loop.index0 }}/apply"><button type="submit"{{ ' class="primary"' if not x.used }}>이 안 쓰기</button></form>
+          <form method="post" action="/bms/{{ bm.id }}/ideas/{{ loop.index0 }}/apply"><input type="hidden" name="sig" value="{{ idea_sig(x) }}"><button type="submit"{{ ' class="primary"' if not x.used }}>이 안 쓰기</button></form>
         </article>
       {% endfor %}
       </div>
-      {% else %}<p class="muted">아직 AI 안이 없습니다. 분야·고객 니즈·솔루션을 바탕으로 솔루션 패키지와 사업방식 조합 안을 받아 보세요.</p>{% endif %}
+      {% elif not job %}<p class="muted">아직 AI 안이 없습니다. 분야·고객 니즈·솔루션을 바탕으로 솔루션 패키지와 사업방식 조합 안을 받아 보세요.</p>{% endif %}
+      {% endif %}
     </section>
     {% endif %}
     {% set rows = [(ont.prop("bm", "summary"), bm.summary), (ont.prop("bm", "business_type"), pill("business_type", bm.business_type) if bm.business_type in ont.BUSINESS_TYPES else "")] %}

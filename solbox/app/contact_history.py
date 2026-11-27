@@ -1,7 +1,7 @@
 """영업 › 고객관리의 접촉 이력 (2026-11-27): 한 고객과의 접촉(활동 기록)을 날짜 최신순으로 모은다.
 
 고객에 연결된 활동 기록(R5), 그 고객의 담당자가 참석한 활동 기록(R53), 그 고객의 니즈가 나온 활동 기록(R9·R10)을 합친다.
-줄마다 그 고객의 참석 담당자와 그 고객의 영업기회만 보인다. 질의 수는 기록 수와 무관하다 (활동 번호 한 번 + 한 쪽 읽기 한 번)."""
+줄마다 그 고객의 참석 담당자와 그 고객의 영업기회만 보인다. 질의 수는 기록 수와 무관하다 (활동 번호 1 + 활동 1 + 미리 읽기 2)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,12 +29,12 @@ def _condition(customer: Customer):
     )
 
 
-def history(db: Session, customer: Customer, limit: int = LIMIT) -> tuple[list[Row], int]:
-    """(보일 줄, 전체 건수)."""
+def history(db: Session, customer: Customer, limit: int | None = LIMIT) -> tuple[list[Row], int]:
+    """(보일 줄, 전체 건수). `limit` 이 None 이면 모두 (고객관리 › 접촉 이력 전체 화면)."""
     ids = [r[0] for r in db.execute(
         select(Activity.id).where(_condition(customer))
         .order_by(Activity.date.is_(None), Activity.date.desc(), Activity.id.desc())).all()]
-    shown = ids[:limit]
+    shown = ids if limit is None else ids[:limit]
     if not shown:
         return [], 0
     acts = {a.id: a for a in db.scalars(select(Activity).where(Activity.id.in_(shown))

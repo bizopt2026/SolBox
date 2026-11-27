@@ -44,7 +44,7 @@ def _detail_page(request: Request, db: Session, user: User, bm: BM, error: str |
         request, "bms/detail.html", status_code=400 if error else 200, bm=bm, error=error,
         is_new=bm_plan.is_new(bm), summary=None if bm_plan.is_new(bm) else bm_plan.op_summary(db, bm), job=job,
         position=queue_position(db, job) if job is not None and job.status in ontology.JOB_ACTIVE else 0, next=f"/bms/{bm.id}",
-        idea_solutions=sols, idea_needs=needs, money=money, crumbs=bm_plan.crumbs(bm, bm.kind, (bm.name, None)),
+        idea_solutions=sols, idea_needs=needs, money=money, idea_sig=bm_plan.idea_sig, crumbs=bm_plan.crumbs(bm, bm.kind, (bm.name, None)),
         **relations.page_related(db, bm, user), has_dependents=bool(bm.projects or bm.opportunities or bm.proposals), can_delete=can_delete(user, bm), meta=ui.stamp_info(db, bm),
     )
 
@@ -198,12 +198,12 @@ def regenerate_ideas(bm_id: int, user: User = Depends(require_user), db: Session
 
 @router.post("/{bm_id}/ideas/{index}/apply")
 def apply_idea(
-    bm_id: int, index: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db),
+    bm_id: int, index: int, request: Request, sig: str | None = Form(None), user: User = Depends(require_user), db: Session = Depends(get_db),
     mirror: KnowledgeMirror = Depends(get_mirror),
 ):
     bm = get_or_404(db, BM, bm_id)
     before = opps.dependents(db, bm)
-    if error := bm_plan.apply_idea(db, bm, index):
+    if error := bm_plan.apply_idea(db, bm, index, sig):
         return _detail_page(request, db, user, bm, error)
     db.commit()
     db.refresh(bm)

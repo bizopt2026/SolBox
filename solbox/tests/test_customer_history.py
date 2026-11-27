@@ -36,3 +36,13 @@ def test_history_limit_and_customer_page(user_client, db):
     assert "접촉 이력" in page and "김공장장" in page and "방문" in page and "고객 태핑" in page
     assert f"/activities/new?customer_id={c.id}" in page
     assert page.index("접촉 이력") < page.index("rel-R27-opportunity")  # 연결 카드보다 위
+
+
+def test_full_history_page_shows_everything(user_client, db):
+    c, kim, o, (a1, a2, a3, a4) = _world(db)
+    page = user_client.get(f"/customers/{c.id}/history").text
+    for a in (a1, a2, a3):
+        assert f'href="/activities/{a.id}"' in page
+    assert f'href="/activities/{a4.id}"' not in page
+    rows, total = contact_history.history(db, c, limit=1)
+    assert total == 3

@@ -123,6 +123,13 @@ def detail(customer_id: int, request: Request, user: User = Depends(require_user
     return _detail_page(request, db, user, get_or_404(db, Customer, customer_id))
 
 
+@router.get("/{customer_id}/history")
+def history_page(customer_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """접촉 이력 전체 (상세 화면 카드의 "모두 보기"). 활동 기록 목록의 고객 걸러 보기는 연결(R5)만 보므로 따로 둔다."""
+    customer = get_or_404(db, Customer, customer_id)
+    return render(request, "customers/history.html", customer=customer, history=contact_history.history(db, customer, limit=None))
+
+
 @router.get("/{customer_id}/edit")
 def edit_form(customer_id: int, request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     customer = get_or_404(db, Customer, customer_id)

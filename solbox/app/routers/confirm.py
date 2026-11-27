@@ -52,6 +52,12 @@ def _load_need(db, user, p):
     return load_deletable(db, user, _num(p["obj_id"]))
 
 
+def _bm_crumb(obj, name):
+    from app import bm_plan  # 기존 BM · 신규 BM 경로 (사업기획 2026-11-27)
+
+    return bm_plan.crumbs(obj, obj.kind, (name, f"/bms/{obj.id}"), ("삭제", None))
+
+
 def _crumb(code):
     return lambda obj, name: ui.crumbs(code, name, ontology.TYPES[code].url(obj.id), "삭제")
 
@@ -131,7 +137,7 @@ SPECS: tuple[Spec, ...] = (
          blocker=_customer_blocker),
     Spec("/projects/{obj_id}/delete", "project", _owned(Project), lambda o: o.name, lambda o: f"/projects/{o.id}", _crumb("project"), "프로젝트"),
     Spec("/needs/{obj_id}/delete", "customer_need", _load_need, lambda o: ui.first_line(o.content, 60), lambda o: f"/needs/{o.id}", _crumb("customer_need"), "고객 니즈"),
-    Spec("/bms/{obj_id}/delete", "bm", _owned(BM), lambda o: o.name, lambda o: f"/bms/{o.id}", _crumb("bm"), "BM",
+    Spec("/bms/{obj_id}/delete", "bm", _owned(BM), lambda o: o.name, lambda o: f"/bms/{o.id}", _bm_crumb, "BM",
          blocker=lambda db, o: opps.bm_delete_problem(db, o)),
     Spec("/strategies/{obj_id}/delete", "strategy", _owned(Strategy), lambda o: o.title, lambda o: f"/strategies/{o.id}", _crumb("strategy"), "사업 방향"),
     Spec("/initiatives/{obj_id}/delete", "initiative", _owned(Initiative), lambda o: o.title, lambda o: f"/initiatives/{o.id}", _crumb("initiative"), "과제"),
