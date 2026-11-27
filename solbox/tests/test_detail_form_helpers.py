@@ -35,8 +35,8 @@ def test_error_field_points_at_the_field_the_message_is_about():
 
 
 def test_crumbs_start_with_the_nav_group():
-    assert ui.crumbs("solution", "냉동창고") == [("발굴", None), ("솔루션", "/solutions"), ("냉동창고", None)]
+    assert ui.crumbs("solution", "냉동창고") == [("소스", None), ("솔루션", "/solutions"), ("냉동창고", None)]
     assert ui.crumbs("solution", "냉동창고", "/solutions/3", "수정") == [
-        ("발굴", None), ("솔루션", "/solutions"), ("냉동창고", "/solutions/3"), ("수정", None)]
-    assert ui.crumbs("customer", last="등록") == [("영업", None), ("고객", "/customers"), ("등록", None)]
+        ("소스", None), ("솔루션", "/solutions"), ("냉동창고", "/solutions/3"), ("수정", None)]
+    assert ui.crumbs("customer", last="등록") == [("영업", None), ("고객관리", "/customers"), ("등록", None)]
     assert ui.crumbs("activity", "회의")[0] == ("오늘", None)

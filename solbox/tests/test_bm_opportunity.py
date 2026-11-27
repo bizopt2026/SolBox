@@ -147,9 +147,10 @@ def test_nav_has_opportunity_and_bm_in_order(user_client):
     nav = re.search(r'<aside class="side".*?</aside>', html, re.S).group(0)
     names = re.findall(r'<a href="/([a-z]*)"[^>]*><svg class="ni".*?</svg>([^<]+)', nav, re.S)
     order = [h for h, _ in names]
-    # 영업 묶음: 고객 → 영업기회 → 제안 → 프로젝트 → BM
+    # 사업기획 묶음의 BM 다음에 영업 묶음: 고객관리 → 영업기회 → 제안 → 프로젝트 (메뉴 재편 2026-11-27)
+    assert order.index("bms") + 1 == order.index("customers")
     assert order.index("customers") + 1 == order.index("opportunities") and order.index("opportunities") + 1 == order.index("proposals")
-    assert order.index("proposals") + 1 == order.index("projects") and order.index("projects") + 1 == order.index("bms")
+    assert order.index("proposals") + 1 == order.index("projects")
     assert ("opportunities", "영업기회") in [(h, n.strip()) for h, n in names] and ("bms", "BM") in [(h, n.strip()) for h, n in names]
 
 

@@ -3,7 +3,7 @@
 {% block title %}고객{% endblock %}
 {% block content %}
 {% set cur_sort = current_sort(request) %}
-{{ list_head("고객", pg, q or origin_now or quiet_on, "/customers/new", type="customer") }}
+{{ list_head(ont.TYPES["customer"].nav, pg, q or origin_now or quiet_on, "/customers/new", type="customer") }}
 {% set quiet_chip %}<a class="chip stale-chip{{ ' on' if quiet_on }}" href="{{ quiet_href }}"{% if quiet_on %} aria-current="true"{% endif %}>{{ quiet_days }}일 넘게 연락 없음{% if quiet_on %} <span aria-hidden="true">✕</span><span class="sr-only">(걸러 보기 끄기)</span>{% endif %}</a>{% endset %}
 {{ list_tools(request, none, "", q, none, "이름, 업종으로 찾기", origin_tabs=origin_tabs, extra=quiet_chip, extra_on=1 if quiet_on else 0) }}
 {% if pg.items %}

@@ -645,19 +645,19 @@ class ObjectType:
 _TYPE_LIST = [
     ObjectType(
         "solution", "솔루션", "핵심", "Solution", "solutions", "/solutions", "/solutions/{id}",
-        "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="discover",
+        "solutions/{id}/card.md", mirror_dir_format="solutions/{id}/", nav="솔루션", nav_group="source",
         props={"name": "이름", "summary": "한 줄 소개", "description": "상세 설명", "partner": "파트너", "stage": "발굴 단계",
                "usage_direction": "활용 방향", "applicable_types": "적용 가능 유형", "business_types": "가능한 사업방식", "field": "분야", "tags": "태그", "files": "자료", "origin": "유래"},
         description="파트너에게서 발굴해 고객에게 제안할 수 있는 제품과 서비스",
     ),
     ObjectType(
-        "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="discover",
+        "partner", "파트너", "핵심", "Partner", "partners", "/partners", "/partners/{id}", "partners/{id}.md", nav="파트너", nav_group="source",
         props={"name": "이름", "aliases": "다른 이름", "contact": "연락처 메모", "description": "소개", "memo": "메모", "solutions": "솔루션", "origin": "유래", "contacts": "담당자",
                "customer": "같은 회사인 고객"},
         description="솔루션을 공급하는 회사",
     ),
     ObjectType(
-        "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객", nav_group="sales",
+        "customer", "고객", "핵심", "Customer", "customers", "/customers", "/customers/{id}", "customers/{id}.md", nav="고객관리", nav_group="sales",
         props={"name": "이름", "aliases": "다른 이름", "industry": "업종", "contact": "연락처 메모", "memo": "메모", "projects": "프로젝트", "origin": "유래", "contacts": "담당자",
                "partner": "같은 회사인 파트너", "opportunities": "영업기회"},
         description="솔루션을 제안받는 회사",
@@ -680,7 +680,7 @@ _TYPE_LIST = [
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
-        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="sales",
+        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="BM", nav_group="planning",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조", "business_type": "대표 사업방식",
                "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건"},
         description="사업 모델. 고객에 묶이지 않고, 특정 고객별로 나뉘는 것은 프로젝트입니다",
@@ -769,7 +769,7 @@ _TYPE_LIST = [
     ObjectType("plan_item", "정리안 항목", "작업", embedded_in="intakes.plan", props={"kind": "종류", "reason": TERMS["reason"]}),
     ObjectType("research_topic", "리서치 주제", "작업", "ResearchTopic", "research_topics",
                props={"name": "이름", "keywords": "검색어", "area": "분야"}),
-    ObjectType("research_run", "리서치 실행", "작업", "ResearchRun", "research_runs", "/research", "/research/runs/{id}", nav="리서치", nav_group="discover",
+    ObjectType("research_run", "리서치 실행", "작업", "ResearchRun", "research_runs", "/research", "/research/runs/{id}", nav="리서치", nav_group="source",
                props={"status": "상태", "trigger": "실행 방식"},
                description="주간 웹 조사 한 회와 그 결과"),
     ObjectType(
@@ -791,7 +791,8 @@ TYPES: dict[str, ObjectType] = {t.code: t for t in _TYPE_LIST}
 
 # 메뉴: 묶음(NAV_GROUPS) 안의 항목. 대상 유형의 `nav`·`nav_group` 에서 만들고, 대상이 아닌 항목(홈·올리기 묶음)과 관리 항목만 여기서 적는다.
 # 사이드 메뉴(base.html)는 이 정의만 그린다: 새 항목은 묶음이 없으면 안 된다 (tests/test_shell.py).
-NAV_GROUPS = (("today", "오늘"), ("work", "과제"), ("discover", "발굴"), ("sales", "영업"), ("admin", "관리"))
+# 메뉴 재편 (2026-11-27): 발굴 → 소스, BM 은 새 묶음 사업기획으로, 영업의 고객은 메뉴 이름만 "고객관리" (대상 이름은 "고객")
+NAV_GROUPS = (("today", "오늘"), ("work", "과제"), ("source", "소스"), ("planning", "사업기획"), ("sales", "영업"), ("admin", "관리"))
 NAV_GROUP_LABELS = dict(NAV_GROUPS)  # 묶음 코드 -> 이름 (화면 제목 위 경로가 읽는다)
 # 메뉴 항목이 아닌 화면이 어느 항목에 속하는지: 주소 앞 조각 -> 항목의 path (후속 조치 목록은 "오늘" 의 홈 구역)
 NAV_ALIASES = {"follow-ups": "", "ai": "ai/inbox"}
@@ -819,7 +820,7 @@ def _type_nav_item(code: str) -> NavItem:
     return NavItem(t.list_url.strip("/"), t.nav, t.nav_group)
 
 
-# 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록·업무 보고, 발굴 = 솔루션·파트너·리서치, 영업 = 고객·영업기회·제안·프로젝트·BM
+# 묶음 안의 차례. 오늘 = 홈·올리기 묶음·활동 기록·업무 보고, 소스 = 솔루션·파트너·리서치, 사업기획 = BM, 영업 = 고객관리·영업기회·제안·프로젝트
 NAV_ITEMS = (
     NavItem("", "홈", "today"),
     NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
@@ -827,7 +828,8 @@ NAV_ITEMS = (
     _type_nav_item("activity"), _type_nav_item("report"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
     _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),
-    _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"), _type_nav_item("bm"),
+    _type_nav_item("bm"),
+    _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
                         (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("solution-fields", "솔루션 분야"), ("duplicates", "중복 정리"), ("system", "시스템")))

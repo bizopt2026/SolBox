@@ -134,9 +134,9 @@ def test_detail_shows_summary_alert_history_and_open_follow_ups(user_client, db)
     me, rows = _world(db)
     o = rows["내 건"]
     data = {"name": o.name, "customer_id": str(o.customer_id), "_rev": rev_of(o), "progress": "1", "amount": "15억",
-            "expected_close": "", "owner_user_id": str(me.id), "next_step": "견적", "next_step_due": (TODAY - timedelta(days=400)).isoformat()}
+            "expected_close": "", "owner_user_id": str(me.id), "next_step": "견적", "next_step_due": (date.today() - timedelta(days=400)).isoformat()}
     assert user_client.post(f"/opportunities/{o.id}", data=data, follow_redirects=False).status_code == 303
-    a = Activity(kind="meeting", date=date(2026, 10, 15), title="회의", raw_text="r", follow_ups=fu_rows(("구조 진단 업체 섭외", "", "", False), ("끝난 일", "", "", True)))
+    a = Activity(kind="meeting", date=date.today() - timedelta(days=10), title="회의", raw_text="r", follow_ups=fu_rows(("구조 진단 업체 섭외", "", "", False), ("끝난 일", "", "", True)))
     db.add(a)
     a.opportunities = [o]
     db.commit()

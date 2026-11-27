@@ -41,12 +41,13 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     db.add(s)
     db.commit()
     html = user_client.get(f"/solutions/{s.id}").text
-    assert _crumbs(html) == "발굴 › 솔루션 › (예시) AI 공조"
+    assert _crumbs(html) == "소스 › 솔루션 › (예시) AI 공조"
     assert '<a href="/solutions">솔루션</a>' in html
     assert "&larr; 목록" not in html
-    assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "발굴 › 솔루션 › (예시) AI 공조 › 수정"
-    assert _crumbs(user_client.get("/solutions/new").text) == "발굴 › 솔루션 › 등록"
-    assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객 › 등록"
+    assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "소스 › 솔루션 › (예시) AI 공조 › 수정"
+    assert _crumbs(user_client.get("/solutions/new").text) == "소스 › 솔루션 › 등록"
+    assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객관리 › 등록"
+    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › BM › 등록"
     assert _crumbs(user_client.get("/activities/new").text) == "오늘 › 활동 기록 › 등록"
 
 
@@ -69,7 +70,7 @@ def test_proposal_outline_research_and_admin_breadcrumbs(admin_client, db):
     db.add(run)
     db.commit()
     day = f"{run.started_at.month}월 {run.started_at.day}일"  # 화면의 날짜 모양 하나 (올해는 연도 없이)
-    assert _crumbs(admin_client.get(f"/research/runs/{run.id}").text) == f"발굴 › 리서치 › {day}"
+    assert _crumbs(admin_client.get(f"/research/runs/{run.id}").text) == f"소스 › 리서치 › {day}"
 
 
 def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings):
@@ -109,7 +110,7 @@ def test_sidebar_group_titles_are_not_headings(user_client):
     html = user_client.get("/").text
     nav = _nav(html)
     assert "<h3" not in nav and "<h2" not in nav and 'class="navg-title"' in nav
-    assert 'aria-label="발굴"' in nav  # 이름은 메뉴의 aria-label 로 남는다
+    assert 'aria-label="소스"' in nav  # 이름은 메뉴의 aria-label 로 남는다
 
 
 def test_breadcrumb_group_comes_from_the_nav_definition(user_client, db):

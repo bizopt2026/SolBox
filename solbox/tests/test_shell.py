@@ -17,7 +17,7 @@ def _side(html):
 
 def test_every_nav_item_has_a_known_group():
     groups = dict(ontology.NAV_GROUPS)
-    assert list(groups) == ["today", "work", "discover", "sales", "admin"]
+    assert list(groups) == ["today", "work", "source", "planning", "sales", "admin"]
     for item in ontology.NAV_ITEMS + ontology.ADMIN_NAV_ITEMS:
         assert item.group in groups, item
     for t in ontology.TYPES.values():
@@ -33,8 +33,9 @@ def test_nav_groups_order_and_labels():
     assert [(g.label, [i.label for i in g.items]) for g in out] == [
         ("오늘", ["홈", "올리기 묶음", "AI 제안함", "활동 기록", "업무 보고"]),
         ("과제", ["사업 방향", "과제"]),
-        ("발굴", ["솔루션", "파트너", "리서치"]),
-        ("영업", ["고객", "영업기회", "제안", "프로젝트", "BM"]),
+        ("소스", ["솔루션", "파트너", "리서치"]),
+        ("사업기획", ["BM"]),
+        ("영업", ["고객관리", "영업기회", "제안", "프로젝트"]),
     ]
     admin = ontology.nav_groups(is_admin=True)
     assert admin[-1].label == "관리"
