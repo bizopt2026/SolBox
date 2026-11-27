@@ -147,7 +147,9 @@ def display_title(p: Proposal) -> str:
     if is_group(p):
         return f"{target_name(p)} 제안"
     if p.project is not None:
-        return f"{target_name(p)} · {p.project.name} 제안"
+        # 프로젝트 이름에 고객 이름이 이미 들어 있으면 앞에 다시 붙이지 않는다 ("한빛병원 · 한빛병원 냉방 …" 이 되지 않게, 베타 점검 2026-11-27)
+        who = target_name(p)
+        return f"{p.project.name} 제안" if who and who in p.project.name else f"{who} · {p.project.name} 제안"
     return f"{target_name(p)} 제안"
 
 

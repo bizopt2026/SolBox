@@ -55,3 +55,30 @@ def test_layout_fixes_from_the_precheck():
     assert ".sumband dd.num { white-space: normal; }" in CSS, "영업기회 요약 칸의 남은 날이 휴대폰에서 넘치지 않게"
     assert ".sr-only { position: absolute; left: 0; top: 0;" in CSS, "숨은 글이 가로 넘침을 만들지 않게"
     assert ".kind-opts { display: flex;" in CSS and ".kind-opts .kind-opt { flex: 1 1 200px; margin: 0; gap: 10px; padding: 10px 12px;" in CSS
+
+
+def test_proposal_title_and_subtitle_do_not_repeat_the_customer(user_client, db):
+    from app.models import Opportunity, Project, Proposal
+    from app.proposals import display_title
+
+    c = Customer(name="한빛병원")
+    db.add(c)
+    db.flush()
+    pj = Project(name="한빛병원 냉방 전력비 절감", customer_id=c.id)
+    other = Project(name="설비 유지보수", customer_id=c.id)
+    db.add_all([pj, other])
+    db.flush()
+    o = Opportunity(name="한빛병원 냉방 전력비 절감", customer_id=c.id, project_id=pj.id)
+    db.add(o)
+    db.flush()
+    p = Proposal(customer_id=c.id, project_id=pj.id, opportunity_id=o.id)
+    db.add(p)
+    db.commit()
+    assert display_title(p) == "한빛병원 냉방 전력비 절감 제안"
+    p2 = Proposal(customer_id=c.id, project_id=other.id)
+    db.add(p2)
+    db.commit()
+    assert display_title(p2) == "한빛병원 · 설비 유지보수 제안", "고객 이름이 없는 프로젝트는 그대로 앞에 붙인다"
+    head = user_client.get(f"/proposals/{p.id}").text.split('<header class="page-header')[1].split("</header>")[0]
+    sub = head.split('class="ph-sub"')[1].split("</p>")[0]
+    assert sub.count("냉방 전력비 절감") == 1 and ">영업기회</a>·<a" in sub
