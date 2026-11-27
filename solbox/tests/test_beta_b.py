@@ -1002,7 +1002,8 @@ def test_mobile_css_keeps_one_upload_button_and_room_for_the_save_bar(user_clien
     from pathlib import Path
 
     css = (Path(__file__).parent.parent / "app/static/app.css").read_text(encoding="utf-8")
-    assert ".page-header .actions a.to-intake { display: none; }" in css and "body:has(.dash) .side .cta { display: none; }" in css
+    # 휴대폰은 사이드 줄의 올리기가 "메뉴" 펼침 안으로 들어가므로 제목 줄의 올리기를 감추지 않는다 (UX 2순위 2026-11-27)
+    assert ".page-header .actions a.to-intake { display: none; }" not in css
     assert ".plan-form { padding-bottom: 0; }" in css and "scroll-margin-bottom" in css
     assert 'class="button primary to-intake" href="/intake/new"' in user_client.get("/solutions").text
 

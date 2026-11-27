@@ -1142,11 +1142,7 @@ html:has(.plan-savebar) { scroll-padding-bottom: calc(88px + var(--tab-h)); }
 /* 올리기 확인 화면: 떠 있는 저장 막대가 마지막 카드와 입력칸을 가리지 않게 아래 여백과 스크롤 여백을 둔다 */
 .plan-form { padding-bottom: 0; } /* 저장 막대는 흐름 안의 마지막 칸이라 따로 아래 여백을 두지 않는다 (큰 빈틈이 생기던 자리) */
 .plan-item, .plan-item :is(input, select, textarea, summary) { scroll-margin-bottom: 110px; }
-/* 휴대폰: 위쪽 줄에 "+ 올리기" 가 이미 있으므로 머리줄의 같은 버튼과, 올리기 카드가 있는 홈의 위쪽 버튼은 감춘다 (한 화면에 하나) */
-@media (max-width: 600px) {
-  .page-header .actions a.to-intake { display: none; }
-  body:has(.dash) .side .cta { display: none; }
-}
+/* 휴대폰(759px 이하)은 사이드 줄의 "+ 올리기" 가 "메뉴" 펼침 안으로 들어가므로 제목 줄의 올리기 버튼(.to-intake)을 감추지 않는다 (UX 2순위 2026-11-27; 전에는 600px 밑에서 감췄다) */
 @media (max-width: 1099px) {
   .plan-savebar { flex-direction: row; align-items: center; gap: 10px; padding: var(--s2) var(--s3); }
   .plan-savebar [data-save-count] { font-size: var(--fs-body); }
@@ -1714,6 +1710,9 @@ button.danger-fill:hover { background: #8f1d17; border-color: #8f1d17; color: #f
 .work-cell.tone-bad { border-color: #f3c3bd; background: #fff6f5; }
 .work-cell.tone-warn { border-color: #f5dca6; background: #fffaf0; }
 .work-cell.tone-brand { border-color: #c9d4fb; background: #f5f7ff; }
+.work-cell.is-zero { background: transparent; border-style: dashed; }  /* 0 인 칸은 흐리게: 챙길 것이 있는 칸이 먼저 눈에 들어오게 (칸은 그대로 둔다: 0 도 정보다. UX 2순위 2026-11-27) */
+.list-sum { margin: 0 0 var(--s3); color: var(--ink-2); font-size: var(--fs-note); }  /* 목록 표 위 합계 한 줄 (영업기회) */
+.work-cell.is-zero b { color: var(--ink-3); font-weight: 500; }
 @media (max-width: 1099px) { .work-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .work-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .flow-card { margin-top: var(--gap, 16px); }

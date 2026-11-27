@@ -28,7 +28,7 @@ from app.guards import Once, Rev, form_once, rev_form
 from app.extract import decode_text
 from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
-from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Opportunity, Partner, Solution, User
+from app.models import AIJob, Activity, Project, Customer, FollowUp, IntakeFile, Opportunity, Partner, Solution, User, activity_customers
 from app.records import (
     LINK_TYPES, NEW_TYPES, ambiguous_view, apply_activity_fields, auto_link_contacts, first_line, link_contacts, linked, rows, spread_contacts, sync_all,
 )
@@ -264,7 +264,21 @@ def list_activities(
         kind = ""
     pg = paginate(rows, page)
     tabs = ui.seg_tabs(request, "kind", list(labels.ACTIVITY_KINDS.items()), counts, kind, total)
-    return render(request, "activities/list.html", pg=pg, q=q, kind=kind, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, info=row_info(db, "activity", pg.items))
+    return render(request, "activities/list.html", pg=pg, q=q, kind=kind, flt=flt, tabs=tabs, origin_tabs=origin_tabs, origin_now=origin_now, info=row_info(db, "activity", pg.items),
+                  customers=customer_names(db, [a.id for a in pg.items]))
+
+
+def customer_names(db: Session, ids: list[int]) -> dict[int, list[tuple[int, str]]]:
+    """목록 한 쪽의 활동 기록마다 연결된 고객 (번호, 이름), 이름순. "연결" 칸이 건수 대신 고객 이름을 보인다 (UX 2순위 2026-11-27).
+    쪽의 번호만 한 번에 묻는다 (줄 수와 상관없이 질의 하나)."""
+    out: dict[int, list[tuple[int, str]]] = {i: [] for i in ids}
+    if ids:
+        rows = db.execute(select(activity_customers.c.activity_id, Customer.id, Customer.name)
+                          .join(Customer, Customer.id == activity_customers.c.customer_id)
+                          .where(activity_customers.c.activity_id.in_(ids)).order_by(Customer.name, Customer.id))
+        for aid, cid, name in rows:
+            out[aid].append((cid, name))
+    return out
 
 
 @router.get("/new")
