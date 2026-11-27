@@ -137,6 +137,7 @@ POST_NOTICES = {
     "/projects": "created", "/projects/{project_id}": "saved", "/projects/{project_id}/delete": "deleted",
     "/businesses": "(옛 주소: 307 로 /projects 에 넘김)", "/businesses/{rest:path}": "(옛 주소: 307 로 /projects 에 넘김)",
     "/bms": "created", "/bms/{bm_id}": "saved", "/bms/{bm_id}/delete": "deleted",
+    "/needs": "created", "/needs/{need_id}": "saved", "/needs/{need_id}/delete": "deleted",
     "/cowork/{code}/{target_id}/threads": "(새 대화로: 진행 표시가 알림을 대신한다)", "/cowork/threads/{thread_id}/messages": "(대화로: 진행 표시가 알림을 대신한다)",
     "/cowork/threads/{thread_id}/retry": "busy, (대화로: 진행 표시가 알림을 대신한다)",
     "/cowork/threads/{thread_id}/messages/{message_id}/suggestions/{sid}/apply": "cowork_applied, cowork_stale, cowork_decided, cowork_not_applicable",

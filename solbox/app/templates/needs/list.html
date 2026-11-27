@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, pill, none_dash, group_box %}
+{% block title %}{{ ont.TYPES["customer_need"].nav }}{% endblock %}
+{% macro thead() %}<thead><tr><th>{{ ont.label("customer_need") }}</th><th class="col-sec">{{ ont.prop("customer_need", "customer") }}</th><th class="col-sec">{{ ont.prop("customer_need", "field") }}</th><th class="col-sec">{{ ont.prop("customer_need", "status") }}</th><th class="col-sec">{{ ont.prop("customer_need", "activity") }}</th><th class="col-sec">{{ ont.prop("customer_need", "opportunity") }}</th><th class="col-sec">만든 날</th></tr></thead>{% endmacro %}
+{% macro rows(items) %}
+  {% for n in items %}
+    {% set st = effective_status(n) %}
+    {% set cname = names.get(n.customer_id) if n.customer_id else none %}
+    <tr>
+      {% call title_cell("/needs/" ~ n.id, title_of(n), (n.memo or none)) %}{{ pill("need_status", st) }}<span>{{ cname or n.customer_name or "고객 미연결" }}</span>{% if n.field %}<span>{{ n.field.name }}</span>{% endif %}<span>{{ source_label(n) }}</span>{% endcall %}
+      <td class="col-sec">{% if cname %}<a href="/customers/{{ n.customer_id }}">{{ cname }}</a>{% elif n.customer_name %}<span class="muted" title="등록된 고객과 연결되지 않은 이름">{{ n.customer_name }}</span>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{% if n.field %}{{ n.field.name }}{% if not n.field.active %} <span class="muted">{{ ont.SOLUTION_FIELD_INACTIVE }}</span>{% endif %}{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec">{{ pill("need_status", st) }}</td>
+      <td class="col-sec">{% if n.activity %}<a href="/activities/{{ n.activity_id }}">{{ source_label(n) }}</a>{% else %}<span class="muted">{{ ont.NEED_SOURCE_DIRECT }}</span>{% endif %}</td>
+      <td class="col-sec">{% if n.opportunity_id and opp_names.get(n.opportunity_id) %}<a href="/opportunities/{{ n.opportunity_id }}">{{ opp_names[n.opportunity_id] }}</a>{% else %}{{ none_dash() }}{% endif %}</td>
+      <td class="col-sec num">{{ kdate(n.created_at.date()) }}</td>
+    </tr>
+  {% endfor %}
+{% endmacro %}
+{% block content %}
+{{ list_head(ont.TYPES["customer_need"].nav, pg, searching, "/needs/new", new_label="+ 니즈 추가", type="customer_need") }}
+{% set g_extra %}{{ group_box(group_choices) }}{% endset %}
+{{ list_tools(request, tabs, "상태", q, none, "내용, 고객 이름, 메모로 찾기", extra=g_extra, extra_on=1 if group_now else 0) }}
+{% if groups is not none %}
+<p class="muted group-note" data-group-note>"{{ group_now and {"customer": "고객", "field": "분야"}[group_now] }}" 별로 묶어 보여 드려요. 묶어 볼 때는 쪽을 나누지 않고 조건에 맞는 {{ pg.total }}건을 모두 보여 드립니다.</p>
+{% for g in groups %}
+<details class="group-sec" open id="{{ group_now }}-{{ g.key or "none" }}" data-group="{{ group_now }}:{{ g.key }}">
+  <summary><b class="group-name{{ ' muted' if g.muted }}">{{ g.label }}</b> <span class="group-count">{{ g.items | length }}건</span></summary>
+  <div class="tablewrap"><table class="list-table grouped">{{ thead() }}<tbody>{{ rows(g.items) }}</tbody></table></div>
+</details>
+{% else %}{{ empty_list(searching, "", clear_url="/needs") }}
+{% endfor %}
+{% elif pg.items %}
+<div class="tablewrap"><table class="list-table">{{ thead() }}<tbody>{{ rows(pg.items) }}</tbody></table></div>
+{{ pager(pg, request) }}
+{% else %}{{ empty_list(searching, "아직 고객 니즈가 없습니다. 활동 기록을 쓰면 AI 정리가 니즈를 뽑아 주고, 여기서 직접 추가할 수도 있어요.", "/needs/new", "+ 니즈 추가", clear_url="/needs") }}{% endif %}
+{% endblock %}

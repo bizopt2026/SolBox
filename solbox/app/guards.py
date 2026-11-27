@@ -414,6 +414,8 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
                         customer = session.get(Customer, customer_id)
                         if customer is not None and customer not in session.deleted:
                             mark(customer)
+                if isinstance(obj, CustomerNeed):  # 니즈도 고친 표시를 가지지만(2026-11-27) 활동 기록 폼이 같은 줄을 쓰므로 옛·새 활동 기록도 올린다
+                    parents.update({obj.activity_id, *sa_inspect(obj).attrs.activity_id.history.deleted})
         elif isinstance(obj, (FollowUp, CustomerNeed)) and session.is_modified(obj):
             parents.add(obj.activity_id)
         elif isinstance(obj, SolutionBusinessType) and session.is_modified(obj):
@@ -440,7 +442,7 @@ def _stamp_changes(session: Session, flush_context, instances) -> None:
         report = session.get(Report, report_id)
         if report is not None and report not in session.deleted and report not in session.new:
             mark(report)
-    for activity_id in parents:
+    for activity_id in parents - {None}:  # 직접 추가한 니즈는 활동 기록이 없다
         activity = session.get(Activity, activity_id)
         if activity is not None and activity not in session.deleted and activity not in session.new:
             mark(activity)

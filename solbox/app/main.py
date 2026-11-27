@@ -476,7 +476,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     from app.routers import (
         activities, admin, auth, bms, contacts as contacts_router, customers, files, home, intake, jobs, opportunities, partners, projects, proposal_outline,
-        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router, ai_inbox as ai_inbox_router,
+        follow_ups, proposals, research, search, solutions, solution_fields as solution_fields_router, confirm, help as help_router, account, health, duplicates, reports, strategies, initiatives, workspace_files, cowork, alignment as alignment_router, ai_inbox as ai_inbox_router, needs as needs_router,
     )  # 지연 임포트: 라우터가 render 를 쓴다
 
     app.include_router(health.router)
@@ -492,6 +492,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(contacts_router.router)  # 담당자 (영업 D): /contacts/…, /customers|partners/{id}/contacts/split
     app.include_router(opportunities.router)
     app.include_router(bms.router)
+    app.include_router(needs_router.router)  # 소스 › 고객니즈 (2026-11-27)
     app.include_router(strategies.router)
     app.include_router(initiatives.router)
     app.include_router(workspace_files.router)

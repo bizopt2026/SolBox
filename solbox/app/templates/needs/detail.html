@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail_head, props_card, meta_card, pill %}
+{% from "_related.html" import related_card, main_cards %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set primary = ("영업기회 만들기", "/opportunities/new?customer_id=" ~ customer.id ~ "&need_id=" ~ need.id) if customer and not opp else none %}
+{{ detail_head(title, "/needs", need, can_delete, crumbs=ui.crumbs("customer_need", title), status=pill("need_status", status), primary=primary) }}
+<div class="dgrid">
+  <div class="dmain">
+    {% set cust_html %}{% if customer %}<a href="/customers/{{ customer.id }}">{{ customer.name }}</a>{% elif need.customer_name %}{{ need.customer_name }} <span class="muted">(등록된 고객과 연결되지 않음)</span>{% endif %}{% endset %}
+    {% set src_html %}{% if need.activity %}<a href="/activities/{{ need.activity_id }}">{{ source }}</a>{% else %}{{ source }}{% endif %}{% endset %}
+    {% set opp_html %}{% if opp %}<a href="/opportunities/{{ opp.id }}">{{ opp.name }}</a> {{ pill("opportunity_stage", opp.stage) }}{% endif %}{% endset %}
+    {% set field_text = (need.field.name ~ ((" " ~ ont.SOLUTION_FIELD_INACTIVE) if not need.field.active else "")) if need.field else "" %}
+    {{ props_card(ont.label("customer_need"), [
+        (ont.prop("customer_need", "content"), need.content),
+        (ont.prop("customer_need", "customer"), cust_html | trim),
+        (ont.prop("customer_need", "status"), pill("need_status", status)),
+        (ont.prop("customer_need", "field"), field_text),
+        (ont.prop("customer_need", "activity"), src_html | trim),
+        (ont.prop("customer_need", "opportunity"), opp_html | trim),
+        (ont.prop("customer_need", "memo"), need.memo),
+      ], "/needs/" ~ need.id ~ "/edit") }}
+    {% if opp %}<p class="muted help">영업기회에 묶인 동안 상태는 "{{ ont.NEED_STATUSES.opportunity }}"로 보입니다. 영업기회에서 풀면 "{{ ont.NEED_STATUSES.reviewing }}"으로 돌아갑니다.</p>{% endif %}
+    {{ main_cards(main) }}
+  </div>
+  <aside class="daside" aria-label="연결과 기록 정보">
+    {{ related_card(related, hide_empty=true) }}
+    {{ meta_card(meta) }}
+  </aside>
+</div>
+{% endblock %}

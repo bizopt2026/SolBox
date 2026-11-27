@@ -1587,6 +1587,8 @@ DELETE_EFFECTS: dict[str, tuple[str, ...]] = {
                  REPORT_PLAN_LINK_EFFECT),
     "project": ("이어진 영업기회는 남고 프로젝트 연결만 비워집니다.", "활동 기록과의 연결이 풀립니다 (활동 기록은 남습니다).", REPORT_PLAN_LINK_EFFECT),
     "bm": ("솔루션과의 연결이 풀립니다 (솔루션은 남습니다).",),
+    "customer_need": ("이 니즈 한 줄이 지워집니다. 묶여 있던 영업기회에서도 빠집니다 (영업기회는 남습니다).",
+                      "나온 활동 기록과 고객 기록은 그대로입니다."),
     "opportunity": (OPPORTUNITY_RULES["delete"] + ".", REPORT_PLAN_LINK_EFFECT),
     "activity": ("후속 조치가 함께 지워집니다.",
                  "고객 니즈는 손대지 않은 줄(새 니즈·메모 없음·영업기회 없음)만 지워지고, 나머지는 나온 곳만 비워져 고객니즈 목록에 남습니다.",

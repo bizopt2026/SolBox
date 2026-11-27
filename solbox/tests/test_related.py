@@ -297,7 +297,8 @@ def test_intake_backed_groups_respect_viewer(db, world, kim):
 # ---- 5. 목록 걸러 보기 ----
 
 def _count_rows(html):
-    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions|initiatives)/\d+"', html))
+    # 줄 제목 링크만 센다 (고객니즈 목록은 줄마다 나온 활동 기록·영업기회 링크도 있다)
+    return len(re.findall(r'<a href="/(?:activities|proposals|opportunities|projects|solutions|initiatives|needs)/\d+" class="row-title"', html))
 
 
 def test_list_filters_match_group_totals(admin_client, db, world):
