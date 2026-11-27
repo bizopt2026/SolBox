@@ -144,3 +144,14 @@ def test_customer_detail_offers_add_need_and_search_links_to_need(user_client, d
     assert f"/needs/new?customer_id={ga.id}" in user_client.get(f"/customers/{ga.id}").text
     hits = user_client.get("/search?q=냉동창고").text
     assert f'href="/needs/{rows[2].id}"' in hits
+
+
+def test_detached_need_without_customer_can_still_be_edited(user_client, db):
+    """검토에서 찾은 문제: 고객 연결 없이 활동 기록에서 떨어져 나온 니즈도 고객을 고르지 않고 상태·메모를 고칠 수 있다."""
+    n = CustomerNeed(customer_name="미등록사", customer_id=None, content="창고 자동화", status="reviewing")
+    db.add(n); db.commit()
+    data = {"_rev": rev_of(n), "customer_id": "", "content": n.content, "field_id": "", "status": "hold", "memo": "보류 사유"}
+    assert user_client.post(f"/needs/{n.id}", data=data, follow_redirects=False).status_code == 303
+    db.expire_all()
+    n = db.get(CustomerNeed, n.id)
+    assert (n.status, n.memo, n.customer_name) == ("hold", "보류 사유", "미등록사")

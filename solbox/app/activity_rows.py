@@ -130,7 +130,7 @@ def reconcile_needs(
 
             fid, err = sfields.resolve_form(db, field, need)
             need.field_id = None if err else fid  # 틀린 값·새로 고를 수 없는 분야는 비운다 (줄 저장을 막지 않는다)
-        elif (need.customer_name or "").strip() != customer.strip():
+        if need.id is not None and (need.customer_name or "").strip() != customer.strip():
             opportunities.retarget_need_customer(need, index.customer_id(customer))  # 고객이 달라지면 묶인 영업기회에서 푼다
         need.customer_name, need.content = customer, content
         need.position = len(result)

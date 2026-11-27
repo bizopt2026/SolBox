@@ -9,7 +9,7 @@
   <section class="card">
     <h2>기본 정보</h2>
     <div class="fgrid">
-      {% set direct = not need or need.activity_id is none %}
+      {% set direct = not need or (need.activity_id is none and need.customer_id) %}
       {% set copts = [("", "고객 고르기" if direct else "연결 안 함")] %}{% for c in customers %}{% set _ = copts.append((c.id | string, c.name)) %}{% endfor %}
       {% set chelp = none %}
       {% if need and not need.customer_id and need.customer_name %}{% set chelp = "쓴 이름: " ~ need.customer_name ~ " (등록된 고객과 연결되지 않음). 고르면 이 니즈가 그 고객에 이어집니다." %}{% endif %}

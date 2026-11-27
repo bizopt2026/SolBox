@@ -195,7 +195,7 @@ def update(
     if not content.strip():
         return _form(request, db, form, need, error=CONTENT_REQUIRED)
     customer, st, fid, err = _lookup(db, customer_id, status if need.opportunity_id is None else need.status, field_id, need,
-                                     direct=need.activity_id is None)
+                                     direct=need.activity_id is None and need.customer_id is not None)  # 고객이 있던 직접 니즈만 고객을 비울 수 없다 (고객 없이 떨어져 나온 니즈도 고칠 수 있게)
     if err:
         return _form(request, db, form, need, error=err)
     before = _related_objects(db, need)

@@ -146,3 +146,20 @@ def test_intake_apply_saves_need_field(app, user_client, db, settings):
     db.expire_all()
     n = db.query(Activity).one().needs[0]
     assert n.field_id == f.id and n.created_by_id is not None
+
+
+def test_activity_form_customer_change_with_field_column_unbinds(user_client, db):
+    """검토에서 찾은 문제: 분야 칸(ds_field)이 오는 실제 폼에서도 고객이 바뀌면 고객 연결을 옮기고 영업기회에서 푼다."""
+    ga = Customer(name="가나제지"); da = Customer(name="다라물류"); db.add_all([ga, da]); db.commit()
+    _post(user_client, ds_id=[""], ds_customer=["가나제지"], ds_content=["전기요금"], ds_field=[""])
+    a = db.query(Activity).one()
+    n = a.needs[0]
+    o = Opportunity(name="가나 태양광", customer_id=ga.id); db.add(o); db.flush()
+    n.opportunity_id = o.id; db.commit()
+    nid = n.id
+    db.expire_all()
+    a = db.get(Activity, a.id)
+    assert _post(user_client, a, ds_id=[str(nid)], ds_customer=["다라물류"], ds_content=["전기요금"], ds_field=[""]).status_code == 303
+    db.expire_all()
+    n = db.get(CustomerNeed, nid)
+    assert (n.customer_name, n.customer_id, n.opportunity_id) == ("다라물류", da.id, None)
