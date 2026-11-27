@@ -375,6 +375,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
+        session_cookie=settings.session_cookie,  # 운영·베타를 한 PC 에 띄울 때 쿠키가 겹치지 않게 (config.toml)
         same_site="lax",
         https_only=bool(settings.ssl_certfile),
     )
@@ -403,6 +404,7 @@ def create_app(settings: Settings) -> FastAPI:
     from app.markdown_lite import render_markdown
     from app.proposals import check_items, check_summary_text, number_sources, deck_is_old, deck_is_stale, display_title, is_group, outline_check_summary, target_name, unresolved_check_count
 
+    app.state.templates.env.globals["instance_label"] = settings.instance_label  # 운영·베타 구분 표시 (config.toml, 비면 없음)
     app.state.templates.env.globals["display_title"] = display_title
     app.state.templates.env.globals["target_name"] = target_name  # 제안 건의 대상 이름 (특정 고객은 고객 이름, 다수 고객은 대상 그룹 이름)
     app.state.templates.env.globals["is_group"] = is_group

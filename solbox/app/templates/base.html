@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{% endblock %} · 솔박스</title>
+  <title>{% block title %}{% endblock %} · 솔박스{% if instance_label %} {{ instance_label }}{% endif %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232447d6'/%3E%3Crect x='8.5' y='10' width='15' height='12' rx='2' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='8.5' y='10' width='15' height='4' rx='1' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="{{ asset('app.css') }}">
   <noscript><style>.chat-list.chat-scroll { max-height: none; overflow: visible; }</style></noscript>
   <script src="{{ asset('htmx.min.js') }}" defer></script>
   <script src="{{ asset('app.js') }}" defer></script>
 </head>
-<body class="{{ 'shell' if user else 'auth' }}">
+<body class="{{ 'shell' if user else 'auth' }}"{% if instance_label %} data-instance="{{ instance_label }}"{% endif %}>
 <a class="skip" href="#main">본문으로 건너뛰기</a>
-{% macro brand() %}<a class="brand" href="/"><span class="mark" aria-hidden="true"><i></i></span><span class="brand-text"><b>솔박스</b><small>솔루션 사업 워크스페이스</small></span></a>{% endmacro %}
+{% macro brand() %}<a class="brand" href="/"><span class="mark" aria-hidden="true"><i></i></span><span class="brand-text"><b>솔박스{% if instance_label %} <span class="instance-tag">{{ instance_label }}</span>{% endif %}</b><small>솔루션 사업 워크스페이스</small></span></a>{% endmacro %}
 {% if user %}
 {% set path = request.url.path if request else "/" %}
 {% set cur = ont.nav_current(path) %}
@@ -55,7 +55,7 @@
   {% if user %}
   {% set ai = ai_status() if ai_status else None %}
   <div class="top">
-    {% if not locked %}<a class="m-mark" href="/" aria-label="솔박스 홈"><span class="mark" aria-hidden="true"><i></i></span></a>
+    {% if not locked %}<a class="m-mark" href="/" aria-label="솔박스{{ ' ' ~ instance_label if instance_label }} 홈"><span class="mark" aria-hidden="true"><i></i></span>{% if instance_label %}<span class="instance-tag" aria-hidden="true">{{ instance_label }}</span>{% endif %}</a>
     {# 넓은 화면(1100px 이상) 위쪽 줄 (2026-11-27 메뉴 개편): 매일 드나드는 "오늘" 묶음은 탭, 그 옆 "+ 올리기". 사이드는 기록 종류만.
        좁은 화면에서는 숨기고 같은 항목이 사이드의 가로 메뉴 줄(태블릿)·"메뉴" 펼침(휴대폰)에 있다 #}
     {% set top_group = ont.nav_groups(false) | selectattr("code", "equalto", ont.TOP_NAV_GROUP) | first %}

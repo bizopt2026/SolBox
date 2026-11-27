@@ -197,6 +197,11 @@ a.aistat:hover { color: var(--brand); text-decoration: none; }
   .top .search kbd { display: none; }
 }
 
+/* 운영·베타 구분 (config.toml instance_label, 2026-11-27): 로고 옆 주의 색 표지 + 화면 맨 위 주의 색 띠. 운영(비어 있음)에는 아무것도 없다 */
+.instance-tag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: var(--r-pill); background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 11px; font-weight: var(--fw-strong); line-height: 18px; vertical-align: 2px; }
+.m-mark .instance-tag { align-self: center; }
+body[data-instance]::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 60; height: 3px; background: var(--warn); pointer-events: none; }
+
 /* 로그인·오류: 사이드 메뉴 없는 가운데 카드 */
 body.auth .main { align-items: center; justify-content: center; min-height: 100vh; padding: var(--s5) var(--s4); gap: var(--s4); }
 body.auth .page { padding: 0; max-width: 400px; margin: 0; }
