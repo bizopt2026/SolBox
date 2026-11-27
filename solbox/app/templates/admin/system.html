@@ -57,7 +57,7 @@
 
 <section class="card stack">
 <h2>백업</h2>
-<p class="muted help">데이터 폴더를 백업 폴더에 복사해 둡니다. 매일 자동으로도 만들어집니다.</p>
+<p class="muted help">데이터 폴더를 백업 폴더에 복사해 둡니다. {% if scheduler_off %}이 서버는 예약 작업을 꺼 두어 매일 자동 백업이 만들어지지 않으니, 필요할 때 "지금 백업"을 누르세요.{% else %}매일 자동으로도 만들어집니다.{% endif %}</p>
 <form method="post" action="/admin/system/backup"><button type="submit">지금 백업</button></form>
 </section>
 </div>

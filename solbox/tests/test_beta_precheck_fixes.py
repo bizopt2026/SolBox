@@ -226,3 +226,9 @@ def test_top_status_refreshes_only_while_a_job_runs(user_client, db):
     assert 'hx-get="/ui/top-status"' in home and 'class="jobtray"' in home
     part = user_client.get("/ui/top-status")
     assert part.status_code == 200 and part.text.lstrip().startswith("{#") is False and 'id="top-status"' in part.text and "<html" not in part.text
+
+
+def test_system_page_backup_text_follows_the_scheduler(admin_client, settings):
+    assert "매일 자동 백업이 만들어지지 않으니" in admin_client.get("/admin/system").text  # 시험 서버는 예약 작업 꺼짐 (베타 서버처럼)
+    settings.scheduler_enabled = True
+    assert "매일 자동으로도 만들어집니다" in admin_client.get("/admin/system").text
