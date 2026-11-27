@@ -108,7 +108,7 @@ def test_draft_summary_md():
 
 def test_load_prompt_replaces_placeholders():
     text = load_prompt("activity_structure", raw_text="MEMO", today="2026-01-01",
-                       solutions="S", customers="C", projects="B", partners="P", writer="김")
+                       solutions="S", customers="C", projects="B", partners="P", writer="김", field_names="- 에너지")
     assert "MEMO" in text and "{{" not in text
 
 

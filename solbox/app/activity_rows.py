@@ -110,19 +110,26 @@ def reconcile_follow_ups(
 
 
 def reconcile_needs(
-    a: Activity, raw_ids: Sequence[str], rows: Sequence[tuple[str, str]], index: LinkIndex,
+    a: Activity, raw_ids: Sequence[str], rows: Sequence[tuple], index: LinkIndex, db=None,
 ) -> None:
     """`rows` = 올라온 줄 전체 (고객 글, 내용) 를 활동 기록의 고객 니즈에 맞춘다 (`reconcile_follow_ups` 와 같은 방식)."""
     existing = list(a.needs)
     by_id = {n.id: n for n in existing if n.id is not None}
     ids = _pair_ids(raw_ids, len(rows), existing)
     result: list[CustomerNeed] = []
-    for row_id, (customer, content) in zip(ids, rows):
+    for row_id, row in zip(ids, rows):
+        customer, content = row[0], row[1]
+        field = row[2] if len(row) > 2 else None  # 분야 번호 글 (None 이면 칸이 없는 화면: 그대로 둔다)
         if not content.strip():
             continue
         need = by_id.pop(row_id, None) if row_id is not None else None
         if need is None:
             need = CustomerNeed(customer_id=index.customer_id(customer))
+        if field is not None and db is not None:
+            from app import solution_fields as sfields
+
+            fid, err = sfields.resolve_form(db, field, need)
+            need.field_id = None if err else fid  # 틀린 값·새로 고를 수 없는 분야는 비운다 (줄 저장을 막지 않는다)
         elif (need.customer_name or "").strip() != customer.strip():
             opportunities.retarget_need_customer(need, index.customer_id(customer))  # 고객이 달라지면 묶인 영업기회에서 푼다
         need.customer_name, need.content = customer, content

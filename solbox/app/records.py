@@ -182,8 +182,11 @@ def follow_up_rows(task, owner, due, done) -> list[tuple[str, str, str, bool]]:
     return [(t, o, valid_due(d), str(i) in flags) for i, (t, o, d) in enumerate(rows(task, owner, due))]
 
 
-def need_rows(customer, content) -> list[tuple[str, str]]:
-    return list(rows(customer, content))
+def need_rows(customer, content, field=None) -> list[tuple]:
+    """고객 니즈 줄: (고객 글, 내용, 분야 번호 글 또는 None). `field` 가 None 이면(분야 칸이 없는 화면) 분야는 그대로 둔다."""
+    if field is None:
+        return [(c, t, None) for c, t in rows(customer, content)]
+    return list(rows(customer, content, field))
 
 
 def linked(a: Activity) -> list:
@@ -251,6 +254,7 @@ def apply_activity_fields(
     fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
     fu_id=(), ds_id=(), origin: tuple[str, int | None] = origins.MANUAL, opportunity_ids: list[str] | None = None,
+    ds_field: list[str] | None = None,
 ) -> None:
     """폼 값을 활동 기록에 반영한다: 필드, 후속 조치, 고객 니즈, 연결, 새로 등록할 이름. 커밋하지 않는다.
     후속 조치·고객 니즈는 `fu_id`·`ds_id`(줄 번호, 새 줄은 빈 글자) 기준으로 표의 행을 맞춘다 (번호 유지·삭제·추가)."""
@@ -271,7 +275,10 @@ def apply_activity_fields(
                 current.append(obj)
     index = load_index(db)  # 새로 등록한 고객도 포함하도록 연결 뒤에 맞춘다
     reconcile_follow_ups(a, fu_id, follow_up_rows(fu_task, fu_owner, fu_due, fu_done), index)
-    reconcile_needs(a, ds_id, need_rows(ds_customer, ds_content), index)
+    reconcile_needs(a, ds_id, need_rows(ds_customer, ds_content, ds_field), index, db)
+    for n in a.needs:  # 새 니즈 줄의 작성자는 저장한 사람 (고객니즈 관리 2026-11-27)
+        if n.id is None and n.created_by_id is None and user is not None:
+            n.created_by_id = user.id
 
 
 def sync_all(mirror: KnowledgeMirror, a: Activity, extra: list = ()) -> None:

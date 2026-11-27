@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.gate import keeps_text, require_ai_on
 from app.idparse import parse_id
-from app import needs as needs_lib
+from app import needs as needs_lib, solution_fields as sfields
 from app import follow_ups as fu_lib
 from app import labels, ontology, origin, relations, ui
 from app.ai.queue import enqueue, queue_position
@@ -113,7 +113,7 @@ def form_values(a: Activity) -> dict:
         summary_md=a.summary_md,
         follow_ups=[{"id": f.id, "task": f.task, "owner": f.owner, "due": f.due.isoformat() if f.due else "", "done": f.done,
                      "linked": f.owner_user_id is not None} for f in a.follow_ups],
-        demand_signals=[{"id": n.id, "customer": n.customer_name, "content": n.content, "customer_id": n.customer_id}
+        demand_signals=[{"id": n.id, "customer": n.customer_name, "content": n.content, "customer_id": n.customer_id, "field_id": n.field_id}
                         for n in a.needs],
         selected={**{t: [o.id for o in getattr(a, rel)] for t, (_, rel) in LINK_TYPES.items()},
                   **{t: [o.id for o in getattr(a, rel)] for t, rel in ontology.ACTIVITY_MANUAL_LINKS.items()}},
@@ -124,7 +124,7 @@ def form_values(a: Activity) -> dict:
 def _form_page(request: Request, db: Session, values: dict, activity: Activity | None = None, error: str | None = None, conflict=None):
     return render(
         request, "activities/form.html", status_code=409 if conflict else 400 if error else 200,
-        activity=activity, f=values, choices=_choices(db), error=error, conflict=conflict,
+        activity=activity, f=values, choices=_choices(db), error=error, conflict=conflict, need_fields=sfields.active_fields(db),
     )
 
 
@@ -140,7 +140,7 @@ def _pad(ids: list[str], column: list[str]) -> list[str]:
 def _submitted_values(
     kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
     solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-    fu_id=(), ds_id=(), fu_done=(), opportunity_ids=(),
+    fu_id=(), ds_id=(), fu_done=(), opportunity_ids=(), ds_field=None,
 ) -> dict:
     """제출된 값을 오류 화면에 다시 보여 줄 형태로 모은다."""
     ids = dict(solution=solution_ids, customer=customer_ids, project=project_ids, partner=partner_ids, opportunity=opportunity_ids)
@@ -148,8 +148,8 @@ def _submitted_values(
         "kind": kind, "date": date_, "title": title, "raw_text": raw_text, "summary_md": summary_md,
         "follow_ups": [{"id": _int_or_none(i), "task": t, "owner": o, "due": d, "done": str(n) in set(fu_done)}
                        for n, (i, t, o, d) in enumerate(rows(_pad(fu_id, fu_task), fu_task, fu_owner, fu_due))],
-        "demand_signals": [{"id": _int_or_none(i), "customer": c, "content": t}
-                           for i, c, t in rows(_pad(ds_id, ds_content), ds_customer, ds_content)],
+        "demand_signals": [{"id": _int_or_none(i), "customer": c, "content": t, "field_id": _int_or_none(fd)}
+                           for i, c, t, fd in rows(_pad(ds_id, ds_content), ds_customer, ds_content, list(ds_field or []))],
         "selected": {t: [n for i in v if (n := parse_id(i)) is not None] for t, v in ids.items()},
         "new_names": {
             rel: [n.strip() for n in names if n.strip()]
@@ -176,11 +176,11 @@ def review_linked(db: Session, activity: Activity, user: User, request: Request)
 def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_file, kind, date_, title, summary_md,
           fu_task, fu_owner, fu_due, fu_done, ds_customer, ds_content, solution_ids, customer_ids, project_ids,
           partner_ids, new_solutions, new_customers, new_partners, fu_id=(), ds_id=(), opportunity_ids=(),
-          rev: Rev | None = None, once: Once | None = None):
+          rev: Rev | None = None, once: Once | None = None, ds_field=None):
     submitted = _submitted_values(
         kind, date_, title, raw_text, summary_md, fu_task, fu_owner, fu_due, ds_customer, ds_content,
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
-        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (),
+        fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (), ds_field=ds_field,
     )
     if activity is not None and rev is not None and (conflict := guards.check_rev(activity, rev, values={k: submitted[k] for k in ("kind", "date", "title", "raw_text", "summary_md")})):
         # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 후속 조치·니즈 줄까지 쓴 내용 그대로 보여 주고 저장하지 않는다
@@ -200,7 +200,7 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,
         project_ids=project_ids, partner_ids=partner_ids,
         new_solutions=new_solutions, new_customers=new_customers, new_partners=new_partners,
-        fu_id=fu_id, ds_id=ds_id, opportunity_ids=opportunity_ids,
+        fu_id=fu_id, ds_id=ds_id, opportunity_ids=opportunity_ids, ds_field=ds_field,
     )  # 새 이름으로 만든 기록은 직접 입력 유래 (기본값)
     db.commit()
     sync_all(mirror, activity, old)
@@ -290,7 +290,8 @@ def draft_values(db: Session, d: ActivityDraft, raw_text: str, prefill: dict | N
     values.update(
         kind=d.kind, date=d.date, title=d.title, raw_text=raw_text, summary_md=draft_summary_md(d),
         follow_ups=[{**f.model_dump(), "id": None, "done": False} for f in d.follow_ups if f.task.strip()],
-        demand_signals=[{**s.model_dump(), "id": None} for s in d.demand_signals if s.content.strip()],
+        demand_signals=[{"customer": s.customer, "content": s.content, "field_id": sfields.suggest_id(db, s.field), "id": None}
+                        for s in d.demand_signals if s.content.strip()],
         selected={"solution": found["solutions"]["matched"], "customer": found["customers"]["matched"],
                   "project": found["projects"]["matched"], "partner": found["partners"]["matched"], "opportunity": []},
         new_candidates={rel: found[rel]["new"] for rel in NEW_TYPES},
@@ -340,7 +341,7 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
     raw_text = str((job.input or {}).get("raw_text", ""))
     ctx = dict(job=job, raw_text=raw_text, next=f"/activities/draft/{job.id}", f=None, choices=None, error_kind="")
     if job.status in ontology.JOB_ACTIVE:
-        return render(request, "activities/draft.html", position=queue_position(db, job), **ctx)
+        return render(request, "activities/draft.html", need_fields=sfields.active_fields(db), position=queue_position(db, job), **ctx)
     draft = None
     if job.status == "done":
         try:
@@ -353,8 +354,8 @@ def draft_page(job_id: int, request: Request, user: User = Depends(require_user)
         values["raw_text"] = raw_text
         merge_prefill(values, (job.input or {}).get("prefill"))
         ctx["error_kind"] = job.shown_error_kind if job.status == "failed" else "bad_output"
-        return render(request, "activities/draft.html", position=0, f=values, **{k: v for k, v in ctx.items() if k != "f"})
-    return render(request, "activities/draft.html", position=0, f=draft_values(db, draft, raw_text, (job.input or {}).get("prefill")),
+        return render(request, "activities/draft.html", need_fields=sfields.active_fields(db), position=0, f=values, **{k: v for k, v in ctx.items() if k != "f"})
+    return render(request, "activities/draft.html", need_fields=sfields.active_fields(db), position=0, f=draft_values(db, draft, raw_text, (job.input or {}).get("prefill")),
                   **{k: v for k, v in ctx.items() if k != "f"})
 
 
@@ -372,7 +373,7 @@ def _form_params(
     raw_text: str = Form(""), memo_file: UploadFile | None = None, summary_md: str = Form(""),
     fu_task: list[str] = Form([]), fu_owner: list[str] = Form([]), fu_due: list[str] = Form([]),
     fu_done: list[str] = Form([]), ds_customer: list[str] = Form([]), ds_content: list[str] = Form([]),
-    fu_id: list[str] = Form([]), ds_id: list[str] = Form([]),
+    fu_id: list[str] = Form([]), ds_id: list[str] = Form([]), ds_field: list[str] = Form([]),
     solution_ids: list[str] = Form([]), customer_ids: list[str] = Form([]),
     project_ids: list[str] = Form([]), partner_ids: list[str] = Form([]), opportunity_ids: list[str] = Form([]),
     new_solutions: list[str] = Form([]), new_customers: list[str] = Form([]), new_partners: list[str] = Form([]),
@@ -380,7 +381,9 @@ def _form_params(
 ) -> dict:
     if "opportunity_ids" not in fields:  # 영업기회 칸이 없던 옛 화면에서 온 저장: 영업기회 연결은 그대로 둔다 (칸이 와서 비어 있으면 비운다)
         opportunity_ids = None
-    return dict(
+    if "ds_field" not in fields:  # 분야 칸이 없던 옛 화면: 니즈의 분야는 그대로 둔다
+        ds_field = None
+    return dict(ds_field=ds_field,
         kind=kind, date_=date_, title=title, raw_text=raw_text, memo_file=memo_file, summary_md=summary_md,
         fu_task=fu_task, fu_owner=fu_owner, fu_due=fu_due, fu_done=fu_done, fu_id=fu_id, ds_id=ds_id,
         ds_customer=ds_customer, ds_content=ds_content, solution_ids=solution_ids, customer_ids=customer_ids,

@@ -52,10 +52,11 @@
       </fieldset>
       <fieldset class="plan-rows">
         <legend>{{ ont.prop("activity", "demand_signals") }}</legend>
-        {% for row in v.ds_rows + [{"customer": "", "content": ""}] %}
+        {% for row in v.ds_rows + [{"customer": "", "content": "", "field_id": none}] %}
         <div class="row">
           <label>고객 <input name="{{ k }}__ds_customer" value="{{ row.customer }}" list="ds-customer-list-{{ k }}" autocomplete="off"></label>
           <label class="grow">내용 <input name="{{ k }}__ds_content" value="{{ row.content }}"></label>
+          <label>분야 <select name="{{ k }}__ds_field"><option value="">분야 미지정</option>{% for fd in choices.field or [] %}<option value="{{ fd.id }}"{{ " selected" if fd.id == row.field_id }}>{{ fd.name }}</option>{% endfor %}</select></label>
         </div>
         {% endfor %}
         <datalist id="ds-customer-list-{{ k }}">{% for c in choices.customer %}<option value="{{ c.name }}">{% endfor %}</datalist>

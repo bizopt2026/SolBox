@@ -105,6 +105,7 @@ class FollowUpDraft(BaseModel):
 class SignalDraft(BaseModel):
     customer: str = ""
     content: str = ""
+    field: Any = ""  # 분야 제안 (고객니즈 관리 2026-11-27): 사용 중인 분야 이름 하나. 모르는 이름은 `solution_fields.suggest_id` 가 버린다
 
 
 class Mentions(BaseModel):
@@ -235,10 +236,12 @@ def _structure_activity(db: Session, input: dict, runner: ClaudeRunner, settings
     # 원문이 구분 표시를 닫아 버리지 못하게 한다.
     memo = str(input.get("raw_text", "")).replace(MEMO_CLOSE, "MEMO> >>").replace(MEMO_OPEN, "<<< MEMO")
     job = db.get(AIJob, input.get("_job_id")) if input.get("_job_id") else None
+    from app import solution_fields as sfields
+
     prompt = load_prompt(
         "activity_structure", raw_text=memo, today=date.today().isoformat(), writer=writer_name(db, job.requester_id if job else None),
         solutions=_name_list(db, Solution), customers=_name_list(db, Customer),
-        projects=_name_list(db, _MENTION_MODELS["projects"]), partners=_name_list(db, Partner),
+        projects=_name_list(db, _MENTION_MODELS["projects"]), partners=_name_list(db, Partner), field_names=sfields.prompt_names(db),
     )
     draft = run_json(db, runner, prompt, ActivityDraft, settings)
     return normalize_draft(draft, date.today()).model_dump_json()

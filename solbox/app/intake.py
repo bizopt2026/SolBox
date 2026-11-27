@@ -673,9 +673,12 @@ def clean_plan(db: Session, intake: Intake, out: "IntakePlanOut", today: date, s
                 numbers.append(act.raw_from)
         summary = draft_summary_md(draft)
         matches = match_mentions(db, draft.mentions)
+        dumped = draft.model_dump()
+        for sig, row in zip(draft.demand_signals, dumped.get("demand_signals", [])):  # 니즈 분야 제안 (2026-11-27): 사용 중인 분야 이름일 때만 번호로
+            row["field_id"] = sfields.suggest_id(db, sig.field)
         activities.append({
             "kind": "activity", "reason": act.reason.strip(), "files": numbers, "raw_from": act.raw_from if raw is not None else None,
-            "draft": draft.model_dump(), "summary_md": summary, "raw_text": raw or summary,
+            "draft": dumped, "summary_md": summary, "raw_text": raw or summary,
             "matched": {rel: m["matched"] for rel, m in matches.items()},
             "new": {rel: m["new"] for rel, m in matches.items()},
             "ambiguous": {rel: m["ambiguous"] for rel, m in matches.items()},
@@ -981,6 +984,7 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
             fu_due=many("fu_due", [f.get("due", "") for f in fus]),
             ds_customer=many("ds_customer", [x.get("customer", "") for x in dss]),
             ds_content=many("ds_content", [x.get("content", "") for x in dss]),
+            ds_field=many("ds_field", [str(x.get("field_id") or "") for x in dss]),
             solution_ids=many("solution_ids", matched.get("solutions", [])),
             customer_ids=many("customer_ids", matched.get("customers", [])),
             project_ids=many("project_ids", matched["projects"] if "projects" in matched else matched.get("businesses", [])),  # 옛 정리안은 businesses 키
@@ -995,7 +999,7 @@ def item_values(item: dict, fields: _Fields | None, file_names: dict[int, str]) 
         v["fu_rows"] = [{"task": t, "owner": o, "due": d_} for t, o, d_ in _rows(v["fu_task"], v["fu_owner"], v["fu_due"])]
         flagged = {d["row"] for d in item.get("dup_follow_ups", []) if isinstance(d.get("row"), int)}
         v["fu_drop"] = {n for n in (_digits(x) for x in (fields.many(f"{key}__fu_drop") if use else [])) if n in flagged}
-        v["ds_rows"] = [{"customer": c, "content": t} for c, t in _rows(v["ds_customer"], v["ds_content"])]
+        v["ds_rows"] = [{"customer": c, "content": t, "field_id": int(fd) if fd.isdigit() else None} for c, t, fd in _rows(v["ds_customer"], v["ds_content"], v["ds_field"])]
         v["selected"] = {t: [n for n in (_digits(i) for i in v[f"{t}_ids"]) if n is not None]
                          for t in ontology.ACTIVITY_LINKS}
     return v
@@ -1015,6 +1019,11 @@ def kept_follow_up_positions(item: dict, v: dict) -> list[int]:
         if pos < len(tasks) and " ".join(str(tasks[pos]).split()) == " ".join(str(rows[n]["task"]).split()):
             drop_positions.add(pos)
     return [i for i in range(len(v["fu_task"])) if i not in drop_positions]
+
+
+def _pad_list(values: list[str], n: int) -> list[str]:
+    """분야 칸 줄 수를 내용 칸에 맞춘다 (모자라면 빈 값)."""
+    return [*values[:n], *([""] * max(0, n - len(values)))]
 
 
 def _rows(*columns: list[str]) -> list[tuple[str, ...]]:
@@ -1063,7 +1072,7 @@ def plain_lines(md: str, count: int = 3) -> list[str]:
     return lines
 
 
-_SIG_SKIP = {"skip", "fu_drop", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "selected", "new_names"}
+_SIG_SKIP = {"skip", "fu_drop", "fu_task", "fu_owner", "fu_due", "ds_customer", "ds_content", "ds_field", "selected", "new_names"}
 
 
 def _signature(v: dict) -> dict:
@@ -1667,7 +1676,7 @@ def _create_records(run: _Run, chosen: list[tuple[dict, dict]]) -> None:
         records.apply_activity_fields(
             db, user, a, kind=v["kind"], date_=v["date"], title=v["title"], raw_text=v["raw_text"].strip(), summary_md=v["summary_md"],
             fu_task=pick(v["fu_task"]), fu_owner=pick(v["fu_owner"]), fu_due=pick(v["fu_due"]), fu_done=[],
-            ds_customer=v["ds_customer"], ds_content=v["ds_content"],
+            ds_customer=v["ds_customer"], ds_content=v["ds_content"], ds_field=_pad_list(v["ds_field"], len(v["ds_content"])),
             solution_ids=ids["solution"], customer_ids=ids["customer"], project_ids=ids["project"], partner_ids=ids["partner"],
             new_solutions=v["new_names"]["new_solutions"], new_customers=v["new_names"]["new_customers"],
             new_partners=v["new_names"]["new_partners"], origin=run.origin,

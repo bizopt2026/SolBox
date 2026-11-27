@@ -104,3 +104,45 @@ def test_opportunity_copy_shows_direct_need(db, settings):
     mirror.sync(o)
     text = next(settings.knowledge_dir.rglob(f"opportunities/{o.id}.md")).read_text(encoding="utf-8")
     assert "온도 이력 (직접 입력)" in text
+
+
+# ---- 분야 (Task 5) ----
+
+def test_activity_form_saves_need_field_and_old_form_keeps_it(user_client, db):
+    f = SolutionField(name="에너지", sort_order=90, active=True)
+    c = Customer(name="가나제지"); db.add_all([f, c]); db.commit()
+    form = user_client.get("/activities/new?manual=1").text
+    assert 'name="ds_field"' in form and f'<option value="{f.id}">에너지</option>' in form
+    _post(user_client, ds_id=[""], ds_customer=["가나제지"], ds_content=["전기요금"], ds_field=[str(f.id)])
+    a = db.query(Activity).one()
+    n = a.needs[0]
+    assert n.field_id == f.id and n.created_by_id is not None
+    edit = user_client.get(f"/activities/{a.id}/edit").text
+    assert f'<option value="{f.id}" selected>에너지</option>' in edit
+    _post(user_client, a, ds_id=[str(n.id)], ds_customer=["가나제지"], ds_content=["전기요금 (수정)"])  # 분야 칸이 없는 옛 화면
+    db.expire_all()
+    assert db.get(CustomerNeed, n.id).field_id == f.id
+
+
+def test_ai_draft_preselects_suggested_field(db):
+    from app.ai.tasks import ActivityDraft
+    from app.routers.activities import draft_values
+
+    f = SolutionField(name="에너지", sort_order=90, active=True); db.add(f); db.commit()
+    d = ActivityDraft(demand_signals=[{"customer": "가나", "content": "전기요금", "field": "에너지"}, {"customer": "", "content": "기타", "field": "없는 분야"}])
+    values = draft_values(db, d, "원문")
+    assert [s["field_id"] for s in values["demand_signals"]] == [f.id, None]
+
+
+def test_intake_apply_saves_need_field(app, user_client, db, settings):
+    from tests.conftest import form_from_page, ready_intake
+
+    f = SolutionField(name="조명", sort_order=90, active=True); db.add(f); db.commit()
+    it, s1, c1 = ready_intake(db, settings)
+    form = form_from_page(user_client, it)
+    assert "act1__ds_field" in user_client.get(f"/intake/{it.id}").text
+    form.update({"act1__ds_customer": ["한빛병원"], "act1__ds_content": ["조명 교체 문의"], "act1__ds_field": [str(f.id)]})
+    assert user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False).status_code == 303
+    db.expire_all()
+    n = db.query(Activity).one().needs[0]
+    assert n.field_id == f.id and n.created_by_id is not None
