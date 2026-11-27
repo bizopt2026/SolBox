@@ -1291,7 +1291,7 @@ DERIVED_BY_KEY = {d.key: d for d in DERIVED}
 RELATED_EXCLUDE: dict[str, tuple[str, ...]] = {
     "solution": ("R1", "R3", "R19", "R21", "R22"),
     "partner": ("R25", "R21", "R22", "R51"),
-    "customer": ("R25", "R21", "R22", "R50"),
+    "customer": ("R25", "R21", "R22", "R50", "R5"),  # R5 는 고객관리의 접촉 이력 카드로 보인다 (app/contact_history.py)
     "project": ("R2", "R31"),
     "opportunity": ("R27", "R30", "R32", "R52"),
     "contact": ("R50", "R51"),
@@ -1321,7 +1321,6 @@ MAIN_GROUPS: dict[str, tuple[MainGroup, ...]] = {
         MainGroup("R12:proposal", ("+ 제안 만들기", "/proposals/new?customer_id={id}"), True),
         MainGroup("R34:proposal"),
         MainGroup("D14", None, False, ("제안 만들기", "/proposals/new?customer_id={id}&solution_id={item}")),
-        MainGroup("R5:activity", ("+ 활동 기록 쓰기", "/activities/new?customer_id={id}"), True),
         MainGroup("R10:customer_need", ("+ 니즈 추가", "/needs/new?customer_id={id}"), True),
         MainGroup("D6"),
     ),

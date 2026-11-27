@@ -7,6 +7,7 @@ from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
 from app.idparse import parse_id
+from app import contact_history
 from app import contacts, ontology, opportunities as opps, origin, relations, same_company, ui
 from app import aliases as alias_utils, guards, notices
 from app.db import get_db
@@ -55,6 +56,7 @@ def _detail_page(request: Request, db: Session, user: User, customer: Customer, 
         request, "customers/detail.html", status_code=400 if error else 200,
         customer=customer, **relations.page_related(db, customer, user),
         can_delete=can_delete(user, customer), error=error, origin=origin.view(db, user, customer), meta=ui.stamp_info(db, customer),
+        history=contact_history.history(db, customer),
         same_name=same_company.candidate_partner(db, customer), contact_line=_contact_line(db, customer, today()), contact_split=contacts.pending_split_count(customer), contact_memo=contacts.memo_view(customer),
     )
 

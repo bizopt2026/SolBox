@@ -166,10 +166,10 @@ def test_related_dates_use_the_screen_format_but_the_mirror_stays_iso(db):
     from datetime import date
 
     from app import relations
-    from app.models import Activity, Customer
+    from app.models import Activity, Partner
 
-    c = Customer(name="고객")
-    a = Activity(title="회의", raw_text="x", date=date(2025, 11, 14), customers=[c])
+    c = Partner(name="파트너")  # 고객은 활동 기록을 접촉 이력 카드로 보인다 (2026-11-27): 날짜 형식은 파트너의 연결 목록으로 본다
+    a = Activity(title="회의", raw_text="x", date=date(2025, 11, 14), partners=[c])
     db.add_all([c, a])
     db.commit()
     ui_note = next(i.note for g in relations.related_for_page(db, c, None) for i in g.items if i.label == "회의")
@@ -299,7 +299,7 @@ def test_page_related_splits_main_cards_from_the_aside(db):
     by = {m.label: m for m in page["main"]}
     assert by["영업기회"].group.total == 1 and by["프로젝트"].group is None
     assert by["프로젝트"].action == ("+ 프로젝트 등록", f"/projects/new?customer_id={c.id}")
-    assert "활동 기록" in labels and "고객 니즈" in labels  # 고객니즈 관리 (2026-11-27): 비어 있어도 "+ 니즈 추가" 동작이 있어 카드가 남는다
+    assert "활동 기록" not in labels and "고객 니즈" in labels  # 활동 기록은 접촉 이력 카드(app/contact_history.py), 고객 니즈는 "+ 니즈 추가" 동작이 있어 비어도 남는다
     assert not any(g.key in {m.key for m in page["main"]} for g in page["related"])
 
 
