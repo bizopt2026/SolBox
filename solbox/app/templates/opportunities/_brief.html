@@ -9,6 +9,7 @@
       <button type="submit" class="small"{{ ai_attrs(aig, by="ai-note-brief") }}{% if ai_job %} disabled{% endif %}>{{ "다시 분석" if insight else "AI 분석" }}</button>
     </form>{% endif %}</span></header>
   {{ ai_note(aig, id="ai-note-brief") }}
+  {% for c, days in (decision_gaps or []) %}<p class="brief-gap warn" data-gap="{{ c.id }}"><a href="/contacts/{{ c.id }}">{{ c.name }}</a>(의사결정자) 마지막 접촉 {{ days }}일 전</p>{% endfor %}
   {% if b.get("situation") %}<h3>현재 상황</h3><p>{{ b.situation }}</p>{% endif %}
   {% if b.get("risks") %}<h3>위험</h3><ul>{% for x in b.risks %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
   {% if b.get("next_actions") %}<h3>다음 행동</h3><ul>{% for x in b.next_actions %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}

@@ -151,8 +151,15 @@ def build_prompt(db: Session, opp: Opportunity, today_) -> tuple[str, dict[int, 
              f"- {P('amount')}: {money.format_amount(opp.amount) or '없음'}" + (f" ({opp.amount}원)" if opp.amount else ""),
              f"- {P('expected_close')}: {opp.expected_close.isoformat() if opp.expected_close else '없음'}",
              f"- {P('next_step')}: {_safe(opp.next_step) or '없음'}" + (f" ({opp.next_step_due.isoformat()})" if opp.next_step_due else "")]
-    if opp.contacts:  # 영업 D: 이름·직함·역할만 (전화·이메일은 보내지 않는다)
-        lines.append(f"- {P('contacts')}: " + " · ".join(_safe(" ".join(x for x in (c.name, c.title, ontology.CONTACT_ROLES.get(c.role, "")) if x)) for c in opp.contacts))
+    if opp.contacts:  # 영업 D: 이름·직함·역할만 (전화·이메일은 보내지 않는다). 담당자 부담 줄이기 ⑤: 마지막 접촉 날수
+        from app.opportunities import contact_last_touches
+
+        touches = contact_last_touches(db, [c.id for c in opp.contacts])
+
+        def _touch(c) -> str:
+            last = touches.get(c.id)
+            return f"마지막 접촉 {(today_ - last).days}일 전" if last else "참석 기록 없음"
+        lines.append(f"- {P('contacts')}: " + " · ".join(_safe(" ".join(x for x in (c.name, c.title, ontology.CONTACT_ROLES.get(c.role, ""), f"({_touch(c)})") if x)) for c in opp.contacts))
     if opp.bm:
         lines.append(f"- {P('bm')}: {_safe(opp.bm.name)}")
     if opp.business_types:
