@@ -298,7 +298,27 @@ def _check_cert(settings: Settings) -> Check | None:
         ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(crt, key)
     except (ssl.SSLError, OSError) as e:
         return ("인증서", f"인증서와 키를 읽을 수 없습니다 ({e}).", "")
-    return ("인증서", None, str(crt))
+    left = _cert_days_left(Path(crt))
+    if left is not None and left < CERT_WARN_DAYS:
+        when = "이미 지났습니다" if left < 0 else f"{left}일 남았습니다"
+        return ("인증서", f"서버 인증서 만료가 {when}. make-cert --overwrite 로 다시 만들고 서버를 다시 시작하세요 (발급자 ca.crt 는 그대로라 기기에 다시 설치하지 않아도 됩니다).", "")
+    return ("인증서", None, str(crt) + (f" · {left}일 남음" if left is not None else ""))
+
+
+CERT_WARN_DAYS = 60
+
+
+def _cert_days_left(crt: Path) -> int | None:
+    """서버 인증서(파일의 첫 인증서)의 남은 날. 읽지 못하면 None."""
+    try:
+        from datetime import datetime, timezone
+
+        from cryptography import x509
+
+        cert = x509.load_pem_x509_certificate(crt.read_bytes())
+        return (cert.not_valid_after_utc - datetime.now(timezone.utc)).days
+    except Exception:  # noqa: BLE001 - 점검은 다른 줄을 막지 않는다
+        return None
 
 
 def _check_port(settings: Settings) -> Check:

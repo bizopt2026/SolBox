@@ -23,7 +23,13 @@ def test_make_self_signed(tmp_path):
     assert san.get_values_for_type(x509.IPAddress) == [ipaddress.ip_address("10.231.1.254")]
     assert san.get_values_for_type(x509.DNSName) == ["solbox.local"]
     assert cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value == "10.231.1.254"
-    assert (cert.not_valid_after_utc - cert.not_valid_before_utc).days >= 3649
+    # 휴대폰 접속 준비 (2026-11-27): 애플 기기가 믿는 서버 인증서 (825일 이하, 서버 용도), 같은 폴더의 자체 발급자가 서명
+    assert (cert.not_valid_after_utc - cert.not_valid_before_utc).days <= 825
+    assert x509.oid.ExtendedKeyUsageOID.SERVER_AUTH in cert.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
+    ca = x509.load_pem_x509_certificate((tmp_path / "ca.crt").read_bytes())
+    assert ca.extensions.get_extension_for_class(x509.BasicConstraints).value.ca is True
+    assert cert.issuer == ca.subject
+    cert.verify_directly_issued_by(ca)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(crt, key)  # 실제로 쓸 수 있는 쌍인지
     with pytest.raises(FileExistsError):
@@ -200,7 +206,7 @@ def test_overwrite_failure_after_key_replaced_restores_old_pair(tmp_path, monkey
     with pytest.raises(OSError):
         make_self_signed(tmp_path, ["127.0.0.1"], overwrite=True)
     assert crt.read_bytes() == old_crt and key.read_bytes() == old_key  # 짝이 맞는 옛 파일 그대로
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["server.crt", "server.key"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["ca.crt", "ca.key", "server.crt", "server.key"]
 
 
 def test_pyproject_requires_recent_cryptography():
@@ -242,3 +248,48 @@ def test_cli_check_port_permission_error(tmp_path, monkeypatch, capsys):
         cli.main(["check"])
     out = capsys.readouterr().out
     assert "포트 443을 열 수 없습니다 (다른 프로그램이 쓰고 있거나 권한이 없습니다)" in out
+
+
+def test_reissue_keeps_the_ca_unless_asked(tmp_path):
+    """서버 인증서를 다시 만들어도 발급자(ca.crt)는 그대로라 기기에 설치한 신뢰가 이어진다. --new-ca 면 새 발급자."""
+    make_self_signed(tmp_path, ["10.0.0.5"])
+    ca1 = (tmp_path / "ca.crt").read_bytes()
+    crt, _ = make_self_signed(tmp_path, ["10.0.0.6"], overwrite=True)
+    assert (tmp_path / "ca.crt").read_bytes() == ca1
+    x509.load_pem_x509_certificate(crt.read_bytes()).verify_directly_issued_by(x509.load_pem_x509_certificate(ca1))
+    make_self_signed(tmp_path, ["10.0.0.6"], overwrite=True, new_ca=True)
+    assert (tmp_path / "ca.crt").read_bytes() != ca1
+    assert b"PRIVATE KEY" not in (tmp_path / "ca.crt").read_bytes() and b"PRIVATE KEY" in (tmp_path / "ca.key").read_bytes()
+
+
+def test_ca_download_route(tmp_path):
+    """/ca.crt: 로그인 없이 발급자 인증서(키 없음)를 내려받는다. 인증서를 쓰지 않는 서버는 404."""
+    from fastapi.testclient import TestClient
+
+    crt, key = make_self_signed(tmp_path / "certs", ["127.0.0.1"])
+    settings = Settings(data_dir=tmp_path / "data", secret_key="t", ai_worker_enabled=False, scheduler_enabled=False,
+                        ssl_certfile=str(crt), ssl_keyfile=str(key))
+    app = create_app(settings)
+    try:
+        r = TestClient(app).get("/ca.crt")
+        assert r.status_code == 200 and r.content == (tmp_path / "certs" / "ca.crt").read_bytes()
+        assert r.headers["content-type"].startswith("application/x-x509-ca-cert") and b"PRIVATE KEY" not in r.content
+    finally:
+        app.state.engine.dispose()
+    plain = create_app(Settings(data_dir=tmp_path / "data2", secret_key="t", ai_worker_enabled=False, scheduler_enabled=False))
+    try:
+        assert TestClient(plain).get("/ca.crt").status_code == 404
+    finally:
+        plain.state.engine.dispose()
+
+
+def test_check_warns_before_the_server_cert_expires(tmp_path):
+    from app import system
+
+    crt, key = make_self_signed(tmp_path, ["127.0.0.1"], days=30)
+    s = Settings(data_dir=tmp_path / "data", secret_key="t", ssl_certfile=str(crt), ssl_keyfile=str(key))
+    name, problem, _ = system._check_cert(s)
+    assert problem and "만료" in problem and "make-cert --overwrite" in problem
+    crt2, key2 = make_self_signed(tmp_path / "b", ["127.0.0.1"])
+    assert system._check_cert(Settings(data_dir=tmp_path / "d", secret_key="t", ssl_certfile=str(crt2), ssl_keyfile=str(key2)))[1] is None
+

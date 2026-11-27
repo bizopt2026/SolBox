@@ -39,7 +39,7 @@ Get-NetTCPConnection -LocalPort 8443 -ErrorAction SilentlyContinue | Select-Obje
 - 기존 `data` 폴더를 **백업 없이** 삭제하거나 덮어쓰지 않는다 (먼저 폴더 이름을 바꿔 둔다). 이미 있는 `data` 안으로 다른 `data` 를 복사해 섞지 않는다.
 - 이미 있는 설치 폴더(저장소 복제본)를 삭제하지 않는다. `app.db-wal`, `app.db-shm` 파일을 지우지 않는다.
 - 비밀번호를 명령줄 인자(`--password`)나 파일에 적지 않는다.
-- `secret_key`, 비밀번호, `server.key`, `config.toml` 을 저장소에 커밋하거나 채팅에 그대로 출력하지 않는다.
+- `secret_key`, 비밀번호, `server.key`·`ca.key`, `config.toml` 을 저장소에 커밋하거나 채팅에 그대로 출력하지 않는다.
 - **사람 확인 없이** 443 포트(또는 정한 포트)를 쓰는 다른 프로그램을 중지하지 않는다.
 - 사람이 정하지 않은 주소·포트를 임의로 정하지 않는다.
 - 방화벽을 "모두 허용"으로 열거나 기존 방화벽 규칙을 지우지 않는다 (`SolutionBox` 규칙만 다룬다).
@@ -197,6 +197,7 @@ Get-ChildItem scripts\*.ps1 | ForEach-Object { "{0}: BOM={1}" -f $_.Name, (([IO.
 python -m app.cli make-cert --host $ServerHost
 ```
 - 성공: "인증서를 만들었습니다" 와 `ssl_certfile = "..."`, `ssl_keyfile = "..."` 두 줄. 이 두 줄을 `config.toml` 에 넣는다.
+- `certs` 폴더에 발급자 `ca.crt`·`ca.key` 도 생기거나(처음) 그대로 다시 쓰인다(옛 로컬 PC 에서 `certs` 를 옮겨 왔으면 그 `ca.crt` 를 이어 써서 직원 PC·휴대폰의 신뢰가 유지된다). 직원 기기에는 `ca.crt` 만 설치한다 (운영가이드 4-1·4-2).
 - 실패 시: "이미 있는 파일입니다" 면 기존 인증서의 주소가 맞는지 확인하고, 틀리면 `--overwrite` 를 붙인다.
 
 방화벽 (**관리자 권한 PowerShell** 이 필요하다. 권한이 없으면 사람에게 관리자 PowerShell 을 열도록 요청한다. 관리자 PowerShell 은 **새 세션**이므로 먼저 `cd $Repo` 로 저장소 폴더에 가고, 위 "변수 설정" 블록을 다시 실행한다):

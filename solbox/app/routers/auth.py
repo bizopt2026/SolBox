@@ -1,8 +1,10 @@
 """로그인과 로그아웃."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app import notices
@@ -15,6 +17,20 @@ router = APIRouter()
 
 BAD_LOGIN = "아이디 또는 비밀번호가 올바르지 않습니다."
 INACTIVE = "사용이 중지된 계정입니다. 관리자에게 문의하세요."
+
+
+@router.get("/ca.crt")
+def ca_certificate(request: Request):
+    """HTTPS 발급자 인증서(공개 정보)를 내려받게 한다: 휴대폰·PC 에 한 번 "신뢰"로 설치할 파일 (운영가이드 4장, 2026-11-27).
+    로그인 없이 연다 (인증서를 믿기 전에 받아야 하므로). 서버 인증서 옆의 `ca.crt` 이고 PEM 인증서만 보낸다 (키는 절대 보내지 않는다)."""
+    certfile = request.app.state.settings.ssl_certfile
+    ca = Path(certfile).parent / "ca.crt" if certfile else None
+    data = ca.read_bytes() if ca is not None and ca.is_file() else b""
+    if not data.lstrip().startswith(b"-----BEGIN CERTIFICATE-----") or b"PRIVATE KEY" in data:
+        return render(request, "error.html", status_code=404, message="이 서버에는 내려받을 발급자 인증서(ca.crt)가 없습니다. 관리자가 make-cert 로 인증서를 만들면 생깁니다.",
+                      title="항목을 찾을 수 없습니다", code=404)
+    return Response(data, media_type="application/x-x509-ca-cert",
+                    headers={"Content-Disposition": 'attachment; filename="solbox-ca.crt"', "Cache-Control": "no-store"})
 
 
 @router.get("/login")
