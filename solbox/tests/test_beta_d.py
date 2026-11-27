@@ -346,7 +346,8 @@ def test_diff_fields_labels_codes_and_skips_unlabelled(db):
 
 def test_phone_css_ai_label_scroll_fade_and_edit_delete_row(user_client):
     css = user_client.get("/static/app.css").text
-    assert ".aistat:not(.ok) .aistat-text { position: static;" in css
+    # 베타 점검 4차(2026-11-27): 휴대폰은 정상이 아닐 때도 글 대신 점 색·테두리 색으로 알린다 (긴 상태 글이 메뉴 단추를 밀어냈다)
+    assert ".aistat:not(.ok) .aistat-text { position: static;" not in css and ".aistat.down { border-color: var(--bad-line);" in css
     assert ".fade-x.can-right" in css and "overflow-y: hidden; background: var(--surface); }" in css
     assert ".page-header.detail .actions .actions-danger { order: 2; flex: 0 0 auto;" in css
     js = user_client.get("/static/app.js").text

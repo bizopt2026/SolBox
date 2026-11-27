@@ -51,7 +51,7 @@ class ReviewOut(_Loose):
 def _review(db: Session, job_input: dict, runner: ClaudeRunner, settings: Settings) -> str:
     oid = job_input.get("opportunity_id")
     opp = db.get(Opportunity, oid) if isinstance(oid, int) else None
-    if opp is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES or not opp.activities:
+    if opp is None or opp.stage not in ontology.OPPORTUNITY_OPEN_STAGES or not oai.has_activities(db, opp):  # 니즈가 나온 기록도 재료 (베타 점검 4차)
         return json.dumps({"skipped": True}, ensure_ascii=False)
     today = oai.today()
     prompt, texts = oai.build_prompt(db, opp, today)

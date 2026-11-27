@@ -38,7 +38,7 @@ def test_opportunity_from_a_need_gets_a_starting_name(user_client, db):
     db.add(n)
     db.commit()
     page = user_client.get(f"/opportunities/new?customer_id={c.id}&need_id={n.id}").text
-    assert 'value="한빛병원 · 냉방 전력비를 줄이고 싶다"' in page
+    assert 'value="냉방 전력비를 줄이고 싶다"' in page, "고객 이름은 넣지 않는다 (화면마다 따로 붙는다)"
     plain = user_client.get(f"/opportunities/new?customer_id={c.id}").text
     assert 'name="name" type="text" value=""' in plain, "니즈 없이 열면 이름 칸은 비어 있다"
 
@@ -223,6 +223,6 @@ def test_top_status_refreshes_only_while_a_job_runs(user_client, db):
     kim = db.scalars(select(User).where(User.username == "kim")).one()
     ai_queue.enqueue(db, "solution_draft", {}, kim.id)
     home = user_client.get("/").text
-    assert 'hx-get="/ui/top-status"' in home and "내 AI 작업" in home
+    assert 'hx-get="/ui/top-status"' in home and 'class="jobtray"' in home
     part = user_client.get("/ui/top-status")
     assert part.status_code == 200 and part.text.lstrip().startswith("{#") is False and 'id="top-status"' in part.text and "<html" not in part.text

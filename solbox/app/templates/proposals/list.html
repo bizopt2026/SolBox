@@ -2,7 +2,7 @@
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, title_cell, links_text, date_text, pill %}
 {% block title %}제안{% endblock %}
 {% block content %}
-{{ list_head("제안", pg, q or status or flt, "/proposals/new", type="proposal") }}
+{{ list_head(ont.TYPES["proposal"].nav, pg, q or status or flt, "/proposals/new", type="proposal") }}
 {{ list_tools(request, tabs, "진행 단계", q, flt, "제목, 고객으로 찾기") }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">

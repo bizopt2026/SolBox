@@ -7,7 +7,7 @@
 {% set live = active_n or (ai and ai.state == "busy") %}
 <span id="top-status" class="top-status"{% if live %} hx-get="/ui/top-status" hx-trigger="every 15s [!document.querySelector('.jobtray[open]')]" hx-swap="outerHTML"{% endif %}>{# 쟁반을 열어 보는 동안은 바꾸지 않는다 #}
     {% if mj %}
-    <details class="jobtray"><summary>내 AI 작업{% if active_n %} <span class="more-dot" role="img" aria-label="진행 중 {{ active_n }}개">{{ active_n }}</span>{% endif %}</summary>
+    <details class="jobtray"><summary><span class="jobtray-long">내 AI</span>작업{% if active_n %} <span class="more-dot" role="img" aria-label="진행 중 {{ active_n }}개">{{ active_n }}</span>{% endif %}</summary>
       <ul>{% for j in mj %}<li>{% if j.href %}<a href="{{ j.href }}" data-tray>{{ j.kind }}</a>{% else %}{{ j.kind }}{% endif %}<span class="badge {{ ont.tone_class('job_status', j.status) }}">{{ ont.JOB_STATUSES.get(j.status, j.status) }}</span>{% if j.finished_at %} <small class="muted">{{ kdatetime(j.finished_at) }}</small>{% endif %}</li>{% endfor %}</ul>
     </details>
     {% endif %}

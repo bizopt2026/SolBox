@@ -905,13 +905,16 @@ def test_retry_button_posts_to_the_existing_retry_route(admin_client, db):
     assert r.status_code == 303
 
 
-def test_research_settings_shows_next_scheduled_run(admin_client, db):
+def test_research_settings_shows_next_scheduled_run(admin_client, db, settings):
+    settings.scheduler_enabled = True  # 예약 작업이 도는 서버로 본다 (꺼진 서버는 "자동 조사가 돌지 않습니다", 베타 점검 4차)
     admin_client.post("/admin/research/schedule", data={"weekday": "0", "hour": "9", "minute": "0"})  # 자동 실행 끔
     page = admin_client.get("/admin/research").text
     assert "자동 실행이 꺼져 있어 예약된 조사가 없습니다" in page
     admin_client.post("/admin/research/schedule", data={"enabled": "on", "weekday": "0", "hour": "9", "minute": "0"})
     page = admin_client.get("/admin/research").text
     assert "다음 자동 조사" in page and "월요일" in page
+    settings.scheduler_enabled = False
+    assert "자동 조사가 돌지 않습니다" in admin_client.get("/admin/research").text
 
 
 def test_backup_notice_says_where_it_was_written(admin_client, settings):

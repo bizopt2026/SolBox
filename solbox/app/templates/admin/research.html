@@ -11,6 +11,7 @@
 <section class="card stack">
   <h2>실행 주기</h2>
   <p class="next-run" id="next-run">{% if next_run %}<b>다음 자동 조사</b> {{ kdatetime(next_run) }} ({{ weekdays[next_run.weekday()] }}요일)
+    {% elif scheduler_off %}<span class="muted">이 서버는 설정 파일에서 예약 작업을 꺼 두어(scheduler_enabled = false) 자동 조사가 돌지 않습니다. "지금 조사"로 필요할 때 돌리세요.</span>
     {% else %}<span class="muted">자동 실행이 꺼져 있어 예약된 조사가 없습니다.</span>{% endif %}</p>
   <form method="post" action="/admin/research/schedule" class="row compact-form">
     <label class="check"><input type="checkbox" name="enabled" value="on" {% if schedule.enabled %}checked{% endif %}> 자동 실행</label>

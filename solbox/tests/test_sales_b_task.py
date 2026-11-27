@@ -137,3 +137,22 @@ def test_closed_opportunity_is_skipped(app, db, settings, fake_claude):
     _run(app, settings)
     db.expire_all()
     assert db.scalar(select(AIJob)).status == "done" and db.scalar(select(OpportunityInsight)) is None and fake_claude.calls() == []
+
+
+def test_review_of_an_opportunity_made_from_a_need_reads_the_need_activity(app, db, settings, fake_claude):
+    """니즈로 만든 영업기회(활동 기록을 직접 잇지 않음)도 분석된다: 니즈가 나온 기록이 재료 (베타 점검 4차 2026-11-27: 건너뛰고 "완료"였다)."""
+    c = Customer(name="대한물류")
+    db.add(c)
+    db.commit()
+    o = Opportunity(name="창고 조명 교체", customer_id=c.id, stage="discovery")
+    a = Activity(kind="meeting", date=date(2026, 11, 20), title="미팅", raw_text="조명 교체 검토", summary_md="조명 교체를 검토 중")
+    db.add_all([o, a])
+    db.commit()
+    db.add(CustomerNeed(activity_id=a.id, position=0, customer_name="대한물류", customer_id=c.id, content="조명 교체", opportunity_id=o.id))
+    db.commit()
+    fake_claude.set(mode="ok", result=json.dumps({"briefing": {"situation": "조명 교체 검토", "risks": [], "next_actions": [], "outlook": ""}, "fields": {}, "checks": []}))
+    enqueue(db, oai.REVIEW_KIND, {"opportunity_id": o.id}, None, oai.REVIEW_PRIORITY)
+    assert _run(app, settings)
+    db.expire_all()
+    ins = db.scalar(select(OpportunityInsight))
+    assert ins is not None and ins.briefing["situation"] == "조명 교체 검토" and ins.basis["activity_ids"] == [a.id]
