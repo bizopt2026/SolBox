@@ -16,7 +16,7 @@ from app.knowledge import KnowledgeMirror, get_mirror
 from app.main import render
 from app.models import Contact, Customer, Partner, User
 from app.routers._common import NOT_FOUND, get_deletable_or_404, get_or_404
-from app.security import can_delete, require_user
+from app.security import can_delete, require_admin, require_user
 
 router = APIRouter()
 
@@ -202,3 +202,23 @@ def _split_post(kind: str):
 for _kind, _prefix in (("customer", "/customers"), ("partner", "/partners")):
     router.add_api_route(f"{_prefix}/{{company_id}}/contacts/split", _split_get(_kind), methods=["GET"])
     router.add_api_route(f"{_prefix}/{{company_id}}/contacts/split", _split_post(_kind), methods=["POST"])
+
+
+# ---- 관리 › 연락처 메모 정리 (③): 모든 회사의 확실한 줄을 한 번에 담당자로 ----
+
+@router.get("/admin/contacts-cleanup")
+def cleanup_page(request: Request, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    groups = ct.bulk_rows(db)
+    return render(request, "contacts/cleanup.html", groups=groups, total=sum(len(r) for _, _, r in groups))
+
+
+@router.post("/admin/contacts-cleanup")
+def cleanup_apply(
+    user: User = Depends(require_admin), db: Session = Depends(get_db), mirror: KnowledgeMirror = Depends(get_mirror), once: Once = Depends(form_once),
+):
+    companies = [c for c, _, _ in ct.bulk_rows(db)]
+    made = ct.bulk_apply(db, user)
+    db.commit()
+    for c in companies:
+        _sync_company(db, mirror, c)
+    return once.done(notices.redirect("/admin/contacts-cleanup", "contacts_cleanup" if made else "contacts_cleanup_none"))

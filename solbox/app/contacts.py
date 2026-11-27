@@ -264,3 +264,55 @@ def staff_names(db) -> set[str]:
     for name, username in db.execute(select(User.name, User.username)):
         out |= {k for k in (_name_key(name), _name_key(username)) if len(k) >= 2}
     return out
+
+
+# ---- 연락처 메모 일괄 정리·접기 (③, 2026-11-27) ----
+
+def bulk_rows(db) -> list[tuple[object, str, list[dict]]]:
+    """모든 고객·파트너에서 옮길 줄: [(회사, 종류 코드, [split_rows 의 checked 줄])]. 줄이 없는 회사는 뺀다.
+    이름이 같은 담당자가 이미 있거나 같은 메모에 같은 이름의 앞 줄이 있으면 뺀다 (번호를 바꾼 사람·동명이인: 회사 화면의 나누기에서 사람이 본다)."""
+    from sqlalchemy import select
+
+    from app.models import Customer, Partner
+
+    out = []
+    for kind, model in (("customer", Customer), ("partner", Partner)):
+        for company in db.scalars(select(model).where(model.contact != "").order_by(model.name, model.id)):
+            names = {_name_key(c.name) for c in company.contacts}
+            rows = []
+            for r in split_rows(company):
+                key = _name_key(r["name"])
+                if r["checked"] and key not in names:  # 이름이 같은 담당자·같은 메모의 앞 줄이 있으면 빼고 회사 화면에서 확인한다
+                    rows.append(r)
+                    names.add(key)
+            if rows:
+                out.append((company, kind, rows))
+    return out
+
+
+def bulk_apply(db, user) -> int:
+    """옮길 줄을 모두 담당자로 만든다 (연락처 메모 글은 바꾸지 않는다). 같은 글 안의 같은 사람은 한 번만. 만든 수. 커밋하지 않는다."""
+    from app import ontology
+    from app.models import Contact
+
+    made = 0
+    for company, kind, rows in bulk_rows(db):
+        for r in rows:
+            person = Contact(**{f: r[f] for f in FIELDS}, created_by_id=user.id, origin_type=ontology.ORIGIN_MANUAL)
+            setattr(person, kind, company)
+            db.add(person)
+            db.flush()
+            made += 1
+    return made
+
+
+def memo_view(company) -> tuple[str, list[str]]:
+    """회사 상세의 연락처 메모: (보일 글, 담당자로 옮긴 줄들). 이름이 잡히고 같은 사람 담당자가 있는 줄을 접는다 (글은 그대로)."""
+    shown, moved = [], []
+    for raw in (company.contact or "").replace("\r\n", "\n").split("\n"):
+        r = parse_line(raw) if raw.strip() else None
+        if r and r["name"] and same_person(company.contacts, r["name"], " ".join((r["phone"], r["office_phone"])), r["email"]) is not None:
+            moved.append(raw.strip())
+        else:
+            shown.append(raw)
+    return "\n".join(shown).strip(), moved

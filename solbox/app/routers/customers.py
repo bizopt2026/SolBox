@@ -55,7 +55,7 @@ def _detail_page(request: Request, db: Session, user: User, customer: Customer, 
         request, "customers/detail.html", status_code=400 if error else 200,
         customer=customer, **relations.page_related(db, customer, user),
         can_delete=can_delete(user, customer), error=error, origin=origin.view(db, user, customer), meta=ui.stamp_info(db, customer),
-        same_name=same_company.candidate_partner(db, customer), contact_line=_contact_line(db, customer, today()), contact_split=contacts.pending_split_count(customer),
+        same_name=same_company.candidate_partner(db, customer), contact_line=_contact_line(db, customer, today()), contact_split=contacts.pending_split_count(customer), contact_memo=contacts.memo_view(customer),
     )
 
 
