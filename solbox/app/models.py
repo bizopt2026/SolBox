@@ -478,8 +478,9 @@ class Activity(Stamped, Origin, Base):
         back_populates="activity", cascade="all, delete-orphan", passive_deletes=True,
         order_by="(FollowUp.position, FollowUp.id)",
     )
+    # 니즈는 활동 기록에서 빠지거나 활동 기록이 지워져도 남을 수 있다 (손대지 않은 줄만 지운다: app/needs.py). DB 는 SET NULL
     needs: Mapped[list[CustomerNeed]] = relationship(
-        back_populates="activity", cascade="all, delete-orphan", passive_deletes=True,
+        back_populates="activity", cascade="save-update, merge", passive_deletes=True,
         order_by="(CustomerNeed.position, CustomerNeed.id)",
     )
     solutions: Mapped[list[Solution]] = relationship(
@@ -514,13 +515,14 @@ class FollowUp(Base):
     owner_user: Mapped[User | None] = relationship()
 
 
-class CustomerNeed(Base):
-    """활동 기록에서 드러난 고객의 필요 한 줄 (옛 "수요 단서")."""
+class CustomerNeed(Stamped, Base):
+    """고객의 필요 한 줄 (옛 "수요 단서"). 활동 기록에서 나오거나 고객니즈 화면에서 직접 추가한다 (2026-11-27).
+    활동 기록을 지우거나 활동 기록 폼에서 줄을 빼도 손댄 니즈는 남는다 (`app/needs.py`)."""
 
     __tablename__ = "customer_needs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id", ondelete="CASCADE"), index=True)
+    activity_id: Mapped[int | None] = mapped_column(ForeignKey("activities.id", ondelete="SET NULL"), nullable=True, index=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
     customer_name: Mapped[str] = mapped_column(String, default="")  # 고객 (쓴 그대로)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -528,12 +530,13 @@ class CustomerNeed(Base):
     # 이 니즈가 묶인 영업기회 (R26). 단위 2 에서 만든 외래 키 제약 없는 번호 열을 그대로 쓴다 (SQLite 는 열에 제약을 나중에 붙일 수 없다):
     # 한 니즈는 영업기회 하나에만, 같은 고객의 니즈만 묶는 규칙과 영업기회를 지울 때 비우는 일은 app/opportunities.py 가 지킨다
     opportunity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), default=datetime.now, onupdate=datetime.now
-    )
+    # 저장하는 상태 (ontology.NEED_STATUSES 중 사람이 고르는 넷). 보이는 상태는 영업기회에 묶였으면 "영업기회로" (needs.effective_status)
+    status: Mapped[str] = mapped_column(String, default="new", server_default="new")
+    field_id: Mapped[int | None] = mapped_column(ForeignKey("solution_fields.id", ondelete="SET NULL"), nullable=True, index=True)  # 분야 (솔루션 분야를 같이 쓴다)
+    memo: Mapped[str] = mapped_column(Text, default="", server_default="")
 
-    activity: Mapped[Activity] = relationship(back_populates="needs")
+    activity: Mapped[Activity | None] = relationship(back_populates="needs")
+    field: Mapped[SolutionField | None] = relationship()
     customer: Mapped[Customer | None] = relationship()
 
 

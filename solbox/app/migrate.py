@@ -466,10 +466,83 @@ def rebuild_proposals_nullable_customer(engine: Engine, db_path: Path, backup: M
     return stats
 
 
+# 고객니즈 관리 (2026-11-27): customer_needs.activity_id 를 비어도 되는(ON DELETE SET NULL) 모양으로 한 번 다시 만든다.
+# 새 표는 모델 정의(app.models.CustomerNeed)에서 만들고, 옛 표와 새 표에 다 있는 칸만 그대로 옮긴다 (새 칸 status·field_id·memo·작성자는 기본값).
+# "이미 했는가" 는 표 구조로 가른다 (activity_id 의 notnull 이 0 이면 한 것: 새로 만든 DB 도 처음부터 새 모양이다).
+NEEDS_TABLE = "customer_needs"
+
+
+def customer_needs_need_rebuild(engine: Engine) -> bool:
+    """`customer_needs.activity_id` 가 아직 NOT NULL 인가 (표가 없거나 이미 풀렸으면 False)."""
+    with engine.connect() as conn:
+        info = conn.exec_driver_sql(f"PRAGMA table_info({NEEDS_TABLE})").all()
+    return any(r[1] == "activity_id" and r[3] for r in info)
+
+
+def _needs_fk_violations(con: sqlite3.Connection) -> set[tuple]:
+    return {tuple(r) for r in con.execute("PRAGMA foreign_key_check") if r[0] == NEEDS_TABLE or r[2] == NEEDS_TABLE}
+
+
+def rebuild_customer_needs(engine: Engine, db_path: Path, backup: MigrationBackup | None = None) -> dict | None:
+    """`customer_needs` 표를 모델 모양으로 다시 만든다 (SQLite 문서의 12단계 방법, `rebuild_proposals_nullable_customer` 와 같은 순서).
+    이미 새 모양이면 아무것도 하지 않고 None. 중간에 실패하면 되돌리고 멈춘다 (DB 는 그대로, 복사본은 남는다)."""
+    if not customer_needs_need_rebuild(engine):
+        return None
+    from sqlalchemy.schema import CreateIndex, CreateTable
+
+    from app.models import CustomerNeed
+
+    table = CustomerNeed.__table__
+    dialect = sqlite_dialect.dialect()
+    create_sql = str(CreateTable(table).compile(dialect=dialect)).strip()
+    named, n = re.subn(r'^(\s*CREATE\s+TABLE\s+)"?customer_needs"?', lambda m: m.group(1) + NEEDS_TABLE + "_new", create_sql, count=1)
+    if n != 1:
+        raise RuntimeError(f"customer_needs 표의 CREATE 글을 만들 수 없습니다: {create_sql!r}")
+    index_sql = [str(CreateIndex(ix).compile(dialect=dialect)) for ix in sorted(table.indexes, key=lambda ix: ix.name or "")]
+    copy = (backup or MigrationBackup(db_path)).take()
+    log.info("customer_needs 표 다시 만들기 전 DB 복사본: %s", copy)
+    con = sqlite3.connect(db_path, isolation_level=None, timeout=30)
+    try:
+        con.execute("PRAGMA foreign_keys=OFF")
+        if con.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+            raise RuntimeError("PRAGMA foreign_keys=OFF 가 듣지 않아 표를 다시 만들지 않습니다")
+        old_cols = [r[1] for r in con.execute(f"PRAGMA table_info({NEEDS_TABLE})")]
+        common = ", ".join(_quote(c) for c in old_cols if c in table.c)
+        triggers = [r[0] for r in con.execute(
+            "SELECT sql FROM sqlite_master WHERE tbl_name=? AND type='trigger' AND sql IS NOT NULL ORDER BY name", (NEEDS_TABLE,))]
+        before = _needs_fk_violations(con)
+        rows = con.execute(f"SELECT COUNT(*) FROM {NEEDS_TABLE}").fetchone()[0]
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            con.execute(named)
+            con.execute(f"INSERT INTO {NEEDS_TABLE}_new ({common}) SELECT {common} FROM {NEEDS_TABLE}")
+            if con.execute(f"SELECT COUNT(*) FROM {NEEDS_TABLE}_new").fetchone()[0] != rows:
+                raise RuntimeError("옮긴 줄 수가 맞지 않습니다")
+            con.execute(f"DROP TABLE {NEEDS_TABLE}")  # 옛 색인도 함께 사라진다
+            con.execute(f"ALTER TABLE {NEEDS_TABLE}_new RENAME TO {NEEDS_TABLE}")
+            for sql in index_sql + triggers:
+                con.execute(sql)
+            if new := _needs_fk_violations(con) - before:
+                raise RuntimeError(f"외래 키 검사가 새 위반을 냈습니다: {sorted(new)[:5]}")
+            con.execute("COMMIT")
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+    finally:
+        try:
+            con.execute("PRAGMA foreign_keys=ON")
+        finally:
+            con.close()
+    stats = {"rows": rows, "backup": str(copy)}
+    log.info("customer_needs 표를 활동 기록 없이도 둘 수 있는 모양으로 다시 만들었습니다: 줄 %(rows)d", stats)
+    return stats
+
+
 def run_startup_migrations(engine: Engine, db_path: Path) -> MigrationBackup:
     """시작 때 이관 단계를 순서대로 한 번에 돌린다. DB 복사본은 모든 단계를 통틀어 (바꿀 것이 있을 때만) 하나다."""
     backup = MigrationBackup(db_path)
     rebuild_proposals_nullable_customer(engine, db_path, backup=backup)  # 먼저: 다수 고객 제안 칸을 더하는 단계가 풀린 표 위에서 일한다
+    rebuild_customer_needs(engine, db_path, backup=backup)  # 고객니즈 관리: 활동 칸 선택·새 칸 (새 표가 새 칸을 다 가진다)
     add_missing_columns(engine, db_path, backup=backup)
     copy_activity_json(engine, db_path, backup=backup)
     add_unique_indexes(engine)
