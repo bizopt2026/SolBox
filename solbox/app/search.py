@@ -37,6 +37,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
 # "목록에서 모두 보기" 가 가는 곳: 그 유형의 글을 실제로 찾아 주는 목록만. 후속 조치는 `/follow-ups?q=`(할 일 글), 고객 니즈는 찾는 목록이 없어 링크를 두지 않는다.
 MORE_LIST = {code: ontology.TYPES[code].list_url for code in SEARCH_TYPES if code != "customer_need" and ontology.TYPES[code].list_url}
 MORE_LIST["follow_up"] = "/follow-ups"
+MORE_LIST["bm"] = "/bms?kind=all"  # 사업기획: 기존 BM 목록은 신규 BM 을 빼므로 "모두 보기"는 둘 다 보이는 목록으로
 FIELD_LABELS = {"summary_md": "정리본", "raw_text": "원문", "task": "할 일", "content": "내용", "customer_name": "고객", "tags": "태그"}
 
 
@@ -200,7 +201,8 @@ def search(db: Session, q: str) -> dict:
 
         more = None
         if total > len(rows) and code in MORE_LIST:
-            more = f"{MORE_LIST[code]}?{urlencode({'q': q})}"
+            base = MORE_LIST[code]
+            more = f"{base}{'&' if '?' in base else '?'}{urlencode({'q': q})}"
         groups.append({"code": code, "label": t.label, "total": total, "rows": [_item(code, o, q) for o in rows], "more_url": more})
     return {"q": q, "state": "found" if groups else "none", "groups": groups}
 

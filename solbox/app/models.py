@@ -292,6 +292,14 @@ class BM(Stamped, Base):
     ideas: Mapped[list] = mapped_column(JSON, default=list)  # AI 안 목록 (app/bm_plan.py 가 다듬어 넣는다)
     active_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 진행 중인 AI 안 만들기 작업 (끝나면 비운다)
 
+    @property
+    def pick_label(self) -> str:
+        """BM 고르기 목록의 이름: 신규 BM 은 구분과 개발 단계를 붙인다 (운영 BM 과 헷갈리지 않게)."""
+        if self.kind == ontology.BM_KIND_NEW:
+            stage = ontology.BM_DEV_STAGES.get(self.dev_stage or "", "")
+            return f"{self.name} ({ontology.BM_KINDS['new']}{' · ' + stage if stage else ''})"
+        return self.name
+
     solutions: Mapped[list[Solution]] = relationship(secondary=bm_solutions, back_populates="bms")
     projects: Mapped[list[Project]] = relationship(back_populates="bm")
     opportunities: Mapped[list[Opportunity]] = relationship(back_populates="bm")

@@ -224,3 +224,37 @@ def test_new_bm_delete_confirm_breadcrumb(user_client, db):
     page = user_client.get(f"/bms/{b.id}/delete").text
     crumbs = re.search(r'<nav class="breadcrumb" aria-label="경로">(.*?)</nav>', page, re.S).group(1)
     assert "신규 BM" in crumbs and "기존 BM" not in crumbs
+
+
+# ---- 남은 작은 문제 (2026-11-27) ----
+
+def test_bm_pickers_mark_new_bms(user_client, db):
+    c = Customer(name="가나")
+    db.add_all([BM(name="운영 BM"), BM(name="개발 BM", kind="new", dev_stage="pilot"), c]); db.commit()
+    for url in (f"/opportunities/new?customer_id={c.id}", "/projects/new"):
+        page = user_client.get(url).text
+        assert ">운영 BM</option>" in page and ">개발 BM (신규 BM · 파일럿)</option>" in page, url
+
+
+def test_search_more_link_for_bms_shows_both_kinds(user_client, db):
+    for i in range(12):
+        db.add(BM(name=f"태양광 모델 {i}", kind="new" if i % 2 else "existing", dev_stage="idea" if i % 2 else None))
+    db.commit()
+    page = user_client.get("/search", params={"q": "태양광 모델"}).text
+    m = re.search(r'href="(/bms\?kind=all&amp;q=[^"]+)"', page)
+    assert m, "BM 모두 보기 링크"
+    listing = user_client.get(m.group(1).replace("&amp;", "&")).text
+    assert "태양광 모델 1" in listing and "태양광 모델 2" in listing and "신규 BM" in listing
+    plain = user_client.get("/bms", params={"q": "태양광 모델 1"}).text
+    assert 'href="/bms/' in plain and "태양광 모델 11" not in plain  # 11 은 신규 BM
+
+
+def test_field_filter_keeps_what_was_typed(user_client, db):
+    f, s1, s2, s3, c, n = _world(db)
+    other = SolutionField(name="물류", sort_order=91, active=True); db.add(other); db.commit()
+    page = user_client.get("/bm-lab/new", params={"field_id": str(other.id), "name": "쓰던 제목", "memo": "쓰던 메모",
+                                                 "need_ids": [str(n.id)], "solution_ids": [str(s1.id)], "business_types": ["lease"]}).text
+    assert 'value="쓰던 제목"' in page and "쓰던 메모" in page
+    assert f'name="need_ids" value="{n.id}" checked' in page and f'name="solution_ids" value="{s1.id}" checked' in page  # 다른 분야여도 고른 것은 남는다
+    assert re.search(r'value="lease"[^>]*checked', page)
+    assert 'formmethod="get" formaction="/bm-lab/new"' in page

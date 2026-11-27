@@ -4,13 +4,12 @@
 {% block content %}
 {{ page_header("AI로 BM 기획", crumbs=crumbs, sub="고른 재료로 AI 가 솔루션 패키지 + 사업방식 조합 안을 2~3개 만듭니다. 안은 초안이고, 고른 안만 이 BM 에 옮겨집니다.") }}
 {{ form_error(error) }}
-<form method="get" action="/bm-lab/new" class="card row field-filter">
-  {{ select_field(ont.prop("customer_need", "field"), "field_id", field_opts, form.field_id, help="분야를 고르면 아래 니즈·솔루션이 그 분야로 좁혀집니다.") }}
-  <button type="submit">분야로 좁혀 보기</button>
-</form>
 <form method="post" action="/bm-lab" class="form-page">
   {{ form_token() }}
-  <input type="hidden" name="field_id" value="{{ form.field_id }}">
+  <section class="card row field-filter">
+    {{ select_field(ont.prop("customer_need", "field"), "field_id", field_opts, form.field_id, help="분야를 고르면 아래 니즈·솔루션이 그 분야로 좁혀집니다. 쓴 제목·메모·고른 것은 그대로 남아요.") }}
+    <button type="submit" formmethod="get" formaction="/bm-lab/new" formnovalidate>분야로 좁혀 보기</button>
+  </section>
   <section class="card">
     <h2>기획</h2>
     <div class="fgrid">

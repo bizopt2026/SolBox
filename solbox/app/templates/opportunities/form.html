@@ -26,7 +26,7 @@
       {{ text_field(ont.prop("opportunity", "name"), "name", form.name, required=true, wide=true, error=error) }}
       {% set copts = [("", "선택하세요")] %}{% for c in customers %}{% set _ = copts.append((c.id, c.name)) %}{% endfor %}
       {{ select_field(ont.prop("opportunity", "customer"), "customer_id", copts, form.customer_id, required=true, error=error) }}
-      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
+      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.pick_label)) %}{% endfor %}
       {{ select_field(ont.prop("opportunity", "bm"), "bm_id", bopts, form.bm_id, error=error, help="선택 사항입니다.") }}
       <div class="wide">{{ bt_picker(form.business_types or [], ont.prop("opportunity", "business_types"), none, error, help="이 영업기회에서 고객과 검토하는 사업방식입니다. 제안 건을 만들 때 기본값으로 이어집니다.") }}</div>
       {{ text_field(ont.prop("opportunity", "memo"), "memo", form.memo, rows=3) }}

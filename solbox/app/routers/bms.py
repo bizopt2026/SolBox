@@ -85,11 +85,12 @@ def _form_values(request_fields: frozenset, business_type, dept, op_status, dev_
 
 
 @router.get("")
-def list_bms(request: Request, q: str = "", page: str = "1", user: User = Depends(require_user), db: Session = Depends(get_db)):
-    rows = [b for b in search_by_name(db, BM, q, BM.summary, BM.dept) if not bm_plan.is_new(b)]  # 기존 BM 만 (신규 BM 은 /bm-lab)
+def list_bms(request: Request, q: str = "", page: str = "1", kind: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    show_all = kind == "all"  # 전체 검색의 "모두 보기": 기존·신규를 함께 (평소에는 기존 BM 만, 신규 BM 은 /bm-lab)
+    rows = [b for b in search_by_name(db, BM, q, BM.summary, BM.dept) if show_all or not bm_plan.is_new(b)]
     found, type_tabs, type_now = bts.type_tabs(request, sort_rows(request, "bm", rows), lambda b: [b.business_type] if b.business_type else [])
     pg = paginate(found, page)
-    return render(request, "bms/list.html", pg=pg, q=q.strip(), type_tabs=type_tabs, type_now=type_now, info=row_info(db, "bm", pg.items))
+    return render(request, "bms/list.html", show_all=show_all, pg=pg, q=q.strip(), type_tabs=type_tabs, type_now=type_now, info=row_info(db, "bm", pg.items))
 
 
 @router.get("/new")

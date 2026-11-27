@@ -33,7 +33,7 @@
     <h2>다수 고객 (대상 그룹)</h2>
     <div class="fgrid">
       {{ text_field("대상 그룹 이름", "group_name", form.group_name, required=true, wide=true, error=error, placeholder="예: 전국 지자체", help="제안서 표지·제목과 목록에 이 이름이 쓰입니다 (" ~ ont.PROPOSAL_GROUP_NAME_MAX ~ "자까지).") }}
-      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.name)) %}{% endfor %}
+      {% set bopts = [("", "선택 안 함")] %}{% for b in bms %}{% set _ = bopts.append((b.id, b.pick_label)) %}{% endfor %}
       <div class="wide biz-pick">
       {{ select_field("신규 사업 (" ~ ont.label("bm") ~ ")", "bm_id", bopts, form.bm_id, wide=true, error=error, help="이 제안이 내놓으려는 새 사업입니다. 고르면 그 " ~ ont.label("bm") ~ "의 솔루션이 제안 후보 앞쪽에 옵니다.") }}
       </div>
