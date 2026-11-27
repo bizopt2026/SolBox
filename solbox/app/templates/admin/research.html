@@ -2,7 +2,7 @@
 {% from "_macros.html" import page_header, confirm_link %}
 {% block title %}리서치 설정{% endblock %}
 {% block content %}
-{{ page_header("리서치 설정", crumbs=[("관리", none), ("리서치 설정", none)], sub="매주 자동으로 조사할 주제와 실행 주기를 정합니다.") }}
+{{ page_header("리서치 설정", crumbs=[("소스", none), ("리서치", "/research"), ("설정", none)], sub="매주 자동으로 조사할 주제와 실행 주기를 정합니다.") }}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 

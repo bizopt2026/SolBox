@@ -25,9 +25,9 @@ def test_detail_page_belongs_to_its_section(user_client, db):
 
 
 def test_admin_menu_is_current_under_admin(admin_client):
-    html = admin_client.get("/admin/research").text
+    html = admin_client.get("/admin/system").text
     assert 'aria-label="관리"' in html
-    assert 'href="/admin/research" aria-current="page"' in html
+    assert 'href="/admin/system" aria-current="page"' in html
 
 
 def _crumbs(html):
@@ -65,7 +65,8 @@ def test_list_pages_have_no_breadcrumb(user_client):
 
 
 def test_proposal_outline_research_and_admin_breadcrumbs(admin_client, db):
-    assert _crumbs(admin_client.get("/admin/research").text) == "관리 › 리서치 설정"
+    assert _crumbs(admin_client.get("/admin/research").text) == "소스 › 리서치 › 설정"  # 기능 설정은 그 기능 아래 (2026-11-27)
+    assert _crumbs(admin_client.get("/admin/solution-fields").text) == "소스 › 솔루션 › 분야 관리"
     assert _crumbs(admin_client.get("/admin/users").text) == "관리 › 사용자"
     run = ResearchRun(status="done", trigger="manual")
     db.add(run)
@@ -86,7 +87,7 @@ def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings
 # ---- 현재 위치 표시를 구역마다 확인 (관리 화면·제안·후속 조치·검색) ----
 
 def test_every_admin_page_marks_its_own_item(admin_client):
-    for path in ("/admin/users", "/admin/jobs", "/admin/research", "/admin/system"):
+    for path in ("/admin/users", "/admin/jobs", "/admin/system", "/admin/duplicates"):
         nav = _nav(admin_client.get(path).text)
         assert f'href="{path}" aria-current="page"' in nav, path
         assert nav.count('aria-current="page"') == 1, path

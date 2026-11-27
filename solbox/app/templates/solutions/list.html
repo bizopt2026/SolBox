@@ -24,7 +24,7 @@
 {% set cur_sort = current_sort(request) %}
 {% set searching = q or stage or flt or origin_now or type_now %}
 {# 이 목록의 주 동작은 새 솔루션, 올리기는 보조 (활동 기록 목록과 같은 틀, 2026-11-27 사용자 요청) #}
-{{ list_head("솔루션", pg, searching, "/solutions/new", none, "/intake/new", "올리기", type="solution") }}
+{{ list_head("솔루션", pg, searching, "/solutions/new", none, "/intake/new", "올리기", type="solution", setting=(("분야 관리", "/admin/solution-fields") if user.role == "admin" else none)) }}
 {% set bt_extra %}{{ type_box(type_tabs) }}{{ group_box(group_choices) }}{% endset %}
 {{ list_tools(request, tabs, "발굴 단계", q, flt, "이름, 태그로 찾기", origin_tabs=origin_tabs, extra=bt_extra, extra_on=1 if type_now else 0) }}
 {% if groups is not none %}

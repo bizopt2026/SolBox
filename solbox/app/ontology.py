@@ -867,7 +867,9 @@ NAV_ITEMS = (
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
-                        (("users", "사용자"), ("jobs", "AI 작업"), ("research", "리서치 설정"), ("solution-fields", "솔루션 분야"), ("duplicates", "중복 정리"), ("system", "시스템")))
+                        (("users", "사용자"), ("system", "시스템"), ("jobs", "AI 작업"), ("duplicates", "중복 정리")))
+# 기능 설정은 관리 메뉴가 아니라 그 기능 화면에서 들어간다 (2026-11-27 사용자 결정): 주소·권한은 /admin/… 그대로, 현재 위치는 그 기능의 메뉴 항목
+ADMIN_FEATURE_PAGES = {"admin/research": "research", "admin/solution-fields": "solutions"}
 
 
 # 메뉴 항목마다 다른 작은 선 그림 (24×24, 외부 파일 없이 SVG 조각 그대로). 키 = NavItem.path. 새 메뉴 항목은 여기에도 더한다 (tests/test_beta_d.py 가 빠짐·겹침을 본다).
@@ -930,6 +932,8 @@ def nav_current(path: str) -> str | None:
     first = parts[0]
     if first == "admin":
         key = "/".join(parts[:2])
+        if key in ADMIN_FEATURE_PAGES:
+            return ADMIN_FEATURE_PAGES[key]
         return key if any(i.path == key for i in ADMIN_NAV_ITEMS) else None
     first = NAV_ALIASES.get(first, first)
     return first if any(i.path == first for i in NAV_ITEMS) else None

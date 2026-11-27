@@ -2,7 +2,7 @@
 {% from "_macros.html" import list_head, list_tools, empty_list, pager, pill, title_cell %}
 {% block title %}리서치{% endblock %}
 {% block content %}
-{{ list_head("리서치", pg, q or area, type="research_run") }}
+{{ list_head("리서치", pg, q or area, type="research_run", setting=(("설정", "/admin/research") if user.role == "admin" else none)) }}
 {{ list_tools(request, tabs, "분야", q, none, "제목, 시사점으로 찾기") }}
 {% if pg.items %}
 <div class="tablewrap"><table class="list-table">

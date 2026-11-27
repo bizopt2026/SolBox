@@ -23,7 +23,7 @@ def test_admin_sees_admin_menu_in_the_top_bar(admin_client):
     top = _top(admin_client.get("/admin/system").text)
     box = top.split('<details class="top-admin">')[1].split("</details>")[0]
     assert '<summary class="current">관리</summary>' in box
-    assert re.findall(r'href="([^"]*)"', box) == ["/admin/users", "/admin/jobs", "/admin/research", "/admin/solution-fields", "/admin/duplicates", "/admin/system"]
+    assert re.findall(r'href="([^"]*)"', box) == ["/admin/users", "/admin/system", "/admin/jobs", "/admin/duplicates"]
     assert 'href="/admin/system" aria-current="page"' in box
     assert "<summary>관리</summary>" in _top(admin_client.get("/").text), "관리 화면이 아니면 현재 위치 표시 없음"
 
@@ -36,3 +36,13 @@ def test_side_keeps_record_groups_and_hides_top_items_only_on_wide_screens(user_
     assert m, "넓은 화면 위쪽 줄 구역"
     assert '.side > .cta, .side > .side-help, .side-nav .navg[data-group="today"], .side-nav .navg[data-group="admin"] { display: none; }' in m.group(1)
     assert ".top-tabs { display: flex;" in m.group(1) and ".top-upload { display: inline-flex;" in m.group(1)
+
+
+def test_feature_settings_live_on_their_feature_screens(admin_client, user_client):
+    """리서치 설정·솔루션 분야는 관리 메뉴가 아니라 그 기능 화면의 입구로 (관리자만). 주소·권한은 그대로 (2026-11-27)."""
+    assert 'class="button ghost setting-link" href="/admin/research">설정</a>' in admin_client.get("/research").text
+    page = user_client.get("/research").text + user_client.get("/solutions").text + user_client.get("/needs").text
+    assert "setting-link" not in page, "직원에게는 설정 입구가 없다"
+    assert user_client.get("/admin/research").status_code == 403
+    side = re.search(r'<aside class="side".*?</aside>', admin_client.get("/admin/research").text, re.S).group(0)
+    assert 'href="/research" aria-current="page"' in side

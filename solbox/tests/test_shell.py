@@ -39,14 +39,14 @@ def test_nav_groups_order_and_labels():
     ]
     admin = ontology.nav_groups(is_admin=True)
     assert admin[-1].label == "관리"
-    assert [i.href for i in admin[-1].items] == ["/admin/users", "/admin/jobs", "/admin/research", "/admin/solution-fields", "/admin/duplicates", "/admin/system"]
+    assert [i.href for i in admin[-1].items] == ["/admin/users", "/admin/system", "/admin/jobs", "/admin/duplicates"]
 
 
 def test_current_nav_item():
     cur = ontology.nav_current
     assert cur("/") == "" and cur("/solutions") == "solutions" and cur("/solutions/3/edit") == "solutions"
     assert cur("/intake/new") == "intake" and cur("/research/runs/2") == "research"
-    assert cur("/admin/jobs") == "admin/jobs" and cur("/admin/research") == "admin/research"
+    assert cur("/admin/jobs") == "admin/jobs" and cur("/admin/research") == "research"  # 기능 설정은 그 기능의 항목 (2026-11-27)
     assert cur("/search") is None and cur("/nothing") is None
     assert cur("/follow-ups") == ""  # 후속 조치 목록은 홈 구역
 

@@ -92,9 +92,12 @@ def test_admin_page_lists_with_counts_and_is_in_admin_nav(admin_client, db):
     page = admin_client.get("/admin/solution-fields").text
     assert "솔루션 분야" in page and all(n in page for n in SEED)
     assert re.search(r'href="/solutions\?group=field#field-\d+">2건', page)
-    assert 'href="/admin/solution-fields"' in page and "분야가 없는 솔루션은 0건" in page
-    paths = [i.path for i in ontology.ADMIN_NAV_ITEMS]
-    assert "admin/solution-fields" in paths and paths.index("admin/solution-fields") < paths.index("admin/system")
+    assert 'action="/admin/solution-fields"' in page and "분야가 없는 솔루션은 0건" in page
+    # 2026-11-27: 관리 메뉴가 아니라 솔루션·고객니즈 목록의 "분야 관리"(관리자만)에서 들어간다. 현재 위치는 솔루션
+    assert "admin/solution-fields" not in [i.path for i in ontology.ADMIN_NAV_ITEMS]
+    assert ontology.nav_current("/admin/solution-fields") == "solutions"
+    for url in ("/solutions", "/needs"):
+        assert 'class="button ghost setting-link" href="/admin/solution-fields">분야 관리</a>' in admin_client.get(url).text, url
 
 
 def test_non_admin_gets_403_everywhere(user_client, db):
