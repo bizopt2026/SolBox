@@ -31,7 +31,7 @@ def test_solution_list_header_count_and_register_button(user_client, db):
     db.commit()
     html = user_client.get("/solutions").text
     assert '<span class="count">3건</span>' in html
-    assert 'class="button primary to-intake" href="/intake/new">올리기</a>' in html and 'href="/solutions/new">+ 새 솔루션</a>' in html
+    assert 'class="button" href="/intake/new">올리기</a>' in html and 'class="button primary" href="/solutions/new">+ 새 솔루션</a>' in html
     assert '<span class="count">검색 결과 1건</span>' in user_client.get("/solutions?q=S1").text
 
 
