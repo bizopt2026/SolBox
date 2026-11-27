@@ -68,9 +68,25 @@ def _cowork_rows(db: Session) -> list[dict]:
     return rows
 
 
+def _contact_rows(db: Session) -> list[dict]:
+    """담당자 변경 제안 (담당자 부담 줄이기 ④): 명함·올리기에서 같은 사람의 바뀐 정보."""
+    from app import contact_suggestions as cs
+
+    rows = []
+    for s in cs.pending(db):
+        c = s.contact
+        company = c.company
+        rows.append({"source": "contact", "target_type": "contact", "target": c,
+                     "title": f"{company.name if company else ''} · {c.name}", "url": f"/contacts/{c.id}", "text": cs.text(s),
+                     "evidence": "", "verified": True, "when": s.created_at, "person": s.field == "person",
+                     "apply": f"/contacts/suggestions/{s.id}/apply", "dismiss": f"/contacts/suggestions/{s.id}/dismiss",
+                     "new": f"/contacts/suggestions/{s.id}/new"})
+    return rows
+
+
 def pending(db: Session) -> list[dict]:
     """반영 대기 제안 전부, 최근 것이 위."""
-    rows = _opportunity_rows(db) + _cowork_rows(db)
+    rows = _opportunity_rows(db) + _cowork_rows(db) + _contact_rows(db)
     rows.sort(key=lambda r: r["when"], reverse=True)
     return rows
 
@@ -83,4 +99,7 @@ def pending_count(db: Session) -> int:
     n = sum(opportunity_ai.pending_counts(db, open_ids).values())
     for sugs in db.scalars(select(AIMessage.suggestions).where(AIMessage.role == "assistant", func.json_array_length(AIMessage.suggestions) > 0)):
         n += sum(1 for s in sugs or [] if s.get("state") == "pending")
+    from app.models import ContactSuggestion
+
+    n += db.scalar(select(func.count()).select_from(ContactSuggestion).where(ContactSuggestion.state == "pending")) or 0
     return n

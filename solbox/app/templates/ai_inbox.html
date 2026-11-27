@@ -2,8 +2,12 @@
 {% from "_macros.html" import page_header %}
 {% block title %}AI 제안함{% endblock %}
 {% block content %}
-{{ page_header("AI 제안함", crumbs=[("오늘", none), ("AI 제안함", none)], sub="영업기회 분석과 AI 동료 대화에서 나온, 반영을 기다리는 제안입니다. [반영]을 눌러야 기록이 바뀌고 변경 이력에 \"AI 제안\"으로 남습니다.") }}
+{{ page_header("AI 제안함", crumbs=[("오늘", none), ("AI 제안함", none)], sub="영업기회 분석·AI 동료 대화·명함에서 나온, 반영을 기다리는 제안입니다. [반영]을 눌러야 기록이 바뀌고 변경 이력에 \"AI 제안\"으로 남습니다.") }}
 {% if rows %}
+{% if rows | selectattr("source", "equalto", "contact") | rejectattr("person") | list %}
+<form method="post" action="/contacts/suggestions/apply-all" class="row inbox-bulk"><input type="hidden" name="back" value="{{ back }}">
+  <button type="submit" class="small">담당자 정보 제안 모두 반영</button> <span class="muted">명함에서 바뀐 직함·휴대폰·이메일만 (같은 이름의 새 명함은 하나씩 골라 주세요)</span></form>
+{% endif %}
 <section class="card">
   <ul class="inbox">
   {% for r in rows %}
@@ -14,7 +18,11 @@
         {% if r.evidence %}<small class="muted">근거: “{{ r.evidence }}”{% if not r.verified %} · <span class="warn">원문에서 근거를 찾지 못했어요</span>{% endif %}</small>{% endif %}
       </div>
       <div class="inbox-act">
-        {% if r.source == "opportunity" %}
+        {% if r.source == "contact" and r.person %}
+        <form method="post" action="{{ r.apply }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small primary">같은 사람: 정보 반영</button></form>
+        <form method="post" action="{{ r.new }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small">다른 사람: 새 담당자로 추가</button></form>
+        <form method="post" action="{{ r.dismiss }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small ghost">무시</button></form>
+        {% elif r.source == "opportunity" %}
         <form method="post" action="{{ r.apply }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small primary">반영</button></form>
         <form method="post" action="{{ r.dismiss }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="small ghost">무시</button></form>
         {% else %}

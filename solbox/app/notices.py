@@ -41,6 +41,11 @@ NOTICES: dict[str, Notice] = {c: Notice(t, m) for c, (t, m) in {
     # 연결·자료
     "same_company": ("ok", "같은 회사로 연결했습니다."),
     "contacts_split": ("ok", "연락처 메모를 담당자로 나눴습니다. 연락처 메모는 그대로 남아 있어요."),
+    "contact_suggestion_applied": ("ok", "담당자 정보에 반영했어요."),
+    "contact_suggestion_new": ("ok", "새 담당자로 추가했어요."),
+    "contact_suggestion_dismissed": ("ok", "제안을 무시했어요."),
+    "contact_suggestion_changed": ("warn", "그사이 담당자 정보가 바뀌어 반영하지 않았어요."),
+    "contact_suggestion_done": ("warn", "이미 처리된 제안이에요."),
     "contacts_cleanup": ("ok", "연락처 메모의 확실한 줄을 담당자로 옮겼어요. 남은 줄은 회사 화면에서 나눌 수 있어요."),
     "contacts_cleanup_none": ("warn", "옮길 줄이 없어요."),
     "contacts_split_none": ("warn", "넣은 담당자가 없어요. 이름이 있고 아직 없는 줄만 넣을 수 있어요."),

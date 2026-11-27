@@ -867,6 +867,7 @@ TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 자료를 추가하지 
 CONTACT_TARGET_CHANGED = "대상이 바뀌었거나 삭제되어 연락처를 추가하지 못했습니다. 대상을 다시 고르세요."
 CONTACT_EXISTS = "이미 있는 연락처"
 CONTACT_PERSON_EXISTS = "이미 있는 담당자"
+CONTACT_NAME_TWIN = "같은 이름의 담당자가 있어 같은 사람인지 제안으로 물어요"
 NO_CONTACT_FIELD = "담당자·전화·이메일·주소 중 하나는 입력하세요."
 _FILE_KIND_HINTS = (("intro", ("소개", "intro", "brochure", "카탈로그", "catalog")), ("spec", ("스펙", "spec", "사양", "규격", "datasheet")))
 
@@ -1546,16 +1547,42 @@ def _new_contact(run: _Run, company, company_type: str, fields: dict):
 def _add_person(run: _Run, item: dict, v: dict, obj, files: list[dict]) -> None:
     from app import contacts as ct
 
+    from app import contact_suggestions as cs
+
+    incoming = ct.from_intake(v)
     same = ct.same_person(obj.contacts, v["person"], v["phone"], v["email"])
-    if same is not None:
-        _skip(run, "add_contact", CONTACT_PERSON_EXISTS, files, f"{obj.name} {same.name}")
+    if same is not None:  # 같은 사람: 담당자는 그대로, 바뀐 직함·번호·이메일은 제안으로 (④)
+        n = cs.propose_changes(run.db, same, incoming, run.origin)
+        _skip(run, "add_contact", CONTACT_PERSON_EXISTS + (f", 바뀐 정보 {n}건 제안" if n else ""), files, f"{obj.name} {same.name}")
         return
-    person = _new_contact(run, obj, item["target_type"], ct.from_intake(v))
+    twin = cs.same_name(obj, incoming["name"]) if (incoming["phone"] or incoming["email"]) else None
+    if twin is not None:  # 이름만 같고 번호·이메일이 모두 다르다: 만들지 않고 묻는다 (사용자 결정 2026-11-27)
+        cs.propose_person(run.db, twin, incoming, run.origin)
+        _skip(run, "add_contact", CONTACT_NAME_TWIN, files, f"{obj.name} {twin.name}")
+        return
+    person = _new_contact(run, obj, item["target_type"], incoming)
     for f in _item_files(run.intake, item):
         if not f.target_type and run.intake.source != "cards":
             f.target_type, f.target_id = item["target_type"], obj.id
     run.remember("partners" if item["target_type"] == "partner" else "customers", obj)
     run.result.append({"type": item["target_type"], "id": obj.id, "label": f"{obj.name} (담당자 추가: {person.name})"})
+
+
+def _propose_skipped_cards(run: _Run, items: list[dict]) -> None:
+    """명함 확인 화면에서 처음부터 제외된 같은 사람 명함: 담당자는 만들지 않고 바뀐 정보만 제안으로 올린다 (④)."""
+    from app import contact_suggestions as cs
+    from app import contacts as ct
+
+    for item in items:
+        target = run.db.get(CONTACT_MODELS[item["target_type"]], item.get("target_id"))
+        if target is None:
+            continue
+        same = ct.same_person(target.contacts, item.get("person", ""), item.get("phone", ""), item.get("email", ""))
+        if same is None:
+            continue
+        n = cs.propose_changes(run.db, same, ct.from_intake(item), run.origin)
+        if n:
+            run.result.append({"type": item["target_type"], "id": target.id, "label": f"{target.name} · {same.name} (바뀐 정보 {n}건 제안)"})
 
 
 def _people_into(run: _Run, company, company_type: str, people: list[dict]) -> int:
@@ -1731,7 +1758,8 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         if error := item_error(item, v):
             raise ValueError(error)
         chosen.append((item, v))
-    if not chosen:
+    dup_cards = [it for it in (plan or {}).get("items", []) if it.get("dup_person") and fields.flag(f"skip_{it['key']}")]
+    if not chosen and not dup_cards:  # 같은 사람 명함만 있으면 바뀐 정보 제안을 위해 저장을 진행한다
         raise ValueError(NOTHING_TO_SAVE)
 
     intake_id = intake.id
@@ -1761,6 +1789,7 @@ def apply(db: Session, settings: Settings, mirror: KnowledgeMirror, intake: Inta
         run = _Run(db, settings, intake, user, extracted, copied)
         run.unsaved = _unsaved_files(intake, chosen, fields, names)
         _create_records(run, chosen)
+        _propose_skipped_cards(run, dup_cards)
         proposed = sum(1 for it in (plan or {}).get("items", []) if it["kind"] in SAVEABLE_KINDS)
         saved_n = len(chosen) - len(run.skipped)  # 제외 = 직접 뺀 항목 + 저장하지 못하고 건너뛴 항목
         outcome = {"proposed": proposed, "saved": saved_n, "excluded": proposed - saved_n}
