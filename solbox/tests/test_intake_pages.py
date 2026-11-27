@@ -9,12 +9,9 @@ APP_JS = Path(__file__).resolve().parent.parent / "app" / "static" / "app.js"
 
 @pytest.mark.parametrize("url,manual", [("/solutions", "/solutions/new"), ("/activities", "/activities/new")])
 def test_list_primary_is_upload_and_manual_stays(user_client, url, manual):
-    """솔루션 목록은 올리기가 주 버튼이고, 활동 기록 목록은 기록 쓰기가 주 버튼·올리기가 보조다 (UX 2순위 2026-11-27)."""
+    """솔루션·활동 기록 목록 모두 "+ 새 …" 가 주 버튼이고 올리기는 보조다 (UX 2순위·사용자 요청 2026-11-27)."""
     head = re.search(r'<header class="page-header">.*?</header>', user_client.get(url).text, re.S).group(0)
-    if url == "/activities":
-        assert 'class="button" href="/intake/new">올리기</a>' in head and f'class="button primary" href="{manual}">+ 새 ' in head
-    else:
-        assert 'class="button primary to-intake" href="/intake/new">올리기</a>' in head and f'href="{manual}">+ 새 ' in head
+    assert 'class="button" href="/intake/new">올리기</a>' in head and f'class="button primary" href="{manual}">+ 새 ' in head
     assert head.count("primary") == 1
     assert user_client.get(manual).status_code == 200
 
