@@ -175,6 +175,17 @@ def _submitted_values(
     }
 
 
+def _resubmitted_contacts(db: Session, customer_ids, partner_ids, contact_ids, new_people) -> dict:
+    from app.models import Contact, Customer, Partner
+
+    companies = [db.get(Customer, n) for i in customer_ids if (n := parse_id(i)) is not None] + [db.get(Partner, n) for i in partner_ids if (n := parse_id(i)) is not None]
+    picked = {n for i in contact_ids if (n := parse_id(i)) is not None}
+    scope = sorted(dict.fromkeys([*(p for c in companies if c is not None for p in c.contacts), *(x for x in (db.get(Contact, i) for i in picked) if x is not None)]),
+                   key=lambda p: p.id)
+    new = [{"value": v, "label": v.replace("|", " · ").strip(" ·"), "company": "", "checked": True} for v in new_people if str(v).strip()]
+    return contact_choices(scope, picked, new)
+
+
 def review_linked(db: Session, activity: Activity, user: User, request: Request) -> None:
     """영업 B: 저장한 활동 기록에 연결된 진행 중 영업기회의 AI 분석을 자동으로 요청한다 (AI 꺼짐이면 아무것도 안 함)."""
     from sqlalchemy.exc import OperationalError
@@ -198,6 +209,8 @@ def _save(request, db, user, mirror, activity: Activity | None, raw_text, memo_f
         solution_ids, customer_ids, project_ids, partner_ids, new_solutions, new_customers, new_partners,
         fu_id=fu_id, ds_id=ds_id, fu_done=fu_done, opportunity_ids=opportunity_ids or (),
     )
+    if contact_ids is not None:  # 오류로 다시 그려도 참석 칸과 고른 값을 그대로 (푼 사람이 자동 연결로 되살아나지 않게)
+        submitted["contacts"] = _resubmitted_contacts(db, customer_ids, partner_ids, contact_ids, new_people)
     if activity is not None and rev is not None and (conflict := guards.check_rev(activity, rev, values={k: submitted[k] for k in ("kind", "date", "title", "raw_text", "summary_md")})):
         # 그 사이 다른 곳에서 바뀌었거나 같은 번호의 다른 기록이다: 후속 조치·니즈 줄까지 쓴 내용 그대로 보여 주고 저장하지 않는다
         return _form_page(request, db, submitted, activity, conflict=conflict)
@@ -335,7 +348,7 @@ def _draft_contacts(db: Session, d: ActivityDraft, values: dict) -> dict:
     scope = sorted(dict.fromkeys(p for c in companies for p in c.contacts), key=lambda p: p.id)
     rows = ct.match_attendees(scope, ct.attendee_list(d.attendees), ct.staff_names(db))
     checked = {r["contact_id"] for r in rows if r["status"] == "matched"}
-    checked |= {p.id for p in ct.found_in_text(scope, f"{values['raw_text']}\n{values['summary_md']}")}
+    checked |= {p.id for p in ct.found_in_text(scope, f"{values['raw_text']}\n{values['summary_md']}", ct.staff_names(db))}
     new = []
     if len(companies) == 1:
         new = [{"value": f"{r['name']}|{r['title']}", "label": r["name"] + (f" · {r['title']}" if r["title"] else ""), "company": companies[0].name}

@@ -41,3 +41,10 @@ def test_found_in_text_unique_names_only():
 def test_draft_attendees_object_shape_and_summary():
     d = ActivityDraft.model_validate({"attendees": [{"name": "최현수", "title": "상무"}, "이정민"]})
     assert "- 최현수 (상무)\n- 이정민" in draft_summary_md(d)
+
+
+def test_found_in_text_uses_word_boundaries_and_skips_staff():
+    people = [_C(1, "이수정"), _C(2, "Ann"), _C(3, "김민수"), _C(4, "최현수")]
+    assert ct.found_in_text(people, "이 수정안을 planning 회의에서 검토") == []
+    assert [c.id for c in ct.found_in_text(people, "최현수님과 Ann, 김민수 매니저(우리측)")] == [2, 3, 4]
+    assert [c.id for c in ct.found_in_text(people, "최현수님과 김민수 매니저", staff={"김민수"})] == [4]

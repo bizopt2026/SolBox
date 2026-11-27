@@ -332,7 +332,7 @@ def auto_link_contacts(db: Session, a: Activity, attendees=()) -> int:
     scope = contact_scope(a)
     by_id = {p.id: p for p in scope}
     found = [by_id[m["contact_id"]] for m in ct.match_attendees(scope, ct.attendee_list(attendees), ct.staff_names(db)) if m["status"] == "matched"]
-    found += ct.found_in_text(scope, f"{a.raw_text or ''}\n{a.summary_md or ''}")
+    found += ct.found_in_text(scope, f"{a.raw_text or ''}\n{a.summary_md or ''}", ct.staff_names(db))
     added = [p for p in dict.fromkeys(found) if p not in a.contacts]
     a.contacts = list(a.contacts) + added
     return len(added)

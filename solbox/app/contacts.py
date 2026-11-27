@@ -248,10 +248,24 @@ def match_attendees(contacts, attendees: list[dict], staff_names: set[str]) -> l
     return out
 
 
-def found_in_text(contacts, text: str) -> list:
-    """글(공백 무시)에 이름이 나오는 담당자. 같은 이름이 범위에 둘 이상이면 뺀다 (어느 사람인지 모른다)."""
-    flat = _name_key(text)
-    return [group[0] for k, group in _keyed(contacts).items() if len(group) == 1 and k in flat]
+_PARTICLE_RE = re.compile(r"^[가-힣]{0,3}$")  # 이름 뒤에 붙는 말 (님·씨·과·와·께서·상무 …)
+
+
+def found_in_text(contacts, text: str, staff: set[str] = frozenset()) -> list:
+    """글에 이름이 낱말로 나오는 담당자: 한글 이름은 낱말이 그 이름으로 시작하고 뒤에 한글 3자 이하(님과·께서 …)만 붙을 때, 영문 이름은 낱말 전체가 같을 때.
+    같은 이름이 범위에 둘 이상이거나 우리 직원 이름(`staff`)이면 뺀다 (어느 사람인지 모른다)."""
+    words = [w.lower() for w in re.findall(r"[0-9A-Za-z가-힣]+", text or "")]
+    out = []
+    for k, group in _keyed(contacts).items():
+        if len(group) != 1 or k in staff:
+            continue
+        if HANGUL_NAME_RE.match(k):
+            hit = any(w.startswith(k) and _PARTICLE_RE.match(w[len(k):]) for w in words)
+        else:
+            hit = k in words or k in {"".join(words[i:i + 2]) for i in range(len(words))}  # 영문 두 낱말 이름 (johnsmith)
+        if hit:
+            out.append(group[0])
+    return sorted(out, key=lambda c: c.id)
 
 
 def staff_names(db) -> set[str]:

@@ -114,3 +114,64 @@ def test_card_import_skipped_same_person_still_proposes(user_client, db, setting
     user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
     s = db.scalar(select(ContactSuggestion))
     assert s is not None and (s.field, s.new_value) == ("title", "구매팀 부장")
+
+
+def test_person_same_keeps_fields_edited_meanwhile_and_syncs_opportunity(app, user_client, db, settings):
+    from app.models import Opportunity
+
+    c, p = _world(db)
+    o = Opportunity(name="건", customer_id=c.id, stage="proposing")
+    db.add(o)
+    db.commit()
+    o.contacts = [p]
+    db.commit()
+    _upload(db, settings, user_client, c, phone="010-9999-0000", email="")
+    s = db.scalar(select(ContactSuggestion))
+    p.title = "상무"
+    db.commit()
+    user_client.post(f"/contacts/suggestions/{s.id}/apply")
+    db.refresh(p)
+    assert p.title == "상무" and p.phone == "010-9999-0000"  # 그사이 고친 직함은 그대로
+    assert "이정민 상무" in app.state.mirror.path_for(o).read_text(encoding="utf-8")
+
+
+def test_person_new_does_not_duplicate_existing(user_client, db, settings):
+    c, p = _world(db)
+    _upload(db, settings, user_client, c, phone="010-9999-0000", email="")
+    s = db.scalar(select(ContactSuggestion))
+    db.add(Contact(name="이정민", phone="010-9999-0000", customer=c))
+    db.commit()
+    user_client.post(f"/contacts/suggestions/{s.id}/new")
+    assert len(db.scalars(select(Contact)).all()) == 2
+
+
+def test_only_unchanged_same_person_card_says_nothing_changed(user_client, db, settings):
+    c, p = _world(db)
+    it = _upload(db, settings, user_client, c, role="차장", email="old@hanbit.kr")
+    assert db.scalar(select(ContactSuggestion)) is None
+    assert any("이미 있는 담당자" in str(e.get("reason", "")) for e in it.result)
+
+
+def test_card_import_only_unchanged_same_person_reports_it(user_client, db, settings):
+    import io
+    import re as _re
+
+    from openpyxl import Workbook
+
+    from app.models import Intake
+
+    c, p = _world(db)
+    wb = Workbook()
+    wb.active.append(["이름", "회사", "부서", "직책", "휴대폰", "전화", "이메일"])
+    wb.active.append(["이정민", "한빛", "", "차장", "010-2222-3333", "", ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    tok = _re.search(r'name="_tok" value="([^"]+)"', user_client.get("/intake/cards").text).group(1)
+    user_client.post("/intake/cards", data={"_tok": tok, "kind": "customer"}, files={"file": ("cards.xlsx", buf.getvalue())}, follow_redirects=False)
+    it = db.scalar(select(Intake))
+    form = form_from_page(user_client, it)
+    form.pop("_tok", None)
+    user_client.post(f"/intake/{it.id}/apply", data=form, follow_redirects=False)
+    db.refresh(it)
+    assert it.status == "applied" and any("바뀐 정보 없음" in str(e.get("reason")) for e in it.result)
+    assert it.plan["outcome"]["saved"] == 0 and db.scalar(select(ContactSuggestion)) is None

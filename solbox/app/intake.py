@@ -1583,6 +1583,10 @@ def _propose_skipped_cards(run: _Run, items: list[dict]) -> None:
         n = cs.propose_changes(run.db, same, ct.from_intake(item), run.origin)
         if n:
             run.result.append({"type": item["target_type"], "id": target.id, "label": f"{target.name} · {same.name} (바뀐 정보 {n}건 제안)"})
+        else:  # 저장 셈(run.skipped)에는 넣지 않는다: 사람이 제외한 항목이다
+            reason = "이미 있는 담당자, 바뀐 정보 없음"
+            run.result.append({"type": "skipped", "id": None, "label": f"{labels.INTAKE_ITEM_KINDS['add_contact']}: {target.name} {same.name} — {reason}",
+                               "reason": reason, "files": []})
 
 
 def _people_into(run: _Run, company, company_type: str, people: list[dict]) -> int:

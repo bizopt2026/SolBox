@@ -113,3 +113,11 @@ def test_intake_activity_links_matched_attendees(app, user_client, db, settings)
     assert [p.name for p in a.contacts] == ["최현수"] and db.scalar(select(Contact).where(Contact.name == "박도윤")) is None
     db.refresh(it)
     assert any("(참석 담당자 1명 연결)" in str(e.get("label")) for e in it.result)
+
+
+def test_error_rerender_keeps_attendee_choices(user_client, db):
+    c, other, choi, lee, kim, o = _world(db)
+    data = {"kind": "meeting", "title": "미팅", "raw_text": "최현수 이정민", "customer_ids": [str(c.id)], "contact_field": "1",
+            "contact_ids": [str(lee.id)], "date": "nope-date"}
+    r = user_client.post("/activities", data={**data, "raw_text": ""})  # 원문이 비면 오류로 다시 그린다
+    assert 'name="contact_field" value="1"' in r.text and f'name="contact_ids" value="{lee.id}" checked' in r.text

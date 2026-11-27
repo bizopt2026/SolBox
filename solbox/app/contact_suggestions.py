@@ -71,11 +71,17 @@ def same_name(company, name: str) -> Contact | None:
 def propose_person(db: Session, contact: Contact, incoming: dict, source: tuple[str, int | None]) -> bool:
     """이름만 같고 휴대폰·이메일이 모두 다른 새 명함: 담당자를 만들지 않고 묻는다. 새 값은 휴대폰·이메일 요약 (같은 요약의 열린 제안이 있으면 만들지 않는다)."""
     summary = " · ".join(x for x in (incoming.get("title", ""), incoming.get("phone", ""), incoming.get("office_phone", ""), incoming.get("email", "")) if x)
-    return _add(db, contact, "person", "", summary, source, payload={f: incoming.get(f, "") for f in ct.FIELDS})
+    snapshot = {"title": contact.title, "phone": contact.phone, "email": contact.email}  # 반영 때 그사이 사람이 고친 칸은 건너뛴다
+    return _add(db, contact, "person", "", summary, source, payload={**{f: incoming.get(f, "") for f in ct.FIELDS}, "_old": snapshot})
 
 
 def pending(db: Session) -> list[ContactSuggestion]:
-    return list(db.scalars(select(ContactSuggestion).where(ContactSuggestion.state == "pending").order_by(ContactSuggestion.id.desc())))
+    from sqlalchemy.orm import selectinload
+
+    return list(db.scalars(select(ContactSuggestion).where(ContactSuggestion.state == "pending")
+                           .options(selectinload(ContactSuggestion.contact).selectinload(Contact.customer),
+                                    selectinload(ContactSuggestion.contact).selectinload(Contact.partner))
+                           .order_by(ContactSuggestion.id.desc())))
 
 
 def _close(s: ContactSuggestion, state: str, user) -> str:
@@ -101,14 +107,17 @@ def apply(db: Session, s: ContactSuggestion, user) -> str:
     c = s.contact
     if s.field == "person":
         incoming = s.payload or {}
+        old = incoming.get("_old") or {}
+        untouched = {f: (getattr(c, f) or "").strip() == str(old.get(f, getattr(c, f) or "")).strip() for f in ("title", "phone", "email")}
         propose = {"title": incoming.get("title", ""), "phone": incoming.get("phone", ""), "email": incoming.get("email", "")}
-        if propose["title"]:
+        if propose["title"] and untouched["title"]:
             c.title = propose["title"]
-        if propose["phone"] and ct.digits(propose["phone"]) != ct.digits(c.phone):
+        if propose["phone"] and untouched["phone"] and ct.digits(propose["phone"]) != ct.digits(c.phone):
             _set_field(c, "phone", propose["phone"])
-        for e in ct.EMAIL_RE.findall(propose["email"]):
-            if e.lower() not in _emails(c.email):
-                _set_field(c, "email", e)
+        if untouched["email"]:
+            for e in ct.EMAIL_RE.findall(propose["email"]):
+                if e.lower() not in _emails(c.email):
+                    _set_field(c, "email", e)
         return _close(s, APPLIED, user)
     current = getattr(c, s.field) or ""
     if current.strip() != (s.old_value or "").strip():
@@ -124,6 +133,9 @@ def apply_as_new(db: Session, s: ContactSuggestion, user) -> Contact | None:
     old = s.contact
     fields = {f: str((s.payload or {}).get(f, "")) for f in ct.FIELDS}
     fields["name"] = fields["name"] or old.name
+    if (fields["phone"] or fields["email"]) and (same := ct.same_person(old.company.contacts, fields["name"], fields["phone"], fields["email"])) is not None:
+        _close(s, APPLIED, user)  # 그사이 같은 사람이 이미 더해졌다
+        return same
     person = Contact(**fields, created_by_id=user.id, origin_type=s.source_type or ontology.ORIGIN_MANUAL, origin_id=s.source_id)
     setattr(person, old.company_type, old.company)
     db.add(person)

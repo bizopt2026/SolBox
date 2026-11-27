@@ -67,6 +67,13 @@ def _form_page(request, company, form: dict, person: Contact | None = None, erro
     )
 
 
+def _sync_opportunities(db: Session, mirror: KnowledgeMirror, people) -> None:
+    """담당자 이름·직함이 적힌 영업기회 사본을 다시 쓴다."""
+    for o in dict.fromkeys(o for p in people for o in p.opportunities):
+        db.refresh(o)
+        mirror.sync(o)
+
+
 def _sync_company(db: Session, mirror: KnowledgeMirror, company) -> None:
     db.refresh(company)
     mirror.sync(company)
@@ -260,6 +267,7 @@ def _suggestion_post(action: str):
             code = "contact_suggestion_dismissed" if cs.dismiss(db, s, user) == "dismissed" else "contact_suggestion_done"
         db.commit()
         _sync_company(db, mirror, contact.company)
+        _sync_opportunities(db, mirror, [contact])
         return notices.redirect(_after(back, contact.id), code)
     post.__name__ = f"suggestion_{action}"
     return post
@@ -275,13 +283,15 @@ def suggestions_apply_all(back: str = Form(""), user: User = Depends(require_use
     """같은 이름의 새 명함(person)을 뺀 열린 제안을 모두 반영한다 (그사이 바뀐 것은 반영하지 않고 닫는다)."""
     from app import contact_suggestions as cs
 
-    companies = []
+    companies, people = [], []
     for s in cs.pending(db):
         if s.field == "person":
             continue
         cs.apply(db, s, user)
         companies.append(s.contact.company)
+        people.append(s.contact)
     db.commit()
     for c in dict.fromkeys(x for x in companies if x is not None):
         _sync_company(db, mirror, c)
+    _sync_opportunities(db, mirror, list(dict.fromkeys(people)))
     return notices.redirect(_after(back, None) if back else "/ai/inbox", "contact_suggestion_applied")
