@@ -13,7 +13,7 @@ from app.proposals import deck_is_stale, display_title
 from tests.conftest import _logged_in_client, outlined_proposal, nloc
 
 STALE = "구성안이 바뀌었습니다. 다시 생성하세요."
-FAILED = "제안서 파일을 만들지 못했습니다."
+FAILED = "PPT 파일을 만들지 못했습니다."
 
 
 def _files(settings, p):

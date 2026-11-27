@@ -195,7 +195,7 @@ def test_ai_off_proposal_buttons_disabled_but_deck_stays(admin_client, db, setti
     assert re.search(r'class="primary" disabled aria-disabled="true"[^>]*>방향 만들기', page)
     o = outlined_proposal(db, settings)
     page = admin_client.get(f"/proposals/{o.id}").text
-    assert re.search(r'<button type="submit" class="button primary"(?![^>]*disabled)[^>]*>제안서 만들기', page)  # PPT 만들기는 AI 가 아니다
+    assert re.search(r'<button type="submit" class="button primary"(?![^>]*disabled)[^>]*>PPT 만들기', page)  # PPT 만들기는 AI 가 아니다
 
 
 def test_ai_gate_states_share_the_top_bar_status(app, admin_client, db, worker_on):

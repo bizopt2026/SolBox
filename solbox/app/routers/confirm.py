@@ -53,7 +53,7 @@ def _load_need(db, user, p):
 
 
 def _bm_crumb(obj, name):
-    from app import bm_plan  # 기존 BM · 신규 BM 경로 (사업기획 2026-11-27)
+    from app import bm_plan  # 운영 사업 · 신규 사업 경로 (사업기획 2026-11-27)
 
     return bm_plan.crumbs(obj, obj.kind, (name, f"/bms/{obj.id}"), ("삭제", None))
 

@@ -51,9 +51,9 @@ TOO_LONG_MESSAGE = f"메시지는 {MAX_MESSAGE}자까지 보낼 수 있습니다
 TOO_LONG_INSTRUCTION = f"추가 지시는 {MAX_INSTRUCTION}자까지 쓸 수 있습니다."
 TOO_LONG_MEMO = f"요청 메모는 {MAX_MEMO}자까지 쓸 수 있습니다."
 DECK_BUSY = "AI 작업이 끝난 뒤 생성하세요."
-DECK_FAILED = "제안서 파일을 만들지 못했습니다."
-DECK_FAILED_LOCKED = "제안서 파일을 만들지 못했습니다. 파일이 다른 프로그램(PowerPoint, 백신 검사 등)에 잡혀 있어 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."
-DECK_FAILED_DISK = "제안서 파일을 만들지 못했습니다. 데이터 폴더에 파일을 쓸 수 없어요 (디스크 공간이나 폴더 권한을 확인해 주세요)."
+DECK_FAILED = "PPT 파일을 만들지 못했습니다."
+DECK_FAILED_LOCKED = "PPT 파일을 만들지 못했습니다. 파일이 다른 프로그램(PowerPoint, 백신 검사 등)에 잡혀 있어 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."
+DECK_FAILED_DISK = "PPT 파일을 만들지 못했습니다. 데이터 폴더에 파일을 쓸 수 없어요 (디스크 공간이나 폴더 권한을 확인해 주세요)."
 
 
 def deck_failure_text(exc: BaseException) -> str:
@@ -575,7 +575,7 @@ def download(
     version = version if version in DECK_VERSIONS else "customer"
     customer_path = request.app.state.settings.decks_dir / str(p.id) / p.deck_name if p.deck_name else None
     if customer_path is None or not customer_path.is_file():
-        raise HTTPException(status_code=404, detail="만든 제안서 파일이 없습니다.")
+        raise HTTPException(status_code=404, detail="만든 PPT 파일이 없습니다.")
     internal_path = internal_deck_path(customer_path)
     if not internal_path.is_file():
         # 두 파일로 나누기 전에 만든 제안서: 그 파일은 노트가 든 것이라 고객용으로도 내부용으로도 내려보내지 않는다.

@@ -47,8 +47,8 @@ def test_breadcrumbs_on_detail_and_form_pages(user_client, db):
     assert _crumbs(user_client.get(f"/solutions/{s.id}/edit").text) == "소스 › 솔루션 › (예시) AI 공조 › 수정"
     assert _crumbs(user_client.get("/solutions/new").text) == "소스 › 솔루션 › 등록"
     assert _crumbs(user_client.get("/customers/new").text) == "영업 › 고객관리 › 등록"
-    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 기존 BM › 등록"
-    assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 BM › 등록"
+    assert _crumbs(user_client.get("/bms/new").text) == "사업기획 › 운영 사업 › 등록"
+    assert _crumbs(user_client.get("/bms/new?kind=new").text) == "사업기획 › 신규 사업 › 등록"
     assert _crumbs(user_client.get("/activities/new").text) == "활동 기록 › 등록"  # 위쪽 줄 탭 묶음은 묶음 이름 없이
 
 
@@ -79,7 +79,7 @@ def test_outline_breadcrumb_links_back_to_the_proposal(user_client, db, settings
     p.outline = {"title": "t", "slides": [{"kind": "cover", "title": "표지"}]}
     db.commit()
     html = user_client.get(f"/proposals/{p.id}/outline").text
-    assert _crumbs(html).startswith("영업 › 제안 › ") and _crumbs(html).endswith("› 구성안")
+    assert _crumbs(html).startswith("영업 › 제안서 › ") and _crumbs(html).endswith("› 구성안")
     assert f'<a href="/proposals/{p.id}">' in html
 
 

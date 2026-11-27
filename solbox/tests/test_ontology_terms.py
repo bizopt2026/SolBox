@@ -44,7 +44,7 @@ def test_forms_post_to_new_urls(user_client, db):
 def test_nav_and_pages_use_new_terms(user_client, db):
     c, p = _world(db)
     home = user_client.get("/").text
-    assert ">프로젝트</a>" in home and "기존 사업" not in home and ">제안</a>" in home and ">올리기" in home
+    assert ">프로젝트</a>" in home and "기존 사업" not in home and ">제안서</a>" in home and ">올리기" in home
     for url in ("/projects", f"/projects/{p.id}", f"/customers/{c.id}", "/projects/new", f"/projects/{p.id}/edit", "/proposals/new"):
         t = user_client.get(url).text
         assert "기존 사업" not in t and "프로젝트" in t, url

@@ -10,7 +10,7 @@
 {% set just_built = flash and request.query_params.get("notice") == "deck_built" and proposal.deck_name and proposal.deck_built_at %}
 <div class="deck-box stack">
 {% if deck_error %}<p class="error" role="alert">{{ deck_error }}</p>{% endif %}
-{% if just_built %}<p class="deck-done" role="status"><b>제안서 파일을 만들었습니다</b> ({{ kdatetime(proposal.deck_built_at) }}). 아래에서 내려받을 수 있어요.</p>{% endif %}
+{% if just_built %}<p class="deck-done" role="status"><b>PPT 파일을 만들었습니다</b> ({{ kdatetime(proposal.deck_built_at) }}). 아래에서 내려받을 수 있어요.</p>{% endif %}
 <p class="help muted deck-explain"><b>고객용</b>은 발표자 노트가 없어 그대로 보낼 수 있고, <b>내부 검토용</b>은 노트에 출처와 확인할 점이 들어 있어 보내면 안 됩니다.</p>
 {% if open_checks or cs.open %}<p class="notice deck-warn" role="status">{% if open_checks %}<b>확인하지 않은 항목이 {{ open_checks }}개 남아 있습니다.</b> {% endif %}{% if cs.open %}확인할 항목이 남은 장: {{ check_summary_text(cs) }}. {% endif %}{% set slides_open = open_check_slides(proposal.outline) %}{% if slides_open %}<span class="deck-open-slides">확인할 장 바로가기: {% for o in slides_open %}<a href="/proposals/{{ proposal.id }}/outline?open={{ o.index }}#slide-{{ o.index }}" title="{{ o.title }}">{{ o.index + 1 }}장({{ o.open }}개)</a>{{ ", " if not loop.last }}{% endfor %}. </span>{% endif %}<span class="muted">(항목은 확인 문구 하나하나이고 장은 그 항목이 든 슬라이드라서 숫자가 다릅니다.)</span> 고객용 파일에는 이 항목이 들어가지 않지만, 확인 전의 내용이 슬라이드에 그대로 있을 수 있습니다. 고객에게 보내기 전에 확인하세요. (만들기는 막지 않습니다.)</p>{% endif %}
 {% if cs.evidence %}<p class="error">근거 문제가 남은 장이 {{ cs.evidence }}장 있습니다. 고객에게 보내기 전에 확인하세요.</p>{% endif %}
@@ -21,7 +21,7 @@
     <b>다시 만들어 주세요</b>
     <small>이 파일은 고객용·내부 검토용으로 나누기 전에 만든 것이라 내려받을 수 없습니다. '다시 만들기'를 누르면 두 파일을 새로 만듭니다.</small>
     {% elif proposal.deck_name %}
-    <b>제안서 파일</b>
+    <b>PPT 파일</b>
     <small>마지막 생성 {{ kdatetime(proposal.deck_built_at) }}</small>
     {% if proposal.deck_removed %}<small class="deck-removed">고객용 파일에서 내부 경로가 든 {{ proposal.deck_removed }}줄을 뺐습니다. 내부 검토용에는 그대로 있습니다.</small>{% endif %}
     {% if proposal.deck_quality is not none and not stale %}{% set dq = deck_quality_counts(proposal.deck_quality) %}

@@ -20,7 +20,7 @@ def _states(p):
 def test_step_states_new_proposal(db, settings):
     p = make_proposal_world(db, settings)[0]
     assert [s["key"] for s in step_states(p)] == ["target", "directions", "chat", "outline", "deck"]
-    assert [s["label"] for s in step_states(p)] == ["대상", "방향", "구체화", "구성안", "제안서"]
+    assert [s["label"] for s in step_states(p)] == ["대상", "방향", "구체화", "구성안", "PPT"]
     assert _states(p) == {"target": "done", "directions": "current", "chat": "locked", "outline": "locked", "deck": "locked"}
     assert all(s["href"] for s in step_states(p) if s["state"] != "locked") and all(s["href"] is None for s in step_states(p) if s["state"] == "locked")
     assert step_states(p)[1]["href"] == "#directions"

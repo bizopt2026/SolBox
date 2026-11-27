@@ -73,7 +73,7 @@ def _bm(db, name="에너지 절감 BM", solutions=()):
 def test_types_defined_with_labels_urls_and_mirror_paths():
     bm, op = ontology.TYPES["bm"], ontology.TYPES["opportunity"]
     assert (bm.label, bm.table, bm.model_name, bm.list_url, bm.detail_url, bm.mirror_path, bm.nav) == (
-        "BM", "bms", "BM", "/bms", "/bms/{id}", "bms/{id}.md", "기존 BM")  # 사업기획 (2026-11-27): 메뉴는 기존 BM · 신규 BM
+        "BM", "bms", "BM", "/bms", "/bms/{id}", "bms/{id}.md", "운영 사업")  # 사업기획 (2026-11-27): 메뉴는 운영 사업 · 신규 사업
     assert (op.label, op.table, op.model_name, op.list_url, op.detail_url, op.mirror_path, op.nav) == (
         "영업기회", "opportunities", "Opportunity", "/opportunities", "/opportunities/{id}", "opportunities/{id}.md", "영업기회")
     assert ontology.prop("bm", "revenue_model") == "수익 구조" and ontology.prop("bm", "target_customers") == "대상 고객 유형"
@@ -148,10 +148,10 @@ def test_nav_has_opportunity_and_bm_in_order(user_client):
     names = re.findall(r'<a href="/([a-z-]*)"[^>]*><svg class="ni".*?</svg>([^<]+)', nav, re.S)
     order = [h for h, _ in names]
     # 사업기획 묶음의 BM 다음에 영업 묶음: 고객관리 → 영업기회 → 제안 → 프로젝트 (메뉴 재편 2026-11-27)
-    assert order.index("bms") + 1 == order.index("bm-lab") and order.index("bm-lab") + 1 == order.index("customers")  # 사업기획: 기존 BM → 신규 BM
+    assert order.index("bms") + 1 == order.index("bm-lab") and order.index("bm-lab") + 1 == order.index("customers")  # 사업기획: 운영 사업 → 신규 사업
     assert order.index("customers") + 1 == order.index("opportunities") and order.index("opportunities") + 1 == order.index("proposals")
     assert order.index("proposals") + 1 == order.index("projects")
-    assert ("opportunities", "영업기회") in [(h, n.strip()) for h, n in names] and ("bms", "기존 BM") in [(h, n.strip()) for h, n in names]
+    assert ("opportunities", "영업기회") in [(h, n.strip()) for h, n in names] and ("bms", "운영 사업") in [(h, n.strip()) for h, n in names]
 
 
 # ---- 영업기회 만들기·고치기 ----

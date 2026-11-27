@@ -1,4 +1,4 @@
-"""베타 U: 제안 화면 — 구역 안 진행 상자(구성안·방향), 제안서 만들기 성공 표시, 옛 파일 지우기 실패 허용, 확인 항목이 남은 장 바로가기."""
+"""베타 U: 제안 화면 — 구역 안 진행 상자(구성안·방향), PPT 만들기 성공 표시, 옛 파일 지우기 실패 허용, 확인 항목이 남은 장 바로가기."""
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -107,9 +107,9 @@ def test_u2_success_line_inside_deck_box(user_client, db, settings):
     r = user_client.post(f"/proposals/{p.id}/deck", follow_redirects=False)
     page = user_client.get(r.headers["location"])
     sec = _section(page.text, "deck")
-    assert 'class="deck-done"' in sec and "제안서 파일을 만들었습니다" in sec and "고객용 PPT 내려받기" in sec
+    assert 'class="deck-done"' in sec and "PPT 파일을 만들었습니다" in sec and "고객용 PPT 내려받기" in sec
     # 알림 없이 다시 열면 성공 줄은 없다
-    assert "제안서 파일을 만들었습니다" not in _section(user_client.get(f"/proposals/{p.id}").text, "deck")
+    assert "PPT 파일을 만들었습니다" not in _section(user_client.get(f"/proposals/{p.id}").text, "deck")
 
 
 def test_u2_success_line_on_outline_page(user_client, db, settings):

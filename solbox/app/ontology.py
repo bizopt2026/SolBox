@@ -77,7 +77,7 @@ PROPOSAL_GROUP_NAME_MAX = 60
 PROPOSAL_GROUP_BADGE = "다수 고객"  # 목록·검색 결과의 작은 배지 글
 PROPOSAL_STATUS_DECK = "deck"
 PROPOSAL_STEPS = {  # 제안 화면의 단계 표시줄 (진행 단계에서 매긴다)
-    "target": "대상", "directions": "방향", "chat": "구체화", "outline": "구성안", "deck": "제안서",
+    "target": "대상", "directions": "방향", "chat": "구체화", "outline": "구성안", "deck": "PPT",  # 메뉴가 "제안서"라 마지막 단계는 "PPT" (2026-11-27)
 }
 PROPOSAL_STATUS_STEP = {"new": "directions", "directions": "directions", "refining": "chat", "outlined": "outline", "deck": "deck"}
 JOB_KIND_STEP = {"proposal_directions": "directions", "proposal_chat": "chat", "proposal_outline": "outline", "proposal_slide": "outline"}
@@ -192,7 +192,7 @@ JOB_KINDS = {
     "report_notes": "업무 보고 구역별 보고 문구",
     "opportunity_review": "영업기회 AI 분석 (제안·브리핑)",
     "pipeline_insight": "영업기회 분석 AI 해석",
-    "bm_ideas": "신규 BM 안 만들기",
+    "bm_ideas": "신규 사업 안 만들기",
 }
 
 # AI 작업 종류별 예상 시간 (대기 안내에 쓴다)
@@ -339,7 +339,7 @@ BUSINESS_TYPE_DESCRIPTIONS = {
     "invest": "당사(또는 투자자)가 투자·소유하고 절감액·전력 판매 등 수익으로 회수하는 방식 (IPP 등)",
 }
 # 사업기획 (2026-11-27): BM 의 구분·운영 상태·개발 단계
-BM_KINDS = {"existing": "기존 BM", "new": "신규 BM"}
+BM_KINDS = {"existing": "운영 사업", "new": "신규 사업"}
 BM_KIND_EXISTING, BM_KIND_NEW = "existing", "new"
 BM_OP_STATUSES = {"running": "운영 중", "expanding": "확대", "shrinking": "축소", "stopped": "중단"}
 BM_DEV_STAGES = {"idea": "아이디어", "review": "검토", "pilot": "파일럿", "launch": "사업화", "dropped": "중단"}
@@ -348,7 +348,7 @@ BM_DEV_STAGE_DESCRIPTIONS = {
     "idea": "AI 안이나 직접 쓴 생각을 모으는 단계입니다.",
     "review": "솔루션 조합·사업방식·대상 고객을 따져 보는 단계입니다.",
     "pilot": "고객 한두 곳과 시범으로 해 보는 단계입니다.",
-    "launch": "사업으로 굳힌 상태입니다. 기존 BM으로 옮겨 운영할 수 있습니다.",
+    "launch": "사업으로 굳힌 상태입니다. 운영 사업으로 옮겨 운영할 수 있습니다.",
     "dropped": "더 진행하지 않기로 한 상태입니다.",
 }
 BM_DEV_FLOW = ("idea", "review", "pilot", "launch")
@@ -531,7 +531,7 @@ CODE_LISTS: dict[str, CodeList] = {c.key: c for c in (
     CodeList("need_status", "고객니즈 상태", NEED_STATUSES, NEED_STATUS_DEFAULT),
     CodeList("bm_kind", "BM 구분", BM_KINDS, BM_KIND_EXISTING),
     CodeList("bm_op_status", "BM 운영 상태", BM_OP_STATUSES),
-    CodeList("bm_dev_stage", "신규 BM 개발 단계", BM_DEV_STAGES, BM_DEV_STAGE_DEFAULT, BM_DEV_STAGE_DESCRIPTIONS),
+    CodeList("bm_dev_stage", "신규 사업 개발 단계", BM_DEV_STAGES, BM_DEV_STAGE_DEFAULT, BM_DEV_STAGE_DESCRIPTIONS),
 )}
 
 # 배지 색: 코드 값마다 한 가지 색조 (app.css 의 `.badge.tone-*`). 모든 코드 목록의 배지가 이 표 하나를 따른다 (`pill` 매크로, `tone_class`).
@@ -621,8 +621,8 @@ TERMS = {
     "check_item": "확인 항목",
     "evidence_problem": CHECK_KINDS["evidence"],
     "to_check": CHECK_KINDS["decide"],
-    "proposal_deck": "제안서",
-    "proposal_nav": "제안",
+    "proposal_deck": "PPT",
+    "proposal_nav": "제안서",  # 메뉴 이름 (2026-11-27: "제안" → "제안서", 마지막 단계는 "PPT")
     "intake_nav": "올리기 묶음",
     "intake_short": "묶음",
     "customer_need": "고객 니즈",
@@ -711,10 +711,10 @@ _TYPE_LIST = [
         description="한 고객의 니즈를 묶어 사업으로 만들어 가는 건. 수주하면 프로젝트가 됩니다",
     ),
     ObjectType(
-        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="기존 BM", nav_group="planning",
+        "bm", "BM", "핵심", "BM", "bms", "/bms", "/bms/{id}", "bms/{id}.md", mirror_dir_format="bms/", nav="운영 사업", nav_group="planning",
         props={"name": "이름", "summary": "한 줄 설명", "target_customers": "대상 고객 유형", "revenue_model": "수익 구조", "business_type": "대표 사업방식",
                "memo": "메모", "solutions": "솔루션", "projects": "프로젝트", "opportunities": "영업기회", "proposals": "다수 고객 제안 건", "kind": "구분", "dept": "담당 부서", "op_status": "운영 상태", "dev_stage": "개발 단계", "ideas": "AI 안"},
-        description="사업 모델. 고객에 묶이지 않는 사업의 틀입니다. 기존 BM은 사업부서가 운영 중인 것, 신규 BM은 새로 개발하는 것입니다",
+        description="사업 모델. 고객에 묶이지 않는 사업의 틀입니다. 운영 사업은 사업부서가 운영 중인 것, 신규 사업은 새로 개발하는 것입니다",
     ),
     ObjectType(
         "activity", "활동 기록", "핵심", "Activity", "activities", "/activities", "/activities/{id}",
@@ -725,7 +725,7 @@ _TYPE_LIST = [
         description="회의, 통화, 태핑, 수요조사 등 한 번의 활동",
     ),
     ObjectType(
-        "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안", nav_group="sales",
+        "proposal", "제안 건", "핵심", "Proposal", "proposals", "/proposals", "/proposals/{id}", nav="제안서", nav_group="sales",
         props={"title": "제목", "request_memo": "요청 메모", "status": "진행 단계", "customer": "고객", "project": "프로젝트",
                "opportunity": "영업기회", "directions": "제안 방향", "outline": "구성안",
                "target_kind": "대상 종류", "group_name": "대상 그룹", "group_customers": "붙인 고객", "bm": "신규 사업 (BM)", "business_types": "검토 사업방식"},
@@ -863,7 +863,7 @@ NAV_ITEMS = (
     NavItem("intake", TERMS["intake_nav"], "today", badge="ready"),
     _type_nav_item("strategy"), _type_nav_item("initiative"),
     _type_nav_item("customer_need"), _type_nav_item("solution"), _type_nav_item("partner"), _type_nav_item("research_run"),  # 소스 순서 (2026-11-27 사용자 요청)
-    _type_nav_item("bm"), NavItem("bm-lab", "신규 BM", "planning"),
+    _type_nav_item("bm"), NavItem("bm-lab", "신규 사업", "planning"),
     _type_nav_item("customer"), _type_nav_item("opportunity"), _type_nav_item("proposal"), _type_nav_item("project"),
 )
 ADMIN_NAV_ITEMS = tuple(NavItem(f"admin/{path}", name, "admin") for path, name in
